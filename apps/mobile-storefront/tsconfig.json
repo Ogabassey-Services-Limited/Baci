@@ -18,6 +18,10 @@
     "stores/**/*.ts",
     "types/**/*.ts",
     "constants/**/*.ts",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "jest.config.ts",
+    "jest.setup.ts",
     "expo-env.d.ts",
     ".expo/types/**/*.ts",
     "nativewind-env.d.ts"

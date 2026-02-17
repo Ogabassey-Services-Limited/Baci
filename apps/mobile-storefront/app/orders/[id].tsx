@@ -9,6 +9,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   ScrollView,
@@ -22,6 +23,7 @@ import Colors, { BRAND } from '@/constants/Colors';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { isOrderRealtimePayload } from '@/lib/validation';
+import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('OrderDetails');
 
@@ -84,6 +86,7 @@ export default function OrderDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const user = useAuthStore((state) => state.user);
 
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [insurancePolicy, setInsurancePolicy] =
@@ -96,6 +99,13 @@ export default function OrderDetailsScreen() {
 
   const fetchOrder = useCallback(async () => {
     if (!id) return;
+
+    // Auth check: require authenticated user to view order details
+    if (!user?.id) {
+      setError('Please sign in to view order details');
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const { data, error: fetchError } = await supabase
@@ -129,6 +139,7 @@ export default function OrderDetailsScreen() {
           )
         `)
         .eq('id', id)
+        .eq('customer_id', user.id)
         .single();
 
       if (fetchError) throw fetchError;
@@ -163,7 +174,7 @@ export default function OrderDetailsScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, user?.id]);
 
   useEffect(() => {
     fetchOrder();
@@ -248,14 +259,30 @@ export default function OrderDetailsScreen() {
   };
 
   const handleTrackOrder = () => {
-    if (order?.tracking_url) {
-      Linking.openURL(order.tracking_url);
+    const url = order?.tracking_url;
+    if (url && /^https?:\/\//i.test(url)) {
+      Linking.openURL(url);
+    } else {
+      log.warn('Invalid or missing tracking URL:', url);
+      Alert.alert(
+        'Tracking Unavailable',
+        'No valid tracking link is available for this order.'
+      );
     }
   };
 
   const handleContactSupport = () => {
-    // Open WhatsApp or email support
-    Linking.openURL('https://wa.me/2348000000000');
+    // TODO: Replace placeholder phone with actual merchant support phone
+    const supportPhone = '2348000000000';
+    if (supportPhone !== '2348000000000') {
+      Linking.openURL(`https://wa.me/${supportPhone}`);
+    } else {
+      log.warn('Contact support: placeholder phone number detected');
+      Alert.alert(
+        'Support',
+        'Please contact the merchant directly for support.'
+      );
+    }
   };
 
   if (isLoading) {

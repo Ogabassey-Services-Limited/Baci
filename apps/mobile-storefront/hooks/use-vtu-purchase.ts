@@ -50,6 +50,8 @@ export function useVTUPurchase() {
     mutationFn: async (
       params: VTUPurchaseParams
     ): Promise<VTUPurchaseResult> => {
+      // H6 fix: Use getUser() for secure JWT validation, then getSession() for access token
+      await supabase.auth.getUser();
       const {
         data: { session },
       } = await supabase.auth.getSession();

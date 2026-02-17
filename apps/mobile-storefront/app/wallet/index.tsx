@@ -204,7 +204,7 @@ export default function WalletScreen() {
           >
             <Text style={styles.balanceLabel}>Wallet Balance</Text>
             <Text style={styles.balanceAmount}>
-              {formatPrice(walletData?.balance || 0)}
+              {formatPrice(walletData?.balance ?? 0)}
             </Text>
             <View style={styles.balanceActions}>
               <Pressable style={styles.balanceAction}>
@@ -239,7 +239,7 @@ export default function WalletScreen() {
                   Loyalty Points
                 </Text>
                 <Text style={[styles.loyaltyPoints, { color: colors.text }]}>
-                  {(walletData?.loyalty_points || 0).toLocaleString()} pts
+                  {(walletData?.loyalty_points ?? 0).toLocaleString()} pts
                 </Text>
               </View>
               <View
@@ -276,7 +276,7 @@ export default function WalletScreen() {
                   },
                 ]}
                 onPress={() => setShowRedeemModal(true)}
-                disabled={(walletData?.loyalty_points || 0) < 100}
+                disabled={(walletData?.loyalty_points ?? 0) < 100}
               >
                 <Ionicons name="gift-outline" size={18} color="#FFF" />
                 <Text style={styles.redeemBtnText}>Redeem Points</Text>
@@ -302,7 +302,7 @@ export default function WalletScreen() {
                   { color: colors.textSecondary },
                 ]}
               >
-                Available: {(walletData?.loyalty_points || 0).toLocaleString()}{' '}
+                Available: {(walletData?.loyalty_points ?? 0).toLocaleString()}{' '}
                 points
               </Text>
 

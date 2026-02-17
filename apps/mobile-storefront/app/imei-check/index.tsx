@@ -130,6 +130,9 @@ export default function ImeiCheckerScreen() {
     // 2026 Best Practice: Dismiss keyboard on submit
     Keyboard.dismiss();
 
+    // Bug #M23: Prevent double-tap on IMEI check button
+    if (isLoading) return;
+
     if (!isValidIMEI(imei)) {
       Alert.alert('Invalid IMEI', 'Please enter a valid 15-digit IMEI number.');
       return;
@@ -139,6 +142,10 @@ export default function ImeiCheckerScreen() {
     setError(null);
     setResult(null);
 
+    // Bug #M22: Add AbortController with 30s timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/storefront/imei-check`,
@@ -146,8 +153,11 @@ export default function ImeiCheckerScreen() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imei, tier: selectedTier }),
+          signal: controller.signal,
         }
       );
+
+      clearTimeout(timeoutId);
 
       const rawData = await response.json();
 
@@ -177,8 +187,15 @@ export default function ImeiCheckerScreen() {
 
       setResult(resultData);
     } catch (err) {
+      clearTimeout(timeoutId);
       log.error('IMEI check failed:', err);
-      setError('Network error. Please check your connection and try again.');
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError(
+          'Request timed out. Please check your connection and try again.'
+        );
+      } else {
+        setError('Network error. Please check your connection and try again.');
+      }
     } finally {
       setIsLoading(false);
     }

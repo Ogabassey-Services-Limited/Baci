@@ -162,7 +162,10 @@ export async function createOrder(
     );
   }
 
-  // 3. Get auth token for authenticated requests
+  // 3. Get auth — H6 fix: use getUser() for secure JWT validation, then getSession() for token
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -202,7 +205,7 @@ export async function createOrder(
     },
     source: 'mobile_app',
     // Include user_id if authenticated for customer profile linking
-    ...(session?.user?.id && { user_id: session.user.id }),
+    ...(user?.id && { user_id: user.id }),
   };
 
   try {
@@ -431,7 +434,7 @@ export async function getCustomerOrders(customerId: string) {
   const { data, error } = await supabase
     .from('orders')
     .select(
-      'id, order_number, total, payment_status, shipping_status, created_at, order_items(*)'
+      'id, order_number, total, payment_status, shipping_status, created_at, order_items(id, product_id, product_name, quantity, price, variant, image_url, has_assurance)'
     )
     .eq('customer_id', customerId)
     .eq('merchant_id', MERCHANT_ID)

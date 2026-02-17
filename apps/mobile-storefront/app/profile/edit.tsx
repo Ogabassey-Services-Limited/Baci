@@ -30,6 +30,7 @@ import { z } from 'zod';
 import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { TextContentTypes } from '@/hooks/use-keyboard';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -49,6 +50,9 @@ type ProfileFormData = z.infer<typeof ProfileSchema>;
 export default function ProfileEditScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+
+  // M4 fix: Auth guard - redirect unauthenticated users to login
+  const { isLoading: isAuthLoading, isAuthenticated } = useRequireAuth();
 
   const customer = useAuthStore((state) => state.customer);
   const updateProfile = useAuthStore((state) => state.updateProfile);
@@ -94,6 +98,24 @@ export default function ProfileEditScreen() {
       setIsSubmitting(false);
     }
   };
+
+  // M4 fix: Show loading spinner while auth initializes, or nothing if redirecting to login
+  if (isAuthLoading || !isAuthenticated) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.background,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+        ]}
+      >
+        <ActivityIndicator size="large" color={BRAND.primary} />
+      </View>
+    );
+  }
 
   const FormField = ({
     name,

@@ -21,6 +21,8 @@ export default function SavedTabScreen() {
   const { isOnline, refresh } = useNetworkState();
 
   const handleProductPress = (slug: string) => {
+    // M12 FIX: Guard navigation - only navigate if slug is truthy
+    if (!slug) return;
     router.push(`/product/${slug}`);
   };
 

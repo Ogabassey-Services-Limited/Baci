@@ -135,6 +135,19 @@ export function useCart() {
   // Track pending operations for rollback
   const pendingRollbacks = useRef<Map<string, () => void>>(new Map());
 
+  /** L11 fix: Evict oldest rollback entries to prevent memory leak under rapid mutation spam */
+  function trackRollback(id: string, fn: () => void) {
+    const map = pendingRollbacks.current;
+    // Keep at most 50 pending rollbacks
+    if (map.size >= 50) {
+      const oldestKey = map.keys().next().value;
+      if (oldestKey !== undefined) {
+        map.delete(oldestKey);
+      }
+    }
+    map.set(id, fn);
+  }
+
   /** Look up last-known stock_quantity from TanStack Query product cache */
   function getCachedStock(productId: string): number | undefined {
     // Bug #99 fix: Build a Map for O(1) lookup instead of O(n) scan
@@ -194,8 +207,8 @@ export function useCart() {
       // Optimistically add to cart (instant UI update)
       addItemToStore(item);
 
-      // Store rollback function
-      pendingRollbacks.current.set(rollbackId, () => {
+      // Store rollback function (L11 fix: uses trackRollback to enforce size limit)
+      trackRollback(rollbackId, () => {
         // Restore previous state
         useCartStore.setState({ items: previousItems });
       });
@@ -265,7 +278,9 @@ export function useCart() {
    */
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ id, quantity }: { id: string; quantity: number }) => {
-      const item = items.find((i) => i.id === id);
+      // H21 fix: Read fresh items from store instead of stale closure variable
+      const freshItems = useCartStore.getState().items;
+      const item = freshItems.find((i) => i.id === id);
       if (!item) throw new Error('Item not found');
 
       // Validate stock for the new quantity, with cached fallback for offline
@@ -358,9 +373,11 @@ export function useCart() {
 
 /**
  * Hook for just getting cart count (optimized for tab bar badge)
+ * M18 fix: Compute count directly in selector to avoid calling a function
+ * inside the selector (which creates a new value every time and causes re-renders).
  */
 export function useCartCount() {
-  return useCartStore((state) => state.itemCount());
+  return useCartStore((state) => state.items.length);
 }
 
 /**

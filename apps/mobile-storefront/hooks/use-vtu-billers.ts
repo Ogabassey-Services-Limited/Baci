@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import Constants from 'expo-constants';
 import { fetchWithRetry } from '@/lib/api';
 import { logger } from '@/lib/logger';
-import { BillerListSchema, type Biller } from '@/lib/vtu-schemas';
+import { type Biller, BillerListSchema } from '@/lib/vtu-schemas';
 export type { Biller };
 
 const API_URL =
@@ -32,10 +32,22 @@ export function useVTUBillers(type: string, enabled = true) {
       log.info('VTU', `Fetching billers for type: ${type}`);
 
       try {
-        const response = await fetchWithRetry(`${API_URL}/api/vtu/billers?type=${type}`, {}, {
-          timeout: 10000,
-          maxRetries: 2,
-        });
+        const response = await fetchWithRetry(
+          `${API_URL}/api/vtu/billers?type=${type}`,
+          {},
+          {
+            timeout: 10000,
+            maxRetries: 2,
+          }
+        );
+
+        // Check response status BEFORE parsing JSON to avoid SyntaxError
+        // on non-JSON error responses (e.g. 502 proxy HTML pages)
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch providers (HTTP ${response.status})`
+          );
+        }
 
         const data = await response.json();
 
@@ -43,20 +55,23 @@ export function useVTUBillers(type: string, enabled = true) {
         const duration = Date.now() - startTime;
         log.info('VTU', `Biller fetch completed in ${duration}ms`);
 
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch providers');
-        }
-
         // Runtime Integrity Check
         const result = BillerListSchema.safeParse(data);
         if (!result.success) {
-          log.error('VTU', 'Biller API validation failed', result.error.format());
-          return data.billers || []; // Fallback to raw data if validation fails but mostly works
+          log.warn(
+            'VTU',
+            'Biller API response failed Zod validation — returning empty array',
+            result.error.format()
+          );
+          return [];
         }
 
         return result.data.billers;
       } catch (error) {
-        log.error('VTU', `Failed to fetch billers: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        log.error(
+          'VTU',
+          `Failed to fetch billers: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
         throw error;
       }
     },

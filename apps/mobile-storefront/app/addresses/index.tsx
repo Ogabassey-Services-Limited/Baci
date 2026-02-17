@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -47,6 +47,7 @@ export default function AddressesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const _settingDefaultRef = useRef(false);
 
   const fetchAddresses = useCallback(async () => {
     if (!user?.id) {
@@ -57,7 +58,9 @@ export default function AddressesScreen() {
     try {
       const { data, error: fetchError } = await supabase
         .from('customer_addresses')
-        .select('*')
+        .select(
+          'id, label, name, phone, address, city, state, postal_code, is_default, created_at'
+        )
         .eq('customer_id', user.id)
         .order('is_default', { ascending: false })
         .order('created_at', { ascending: false });
@@ -85,33 +88,39 @@ export default function AddressesScreen() {
   };
 
   const handleSetDefault = async (addressId: string) => {
+    // Guard against double-tap race condition
+    if (_settingDefaultRef.current || !user?.id) return;
+    _settingDefaultRef.current = true;
+
     try {
-      // Set the new default first — this is the critical operation.
-      // If clearing old defaults fails afterward, we still have a valid default.
-      const { error: setError } = await supabase
-        .from('customer_addresses')
-        .update({ is_default: true })
-        .eq('id', addressId);
-
-      if (setError) throw setError;
-
-      // Then clear old defaults (exclude the one we just set)
+      // Clear all existing defaults for this customer first
       const { error: clearError } = await supabase
         .from('customer_addresses')
         .update({ is_default: false })
-        .eq('customer_id', user?.id)
+        .eq('customer_id', user.id)
         .neq('id', addressId);
 
       if (clearError) {
         log.error('Failed to clear old defaults:', clearError);
-        // Non-fatal: new default is already set, old ones will be cleaned up on next save
+        // Non-fatal: proceed to set the new default
       }
+
+      // Set the new default, scoped to customer_id for security
+      const { error: setDefaultError } = await supabase
+        .from('customer_addresses')
+        .update({ is_default: true })
+        .eq('id', addressId)
+        .eq('customer_id', user.id);
+
+      if (setDefaultError) throw setDefaultError;
 
       // Refresh the list
       fetchAddresses();
     } catch (err) {
       log.error('Error setting default address:', err);
       Alert.alert('Error', 'Failed to set default address');
+    } finally {
+      _settingDefaultRef.current = false;
     }
   };
 
@@ -129,7 +138,8 @@ export default function AddressesScreen() {
               const { error: deleteError } = await supabase
                 .from('customer_addresses')
                 .delete()
-                .eq('id', address.id);
+                .eq('id', address.id)
+                .eq('customer_id', user?.id);
 
               if (deleteError) throw deleteError;
 

@@ -107,6 +107,14 @@ export function AddressAutocomplete({
   const [sessionToken, setSessionToken] = useState<string>(() =>
     generateSessionToken()
   );
+  // L6 fix: Track previous session token and clear prediction cache when it changes
+  const prevSessionTokenRef = useRef(sessionToken);
+  useEffect(() => {
+    if (prevSessionTokenRef.current !== sessionToken) {
+      predictionCache.clear();
+      prevSessionTokenRef.current = sessionToken;
+    }
+  }, [sessionToken]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [internalValue, setInternalValue] = useState(value);
@@ -114,6 +122,16 @@ export function AddressAutocomplete({
   const colors = Colors[colorScheme ?? 'light'];
 
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // M16 fix: Clean up debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+        debounceTimer.current = null;
+      }
+    };
+  }, []);
 
   // Sync with external value
   useEffect(() => {
@@ -253,7 +271,14 @@ export function AddressAutocomplete({
     <View style={[styles.wrapper, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
 
-      <View style={[styles.container, error && styles.containerError]}>
+      {/* L8 fix: Add borderColor to match other input components */}
+      <View
+        style={[
+          styles.container,
+          { borderColor: colors.border },
+          error && styles.containerError,
+        ]}
+      >
         <Ionicons
           name="location-outline"
           size={18}

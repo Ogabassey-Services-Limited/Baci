@@ -298,6 +298,7 @@ type FetchQuotesArgs = {
   setIsLoadingQuotes: (value: boolean) => void;
   setSelectedQuoteId: (value: string) => void;
   setShippingQuotes: (value: ShippingQuote[]) => void;
+  signal?: AbortSignal;
 };
 
 const fetchShippingQuotes = async ({
@@ -314,6 +315,7 @@ const fetchShippingQuotes = async ({
   setIsLoadingQuotes,
   setSelectedQuoteId,
   setShippingQuotes,
+  signal,
 }: FetchQuotesArgs) => {
   if (!state || !city || items.length === 0) return;
 
@@ -340,10 +342,14 @@ const fetchShippingQuotes = async ({
           name: item.name,
           quantity: item.quantity,
           weight: 1,
-          value: item.negotiatedPrice || item.price,
+          value: item.negotiatedPrice ?? item.price,
         })),
       }),
+      signal,
     });
+
+    // If aborted between fetch and processing, bail out silently
+    if (signal?.aborted) return;
 
     if (res.ok) {
       const data: QuoteResponse & { warnings?: string[] } = await res.json();
@@ -360,9 +366,14 @@ const fetchShippingQuotes = async ({
       setShippingQuotes([]);
     }
   } catch (_error) {
+    // Don't update state if the request was aborted (superseded by a newer request)
+    if (signal?.aborted) return;
     setShippingQuotes([]);
   } finally {
-    setIsLoadingQuotes(false);
+    // Don't clear loading state if aborted — the newer request owns loading state
+    if (!signal?.aborted) {
+      setIsLoadingQuotes(false);
+    }
   }
 };
 
@@ -467,6 +478,9 @@ export default function CheckoutScreen() {
   // against the Topship cities list once they load.
   // null = no pending suggestion, '' = state=city edge case (open picker)
   const googleSuggestedCityRef = useRef<string | null>(null);
+  // AbortController for shipping quote requests — prevents race conditions
+  // when multiple requests fire (e.g. rapid city/state changes)
+  const shippingQuoteAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {
@@ -668,7 +682,15 @@ export default function CheckoutScreen() {
   }, [shippingCities, isLoadingCities, setValue]);
 
   useEffect(() => {
+    // Abort any in-flight shipping quote request before starting a new one
+    if (shippingQuoteAbortRef.current) {
+      shippingQuoteAbortRef.current.abort();
+    }
+
     if (watchedState && watchedCity) {
+      const controller = new AbortController();
+      shippingQuoteAbortRef.current = controller;
+
       fetchShippingQuotes({
         apiUrl: API_BASE_URL,
         state: watchedState,
@@ -683,11 +705,20 @@ export default function CheckoutScreen() {
         setIsLoadingQuotes,
         setSelectedQuoteId,
         setShippingQuotes,
+        signal: controller.signal,
       });
     } else {
+      shippingQuoteAbortRef.current = null;
       setShippingQuotes([]);
       setSelectedQuoteId('');
     }
+
+    return () => {
+      // Cleanup: abort on unmount or before next effect run
+      if (shippingQuoteAbortRef.current) {
+        shippingQuoteAbortRef.current.abort();
+      }
+    };
     // Only refetch when location or items change — receiver details don't affect quote pricing
   }, [
     watchedState,
@@ -931,6 +962,15 @@ export default function CheckoutScreen() {
     // BUG-1-002 Fix: Snapshot cart items for rollback if needed
     const cartSnapshot = [...itemsSnapshot];
 
+    // Snapshot all order values at submission time to avoid stale closures.
+    // Compute subtotal from the snapshotted items (not the closure value).
+    const snapshotSubtotal = itemsSnapshot.reduce((total, item) => {
+      const effectivePrice = item.negotiatedPrice ?? item.price;
+      return total + effectivePrice * item.quantity;
+    }, 0);
+    const snapshotDeliveryFee = deliveryFee;
+    const snapshotTaxAmount = orderTotals?.taxAmount ?? 0;
+
     try {
       trackCheckoutStep('review');
 
@@ -968,13 +1008,16 @@ export default function CheckoutScreen() {
                 : 0,
             };
           }),
-          subtotal,
-          shipping_fee: deliveryFee,
-          tax_amount: orderTotals?.taxAmount || 0,
+          subtotal: snapshotSubtotal,
+          shipping_fee: snapshotDeliveryFee,
+          tax_amount: snapshotTaxAmount,
           payment_method: selectedPayment,
           shipping_address: address,
           source: 'mobile_app',
         });
+
+        isOrderInFlight.current = false;
+        setIsProcessing(false);
 
         router.push({
           pathname: '/bnpl-checkout',
@@ -988,7 +1031,6 @@ export default function CheckoutScreen() {
             merchantSlug: MERCHANT_SLUG,
           },
         });
-        setIsProcessing(false);
         return;
       }
 
@@ -1014,9 +1056,9 @@ export default function CheckoutScreen() {
               : 0,
           };
         }),
-        subtotal,
-        shipping_fee: deliveryFee,
-        tax_amount: orderTotals?.taxAmount || 0,
+        subtotal: snapshotSubtotal,
+        shipping_fee: snapshotDeliveryFee,
+        tax_amount: snapshotTaxAmount,
         payment_method: selectedPayment,
         shipping_address: address,
         source: 'mobile_app',
@@ -1030,9 +1072,9 @@ export default function CheckoutScreen() {
         orderId: order.id,
         orderNumber,
         total: order.total,
-        subtotal,
-        shipping: deliveryFee,
-        tax: orderTotals?.taxAmount,
+        subtotal: snapshotSubtotal,
+        shipping: snapshotDeliveryFee,
+        tax: snapshotTaxAmount,
         currency: 'NGN',
         itemCount: itemsSnapshot.reduce((acc, item) => acc + item.quantity, 0),
         paymentMethod: selectedPayment,
@@ -1182,11 +1224,9 @@ export default function CheckoutScreen() {
     } catch (error) {
       // BUG-1-002 Fix: Rollback cart on error
       // Restore cart items if order creation failed
-      // Check live store (not stale closure) since clearCart may have run mid-try
+      // Use restoreItems to replace the entire array without generating new IDs
       if (cartSnapshot && useCartStore.getState().items.length === 0) {
-        for (const item of cartSnapshot) {
-          useCartStore.getState().addItem(item);
-        }
+        useCartStore.getState().restoreItems(cartSnapshot);
       }
       if (error instanceof OrderError) {
         trackError('checkout_failed', error.message, {
@@ -2509,15 +2549,16 @@ export default function CheckoutScreen() {
                 ]}
                 onPress={() => {
                   clearCart();
-                  const token = cryptoPayment.trackingToken;
+                  // Capture all needed values BEFORE nullifying to avoid stale reference
+                  const { orderId, orderNumber, trackingToken } = cryptoPayment;
                   setCryptoPayment(null);
                   router.replace({
                     pathname: '/order-success',
                     params: {
-                      orderId: cryptoPayment.orderId,
-                      orderNumber: cryptoPayment.orderNumber,
+                      orderId,
+                      orderNumber,
                       paymentMethod: 'juicyway',
-                      ...(token && { trackingToken: token }),
+                      ...(trackingToken && { trackingToken }),
                     },
                   });
                 }}

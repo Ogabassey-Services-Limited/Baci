@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { useProducts } from '@/hooks/use-products';
+import { useCategories, useProducts } from '@/hooks/use-products';
 import type { Product } from '@/types/product';
 
 export default function CategoryScreen() {
@@ -31,8 +31,12 @@ export default function CategoryScreen() {
     slug && typeof slug === 'string' && slug.length > 0
   );
 
+  // H10 FIX: Resolve category slug to UUID since Supabase query uses category_id
+  const { data: categories = [] } = useCategories();
+  const categoryId = categories.find((c) => c.slug === slug)?.id;
+
   const { products, isLoading, error, hasMore, refetch, loadMore } =
-    useProducts({ category: isValidSlug ? slug : undefined, limit: 20 });
+    useProducts({ category: isValidSlug ? categoryId : undefined, limit: 20 });
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -74,7 +78,7 @@ export default function CategoryScreen() {
     return (
       titles[sanitized] ||
       sanitized.charAt(0).toUpperCase() +
-      sanitized.slice(1).replace(/-/g, ' ') ||
+        sanitized.slice(1).replace(/-/g, ' ') ||
       'Category'
     );
   };

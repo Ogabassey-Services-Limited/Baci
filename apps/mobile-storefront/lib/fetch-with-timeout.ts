@@ -56,16 +56,26 @@ export async function fetchWithTimeout(
   url: string,
   options: FetchWithTimeoutOptions = {}
 ): Promise<Response> {
-  const { timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options;
+  const {
+    timeout = DEFAULT_TIMEOUT,
+    signal: callerSignal,
+    ...fetchOptions
+  } = options;
 
   // Create AbortController for timeout
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+  // H22 fix: Compose caller signal with internal timeout signal using AbortSignal.any()
+  // so that both the caller's abort and the timeout can cancel the request.
+  const combinedSignal = callerSignal
+    ? AbortSignal.any([callerSignal, controller.signal])
+    : controller.signal;
+
   try {
     const response = await fetch(url, {
       ...fetchOptions,
-      signal: controller.signal,
+      signal: combinedSignal,
     });
 
     return response;

@@ -85,7 +85,7 @@ export default function FAQScreen() {
       icon: 'logo-whatsapp',
       action: () =>
         Linking.openURL(
-          `https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=Hi, I need help with my order`
+          `https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=${encodeURIComponent('Hi, I need help with my order')}`
         ),
     },
     {

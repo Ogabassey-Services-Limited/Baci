@@ -106,11 +106,20 @@ export default function RootLayout() {
 
   const initialize = useAuthStore((state) => state.initialize);
   const cleanup = useAuthStore((state) => state.cleanup); // BUG-4-004: Get cleanup function
+  const isInitialized = useAuthStore((state) => state.isInitialized);
   const { register: registerPushNotifications } = usePushNotifications();
 
   // Bug #15 fix: Module-level guard to prevent concurrent initialize() calls
   // (e.g., from StrictMode or fast re-mount)
   const initPromiseRef = useRef<Promise<void> | null>(null);
+
+  // H2 fix: Clear initPromiseRef when isInitialized resets to false (sign-out)
+  // so that re-initialization can proceed on next login
+  useEffect(() => {
+    if (!isInitialized) {
+      initPromiseRef.current = null;
+    }
+  }, [isInitialized]);
 
   // Initialize auth, analytics, and offline queue on app start
   useEffect(() => {
@@ -374,13 +383,6 @@ function RootLayoutNav() {
                   title: 'Crypto Payment',
                   animation: 'slide_from_right',
                   gestureEnabled: false,
-                }}
-              />
-              <Stack.Screen
-                name="profile/index"
-                options={{
-                  title: 'My Account',
-                  animation: 'slide_from_right',
                 }}
               />
               <Stack.Screen

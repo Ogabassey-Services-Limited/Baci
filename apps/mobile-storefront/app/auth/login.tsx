@@ -71,6 +71,8 @@ export default function LoginScreen() {
   // Refs for input focus management
   const otpInputRef = useRef<TextInput>(null);
   const isMountedRef = useRef(true);
+  // M5 fix: Guard to prevent concurrent OTP verification (auto-submit + manual tap)
+  const isVerifyingRef = useRef(false);
 
   // Track component mount state to prevent state updates after unmount
   useEffect(() => {
@@ -150,6 +152,9 @@ export default function LoginScreen() {
     if (step === 'otp') {
       setStep('email');
       setOtp('');
+    } else if (step === 'password') {
+      setStep('email');
+      setPassword('');
     } else {
       router.back();
     }
@@ -411,17 +416,25 @@ export default function LoginScreen() {
               // Auto-submit when 6 digits entered
               if (text.length === 6) {
                 (async () => {
+                  // M5 fix: Prevent concurrent verification requests
+                  if (isVerifyingRef.current) return;
                   const otpResult = OtpSchema.safeParse(text.trim());
                   if (otpResult.success) {
-                    const result = await verifyOtp(
-                      email.toLowerCase().trim(),
-                      text.trim()
-                    );
-                    // Bail out if unmounted during async operation
-                    if (!isMountedRef.current) return;
-                    if (result.success) {
-                      dismissAndNavigate();
-                    } else Alert.alert('Error', result.error || 'Invalid code');
+                    isVerifyingRef.current = true;
+                    try {
+                      const result = await verifyOtp(
+                        email.toLowerCase().trim(),
+                        text.trim()
+                      );
+                      // Bail out if unmounted during async operation
+                      if (!isMountedRef.current) return;
+                      if (result.success) {
+                        dismissAndNavigate();
+                      } else
+                        Alert.alert('Error', result.error || 'Invalid code');
+                    } finally {
+                      isVerifyingRef.current = false;
+                    }
                   }
                 })();
               }
@@ -444,6 +457,8 @@ export default function LoginScreen() {
           isLoading && styles.buttonDisabled,
         ]}
         onPress={async () => {
+          // M5 fix: Prevent concurrent verification requests
+          if (isVerifyingRef.current) return;
           const otpResult = OtpSchema.safeParse(otp.trim());
           const error = getFirstError(otpResult);
           if (error) {
@@ -451,13 +466,18 @@ export default function LoginScreen() {
             return;
           }
           setOtpError(null);
-          const result = await verifyOtp(
-            email.toLowerCase().trim(),
-            otp.trim()
-          );
-          if (result.success) {
-            dismissAndNavigate();
-          } else Alert.alert('Error', result.error || 'Invalid code');
+          isVerifyingRef.current = true;
+          try {
+            const result = await verifyOtp(
+              email.toLowerCase().trim(),
+              otp.trim()
+            );
+            if (result.success) {
+              dismissAndNavigate();
+            } else Alert.alert('Error', result.error || 'Invalid code');
+          } finally {
+            isVerifyingRef.current = false;
+          }
         }}
         disabled={isLoading}
       >

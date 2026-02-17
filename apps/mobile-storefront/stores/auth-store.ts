@@ -136,6 +136,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       if (session?.user) {
+        // M25 fix: Guard against undefined email before using in query
+        if (!session.user.email) {
+          log.warn('Session user has no email, skipping customer fetch');
+          set({
+            user: session.user,
+            session,
+            customer: null,
+            isLoading: false,
+            isInitialized: true,
+          });
+          return;
+        }
+
         // Fetch customer data for this merchant
         let { data: customerData } = await supabase
           .from('customers')
@@ -216,6 +229,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // to prevent unhandled promise rejections and race conditions
           try {
             if (event === 'SIGNED_IN' && session?.user && merchantId) {
+              // M25 fix: Guard against undefined email before using in query
+              if (!session.user.email) {
+                log.warn(
+                  'Auth listener: User has no email, skipping customer fetch'
+                );
+                set({ user: session.user, session, customer: null });
+                return;
+              }
+
               // Fetch or create customer record
               let { data: customerData } = await supabase
                 .from('customers')
@@ -637,7 +659,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         customer: null,
         isLoading: false,
         isInitialized: false, // Allow re-initialization after sign out
-      });
+        _initializationInProgress: false, // Reset to allow re-initialization
+      } as Partial<AuthState>);
     } catch (error) {
       log.error('Sign out error:', error);
       set({ isLoading: false });
@@ -688,14 +711,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         };
       }
 
-      const { data: updated, error } = await supabase
-        .from('customers')
-        .update({
+      // M3 fix: Filter out undefined values to prevent nulling-out existing data
+      const updates = Object.fromEntries(
+        Object.entries({
           first_name: data.first_name,
           last_name: data.last_name,
           phone: data.phone,
           avatar_url: data.avatar_url,
-        })
+        }).filter(([, v]) => v !== undefined)
+      );
+
+      if (Object.keys(updates).length === 0) {
+        return { success: true }; // Nothing to update
+      }
+
+      const { data: updated, error } = await supabase
+        .from('customers')
+        .update(updates)
         .eq('id', customer.id)
         .eq('merchant_id', merchantId)
         .select(

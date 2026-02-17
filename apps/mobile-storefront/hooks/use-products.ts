@@ -75,8 +75,12 @@ function transformProduct(item: unknown): Product {
     images: Array.isArray(product.images) ? product.images : [],
     brand: product.brand as string | undefined,
     category: Array.isArray(product.categories)
-      ? (product.categories[0] as Category).name
-      : (product.categories as unknown as Category).name,
+      ? product.categories.length > 0
+        ? (product.categories[0] as Category).name
+        : ''
+      : product.categories != null
+        ? (product.categories as unknown as Category).name
+        : '',
     condition: product.condition as Product['condition'],
     rating: 4.5,
     review_count: 0,
@@ -157,7 +161,11 @@ async function fetchProductsPage(
     query = query.eq('category_id', options.category);
   }
   if (options.search) {
-    query = query.ilike('name', `%${options.search}%`);
+    // L5 FIX: Escape % and _ wildcards in search query before passing to ilike
+    const escapedSearch = options.search
+      .replace(/%/g, '\\%')
+      .replace(/_/g, '\\_');
+    query = query.ilike('name', `%${escapedSearch}%`);
   }
   if (options.condition) {
     query = query.eq('condition', options.condition);

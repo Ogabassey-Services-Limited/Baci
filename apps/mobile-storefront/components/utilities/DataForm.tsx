@@ -34,6 +34,10 @@ export function DataForm({ onSuccess }: DataFormProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [planAmount, setPlanAmount] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Bug #H18: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
+  const isBusy = isSubmitting || purchase.isPending;
 
   const handlePhoneChange = (text: string) => {
     const digits = text.replace(/\D/g, '');
@@ -43,6 +47,9 @@ export function DataForm({ onSuccess }: DataFormProps) {
   };
 
   const handlePurchase = async () => {
+    // Bug #H18: Prevent double-tap duplicate purchases
+    if (isBusy) return;
+
     if (!selectedProvider || !phoneNumber || !selectedPlan) {
       Alert.alert(
         'Missing Information',
@@ -59,6 +66,7 @@ export function DataForm({ onSuccess }: DataFormProps) {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const result = await purchase.mutateAsync({
         type: 'data',
@@ -82,6 +90,8 @@ export function DataForm({ onSuccess }: DataFormProps) {
         'Purchase Failed',
         error instanceof Error ? error.message : 'Something went wrong.'
       );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -143,7 +153,8 @@ export function DataForm({ onSuccess }: DataFormProps) {
                   ]}
                   onPress={() => {
                     setSelectedPlan(plan.billerId);
-                    setPlanAmount(0); // Amount comes from plan
+                    // Bug #H19: Don't reset amount to 0 on plan select.
+                    // Biller data has no price field, so keep the user's existing amount.
                   }}
                 >
                   <Text
@@ -206,13 +217,13 @@ export function DataForm({ onSuccess }: DataFormProps) {
             styles.payButton,
             {
               backgroundColor: BRAND.primary,
-              opacity: purchase.isPending ? 0.7 : 1,
+              opacity: isBusy ? 0.7 : 1,
             },
           ]}
           onPress={handlePurchase}
-          disabled={purchase.isPending}
+          disabled={isBusy}
         >
-          {purchase.isPending ? (
+          {isBusy ? (
             <ActivityIndicator color="#FFF" />
           ) : (
             <Text style={styles.payButtonText}>

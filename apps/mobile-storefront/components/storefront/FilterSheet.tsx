@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -37,6 +37,15 @@ export function FilterSheet({
   const [tempMinPrice, setTempMinPrice] = useState(minPrice.toString());
   const [tempMaxPrice, setTempMaxPrice] = useState(maxPrice.toString());
 
+  // M10 FIX: Sync local state when prop values change from parent
+  useEffect(() => {
+    setTempMinPrice(minPrice.toString());
+  }, [minPrice]);
+
+  useEffect(() => {
+    setTempMaxPrice(maxPrice.toString());
+  }, [maxPrice]);
+
   const handleApply = () => {
     const min = tempMinPrice === '' ? 0 : Number(tempMinPrice);
     const max = tempMaxPrice === '' ? 3000000 : Number(tempMaxPrice);
@@ -62,171 +71,167 @@ export function FilterSheet({
       // 2026 Accessibility: Trap focus within modal for screen readers
       accessibilityViewIsModal={true}
     >
-      <TouchableWithoutFeedback
-        onPress={onClose}
-        accessibilityLabel="Close filter"
-        accessibilityRole="button"
-      >
-        <View style={styles.overlay}>
-          <Animated.View
-            entering={SlideInDown.duration(300).springify()}
-            style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}
-            accessible={true}
-            accessibilityLabel="Filter by price dialog"
-            accessibilityViewIsModal={true}
-          >
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.title} accessibilityRole="header">
-                Filter by Price
-              </Text>
-              <Pressable
-                onPress={onClose}
-                style={styles.closeButton}
-                accessibilityLabel="Close filter"
-                accessibilityRole="button"
-              >
-                <Ionicons name="close" size={24} color="#666" />
-              </Pressable>
-            </View>
+      {/* M14 FIX: Separate backdrop from sheet content so tapping inside sheet does not close it */}
+      <View style={styles.overlay}>
+        <TouchableWithoutFeedback
+          onPress={onClose}
+          accessibilityLabel="Close filter backdrop"
+          accessibilityRole="button"
+        >
+          <View style={StyleSheet.absoluteFill} />
+        </TouchableWithoutFeedback>
+        <Animated.View
+          entering={SlideInDown.duration(300).springify()}
+          style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}
+          accessible={true}
+          accessibilityLabel="Filter by price dialog"
+          accessibilityViewIsModal={true}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title} accessibilityRole="header">
+              Filter by Price
+            </Text>
+            <Pressable
+              onPress={onClose}
+              style={styles.closeButton}
+              accessibilityLabel="Close filter"
+              accessibilityRole="button"
+            >
+              <Ionicons name="close" size={24} color="#666" />
+            </Pressable>
+          </View>
 
-            {/* Price Inputs */}
-            <View style={styles.content}>
-              <View style={styles.inputRow}>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label} nativeID="minPriceLabel">
-                    Min Price
-                  </Text>
-                  <View style={styles.inputWrapper}>
-                    <Text
-                      style={styles.currency}
-                      importantForAccessibility="no"
-                    >
-                      ₦
-                    </Text>
-                    <TextInput
-                      value={tempMinPrice}
-                      onChangeText={setTempMinPrice}
-                      keyboardType="number-pad"
-                      placeholder="0"
-                      style={styles.input}
-                      placeholderTextColor="#999"
-                      accessibilityLabel="Minimum price in Naira"
-                      accessibilityHint="Enter the minimum price for filtering products"
-                      accessibilityLabelledBy="minPriceLabel"
-                      autoFocus // eslint-disable-line jsx-a11y/no-autofocus -- BUG-5-005: focus price input on open
-                    />
-                  </View>
-                </View>
-
-                <Text style={styles.separator} importantForAccessibility="no">
-                  -
+          {/* Price Inputs */}
+          <View style={styles.content}>
+            <View style={styles.inputRow}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.label} nativeID="minPriceLabel">
+                  Min Price
                 </Text>
-
-                <View style={styles.inputContainer}>
-                  <Text style={styles.label} nativeID="maxPriceLabel">
-                    Max Price
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.currency} importantForAccessibility="no">
+                    ₦
                   </Text>
-                  <View style={styles.inputWrapper}>
-                    <Text
-                      style={styles.currency}
-                      importantForAccessibility="no"
-                    >
-                      ₦
-                    </Text>
-                    <TextInput
-                      value={tempMaxPrice}
-                      onChangeText={setTempMaxPrice}
-                      keyboardType="number-pad"
-                      placeholder="3000000"
-                      style={styles.input}
-                      placeholderTextColor="#999"
-                      accessibilityLabel="Maximum price in Naira"
-                      accessibilityHint="Enter the maximum price for filtering products"
-                      accessibilityLabelledBy="maxPriceLabel"
-                    />
-                  </View>
+                  <TextInput
+                    value={tempMinPrice}
+                    onChangeText={setTempMinPrice}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    style={styles.input}
+                    placeholderTextColor="#999"
+                    accessibilityLabel="Minimum price in Naira"
+                    accessibilityHint="Enter the minimum price for filtering products"
+                    accessibilityLabelledBy="minPriceLabel"
+                    autoFocus // eslint-disable-line jsx-a11y/no-autofocus -- BUG-5-005: focus price input on open
+                  />
                 </View>
               </View>
 
-              {/* Quick Price Presets */}
-              <View style={styles.presets}>
-                <Text style={styles.presetsLabel}>Quick Select:</Text>
-                <View
-                  style={styles.presetButtons}
-                  accessibilityRole="radiogroup"
-                  accessibilityLabel="Quick price range presets"
+              <Text style={styles.separator} importantForAccessibility="no">
+                -
+              </Text>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label} nativeID="maxPriceLabel">
+                  Max Price
+                </Text>
+                <View style={styles.inputWrapper}>
+                  <Text style={styles.currency} importantForAccessibility="no">
+                    ₦
+                  </Text>
+                  <TextInput
+                    value={tempMaxPrice}
+                    onChangeText={setTempMaxPrice}
+                    keyboardType="number-pad"
+                    placeholder="3000000"
+                    style={styles.input}
+                    placeholderTextColor="#999"
+                    accessibilityLabel="Maximum price in Naira"
+                    accessibilityHint="Enter the maximum price for filtering products"
+                    accessibilityLabelledBy="maxPriceLabel"
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Quick Price Presets */}
+            <View style={styles.presets}>
+              <Text style={styles.presetsLabel}>Quick Select:</Text>
+              <View
+                style={styles.presetButtons}
+                accessibilityRole="radiogroup"
+                accessibilityLabel="Quick price range presets"
+              >
+                <Pressable
+                  style={styles.presetButton}
+                  onPress={() => {
+                    setTempMinPrice('0');
+                    setTempMaxPrice('50000');
+                  }}
+                  accessibilityLabel="Under 50,000 Naira"
+                  accessibilityRole="button"
                 >
-                  <Pressable
-                    style={styles.presetButton}
-                    onPress={() => {
-                      setTempMinPrice('0');
-                      setTempMaxPrice('50000');
-                    }}
-                    accessibilityLabel="Under 50,000 Naira"
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.presetText}>Under ₦50k</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.presetButton}
-                    onPress={() => {
-                      setTempMinPrice('50000');
-                      setTempMaxPrice('150000');
-                    }}
-                    accessibilityLabel="50,000 to 150,000 Naira"
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.presetText}>₦50k - ₦150k</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.presetButton}
-                    onPress={() => {
-                      setTempMinPrice('150000');
-                      setTempMaxPrice('300000');
-                    }}
-                    accessibilityLabel="150,000 to 300,000 Naira"
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.presetText}>₦150k - ₦300k</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.presetButton}
-                    onPress={() => {
-                      setTempMinPrice('300000');
-                      setTempMaxPrice('3000000');
-                    }}
-                    accessibilityLabel="Above 300,000 Naira"
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.presetText}>Above ₦300k</Text>
-                  </Pressable>
-                </View>
+                  <Text style={styles.presetText}>Under ₦50k</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.presetButton}
+                  onPress={() => {
+                    setTempMinPrice('50000');
+                    setTempMaxPrice('150000');
+                  }}
+                  accessibilityLabel="50,000 to 150,000 Naira"
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.presetText}>₦50k - ₦150k</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.presetButton}
+                  onPress={() => {
+                    setTempMinPrice('150000');
+                    setTempMaxPrice('300000');
+                  }}
+                  accessibilityLabel="150,000 to 300,000 Naira"
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.presetText}>₦150k - ₦300k</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.presetButton}
+                  onPress={() => {
+                    setTempMinPrice('300000');
+                    setTempMaxPrice('3000000');
+                  }}
+                  accessibilityLabel="Above 300,000 Naira"
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.presetText}>Above ₦300k</Text>
+                </Pressable>
               </View>
             </View>
+          </View>
 
-            {/* Actions */}
-            <View style={styles.actions}>
-              <Pressable
-                style={styles.resetButton}
-                onPress={handleReset}
-                accessibilityLabel="Reset price filter"
-                accessibilityRole="button"
-              >
-                <Text style={styles.resetText}>Reset</Text>
-              </Pressable>
-              <Pressable
-                style={styles.applyButton}
-                onPress={handleApply}
-                accessibilityLabel="Apply price filter"
-                accessibilityRole="button"
-              >
-                <Text style={styles.applyText}>Apply Filter</Text>
-              </Pressable>
-            </View>
-          </Animated.View>
-        </View>
-      </TouchableWithoutFeedback>
+          {/* Actions */}
+          <View style={styles.actions}>
+            <Pressable
+              style={styles.resetButton}
+              onPress={handleReset}
+              accessibilityLabel="Reset price filter"
+              accessibilityRole="button"
+            >
+              <Text style={styles.resetText}>Reset</Text>
+            </Pressable>
+            <Pressable
+              style={styles.applyButton}
+              onPress={handleApply}
+              accessibilityLabel="Apply price filter"
+              accessibilityRole="button"
+            >
+              <Text style={styles.applyText}>Apply Filter</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
+      </View>
     </Modal>
   );
 }

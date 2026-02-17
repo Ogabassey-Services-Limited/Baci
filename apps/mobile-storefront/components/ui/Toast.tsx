@@ -10,7 +10,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, StyleSheet, Text } from 'react-native';
 import Animated, {
   FadeIn,
@@ -73,6 +73,11 @@ export function Toast({
   const insets = useSafeAreaInsets();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const config = VARIANT_CONFIG[variant];
+  // M35 fix: Store onDismiss in a ref to avoid it being a dependency in useEffect.
+  // When onDismiss is an inline function, it changes identity every render,
+  // causing the useEffect to re-fire and potentially loop.
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
 
   // Cleanup timer on unmount or when visibility changes
   useEffect(() => {
@@ -85,6 +90,8 @@ export function Toast({
   }, []);
 
   // Auto-dismiss logic with proper cleanup
+  // M35 fix: Use onDismissRef instead of onDismiss in deps to prevent infinite re-render
+  // when onDismiss is an inline function that changes identity every render.
   useEffect(() => {
     if (visible && duration > 0) {
       // Clear any existing timer
@@ -93,7 +100,7 @@ export function Toast({
       }
 
       timerRef.current = setTimeout(() => {
-        onDismiss();
+        onDismissRef.current();
         timerRef.current = null;
       }, duration);
 
@@ -107,7 +114,7 @@ export function Toast({
         timerRef.current = null;
       }
     };
-  }, [visible, duration, message, onDismiss]);
+  }, [visible, duration, message]);
 
   if (!visible) return null;
 

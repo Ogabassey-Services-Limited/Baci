@@ -35,17 +35,17 @@ export default function OrderSuccessScreen() {
     }).start();
 
     // Check for notification permissions (Soft Ask)
-    const checkPermissions = async () => {
-      // Small delay to let the success animation play (better UX)
-      setTimeout(async () => {
-        const result = await requestPermission('notifications');
-        if (result === 'soft-ask-needed') {
-          setShowPermissionModal(true);
-        }
-      }, 1500);
-    };
+    // Small delay to let the success animation play (better UX)
+    const timerId = setTimeout(async () => {
+      const result = await requestPermission('notifications');
+      if (result === 'soft-ask-needed') {
+        setShowPermissionModal(true);
+      }
+    }, 1500);
 
-    checkPermissions();
+    return () => {
+      clearTimeout(timerId);
+    };
   }, [scaleAnim, requestPermission]);
 
   const handlePermissionGrant = async () => {

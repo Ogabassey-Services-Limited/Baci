@@ -82,7 +82,7 @@ export function ProductCard({
   onPress,
   onPressIn,
   onWishlistToggle,
-  isWishlisted = false,
+  isWishlisted: _isWishlisted = false,
   blurhash = DEFAULT_BLURHASH,
 }: ProductCardProps) {
   const scale = useSharedValue(1);
@@ -117,12 +117,12 @@ export function ProductCard({
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   // Subscribe to real-time stock updates
-  // 2026 Best Practice: Only include stable identifiers in dependency array
-  // to prevent unnecessary re-subscriptions. product.id is stable, while
-  // stock_quantity changes shouldn't trigger re-subscription.
+  // M13 FIX: Only depend on product.id to prevent infinite re-subscribe loop.
+  // product.stock_quantity was causing re-subscription on every stock change.
+  const hasStockTracking = product.stock_quantity !== undefined;
   useEffect(() => {
     // Only subscribe if product has stock tracking
-    if (product.stock_quantity === undefined) return;
+    if (!hasStockTracking) return;
 
     const channel = supabase
       .channel(`product-stock-${product.id}`)
@@ -151,7 +151,7 @@ export function ProductCard({
         channelRef.current = null;
       }
     };
-  }, [product.id, product.stock_quantity]);
+  }, [product.id, hasStockTracking]);
 
   // Determine if we should show scarcity badge
 
@@ -366,7 +366,7 @@ export function ProductCard({
           style={styles.listWishlistBtn}
           hitSlop={8}
           accessibilityLabel={
-            isWishlisted
+            isSaved
               ? `Remove ${product.name} from saved items`
               : `Save ${product.name} for later`
           }
@@ -406,7 +406,7 @@ export function ProductCard({
           style={styles.wishlistBtn}
           hitSlop={8}
           accessibilityLabel={
-            isWishlisted
+            isSaved
               ? `Remove ${product.name} from saved items`
               : `Save ${product.name} for later`
           }

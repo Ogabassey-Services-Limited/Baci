@@ -273,7 +273,9 @@ export function useRedeemPoints() {
         walletKeys.data(customer?.id || '')
       );
 
-      // Optimistically update
+      // Optimistically update points only; balance is not updated optimistically
+      // because the actual conversion rate is determined server-side by calculateCommerce.
+      // The real balance will be synced on query invalidation after mutation settles.
       if (previousData) {
         queryClient.setQueryData<WalletQueryData>(
           walletKeys.data(customer?.id || ''),
@@ -282,7 +284,6 @@ export function useRedeemPoints() {
             wallet: {
               ...previousData.wallet,
               loyalty_points: previousData.wallet.loyalty_points - points,
-              balance: previousData.wallet.balance + points, // 1:1 ratio
             },
           }
         );

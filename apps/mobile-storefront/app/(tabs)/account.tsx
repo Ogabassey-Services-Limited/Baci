@@ -46,8 +46,9 @@ export default function AccountScreen() {
   // 2026 Fix: Fallback for when session exists but customer profile is loading
   // Bug #7 fix: Use optional chaining + typeof checks instead of unsafe `as string` casts
   const userMeta = session?.user?.user_metadata;
+  // M2 fix: Use ?? instead of || for nullish coalescing
   const effectiveCustomer: Customer | null =
-    safeCustomer ||
+    safeCustomer ??
     (session?.user
       ? {
           id: session.user.id,

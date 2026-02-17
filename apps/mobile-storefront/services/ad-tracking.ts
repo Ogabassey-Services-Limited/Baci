@@ -375,9 +375,13 @@ async function sendServerConversion(
       }),
     });
 
+    // M33 fix: Always consume response body to prevent resource leak.
+    // In dev mode, parse as JSON for logging. In production, drain the body.
     if (__DEV__) {
       const result = await response.json();
       log.debug(`[Server] ${eventName} sent:`, result);
+    } else {
+      await response.text();
     }
   } catch (error) {
     // Log but don't throw - analytics should never break the app

@@ -132,13 +132,18 @@ export function PaymentMethodSelector({
     .map((method) => {
       // Add eligibility check for BNPL methods
       if (method.tab === 'installments' && !isBNPLEligible) {
+        let disabledReason: string;
+        if (!hasValidTotal) {
+          disabledReason = `Minimum order: ${formatPrice(BNPL_MIN_AMOUNT)}`;
+        } else if (orderTotal < BNPL_MIN_AMOUNT) {
+          disabledReason = `Minimum order: ${formatPrice(BNPL_MIN_AMOUNT)}`;
+        } else {
+          disabledReason = `Maximum order: ${formatPrice(BNPL_MAX_AMOUNT)}`;
+        }
         return {
           ...method,
           disabled: true,
-          disabledReason:
-            orderTotal < BNPL_MIN_AMOUNT
-              ? `Minimum order: ${formatPrice(BNPL_MIN_AMOUNT)}`
-              : `Maximum order: ${formatPrice(BNPL_MAX_AMOUNT)}`,
+          disabledReason,
         };
       }
       return method;
@@ -245,12 +250,12 @@ export function PaymentMethodSelector({
             ) : (
               <>
                 <Text style={[styles.installmentTitle, { color: '#92400E' }]}>
-                  {orderTotal < BNPL_MIN_AMOUNT
+                  {!hasValidTotal || orderTotal < BNPL_MIN_AMOUNT
                     ? 'Minimum Order Required'
                     : 'Maximum Order Exceeded'}
                 </Text>
                 <Text style={[styles.installmentDesc, { color: '#92400E' }]}>
-                  {orderTotal < BNPL_MIN_AMOUNT
+                  {!hasValidTotal || orderTotal < BNPL_MIN_AMOUNT
                     ? `BNPL is available for orders above ${formatPrice(BNPL_MIN_AMOUNT)}.`
                     : `BNPL is available for orders up to ${formatPrice(BNPL_MAX_AMOUNT)}.`}
                 </Text>

@@ -12,6 +12,10 @@
 
 import { Dimensions } from 'react-native';
 
+// M28: Intentionally static — captured once at module load for the `clamp()` fluid
+// typography helper below. This file is a constants module (not a component), so
+// useWindowDimensions() is not applicable. Font sizes are computed once at startup;
+// dynamic orientation changes do not require recalculating typography constants.
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 /**

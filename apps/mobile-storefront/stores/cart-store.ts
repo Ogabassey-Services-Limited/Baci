@@ -51,6 +51,8 @@ interface CartState {
   applyNegotiatedPrice: (id: string, negotiatedPrice: number) => void;
   applyCartWideNegotiation: (newTotal: number) => void;
   clearNegotiatedPrice: (id: string) => void;
+  // Restore actions (for rollback without generating new IDs)
+  restoreItems: (items: CartItem[]) => void;
   // Device assurance actions
   toggleAssurance: (id: string) => void;
 }
@@ -217,6 +219,11 @@ export const useCartStore = create<CartState>()(
               : item
           ),
         }));
+      },
+
+      // Restore items directly (for rollback without generating new IDs)
+      restoreItems: (items) => {
+        set({ items });
       },
 
       // Toggle device assurance for item

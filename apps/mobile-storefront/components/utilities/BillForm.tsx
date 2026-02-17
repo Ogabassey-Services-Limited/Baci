@@ -59,8 +59,12 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
   const [selectedBiller, setSelectedBiller] = useState<Biller | null>(null);
   const [customerId, setCustomerId] = useState('');
   const [amount, setAmount] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const numericAmount = Number(amount.replace(/\D/g, ''));
+
+  // Bug #M24: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
+  const isBusy = isSubmitting || purchase.isPending;
 
   const handleVerify = () => {
     if (!selectedBiller || !customerId) {
@@ -77,6 +81,9 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
   };
 
   const handlePurchase = async () => {
+    // Bug #M24: Prevent double-tap duplicate payments
+    if (isBusy) return;
+
     // Bug #71: Explicitly check verification is complete before allowing purchase
     if (!selectedBiller) {
       Alert.alert('Missing Provider', 'Please select a provider.');
@@ -98,6 +105,7 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const result = await purchase.mutateAsync({
         type: billType as 'electricity' | 'cable_tv' | 'betting',
@@ -122,6 +130,8 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
         'Purchase Failed',
         error instanceof Error ? error.message : 'Something went wrong.'
       );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -252,13 +262,13 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
               styles.payButton,
               {
                 backgroundColor: BRAND.primary,
-                opacity: purchase.isPending ? 0.7 : 1,
+                opacity: isBusy ? 0.7 : 1,
               },
             ]}
             onPress={handlePurchase}
-            disabled={purchase.isPending}
+            disabled={isBusy}
           >
-            {purchase.isPending ? (
+            {isBusy ? (
               <ActivityIndicator color="#FFF" />
             ) : (
               <Text style={styles.payButtonText}>

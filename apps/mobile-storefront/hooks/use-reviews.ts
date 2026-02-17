@@ -145,13 +145,21 @@ export function useReviews({
     fetchReviews(1);
   }, [fetchReviews]);
 
-  const loadMore = useCallback(async () => {
-    if (!hasMore || isLoading) return;
+  // L7 fix: Use isLoadingMore state to prevent concurrent loadMore calls
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-    const nextPage = page + 1;
-    setPage(nextPage);
-    await fetchReviews(nextPage, true);
-  }, [hasMore, isLoading, page, fetchReviews]);
+  const loadMore = useCallback(async () => {
+    if (!hasMore || isLoading || isLoadingMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      await fetchReviews(nextPage, true);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [hasMore, isLoading, isLoadingMore, page, fetchReviews]);
 
   const refetch = useCallback(async () => {
     setPage(1);

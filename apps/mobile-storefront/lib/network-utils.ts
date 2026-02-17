@@ -21,7 +21,6 @@ const NETWORK_PREFIXES: Record<NetworkProvider, string[]> = {
     '07025',
     '07026',
     '0704',
-    '0913',
     '0916',
   ],
   airtel: [

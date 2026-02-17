@@ -20,6 +20,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { createLogger } from '@/lib/logger';
@@ -64,14 +65,63 @@ import { useSavedStore } from '@/stores/saved-store';
 import type { ProductCondition } from '@/types/product';
 import { formatPrice, getDiscountPercentage } from '@/types/product';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const HEADER_HEIGHT = SCREEN_WIDTH; // Square aspect ratio for main image
+// C4 FIX: Extracted FlyToCartParticle outside ProductDetailScreen to prevent re-creation on every render
+function FlyToCartParticle({
+  startX,
+  startY,
+}: {
+  startX: number;
+  startY: number;
+}) {
+  const progress = useSharedValue(0);
+  const particleInsets = useSafeAreaInsets();
+  const window = Dimensions.get('window');
+  const targetX = window.width / 2; // Cart tab is in center
+  const targetY = window.height - (particleInsets.bottom + 30); // Tab bar center
+
+  useEffect(() => {
+    progress.value = withTiming(1, {
+      duration: 800,
+      easing: Easing.bezier(0.2, 0.8, 0.2, 1),
+    });
+  }, [progress]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const translateX = interpolate(progress.value, [0, 1], [startX, targetX]);
+    const translateY = interpolate(progress.value, [0, 1], [startY, targetY]);
+    const scale = interpolate(progress.value, [0, 0.5, 1], [1, 1.2, 0.2]);
+    const opacity = interpolate(progress.value, [0, 0.8, 1], [1, 1, 0]);
+
+    return {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: BRAND.primary,
+      zIndex: 9999,
+      transform: [
+        { translateX: translateX - 20 },
+        { translateY: translateY - 20 },
+        { scale },
+      ],
+      opacity,
+    };
+  });
+
+  return <Animated.View style={animatedStyle} />;
+}
 
 export default function ProductDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+
+  // L3 FIX: Use useWindowDimensions hook instead of module-level Dimensions.get
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
+  const HEADER_HEIGHT = SCREEN_WIDTH; // Square aspect ratio for main image
 
   // 2026 Critical Fix: Validate slug parameter early
   const isValidSlug = Boolean(
@@ -228,6 +278,20 @@ export default function ProductDetailScreen() {
     { id: number; startX: number; startY: number }[]
   >([]);
   const particleIdRef = useRef(0);
+  const particleTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
+
+  // H13 FIX: Clean up all particle timers on unmount
+  useEffect(() => {
+    const timers = particleTimersRef.current;
+    return () => {
+      for (const timerId of timers.values()) {
+        clearTimeout(timerId);
+      }
+      timers.clear();
+    };
+  }, []);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const triggerFlyToCart = (event: any) => {
@@ -239,62 +303,17 @@ export default function ProductDetailScreen() {
       ...prev,
       {
         id,
-        startX: pageX || Dimensions.get('window').width / 2,
-        startY: pageY || Dimensions.get('window').height - 100,
+        startX: pageX ?? Dimensions.get('window').width / 2,
+        startY: pageY ?? Dimensions.get('window').height - 100,
       },
     ]);
 
-    // Cleanup particle after animation
-    setTimeout(() => {
+    // Cleanup particle after animation, tracked for unmount cleanup
+    const timerId = setTimeout(() => {
       setFlyingParticles((prev) => prev.filter((p) => p.id !== id));
+      particleTimersRef.current.delete(id);
     }, 1000);
-  };
-
-  const FlyToCartParticle = ({
-    startX,
-    startY,
-  }: {
-    startX: number;
-    startY: number;
-  }) => {
-    const progress = useSharedValue(0);
-    const insets = useSafeAreaInsets();
-    const window = Dimensions.get('window');
-    const targetX = window.width / 2; // Cart tab is in center
-    const targetY = window.height - (insets.bottom + 30); // Tab bar center
-
-    useEffect(() => {
-      progress.value = withTiming(1, {
-        duration: 800,
-        easing: Easing.bezier(0.2, 0.8, 0.2, 1),
-      });
-    }, [progress]);
-
-    const animatedStyle = useAnimatedStyle(() => {
-      const translateX = interpolate(progress.value, [0, 1], [startX, targetX]);
-      const translateY = interpolate(progress.value, [0, 1], [startY, targetY]);
-      const scale = interpolate(progress.value, [0, 0.5, 1], [1, 1.2, 0.2]);
-      const opacity = interpolate(progress.value, [0, 0.8, 1], [1, 1, 0]);
-
-      return {
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: BRAND.primary,
-        zIndex: 9999,
-        transform: [
-          { translateX: translateX - 20 },
-          { translateY: translateY - 20 },
-          { scale },
-        ],
-        opacity,
-      };
-    });
-
-    return <Animated.View style={animatedStyle} />;
+    particleTimersRef.current.set(id, timerId);
   };
 
   const scrollY = useSharedValue(0);
@@ -496,8 +515,8 @@ export default function ProductDetailScreen() {
   const { price: calculatedPrice, comparePrice: effectiveComparePrice } =
     calculateEffectivePrice();
 
-  // Use negotiated price if available, otherwise use calculated price
-  const effectivePrice = negotiatedPrice || calculatedPrice;
+  // M11 FIX: Use ?? instead of || so negotiatedPrice of 0 is not treated as falsy
+  const effectivePrice = negotiatedPrice ?? calculatedPrice;
 
   const discountPercentage = getDiscountPercentage(
     effectivePrice,
@@ -643,7 +662,7 @@ export default function ProductDetailScreen() {
       >
         {/* Parallax Image Gallery */}
         <Pressable
-          style={styles.imageContainer}
+          style={[styles.imageContainer, { height: HEADER_HEIGHT }]}
           onPress={() => setShowImageZoom(true)}
           accessibilityLabel="Tap to zoom product image"
           accessibilityRole="button"
@@ -799,7 +818,8 @@ export default function ProductDetailScreen() {
           </View>
 
           {/* Negotiated Price Badge */}
-          {negotiatedPrice && (
+          {/* M11 FIX: Use != null instead of truthy check so price of 0 is handled */}
+          {negotiatedPrice != null && (
             <View style={styles.negotiatedBadge}>
               <Ionicons name="pricetag" size={14} color="#10B981" />
               <Text style={styles.negotiatedText}>Your negotiated price!</Text>
@@ -807,7 +827,7 @@ export default function ProductDetailScreen() {
           )}
 
           {/* Make an Offer Button */}
-          {!negotiatedPrice && (
+          {negotiatedPrice == null && (
             <Pressable
               style={[styles.makeOfferButton, { borderColor: BRAND.primary }]}
               onPress={() => setShowNegotiationModal(true)}
@@ -1281,7 +1301,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   imageContainer: {
-    height: HEADER_HEIGHT,
     width: '100%',
     backgroundColor: '#F3F4F6',
     overflow: 'hidden',

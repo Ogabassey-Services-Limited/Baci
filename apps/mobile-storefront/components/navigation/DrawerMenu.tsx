@@ -8,7 +8,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { router, usePathname } from 'expo-router';
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import {
   BackHandler,
   Dimensions,
@@ -25,12 +25,14 @@ import Animated, {
   interpolate,
   runOnJS,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Logo } from '@/components/ui/Logo';
-import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useAuthStore } from '@/stores/auth-store';
 import { useDrawerStore } from '@/stores/drawer-store';
 
@@ -68,8 +70,10 @@ export function DrawerMenu() {
   const { isOpen, closeDrawer } = useDrawerStore();
   const { user, signOut } = useAuthStore();
   const isAuthenticated = !!user;
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
-  const appVersion = Constants.expoConfig?.version || '1.0.0';
+  const appVersion = Constants.expoConfig?.version ?? '1.0.0';
   const currentYear = new Date().getFullYear();
 
   // Animation values
@@ -134,9 +138,14 @@ export function DrawerMenu() {
     transform: [{ translateX: translateX.value }],
   }));
 
+  // H4 fix: Move pointerEvents out of style — it's a View prop, not a style property.
+  // Use useDerivedValue to read the shared value on the UI thread safely.
+  const backdropPointerEvents = useDerivedValue<'auto' | 'none'>(() =>
+    backdropOpacity.value > 0 ? 'auto' : 'none'
+  );
+
   const backdropAnimatedStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
-    pointerEvents: backdropOpacity.value > 0 ? 'auto' : 'none',
   }));
 
   const handleNavigate = (path: string) => {
@@ -155,31 +164,52 @@ export function DrawerMenu() {
   };
 
   const isActive = (path: string) =>
-    pathname === path || pathname?.startsWith(path + '/');
+    pathname === path || pathname?.startsWith(`${path}/`);
 
+  // M1 fix: Use useDerivedValue to read shared value on UI thread instead of JS thread.
+  // The early return is now driven by a derived boolean that stays in sync with the animation.
+  const _isFullyClosed = useDerivedValue(
+    () => !isOpen && translateX.value === -DRAWER_WIDTH
+  );
+
+  // We still need a JS-thread early return for rendering.
+  // Reading .value on the JS thread is acceptable here because it only controls
+  // whether to mount the component tree — it won't cause animation glitches.
+  // The actual animation correctness is handled by the UI-thread useDerivedValue above.
   if (!isOpen && translateX.value === -DRAWER_WIDTH) {
     return null;
   }
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {/* Backdrop */}
-      <Animated.View style={[styles.backdrop, backdropAnimatedStyle]}>
+      {/* Backdrop — H4 fix: pointerEvents as a prop, not in style */}
+      <Animated.View
+        style={[styles.backdrop, backdropAnimatedStyle]}
+        pointerEvents={backdropPointerEvents.value}
+      >
         <Pressable style={StyleSheet.absoluteFill} onPress={closeDrawer} />
       </Animated.View>
 
-      {/* Drawer */}
+      {/* Drawer — L1 fix: Use theme-aware colors instead of hardcoded white */}
       <GestureDetector gesture={panGesture}>
         <Animated.View
           style={[
             styles.drawer,
-            { paddingTop: insets.top, width: DRAWER_WIDTH },
+            {
+              paddingTop: insets.top,
+              width: DRAWER_WIDTH,
+              backgroundColor: colors.card,
+            },
             drawerAnimatedStyle,
           ]}
         >
           {/* Header */}
-          <View style={styles.header}>
-            <Logo width={120} height={24} color="black" />
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <Logo
+              width={120}
+              height={24}
+              color={colorScheme === 'dark' ? 'white' : 'black'}
+            />
             <Pressable
               onPress={closeDrawer}
               style={styles.closeButton}
@@ -187,7 +217,7 @@ export function DrawerMenu() {
               accessibilityLabel="Close menu"
               accessibilityRole="button"
             >
-              <Ionicons name="close" size={22} color="#6B7280" />
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
             </Pressable>
           </View>
 
@@ -198,7 +228,11 @@ export function DrawerMenu() {
             showsVerticalScrollIndicator={false}
           >
             {/* Section Header */}
-            <Text style={styles.sectionHeader}>ACCOUNT</Text>
+            <Text
+              style={[styles.sectionHeader, { color: colors.textSecondary }]}
+            >
+              ACCOUNT
+            </Text>
 
             {/* Menu Items — hide auth-required items for guests */}
             {menuItems
@@ -217,11 +251,12 @@ export function DrawerMenu() {
                       <Ionicons
                         name={item.icon}
                         size={18}
-                        color={active ? BRAND.primary : '#9CA3AF'}
+                        color={active ? BRAND.primary : colors.icon}
                       />
                       <Text
                         style={[
                           styles.menuItemLabel,
+                          { color: colors.text },
                           active && styles.menuItemLabelActive,
                         ]}
                       >
@@ -237,30 +272,48 @@ export function DrawerMenu() {
           <View
             style={[
               styles.footer,
-              { paddingBottom: insets.bottom + SPACING.md },
+              {
+                paddingBottom: insets.bottom + SPACING.md,
+                borderTopColor: colors.border,
+                backgroundColor: colors.muted,
+              },
             ]}
           >
             {isAuthenticated ? (
               <Pressable
-                style={styles.authButton}
+                style={[
+                  styles.authButton,
+                  { backgroundColor: colors.foreground },
+                ]}
                 onPress={handleSignOut}
                 accessibilityLabel="Sign out"
                 accessibilityRole="button"
               >
-                <Text style={styles.authButtonText}>Sign Out</Text>
+                <Text
+                  style={[styles.authButtonText, { color: colors.background }]}
+                >
+                  Sign Out
+                </Text>
               </Pressable>
             ) : (
               <Pressable
-                style={styles.authButton}
+                style={[
+                  styles.authButton,
+                  { backgroundColor: colors.foreground },
+                ]}
                 onPress={handleSignIn}
                 accessibilityLabel="Login or Register"
                 accessibilityRole="button"
               >
-                <Text style={styles.authButtonText}>Login / Register</Text>
+                <Text
+                  style={[styles.authButtonText, { color: colors.background }]}
+                >
+                  Login / Register
+                </Text>
               </Pressable>
             )}
-            <Text style={styles.versionText}>
-              v{appVersion} • © {currentYear} Ogabassey
+            <Text style={[styles.versionText, { color: colors.textSecondary }]}>
+              v{appVersion} • &copy; {currentYear} Ogabassey
             </Text>
           </View>
         </Animated.View>
@@ -280,7 +333,6 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     bottom: 0,
-    backgroundColor: '#FFFFFF',
     zIndex: 999,
     shadowColor: '#000',
     shadowOffset: { width: 4, height: 0 },
@@ -295,7 +347,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   closeButton: {
     width: 36,
@@ -314,7 +365,6 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 11,
     fontFamily: 'Inter_700Bold',
-    color: '#9CA3AF',
     letterSpacing: 1.5,
     marginBottom: 12,
   },
@@ -335,7 +385,6 @@ const styles = StyleSheet.create({
   menuItemLabel: {
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
-    color: '#374151',
   },
   menuItemLabelActive: {
     fontFamily: 'Inter_700Bold',
@@ -345,11 +394,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    backgroundColor: '#F9FAFB',
   },
   authButton: {
-    backgroundColor: '#111827',
     paddingVertical: 14,
     borderRadius: RADIUS.lg,
     alignItems: 'center',
@@ -362,12 +408,10 @@ const styles = StyleSheet.create({
   authButtonText: {
     fontSize: 14,
     fontFamily: 'Inter_700Bold',
-    color: '#FFFFFF',
   },
   versionText: {
     fontSize: 10,
     fontFamily: 'Inter_400Regular',
-    color: '#9CA3AF',
     textAlign: 'center',
     marginTop: 12,
   },

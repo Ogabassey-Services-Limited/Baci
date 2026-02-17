@@ -10,11 +10,12 @@
  */
 
 import Constants from 'expo-constants';
-import {
-  AndroidImportance,
-  type NotificationResponse,
-  type PermissionStatus,
-  SchedulableTriggerInputTypes,
+// M32 fix: Use type-only imports for expo-notifications types to avoid evaluation-time crashes.
+// Runtime values (AndroidImportance, SchedulableTriggerInputTypes) are accessed via the
+// dynamically imported `Notifications` module instead.
+import type {
+  NotificationResponse,
+  PermissionStatus,
 } from 'expo-notifications';
 import { Platform } from 'react-native';
 import { createLogger } from '@/lib/logger';
@@ -23,8 +24,8 @@ import { supabase } from '@/lib/supabase';
 const log = createLogger('PushNotifications');
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-let Device: any = null;
-let Notifications: any = null;
+let Device: typeof import('expo-device') | null = null;
+let Notifications: typeof import('expo-notifications') | null = null;
 
 const loadNativeModules = async () => {
   if (Platform.OS === 'web') return;
@@ -134,7 +135,7 @@ async function setupAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync('orders', {
     name: 'Order Updates',
     description: 'Notifications about your order status',
-    importance: AndroidImportance.HIGH,
+    importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#DC2626',
     sound: 'default',
@@ -144,7 +145,7 @@ async function setupAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync('promotions', {
     name: 'Deals & Promotions',
     description: 'Special offers and discounts',
-    importance: AndroidImportance.DEFAULT,
+    importance: Notifications.AndroidImportance.DEFAULT,
     sound: 'default',
   });
 
@@ -152,7 +153,7 @@ async function setupAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync('general', {
     name: 'General',
     description: 'General notifications',
-    importance: AndroidImportance.DEFAULT,
+    importance: Notifications.AndroidImportance.DEFAULT,
   });
 }
 
@@ -277,7 +278,7 @@ export async function scheduleLocalNotification(
       sound: 'default',
     },
     trigger: {
-      type: SchedulableTriggerInputTypes.TIME_INTERVAL,
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
       seconds: triggerSeconds,
     },
   });

@@ -173,7 +173,7 @@ export default function TrackOrderScreen() {
     const fetchOrder = async () => {
       try {
         const res = await fetch(
-          `${API_BASE_URL}/api/storefront/orders/track-order?token=${trackingToken}&merchant_slug=${MERCHANT_SLUG}`,
+          `${API_BASE_URL}/api/storefront/orders/track-order?token=${encodeURIComponent(trackingToken)}&merchant_slug=${encodeURIComponent(MERCHANT_SLUG)}`,
           { signal: controller.signal }
         );
 

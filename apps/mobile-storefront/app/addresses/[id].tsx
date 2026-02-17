@@ -120,8 +120,11 @@ export default function AddressFormScreen() {
     try {
       const { data, error } = await supabase
         .from('customer_addresses')
-        .select('*')
+        .select(
+          'id, label, name, phone, address, city, state, postal_code, is_default, created_at'
+        )
         .eq('id', id)
+        .eq('customer_id', user?.id)
         .single();
 
       if (error) throw error;
@@ -145,7 +148,7 @@ export default function AddressFormScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, user?.id]);
 
   useEffect(() => {
     if (!isNewAddress && id) {
@@ -200,7 +203,8 @@ export default function AddressFormScreen() {
         const { error } = await supabase
           .from('customer_addresses')
           .update(form)
-          .eq('id', id);
+          .eq('id', id)
+          .eq('customer_id', user.id);
 
         if (error) throw error;
 

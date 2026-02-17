@@ -27,6 +27,18 @@ const supabaseAnonKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
   '';
 
+// Runtime warning when Supabase credentials are missing
+if (!supabaseUrl) {
+  console.warn(
+    '[Supabase] SUPABASE_URL is not configured. Set EXPO_PUBLIC_SUPABASE_URL or configure extra.supabaseUrl in app.json.'
+  );
+}
+if (!supabaseAnonKey) {
+  console.warn(
+    '[Supabase] SUPABASE_ANON_KEY is not configured. Set EXPO_PUBLIC_SUPABASE_ANON_KEY or configure extra.supabaseAnonKey in app.json.'
+  );
+}
+
 /**
  * Custom storage adapter using expo-secure-store
  * 2026 Best Practice: sessionStorage for web (more secure than localStorage)
@@ -218,27 +230,34 @@ export async function calculateCommerce(
   }
 
   try {
-    // 2026 Best Practice: AbortController timeout for edge function calls
+    // 2026 Best Practice: Timeout for edge function calls
     // Prevents requests from hanging indefinitely on poor connections
-    const controller = new AbortController();
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      EDGE_FUNCTION_TIMEOUT
-    );
-
+    // supabase.functions.invoke() does not accept an AbortSignal,
+    // so we use Promise.race to enforce the timeout.
     let result: unknown;
     let error: unknown;
 
     try {
-      const response = await supabase.functions.invoke('calculate-commerce', {
+      const invokePromise = supabase.functions.invoke('calculate-commerce', {
         body: { action, data },
       });
+
+      const timeoutPromise = new Promise<never>((_resolve, reject) => {
+        setTimeout(() => {
+          reject(
+            new CommerceError(
+              'Request timed out. Please check your connection and try again.',
+              'TIMEOUT_ERROR'
+            )
+          );
+        }, EDGE_FUNCTION_TIMEOUT);
+      });
+
+      const response = await Promise.race([invokePromise, timeoutPromise]);
       result = response.data;
       error = response.error;
     } catch (e) {
       error = e;
-    } finally {
-      clearTimeout(timeoutId);
     }
 
     if (error) {

@@ -59,16 +59,16 @@ export default function HomeScreen() {
     // Check for tracking permissions (Soft Ask) - ATT
     // 2026 Best Practice: Ask during "personalized deal discovery" (Home screen)
     // Wait for a moment so they see the "deals" (products) first
-    const checkPermissions = async () => {
-      setTimeout(async () => {
-        const result = await requestPermission('tracking');
-        if (result === 'soft-ask-needed') {
-          setShowPermissionModal(true);
-        }
-      }, 3000); // 3 seconds delay
-    };
+    const timerId = setTimeout(async () => {
+      const result = await requestPermission('tracking');
+      if (result === 'soft-ask-needed') {
+        setShowPermissionModal(true);
+      }
+    }, 3000); // 3 seconds delay
 
-    checkPermissions();
+    return () => {
+      clearTimeout(timerId);
+    };
   }, [requestPermission]);
 
   const handlePermissionGrant = async () => {

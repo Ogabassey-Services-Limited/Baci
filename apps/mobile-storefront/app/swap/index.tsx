@@ -23,6 +23,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+// Bug #M21: Store the loading promise so we can await it before using ImagePicker,
+// preventing race conditions if the user taps before the module loads.
 let ImagePicker: typeof import('expo-image-picker') | null = null;
 
 const loadNativeModules = async () => {
@@ -37,7 +39,9 @@ const loadNativeModules = async () => {
   }
 };
 
-loadNativeModules();
+// Bug #M21: Store the promise so pickVideo/recordVideo can await it,
+// preventing race condition if user taps before module loads.
+const _imagePickerReady = loadNativeModules();
 
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
@@ -93,6 +97,8 @@ export default function SwapScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const pickVideo = async () => {
+    // Bug #M21: Await module load to prevent race condition
+    await _imagePickerReady;
     if (!ImagePicker) {
       Alert.alert(
         'Not Supported',
@@ -128,6 +134,8 @@ export default function SwapScreen() {
   };
 
   const recordVideo = async () => {
+    // Bug #M21: Await module load to prevent race condition
+    await _imagePickerReady;
     if (!ImagePicker) {
       Alert.alert(
         'Not Supported',
@@ -181,12 +189,11 @@ export default function SwapScreen() {
       } as unknown as Blob;
       formData.append('video', videoFile);
 
+      // Bug #H20: Do NOT set Content-Type manually for multipart/form-data.
+      // Let fetch auto-set it with the correct boundary parameter.
       const response = await fetch(`${API_BASE_URL}/api/ai/grade-device`, {
         method: 'POST',
         body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
       });
 
       const rawData = await response.json();
