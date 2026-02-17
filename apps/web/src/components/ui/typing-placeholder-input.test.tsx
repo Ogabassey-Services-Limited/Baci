@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { vi } from 'vitest';
 import * as useReducedMotionHook from '@/hooks/use-reduced-motion';
 import { TypingPlaceholderInput } from './typing-placeholder-input';
@@ -71,5 +71,18 @@ describe('TypingPlaceholderInput', () => {
 
     const inputElement = screen.getByRole('textbox');
     expect(inputElement).toHaveAttribute('placeholder', 'Type: First');
+  });
+
+  it('should NOT clear placeholder on focus and keep visible opacity', () => {
+    render(<TypingPlaceholderInput placeholders={['Search...']} />);
+    const inputElement = screen.getByRole('textbox');
+
+    // Simulate focus
+    fireEvent.focus(inputElement);
+
+    // New behavior: placeholder snaps to full text "Search..."
+    expect(inputElement.getAttribute('placeholder')).toBe('Search...');
+    // Should have full opacity on focus
+    expect(inputElement.className).toContain('focus:placeholder:opacity-100');
   });
 });
