@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import Constants from 'expo-constants';
+import { z } from 'zod';
 import { fetchWithTimeout } from '@/lib/fetch-with-timeout';
 
 const API_URL =
@@ -12,6 +13,12 @@ export interface VerifyResult {
   customerName?: string;
   message: string;
 }
+
+const VerifyResultSchema = z.object({
+  verified: z.boolean(),
+  customerName: z.string().optional(),
+  message: z.string(),
+});
 
 interface VerifyParams {
   billItemIdentifier: string;
@@ -30,11 +37,24 @@ export function useVTUVerify() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
       });
-      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error(data.message || 'Verification failed');
+        let errorMsg = 'Verification failed';
+        try {
+          const errData = await response.json();
+          if (errData?.message) errorMsg = errData.message;
+        } catch {
+          /* non-JSON response */
+        }
+        throw new Error(errorMsg);
       }
-      return data;
+
+      const data = await response.json();
+      const parsed = VerifyResultSchema.safeParse(data);
+      if (!parsed.success) {
+        throw new Error('Invalid verification response from server');
+      }
+      return parsed.data;
     },
   });
 }

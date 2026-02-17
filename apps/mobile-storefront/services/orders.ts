@@ -184,13 +184,13 @@ export async function createOrder(
       price: item.price,
       value: Math.round(item.price * item.quantity),
       variant_id: item.variant_id,
-      has_assurance: item.has_assurance || false,
-      assurance_fee: item.assurance_fee || 0,
+      has_assurance: item.has_assurance ?? false,
+      assurance_fee: item.assurance_fee ?? 0,
     })),
     subtotal: request.subtotal,
     shipping_fee: request.shipping_fee,
-    tax_amount: request.tax_amount || 0,
-    discount_amount: request.discount_amount || 0,
+    tax_amount: request.tax_amount ?? 0,
+    discount_amount: request.discount_amount ?? 0,
     payment_method: request.payment_method,
     payment_status:
       request.payment_method === 'pay_on_delivery' ? 'pending' : 'unpaid',
@@ -392,7 +392,8 @@ export async function createOrder(
  * For order confirmation and tracking screens
  */
 export async function getOrder(
-  orderId: string
+  orderId: string,
+  customerId: string
 ): Promise<OrderResponse['order'] | null> {
   const isOnline = await checkNetwork();
   if (!isOnline) {
@@ -408,6 +409,7 @@ export async function getOrder(
       'id, order_number, total, payment_status, shipping_status, created_at'
     )
     .eq('id', orderId)
+    .eq('customer_id', customerId)
     .single();
 
   if (error) {

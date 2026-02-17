@@ -92,11 +92,14 @@ export const useCartStore = create<CartState>()(
       // Add item to cart
       addItem: (item) => {
         set((state) => {
-          // Check if item already exists (same product + variant)
+          // Check if item already exists (same product + variant + options)
           const existingIndex = state.items.findIndex(
             (i) =>
               i.product_id === item.product_id &&
-              i.variant_id === item.variant_id
+              i.variant_id === item.variant_id &&
+              (i.color ?? null) === (item.color ?? null) &&
+              (i.storage ?? null) === (item.storage ?? null) &&
+              (i.condition ?? null) === (item.condition ?? null)
           );
 
           if (existingIndex >= 0) {

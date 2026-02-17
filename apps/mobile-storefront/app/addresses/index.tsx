@@ -134,12 +134,17 @@ export default function AddressesScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            if (!user?.id) {
+              Alert.alert('Error', 'Please sign in to manage addresses');
+              return;
+            }
+
             try {
               const { error: deleteError } = await supabase
                 .from('customer_addresses')
                 .delete()
                 .eq('id', address.id)
-                .eq('customer_id', user?.id);
+                .eq('customer_id', user.id);
 
               if (deleteError) throw deleteError;
 

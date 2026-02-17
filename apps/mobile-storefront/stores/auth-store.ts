@@ -119,7 +119,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           merchantId: null,
           isLoading: false,
           isInitialized: true,
-        });
+          _initializationInProgress: false,
+        } as Partial<AuthState>);
         return;
       }
 
@@ -135,6 +136,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw sessionError;
       }
 
+      // After getting session, validate JWT with server
+      if (session) {
+        const { error: userError } = await supabase.auth.getUser();
+        if (userError) {
+          // Session is invalid/expired — clear and return in guest mode
+          log.warn('Session JWT validation failed:', userError.message);
+          set({
+            user: null,
+            session: null,
+            customer: null,
+            isLoading: false,
+            isInitialized: true,
+            _initializationInProgress: false,
+          } as Partial<AuthState>);
+          return;
+        }
+      }
+
       if (session?.user) {
         // M25 fix: Guard against undefined email before using in query
         if (!session.user.email) {
@@ -145,7 +164,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             customer: null,
             isLoading: false,
             isInitialized: true,
-          });
+            _initializationInProgress: false,
+          } as Partial<AuthState>);
           return;
         }
 
@@ -697,13 +717,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: false, error: 'Not logged in' };
       }
 
-      // BUG-3-006: Validate session before profile update
+      // BUG-3-006: Validate auth server-side before profile update
       const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
+        data: { user: verifiedUser },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-      if (sessionError || !session) {
+      if (authError || !verifiedUser) {
         log.warn('Session expired during profile update');
         return {
           success: false,

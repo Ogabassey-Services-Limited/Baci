@@ -242,8 +242,9 @@ export async function calculateCommerce(
         body: { action, data },
       });
 
+      let timeoutId: ReturnType<typeof setTimeout>;
       const timeoutPromise = new Promise<never>((_resolve, reject) => {
-        setTimeout(() => {
+        timeoutId = setTimeout(() => {
           reject(
             new CommerceError(
               'Request timed out. Please check your connection and try again.',
@@ -253,9 +254,15 @@ export async function calculateCommerce(
         }, EDGE_FUNCTION_TIMEOUT);
       });
 
-      const response = await Promise.race([invokePromise, timeoutPromise]);
-      result = response.data;
-      error = response.error;
+      try {
+        const response = await Promise.race([invokePromise, timeoutPromise]);
+        clearTimeout(timeoutId!);
+        result = response.data;
+        error = response.error;
+      } catch (e) {
+        clearTimeout(timeoutId!);
+        error = e;
+      }
     } catch (e) {
       error = e;
     }

@@ -45,6 +45,7 @@ const _imagePickerReady = loadNativeModules();
 
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
+import { fetchWithTimeout, LONG_TIMEOUT } from '@/lib/fetch-with-timeout';
 import { createLogger } from '@/lib/logger';
 import {
   type AIAnalysisResult,
@@ -95,6 +96,7 @@ export default function SwapScreen() {
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [result, setResult] = useState<AIAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const pickVideo = async () => {
     // Bug #M21: Await module load to prevent race condition
@@ -167,7 +169,8 @@ export default function SwapScreen() {
   };
 
   const startAnalysis = async () => {
-    if (!videoUri) return;
+    if (!videoUri || isAnalyzing) return;
+    setIsAnalyzing(true);
 
     setStep('analyzing');
     setError(null);
@@ -191,16 +194,27 @@ export default function SwapScreen() {
 
       // Bug #H20: Do NOT set Content-Type manually for multipart/form-data.
       // Let fetch auto-set it with the correct boundary parameter.
-      const response = await fetch(`${API_BASE_URL}/api/ai/grade-device`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const rawData = await response.json();
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/api/ai/grade-device`,
+        {
+          method: 'POST',
+          body: formData,
+          timeout: LONG_TIMEOUT,
+        }
+      );
 
       if (!response.ok) {
-        throw new Error(rawData?.error || 'Failed to analyze device');
+        let errorMsg = `Server error (HTTP ${response.status})`;
+        try {
+          const errData = await response.json();
+          if (errData?.error) errorMsg = errData.error;
+        } catch {
+          /* non-JSON response */
+        }
+        throw new Error(errorMsg);
       }
+
+      const rawData = await response.json();
 
       // Bug #68: Validate AI response with Zod; do NOT fall back to unvalidated data
       const validated = parseApiResponse(
@@ -225,6 +239,8 @@ export default function SwapScreen() {
           : 'Analysis failed. Please try again.'
       );
       setStep('upload');
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -495,10 +511,11 @@ export default function SwapScreen() {
                     style={[
                       styles.analyzeButton,
                       { backgroundColor: BRAND.primary },
-                      !videoUri && styles.analyzeButtonDisabled,
+                      (!videoUri || isAnalyzing) &&
+                        styles.analyzeButtonDisabled,
                     ]}
                     onPress={startAnalysis}
-                    disabled={!videoUri}
+                    disabled={!videoUri || isAnalyzing}
                   >
                     <Text style={styles.analyzeButtonText}>Analyze Device</Text>
                     <Ionicons name="arrow-forward" size={20} color="#FFF" />

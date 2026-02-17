@@ -91,8 +91,16 @@ export function useReviews({
                 )
                 .map((r: Record<string, unknown>) => ({
                   ...r,
-                  rating: typeof r.rating === 'number' ? r.rating : 0,
-                  comment: typeof r.comment === 'string' ? r.comment : '',
+                  rating:
+                    typeof r.rating === 'number' && r.rating >= 1
+                      ? r.rating
+                      : 1,
+                  body:
+                    typeof r.body === 'string'
+                      ? r.body
+                      : typeof r.comment === 'string'
+                        ? r.comment
+                        : '',
                   customer_name:
                     typeof r.customer_name === 'string'
                       ? r.customer_name
@@ -107,7 +115,7 @@ export function useReviews({
           if (
             rawData?.stats &&
             typeof rawData.stats === 'object' &&
-            typeof rawData.stats.average === 'number'
+            typeof rawData.stats.average_rating === 'number'
           ) {
             setStats(rawData.stats);
           }

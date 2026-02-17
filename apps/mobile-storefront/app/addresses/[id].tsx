@@ -131,14 +131,14 @@ export default function AddressFormScreen() {
 
       if (data) {
         setForm({
-          label: data.label || 'Home',
-          name: data.name || '',
-          phone: data.phone || '',
-          address: data.address || '',
-          city: data.city || '',
-          state: data.state || 'Lagos',
-          postal_code: data.postal_code || '',
-          is_default: data.is_default || false,
+          label: data.label ?? 'Home',
+          name: data.name ?? '',
+          phone: data.phone ?? '',
+          address: data.address ?? '',
+          city: data.city ?? '',
+          state: data.state ?? 'Lagos',
+          postal_code: data.postal_code ?? '',
+          is_default: data.is_default ?? false,
         });
       }
     } catch (err) {
@@ -183,10 +183,16 @@ export default function AddressFormScreen() {
     try {
       // If setting as default, unset other defaults first
       if (form.is_default) {
-        await supabase
+        const clearQuery = supabase
           .from('customer_addresses')
           .update({ is_default: false })
           .eq('customer_id', user.id);
+
+        if (!isNewAddress) {
+          clearQuery.neq('id', id);
+        }
+
+        await clearQuery;
       }
 
       if (isNewAddress) {

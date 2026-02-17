@@ -7,7 +7,13 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type Href, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import Animated, {
   useAnimatedScrollHandler,
   useSharedValue,
@@ -16,7 +22,6 @@ import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ELITE_HEIGHT = 220; // Wide horizontal rectangle matching web parity
 const CAROUSEL_HEIGHT = 450;
 const STANDARD_HEIGHT = 220;
@@ -47,9 +52,15 @@ const heroImageProps = {
 };
 
 // --- SUB-COMPONENT: Elite Web-Alike Slide ---
-const EliteSlide = ({ item }: { item: HeroSlide }) => {
+const EliteSlide = ({
+  item,
+  screenWidth,
+}: {
+  item: HeroSlide;
+  screenWidth: number;
+}) => {
   return (
-    <View style={styles.eliteSlideContainer}>
+    <View style={[styles.eliteSlideContainer, { width: screenWidth }]}>
       <View style={styles.eliteCard}>
         {/* Background Image/Gradient - mocked as light gradient for now */}
         <LinearGradient
@@ -90,8 +101,14 @@ const EliteSlide = ({ item }: { item: HeroSlide }) => {
 };
 
 // --- SUB-COMPONENT: Fashion Carousel Slide ---
-const FashionSlide = ({ item }: { item: HeroSlide }) => (
-  <View style={[styles.slide, { height: CAROUSEL_HEIGHT }]}>
+const FashionSlide = ({
+  item,
+  screenWidth,
+}: {
+  item: HeroSlide;
+  screenWidth: number;
+}) => (
+  <View style={[styles.slide, { width: screenWidth, height: CAROUSEL_HEIGHT }]}>
     <Image
       source={{ uri: item.image }}
       style={StyleSheet.absoluteFill}
@@ -115,9 +132,18 @@ const FashionSlide = ({ item }: { item: HeroSlide }) => (
 );
 
 // --- SUB-COMPONENT: Standard Banner Slide ---
-const StandardSlide = ({ item }: { item: HeroSlide }) => (
+const StandardSlide = ({
+  item,
+  screenWidth,
+}: {
+  item: HeroSlide;
+  screenWidth: number;
+}) => (
   <View
-    style={[styles.slide, { height: STANDARD_HEIGHT, padding: SPACING.md }]}
+    style={[
+      styles.slide,
+      { width: screenWidth, height: STANDARD_HEIGHT, padding: SPACING.md },
+    ]}
   >
     <Image
       source={{ uri: item.image }}
@@ -145,6 +171,7 @@ export function Hero({
   slides = DEFAULT_SLIDES,
   autoplayDelay = 5000,
 }: HeroProps) {
+  const { width: screenWidth } = useWindowDimensions();
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const scrollX = useSharedValue(0);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -177,11 +204,11 @@ export function Hero({
   const renderSlide = ({ item }: { item: HeroSlide }) => {
     switch (template.heroVariant) {
       case 'parallax':
-        return <EliteSlide item={item} />;
+        return <EliteSlide item={item} screenWidth={screenWidth} />;
       case 'carousel':
-        return <FashionSlide item={item} />;
+        return <FashionSlide item={item} screenWidth={screenWidth} />;
       default:
-        return <StandardSlide item={item} />;
+        return <StandardSlide item={item} screenWidth={screenWidth} />;
     }
   };
 
@@ -198,7 +225,7 @@ export function Hero({
         onScroll={onScroll}
         onMomentumScrollEnd={(e) =>
           setCurrentIndex(
-            Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH)
+            Math.round(e.nativeEvent.contentOffset.x / screenWidth)
           )
         }
         scrollEventThrottle={16}
@@ -219,19 +246,16 @@ export function Hero({
 }
 
 const styles = StyleSheet.create({
-  slide: { width: SCREEN_WIDTH, position: 'relative', overflow: 'hidden' },
+  slide: { position: 'relative', overflow: 'hidden' },
   imageWrapper: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
   imageContainer: {
-    width: SCREEN_WIDTH * 1.3,
     height: '100%',
-    left: -SCREEN_WIDTH * 0.15,
   },
   slideImage: { width: '100%', height: '100%' },
   gradient: { position: 'absolute', inset: 0 },
 
   // Elite Web-Alike Styles
   eliteSlideContainer: {
-    width: SCREEN_WIDTH,
     height: ELITE_HEIGHT,
     paddingHorizontal: SPACING.md,
     marginTop: 0, // Removed negative margin to sit BELOW searchbar

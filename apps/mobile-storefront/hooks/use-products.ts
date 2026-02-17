@@ -84,7 +84,10 @@ function transformProduct(item: unknown): Product {
     condition: product.condition as Product['condition'],
     rating: 4.5,
     review_count: 0,
-    in_stock: true,
+    manage_stock: (product.manage_stock as boolean) ?? false,
+    in_stock:
+      !(product.manage_stock as boolean) ||
+      ((product.stock_quantity as number) ?? 0) > 0,
   };
 }
 
@@ -149,7 +152,7 @@ async function fetchProductsPage(
     .select(
       `
       id, name, slug, description, price, compare_at_price,
-      images, brand, condition,
+      images, brand, condition, manage_stock, stock_quantity,
       categories (id, name, slug)
     `,
       { count: 'exact' }
@@ -178,6 +181,9 @@ async function fetchProductsPage(
   }
   if (options.maxPrice !== undefined) {
     query = query.lte('price', options.maxPrice);
+  }
+  if (options.minRating !== undefined && options.minRating > 0) {
+    query = query.gte('average_rating', options.minRating);
   }
 
   switch (options.sortBy) {
@@ -351,7 +357,7 @@ export function useProduct(slug: string) {
           `
           id, name, slug, description, price, compare_at_price,
           images, brand, condition, specifications,
-          has_variants, variant_attributes,
+          has_variants, variant_attributes, manage_stock, stock_quantity,
           categories (id, name, slug)
         `
         )
@@ -465,7 +471,7 @@ export function usePrefetchProduct() {
             `
             id, name, slug, description, price, compare_at_price,
             images, brand, condition, specifications,
-            has_variants, variant_attributes,
+            has_variants, variant_attributes, manage_stock, stock_quantity,
             categories (id, name, slug)
           `
           )

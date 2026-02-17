@@ -10,6 +10,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   Pressable,
@@ -447,9 +448,17 @@ export default function TrackOrderScreen() {
                 </View>
                 {shipping_tracking.tracking_url && (
                   <Pressable
-                    onPress={() =>
-                      Linking.openURL(shipping_tracking.tracking_url)
-                    }
+                    onPress={() => {
+                      const url = shipping_tracking.tracking_url;
+                      if (url && /^https?:\/\//i.test(url)) {
+                        Linking.openURL(url);
+                      } else {
+                        Alert.alert(
+                          'Tracking Unavailable',
+                          'No valid tracking link available.'
+                        );
+                      }
+                    }}
                     style={[
                       styles.trackBtn,
                       { backgroundColor: BRAND.primaryLight },

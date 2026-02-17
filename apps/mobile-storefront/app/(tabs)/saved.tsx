@@ -142,7 +142,7 @@ export default function SavedTabScreen() {
                 {item.name}
               </Text>
               <Text style={[styles.productPrice, { color: BRAND.primary }]}>
-                ₦{item.price.toLocaleString()}
+                ₦{(item.price ?? 0).toLocaleString()}
               </Text>
               {!isOnline && (
                 <Text

@@ -13,7 +13,13 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -40,9 +46,6 @@ export function sanitizeDescriptionPlainText(input: string): string {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const GRID_WIDTH = (SCREEN_WIDTH - 48) / 2;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -85,6 +88,9 @@ export function ProductCard({
   isWishlisted: _isWishlisted = false,
   blurhash = DEFAULT_BLURHASH,
 }: ProductCardProps) {
+  const { width: screenWidth } = useWindowDimensions();
+  const gridWidth = (screenWidth - 48) / 2;
+
   const scale = useSharedValue(1);
   const heartScale = useSharedValue(1);
   const addItem = useCartStore((state) => state.addItem);
@@ -257,7 +263,11 @@ export function ProductCard({
         onPress={handlePress}
         onPressIn={handleAnimateIn}
         onPressOut={handleAnimateOut}
-        style={[styles.editorialContainer, animatedStyle]}
+        style={[
+          styles.editorialContainer,
+          { width: screenWidth - 32 },
+          animatedStyle,
+        ]}
       >
         {fallbackError ? (
           <View style={[styles.editorialImage, styles.imagePlaceholder]}>
@@ -388,6 +398,7 @@ export function ProductCard({
       style={[
         styles.gridContainer,
         {
+          width: gridWidth,
           backgroundColor: '#FFF',
           borderColor: '#F3F4F6',
           shadowColor: colors.black,
@@ -499,7 +510,6 @@ export function ProductCard({
 
 const styles = StyleSheet.create({
   gridContainer: {
-    width: GRID_WIDTH,
     borderRadius: RADIUS.xl,
     padding: 8,
     marginBottom: 16,
@@ -678,7 +688,6 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   editorialContainer: {
-    width: SCREEN_WIDTH - 32,
     marginBottom: 24,
     marginHorizontal: 16,
   },
