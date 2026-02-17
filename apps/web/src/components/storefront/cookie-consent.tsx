@@ -2,7 +2,7 @@
 
 import { Cookie, Settings2, Shield, X } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { Button } from '@/components/ui/button';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -44,7 +44,7 @@ export function CookieConsent() {
     }
   }, []);
 
-  const saveConsent = useCallback((prefs: CookiePreferences) => {
+  const saveConsent = (prefs: CookiePreferences) => {
     localStorage.setItem(
       COOKIE_CONSENT_KEY,
       JSON.stringify({
@@ -67,9 +67,9 @@ export function CookieConsent() {
         detail: prefs,
       })
     );
-  }, []);
+  };
 
-  const acceptAll = useCallback(() => {
+  const acceptAll = () => {
     const allAccepted: CookiePreferences = {
       necessary: true,
       analytics: true,
@@ -78,15 +78,15 @@ export function CookieConsent() {
     };
     setPreferences(allAccepted);
     saveConsent(allAccepted);
-  }, [saveConsent]);
+  };
 
-  const acceptNecessary = useCallback(() => {
+  const acceptNecessary = () => {
     saveConsent(defaultPreferences);
-  }, [saveConsent]);
+  };
 
-  const savePreferences = useCallback(() => {
+  const savePreferences = () => {
     saveConsent(preferences);
-  }, [preferences, saveConsent]);
+  };
 
   if (!isVisible) return null;
 

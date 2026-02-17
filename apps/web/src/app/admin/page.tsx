@@ -15,7 +15,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -83,34 +83,31 @@ export default function AdminDashboardPage() {
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
   const { toast } = useToast();
 
-  const fetchAnalytics = useCallback(
-    async (showRefreshToast = false) => {
-      try {
-        if (showRefreshToast) setRefreshing(true);
-        const response = await fetch(`/api/admin/analytics?period=${period}`);
-        if (!response.ok) throw new Error('Failed to fetch analytics');
-        const data = await response.json();
-        setAnalytics(data);
-        if (showRefreshToast) {
-          toast({
-            title: 'Data Refreshed',
-            description: 'Platform analytics have been updated.',
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch analytics:', error);
+  const fetchAnalytics = async (showRefreshToast = false) => {
+    try {
+      if (showRefreshToast) setRefreshing(true);
+      const response = await fetch(`/api/admin/analytics?period=${period}`);
+      if (!response.ok) throw new Error('Failed to fetch analytics');
+      const data = await response.json();
+      setAnalytics(data);
+      if (showRefreshToast) {
         toast({
-          title: 'Error',
-          description: 'Failed to load platform analytics.',
-          variant: 'destructive',
+          title: 'Data Refreshed',
+          description: 'Platform analytics have been updated.',
         });
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
       }
-    },
-    [period, toast]
-  );
+    } catch (error) {
+      console.error('Failed to fetch analytics:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load platform analytics.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   const handleRefreshViews = async () => {
     try {
@@ -162,9 +159,10 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
     fetchAnalytics();
-  }, [fetchAnalytics]);
+  }, [period, toast]);
 
   const healthData = analytics
     ? [

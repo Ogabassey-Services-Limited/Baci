@@ -114,7 +114,8 @@ export function formatCurrencyWithConfig(
     return formatter.format(amount);
   } catch {
     // Fallback for unsupported locales
-    return `${config.symbol}${amount.toFixed(2)}`;
+    const digits = options?.maximumFractionDigits ?? 2;
+    return `${config.symbol}${amount.toFixed(digits)}`;
   }
 }
 

@@ -11,7 +11,7 @@ import {
   Upload,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useCallback, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -44,7 +44,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
   const { toast } = useToast();
 
   // Load existing files
-  const loadFiles = useCallback(async () => {
+  const loadFiles = async () => {
     setLoading(true);
     try {
       const response = await fetch('/api/media');
@@ -61,12 +61,13 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  };
 
   // Load files on mount
-  useState(() => {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadFiles is stable, only run on mount
+  useEffect(() => {
     loadFiles();
-  });
+  }, []);
 
   // Handle file upload
   const handleUpload = async (fileList: FileList | null) => {

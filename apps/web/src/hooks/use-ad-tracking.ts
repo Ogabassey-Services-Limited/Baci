@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   type AdTrackingData,
   generateEventId,
@@ -89,11 +89,11 @@ export function useAdTracking() {
    * This ID should be used for BOTH the client-side Pixel event
    * AND passed in ad_tracking when creating the order
    */
-  const generatePurchaseEventId = useCallback(() => {
+  const generatePurchaseEventId = () => {
     const eventId = generateEventId();
     setPurchaseEventId(eventId);
     return eventId;
-  }, []);
+  };
 
   /**
    * Get tracking data formatted for order creation
@@ -101,146 +101,130 @@ export function useAdTracking() {
    *
    * @param eventId - Optional event ID override (if not using generatePurchaseEventId)
    */
-  const getTrackingForOrder = useCallback(
-    (eventId?: string): AdTrackingData => {
-      return {
-        ...trackingData,
-        eventId: eventId || purchaseEventId || undefined,
-        limitedDataUse: isCaliforniaUser,
-      };
-    },
-    [trackingData, purchaseEventId, isCaliforniaUser]
-  );
+  const getTrackingForOrder = (eventId?: string): AdTrackingData => {
+    return {
+      ...trackingData,
+      eventId: eventId || purchaseEventId || undefined,
+      limitedDataUse: isCaliforniaUser,
+    };
+  };
 
   /**
    * Fire Facebook Pixel event with proper event ID for deduplication
    * Returns the event ID used (for passing to order creation)
    */
-  const trackFacebookPurchase = useCallback(
-    (value: number, currency: string, contentIds?: string[]) => {
-      const eventId = generatePurchaseEventId();
+  const trackFacebookPurchase = (
+    value: number,
+    currency: string,
+    contentIds?: string[]
+  ) => {
+    const eventId = generatePurchaseEventId();
 
-      // Fire Facebook Pixel if available
-      const win = getWindow();
-      win?.fbq?.(
-        'track',
-        'Purchase',
-        {
-          value,
-          currency,
-          content_ids: contentIds,
-          content_type: 'product',
-        },
-        { eventID: eventId }
-      );
+    // Fire Facebook Pixel if available
+    const win = getWindow();
+    win?.fbq?.(
+      'track',
+      'Purchase',
+      {
+        value,
+        currency,
+        content_ids: contentIds,
+        content_type: 'product',
+      },
+      { eventID: eventId }
+    );
 
-      return eventId;
-    },
-    [generatePurchaseEventId]
-  );
+    return eventId;
+  };
 
   /**
    * Fire TikTok Pixel event with proper event ID for deduplication
    * Returns the event ID used (for passing to order creation)
    */
-  const trackTikTokPurchase = useCallback(
-    (value: number, currency: string, contentIds?: string[]) => {
-      const eventId = generatePurchaseEventId();
+  const trackTikTokPurchase = (
+    value: number,
+    currency: string,
+    contentIds?: string[]
+  ) => {
+    const eventId = generatePurchaseEventId();
 
-      // Fire TikTok Pixel if available
-      const win = getWindow();
-      win?.ttq?.track('CompletePayment', {
-        value,
-        currency,
-        contents: contentIds?.map((id) => ({ content_id: id })),
-        event_id: eventId,
-      });
+    // Fire TikTok Pixel if available
+    const win = getWindow();
+    win?.ttq?.track('CompletePayment', {
+      value,
+      currency,
+      contents: contentIds?.map((id) => ({ content_id: id })),
+      event_id: eventId,
+    });
 
-      return eventId;
-    },
-    [generatePurchaseEventId]
-  );
+    return eventId;
+  };
 
   /**
    * Fire purchase events on all configured platforms
    * Returns tracking data ready for order creation
    */
-  const trackPurchase = useCallback(
-    (
-      value: number,
-      currency: string,
-      contentIds?: string[]
-    ): AdTrackingData => {
-      const eventId = generatePurchaseEventId();
-      const win = getWindow();
+  const trackPurchase = (
+    value: number,
+    currency: string,
+    contentIds?: string[]
+  ): AdTrackingData => {
+    const eventId = generatePurchaseEventId();
+    const win = getWindow();
 
-      // Fire Facebook Pixel
-      win?.fbq?.(
-        'track',
-        'Purchase',
-        {
-          value,
-          currency,
-          content_ids: contentIds,
-          content_type: 'product',
-        },
-        { eventID: eventId }
-      );
-
-      // Fire TikTok Pixel
-      win?.ttq?.track('CompletePayment', {
+    // Fire Facebook Pixel
+    win?.fbq?.(
+      'track',
+      'Purchase',
+      {
         value,
         currency,
-        contents: contentIds?.map((id) => ({ content_id: id })),
-        event_id: eventId,
-      });
+        content_ids: contentIds,
+        content_type: 'product',
+      },
+      { eventID: eventId }
+    );
 
-      // Fire Google Analytics
-      win?.gtag?.('event', 'purchase', {
-        transaction_id: eventId,
-        value,
-        currency,
-        items: contentIds?.map((id) => ({ item_id: id })),
-      });
+    // Fire TikTok Pixel
+    win?.ttq?.track('CompletePayment', {
+      value,
+      currency,
+      contents: contentIds?.map((id) => ({ content_id: id })),
+      event_id: eventId,
+    });
 
-      // Fire Snapchat Pixel
-      win?.snaptr?.('track', 'PURCHASE', {
-        price: value,
-        currency,
-        transaction_id: eventId,
-        item_ids: contentIds,
-      });
+    // Fire Google Analytics
+    win?.gtag?.('event', 'purchase', {
+      transaction_id: eventId,
+      value,
+      currency,
+      items: contentIds?.map((id) => ({ item_id: id })),
+    });
 
-      return getTrackingForOrder(eventId);
-    },
-    [generatePurchaseEventId, getTrackingForOrder]
-  );
+    // Fire Snapchat Pixel
+    win?.snaptr?.('track', 'PURCHASE', {
+      price: value,
+      currency,
+      transaction_id: eventId,
+      item_ids: contentIds,
+    });
 
-  return useMemo(
-    () => ({
-      // Raw tracking data from cookies
-      trackingData,
-      // Privacy flags
-      isCaliforniaUser,
-      // Event ID management
-      purchaseEventId,
-      generatePurchaseEventId,
-      // Helper to get data for order creation
-      getTrackingForOrder,
-      // Convenience methods for firing Pixel events with deduplication
-      trackFacebookPurchase,
-      trackTikTokPurchase,
-      trackPurchase,
-    }),
-    [
-      trackingData,
-      isCaliforniaUser,
-      purchaseEventId,
-      generatePurchaseEventId,
-      getTrackingForOrder,
-      trackFacebookPurchase,
-      trackTikTokPurchase,
-      trackPurchase,
-    ]
-  );
+    return getTrackingForOrder(eventId);
+  };
+
+  return {
+    // Raw tracking data from cookies
+    trackingData,
+    // Privacy flags
+    isCaliforniaUser,
+    // Event ID management
+    purchaseEventId,
+    generatePurchaseEventId,
+    // Helper to get data for order creation
+    getTrackingForOrder,
+    // Convenience methods for firing Pixel events with deduplication
+    trackFacebookPurchase,
+    trackTikTokPurchase,
+    trackPurchase,
+  };
 }

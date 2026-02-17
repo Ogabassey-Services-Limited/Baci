@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCachedBlogPost } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBlogPostSchema,
   generateBreadcrumbSchema,

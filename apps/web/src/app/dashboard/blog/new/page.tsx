@@ -4,7 +4,7 @@ import { ArrowLeft, Eye, Loader2, Save, Send, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BlogEditor } from '@/components/blog/blog-editor';
 import { ProductGrid } from '@/components/blog/product-embed';
 import {
@@ -172,10 +172,10 @@ export default function NewBlogPostPage() {
     setShowRecoveryDialog(false);
   };
 
-  const discardRecoveredDraft = useCallback(() => {
+  const discardRecoveredDraft = () => {
     clearSavedData();
     setShowRecoveryDialog(false);
-  }, [clearSavedData]);
+  };
 
   // Auto-generate slug from title
   const handleTitleChange = (title: string) => {
@@ -191,66 +191,60 @@ export default function NewBlogPostPage() {
     }));
   };
 
-  const handleChange = useCallback(
-    (field: keyof PostFormData, value: string) => {
-      setFormData((prev) => ({ ...prev, [field]: value }));
-    },
-    []
-  );
+  const handleChange = (field: keyof PostFormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const [isUploading, setIsUploading] = useState(false);
 
   // Handle featured image selection and upload
-  const handleFeaturedImageUpload = useCallback(
-    async (files: File[]) => {
-      if (files.length === 0) return;
+  const handleFeaturedImageUpload = async (files: File[]) => {
+    if (files.length === 0) return;
 
-      setIsUploading(true);
-      const file = files[0];
-      const formDataUpload = new FormData();
-      formDataUpload.append('file', file);
+    setIsUploading(true);
+    const file = files[0];
+    const formDataUpload = new FormData();
+    formDataUpload.append('file', file);
 
-      try {
-        const csrfToken = getClientCsrfToken();
-        const headers: HeadersInit = {};
-        if (csrfToken) {
-          headers['x-csrf-token'] = csrfToken;
-        }
-
-        const response = await fetch('/api/merchant/blog/upload', {
-          method: 'POST',
-          headers,
-          body: formDataUpload,
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to upload image');
-        }
-
-        const data = await response.json();
-        handleChange('featured_image_url', data.url);
-        toast({
-          title: 'Success',
-          description: 'Featured image uploaded successfully.',
-        });
-      } catch (error) {
-        console.error('Error uploading image:', error);
-        toast({
-          title: 'Error',
-          description:
-            error instanceof Error ? error.message : 'Failed to upload image',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsUploading(false);
+    try {
+      const csrfToken = getClientCsrfToken();
+      const headers: HeadersInit = {};
+      if (csrfToken) {
+        headers['x-csrf-token'] = csrfToken;
       }
-    },
-    [handleChange, toast]
-  );
+
+      const response = await fetch('/api/merchant/blog/upload', {
+        method: 'POST',
+        headers,
+        body: formDataUpload,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to upload image');
+      }
+
+      const data = await response.json();
+      handleChange('featured_image_url', data.url);
+      toast({
+        title: 'Success',
+        description: 'Featured image uploaded successfully.',
+      });
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error ? error.message : 'Failed to upload image',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   // Image upload handler for the editor
-  const handleImageUpload = useCallback(async (file: File): Promise<string> => {
+  const handleImageUpload = async (file: File): Promise<string> => {
     const formDataUpload = new FormData();
     formDataUpload.append('file', file);
 
@@ -273,7 +267,7 @@ export default function NewBlogPostPage() {
 
     const data = await response.json();
     return data.url;
-  }, []);
+  };
 
   const validateForm = (): string | null => {
     if (!formData.title.trim()) return 'Title is required';

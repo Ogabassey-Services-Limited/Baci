@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 // import { ThemedButton } from '@/components/themed';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
@@ -38,13 +38,13 @@ export function OgabasseyHero({
     return () => clearInterval(interval);
   }, [slides.length, autoplayDelay]);
 
-  const goToPrevious = useCallback(() => {
+  const goToPrevious = () => {
     setCurrentIndex((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
-  }, [slides.length]);
+  };
 
-  const goToNext = useCallback(() => {
+  const goToNext = () => {
     setCurrentIndex((prev) => (prev + 1) % slides.length);
-  }, [slides.length]);
+  };
 
   if (slides.length === 0) {
     return null;

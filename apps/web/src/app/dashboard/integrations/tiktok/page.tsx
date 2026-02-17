@@ -2,7 +2,6 @@
 
 import { AlertCircle, ArrowLeft, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback } from 'react';
 import { FeedUrlSection } from '@/components/dashboard/integrations/feed-url-section';
 import { TrackingPixelSection } from '@/components/dashboard/integrations/tracking-pixel-section';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -36,15 +35,12 @@ export default function TikTokIntegrationPage() {
       platformName: 'TikTok',
     });
 
-  const handleSave = useCallback(
-    async (pixelId: string, token: string) => {
-      await saveSettings({
-        tiktok_pixel_id: pixelId || null,
-        tiktok_access_token: token || null,
-      });
-    },
-    [saveSettings]
-  );
+  const handleSave = async (pixelId: string, token: string) => {
+    await saveSettings({
+      tiktok_pixel_id: pixelId || null,
+      tiktok_access_token: token || null,
+    });
+  };
 
   if (!hasMerchant || isLoading) {
     return <div>Loading...</div>;

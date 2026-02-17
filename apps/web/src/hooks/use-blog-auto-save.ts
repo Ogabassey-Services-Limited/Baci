@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface AutoSaveOptions<T> {
   /**
@@ -82,16 +82,16 @@ export function useBlogAutoSave<T>({
   }, [data, storageKey, debounceMs, enabled]);
 
   // Clear saved data (call after successful save to server)
-  const clearSavedData = useCallback(() => {
+  const clearSavedData = () => {
     try {
       localStorage.removeItem(storageKey);
     } catch {
       // Ignore errors
     }
-  }, [storageKey]);
+  };
 
   // Check if there's saved data
-  const hasSavedData = useCallback((): boolean => {
+  const hasSavedData = (): boolean => {
     try {
       const saved = localStorage.getItem(storageKey);
       if (!saved) return false;
@@ -107,10 +107,10 @@ export function useBlogAutoSave<T>({
     } catch {
       return false;
     }
-  }, [storageKey]);
+  };
 
   // Get saved data
-  const getSavedData = useCallback((): { data: T; savedAt: Date } | null => {
+  const getSavedData = (): { data: T; savedAt: Date } | null => {
     try {
       const saved = localStorage.getItem(storageKey);
       if (!saved) return null;
@@ -123,7 +123,7 @@ export function useBlogAutoSave<T>({
     } catch {
       return null;
     }
-  }, [storageKey]);
+  };
 
   return {
     clearSavedData,

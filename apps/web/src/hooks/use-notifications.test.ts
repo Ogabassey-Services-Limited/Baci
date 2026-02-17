@@ -19,7 +19,12 @@ vi.mock('@/lib/supabase/client', () => ({
 }));
 
 vi.mock('@/hooks/use-merchant', () => ({
-  useMerchant: vi.fn(() => ({ merchant: { id: 'merchant-123' } })),
+  useMerchant: vi.fn(() => ({
+    merchant: { id: 'merchant-123' },
+    loading: false,
+    error: null,
+    refetch: vi.fn(),
+  })),
 }));
 
 import { useMerchant } from '@/hooks/use-merchant';
@@ -41,6 +46,9 @@ beforeEach(() => {
   );
   vi.mocked(useMerchant).mockReturnValue({
     merchant: { id: 'merchant-123' },
+    loading: false,
+    error: null,
+    refetch: vi.fn(),
   } as any);
 
   // Mock global fetch with default response
@@ -59,7 +67,12 @@ describe('useNotifications', () => {
   describe('Initial state', () => {
     it('returns loading state initially', () => {
       // Arrange
-      vi.mocked(useMerchant).mockReturnValue({ merchant: null } as any);
+      vi.mocked(useMerchant).mockReturnValue({
+        merchant: null,
+        loading: false,
+        error: null,
+        refetch: vi.fn(),
+      } as any);
 
       // Act
       const { result } = renderHook(() => useNotifications());
@@ -75,7 +88,12 @@ describe('useNotifications', () => {
 
     it('provides all expected actions', () => {
       // Arrange
-      vi.mocked(useMerchant).mockReturnValue({ merchant: null } as any);
+      vi.mocked(useMerchant).mockReturnValue({
+        merchant: null,
+        loading: false,
+        error: null,
+        refetch: vi.fn(),
+      } as any);
 
       // Act
       const { result } = renderHook(() => useNotifications());
@@ -191,7 +209,12 @@ describe('useNotifications', () => {
 
     it('does not fetch when merchant is null', async () => {
       // Arrange
-      vi.mocked(useMerchant).mockReturnValue({ merchant: null } as any);
+      vi.mocked(useMerchant).mockReturnValue({
+        merchant: null,
+        loading: false,
+        error: null,
+        refetch: vi.fn(),
+      } as any);
       const fetchSpy = vi.fn();
       global.fetch = fetchSpy;
 
@@ -370,7 +393,12 @@ describe('useNotifications', () => {
 
     it('does not set up channel when merchant is null', async () => {
       // Arrange
-      vi.mocked(useMerchant).mockReturnValue({ merchant: null } as any);
+      vi.mocked(useMerchant).mockReturnValue({
+        merchant: null,
+        loading: false,
+        error: null,
+        refetch: vi.fn(),
+      } as any);
 
       // Act
       renderHook(() => useNotifications());
@@ -524,6 +552,9 @@ describe('useNotifications', () => {
 
         vi.mocked(useMerchant).mockReturnValue({
           merchant: { id: 'merchant-123' },
+          loading: false,
+          error: null,
+          refetch: vi.fn(),
         } as any);
 
         const { result } = renderHook(() => useNotifications());
@@ -614,6 +645,9 @@ describe('useNotifications', () => {
 
         vi.mocked(useMerchant).mockReturnValue({
           merchant: { id: 'merchant-123' },
+          loading: false,
+          error: null,
+          refetch: vi.fn(),
         } as any);
 
         const { result } = renderHook(() => useNotifications());
@@ -695,6 +729,9 @@ describe('useNotifications', () => {
 
         vi.mocked(useMerchant).mockReturnValue({
           merchant: { id: 'merchant-123' },
+          loading: false,
+          error: null,
+          refetch: vi.fn(),
         } as any);
 
         const { result } = renderHook(() => useNotifications());
@@ -741,6 +778,9 @@ describe('useNotifications', () => {
       // Arrange
       vi.mocked(useMerchant).mockReturnValue({
         merchant: { id: 'merchant-123' },
+        loading: false,
+        error: null,
+        refetch: vi.fn(),
       } as any);
 
       // Act

@@ -3,7 +3,6 @@
 import {
   createContext,
   type ReactNode,
-  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -114,111 +113,100 @@ export const ProductProvider: React.FC<{
     setEditingProduct(null);
   };
 
-  const fetchProducts = useCallback(
-    async (force = false) => {
-      // **FIX**: Do not fetch if auth is still loading or if there's no user
-      if (authLoading || !user) {
-        // If we know there's no user, stop loading and clear data.
-        if (!authLoading && !user) {
-          setProducts([]);
-          setIsLoading(false);
-        }
-        return;
-      }
-
-      const params = new URLSearchParams({
-        page: pagination.page.toString(),
-        limit: pagination.limit.toString(),
-        search: searchTerm,
-        status: statusFilter,
-        stock: stockFilter,
-      });
-      const paramsString = params.toString();
-
-      // Prevent rapid re-fetching (throttle to 1s)
-      const now = Date.now();
-      // biome-ignore lint/suspicious/noExplicitAny: Using function property for quick throttle patch
-      const lastFetch = (fetchProducts as any).lastFetch || 0;
-      if (now - lastFetch < 1000) {
-        console.log('Throttling product fetch');
-        return;
-      }
-      // Store timestamp on the function object (or use a ref in real implementation, but this works for quick patch)
-      // biome-ignore lint/suspicious/noExplicitAny: Using function property for quick throttle patch
-      (fetchProducts as any).lastFetch = now;
-
-      // Prevent duplicate fetches with same parameters
-      if (
-        !force &&
-        (fetchInProgressRef.current ||
-          paramsString === lastFetchParamsRef.current)
-      ) {
-        return;
-      }
-
-      fetchInProgressRef.current = true;
-      lastFetchParamsRef.current = paramsString;
-      setIsLoading(true);
-      try {
-        const response = await fetch(`/api/products?${params}`);
-        if (!response.ok) {
-          // Silently fail on 401/403/404/500/429
-          if ([401, 403, 404, 500, 429].includes(response.status)) {
-            if (response.status === 429) {
-              console.warn(
-                'Rate limit hit for products fetch. Retrying in 5s...'
-              );
-              // Optional: Validation or backoff logic here
-            }
-            fetchInProgressRef.current = false;
-            setIsLoading(false);
-            return;
-          }
-          console.error(
-            `Fetch failed with status: ${response.status} ${response.statusText}`
-          );
-          throw new Error(`Failed to fetch products: ${response.status}`);
-        }
-
-        const data = await response.json();
-        setProducts(data.products || []);
-        setPagination(data.pagination);
-        setStats(
-          data.stats || {
-            inventoryValue: 0,
-            outOfStockCount: 0,
-            categoryCount: 0,
-          }
-        );
-      } catch (error) {
-        console.error('Error fetching products:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load products',
-          variant: 'destructive',
-        });
-      } finally {
-        fetchInProgressRef.current = false;
+  const fetchProducts = async (force = false) => {
+    // **FIX**: Do not fetch if auth is still loading or if there's no user
+    if (authLoading || !user) {
+      // If we know there's no user, stop loading and clear data.
+      if (!authLoading && !user) {
+        setProducts([]);
         setIsLoading(false);
       }
-    },
-    [
-      pagination.page,
-      pagination.limit,
-      searchTerm,
-      statusFilter,
-      stockFilter,
-      toast,
-      authLoading,
-      user,
-    ]
-  );
+      return;
+    }
+
+    const params = new URLSearchParams({
+      page: pagination.page.toString(),
+      limit: pagination.limit.toString(),
+      search: searchTerm,
+      status: statusFilter,
+      stock: stockFilter,
+    });
+    const paramsString = params.toString();
+
+    // Prevent rapid re-fetching (throttle to 1s)
+    const now = Date.now();
+    // biome-ignore lint/suspicious/noExplicitAny: Using function property for quick throttle patch
+    const lastFetch = (fetchProducts as any).lastFetch || 0;
+    if (now - lastFetch < 1000) {
+      console.log('Throttling product fetch');
+      return;
+    }
+    // Store timestamp on the function object (or use a ref in real implementation, but this works for quick patch)
+    // biome-ignore lint/suspicious/noExplicitAny: Using function property for quick throttle patch
+    (fetchProducts as any).lastFetch = now;
+
+    // Prevent duplicate fetches with same parameters
+    if (
+      !force &&
+      (fetchInProgressRef.current ||
+        paramsString === lastFetchParamsRef.current)
+    ) {
+      return;
+    }
+
+    fetchInProgressRef.current = true;
+    lastFetchParamsRef.current = paramsString;
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/products?${params}`);
+      if (!response.ok) {
+        // Silently fail on 401/403/404/500/429
+        if ([401, 403, 404, 500, 429].includes(response.status)) {
+          if (response.status === 429) {
+            console.warn(
+              'Rate limit hit for products fetch. Retrying in 5s...'
+            );
+            // Optional: Validation or backoff logic here
+          }
+          fetchInProgressRef.current = false;
+          setIsLoading(false);
+          return;
+        }
+        console.error(
+          `Fetch failed with status: ${response.status} ${response.statusText}`
+        );
+        throw new Error(`Failed to fetch products: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setProducts(data.products || []);
+      setPagination(data.pagination);
+      setStats(
+        data.stats || {
+          inventoryValue: 0,
+          outOfStockCount: 0,
+          categoryCount: 0,
+        }
+      );
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load products',
+        variant: 'destructive',
+      });
+    } finally {
+      fetchInProgressRef.current = false;
+      setIsLoading(false);
+    }
+  };
 
   // Removed automatic fetch on mount since we hydrate from server data
   // Only re-fetch when filters/pagination change AFTER initial load
   // We use a ref to track if it's the first render
   const isFirstRender = useRef(true);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchProducts is stable, dependencies managed explicitly
   useEffect(() => {
     // Skip the first render if we have initialData, as it matches the server state
     if (initialData && isFirstRender.current) {
@@ -226,7 +214,15 @@ export const ProductProvider: React.FC<{
       return;
     }
     fetchProducts();
-  }, [fetchProducts, initialData]);
+  }, [
+    pagination,
+    searchTerm,
+    statusFilter,
+    stockFilter,
+    user,
+    authLoading,
+    initialData,
+  ]);
 
   const setPage = (page: number) => {
     setPagination((prev) => ({ ...prev, page }));

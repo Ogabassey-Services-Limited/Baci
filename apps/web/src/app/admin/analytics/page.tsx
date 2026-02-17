@@ -10,7 +10,7 @@ import {
   TrendingUp,
   Users,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -100,7 +100,7 @@ export default function AnalyticsPage() {
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
   const { toast } = useToast();
 
-  const fetchAnalytics = useCallback(async () => {
+  const fetchAnalytics = async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/analytics?period=${period}`);
@@ -147,11 +147,12 @@ export default function AnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  }, [period, toast]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
     fetchAnalytics();
-  }, [fetchAnalytics]);
+  }, [period, toast]);
 
   const chartData =
     analytics?.dailyData.map((d) => ({

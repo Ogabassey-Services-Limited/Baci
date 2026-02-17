@@ -10,7 +10,7 @@ import {
   Save,
   Settings2,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { PlatformSettings } from '@/app/api/admin/settings/route';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,7 +33,7 @@ export default function PlatformSettingsPage() {
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
-  const fetchSettings = useCallback(async () => {
+  const fetchSettings = async () => {
     try {
       const response = await fetch('/api/admin/settings');
       if (!response.ok) throw new Error('Failed to fetch settings');
@@ -49,11 +49,12 @@ export default function PlatformSettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
     fetchSettings();
-  }, [fetchSettings]);
+  }, [toast]);
 
   const handleSave = async () => {
     if (!settings) return;

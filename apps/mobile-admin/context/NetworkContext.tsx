@@ -8,19 +8,14 @@
  * - Integrates with TanStack Query for mutation queueing
  */
 
+import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect } from 'react';
-import {
-  StyleSheet,
-  Text,
-  useColorScheme,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQueryClient } from '@tanstack/react-query';
-import { Ionicons } from '@expo/vector-icons';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
-import { useNetworkState, type NetworkState } from '@/hooks/useNetworkState';
+import { type NetworkState, useNetworkState } from '@/hooks/useNetworkState';
 
 interface NetworkContextValue extends NetworkState {
   refresh: () => Promise<void>;
@@ -51,7 +46,9 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
   useEffect(() => {
     return networkState.onReconnect(() => {
       if (__DEV__) {
-        console.log('[NetworkProvider] Connection restored - invalidating queries');
+        console.log(
+          '[NetworkProvider] Connection restored - invalidating queries'
+        );
       }
       // Invalidate all queries to refetch fresh data
       queryClient.invalidateQueries();
@@ -79,7 +76,7 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
             style={styles.icon}
           />
           <Text style={styles.bannerText}>
-            You're offline. Changes will sync when connected.
+            No internet connection. Some features may be unavailable.
           </Text>
         </View>
       )}

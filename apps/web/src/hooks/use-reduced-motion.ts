@@ -2,37 +2,30 @@
 
 import { useEffect, useState } from 'react';
 
+const QUERY = '(prefers-reduced-motion: reduce)';
+
+function getInitialValue(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia(QUERY).matches;
+}
+
 /**
- * Hook to detect if the user prefers reduced motion
- * Returns true if the user has enabled reduced motion in their OS
+ * Hook to detect if the user prefers reduced motion.
+ * Uses a lazy initializer so the first render reflects the user's preference
+ * without a one-frame flash.
  */
 export function useReducedMotion() {
-  const [shouldReduceMotion, setShouldReduceMotion] = useState(false);
+  const [shouldReduceMotion, setShouldReduceMotion] = useState(getInitialValue);
 
   useEffect(() => {
-    // Check if window is defined (client-side)
-    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia(QUERY);
 
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-    // Set initial value
-    setShouldReduceMotion(mediaQuery.matches);
-
-    // Listen for changes
     const listener = (event: MediaQueryListEvent) => {
       setShouldReduceMotion(event.matches);
     };
 
-    // Modern browsers support addEventListener on MediaQueryList
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', listener);
-      return () => mediaQuery.removeEventListener('change', listener);
-    }
-    // Fallback for older browsers
-    else {
-      mediaQuery.addListener(listener);
-      return () => mediaQuery.removeListener(listener);
-    }
+    mediaQuery.addEventListener('change', listener);
+    return () => mediaQuery.removeEventListener('change', listener);
   }, []);
 
   return shouldReduceMotion;

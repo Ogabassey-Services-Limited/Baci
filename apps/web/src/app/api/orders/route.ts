@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
       .select(
-        'id, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email'
+        'id, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
       )
       .eq('id', merchant_id)
       .single();
@@ -615,6 +615,8 @@ export async function POST(request: NextRequest) {
             },
             merchantName: merchant.business_name,
             merchantUrl,
+            merchantTin: merchant.tax_identification_number ?? undefined,
+            merchantRcNumber: merchant.cac_rc_number ?? undefined,
           };
 
           const htmlContent = generateOrderConfirmationEmail(emailData);

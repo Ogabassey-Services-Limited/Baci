@@ -17,13 +17,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react';
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useState,
-} from 'react';
+import { createContext, type ReactNode, useContext, useState } from 'react';
 import {
   FEATURE_METADATA,
   type FeatureKey,
@@ -69,18 +63,18 @@ export function UpgradeModalProvider({ children }: { children: ReactNode }) {
   const [feature, setFeature] = useState<FeatureKey | null>(null);
   const [targetPlan, setTargetPlan] = useState<PlanTier>('pro');
 
-  const open = useCallback((feat: FeatureKey) => {
+  const open = (feat: FeatureKey) => {
     setFeature(feat);
     const metadata = FEATURE_METADATA[feat];
     setTargetPlan(metadata?.minPlan ?? 'pro');
     setIsOpen(true);
-  }, []);
+  };
 
-  const close = useCallback(() => {
+  const close = () => {
     setIsOpen(false);
     // Delay clearing feature so animation can complete
     setTimeout(() => setFeature(null), 300);
-  }, []);
+  };
 
   return (
     <UpgradeModalContext.Provider

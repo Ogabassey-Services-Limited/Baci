@@ -2,7 +2,6 @@
 
 import DOMPurify from 'isomorphic-dompurify';
 import { AlertCircle, CheckCircle, Scale, ScrollText } from 'lucide-react';
-import { useMemo } from 'react';
 import AppBody from '@/components/app-body';
 import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
@@ -36,7 +35,7 @@ export function TermsPageClient({
   sanitizedContent,
 }: TermsPageClientProps) {
   // Defense-in-depth: sanitize on client if server-sanitized content not provided
-  const safeHtml = useMemo(() => {
+  const safeHtml = (() => {
     // Ensure even server-provided content passes through client sanitizer for defense-in-depth to satisfy CodeQL
     if (sanitizedContent) return DOMPurify.sanitize(sanitizedContent);
     if (!content) return undefined;
@@ -95,7 +94,7 @@ export function TermsPageClient({
         'alt',
       ],
     });
-  }, [content, sanitizedContent]);
+  })();
 
   return (
     <MerchantProvider slug={merchant.slug}>

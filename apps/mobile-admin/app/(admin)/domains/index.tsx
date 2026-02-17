@@ -127,7 +127,7 @@ export default function DomainsDashboard() {
         >
           <StoreLinkCard
             primaryDomain={merchantPrimaryDomain?.domain}
-            merchantSlug={merchant?.slug}
+            merchantSlug={merchant?.slug || undefined}
           />
 
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>

@@ -1,11 +1,13 @@
 /**
  * Network State Hook for Mobile Admin
  *
- * 2026 Best Practices for Offline/Network Handling:
- * - Provides real-time network state monitoring via NetInfo
- * - Supports reconnection detection for data refresh
+ * Provides real-time network state monitoring via NetInfo with a debounce
+ * on the offline transition to avoid false positives from brief NetInfo
+ * blips (common on iOS Simulator and during wifi/cellular handoffs).
+ *
+ * - Offline transitions are debounced (2 s) to prevent flash banners
+ * - Online transitions are immediate so the UI recovers quickly
  * - Integrates with TanStack Query's onlineManager
- * - Enables offline-first patterns for admin operations
  */
 
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
@@ -19,7 +21,7 @@ export interface NetworkState {
   isInternetReachable: boolean | null;
   /** Network connection type (wifi, cellular, etc.) */
   connectionType: string | null;
-  /** Combined online status - true if connected AND internet reachable */
+  /** Combined online status — debounced before going offline */
   isOnline: boolean;
   /** Whether connection was recently restored (for UI indicators) */
   wasRecentlyReconnected: boolean;
@@ -32,26 +34,11 @@ interface UseNetworkStateResult extends NetworkState {
   onReconnect: (callback: () => void) => () => void;
 }
 
-/**
- * Hook for monitoring network connectivity state
- *
- * @example
- * ```tsx
- * const { isOnline, wasRecentlyReconnected, onReconnect } = useNetworkState();
- *
- * // Show offline banner when not online
- * if (!isOnline) {
- *   return <OfflineBanner />;
- * }
- *
- * // Refetch data when connection is restored
- * useEffect(() => {
- *   return onReconnect(() => {
- *     queryClient.invalidateQueries();
- *   });
- * }, [onReconnect]);
- * ```
- */
+/** How long (ms) to wait before confirming "offline" to the UI */
+const OFFLINE_DEBOUNCE_MS = 2000;
+/** How long (ms) to show the "back online" banner */
+const RECONNECT_BANNER_MS = 3000;
+
 export function useNetworkState(): UseNetworkStateResult {
   const [state, setState] = useState<NetworkState>({
     isConnected: true,
@@ -66,86 +53,113 @@ export function useNetworkState(): UseNetworkStateResult {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const offlineDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Subscribe to network state changes
-    const unsubscribe = NetInfo.addEventListener((netState: NetInfoState) => {
+    const handleNetState = (netState: NetInfoState) => {
       const isConnected = netState.isConnected ?? true;
       const isInternetReachable = netState.isInternetReachable ?? true;
-      const isOnline = isConnected && isInternetReachable !== false;
+      const rawOnline = isConnected && isInternetReachable !== false;
 
-      // Sync with TanStack Query's online manager
-      onlineManager.setOnline(isOnline);
+      // Always sync TanStack Query immediately (mutations should pause fast)
+      onlineManager.setOnline(rawOnline);
 
-      // Detect reconnection (was offline, now online)
-      const wasJustReconnected = wasOffline.current && isOnline;
-
-      setState({
-        isConnected,
-        isInternetReachable,
-        connectionType: netState.type,
-        isOnline,
-        wasRecentlyReconnected: wasJustReconnected,
-      });
-
-      // Execute reconnect callbacks when connection is restored
-      if (wasJustReconnected) {
-        if (__DEV__) {
-          console.log('[Network] Connection restored - executing reconnect callbacks');
+      if (rawOnline) {
+        // Going ONLINE — apply immediately and cancel any pending offline timer
+        if (offlineDebounceRef.current) {
+          clearTimeout(offlineDebounceRef.current);
+          offlineDebounceRef.current = null;
         }
-        reconnectCallbacks.current.forEach((callback) => {
-          try {
-            callback();
-          } catch (error) {
-            console.error('[Network] Error in reconnect callback:', error);
-          }
+
+        const wasJustReconnected = wasOffline.current;
+
+        setState({
+          isConnected,
+          isInternetReachable,
+          connectionType: netState.type,
+          isOnline: true,
+          wasRecentlyReconnected: wasJustReconnected,
         });
 
-        // Clear previous timeout before setting new one (prevent memory leak)
-        if (reconnectTimeoutRef.current) {
-          clearTimeout(reconnectTimeoutRef.current);
+        if (wasJustReconnected) {
+          if (__DEV__) {
+            console.log(
+              '[Network] Connection restored — executing reconnect callbacks'
+            );
+          }
+          for (const cb of reconnectCallbacks.current) {
+            try {
+              cb();
+            } catch (error) {
+              console.error('[Network] Error in reconnect callback:', error);
+            }
+          }
+
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+          }
+          reconnectTimeoutRef.current = setTimeout(() => {
+            setState((prev) => ({ ...prev, wasRecentlyReconnected: false }));
+            reconnectTimeoutRef.current = null;
+          }, RECONNECT_BANNER_MS);
         }
-        // Clear the wasRecentlyReconnected flag after 3 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          setState((prev) => ({ ...prev, wasRecentlyReconnected: false }));
-          reconnectTimeoutRef.current = null;
-        }, 3000);
+
+        wasOffline.current = false;
+      } else {
+        // Going OFFLINE — debounce before showing the banner.
+        // This filters out brief NetInfo blips on iOS Simulator and
+        // during wifi↔cellular handoffs.
+        if (!offlineDebounceRef.current) {
+          offlineDebounceRef.current = setTimeout(() => {
+            offlineDebounceRef.current = null;
+            wasOffline.current = true;
+            setState({
+              isConnected,
+              isInternetReachable,
+              connectionType: netState.type,
+              isOnline: false,
+              wasRecentlyReconnected: false,
+            });
+            if (__DEV__) {
+              console.log('[Network] Device confirmed offline');
+            }
+          }, OFFLINE_DEBOUNCE_MS);
+        }
       }
+    };
 
-      wasOffline.current = !isOnline;
+    const unsubscribe = NetInfo.addEventListener(handleNetState);
 
-      // Log network state changes for debugging
-      if (!isOnline && __DEV__) {
-        console.log('[Network] Device went offline');
-      }
-    });
-
-    // Fetch initial network state
+    // Fetch initial state — only set to online immediately; offline is debounced
+    // through the listener so we don't flash the banner on startup
     NetInfo.fetch().then((netState) => {
       const isConnected = netState.isConnected ?? true;
       const isInternetReachable = netState.isInternetReachable ?? true;
-      const isOnline = isConnected && isInternetReachable !== false;
+      const rawOnline = isConnected && isInternetReachable !== false;
 
-      // Sync initial state with TanStack Query
-      onlineManager.setOnline(isOnline);
+      onlineManager.setOnline(rawOnline);
 
-      setState({
-        isConnected,
-        isInternetReachable,
-        connectionType: netState.type,
-        isOnline,
-        wasRecentlyReconnected: false,
-      });
-
-      wasOffline.current = !isOnline;
+      if (rawOnline) {
+        setState({
+          isConnected,
+          isInternetReachable,
+          connectionType: netState.type,
+          isOnline: true,
+          wasRecentlyReconnected: false,
+        });
+      }
+      wasOffline.current = !rawOnline;
     });
 
-    // Cleanup on unmount
     return () => {
       unsubscribe();
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
+      }
+      if (offlineDebounceRef.current) {
+        clearTimeout(offlineDebounceRef.current);
+        offlineDebounceRef.current = null;
       }
     };
   }, []);
@@ -179,19 +193,4 @@ export function useNetworkState(): UseNetworkStateResult {
     refresh,
     onReconnect,
   };
-}
-
-/**
- * Configure TanStack Query's online manager to use NetInfo
- * Call this once at app initialization (in QueryProvider)
- */
-export function setupNetworkListener(): () => void {
-  // Set up NetInfo listener for TanStack Query
-  const unsubscribe = NetInfo.addEventListener((state) => {
-    const isOnline =
-      state.isConnected === true && state.isInternetReachable !== false;
-    onlineManager.setOnline(isOnline);
-  });
-
-  return unsubscribe;
 }

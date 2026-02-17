@@ -4,11 +4,12 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import SafeImage from '@/components/ui/SafeImage';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SvgUri } from 'react-native-svg';
 import { BaciLogo } from '@/components/BaciLogo';
+import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useCachedImageUri } from '@/hooks/useCachedImageUri';
 import { useTheme } from '@/hooks/useTheme';
 
 interface WelcomeHeaderProps {
@@ -29,6 +30,7 @@ export function WelcomeHeader({
   notificationCount = 0,
 }: WelcomeHeaderProps) {
   const { colors } = useTheme();
+  const { uri: cachedAvatarUri } = useCachedImageUri(avatarUrl);
 
   // Determine avatar type
   const isSvgDataUri = avatarUrl?.startsWith('data:image/svg');
@@ -50,11 +52,11 @@ export function WelcomeHeader({
         </View>
       );
     }
-    if (canShowImage) {
-      // Regular image URL (PNG, JPG, etc.)
+    if (canShowImage && cachedAvatarUri) {
+      // Regular image URL (PNG, JPG, etc.) — use locally cached version
       return (
         <SafeImage
-          source={{ uri: avatarUrl }}
+          source={{ uri: cachedAvatarUri }}
           style={[styles.avatar, { backgroundColor: colors.card }]}
         />
       );

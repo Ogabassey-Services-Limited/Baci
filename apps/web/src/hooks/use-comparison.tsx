@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useState,
-} from 'react';
+import { createContext, type ReactNode, useContext, useState } from 'react';
 
 interface ComparisonContextType {
   comparisonIds: Set<string>;
@@ -24,12 +18,9 @@ const ComparisonContext = createContext<ComparisonContextType | undefined>(
 export function ComparisonProvider({ children }: { children: ReactNode }) {
   const [comparisonIds, setComparisonIds] = useState<Set<string>>(new Set());
 
-  const isInComparison = useCallback(
-    (id: string) => comparisonIds.has(id),
-    [comparisonIds]
-  );
+  const isInComparison = (id: string) => comparisonIds.has(id);
 
-  const toggleComparison = useCallback((id: string) => {
+  const toggleComparison = (id: string) => {
     setComparisonIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -39,23 +30,23 @@ export function ComparisonProvider({ children }: { children: ReactNode }) {
       }
       return next;
     });
-  }, []);
+  };
 
-  const addToComparison = useCallback((id: string) => {
+  const addToComparison = (id: string) => {
     setComparisonIds((prev) => new Set(prev).add(id));
-  }, []);
+  };
 
-  const removeFromComparison = useCallback((id: string) => {
+  const removeFromComparison = (id: string) => {
     setComparisonIds((prev) => {
       const next = new Set(prev);
       next.delete(id);
       return next;
     });
-  }, []);
+  };
 
-  const clearComparison = useCallback(() => {
+  const clearComparison = () => {
     setComparisonIds(new Set());
-  }, []);
+  };
 
   return (
     <ComparisonContext.Provider

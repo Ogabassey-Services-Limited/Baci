@@ -3,7 +3,7 @@
 // @imgly/background-removal dynamically imported at use to avoid 2MB ONNX bundle
 import { Image as ImageIcon, Loader2, Plus, Wand2, X } from 'lucide-react';
 import Image from 'next/image';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -417,27 +417,23 @@ export function VariantBuilder({
     }
   };
 
-  // Memoize specCombos calculation for performance
-  const specCombos = useMemo(() => {
-    return variants.reduce(
-      (combos, variant) => {
-        const specs = Object.entries(variant.attributes)
-          .filter(([key]) => key !== 'color')
-          .map(([, value]) => value)
-          .join(' / ');
-        if (specs && !combos.find((c) => c.label === specs)) {
-          const specAttrs = Object.fromEntries(
-            Object.entries(variant.attributes).filter(
-              ([key]) => key !== 'color'
-            )
-          );
-          combos.push({ label: specs, attributes: specAttrs });
-        }
-        return combos;
-      },
-      [] as Array<{ label: string; attributes: Record<string, string> }>
-    );
-  }, [variants]);
+  // Calculate specCombos for performance
+  const specCombos = variants.reduce(
+    (combos, variant) => {
+      const specs = Object.entries(variant.attributes)
+        .filter(([key]) => key !== 'color')
+        .map(([, value]) => value)
+        .join(' / ');
+      if (specs && !combos.find((c) => c.label === specs)) {
+        const specAttrs = Object.fromEntries(
+          Object.entries(variant.attributes).filter(([key]) => key !== 'color')
+        );
+        combos.push({ label: specs, attributes: specAttrs });
+      }
+      return combos;
+    },
+    [] as Array<{ label: string; attributes: Record<string, string> }>
+  );
 
   const renderGeneratedVariants = () => {
     // Get unique colors

@@ -14,7 +14,7 @@ import {
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 import { isDomainIdentifier } from '@/lib/validation';

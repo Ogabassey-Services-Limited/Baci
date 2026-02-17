@@ -1,7 +1,7 @@
 'use client';
 
 import Fuse from 'fuse.js';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { useStorefrontSafe } from '@/contexts/storefront-context';
@@ -57,9 +57,9 @@ export function StorefrontProductGrid({
   const { toast } = useToast();
   const storefrontContext = useStorefrontSafe();
 
-  // Optimization: Memoize cart items map for O(1) lookup in render loop
+  // Optimization: Cart items map for O(1) lookup in render loop
   // Preserves existing behavior: if multiple items have same ID (legacy), use the first one found
-  const cartItemsMap = useMemo(() => {
+  const cartItemsMap = (() => {
     const map = new Map();
     // Loop through cart to populate map. If duplicates exist, we keep the first one
     // to match .find() behavior which returns the first match.
@@ -70,7 +70,7 @@ export function StorefrontProductGrid({
       }
     }
     return map;
-  }, [cart]);
+  })();
 
   // Local state fallbacks for when context is missing (e.g. in builder)
   const [localSelectedCategory, setLocalSelectedCategory] = useState('All');
@@ -188,29 +188,26 @@ export function StorefrontProductGrid({
 
   const { formatCurrencyCompact } = useCurrency();
 
-  const priceRanges = useMemo(
-    () => [
-      { label: `Under ${formatCurrencyCompact(50)}`, min: 0, max: 50 },
-      {
-        label: `${formatCurrencyCompact(50)} - ${formatCurrencyCompact(100)}`,
-        min: 50,
-        max: 100,
-      },
-      {
-        label: `${formatCurrencyCompact(100)} - ${formatCurrencyCompact(200)}`,
-        min: 100,
-        max: 200,
-      },
-      {
-        label: `Over ${formatCurrencyCompact(200)}`,
-        min: 200,
-        max: Number.POSITIVE_INFINITY,
-      },
-    ],
-    [formatCurrencyCompact]
-  );
+  const priceRanges = [
+    { label: `Under ${formatCurrencyCompact(50)}`, min: 0, max: 50 },
+    {
+      label: `${formatCurrencyCompact(50)} - ${formatCurrencyCompact(100)}`,
+      min: 50,
+      max: 100,
+    },
+    {
+      label: `${formatCurrencyCompact(100)} - ${formatCurrencyCompact(200)}`,
+      min: 100,
+      max: 200,
+    },
+    {
+      label: `Over ${formatCurrencyCompact(200)}`,
+      min: 200,
+      max: Number.POSITIVE_INFINITY,
+    },
+  ];
 
-  const filterOptions = useMemo(() => {
+  const filterOptions = (() => {
     if (filterType === 'category') {
       const cats = new Set(
         products.map((p) => p.category).filter((c): c is string => !!c)
@@ -225,9 +222,9 @@ export function StorefrontProductGrid({
       return priceRanges.map((r) => r.label);
     }
     return [];
-  }, [products, filterType, priceRanges]);
+  })();
 
-  const fuse = useMemo(() => {
+  const fuse = (() => {
     if (products.length > 0) {
       return new Fuse(products, {
         keys: ['name', 'description', 'brand'],
@@ -236,9 +233,9 @@ export function StorefrontProductGrid({
       });
     }
     return null;
-  }, [products]);
+  })();
 
-  const categories = useMemo(() => {
+  const categories = (() => {
     const cats = new Set(
       products.map((p) => p.category).filter((c): c is string => !!c)
     );
@@ -255,9 +252,9 @@ export function StorefrontProductGrid({
     });
 
     return ['All', ...sorted];
-  }, [products, merchantContext?.navigationCategories]);
+  })();
 
-  const searchResults = useMemo(() => {
+  const searchResults = (() => {
     // Use server search results if available and search is active
     if (
       useServerSearch &&
@@ -316,19 +313,8 @@ export function StorefrontProductGrid({
     }
 
     return filtered.filter((p) => p.status === 'active').slice(0, limit);
-  }, [
-    debouncedSearchQuery,
-    fuse,
-    products,
-    selectedCategory,
-    limit,
-    filterType,
-    useServerSearch,
-    serverSearchResults,
-    priceRanges,
-  ]);
+  })();
 
-  // React Compiler handles memoization automatically - no manual useCallback needed
   const handleAddToCart = (product: Product) => {
     // Store merchant slug for checkout
     if (merchant?.slug) {

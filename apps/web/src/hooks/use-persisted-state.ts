@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Custom hook for state that persists to sessionStorage.
@@ -82,7 +82,7 @@ export function usePersistedState<T>(
   }, []);
 
   // Clear function to remove from storage
-  const clear = useCallback(() => {
+  const clear = () => {
     if (typeof window === 'undefined') return;
     try {
       const storageApi = storage === 'local' ? localStorage : sessionStorage;
@@ -91,7 +91,7 @@ export function usePersistedState<T>(
       // Ignore errors
     }
     setState(initialValue);
-  }, [key, storage, initialValue]);
+  };
 
   return [state, setState, clear];
 }
@@ -120,23 +120,17 @@ export function usePersistedForm<T extends Record<string, unknown>>(
     options
   );
 
-  const setValue = useCallback(
-    <K extends keyof T>(field: K, value: T[K]) => {
-      setValuesState((prev) => ({ ...prev, [field]: value }));
-    },
-    [setValuesState]
-  );
+  const setValue = <K extends keyof T>(field: K, value: T[K]) => {
+    setValuesState((prev) => ({ ...prev, [field]: value }));
+  };
 
-  const setValues = useCallback(
-    (updates: Partial<T>) => {
-      setValuesState((prev) => ({ ...prev, ...updates }));
-    },
-    [setValuesState]
-  );
+  const setValues = (updates: Partial<T>) => {
+    setValuesState((prev) => ({ ...prev, ...updates }));
+  };
 
-  const reset = useCallback(() => {
+  const reset = () => {
     setValuesState(initialValues);
-  }, [setValuesState, initialValues]);
+  };
 
   return { values, setValue, setValues, reset, clear };
 }

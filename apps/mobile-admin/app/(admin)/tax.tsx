@@ -1,20 +1,23 @@
 /**
  * Tax Settings Screen
- * Configure VAT settings for the merchant
+ * Configure VAT, tax identification, legal entity, and registered address
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
+  Modal,
   Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +25,53 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+
+const NIGERIAN_STATES = [
+  { name: 'Abia', code: 'NG-AB' },
+  { name: 'Adamawa', code: 'NG-AD' },
+  { name: 'Akwa Ibom', code: 'NG-AK' },
+  { name: 'Anambra', code: 'NG-AN' },
+  { name: 'Bauchi', code: 'NG-BA' },
+  { name: 'Bayelsa', code: 'NG-BY' },
+  { name: 'Benue', code: 'NG-BE' },
+  { name: 'Borno', code: 'NG-BO' },
+  { name: 'Cross River', code: 'NG-CR' },
+  { name: 'Delta', code: 'NG-DE' },
+  { name: 'Ebonyi', code: 'NG-EB' },
+  { name: 'Edo', code: 'NG-ED' },
+  { name: 'Ekiti', code: 'NG-EK' },
+  { name: 'Enugu', code: 'NG-EN' },
+  { name: 'FCT', code: 'NG-FC' },
+  { name: 'Gombe', code: 'NG-GO' },
+  { name: 'Imo', code: 'NG-IM' },
+  { name: 'Jigawa', code: 'NG-JI' },
+  { name: 'Kaduna', code: 'NG-KD' },
+  { name: 'Kano', code: 'NG-KN' },
+  { name: 'Katsina', code: 'NG-KT' },
+  { name: 'Kebbi', code: 'NG-KE' },
+  { name: 'Kogi', code: 'NG-KO' },
+  { name: 'Kwara', code: 'NG-KW' },
+  { name: 'Lagos', code: 'NG-LA' },
+  { name: 'Nasarawa', code: 'NG-NA' },
+  { name: 'Niger', code: 'NG-NI' },
+  { name: 'Ogun', code: 'NG-OG' },
+  { name: 'Ondo', code: 'NG-ON' },
+  { name: 'Osun', code: 'NG-OS' },
+  { name: 'Oyo', code: 'NG-OY' },
+  { name: 'Plateau', code: 'NG-PL' },
+  { name: 'Rivers', code: 'NG-RI' },
+  { name: 'Sokoto', code: 'NG-SO' },
+  { name: 'Taraba', code: 'NG-TA' },
+  { name: 'Yobe', code: 'NG-YO' },
+  { name: 'Zamfara', code: 'NG-ZA' },
+] as const;
+
+interface RegisteredAddress {
+  street?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+}
 
 export default function TaxScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -32,6 +82,43 @@ export default function TaxScreen() {
   const [vatEnabled, setVatEnabled] = useState(
     merchant?.vat_registration_status === 'registered'
   );
+  const [taxId, setTaxId] = useState(merchant?.tax_identification_number ?? '');
+  const [legalEntityName, setLegalEntityName] = useState(
+    merchant?.legal_entity_name ?? ''
+  );
+
+  // Address state
+  const [street, setStreet] = useState('');
+  const [city, setCity] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [stateCode, setStateCode] = useState('');
+  const [showStateModal, setShowStateModal] = useState(false);
+
+  // Fetch registered address (not in the RPC schema)
+  const { data: addressData } = useQuery({
+    queryKey: ['merchant-address', merchant?.id],
+    queryFn: async () => {
+      if (!merchant?.id) return null;
+      const { data } = await supabase
+        .from('merchants')
+        .select('registered_address, state_code')
+        .eq('id', merchant.id)
+        .single();
+      return data;
+    },
+    enabled: !!merchant?.id,
+  });
+
+  // Sync address data when fetched
+  React.useEffect(() => {
+    if (addressData) {
+      const addr = addressData.registered_address as RegisteredAddress | null;
+      setStreet(addr?.street ?? '');
+      setCity(addr?.city ?? '');
+      setPostalCode(addr?.postal_code ?? '');
+      setStateCode((addressData.state_code as string) ?? '');
+    }
+  }, [addressData]);
 
   // Update VAT status mutation
   const updateVatMutation = useMutation({
@@ -68,6 +155,76 @@ export default function TaxScreen() {
     },
   });
 
+  // Save TIN mutation
+  const saveTinMutation = useMutation({
+    mutationFn: async (tin: string) => {
+      if (!merchant?.id) throw new Error('No merchant found');
+      if (tin && !/^\d{10}$/.test(tin)) {
+        throw new Error('Nigerian TIN must be exactly 10 digits');
+      }
+      const { error } = await supabase
+        .from('merchants')
+        .update({ tax_identification_number: tin || null })
+        .eq('id', merchant.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['merchant'] });
+      Alert.alert('Success', 'Tax Identification Number saved.');
+    },
+    onError: (error: Error) => {
+      Alert.alert('Error', error.message);
+    },
+  });
+
+  // Save legal entity name mutation
+  const saveLegalEntityMutation = useMutation({
+    mutationFn: async (name: string) => {
+      if (!merchant?.id) throw new Error('No merchant found');
+      const { error } = await supabase
+        .from('merchants')
+        .update({ legal_entity_name: name || null })
+        .eq('id', merchant.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['merchant'] });
+      Alert.alert('Success', 'Legal entity name saved.');
+    },
+    onError: () => {
+      Alert.alert('Error', 'Failed to save legal entity name.');
+    },
+  });
+
+  // Save registered address mutation
+  const saveAddressMutation = useMutation({
+    mutationFn: async () => {
+      if (!merchant?.id) throw new Error('No merchant found');
+      const selectedState = NIGERIAN_STATES.find((s) => s.code === stateCode);
+      const { error } = await supabase
+        .from('merchants')
+        .update({
+          registered_address: {
+            street: street || null,
+            city: city || null,
+            state: selectedState?.name || null,
+            postal_code: postalCode || null,
+            country: 'Nigeria',
+          },
+          state_code: stateCode || null,
+        })
+        .eq('id', merchant.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['merchant-address'] });
+      Alert.alert('Success', 'Registered business address saved.');
+    },
+    onError: () => {
+      Alert.alert('Error', 'Failed to save address. Please try again.');
+    },
+  });
+
   const handleToggleVat = () => {
     const newValue = !vatEnabled;
 
@@ -87,11 +244,21 @@ export default function TaxScreen() {
     );
   };
 
+  const selectedStateName =
+    NIGERIAN_STATES.find((s) => s.code === stateCode)?.name ?? '';
+
   React.useEffect(() => {
     if (merchant) {
       setVatEnabled(merchant.vat_registration_status === 'registered');
+      setTaxId(merchant.tax_identification_number ?? '');
+      setLegalEntityName(merchant.legal_entity_name ?? '');
     }
-  }, [merchant, merchant?.vat_registration_status]);
+  }, [
+    merchant,
+    merchant?.vat_registration_status,
+    merchant?.tax_identification_number,
+    merchant?.legal_entity_name,
+  ]);
 
   if (isLoading) {
     return (
@@ -110,7 +277,6 @@ export default function TaxScreen() {
       <Stack.Screen
         options={{
           title: 'Tax Settings',
-          // headerBackTitleVisible: false,
           headerTintColor: colors.text,
           headerStyle: { backgroundColor: colors.background },
           headerShadowVisible: false,
@@ -257,9 +423,277 @@ export default function TaxScreen() {
                 Country
               </Text>
               <Text style={[styles.infoValue, { color: colors.text }]}>
-                Nigeria 🇳🇬
+                Nigeria
               </Text>
             </View>
+          </View>
+
+          {/* TIN Card */}
+          <View
+            style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+          >
+            <View style={styles.cardHeader}>
+              <View
+                style={[
+                  styles.iconContainer,
+                  { backgroundColor: colors.cardHover },
+                ]}
+              >
+                <Ionicons
+                  name="document-text-outline"
+                  size={24}
+                  color={colors.textSecondary}
+                />
+              </View>
+              <View style={styles.cardHeaderText}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>
+                  Tax Identification Number
+                </Text>
+                <Text
+                  style={[
+                    styles.toggleDescription,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Your 10-digit FIRS TIN
+                </Text>
+              </View>
+            </View>
+            <View
+              style={[styles.divider, { backgroundColor: colors.border }]}
+            />
+            <TextInput
+              style={[
+                styles.textInput,
+                {
+                  color: colors.text,
+                  backgroundColor: colors.cardHover,
+                  borderColor: colors.border,
+                },
+              ]}
+              placeholder="1234567890"
+              placeholderTextColor={colors.textMuted}
+              value={taxId}
+              onChangeText={(text) =>
+                setTaxId(text.replace(/\D/g, '').slice(0, 10))
+              }
+              keyboardType="number-pad"
+              maxLength={10}
+            />
+            <Pressable
+              style={[styles.saveButton, { backgroundColor: colors.primary }]}
+              onPress={() => saveTinMutation.mutate(taxId)}
+              disabled={saveTinMutation.isPending}
+            >
+              {saveTinMutation.isPending ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save TIN</Text>
+              )}
+            </Pressable>
+          </View>
+
+          {/* Legal Entity Name Card */}
+          <View
+            style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+          >
+            <View style={styles.cardHeader}>
+              <View
+                style={[
+                  styles.iconContainer,
+                  { backgroundColor: colors.cardHover },
+                ]}
+              >
+                <Ionicons
+                  name="business-outline"
+                  size={24}
+                  color={colors.textSecondary}
+                />
+              </View>
+              <View style={styles.cardHeaderText}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>
+                  Legal Entity Name
+                </Text>
+                <Text
+                  style={[
+                    styles.toggleDescription,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Registered name on CAC documents
+                </Text>
+              </View>
+            </View>
+            <View
+              style={[styles.divider, { backgroundColor: colors.border }]}
+            />
+            <TextInput
+              style={[
+                styles.textInput,
+                {
+                  color: colors.text,
+                  backgroundColor: colors.cardHover,
+                  borderColor: colors.border,
+                },
+              ]}
+              placeholder="e.g. Acme Enterprises Limited"
+              placeholderTextColor={colors.textMuted}
+              value={legalEntityName}
+              onChangeText={setLegalEntityName}
+            />
+            <Pressable
+              style={[styles.saveButton, { backgroundColor: colors.primary }]}
+              onPress={() => saveLegalEntityMutation.mutate(legalEntityName)}
+              disabled={saveLegalEntityMutation.isPending}
+            >
+              {saveLegalEntityMutation.isPending ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save</Text>
+              )}
+            </Pressable>
+          </View>
+
+          {/* Registered Address Card */}
+          <View
+            style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
+          >
+            <View style={styles.cardHeader}>
+              <View
+                style={[
+                  styles.iconContainer,
+                  { backgroundColor: colors.cardHover },
+                ]}
+              >
+                <Ionicons
+                  name="location-outline"
+                  size={24}
+                  color={colors.textSecondary}
+                />
+              </View>
+              <View style={styles.cardHeaderText}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>
+                  Registered Business Address
+                </Text>
+                <Text
+                  style={[
+                    styles.toggleDescription,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Official address for tax invoices
+                </Text>
+              </View>
+            </View>
+            <View
+              style={[styles.divider, { backgroundColor: colors.border }]}
+            />
+
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              Street Address
+            </Text>
+            <TextInput
+              style={[
+                styles.textInput,
+                {
+                  color: colors.text,
+                  backgroundColor: colors.cardHover,
+                  borderColor: colors.border,
+                },
+              ]}
+              placeholder="e.g. 123 Marina Road"
+              placeholderTextColor={colors.textMuted}
+              value={street}
+              onChangeText={setStreet}
+            />
+
+            <View style={styles.row}>
+              <View style={styles.halfField}>
+                <Text
+                  style={[styles.fieldLabel, { color: colors.textSecondary }]}
+                >
+                  City
+                </Text>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    {
+                      color: colors.text,
+                      backgroundColor: colors.cardHover,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  placeholder="e.g. Lagos"
+                  placeholderTextColor={colors.textMuted}
+                  value={city}
+                  onChangeText={setCity}
+                />
+              </View>
+              <View style={styles.halfField}>
+                <Text
+                  style={[styles.fieldLabel, { color: colors.textSecondary }]}
+                >
+                  Postal Code
+                </Text>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    {
+                      color: colors.text,
+                      backgroundColor: colors.cardHover,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  placeholder="e.g. 100001"
+                  placeholderTextColor={colors.textMuted}
+                  value={postalCode}
+                  onChangeText={setPostalCode}
+                  keyboardType="number-pad"
+                />
+              </View>
+            </View>
+
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+              State
+            </Text>
+            <Pressable
+              style={[
+                styles.stateSelector,
+                {
+                  backgroundColor: colors.cardHover,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => setShowStateModal(true)}
+            >
+              <Text
+                style={[
+                  styles.stateSelectorText,
+                  {
+                    color: selectedStateName ? colors.text : colors.textMuted,
+                  },
+                ]}
+              >
+                {selectedStateName || 'Select state...'}
+              </Text>
+              <Ionicons
+                name="chevron-down"
+                size={18}
+                color={colors.textSecondary}
+              />
+            </Pressable>
+
+            <Pressable
+              style={[styles.saveButton, { backgroundColor: colors.primary }]}
+              onPress={() => saveAddressMutation.mutate()}
+              disabled={saveAddressMutation.isPending}
+            >
+              {saveAddressMutation.isPending ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save Address</Text>
+              )}
+            </Pressable>
           </View>
 
           {/* Info Notice */}
@@ -284,6 +718,77 @@ export default function TaxScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      {/* State Picker Modal */}
+      <Modal
+        visible={showStateModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowStateModal(false)}
+      >
+        <View
+          style={[
+            styles.modalContainer,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <View
+            style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              Select State
+            </Text>
+            <Pressable
+              onPress={() => setShowStateModal(false)}
+              style={styles.closeButton}
+            >
+              <Ionicons name="close" size={24} color={colors.text} />
+            </Pressable>
+          </View>
+          <FlatList
+            data={NIGERIAN_STATES}
+            keyExtractor={(item) => item.code}
+            contentContainerStyle={{ padding: SPACING.md }}
+            renderItem={({ item }) => (
+              <Pressable
+                style={[
+                  styles.stateItem,
+                  {
+                    backgroundColor:
+                      stateCode === item.code
+                        ? colors.primaryLight
+                        : colors.card,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={() => {
+                  setStateCode(item.code);
+                  setShowStateModal(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.stateItemText,
+                    {
+                      color:
+                        stateCode === item.code ? colors.primary : colors.text,
+                    },
+                  ]}
+                >
+                  {item.name}
+                </Text>
+                {stateCode === item.code && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={colors.primary}
+                  />
+                )}
+              </Pressable>
+            )}
+          />
+        </View>
+      </Modal>
     </>
   );
 }
@@ -296,10 +801,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  backButton: {
-    padding: SPACING.sm,
-    marginLeft: -SPACING.sm,
   },
   scrollView: {
     flex: 1,
@@ -427,5 +928,85 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     lineHeight: 20,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    marginBottom: SPACING.sm,
+  },
+  saveButton: {
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.sm,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    height: 44,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  fieldLabel: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    marginBottom: SPACING.xs,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  halfField: {
+    flex: 1,
+  },
+  stateSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.md,
+    height: 44,
+  },
+  stateSelectorText: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontSize: TYPOGRAPHY.size.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  closeButton: {
+    padding: SPACING.xs,
+  },
+  stateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    marginBottom: SPACING.xs,
+  },
+  stateItemText: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
   },
 });

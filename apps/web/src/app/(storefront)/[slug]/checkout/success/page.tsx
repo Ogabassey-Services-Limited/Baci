@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -48,16 +48,15 @@ export default function CheckoutSuccessPage() {
   const basePath = merchantContext?.basePath || '';
   const storeName = merchantContext?.merchant?.business_name || 'Store';
 
-  const getHref = useCallback(
-    (path: string) => (path.startsWith('http') ? path : `${basePath}${path}`),
-    [basePath]
-  );
+  const getHref = (path: string) =>
+    path.startsWith('http') ? path : `${basePath}${path}`;
 
   const [status, setStatus] = useState<
     'verifying' | 'success' | 'pending' | 'failed'
   >('verifying');
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
     const verifyPayment = async () => {
       if (!reference) {
@@ -99,7 +98,7 @@ export default function CheckoutSuccessPage() {
     };
 
     verifyPayment();
-  }, [reference, clearCart, router, getHref]);
+  }, [reference, clearCart, router, basePath]);
 
   // Verifying State
   if (status === 'verifying') {

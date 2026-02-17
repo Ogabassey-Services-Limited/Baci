@@ -8,6 +8,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { createVirtualTerminal } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
 
@@ -171,17 +172,18 @@ export async function POST(request: NextRequest) {
  * GET /api/paystack/virtual-terminal
  * List all Virtual Terminals for the merchant from database
  */
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Support both Bearer token (mobile) and cookie-based (web) auth
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
     }
+    const { user } = auth;
+    const supabase = auth.supabase;
 
     // Get merchant
     const { data: merchant } = await supabase

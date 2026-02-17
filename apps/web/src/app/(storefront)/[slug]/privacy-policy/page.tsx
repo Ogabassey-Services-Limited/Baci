@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { PrivacyPageClient } from '../pages/privacy/privacy-page-client';
 
 interface PageProps {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   type AnalyticsCategory,
   AnalyticsCategoryNav,
@@ -53,22 +53,22 @@ export default function AnalyticsClientPage() {
     : null;
 
   // Placeholder fetch functions for specialized categories - implementation pending
-  const fetchInventoryData = useCallback(() => {
+  const fetchInventoryData = () => {
     // TODO: Implement actual data fetching
     return {};
-  }, []);
+  };
 
-  const fetchSegmentData = useCallback(() => {
+  const fetchSegmentData = () => {
     // TODO: Implement actual data fetching
     return {};
-  }, []);
+  };
 
-  const fetchAdAnalyticsData = useCallback(() => {
+  const fetchAdAnalyticsData = () => {
     // TODO: Implement actual data fetching
     return {};
-  }, []);
+  };
 
-  // Fetch base analytics data
+  // biome-ignore lint/correctness/useExhaustiveDependencies: using merchant?.id instead of merchant object avoids infinite loop without React Compiler
   useEffect(() => {
     const controller = new AbortController();
 
@@ -106,19 +106,15 @@ export default function AnalyticsClientPage() {
     fetchAnalytics();
 
     return () => controller.abort();
-  }, [merchant, date]);
+  }, [merchant?.id, date]);
 
   // Fetch specialized data when category changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: using merchant?.id instead of merchant object avoids infinite loop without React Compiler
   useEffect(() => {
     let isCancelled = false;
 
     async function fetchCategoryData() {
       if (!merchant) return;
-
-      // Reset category data when switching categories (optional but cleaner)
-      // Actually we might want to keep it if we want to cache, but for now let's just fetch fresh or rely on specific setters.
-      // Since we switch category, we only want the data for THAT category effectively.
-      // But the previous code merged it in.
 
       let newData = {};
 
@@ -136,7 +132,6 @@ export default function AnalyticsClientPage() {
         }
       } catch (error) {
         console.error('Error fetching category data:', error);
-        // Optional: toast error
       }
     }
 
@@ -145,13 +140,7 @@ export default function AnalyticsClientPage() {
     return () => {
       isCancelled = true;
     };
-  }, [
-    activeCategory,
-    merchant,
-    fetchInventoryData,
-    fetchSegmentData,
-    fetchAdAnalyticsData,
-  ]);
+  }, [activeCategory, merchant?.id]);
 
   const handleExport = (format: 'csv' | 'pdf') => {
     if (!analyticsData) {

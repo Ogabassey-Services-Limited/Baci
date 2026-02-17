@@ -286,9 +286,15 @@ export default function OrdersScreen() {
     refetch,
   } = useOrders(statusFilter || 'all', searchQuery, dateRange);
 
-  // Flatten pages into single array
+  // Flatten pages into single array, deduplicating by ID
   const allOrders = useMemo(() => {
-    return data?.pages.flatMap((page) => page.orders) ?? [];
+    const orders = data?.pages.flatMap((page) => page.orders) ?? [];
+    const seen = new Set<string>();
+    return orders.filter((o) => {
+      if (seen.has(o.id)) return false;
+      seen.add(o.id);
+      return true;
+    });
   }, [data]);
 
   // Fetch order counts

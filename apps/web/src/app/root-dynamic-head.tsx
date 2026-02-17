@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateOrganizationSchema,
   generateSoftwareApplicationSchema,

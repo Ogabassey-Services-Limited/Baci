@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LoyaltyEnrollmentForm } from '@/components/storefront/loyalty/loyalty-enrollment-form';
 import { LoyaltyStatusCard } from '@/components/storefront/loyalty/loyalty-status-card';
 import { RewardsCatalog } from '@/components/storefront/loyalty/rewards-catalog';
@@ -41,10 +41,43 @@ export default function RewardsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
 
-  // Fetch merchant info - extracted for retry functionality
-  const fetchMerchant = useCallback(async () => {
+  // Get customer from auth context (more secure than localStorage)
+  const { customer } = useCustomerAuth();
+
+  // Fetch merchant info on mount and when slug changes
+  useEffect(() => {
+    // Use customer from auth context instead of localStorage (prevents XSS exposure)
+    if (customer?.id) {
+      setCustomerId(customer.id);
+    }
+
+    const fetchMerchant = async () => {
+      setIsRetrying(true);
+      setError(null); // Clear error at start of retry for better UX
+      try {
+        const response = await fetch(`/api/storefront/merchant?slug=${slug}`);
+        if (response.ok) {
+          const data = await response.json();
+          setMerchantId(data.id);
+          setMerchantName(data.business_name || '');
+        } else {
+          setError('Failed to load merchant information');
+        }
+      } catch (err) {
+        console.error('Failed to fetch merchant:', err);
+        setError('Failed to load merchant information');
+      } finally {
+        setIsRetrying(false);
+      }
+    };
+
+    fetchMerchant();
+  }, [customer?.id, slug]);
+
+  // Retry handler for error state
+  const handleRetry = async () => {
     setIsRetrying(true);
-    setError(null); // Clear error at start of retry for better UX
+    setError(null);
     try {
       const response = await fetch(`/api/storefront/merchant?slug=${slug}`);
       if (response.ok) {
@@ -60,19 +93,7 @@ export default function RewardsPage() {
     } finally {
       setIsRetrying(false);
     }
-  }, [slug]);
-
-  // Get customer from auth context (more secure than localStorage)
-  const { customer } = useCustomerAuth();
-
-  useEffect(() => {
-    // Use customer from auth context instead of localStorage (prevents XSS exposure)
-    if (customer?.id) {
-      setCustomerId(customer.id);
-    }
-
-    fetchMerchant();
-  }, [fetchMerchant, customer?.id]);
+  };
 
   const { enrolled, loading, recentTransactions, getTierInfo, tier } =
     useLoyalty(merchantId || undefined, customerId || undefined);
@@ -89,7 +110,7 @@ export default function RewardsPage() {
                 Unable to Load Rewards
               </h2>
               <p className="text-muted-foreground mb-4">{error}</p>
-              <Button onClick={fetchMerchant} disabled={isRetrying}>
+              <Button onClick={handleRetry} disabled={isRetrying}>
                 {isRetrying ? 'Retrying...' : 'Try Again'}
               </Button>
             </div>

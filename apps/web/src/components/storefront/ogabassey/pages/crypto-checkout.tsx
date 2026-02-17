@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ShieldCheck,
@@ -156,7 +156,7 @@ export function CryptoCheckoutPage() {
     loading,
   ]);
 
-  const verifyCryptoPayment = useCallback(async () => {
+  const verifyCryptoPayment = async () => {
     const verificationId = cryptoData?.paymentId;
     if (!verificationId) {
       setStatus('failed');
@@ -237,7 +237,7 @@ export function CryptoCheckoutPage() {
         );
       }, 1500);
     }
-  }, [cryptoData, merchant?.slug, merchantSlugParam, router]);
+  };
 
   // Cleanup polling on unmount
   useEffect(() => {

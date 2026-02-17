@@ -2,7 +2,6 @@
 
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback } from 'react';
 import { SetupInstructions } from '@/components/analytics/setup-instructions';
 import { TrackingPixelSection } from '@/components/dashboard/integrations/tracking-pixel-section';
 import { Button } from '@/components/ui/button';
@@ -22,14 +21,11 @@ export default function TwitterIntegrationPage() {
       platformName: 'Twitter',
     });
 
-  const handleSave = useCallback(
-    async (newPixelId: string) => {
-      await saveSettings({
-        twitter_pixel_id: newPixelId || null,
-      });
-    },
-    [saveSettings]
-  );
+  const handleSave = async (newPixelId: string) => {
+    await saveSettings({
+      twitter_pixel_id: newPixelId || null,
+    });
+  };
 
   if (!hasMerchant || isLoading) {
     return <div>Loading...</div>;

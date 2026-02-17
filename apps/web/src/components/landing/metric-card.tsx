@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface MetricCardProps {
@@ -98,7 +98,7 @@ export function MetricCard({
   const cardRef = useRef<HTMLLIElement>(null);
   const { prefix, number: targetNumber, suffix, decimals } = parseValue(value);
 
-  const startAnimation = useCallback(() => {
+  const startAnimation = () => {
     const startTime = performance.now() + delay;
 
     const animate = (currentTime: number) => {
@@ -122,8 +122,9 @@ export function MetricCard({
     };
 
     requestAnimationFrame(animate);
-  }, [delay, duration, targetNumber, decimals]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
     const element = cardRef.current;
     if (!element || hasAnimated) return;
@@ -143,7 +144,7 @@ export function MetricCard({
       observer.unobserve(element);
       observerCallbacks.delete(element);
     };
-  }, [hasAnimated, startAnimation]);
+  }, [hasAnimated, delay, duration, targetNumber, decimals]);
 
   return (
     <li

@@ -1,9 +1,8 @@
 'use client';
 
-import { AnimatePresence, motion } from 'framer-motion';
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,26 +12,30 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 /**
+ * React 19 pattern: useSyncExternalStore to safely detect client-side
+ * rendering without useEffect + useState (which can cause infinite loops
+ * with React Compiler when combined with useTheme()).
+ */
+// biome-ignore lint/suspicious/noEmptyBlockStatements: intentional noop for useSyncExternalStore
+const emptySubscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+
+function useIsMounted() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    getClientSnapshot,
+    getServerSnapshot
+  );
+}
+
+/**
  * Theme Toggle Component
  * Allows users to switch between light, dark, and system themes.
- * Respects prefers-reduced-motion for animations.
  */
 export function ThemeToggle() {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  // Avoid hydration mismatch
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <Button variant="ghost" size="icon" className="h-11 w-11" disabled>
-        <span className="sr-only">Loading theme toggle</span>
-      </Button>
-    );
-  }
+  const mounted = useIsMounted();
 
   return (
     <DropdownMenu>
@@ -41,31 +44,20 @@ export function ThemeToggle() {
           variant="ghost"
           size="icon"
           className="h-11 w-11 min-w-[44px] min-h-[44px]"
-          aria-label={`Current theme: ${theme}. Click to change.`}
+          aria-label={
+            mounted
+              ? `Current theme: ${theme}. Click to change.`
+              : 'Toggle theme'
+          }
+          suppressHydrationWarning
         >
-          <AnimatePresence mode="wait" initial={false}>
-            {resolvedTheme === 'dark' ? (
-              <motion.div
-                key="moon"
-                initial={{ scale: 0, rotate: -90 }}
-                animate={{ scale: 1, rotate: 0 }}
-                exit={{ scale: 0, rotate: 90 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Moon className="h-5 w-5" />
-              </motion.div>
+          <span className="transition-transform duration-200">
+            {mounted && resolvedTheme === 'dark' ? (
+              <Moon className="h-5 w-5" />
             ) : (
-              <motion.div
-                key="sun"
-                initial={{ scale: 0, rotate: 90 }}
-                animate={{ scale: 1, rotate: 0 }}
-                exit={{ scale: 0, rotate: -90 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Sun className="h-5 w-5" />
-              </motion.div>
+              <Sun className="h-5 w-5" />
             )}
-          </AnimatePresence>
+          </span>
           <span className="sr-only">Toggle theme</span>
         </Button>
       </DropdownMenuTrigger>
@@ -93,19 +85,7 @@ export function ThemeToggle() {
  */
 export function ThemeToggleSimple() {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <Button variant="ghost" size="icon" className="h-11 w-11" disabled>
-        <span className="sr-only">Loading theme toggle</span>
-      </Button>
-    );
-  }
+  const mounted = useIsMounted();
 
   const cycleTheme = () => {
     if (theme === 'light') setTheme('dark');
@@ -113,11 +93,15 @@ export function ThemeToggleSimple() {
     else setTheme('light');
   };
 
-  const getIcon = () => {
-    if (theme === 'system') return <Monitor className="h-5 w-5" />;
-    if (resolvedTheme === 'dark') return <Moon className="h-5 w-5" />;
-    return <Sun className="h-5 w-5" />;
-  };
+  const icon = !mounted ? (
+    <Sun className="h-5 w-5" />
+  ) : theme === 'system' ? (
+    <Monitor className="h-5 w-5" />
+  ) : resolvedTheme === 'dark' ? (
+    <Moon className="h-5 w-5" />
+  ) : (
+    <Sun className="h-5 w-5" />
+  );
 
   return (
     <Button
@@ -125,19 +109,12 @@ export function ThemeToggleSimple() {
       size="icon"
       className="h-11 w-11 min-w-[44px] min-h-[44px]"
       onClick={cycleTheme}
-      aria-label={`Current theme: ${theme}. Click to change.`}
+      aria-label={
+        mounted ? `Current theme: ${theme}. Click to change.` : 'Toggle theme'
+      }
+      suppressHydrationWarning
     >
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={theme}
-          initial={{ scale: 0, rotate: -90 }}
-          animate={{ scale: 1, rotate: 0 }}
-          exit={{ scale: 0, rotate: 90 }}
-          transition={{ duration: 0.2 }}
-        >
-          {getIcon()}
-        </motion.div>
-      </AnimatePresence>
+      <span className="transition-transform duration-200">{icon}</span>
       <span className="sr-only">Toggle theme</span>
     </Button>
   );

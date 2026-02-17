@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
           const { data: merchantDetails } = await supabase
             .from('merchants')
             .select(
-              'business_name, slug, support_email, email_sender_name, email'
+              'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
             )
             .eq('id', transaction.merchant_id)
             .single();
@@ -233,6 +233,9 @@ export async function POST(request: NextRequest) {
               },
               merchantName: merchantDetails.business_name,
               merchantUrl,
+              merchantTin:
+                merchantDetails.tax_identification_number ?? undefined,
+              merchantRcNumber: merchantDetails.cac_rc_number ?? undefined,
             };
 
             const htmlContent = generateOrderConfirmationEmail(emailData);

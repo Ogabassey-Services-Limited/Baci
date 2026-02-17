@@ -11,7 +11,8 @@ import {
   getCachedProductReviews,
 } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
-import { escapeHtml, safeJsonLdStringify } from '@/lib/sanitize-core';
+import { escapeHtml } from '@/lib/sanitize-core';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   constructCanonicalUrl,
   generateAggregateRating,

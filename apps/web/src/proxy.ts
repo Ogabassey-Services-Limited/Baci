@@ -20,6 +20,7 @@ import {
   extractClickIdsFromUrl,
   generateClickIdCookies,
 } from '@/lib/ad-tracking-cookies';
+import { getCustomDomainForSlug } from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { updateSession } from '@/lib/supabase/middleware';
 
@@ -664,6 +665,17 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL(pathname, `https://${ROOT_DOMAIN}`));
     }
 
+    // ==== REDIRECT SUBDOMAIN TO CUSTOM DOMAIN ====
+    // If merchant has a custom domain, redirect subdomain URLs to prevent duplicate content
+    // Example: ogabassey.usebaci.com -> ogabassey.com
+    if (!isLocalhost(hostname)) {
+      const customDomain = await getCustomDomainForSlug(subdomain);
+      if (customDomain) {
+        const customDomainUrl = `https://${customDomain}${pathname}${request.nextUrl.search}`;
+        return NextResponse.redirect(customDomainUrl, 301);
+      }
+    }
+
     // Rewrite subdomain requests to path-based storefront routes
     // ogabassey.usebaci.com/smartphones/iphone-12 -> /ogabassey/smartphones/iphone-12
 
@@ -720,6 +732,34 @@ export async function proxy(request: NextRequest) {
       request, // Pass request for click ID capture on storefront
       hostname
     );
+  }
+
+  // ==== REDIRECT SLUG-BASED URLS TO CUSTOM DOMAIN ====
+  // If a merchant has a custom domain, redirect slug-based URLs to prevent duplicate content
+  // Example: usebaci.com/ogabassey -> ogabassey.com
+  if (
+    (isRootDomain(hostname, ROOT_DOMAIN) || isVercelPreview(hostname)) &&
+    !isLocalhost(hostname)
+  ) {
+    const pathSegments = pathname.split('/').filter(Boolean);
+    if (
+      pathSegments.length >= 1 &&
+      !MAIN_APP_ROUTES.some((route) => pathname.startsWith(route))
+    ) {
+      const potentialSlug = pathSegments[0];
+
+      if (
+        isValidSubdomain(potentialSlug) &&
+        !RESERVED_SUBDOMAINS.has(potentialSlug)
+      ) {
+        const customDomain = await getCustomDomainForSlug(potentialSlug);
+        if (customDomain) {
+          const newPathname = pathname.replace(`/${potentialSlug}`, '') || '/';
+          const customDomainUrl = `https://${customDomain}${newPathname}${request.nextUrl.search}`;
+          return NextResponse.redirect(customDomainUrl, 301);
+        }
+      }
+    }
   }
 
   // Standard request - generate route-specific CSP

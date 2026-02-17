@@ -1,7 +1,7 @@
 'use client';
 
 import { Award, Gift } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
@@ -71,7 +71,7 @@ export default function LoyaltyProgramPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const fetchSettings = useCallback(async () => {
+  const fetchSettings = async () => {
     try {
       const res = await fetch('/api/loyalty/settings');
       if (res.ok) {
@@ -81,9 +81,9 @@ export default function LoyaltyProgramPage() {
     } catch (error) {
       console.error('Failed to fetch loyalty settings:', error);
     }
-  }, []);
+  };
 
-  const fetchCustomers = useCallback(async (tier?: string | null) => {
+  const fetchCustomers = async (tier?: string | null) => {
     try {
       const params = new URLSearchParams();
       if (tier) params.set('tier', tier);
@@ -99,12 +99,13 @@ export default function LoyaltyProgramPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     fetchSettings();
     fetchCustomers();
-  }, [fetchSettings, fetchCustomers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchCustomers, fetchSettings]);
 
   async function saveSettings() {
     if (!settings) return;

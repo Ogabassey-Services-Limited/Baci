@@ -2,7 +2,7 @@
 
 import { Sparkles } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 
 import { Button } from '@/components/ui/button';
@@ -49,7 +49,7 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
     control,
     name: 'businessType',
   });
-  const businessTypes = useMemo(() => getAllBusinessTypes(), []);
+  const businessTypes = getAllBusinessTypes();
 
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
 

@@ -13,7 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useCart } from '@/hooks/use-cart';
 import { parseCartAction } from '@/components/storefront/santa-chat/types';
@@ -277,8 +277,7 @@ export const ChatWidget: React.FC = () => {
       : 'bottom-24';
 
   // Handle adding Santa's wish to cart
-  const handleAddSantaWishToCart = useCallback(
-    (messageIndex: number) => {
+  const handleAddSantaWishToCart = (messageIndex: number) => {
       const message = messages[messageIndex];
       if (!message?.santaAction || message.santaAction.added) return;
 
@@ -315,9 +314,7 @@ export const ChatWidget: React.FC = () => {
 
       // Open cart sidebar
       setIsCartOpen(true);
-    },
-    [messages, addToCart, setIsCartOpen]
-  );
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

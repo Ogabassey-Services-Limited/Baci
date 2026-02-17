@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import { Button } from '@/components/ui/button';
@@ -65,14 +65,14 @@ export default function Step2_Branding() {
     name: 'brandColors',
   });
 
-  const brandColors: BrandColors | null = useMemo(() => {
-    if (!brandColorsString) return null;
+  let brandColors: BrandColors | null = null;
+  if (brandColorsString) {
     try {
-      return JSON.parse(brandColorsString);
+      brandColors = JSON.parse(brandColorsString);
     } catch {
-      return null;
+      // Invalid JSON, keep null
     }
-  }, [brandColorsString]);
+  }
 
   const [isGenerating, setIsGenerating] = useState(false); // Tracks AI generation
   const [isExtracting, setIsExtracting] = useState(false);

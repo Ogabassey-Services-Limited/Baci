@@ -2,7 +2,6 @@
 
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback } from 'react';
 import { SetupInstructions } from '@/components/analytics/setup-instructions';
 import { TrackingPixelSection } from '@/components/dashboard/integrations/tracking-pixel-section';
 import { Button } from '@/components/ui/button';
@@ -26,15 +25,12 @@ export default function SnapchatIntegrationPage() {
       platformName: 'Snapchat',
     });
 
-  const handleSave = useCallback(
-    async (pixelId: string, token: string) => {
-      await saveSettings({
-        snapchat_pixel_id: pixelId || null,
-        snapchat_capi_token: token || null,
-      });
-    },
-    [saveSettings]
-  );
+  const handleSave = async (pixelId: string, token: string) => {
+    await saveSettings({
+      snapchat_pixel_id: pixelId || null,
+      snapchat_capi_token: token || null,
+    });
+  };
 
   if (!hasMerchant || isLoading) {
     return <div>Loading...</div>;

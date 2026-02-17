@@ -3,7 +3,7 @@
 import type { Data } from '@puckeditor/core';
 import { Render } from '@puckeditor/core';
 import { Loader2, Pencil } from 'lucide-react';
-import { Component, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { Component, type ReactNode, useEffect, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';
 import { Button } from '@/components/ui/button';
 import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
@@ -308,25 +308,24 @@ export function OnboardingPuckPreview({
   /* Expanded State */
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Memoize theme styles to avoid manual DOM manipulation
-  const themeStyles = useMemo(() => {
-    if (!brandColors) return {};
-    return getThemeStyles(brandColors);
-  }, [brandColors]);
+  // Calculate theme styles
+  const themeStyles = brandColors ? getThemeStyles(brandColors) : {};
 
   // Patch the logo into puckData immediately when it changes (faster than full regeneration)
-  const patchedPuckData = useMemo(() => {
-    if (!puckData) return null;
-    if (!logoDataUri) return puckData;
-
-    // Clone the data and update Header's logoUrl
-    const patched = JSON.parse(JSON.stringify(puckData)) as Data;
-    const headerIndex = patched.content.findIndex((c) => c.type === 'Header');
-    if (headerIndex !== -1 && patched.content[headerIndex].props) {
-      patched.content[headerIndex].props.logoUrl = logoDataUri;
+  let patchedPuckData: Data | null = null;
+  if (puckData) {
+    if (logoDataUri) {
+      // Clone the data and update Header's logoUrl
+      const patched = JSON.parse(JSON.stringify(puckData)) as Data;
+      const headerIndex = patched.content.findIndex((c) => c.type === 'Header');
+      if (headerIndex !== -1 && patched.content[headerIndex].props) {
+        patched.content[headerIndex].props.logoUrl = logoDataUri;
+      }
+      patchedPuckData = patched;
+    } else {
+      patchedPuckData = puckData;
     }
-    return patched;
-  }, [puckData, logoDataUri]);
+  }
 
   if (!brandColors || !puckData || !patchedPuckData) {
     return (

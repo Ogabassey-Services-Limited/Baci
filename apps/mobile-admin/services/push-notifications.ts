@@ -22,7 +22,7 @@ const loadNativeModules = async () => {
   try {
     const [dev, notif] = await Promise.all([
       import('expo-device'),
-      import('expo-notifications')
+      import('expo-notifications'),
     ]);
     Device = dev;
     Notifications = notif;
@@ -61,7 +61,7 @@ if (Notifications) {
         shouldShowList: true,
       }),
     });
-  } catch (e) {
+  } catch {
     console.debug('[Push] setNotificationHandler failed or deferred');
   }
 }
@@ -76,6 +76,9 @@ export interface PushNotificationState {
  * Request push notification permissions
  */
 export async function requestPermissions(): Promise<NotificationsType.PermissionStatus> {
+  if (!Notifications) await loadNativeModules();
+  if (!Notifications)
+    return 'undetermined' as NotificationsType.PermissionStatus;
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
   if (existingStatus !== 'granted') {
@@ -91,9 +94,16 @@ export async function requestPermissions(): Promise<NotificationsType.Permission
  * Returns null if registration fails or device doesn't support push
  */
 export async function registerForPushNotifications(): Promise<string | null> {
+  // Native modules must be loaded before we can register
+  if (!Device || !Notifications) {
+    await loadNativeModules();
+  }
+
   // Push notifications require a physical device
-  if (!Device.isDevice) {
-    console.warn('[Push] Push notifications require a physical device');
+  if (!Device?.isDevice) {
+    console.warn(
+      '[Push] Push notifications require a physical device (or Device module not loaded)'
+    );
     return null;
   }
 
@@ -311,7 +321,9 @@ export async function scheduleLocalNotification(
       sound: 'default',
     },
     trigger: {
-      type: Notifications?.SchedulableTriggerInputTypes?.TIME_INTERVAL || 'timeInterval',
+      type:
+        Notifications?.SchedulableTriggerInputTypes?.TIME_INTERVAL ||
+        'timeInterval',
       seconds: triggerSeconds,
     },
   });

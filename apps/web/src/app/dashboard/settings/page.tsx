@@ -1,4 +1,4 @@
-import { ChevronRight, CreditCard, Receipt, Users } from 'lucide-react';
+import { ChevronRight, CreditCard, Receipt, Shield, Users } from 'lucide-react';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
@@ -130,6 +130,31 @@ export default async function SettingsPage() {
             >
               <Link href="/dashboard/staff">
                 <span>Manage Team Members</span>
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Account Security Card */}
+        <Card className="glass">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Account Security
+            </CardTitle>
+            <CardDescription>
+              Manage your password and account security settings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              className="w-full justify-between"
+              asChild
+            >
+              <Link href="/dashboard/settings/security">
+                <span>Manage Security Settings</span>
                 <ChevronRight className="h-4 w-4" />
               </Link>
             </Button>

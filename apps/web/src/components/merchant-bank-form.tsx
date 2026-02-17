@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Check, CheckCircle2, Loader2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -127,7 +127,7 @@ export function MerchantBankForm({
   // const selectedBankName = banks.find(b => b.code === selectedBankCode)?.name;
 
   // Verify account when both account number and bank are provided
-  const verifyAccount = useCallback(async () => {
+  const verifyAccount = async () => {
     if (accountNumber.length !== 10 || !selectedBankCode) {
       return;
     }
@@ -159,9 +159,10 @@ export function MerchantBankForm({
     } finally {
       setIsVerifying(false);
     }
-  }, [accountNumber, selectedBankCode, form]);
+  };
 
   // Trigger verification when both fields are filled
+  // biome-ignore lint/correctness/useExhaustiveDependencies: verifyAccount defined inline, dependencies managed explicitly
   useEffect(() => {
     if (selectedBankCode && accountNumber.length === 10) {
       verifyAccount();
@@ -169,7 +170,7 @@ export function MerchantBankForm({
       setVerifiedName(null);
       setVerificationError(null);
     }
-  }, [selectedBankCode, accountNumber, verifyAccount]);
+  }, [selectedBankCode, accountNumber]);
 
   const onSubmit = async (data: BankFormValues) => {
     if (!verifiedName) {

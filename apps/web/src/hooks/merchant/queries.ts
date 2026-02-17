@@ -1,0 +1,161 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { defaultStaffAccess, ownerStaffAccess } from './constants';
+import type { MerchantData, StaffAccess, StaffRole } from './types';
+
+/**
+ * Normalize feature_settings from Supabase join.
+ * Edge SQL may return an array instead of a single object.
+ */
+export function normalizeFeatureSettings(
+  settings: unknown
+): Record<string, unknown> | undefined {
+  if (Array.isArray(settings)) return settings[0] as Record<string, unknown>;
+  return settings as Record<string, unknown> | undefined;
+}
+
+/**
+ * Fetch merchant data by storefront slug.
+ */
+export async function fetchMerchantBySlug(
+  supabase: SupabaseClient,
+  slug: string
+): Promise<MerchantData | null> {
+  const { data, error } = await supabase
+    .from('merchants')
+    .select('*, feature_settings:merchant_feature_settings(*)')
+    .eq('slug', slug)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116') {
+    throw error;
+  }
+
+  if (data) {
+    data.feature_settings = normalizeFeatureSettings(data.feature_settings);
+  }
+
+  return data as MerchantData | null;
+}
+
+/**
+ * Fetch merchant and staff access for dashboard (authenticated user).
+ * Runs owner + staff queries in parallel for performance.
+ */
+export async function fetchDashboardMerchant(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<{ merchant: MerchantData | null; staffAccess: StaffAccess }> {
+  const [ownerResult, staffResult] = await Promise.all([
+    supabase
+      .from('merchants')
+      .select('*, feature_settings:merchant_feature_settings(*)')
+      .eq('user_id', userId)
+      .maybeSingle(),
+    supabase
+      .from('staff_members')
+      .select(
+        `id, role, permissions, status, merchant_id, merchants (*, feature_settings:merchant_feature_settings(*))`
+      )
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .maybeSingle(),
+  ]);
+
+  const { data: ownedMerchant, error: ownerError } = ownerResult;
+  const { data: staffMember, error: staffError } = staffResult;
+
+  // Check if user owns a VALID merchant (not an incomplete/customer merchant)
+  const isValidMerchant =
+    ownedMerchant &&
+    (ownedMerchant.business_name !== null || ownedMerchant.slug !== null);
+
+  // Owner path
+  if (isValidMerchant && !ownerError) {
+    ownedMerchant.feature_settings = normalizeFeatureSettings(
+      ownedMerchant.feature_settings
+    );
+    return {
+      merchant: ownedMerchant as MerchantData,
+      staffAccess: { ...ownerStaffAccess },
+    };
+  }
+
+  // Staff path — user is not a valid merchant owner, check staff membership
+  if (
+    !isValidMerchant ||
+    (!ownedMerchant && !ownerError) ||
+    (ownerError && ownerError.code === 'PGRST116')
+  ) {
+    if (staffMember && !staffError) {
+      const merchantInfo = (
+        Array.isArray(staffMember.merchants)
+          ? staffMember.merchants[0]
+          : staffMember.merchants
+      ) as MerchantData;
+
+      if (merchantInfo) {
+        merchantInfo.feature_settings = normalizeFeatureSettings(
+          merchantInfo.feature_settings
+        );
+
+        // Get effective permissions (role defaults + custom overrides)
+        const { data: rolePerms } = await supabase
+          .from('role_permissions')
+          .select('permissions')
+          .eq('role', staffMember.role)
+          .single();
+
+        const defaultPerms = (rolePerms?.permissions || {}) as Record<
+          string,
+          Record<string, boolean>
+        >;
+        const customPerms = (staffMember.permissions || {}) as Record<
+          string,
+          Record<string, boolean>
+        >;
+
+        const mergedPermissions: Record<string, Record<string, boolean>> = {
+          ...defaultPerms,
+        };
+        for (const [resource, actions] of Object.entries(customPerms)) {
+          mergedPermissions[resource] = {
+            ...mergedPermissions[resource],
+            ...actions,
+          };
+        }
+
+        return {
+          merchant: merchantInfo,
+          staffAccess: {
+            isStaff: true,
+            isOwner: false,
+            role: staffMember.role as StaffRole,
+            permissions: mergedPermissions,
+          },
+        };
+      }
+    }
+  } else if (ownerError) {
+    throw ownerError;
+  }
+
+  return { merchant: null, staffAccess: { ...defaultStaffAccess } };
+}
+
+/**
+ * Fetch the primary custom domain for a merchant.
+ */
+export async function fetchPrimaryDomain(
+  supabase: SupabaseClient,
+  merchantId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from('domains')
+    .select('domain')
+    .eq('merchant_id', merchantId)
+    .eq('is_primary', true)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  return data?.domain ?? null;
+}

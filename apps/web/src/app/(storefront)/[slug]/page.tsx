@@ -6,7 +6,7 @@ import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateLocalBusinessSchema,
   generateServiceSchema,

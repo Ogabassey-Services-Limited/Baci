@@ -12,7 +12,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -106,7 +106,7 @@ export default function DomainDetailsPage() {
   // ID Protection State
   const [idProtection, setIdProtection] = useState<boolean>(false);
 
-  const fetchDnsRecords = useCallback(async () => {
+  const fetchDnsRecords = async () => {
     try {
       setLoadingDns(true);
       const res = await fetch(`/api/domains/${domain}/dns`);
@@ -117,9 +117,9 @@ export default function DomainDetailsPage() {
     } finally {
       setLoadingDns(false);
     }
-  }, [domain]);
+  };
 
-  const fetchEmailForwards = useCallback(async () => {
+  const fetchEmailForwards = async () => {
     try {
       const res = await fetch(`/api/domains/${domain}/email-forwarding`);
       const data = await res.json();
@@ -127,9 +127,9 @@ export default function DomainDetailsPage() {
     } catch (e) {
       console.error(e);
     }
-  }, [domain]);
+  };
 
-  const fetchIdProtection = useCallback(async () => {
+  const fetchIdProtection = async () => {
     try {
       const res = await fetch(`/api/domains/${domain}/id-protection`);
       const data = await res.json();
@@ -137,9 +137,9 @@ export default function DomainDetailsPage() {
     } catch (e) {
       console.error(e);
     }
-  }, [domain]);
+  };
 
-  const fetchDomainDetails = useCallback(async () => {
+  const fetchDomainDetails = async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/domains/${domain}`);
@@ -166,11 +166,12 @@ export default function DomainDetailsPage() {
     } finally {
       setLoading(false);
     }
-  }, [domain, toast, fetchDnsRecords, fetchEmailForwards, fetchIdProtection]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
     fetchDomainDetails();
-  }, [fetchDomainDetails]);
+  }, [domain, toast]);
 
   // --- Actions ---
 

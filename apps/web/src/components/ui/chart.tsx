@@ -140,13 +140,9 @@ const ChartTooltipContent = React.forwardRef<
   ) => {
     const { config } = useChart();
 
-    const tooltipLabel = React.useMemo(() => {
-      if (hideLabel || !payload?.length) {
-        return null;
-      }
-
+    let tooltipLabel: React.ReactNode = null;
+    if (!hideLabel && payload?.length) {
       const [item] = payload;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       // biome-ignore lint/suspicious/noExplicitAny: Recharts payload is loosely typed
       const key = `${labelKey || (item as any).dataKey || (item as any).name || 'value'}`;
       const itemConfig = getPayloadConfigFromPayload(config, item, key);
@@ -156,29 +152,18 @@ const ChartTooltipContent = React.forwardRef<
           : itemConfig?.label;
 
       if (labelFormatter) {
-        return (
+        tooltipLabel = (
           <div className={cn('font-medium', labelClassName)}>
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {/* biome-ignore lint/suspicious/noExplicitAny: Recharts payload is loosely typed */}
             {labelFormatter(value, payload as any[])}
           </div>
         );
+      } else if (value) {
+        tooltipLabel = (
+          <div className={cn('font-medium', labelClassName)}>{value}</div>
+        );
       }
-
-      if (!value) {
-        return null;
-      }
-
-      return <div className={cn('font-medium', labelClassName)}>{value}</div>;
-    }, [
-      label,
-      labelFormatter,
-      payload,
-      hideLabel,
-      labelClassName,
-      config,
-      labelKey,
-    ]);
+    }
 
     if (!active || !payload?.length) {
       return null;

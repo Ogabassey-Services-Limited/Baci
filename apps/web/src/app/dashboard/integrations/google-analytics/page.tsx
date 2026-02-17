@@ -2,7 +2,6 @@
 
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback } from 'react';
 import { SetupInstructions } from '@/components/analytics/setup-instructions';
 import { TrackingPixelSection } from '@/components/dashboard/integrations/tracking-pixel-section';
 import { Button } from '@/components/ui/button';
@@ -26,15 +25,12 @@ export default function GoogleAnalyticsPage() {
       platformName: 'Google Analytics',
     });
 
-  const handleSave = useCallback(
-    async (measurementId: string, apiSecret: string) => {
-      await saveSettings({
-        google_analytics_id: measurementId || null,
-        ga4_api_secret: apiSecret || null,
-      });
-    },
-    [saveSettings]
-  );
+  const handleSave = async (measurementId: string, apiSecret: string) => {
+    await saveSettings({
+      google_analytics_id: measurementId || null,
+      ga4_api_secret: apiSecret || null,
+    });
+  };
 
   if (!hasMerchant || isLoading) {
     return <div>Loading...</div>;

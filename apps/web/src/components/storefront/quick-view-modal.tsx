@@ -515,11 +515,8 @@ function isVariantAvailable(
 }
 
 /**
- * Hook to manage quick view state
- *
- * 2026 Best Practice: With React Compiler enabled, manual memoization via
- * useCallback is unnecessary - the compiler handles this automatically.
- * We use useRef + useEffect cleanup to prevent setTimeout memory leaks.
+ * Hook to manage quick view state.
+ * Uses useRef + useEffect cleanup to prevent setTimeout memory leaks.
  */
 export function useQuickView() {
   const [product, setProduct] = useState<Product | null>(null);

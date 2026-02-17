@@ -3,10 +3,8 @@
 import {
   createContext,
   type ReactNode,
-  useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -461,253 +459,242 @@ export const CartProvider = ({
 
   // ========== BASIC CART OPERATIONS ==========
 
-  const addToCart = useCallback(
-    (product: Product, quantity: number = 1, options?: AddToCartOptions) => {
-      // Stock validation: Prevent adding out-of-stock items
-      if (product.manage_stock && (product.stock ?? 0) <= 0) {
-        logger.warn({
-          message: 'Attempted to add out-of-stock product to cart',
-          productId: product.id,
-          productName: product.name,
-          stock: product.stock,
-        });
-        return; // Silently reject - UI should show out of stock state
-      }
-
-      setCart((prev) => {
-        const cartItemId = generateCartItemId(product.id, options);
-
-        // Robust duplicate check: Match by cartItemId OR Legacy ID/Variant
-        const existingItemIndex = prev.findIndex((item) => {
-          // 1. Direct V2 Match
-          if (item.cartItemId === cartItemId) return true;
-
-          // 2. Legacy Match (if item has no cartItemId)
-          if (!item.cartItemId && item.id === product.id) {
-            const itemVar = item.variantId;
-            const newVar = options?.variantId;
-            if (itemVar !== newVar) return false;
-
-            // Check if V2 options are used (legacy items have none)
-            // If adding item with V2 options, don't match legacy item
-            if (options?.color || options?.storage) return false;
-
-            return true;
-          }
-          return false;
-        });
-
-        if (existingItemIndex >= 0) {
-          // Update existing item
-          const newCart = [...prev];
-          const item = newCart[existingItemIndex];
-          newCart[existingItemIndex] = {
-            ...item,
-            quantity: item.quantity + quantity,
-            // Ensure cartItemId is set on legacy item upgrade
-            cartItemId: item.cartItemId || cartItemId,
-          };
-          return newCart;
-        }
-
-        // Add new item
-        return [
-          ...prev,
-          {
-            ...product,
-            cartItemId,
-            quantity,
-            variantId: options?.variantId,
-            variantAttributes: options?.variantAttributes,
-            selectedColor: options?.color,
-            selectedColorValue: options?.colorValue,
-            secondaryColor: options?.secondaryColor,
-            secondaryColorValue: options?.secondaryColorValue,
-            selectedStorage: options?.storage,
-            condition: options?.condition as
-              | 'new'
-              | 'used'
-              | 'open_box'
-              | 'refurbished'
-              | undefined,
-            negotiationStatus: 'none',
-            hasAssurance: false,
-            assuranceRate: DEFAULT_ASSURANCE_RATE,
-          },
-        ];
+  const addToCart = (
+    product: Product,
+    quantity: number = 1,
+    options?: AddToCartOptions
+  ) => {
+    // Stock validation: Prevent adding out-of-stock items
+    if (product.manage_stock && (product.stock ?? 0) <= 0) {
+      logger.warn({
+        message: 'Attempted to add out-of-stock product to cart',
+        productId: product.id,
+        productName: product.name,
+        stock: product.stock,
       });
+      return; // Silently reject - UI should show out of stock state
+    }
 
-      // Smart Cart Pro: Trigger upsell
-      if (enableSmartCartPro) {
-        setLastAddedProduct(product);
-        upsellTimerRef.current = setTimeout(() => {
-          setShowUpsell(true);
-        }, 500);
-      }
-    },
-    [enableSmartCartPro]
-  );
+    setCart((prev) => {
+      const cartItemId = generateCartItemId(product.id, options);
 
-  const removeFromCart = useCallback(
-    (cartItemIdOrProductId: string, variantId?: string) => {
-      setCart((prev) =>
-        prev.filter((item) => {
-          // 1. If variantId provided (Platform style), strictly match ID + Variant
-          if (variantId) {
-            return !(
-              item.id === cartItemIdOrProductId && item.variantId === variantId
-            );
-          }
+      // Robust duplicate check: Match by cartItemId OR Legacy ID/Variant
+      const existingItemIndex = prev.findIndex((item) => {
+        // 1. Direct V2 Match
+        if (item.cartItemId === cartItemId) return true;
 
-          // 2. If no variantId provided...
+        // 2. Legacy Match (if item has no cartItemId)
+        if (!item.cartItemId && item.id === product.id) {
+          const itemVar = item.variantId;
+          const newVar = options?.variantId;
+          if (itemVar !== newVar) return false;
 
-          // Match by cartItemId (V2 style)
-          if (item.cartItemId && item.cartItemId === cartItemIdOrProductId)
-            return false;
-
-          // Match by Product ID (Simple Product - Platform/Legacy style)
-          // Only remove if item definitely has no variant
-          if (item.id === cartItemIdOrProductId && !item.variantId)
-            return false;
+          // Check if V2 options are used (legacy items have none)
+          // If adding item with V2 options, don't match legacy item
+          if (options?.color || options?.storage) return false;
 
           return true;
-        })
-      );
-    },
-    []
-  );
-
-  const updateQuantity = useCallback(
-    (cartItemIdOrProductId: string, quantity: number, variantId?: string) => {
-      setCart((prev) => {
-        // Find item logic matches removeFromCart logic
-        const targetIndex = prev.findIndex((item) => {
-          if (variantId) {
-            return (
-              item.id === cartItemIdOrProductId && item.variantId === variantId
-            );
-          }
-          return (
-            item.cartItemId === cartItemIdOrProductId ||
-            (item.id === cartItemIdOrProductId && !item.variantId)
-          );
-        });
-
-        if (targetIndex === -1) return prev;
-
-        const item = prev[targetIndex];
-        const moq = item.minimum_order_quantity || 1;
-
-        // Logic: If q <= 0, remove. If q < moq, set to moq. Else set to q.
-        // But if q=0 specifically, user probably clicked "Remove" or minus until 0.
-        // Platform logic: if q < moq -> if q==0 remove, else set to moq.
-
-        if (quantity <= 0) {
-          // Return cart without this item
-          return prev.filter((_, idx) => idx !== targetIndex);
         }
-
-        let finalQuantity = quantity;
-        if (quantity < moq) {
-          finalQuantity = moq;
-        }
-
-        const newCart = [...prev];
-        newCart[targetIndex] = { ...item, quantity: finalQuantity };
-        return newCart;
+        return false;
       });
-    },
-    []
-  );
 
-  const clearCart = useCallback(() => {
+      if (existingItemIndex >= 0) {
+        // Update existing item
+        const newCart = [...prev];
+        const item = newCart[existingItemIndex];
+        newCart[existingItemIndex] = {
+          ...item,
+          quantity: item.quantity + quantity,
+          // Ensure cartItemId is set on legacy item upgrade
+          cartItemId: item.cartItemId || cartItemId,
+        };
+        return newCart;
+      }
+
+      // Add new item
+      return [
+        ...prev,
+        {
+          ...product,
+          cartItemId,
+          quantity,
+          variantId: options?.variantId,
+          variantAttributes: options?.variantAttributes,
+          selectedColor: options?.color,
+          selectedColorValue: options?.colorValue,
+          secondaryColor: options?.secondaryColor,
+          secondaryColorValue: options?.secondaryColorValue,
+          selectedStorage: options?.storage,
+          condition: options?.condition as
+            | 'new'
+            | 'used'
+            | 'open_box'
+            | 'refurbished'
+            | undefined,
+          negotiationStatus: 'none',
+          hasAssurance: false,
+          assuranceRate: DEFAULT_ASSURANCE_RATE,
+        },
+      ];
+    });
+
+    // Smart Cart Pro: Trigger upsell
+    if (enableSmartCartPro) {
+      setLastAddedProduct(product);
+      upsellTimerRef.current = setTimeout(() => {
+        setShowUpsell(true);
+      }, 500);
+    }
+  };
+
+  const removeFromCart = (
+    cartItemIdOrProductId: string,
+    variantId?: string
+  ) => {
+    setCart((prev) =>
+      prev.filter((item) => {
+        // 1. If variantId provided (Platform style), strictly match ID + Variant
+        if (variantId) {
+          return !(
+            item.id === cartItemIdOrProductId && item.variantId === variantId
+          );
+        }
+
+        // 2. If no variantId provided...
+
+        // Match by cartItemId (V2 style)
+        if (item.cartItemId && item.cartItemId === cartItemIdOrProductId)
+          return false;
+
+        // Match by Product ID (Simple Product - Platform/Legacy style)
+        // Only remove if item definitely has no variant
+        if (item.id === cartItemIdOrProductId && !item.variantId) return false;
+
+        return true;
+      })
+    );
+  };
+
+  const updateQuantity = (
+    cartItemIdOrProductId: string,
+    quantity: number,
+    variantId?: string
+  ) => {
+    setCart((prev) => {
+      // Find item logic matches removeFromCart logic
+      const targetIndex = prev.findIndex((item) => {
+        if (variantId) {
+          return (
+            item.id === cartItemIdOrProductId && item.variantId === variantId
+          );
+        }
+        return (
+          item.cartItemId === cartItemIdOrProductId ||
+          (item.id === cartItemIdOrProductId && !item.variantId)
+        );
+      });
+
+      if (targetIndex === -1) return prev;
+
+      const item = prev[targetIndex];
+      const moq = item.minimum_order_quantity || 1;
+
+      // Logic: If q <= 0, remove. If q < moq, set to moq. Else set to q.
+      // But if q=0 specifically, user probably clicked "Remove" or minus until 0.
+      // Platform logic: if q < moq -> if q==0 remove, else set to moq.
+
+      if (quantity <= 0) {
+        // Return cart without this item
+        return prev.filter((_, idx) => idx !== targetIndex);
+      }
+
+      let finalQuantity = quantity;
+      if (quantity < moq) {
+        finalQuantity = moq;
+      }
+
+      const newCart = [...prev];
+      newCart[targetIndex] = { ...item, quantity: finalQuantity };
+      return newCart;
+    });
+  };
+
+  const clearCart = () => {
     setCart([]);
     setMerchantSlugState(null);
     saveMerchantSlugToStorage(null);
     logger.info({ message: 'Cart cleared' });
-  }, []);
+  };
 
-  const setMerchantSlug = useCallback((slug: string) => {
+  const setMerchantSlug = (slug: string) => {
     setMerchantSlugState(slug);
     saveMerchantSlugToStorage(slug);
-  }, []);
+  };
 
   // ========== SMART CART PRO: PRICE NEGOTIATION ==========
 
-  const applyNegotiatedPrice = useCallback(
-    (cartItemId: string, newPrice: number) => {
-      if (!enableSmartCartPro) return;
-      setCart((prev) =>
-        prev.map((item) =>
-          item.cartItemId === cartItemId
-            ? {
-                ...item,
-                negotiatedPrice: newPrice,
-                negotiationStatus: 'accepted',
-              }
-            : item
-        )
-      );
-    },
-    [enableSmartCartPro]
-  );
+  const applyNegotiatedPrice = (cartItemId: string, newPrice: number) => {
+    if (!enableSmartCartPro) return;
+    setCart((prev) =>
+      prev.map((item) =>
+        item.cartItemId === cartItemId
+          ? {
+              ...item,
+              negotiatedPrice: newPrice,
+              negotiationStatus: 'accepted',
+            }
+          : item
+      )
+    );
+  };
 
-  const applyCartWideNegotiation = useCallback(
-    (newTotal: number) => {
-      if (!enableSmartCartPro) return;
+  const applyCartWideNegotiation = (newTotal: number) => {
+    if (!enableSmartCartPro) return;
 
-      const currentTotal = cart.reduce((sum, item) => {
-        const price = item.negotiatedPrice ?? item.price;
-        return sum + price * item.quantity;
-      }, 0);
+    const currentTotal = cart.reduce((sum, item) => {
+      const price = item.negotiatedPrice ?? item.price;
+      return sum + price * item.quantity;
+    }, 0);
 
-      if (currentTotal <= 0) return;
-      const ratio = newTotal / currentTotal;
+    if (currentTotal <= 0) return;
+    const ratio = newTotal / currentTotal;
 
-      setCart((prev) =>
-        prev.map((item) => {
-          const currentPrice = item.negotiatedPrice ?? item.price;
-          return {
-            ...item,
-            negotiatedPrice: currentPrice * ratio,
-            negotiationStatus: 'accepted',
-          };
-        })
-      );
-    },
-    [cart, enableSmartCartPro]
-  );
+    setCart((prev) =>
+      prev.map((item) => {
+        const currentPrice = item.negotiatedPrice ?? item.price;
+        return {
+          ...item,
+          negotiatedPrice: currentPrice * ratio,
+          negotiationStatus: 'accepted',
+        };
+      })
+    );
+  };
 
   // ========== SMART CART PRO: DEVICE ASSURANCE ==========
 
-  const toggleAssurance = useCallback(
-    (cartItemId: string) => {
-      if (!enableSmartCartPro) return;
-      setCart((prev) =>
-        prev.map((item) =>
-          item.cartItemId === cartItemId
-            ? { ...item, hasAssurance: !item.hasAssurance }
-            : item
-        )
-      );
-    },
-    [enableSmartCartPro]
-  );
+  const toggleAssurance = (cartItemId: string) => {
+    if (!enableSmartCartPro) return;
+    setCart((prev) =>
+      prev.map((item) =>
+        item.cartItemId === cartItemId
+          ? { ...item, hasAssurance: !item.hasAssurance }
+          : item
+      )
+    );
+  };
 
   // ========== SMART CART PRO: UPSELL ==========
 
-  const dismissUpsell = useCallback(() => {
+  const dismissUpsell = () => {
     setShowUpsell(false);
-  }, []);
+  };
 
   // ========== COMPUTED VALUES ==========
 
-  const cartCount = useMemo(
-    () => cart.reduce((total, item) => total + item.quantity, 0),
-    [cart]
-  );
+  const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
-  const cartTotal = useMemo(() => {
+  const cartTotal = (() => {
     try {
       return cart.reduce((total, item) => {
         const rawPrice = item.negotiatedPrice ?? item.price;
@@ -729,7 +716,7 @@ export const CartProvider = ({
       console.error('Error calculating cartTotal:', e);
       return 0;
     }
-  }, [cart]);
+  })();
 
   // Aliases for V2 compatibility
   const totalItems = cartCount;

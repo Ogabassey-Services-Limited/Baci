@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SANTA_GREETING } from '@/ai/prompts/santa';
 import { useCart } from '@/hooks/use-cart';
 import type { Product } from '@/lib/products';
@@ -74,56 +74,56 @@ export function SantaChatDialog({
   /**
    * Fetch product by name and add to cart with negotiated price
    */
-  const handleAddToCart = useCallback(
-    async (productName: string, negotiatedPrice: number) => {
-      try {
-        // Use POST to Santa product lookup endpoint
-        const response = await fetch('/api/chat/santa/product', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: productName }),
-        });
+  const handleAddToCart = async (
+    productName: string,
+    negotiatedPrice: number
+  ) => {
+    try {
+      // Use POST to Santa product lookup endpoint
+      const response = await fetch('/api/chat/santa/product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: productName }),
+      });
 
-        if (!response.ok) {
-          console.error('[Santa Cart] Failed to fetch product');
-          return;
-        }
-
-        const { product } = (await response.json()) as {
-          product: Product | null;
-        };
-
-        if (!product) {
-          console.error('[Santa Cart] Product not found:', productName);
-          setCartNotification(`Could not find "${productName}" in catalog`);
-          setTimeout(() => setCartNotification(null), 3000);
-          return;
-        }
-
-        // Add to cart with the original price
-        addToCart(product, 1);
-
-        // Apply the negotiated price if Smart Cart Pro is enabled
-        const cartItemId = product.id;
-        if (applyNegotiatedPrice && negotiatedPrice < product.price) {
-          applyNegotiatedPrice(cartItemId, negotiatedPrice);
-        }
-
-        // Show success notification
-        setCartNotification(`${product.name} added to cart!`);
-        setTimeout(() => setCartNotification(null), 3000);
-
-        console.log('[Santa Cart] Added to cart:', {
-          product: product.name,
-          originalPrice: product.price,
-          negotiatedPrice,
-        });
-      } catch (err) {
-        console.error('[Santa Cart] Error adding to cart:', err);
+      if (!response.ok) {
+        console.error('[Santa Cart] Failed to fetch product');
+        return;
       }
-    },
-    [addToCart, applyNegotiatedPrice]
-  );
+
+      const { product } = (await response.json()) as {
+        product: Product | null;
+      };
+
+      if (!product) {
+        console.error('[Santa Cart] Product not found:', productName);
+        setCartNotification(`Could not find "${productName}" in catalog`);
+        setTimeout(() => setCartNotification(null), 3000);
+        return;
+      }
+
+      // Add to cart with the original price
+      addToCart(product, 1);
+
+      // Apply the negotiated price if Smart Cart Pro is enabled
+      const cartItemId = product.id;
+      if (applyNegotiatedPrice && negotiatedPrice < product.price) {
+        applyNegotiatedPrice(cartItemId, negotiatedPrice);
+      }
+
+      // Show success notification
+      setCartNotification(`${product.name} added to cart!`);
+      setTimeout(() => setCartNotification(null), 3000);
+
+      console.log('[Santa Cart] Added to cart:', {
+        product: product.name,
+        originalPrice: product.price,
+        negotiatedPrice,
+      });
+    } catch (err) {
+      console.error('[Santa Cart] Error adding to cart:', err);
+    }
+  };
 
   // Scroll to bottom on new messages
   // biome-ignore lint/correctness/useExhaustiveDependencies: Intentionally trigger scroll when messages array changes
@@ -143,104 +143,101 @@ export function SantaChatDialog({
     ]);
   };
 
-  const sendMessage = useCallback(
-    async (userMessage: string, imageUrl?: string) => {
-      if (!userMessage.trim() && !imageUrl) return;
+  const sendMessage = async (userMessage: string, imageUrl?: string) => {
+    if (!userMessage.trim() && !imageUrl) return;
 
-      const userMsg: Message = {
-        id: `user-${Date.now()}`,
-        role: 'user',
-        content: userMessage,
-        imageUrl,
-      };
+    const userMsg: Message = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: userMessage,
+      imageUrl,
+    };
 
-      // Add user message to state
-      const updatedMessages = [...messages, userMsg];
-      setMessages(updatedMessages);
-      setIsLoading(true);
-      setError(null);
+    // Add user message to state
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
+    setIsLoading(true);
+    setError(null);
 
-      try {
-        const response = await fetch('/api/chat/santa', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: updatedMessages.map((m) => ({
-              role: m.role,
-              content: m.content,
-              // If image exists, experimental attachments or mixed content might be needed
-              // For now, pass it as a separate field or extended content if specific provider supports it
-              // Assuming API handles experimental_attachments or just extra fields
-              imageUrl: m.imageUrl,
-            })),
-          }),
-        });
+    try {
+      const response = await fetch('/api/chat/santa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: updatedMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+            // If image exists, experimental attachments or mixed content might be needed
+            // For now, pass it as a separate field or extended content if specific provider supports it
+            // Assuming API handles experimental_attachments or just extra fields
+            imageUrl: m.imageUrl,
+          })),
+        }),
+      });
 
-        if (!response.ok) {
-          throw new Error('Failed to get response from Santa');
-        }
+      if (!response.ok) {
+        throw new Error('Failed to get response from Santa');
+      }
 
-        // Handle streaming response
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let assistantContent = '';
-        const assistantId = `assistant-${Date.now()}`;
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = '';
+      const assistantId = `assistant-${Date.now()}`;
 
-        // Add empty assistant message
-        setMessages((prev) => [
-          ...prev,
-          { id: assistantId, role: 'assistant', content: '' },
-        ]);
+      // Add empty assistant message
+      setMessages((prev) => [
+        ...prev,
+        { id: assistantId, role: 'assistant', content: '' },
+      ]);
 
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
-            // Parse the streaming data format from Vercel AI SDK
-            // Note: If the API returns raw text stream, this splitting isn't needed.
-            // If it returns standard AI stream protocol (0:"..."), this is correct.
-            // Keeping existing logic as safeguard.
-            const lines = chunk.split('\n');
+          const chunk = decoder.decode(value, { stream: true });
+          // Parse the streaming data format from Vercel AI SDK
+          // Note: If the API returns raw text stream, this splitting isn't needed.
+          // If it returns standard AI stream protocol (0:"..."), this is correct.
+          // Keeping existing logic as safeguard.
+          const lines = chunk.split('\n');
 
-            for (const line of lines) {
-              if (line.startsWith('0:')) {
-                // Text content chunk
-                try {
-                  const text = JSON.parse(line.slice(2));
-                  assistantContent += text;
-                } catch {
-                  // Ignore parse errors
-                }
+          for (const line of lines) {
+            if (line.startsWith('0:')) {
+              // Text content chunk
+              try {
+                const text = JSON.parse(line.slice(2));
+                assistantContent += text;
+              } catch {
+                // Ignore parse errors
               }
             }
-
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantId ? { ...m, content: assistantContent } : m
-              )
-            );
           }
 
-          // After streaming completes, check for cart action
-          const action = parseSantaAction(assistantContent);
-          if (action && !processedActionsRef.current.has(assistantId)) {
-            processedActionsRef.current.add(assistantId);
-            await handleAddToCart(action.productName, action.price);
-          }
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, content: assistantContent } : m
+            )
+          );
         }
-      } catch (err) {
-        console.error('Santa chat error:', err);
-        setError(
-          "Oh dear, my elves are telling me there's a bit of a snowstorm interfering with our connection."
-        );
-      } finally {
-        setIsLoading(false);
+
+        // After streaming completes, check for cart action
+        const action = parseSantaAction(assistantContent);
+        if (action && !processedActionsRef.current.has(assistantId)) {
+          processedActionsRef.current.add(assistantId);
+          await handleAddToCart(action.productName, action.price);
+        }
       }
-    },
-    [messages, handleAddToCart]
-  );
+    } catch (err) {
+      console.error('Santa chat error:', err);
+      setError(
+        "Oh dear, my elves are telling me there's a bit of a snowstorm interfering with our connection."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSendMessage = (message: Omit<ChatMessageType, 'role'>) => {
     sendMessage(message.content, message.imageUrl);

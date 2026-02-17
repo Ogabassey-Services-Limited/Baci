@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { OrderManagerModal } from '@/components/jumia/order-manager-modal';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -573,13 +573,13 @@ export default function OrdersClientPage({
   const isHydrated = useRef(false);
 
   // Helper function to format status from DB to UI
-  const _formatStatus = useCallback((status: string): string => {
+  const _formatStatus = (status: string): string => {
     if (!status) return 'Pending';
     return status
       .split('_')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
-  }, []);
+  };
 
   // Helper function to format status from UI to DB
   function formatStatusForDB(status: string): string {

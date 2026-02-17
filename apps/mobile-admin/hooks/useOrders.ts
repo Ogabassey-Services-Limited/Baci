@@ -17,8 +17,9 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { BASE_URL } from '@/lib/api-client';
 import { sanitizeSearchQuery } from '@/lib/sanitize';
+import { supabase } from '@/lib/supabase';
 import { useMerchant } from './useMerchant';
 
 // Re-export for backward compatibility
@@ -279,21 +280,53 @@ export function useOrder(orderId: string) {
         .from('order_payment_accounts')
         .select('account_number, bank_name, account_name')
         .eq('order_id', orderId)
-        .single();
+        .maybeSingle();
 
-      // Fetch recorded_by user info if this is a staff-created order
+      // Fetch recorded_by user info + staff virtual terminal if staff-created
       let recordedByName: string | null = null;
+      let staffTerminal: {
+        account_number: string;
+        bank_name: string;
+        account_name: string;
+      } | null = null;
+
       if (order.recorded_by_user_id) {
+        // Get staff profile name
         const { data: recUser } = await supabase
           .from('profiles')
           .select('display_name, full_name')
           .eq('id', order.recorded_by_user_id)
           .single();
 
-        // Use display_name or full_name, extract first name
         const fullName = recUser?.display_name || recUser?.full_name;
         if (fullName) {
           recordedByName = fullName.split(' ')[0];
+        }
+
+        // Look up staff member → their virtual terminal bank account
+        const { data: staffMember } = await supabase
+          .from('staff_members')
+          .select('id')
+          .eq('user_id', order.recorded_by_user_id)
+          .eq('merchant_id', merchant?.id)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (staffMember) {
+          const { data: terminal } = await supabase
+            .from('virtual_terminals')
+            .select('account_number, account_name, bank')
+            .eq('staff_id', staffMember.id)
+            .eq('active', true)
+            .maybeSingle();
+
+          if (terminal?.account_number) {
+            staffTerminal = {
+              account_number: terminal.account_number,
+              bank_name: terminal.bank,
+              account_name: terminal.account_name,
+            };
+          }
         }
       }
 
@@ -307,6 +340,7 @@ export function useOrder(orderId: string) {
         amount_paid: amountPaid,
         balance: balance,
         virtual_account: virtualAccount || null,
+        staff_terminal: staffTerminal,
         recorded_by_name: recordedByName,
         items: items?.map((item: any) => ({
           id: item.id,
@@ -338,7 +372,7 @@ export function useShipOnCredit() {
       creditNotes?: string;
     }) => {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${orderId}/ship-on-credit`,
+        `${BASE_URL}/api/orders/${orderId}/ship-on-credit`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -392,7 +426,7 @@ export function useSendReminder() {
       }
 
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${orderId}/reminder`,
+        `${BASE_URL}/api/orders/${orderId}/reminder`,
         {
           method: 'POST',
           headers: {
@@ -454,7 +488,7 @@ export function useRecordPayment() {
 
       try {
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL || ''}/api/orders/${orderId}/record-payment`,
+          `${BASE_URL}/api/orders/${orderId}/record-payment`,
           {
             method: 'POST',
             headers: {
@@ -504,6 +538,73 @@ export function useRecordPayment() {
       queryClient.invalidateQueries({
         queryKey: ['dashboard-stats', merchant?.id],
       });
+    },
+  });
+}
+
+// Generate DVA hook - creates a Paystack virtual bank account for an order
+export function useGenerateDva() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['generateDva'],
+    mutationFn: async ({ orderId }: { orderId: string }) => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      try {
+        const response = await fetch(
+          `${BASE_URL}/api/orders/${orderId}/generate-dva`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            signal: controller.signal,
+          }
+        );
+
+        if (!response.ok) {
+          let errorMsg = `Request failed: ${response.status} ${response.statusText}`;
+          try {
+            const errorBody = await response.json();
+            if (errorBody.error) errorMsg = errorBody.error;
+          } catch {
+            // Response wasn't JSON, use default message
+          }
+          throw new Error(errorMsg);
+        }
+        return response.json() as Promise<{
+          success: boolean;
+          virtualAccount: {
+            account_number: string;
+            bank_name: string;
+            account_name: string;
+          };
+          existing: boolean;
+        }>;
+      } catch (error: unknown) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new Error(
+            'DVA generation timed out. Paystack may be slow — try again.'
+          );
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    },
+    onSuccess: (_data, { orderId }) => {
+      queryClient.invalidateQueries({ queryKey: ['order', orderId] });
     },
   });
 }

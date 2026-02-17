@@ -14,7 +14,7 @@ import {
 } from '@/lib/cached-data';
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import type { Product } from '@/lib/products';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBreadcrumbSchema,
   generateCollectionPageSchema,

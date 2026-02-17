@@ -26,13 +26,27 @@ export default async function TaxSettingsPage() {
 
   const { data: merchantData } = await supabase
     .from('merchants')
-    .select('vat_registration_status, vat_rate, tax_identification_number')
+    .select(
+      'vat_registration_status, vat_rate, tax_identification_number, legal_entity_name, registered_address, state_code'
+    )
     .eq('id', merchant.id)
     .single();
 
   const vatEnabled = merchantData?.vat_registration_status === 'registered';
   const vatRate = merchantData?.vat_rate ?? 7.5;
   const taxId = merchantData?.tax_identification_number ?? '';
+  const legalEntityName = merchantData?.legal_entity_name ?? '';
+  const addr = merchantData?.registered_address as Record<
+    string,
+    string
+  > | null;
+  const registeredAddress = {
+    street: addr?.street ?? '',
+    city: addr?.city ?? '',
+    state: addr?.state ?? '',
+    postal_code: addr?.postal_code ?? '',
+  };
+  const stateCode = (merchantData?.state_code as string) ?? '';
 
   return (
     <div className="grid gap-6">
@@ -49,7 +63,7 @@ export default async function TaxSettingsPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Tax Settings</h1>
             <p className="text-muted-foreground text-sm">
-              Configure VAT collection for your store
+              Configure VAT, tax identification, and registered address
             </p>
           </div>
         </div>
@@ -60,6 +74,9 @@ export default async function TaxSettingsPage() {
         initialVatEnabled={vatEnabled}
         initialVatRate={vatRate}
         initialTaxId={taxId}
+        initialLegalEntityName={legalEntityName}
+        initialRegisteredAddress={registeredAddress}
+        initialStateCode={stateCode}
       />
     </div>
   );

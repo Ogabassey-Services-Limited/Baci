@@ -6,7 +6,7 @@
 
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -102,12 +102,12 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   const { toggleSaved, isSaved } = useV2Saved();
   const pathname = usePathname();
 
-  // All products from SSR (memoized once)
-  const allProducts = useMemo(() => {
+  // All products from SSR
+  const allProducts = (() => {
     if (useMockData) return mockProducts;
     if (externalProducts) return toTemplateProducts(externalProducts);
     return [];
-  }, [useMockData, externalProducts]);
+  })();
 
   // Filter state - always start with 'All' to avoid hydration mismatch
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -129,16 +129,13 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   // Categories from props
   const navCategories = merchantContext?.navigationCategories || [];
   const categoryList = externalCategories || navCategories;
-  const categories = useMemo(() => ['All', ...categoryList.map(c => c.name)], [categoryList]);
+  const categories = ['All', ...categoryList.map(c => c.name)];
 
   // Brands from all products (not filtered, so brand filter always shows all options)
-  const brands = useMemo(() =>
-    Array.from(new Set(allProducts.map(p => p.brand).filter(Boolean) as string[])),
-    [allProducts]
-  );
+  const brands = Array.from(new Set(allProducts.map(p => p.brand).filter(Boolean) as string[]));
 
-  // INSTANT client-side filtering - all filters applied in one useMemo
-  const filteredProducts = useMemo(() => {
+  // INSTANT client-side filtering - all filters applied in one computation
+  const filteredProducts = (() => {
     let result = allProducts;
 
     // Category filter
@@ -177,7 +174,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     }
 
     return result;
-  }, [allProducts, selectedCategory, selectedBrand, selectedCondition, minPrice, maxPrice, minRating, limit]);
+  })();
 
   // Update URL when category changes (for sharing/bookmarking)
   const handleCategoryChange = (category: string) => {

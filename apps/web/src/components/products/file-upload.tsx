@@ -1,7 +1,7 @@
 'use client';
 
 import { File as FileIcon, UploadCloud } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { processPriceList } from '@/app/dashboard/products/actions';
 import { Button } from '@/components/ui/button';
@@ -11,11 +11,11 @@ export function FileUpload() {
   const { products, setWorkflowStep, setAiResponse } = useProductContext();
   const [file, setFile] = useState<File | null>(null);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  const onDrop = (acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       setFile(acceptedFiles[0]);
     }
-  }, []);
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,

@@ -3,29 +3,29 @@ import { format } from 'date-fns';
 import { Platform } from 'react-native';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-let FileSystem: any = null;
 let Print: any = null;
 let Sharing: any = null;
 
 const loadNativeModules = async () => {
   if (Platform.OS === 'web') return;
   try {
-    // Dynamic imports allow the bundler to handle missing modules more gracefully
-    const [fs, prnt, shr] = await Promise.all([
-      import('expo-file-system'),
+    const [prnt, shr] = await Promise.all([
       import('expo-print'),
-      import('expo-sharing')
+      import('expo-sharing'),
     ]);
-    FileSystem = fs;
     Print = prnt;
     Sharing = shr;
   } catch (e) {
-    console.debug('[ExportOrders] Native modules ignored or failed to load:', e);
+    console.debug(
+      '[ExportOrders] Native modules ignored or failed to load:',
+      e
+    );
   }
 };
 
 // Initiate non-blocking load
 loadNativeModules();
+
 import { supabase } from '@/lib/supabase';
 
 // Helper to escape CSV fields
@@ -81,13 +81,11 @@ export const exportOrdersRPC = async (orders: Order[]) => {
   try {
     const csvData = generateOrdersCSV(orders);
     const filename = `orders_report_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`;
-    // biome-ignore lint/suspicious/noExplicitAny: Expo file system types
-    const fileUri = `${(FileSystem as any).documentDirectory || ''}${filename}`;
 
-    await FileSystem.writeAsStringAsync(fileUri, csvData, {
-      // biome-ignore lint/suspicious/noExplicitAny: Expo file system types
-      encoding: (FileSystem as any).EncodingType?.UTF8 || 'utf8',
-    });
+    const { File, Paths } = await import('expo-file-system');
+    const csvFile = new File(Paths.document, filename);
+    csvFile.write(csvData);
+    const fileUri = csvFile.uri;
 
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(fileUri, {
@@ -579,8 +577,9 @@ export const exportOrderReportPDF = async (
           </div>
         </div>
 
-        ${topProduct
-        ? `
+        ${
+          topProduct
+            ? `
         <div class="section-label">Top Performer</div>
         <div class="insights-grid">
           <div class="insight-card">
@@ -616,8 +615,8 @@ export const exportOrderReportPDF = async (
           </div>
         </div>
         `
-        : ''
-      }
+            : ''
+        }
 
         <div class="section-label">Strategic Breakdowns</div>
 
@@ -625,8 +624,8 @@ export const exportOrderReportPDF = async (
           <div class="board">
             <div class="board-title">Sales by Origin</div>
             ${salesByOrigin
-        .map(
-          ([name, data]) => `
+              .map(
+                ([name, data]) => `
               <div class="list-item">
                 <div class="item-info">
                   <span class="item-name">${name}</span>
@@ -635,15 +634,15 @@ export const exportOrderReportPDF = async (
                 <div class="item-val">₦${data.total.toLocaleString()}</div>
               </div>
             `
-        )
-        .join('')}
+              )
+              .join('')}
           </div>
 
           <div class="board">
             <div class="board-title">Payment Method</div>
             ${salesByPaymentMethod
-        .map(
-          ([name, data]) => `
+              .map(
+                ([name, data]) => `
               <div class="list-item">
                 <div class="item-info">
                   <span class="item-name">${name}</span>
@@ -652,8 +651,8 @@ export const exportOrderReportPDF = async (
                 <div class="item-val">₦${data.total.toLocaleString()}</div>
               </div>
             `
-        )
-        .join('')}
+              )
+              .join('')}
           </div>
         </div>
 
@@ -700,9 +699,9 @@ export const exportOrderReportPDF = async (
             </thead>
             <tbody>
               ${orders
-        .slice(0, 15)
-        .map(
-          (o) => `
+                .slice(0, 15)
+                .map(
+                  (o) => `
                 <tr>
                   <td class="order-id">#${o.id.slice(0, 8).toUpperCase()}</td>
                   <td>
@@ -719,8 +718,8 @@ export const exportOrderReportPDF = async (
                   <td style="font-weight: 800;">₦${(Number(o.total) || 0).toLocaleString()}</td>
                 </tr>
               `
-        )
-        .join('')}
+                )
+                .join('')}
             </tbody>
           </table>
           ${orders.length > 15 ? `<div style="text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 16px;">+ ${orders.length - 15} more orders not shown</div>` : ''}

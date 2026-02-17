@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useState,
-} from 'react';
+import { createContext, type ReactNode, useContext, useState } from 'react';
 
 interface SavedContextType {
   savedIds: Set<string>;
@@ -21,9 +15,9 @@ const SavedContext = createContext<SavedContextType | undefined>(undefined);
 export function SavedProvider({ children }: { children: ReactNode }) {
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
 
-  const isSaved = useCallback((id: string) => savedIds.has(id), [savedIds]);
+  const isSaved = (id: string) => savedIds.has(id);
 
-  const toggleSaved = useCallback((id: string) => {
+  const toggleSaved = (id: string) => {
     setSavedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -33,19 +27,19 @@ export function SavedProvider({ children }: { children: ReactNode }) {
       }
       return next;
     });
-  }, []);
+  };
 
-  const addSaved = useCallback((id: string) => {
+  const addSaved = (id: string) => {
     setSavedIds((prev) => new Set(prev).add(id));
-  }, []);
+  };
 
-  const removeSaved = useCallback((id: string) => {
+  const removeSaved = (id: string) => {
     setSavedIds((prev) => {
       const next = new Set(prev);
       next.delete(id);
       return next;
     });
-  }, []);
+  };
 
   return (
     <SavedContext.Provider

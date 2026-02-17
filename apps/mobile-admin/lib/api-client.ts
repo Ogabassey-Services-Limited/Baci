@@ -1,9 +1,20 @@
+import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
 // Centralized Base URL Logic
-// Use local IP for development to ensure physical devices can connect
+// In dev, auto-detect the IP from Expo's debuggerHost so it works
+// regardless of which network the laptop is on (no more hardcoding IPs).
+function getDevBaseUrl(): string {
+  const debuggerHost = Constants.expoConfig?.hostUri;
+  if (debuggerHost) {
+    const host = debuggerHost.split(':')[0];
+    return `http://${host}:3000`;
+  }
+  return 'http://localhost:3000';
+}
+
 export const BASE_URL = __DEV__
-  ? 'http://192.168.100.27:3000'
+  ? getDevBaseUrl()
   : process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com';
 
 /** Default request timeout in milliseconds (20 seconds) */
@@ -23,7 +34,11 @@ export class NetworkError extends Error {
 
   constructor(
     message: string,
-    options: { isTimeout?: boolean; isOffline?: boolean; statusCode?: number } = {}
+    options: {
+      isTimeout?: boolean;
+      isOffline?: boolean;
+      statusCode?: number;
+    } = {}
   ) {
     super(message);
     this.name = 'NetworkError';
@@ -81,7 +96,7 @@ export async function apiClient<T = unknown>(
     } = await supabase.auth.getSession();
 
     if (session?.access_token) {
-      (config.headers as Record<string, string>)['Authorization'] =
+      (config.headers as Record<string, string>).Authorization =
         `Bearer ${session.access_token}`;
     }
   }
@@ -101,7 +116,7 @@ export async function apiClient<T = unknown>(
 
     // Check for JSON response
     const contentType = response.headers.get('content-type');
-    const isJson = contentType && contentType.includes('application/json');
+    const isJson = contentType?.includes('application/json');
 
     // Parse Body
     let data;
@@ -138,7 +153,10 @@ export async function apiClient<T = unknown>(
     }
 
     // Handle network errors (offline, DNS failure, etc.)
-    if (error instanceof TypeError && error.message === 'Network request failed') {
+    if (
+      error instanceof TypeError &&
+      error.message === 'Network request failed'
+    ) {
       const offlineError = new NetworkError(
         'Unable to connect. Please check your internet connection.',
         { isOffline: true }

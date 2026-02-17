@@ -74,7 +74,9 @@ export async function POST(
     // 3. Get merchant details for email
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
-      .select('id, business_name, slug, support_email, email_sender_name')
+      .select(
+        'id, business_name, slug, support_email, email_sender_name, tax_identification_number, cac_rc_number'
+      )
       .eq('id', merchantId)
       .single();
 
@@ -122,7 +124,7 @@ export async function POST(
       .from('order_payment_accounts')
       .select('account_number, bank_name, account_name')
       .eq('order_id', orderId)
-      .single();
+      .maybeSingle();
 
     // 6. Generate payment link
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
@@ -151,6 +153,8 @@ export async function POST(
       merchantName: merchant.business_name,
       merchantUrl,
       supportEmail: merchant.support_email || undefined,
+      merchantTin: merchant.tax_identification_number ?? undefined,
+      merchantRcNumber: merchant.cac_rc_number ?? undefined,
       virtualAccount: virtualAccount
         ? {
             bankName: virtualAccount.bank_name,

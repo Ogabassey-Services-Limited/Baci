@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { AdUnit } from './ad-unit';
 import { AdvancedProductFilters } from './advanced-product-filters';
@@ -50,15 +50,11 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Derive categories and brands dynamically from products
-  const categories = useMemo(() => {
-    return ['All', ...Array.from(new Set(gridProducts.map((p) => p.category)))];
-  }, [gridProducts]);
+  const categories = ['All', ...Array.from(new Set(gridProducts.map((p) => p.category)))];
 
-  const brands = useMemo(() => {
-    return Array.from(
-      new Set(gridProducts.map((p) => p.brand).filter(Boolean) as string[])
-    );
-  }, [gridProducts]);
+  const brands = Array.from(
+    new Set(gridProducts.map((p) => p.brand).filter(Boolean) as string[])
+  );
 
   const filteredProducts = gridProducts.filter((product) => {
     // Category Filter

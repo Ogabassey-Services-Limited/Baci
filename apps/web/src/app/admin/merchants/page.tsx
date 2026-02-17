@@ -14,7 +14,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -146,7 +146,7 @@ export default function MerchantsPage() {
   const [sortBy, setSortBy] = useState<'gmv' | 'orders' | 'joined'>('gmv');
   const { toast } = useToast();
 
-  const fetchMerchants = useCallback(async () => {
+  const fetchMerchants = async () => {
     try {
       setLoading(true);
       const supabase = createClient();
@@ -178,52 +178,46 @@ export default function MerchantsPage() {
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortBy, toast]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization
   useEffect(() => {
     fetchMerchants();
-  }, [fetchMerchants]);
+  }, [sortBy, toast]);
 
   // Filter merchants
-  const filteredMerchants = useMemo(
-    () =>
-      merchants.filter((merchant) => {
-        const matchesSearch =
-          merchant.business_name
-            ?.toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          merchant.email?.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesHealth =
-          healthFilter === 'all' || merchant.health_status === healthFilter;
-        return matchesSearch && matchesHealth;
-      }),
-    [merchants, searchQuery, healthFilter]
-  );
+  const filteredMerchants = merchants.filter((merchant) => {
+    const matchesSearch =
+      merchant.business_name
+        ?.toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      merchant.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesHealth =
+      healthFilter === 'all' || merchant.health_status === healthFilter;
+    return matchesSearch && matchesHealth;
+  });
 
   // Stats
-  const stats = useMemo(() => {
-    // Safe number parsing helper
-    const safeParseNumber = (
-      value: number | string | null | undefined
-    ): number => {
-      if (value === null || value === undefined) return 0;
-      const num = typeof value === 'string' ? Number.parseFloat(value) : value;
-      return Number.isFinite(num) ? num : 0;
-    };
+  // Safe number parsing helper
+  const safeParseNumber = (
+    value: number | string | null | undefined
+  ): number => {
+    if (value === null || value === undefined) return 0;
+    const num = typeof value === 'string' ? Number.parseFloat(value) : value;
+    return Number.isFinite(num) ? num : 0;
+  };
 
-    return {
-      total: merchants.length,
-      healthy: merchants.filter((m) => m.health_status === 'healthy').length,
-      atRisk: merchants.filter((m) => m.health_status === 'at_risk').length,
-      churned: merchants.filter((m) => m.health_status === 'churned').length,
-      new: merchants.filter((m) => m.health_status === 'new').length,
-      totalGmv: merchants.reduce(
-        (sum, m) => sum + safeParseNumber(m.total_gmv),
-        0
-      ),
-    };
-  }, [merchants]);
+  const stats = {
+    total: merchants.length,
+    healthy: merchants.filter((m) => m.health_status === 'healthy').length,
+    atRisk: merchants.filter((m) => m.health_status === 'at_risk').length,
+    churned: merchants.filter((m) => m.health_status === 'churned').length,
+    new: merchants.filter((m) => m.health_status === 'new').length,
+    totalGmv: merchants.reduce(
+      (sum, m) => sum + safeParseNumber(m.total_gmv),
+      0
+    ),
+  };
 
   return (
     <div className="space-y-6">

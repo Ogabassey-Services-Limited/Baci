@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateFAQSchema } from '@/lib/seo-utils';
 import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
 import { FAQPageClient } from './faq-page-client';

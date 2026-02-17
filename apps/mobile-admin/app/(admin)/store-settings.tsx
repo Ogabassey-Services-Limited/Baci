@@ -5,7 +5,6 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import SafeImage from '@/components/ui/SafeImage';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -22,15 +21,17 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SafeImage from '@/components/ui/SafeImage';
 // Supported Countries Configuration
 import { COUNTRIES } from '@/constants/countries';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useCachedImageUri } from '@/hooks/useCachedImageUri';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { useRevenueCat } from '@/hooks/useRevenueCat';
-import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 import { asUploadFile } from '@/types/upload';
+import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 
 export default function StoreSettingsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -38,6 +39,7 @@ export default function StoreSettingsScreen() {
   const queryClient = useQueryClient();
   const { merchant, isLoading } = useMerchant();
   const { isPro } = useRevenueCat();
+  const { uri: cachedLogoUri } = useCachedImageUri(merchant?.logo_url);
   const [isUploading, setIsUploading] = useState(false);
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
@@ -94,8 +96,8 @@ export default function StoreSettingsScreen() {
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-          defaultCurrencyForCountry ||
-          COUNTRIES[0].currency
+        defaultCurrencyForCountry ||
+        COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');
@@ -144,7 +146,13 @@ export default function StoreSettingsScreen() {
       const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${merchant.id}/${fileName}`;
-      const mimeType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
+
+      // Rigorous MIME type mapping for 2026 standards
+      let mimeType = 'image/jpeg';
+      if (fileExt === 'png') mimeType = 'image/png';
+      else if (fileExt === 'svg') mimeType = 'image/svg+xml';
+      else if (fileExt === 'webp') mimeType = 'image/webp';
+      else if (fileExt === 'gif') mimeType = 'image/gif';
 
       // Append file using type-safe upload helper for React Native
       formData.append(
@@ -328,9 +336,9 @@ export default function StoreSettingsScreen() {
               Store Logo
             </Text>
             <View style={styles.logoContainer}>
-              {merchant?.logo_url ? (
+              {cachedLogoUri ? (
                 <SafeImage
-                  source={{ uri: merchant.logo_url }}
+                  source={{ uri: cachedLogoUri }}
                   style={styles.logo}
                   contentFit="contain"
                 />
@@ -565,7 +573,7 @@ export default function StoreSettingsScreen() {
                   styles.planBadge,
                   {
                     backgroundColor: isPro
-                      ? colors.primary + '20'
+                      ? `${colors.primary}20`
                       : colors.cardHover,
                   },
                 ]}
@@ -598,7 +606,7 @@ export default function StoreSettingsScreen() {
                 <View
                   style={[
                     styles.subscriptionIconContainer,
-                    { backgroundColor: colors.primary + '20' },
+                    { backgroundColor: `${colors.primary}20` },
                   ]}
                 >
                   <Ionicons name="star" size={20} color={colors.primary} />
@@ -656,7 +664,7 @@ export default function StoreSettingsScreen() {
                   <View
                     style={[
                       styles.subscriptionIconContainer,
-                      { backgroundColor: colors.textSecondary + '20' },
+                      { backgroundColor: `${colors.textSecondary}20` },
                     ]}
                   >
                     <Ionicons

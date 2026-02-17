@@ -114,12 +114,9 @@ const CountrySelect = ({
   onChange,
   options,
 }: CountrySelectProps) => {
-  const handleSelect = React.useCallback(
-    (country: RPNInput.Country) => {
-      onChange(country);
-    },
-    [onChange]
-  );
+  const handleSelect = (country: RPNInput.Country) => {
+    onChange(country);
+  };
 
   return (
     <Popover>

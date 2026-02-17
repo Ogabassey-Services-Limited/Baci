@@ -1,7 +1,11 @@
 'use client';
 
-import { CheckCircle2, Info, Loader2 } from 'lucide-react';
+import { Building2, CheckCircle2, Info, Loader2, MapPin } from 'lucide-react';
 import { useState } from 'react';
+import {
+  AddressAutocomplete,
+  type PlaceDetails,
+} from '@/components/address-autocomplete';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,11 +21,61 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 
+const NIGERIAN_STATES = [
+  { name: 'Abia', code: 'NG-AB' },
+  { name: 'Adamawa', code: 'NG-AD' },
+  { name: 'Akwa Ibom', code: 'NG-AK' },
+  { name: 'Anambra', code: 'NG-AN' },
+  { name: 'Bauchi', code: 'NG-BA' },
+  { name: 'Bayelsa', code: 'NG-BY' },
+  { name: 'Benue', code: 'NG-BE' },
+  { name: 'Borno', code: 'NG-BO' },
+  { name: 'Cross River', code: 'NG-CR' },
+  { name: 'Delta', code: 'NG-DE' },
+  { name: 'Ebonyi', code: 'NG-EB' },
+  { name: 'Edo', code: 'NG-ED' },
+  { name: 'Ekiti', code: 'NG-EK' },
+  { name: 'Enugu', code: 'NG-EN' },
+  { name: 'FCT', code: 'NG-FC' },
+  { name: 'Gombe', code: 'NG-GO' },
+  { name: 'Imo', code: 'NG-IM' },
+  { name: 'Jigawa', code: 'NG-JI' },
+  { name: 'Kaduna', code: 'NG-KD' },
+  { name: 'Kano', code: 'NG-KN' },
+  { name: 'Katsina', code: 'NG-KT' },
+  { name: 'Kebbi', code: 'NG-KE' },
+  { name: 'Kogi', code: 'NG-KO' },
+  { name: 'Kwara', code: 'NG-KW' },
+  { name: 'Lagos', code: 'NG-LA' },
+  { name: 'Nasarawa', code: 'NG-NA' },
+  { name: 'Niger', code: 'NG-NI' },
+  { name: 'Ogun', code: 'NG-OG' },
+  { name: 'Ondo', code: 'NG-ON' },
+  { name: 'Osun', code: 'NG-OS' },
+  { name: 'Oyo', code: 'NG-OY' },
+  { name: 'Plateau', code: 'NG-PL' },
+  { name: 'Rivers', code: 'NG-RI' },
+  { name: 'Sokoto', code: 'NG-SO' },
+  { name: 'Taraba', code: 'NG-TA' },
+  { name: 'Yobe', code: 'NG-YO' },
+  { name: 'Zamfara', code: 'NG-ZA' },
+] as const;
+
+interface RegisteredAddress {
+  street: string;
+  city: string;
+  state: string;
+  postal_code: string;
+}
+
 interface TaxSettingsFormProps {
   merchantId: string;
   initialVatEnabled: boolean;
   initialVatRate: number;
   initialTaxId: string;
+  initialLegalEntityName: string;
+  initialRegisteredAddress: RegisteredAddress;
+  initialStateCode: string;
 }
 
 export function TaxSettingsForm({
@@ -29,15 +83,27 @@ export function TaxSettingsForm({
   initialVatEnabled,
   initialVatRate,
   initialTaxId,
+  initialLegalEntityName,
+  initialRegisteredAddress,
+  initialStateCode,
 }: TaxSettingsFormProps) {
   const { toast } = useToast();
   const [vatEnabled, setVatEnabled] = useState(initialVatEnabled);
   const [taxId, setTaxId] = useState(initialTaxId);
+  const [legalEntityName, setLegalEntityName] = useState(
+    initialLegalEntityName
+  );
+  const [address, setAddress] = useState<RegisteredAddress>(
+    initialRegisteredAddress
+  );
+  const [stateCode, setStateCode] = useState(initialStateCode);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSavingEntity, setIsSavingEntity] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
 
   const handleVatToggle = async (enabled: boolean) => {
     setIsLoading(true);
-    setVatEnabled(enabled); // Optimistic update
+    setVatEnabled(enabled);
 
     try {
       const supabase = createClient();
@@ -57,7 +123,6 @@ export function TaxSettingsForm({
           : 'VAT will no longer be applied to orders.',
       });
     } catch (_error) {
-      // Revert on error
       setVatEnabled(!enabled);
       toast({
         title: 'Update Failed',
@@ -70,7 +135,6 @@ export function TaxSettingsForm({
   };
 
   const handleSaveTaxId = async () => {
-    // Validate TIN format (10 digits for Nigeria)
     if (taxId && !/^\d{10}$/.test(taxId)) {
       toast({
         title: 'Invalid Tax ID',
@@ -104,6 +168,100 @@ export function TaxSettingsForm({
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSaveLegalEntity = async () => {
+    setIsSavingEntity(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('merchants')
+        .update({
+          legal_entity_name: legalEntityName || null,
+        })
+        .eq('id', merchantId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Legal Entity Name Saved',
+        description: 'Your registered business name has been updated.',
+      });
+    } catch (_error) {
+      toast({
+        title: 'Update Failed',
+        description: 'Could not save legal entity name. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingEntity(false);
+    }
+  };
+
+  const handleStreetChange = (
+    e: React.ChangeEvent<HTMLInputElement> | string
+  ) => {
+    const value = typeof e === 'string' ? e : e.target.value;
+    setAddress((prev) => ({ ...prev, street: value }));
+  };
+
+  const handleAddressSelect = (place: PlaceDetails) => {
+    const street = [place.streetNumber, place.route].filter(Boolean).join(' ');
+    setAddress((prev) => ({
+      ...prev,
+      street: street || prev.street,
+      city: place.city || prev.city,
+      postal_code: place.zip || prev.postal_code,
+      state: place.state || prev.state,
+    }));
+
+    // Auto-match state name to Nigerian state code
+    if (place.state) {
+      const matchedState = NIGERIAN_STATES.find(
+        (s) => s.name.toLowerCase() === place.state.toLowerCase()
+      );
+      if (matchedState) {
+        setStateCode(matchedState.code);
+      }
+    }
+  };
+
+  const handleSaveAddress = async () => {
+    setIsSavingAddress(true);
+    try {
+      const supabase = createClient();
+
+      const selectedState = NIGERIAN_STATES.find((s) => s.code === stateCode);
+
+      const { error } = await supabase
+        .from('merchants')
+        .update({
+          registered_address: {
+            street: address.street || null,
+            city: address.city || null,
+            state: selectedState?.name || address.state || null,
+            postal_code: address.postal_code || null,
+            country: 'Nigeria',
+          },
+          state_code: stateCode || null,
+        })
+        .eq('id', merchantId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Address Saved',
+        description: 'Your registered business address has been updated.',
+      });
+    } catch (_error) {
+      toast({
+        title: 'Update Failed',
+        description: 'Could not save address. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingAddress(false);
     }
   };
 
@@ -142,7 +300,7 @@ export function TaxSettingsForm({
             </div>
             <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-muted/50">
               <span className="text-sm text-muted-foreground">Country</span>
-              <span className="font-semibold">Nigeria 🇳🇬</span>
+              <span className="font-semibold">Nigeria</span>
             </div>
           </div>
         </CardContent>
@@ -179,6 +337,128 @@ export function TaxSettingsForm({
               10-digit Nigerian TIN issued by FIRS
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Legal Entity Name Card */}
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            Legal Entity Name
+          </CardTitle>
+          <CardDescription>
+            Your officially registered business name as it appears on CAC
+            documents. This will be used on invoices and tax documents.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="legal-entity-name">Registered Business Name</Label>
+            <div className="flex gap-2">
+              <Input
+                id="legal-entity-name"
+                placeholder="e.g. Acme Enterprises Limited"
+                value={legalEntityName}
+                onChange={(e) => setLegalEntityName(e.target.value)}
+              />
+              <Button onClick={handleSaveLegalEntity} disabled={isSavingEntity}>
+                {isSavingEntity && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Save
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The full legal name registered with CAC (Corporate Affairs
+              Commission)
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Registered Address Card */}
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            Registered Business Address
+          </CardTitle>
+          <CardDescription>
+            Your official business address for tax invoices and FIRS compliance
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="address-street">Street Address</Label>
+            <AddressAutocomplete
+              id="address-street"
+              placeholder="Start typing your address..."
+              value={address.street}
+              onChange={handleStreetChange}
+              onSelect={handleAddressSelect}
+              country="ng"
+            />
+            <p className="text-xs text-muted-foreground">
+              Type to search with Google Places or enter manually
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="address-city">City</Label>
+              <Input
+                id="address-city"
+                placeholder="e.g. Lagos"
+                value={address.city}
+                onChange={(e) =>
+                  setAddress((prev) => ({ ...prev, city: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="address-postal">Postal Code</Label>
+              <Input
+                id="address-postal"
+                placeholder="e.g. 100001"
+                value={address.postal_code}
+                onChange={(e) =>
+                  setAddress((prev) => ({
+                    ...prev,
+                    postal_code: e.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="address-state">State</Label>
+            <select
+              id="address-state"
+              value={stateCode}
+              onChange={(e) => setStateCode(e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">Select state...</option>
+              {NIGERIAN_STATES.map((state) => (
+                <option key={state.code} value={state.code}>
+                  {state.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <Button
+            onClick={handleSaveAddress}
+            disabled={isSavingAddress}
+            className="w-full"
+          >
+            {isSavingAddress && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            Save Address
+          </Button>
         </CardContent>
       </Card>
 

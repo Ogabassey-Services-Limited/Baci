@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 // @imgly/background-removal is dynamically imported at point of use to avoid bundling 2MB ONNX runtime
 import { Image as ImageIcon, Loader2, Sparkles, Wand2 } from 'lucide-react';
 import Image from 'next/image';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import z from 'zod';
 import { autofillProductDetails } from '@/ai/flows/autofill-product-details';
@@ -255,11 +255,9 @@ export default function AddProductForm({
     }
   }, [initialData]);
 
-  const categoryConfig = useMemo(() => {
-    if (!merchant?.business_type)
-      return getCategoryConfigFromBusinessType('general');
-    return getCategoryConfigFromBusinessType(merchant.business_type);
-  }, [merchant?.business_type]);
+  const categoryConfig = !merchant?.business_type
+    ? getCategoryConfigFromBusinessType('general')
+    : getCategoryConfigFromBusinessType(merchant.business_type);
 
   const handleColorImageUpload = (
     color: string,
@@ -643,12 +641,10 @@ export default function AddProductForm({
     });
   }
 
-  const currencySymbol = useMemo(() => {
-    const country = merchant?.country
-      ? getCountryByCode(merchant.country)
-      : undefined;
-    return country?.currencySymbol || '₦';
-  }, [merchant?.country]);
+  const country = merchant?.country
+    ? getCountryByCode(merchant.country)
+    : undefined;
+  const currencySymbol = country?.currencySymbol || '₦';
 
   return (
     <Form {...form}>

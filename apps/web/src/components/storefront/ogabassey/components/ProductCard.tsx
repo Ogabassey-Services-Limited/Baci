@@ -4,7 +4,7 @@ import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 // Migrated from temp-source/components/ProductCard.tsx
 import Link from 'next/link';
 import Image from 'next/image';
-import React, { memo, useState } from 'react';
+import React, { useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 import { getProductUrl } from '@/lib/seo-utils';
@@ -40,20 +40,7 @@ interface ProductCardProps {
   viewMode?: 'grid' | 'list';
 }
 
-/**
- * ProductCard Component
- *
- * 2026 Best Practice: Wrapped with React.memo for performance optimization.
- * This prevents unnecessary re-renders when parent components update state
- * that doesn't affect this component's props.
- *
- * Note: React Compiler handles most memoization automatically, but explicit
- * memo() is beneficial here because:
- * - This component is rendered in large lists/grids
- * - It receives callback props that may have unstable references
- * - It has significant render cost (multiple images, icons, conditional logic)
- */
-const ProductCardBase: React.FC<ProductCardProps> = ({
+export const ProductCard: React.FC<ProductCardProps> = ({
   product,
   onAddToCart,
   isAdded,
@@ -405,19 +392,3 @@ const ProductCardBase: React.FC<ProductCardProps> = ({
     </div>
   );
 };
-
-/**
- * Memoized ProductCard
- *
- * 2026 Best Practice: Use React.memo with default shallow comparison.
- * This correctly handles all props including callbacks - if parent doesn't
- * stabilize callbacks, re-renders occur (correct behavior to avoid stale closures).
- * If parent uses useCallback or React Compiler stabilizes them, re-renders
- * are prevented (optimal performance).
- *
- * Note: Custom comparators are error-prone (missing properties, stale callbacks)
- * and React Compiler makes them largely unnecessary.
- */
-export const ProductCard = memo(ProductCardBase);
-
-ProductCard.displayName = 'ProductCard';

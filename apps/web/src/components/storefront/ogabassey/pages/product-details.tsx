@@ -22,7 +22,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
@@ -143,7 +143,7 @@ export const OgabasseyV2ProductDetails: React.FC<
     return '#cccccc';
   };
 
-  const productData = useMemo(() => {
+  const productData = (() => {
     const base = productFound
       ? { ...FALLBACK_PRODUCT, ...productFound }
       : FALLBACK_PRODUCT;
@@ -195,7 +195,7 @@ export const OgabasseyV2ProductDetails: React.FC<
       colors: normalizedColors,
       storage: normalizedStorage,
     };
-  }, [productFound, getColorHex]);
+  })();
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState<number | null>(null);
@@ -217,7 +217,7 @@ export const OgabasseyV2ProductDetails: React.FC<
   const [_missingFields, setMissingFields] = useState<string[]>([]);
 
   // Comparison Logic - Compute comparable items
-  const comparableProducts = useMemo(() => {
+  const comparableProducts = (() => {
     // 1. Get items from context that match category AND are NOT the current product
     const contextItems = compareItems.filter(
       (p) =>
@@ -240,7 +240,7 @@ export const OgabasseyV2ProductDetails: React.FC<
       finalItems = [...finalItems, ...suggestions];
     }
     return finalItems.slice(0, 3); // Max 3 competitors
-  }, [compareItems, productData.category, productData.id]);
+  })();
 
   // Scroll to top on load
   useEffect(() => {
@@ -252,7 +252,7 @@ export const OgabasseyV2ProductDetails: React.FC<
   // Derived state to find if this exact variant is in cart
   // Note: Baci's cart items have variantAttributes. We need to match based on that.
   // This is a simplification. Baci's cart logic might be more complex.
-  const currentCartItem = useMemo(() => {
+  const currentCartItem = (() => {
     if (selectedColor === null && productData.colors.length > 0)
       return undefined;
     if (selectedStorage === null && productData.storage.length > 0)
@@ -273,14 +273,7 @@ export const OgabasseyV2ProductDetails: React.FC<
 
       return colorMatch && storageMatch;
     });
-  }, [
-    cart,
-    productData.id,
-    selectedColor,
-    selectedStorage,
-    productData.colors,
-    productData.storage,
-  ]);
+  })();
 
   const quantityInCart = currentCartItem ? currentCartItem.quantity : 0;
 

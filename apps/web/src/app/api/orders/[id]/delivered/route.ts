@@ -53,7 +53,7 @@ export async function POST(
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select(
-        'id, business_name, slug, support_email, email_sender_name, email'
+        'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
       )
       .eq('id', merchantId)
       .single();
@@ -109,6 +109,8 @@ export async function POST(
       merchantName: merchant.business_name,
       merchantUrl,
       supportEmail: merchant.support_email,
+      merchantTin: merchant.tax_identification_number ?? undefined,
+      merchantRcNumber: merchant.cac_rc_number ?? undefined,
       googlePlaceId: featureSettings?.google_place_id || null,
     };
 
