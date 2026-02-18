@@ -1224,11 +1224,20 @@ export default function CheckoutScreen() {
       // This prevents duplicate orders from race conditions
       clearCart();
 
-      // Wait for Zustand persist middleware to flush to AsyncStorage
-      // (syncStorage.setItem is fire-and-forget; give it time to complete)
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => resolve());
-      });
+      // Flush cleared cart to AsyncStorage explicitly.
+      // syncStorage.setItem (used by Zustand persist) updates the in-memory cache
+      // synchronously but fires AsyncStorage.setItem as fire-and-forget. We must
+      // await the real write to guarantee persistence before navigation.
+      const persistOpts = useCartStore.persist.getOptions();
+      const partialize = persistOpts.partialize ?? ((s: unknown) => s);
+      const persistedState = partialize(useCartStore.getState());
+      await AsyncStorage.setItem(
+        persistOpts.name ?? 'cart-storage',
+        JSON.stringify({
+          state: persistedState,
+          version: persistOpts.version ?? 0,
+        })
+      );
 
       // Navigate to success after cart is cleared
       router.replace({

@@ -29,7 +29,11 @@ const PLATFORM_CONFIG: Record<
 };
 
 export function SocialLinks({ socialMedia, phone, colors }: SocialLinksProps) {
-  const cleanedPhone = phone ? phone.replace(/\D/g, '') : '';
+  // Clean phone and normalize Nigerian local numbers (0→234) for wa.me API
+  let cleanedPhone = phone ? phone.replace(/\D/g, '') : '';
+  if (cleanedPhone.startsWith('0') && cleanedPhone.length === 11) {
+    cleanedPhone = `234${cleanedPhone.slice(1)}`;
+  }
 
   const items = Object.entries(socialMedia)
     .map(([platform, handle]) => {
@@ -68,8 +72,8 @@ export function SocialLinks({ socialMedia, phone, colors }: SocialLinksProps) {
             onPress={async () => {
               try {
                 await Linking.openURL(item.url);
-              } catch (_e) {
-                // URL scheme not supported or failed to open
+              } catch (e) {
+                console.warn('Failed to open URL:', e);
               }
             }}
             accessibilityRole="link"
@@ -99,8 +103,8 @@ export function SocialLinks({ socialMedia, phone, colors }: SocialLinksProps) {
             onPress={async () => {
               try {
                 await Linking.openURL(`https://wa.me/${cleanedPhone}`);
-              } catch (_e) {
-                // URL scheme not supported or failed to open
+              } catch (e) {
+                console.warn('Failed to open URL:', e);
               }
             }}
             accessibilityRole="link"

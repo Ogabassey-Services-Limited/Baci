@@ -304,7 +304,9 @@ export default function CartScreen() {
         {items.map((item) => {
           const priceToUse = item.negotiatedPrice ?? item.price;
           const itemTotal = priceToUse * item.quantity;
-          const assuranceCost = item.hasAssurance ? itemTotal * 0.05 : 0;
+          const assuranceCost = item.hasAssurance
+            ? Math.round(itemTotal * (item.assuranceRate ?? 0.05))
+            : 0;
 
           return (
             <View key={item.id} style={styles.cartCard}>

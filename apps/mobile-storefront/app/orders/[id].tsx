@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { isOrderRealtimePayload } from '@/lib/validation';
@@ -96,7 +97,7 @@ export default function OrderDetailsScreen() {
   // Realtime subscription channel ref for cleanup
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  const fetchOrder = useCallback(async () => {
+  useEffect(() => {
     if (!id) return;
 
     // Auth check: require authenticated user to view order details
@@ -106,93 +107,94 @@ export default function OrderDetailsScreen() {
       return;
     }
 
-    try {
-      const { data, error: fetchError } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          order_number,
-          shipping_status,
-          subtotal,
-          shipping_fee,
-          discount_amount,
-          total,
-          payment_method,
-          payment_status,
-          created_at,
-          updated_at,
-          shipping_address,
-          tracking_number,
-          shipping_provider,
-          notes,
-          order_items (
+    const fetchOrder = async () => {
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('orders')
+          .select(`
             id,
-            product_id,
-            name,
-            quantity,
-            price,
-            has_assurance,
-            products (
-              slug,
-              images
+            order_number,
+            shipping_status,
+            subtotal,
+            shipping_fee,
+            discount_amount,
+            total,
+            payment_method,
+            payment_status,
+            created_at,
+            updated_at,
+            shipping_address,
+            tracking_number,
+            shipping_provider,
+            notes,
+            order_items (
+              id,
+              product_id,
+              name,
+              quantity,
+              price,
+              has_assurance,
+              products (
+                slug,
+                images
+              )
             )
-          )
-        `)
-        .eq('id', id)
-        .eq('customer_id', user.id)
-        .single();
+          `)
+          .eq('id', id)
+          .eq('customer_id', user.id)
+          .single();
 
-      if (fetchError) throw fetchError;
+        if (fetchError) throw fetchError;
 
-      setOrder({
-        ...data,
-        items: (data.order_items ?? []).map((item: Record<string, unknown>) => {
-          const product = Array.isArray(item.products)
-            ? item.products[0]
-            : item.products;
-          return {
-            id: item.id as string,
-            product_id: item.product_id as string,
-            product_name: item.name as string,
-            product_slug: (product?.slug as string) ?? '',
-            quantity: item.quantity as number,
-            price: item.price as number,
-            image_url: (product?.images as string[] | null)?.[0],
-            has_assurance: item.has_assurance as boolean | undefined,
-          };
-        }),
-      });
+        setOrder({
+          ...data,
+          items: (data.order_items ?? []).map(
+            (item: Record<string, unknown>) => {
+              const product = Array.isArray(item.products)
+                ? item.products[0]
+                : item.products;
+              return {
+                id: item.id as string,
+                product_id: item.product_id as string,
+                product_name: item.name as string,
+                product_slug: (product?.slug as string) ?? '',
+                quantity: item.quantity as number,
+                price: item.price as number,
+                image_url: (product?.images as string[] | null)?.[0],
+                has_assurance: item.has_assurance as boolean | undefined,
+              };
+            }
+          ),
+        });
 
-      // Fetch insurance policy if any items have assurance
-      const hasAssurance = (data.order_items ?? []).some(
-        (item: { has_assurance?: boolean }) => item.has_assurance
-      );
-      if (hasAssurance) {
-        const { data: policy } = await supabase
-          .from('order_insurance_policies')
-          .select(
-            'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date'
-          )
-          .eq('order_id', id)
-          .maybeSingle();
+        // Fetch insurance policy if any items have assurance
+        const hasAssurance = (data.order_items ?? []).some(
+          (item: { has_assurance?: boolean }) => item.has_assurance
+        );
+        if (hasAssurance) {
+          const { data: policy } = await supabase
+            .from('order_insurance_policies')
+            .select(
+              'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date'
+            )
+            .eq('order_id', id)
+            .maybeSingle();
 
-        if (policy) {
-          setInsurancePolicy(policy as InsurancePolicy);
+          if (policy) {
+            setInsurancePolicy(policy as InsurancePolicy);
+          }
         }
+
+        setError(null);
+      } catch (err) {
+        log.error('Error fetching order:', err);
+        setError('Failed to load order details');
+      } finally {
+        setIsLoading(false);
       }
-
-      setError(null);
-    } catch (err) {
-      log.error('Error fetching order:', err);
-      setError('Failed to load order details');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id, user?.id]);
-
-  useEffect(() => {
+    };
     fetchOrder();
-  }, [fetchOrder]);
+  }, [id, user?.id]);
 
   // Supabase Realtime subscription for live order status updates
   useEffect(() => {
@@ -309,17 +311,9 @@ export default function OrderDetailsScreen() {
   };
 
   const handleContactSupport = () => {
-    // TODO: Replace placeholder phone with actual merchant support phone
-    const supportPhone = '2348000000000';
-    if (supportPhone !== '2348000000000') {
-      Linking.openURL(`https://wa.me/${supportPhone}`);
-    } else {
-      log.warn('Contact support: placeholder phone number detected');
-      Alert.alert(
-        'Support',
-        'Please contact the merchant directly for support.'
-      );
-    }
+    Linking.openURL(
+      `https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=${encodeURIComponent('Hi, I need help with my order')}`
+    );
   };
 
   if (isLoading) {
@@ -353,7 +347,11 @@ export default function OrderDetailsScreen() {
         <Text style={[styles.errorText, { color: colors.text }]}>
           {error || 'Order not found'}
         </Text>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace('/')
+          }
+        >
           <Text style={[styles.retryText, { color: BRAND.primary }]}>
             Go back
           </Text>

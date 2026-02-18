@@ -66,11 +66,25 @@ export async function fetchWithTimeout(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  // H22 fix: Compose caller signal with internal timeout signal using AbortSignal.any()
-  // so that both the caller's abort and the timeout can cancel the request.
-  const combinedSignal = callerSignal
-    ? AbortSignal.any([callerSignal, controller.signal])
-    : controller.signal;
+  // H22 fix: Compose caller signal with internal timeout signal.
+  // AbortSignal.any() is NOT available in Hermes (React Native), so we
+  // manually link signals via a combined AbortController.
+  let combinedSignal: AbortSignal;
+  if (callerSignal) {
+    const combined = new AbortController();
+    for (const sig of [callerSignal, controller.signal]) {
+      if (sig.aborted) {
+        combined.abort(sig.reason);
+        break;
+      }
+      sig.addEventListener('abort', () => combined.abort(sig.reason), {
+        once: true,
+      });
+    }
+    combinedSignal = combined.signal;
+  } else {
+    combinedSignal = controller.signal;
+  }
 
   try {
     const response = await fetch(url, {

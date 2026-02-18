@@ -84,8 +84,6 @@ const HOW_IT_WORKS = [
 ];
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ogabassey.com';
-// Imported from shared constant for consistency across the app
-const SUPPORT_PHONE = SUPPORT_WHATSAPP_PHONE;
 
 export default function SwapScreen() {
   const colorScheme = useColorScheme();
@@ -256,7 +254,7 @@ export default function SwapScreen() {
         `I'd like to proceed with the swap.`
     );
 
-    Linking.openURL(`https://wa.me/${SUPPORT_PHONE}?text=${message}`);
+    Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=${message}`);
     setIsModalOpen(false);
   };
 

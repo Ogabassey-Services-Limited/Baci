@@ -132,14 +132,10 @@ export function PaymentMethodSelector({
     .map((method) => {
       // Add eligibility check for BNPL methods
       if (method.tab === 'installments' && !isBNPLEligible) {
-        let disabledReason: string;
-        if (!hasValidTotal) {
-          disabledReason = `Minimum order: ${formatPrice(BNPL_MIN_AMOUNT)}`;
-        } else if (orderTotal < BNPL_MIN_AMOUNT) {
-          disabledReason = `Minimum order: ${formatPrice(BNPL_MIN_AMOUNT)}`;
-        } else {
-          disabledReason = `Maximum order: ${formatPrice(BNPL_MAX_AMOUNT)}`;
-        }
+        const disabledReason =
+          hasValidTotal && orderTotal > BNPL_MAX_AMOUNT
+            ? `Maximum order: ${formatPrice(BNPL_MAX_AMOUNT)}`
+            : `Minimum order: ${formatPrice(BNPL_MIN_AMOUNT)}`;
         return {
           ...method,
           disabled: true,

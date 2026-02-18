@@ -9,7 +9,7 @@
  */
 
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('NetworkState');
@@ -147,7 +147,7 @@ export function useNetworkState(): UseNetworkStateResult {
     };
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
     const netState = await NetInfo.fetch();
     const isConnected = netState.isConnected ?? true;
     const isInternetReachable = netState.isInternetReachable ?? true;
@@ -160,14 +160,14 @@ export function useNetworkState(): UseNetworkStateResult {
       connectionType: netState.type,
       isOnline,
     }));
-  }, []);
+  };
 
-  const onReconnect = useCallback((callback: () => void) => {
+  const onReconnect = (callback: () => void) => {
     reconnectCallbacks.current.add(callback);
     return () => {
       reconnectCallbacks.current.delete(callback);
     };
-  }, []);
+  };
 
   return {
     ...state,
@@ -232,7 +232,7 @@ export function useRetry<T>(
   const [isRetrying, setIsRetrying] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const execute = useCallback(async (): Promise<T | null> => {
+  const execute = async (): Promise<T | null> => {
     setIsRetrying(true);
     setError(null);
 
@@ -264,20 +264,13 @@ export function useRetry<T>(
 
     setIsRetrying(false);
     return null;
-  }, [
-    operation,
-    maxRetries,
-    initialDelay,
-    maxDelay,
-    backoffMultiplier,
-    onMaxRetriesReached,
-  ]);
+  };
 
-  const reset = useCallback(() => {
+  const reset = () => {
     setRetryCount(0);
     setIsRetrying(false);
     setError(null);
-  }, []);
+  };
 
   return {
     execute,

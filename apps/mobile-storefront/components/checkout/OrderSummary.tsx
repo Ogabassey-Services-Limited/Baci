@@ -27,7 +27,6 @@ interface OrderSummaryProps {
   subtotal: number;
   deliveryFee: number;
   total: number;
-  currency?: string;
 }
 
 export function OrderSummary({
@@ -35,7 +34,6 @@ export function OrderSummary({
   subtotal,
   deliveryFee,
   total,
-  currency: _currency = '₦',
 }: OrderSummaryProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const colorScheme = useColorScheme();
@@ -137,7 +135,9 @@ export function OrderSummary({
             <Text
               style={[
                 styles.summaryValue,
-                { color: deliveryFee === 0 ? colors.success : colors.text },
+                {
+                  color: deliveryFee === 0 ? colors.textSecondary : colors.text,
+                },
               ]}
             >
               {deliveryFee === 0

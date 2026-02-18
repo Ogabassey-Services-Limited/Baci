@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -43,9 +43,9 @@ export default function LoginScreen() {
    * 2026 Best Practice: Intent-preserving return navigation
    * After auth, return to the screen the user originally intended to visit.
    * Falls back to dismiss (if pushed as modal) or root.
-   * Wrapped in useCallback so the auth-watcher effect has a stable reference.
+   * React Compiler handles memoization automatically.
    */
-  const dismissAndNavigate = useCallback(() => {
+  const dismissAndNavigate = () => {
     if (returnTo) {
       router.replace(decodeURIComponent(returnTo) as '/');
     } else if (router.canDismiss()) {
@@ -53,7 +53,7 @@ export default function LoginScreen() {
     } else {
       router.replace('/');
     }
-  }, [returnTo]);
+  };
 
   const signInWithOtp = useAuthStore((state) => state.signInWithOtp);
   const verifyOtp = useAuthStore((state) => state.verifyOtp);
@@ -74,6 +74,7 @@ export default function LoginScreen() {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [_isAppleAvailable, setIsAppleAvailable] = useState(false);
 
   // 2026 Best Practice: Use keyboard hook for proper dismiss on submit
   const { withKeyboardDismiss } = useKeyboard();
@@ -104,10 +105,16 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (isInitialized && user) {
-      // User is authenticated — dismiss this login screen
-      dismissAndNavigate();
+      // User is authenticated — inline navigation to avoid dep on dismissAndNavigate
+      if (returnTo) {
+        router.replace(decodeURIComponent(returnTo) as '/');
+      } else if (router.canDismiss()) {
+        router.dismiss();
+      } else {
+        router.replace('/');
+      }
     }
-  }, [isInitialized, user, dismissAndNavigate]);
+  }, [isInitialized, user, returnTo]);
 
   // 2026 Best Practice: Dismiss keyboard on submit
   const handleContinue = withKeyboardDismiss(async () => {
@@ -462,8 +469,9 @@ export default function LoginScreen() {
                       if (!isMountedRef.current) return;
                       if (result.success) {
                         dismissAndNavigate();
-                      } else
+                      } else {
                         Alert.alert('Error', result.error || 'Invalid code');
+                      }
                     } finally {
                       isVerifyingRef.current = false;
                     }
@@ -506,7 +514,9 @@ export default function LoginScreen() {
             );
             if (result.success) {
               dismissAndNavigate();
-            } else Alert.alert('Error', result.error || 'Invalid code');
+            } else {
+              Alert.alert('Error', result.error || 'Invalid code');
+            }
           } finally {
             isVerifyingRef.current = false;
           }

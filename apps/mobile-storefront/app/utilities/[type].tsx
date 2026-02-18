@@ -71,7 +71,11 @@ export default function UtilityPurchaseScreen() {
           </Text>
           <Pressable
             style={[styles.backButton, { borderColor: colors.border }]}
-            onPress={() => router.back()}
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace('/')
+            }
+            accessibilityLabel="Go back to previous screen"
+            accessibilityRole="button"
           >
             <Text style={[styles.backButtonText, { color: colors.text }]}>
               Go Back
@@ -82,7 +86,7 @@ export default function UtilityPurchaseScreen() {
     );
   }
 
-  const validType: ValidType = type;
+  const validType = type;
   const title = TYPE_TITLES[validType];
 
   const handleSuccess = (data: SuccessData) => {

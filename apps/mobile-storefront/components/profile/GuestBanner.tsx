@@ -44,9 +44,9 @@ export function GuestBanner() {
         </Text>
 
         <View style={styles.perks}>
-          {PERKS.map((perk, index) => (
+          {PERKS.map((perk) => (
             <Animated.View
-              key={`perk-${index}`}
+              key={perk.text}
               entering={FadeInDown.delay(300).duration(400)}
               style={styles.perkRow}
             >

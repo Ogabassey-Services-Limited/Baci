@@ -28,24 +28,11 @@ import { createLogger } from '@/lib/logger';
 import {
   ImeiCheckApiResponseSchema,
   type ImeiResult,
+  isValidIMEI,
   parseApiResponse,
 } from '@/lib/validation';
 
 const log = createLogger('ImeiChecker');
-
-function isValidIMEI(imei: string): boolean {
-  if (!/^\d{15}$/.test(imei)) return false;
-  let sum = 0;
-  for (let i = 0; i < 15; i++) {
-    let digit = Number.parseInt(imei[i], 10);
-    if (i % 2 === 1) {
-      digit *= 2;
-      if (digit > 9) digit -= 9;
-    }
-    sum += digit;
-  }
-  return sum % 10 === 0;
-}
 
 // Service tiers for IMEI checking
 const SERVICE_TIERS = {

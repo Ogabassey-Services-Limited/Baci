@@ -79,13 +79,11 @@ const HOW_IT_WORKS = [
   },
 ];
 
-// Imported from shared constant for consistency across the app
-const SUPPORT_PHONE = SUPPORT_WHATSAPP_PHONE;
-
 // ─── Component ─────────────────────────────────────────
 
 export default function RepairsScreen() {
   const colorScheme = useColorScheme();
+  const _isDark = colorScheme === 'dark';
   const colors = Colors[colorScheme ?? 'light'];
 
   const handleBookRepair = (service?: string) => {
@@ -94,7 +92,7 @@ export default function RepairsScreen() {
     const message = encodeURIComponent(
       `Hello! I'd like to book a device repair.${serviceText}\n\nPlease let me know your available time slots.`
     );
-    Linking.openURL(`https://wa.me/${SUPPORT_PHONE}?text=${message}`);
+    Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=${message}`);
   };
 
   const handleSwap = () => {
@@ -210,9 +208,27 @@ export default function RepairsScreen() {
         </View>
 
         {/* ── Free Cleaning Banner ── */}
-        <View style={styles.freeBanner}>
-          <View style={styles.freeBannerIcon}>
-            <Ionicons name="sparkles" size={24} color="#059669" />
+        <View
+          style={[
+            styles.freeBanner,
+            {
+              backgroundColor: _isDark ? 'rgba(5, 150, 105, 0.12)' : '#ECFDF5',
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.freeBannerIcon,
+              {
+                backgroundColor: _isDark ? 'rgba(5, 150, 105, 0.2)' : '#D1FAE5',
+              },
+            ]}
+          >
+            <Ionicons
+              name="sparkles"
+              size={24}
+              color={_isDark ? '#34D399' : '#059669'}
+            />
           </View>
           <View style={styles.freeBannerContent}>
             <Text style={[styles.freeBannerTitle, { color: colors.text }]}>
@@ -412,7 +428,6 @@ const styles = StyleSheet.create({
   // ── Free Cleaning Banner ──
   freeBanner: {
     flexDirection: 'row',
-    backgroundColor: '#ECFDF5',
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     gap: SPACING.md,
@@ -423,7 +438,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#D1FAE5',
     justifyContent: 'center',
     alignItems: 'center',
   },

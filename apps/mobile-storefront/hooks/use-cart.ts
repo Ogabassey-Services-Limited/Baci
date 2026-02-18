@@ -11,7 +11,7 @@
 
 import NetInfo from '@react-native-community/netinfo';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useRef } from 'react';
+import { useRef } from 'react';
 import { Alert, Platform, ToastAndroid } from 'react-native';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
@@ -159,11 +159,9 @@ export function useCart() {
 
   /** Look up last-known stock_quantity from TanStack Query product cache */
   function getCachedStock(productId: string): number | undefined {
-    // Bug #99 fix: Build a Map for O(1) lookup instead of O(n) scan
     const queries = queryClient.getQueriesData<{ stock_quantity?: number }[]>({
       queryKey: ['products'],
     });
-    const stockMap = new Map<string, number>();
     for (const [, data] of queries) {
       if (!Array.isArray(data)) continue;
       for (const p of data) {
@@ -171,13 +169,14 @@ export function useCart() {
           p &&
           typeof p === 'object' &&
           'id' in p &&
+          (p as { id: string }).id === productId &&
           p.stock_quantity != null
         ) {
-          stockMap.set((p as { id: string }).id, p.stock_quantity);
+          return p.stock_quantity;
         }
       }
     }
-    return stockMap.get(productId);
+    return undefined;
   }
 
   /**
@@ -340,26 +339,17 @@ export function useCart() {
   });
 
   // Wrapped functions for easier consumption
-  const addToCart = useCallback(
-    (item: AddToCartInput) => {
-      addToCartMutation.mutate(item);
-    },
-    [addToCartMutation]
-  );
+  const addToCart = (item: AddToCartInput) => {
+    addToCartMutation.mutate(item);
+  };
 
-  const removeFromCart = useCallback(
-    (id: string) => {
-      removeFromCartMutation.mutate(id);
-    },
-    [removeFromCartMutation]
-  );
+  const removeFromCart = (id: string) => {
+    removeFromCartMutation.mutate(id);
+  };
 
-  const updateQuantity = useCallback(
-    (id: string, quantity: number) => {
-      updateQuantityMutation.mutate({ id, quantity });
-    },
-    [updateQuantityMutation]
-  );
+  const updateQuantity = (id: string, quantity: number) => {
+    updateQuantityMutation.mutate({ id, quantity });
+  };
 
   return {
     // State

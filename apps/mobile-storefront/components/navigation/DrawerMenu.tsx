@@ -26,7 +26,6 @@ import Animated, {
   interpolate,
   runOnJS,
   useAnimatedStyle,
-  useDerivedValue,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -140,11 +139,8 @@ export function DrawerMenu() {
     transform: [{ translateX: translateX.value }],
   }));
 
-  // H4 fix: Move pointerEvents out of style — it's a View prop, not a style property.
-  // Use useDerivedValue to read the shared value on the UI thread safely.
-  const backdropPointerEvents = useDerivedValue<'auto' | 'none'>(() =>
-    backdropOpacity.value > 0 ? 'auto' : 'none'
-  );
+  // H4 fix: Use isOpen prop directly for pointerEvents since useDerivedValue
+  // reads .value at render time (JS thread snapshot), not reactively during animation.
 
   const backdropAnimatedStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
@@ -177,26 +173,17 @@ export function DrawerMenu() {
   const isActive = (path: string) =>
     pathname === path || pathname?.startsWith(`${path}/`);
 
-  // M1 fix: Use useDerivedValue to read shared value on UI thread instead of JS thread.
-  // The early return is now driven by a derived boolean that stays in sync with the animation.
-  const _isFullyClosed = useDerivedValue(
-    () => !isOpen && translateX.value === -DRAWER_WIDTH
-  );
-
-  // We still need a JS-thread early return for rendering.
-  // Reading .value on the JS thread is acceptable here because it only controls
-  // whether to mount the component tree — it won't cause animation glitches.
-  // The actual animation correctness is handled by the UI-thread useDerivedValue above.
+  // JS-thread early return for rendering
   if (!isOpen && translateX.value === -DRAWER_WIDTH) {
     return null;
   }
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {/* Backdrop — H4 fix: pointerEvents as a prop, not in style */}
+      {/* Backdrop — pointerEvents driven by isOpen prop for reliable tappability */}
       <Animated.View
         style={[styles.backdrop, backdropAnimatedStyle]}
-        pointerEvents={backdropPointerEvents.value}
+        pointerEvents={isOpen ? 'auto' : 'none'}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={closeDrawer} />
       </Animated.View>

@@ -48,6 +48,7 @@ export interface UseProductsOptions {
   minPrice?: number;
   maxPrice?: number;
   minRating?: number;
+  enabled?: boolean;
 }
 
 interface ProductsPage {
@@ -166,6 +167,7 @@ async function fetchProductsPage(
   if (options.search) {
     // L5 FIX: Escape % and _ wildcards in search query before passing to ilike
     const escapedSearch = options.search
+      .replace(/\\/g, '\\\\')
       .replace(/%/g, '\\%')
       .replace(/_/g, '\\_');
     query = query.ilike('name', `%${escapedSearch}%`);
@@ -307,7 +309,7 @@ export function useProducts(options: UseProductsOptions = {}) {
     initialPageParam: 0,
     staleTime: 1000 * 60 * 2, // 2 minutes
     placeholderData: keepPreviousData, // 2026 Best Practice: Keep previous data while fetching new category
-    enabled: !!merchantId,
+    enabled: !!merchantId && options.enabled !== false,
   });
 
   const products = query.data?.pages.flatMap((page) => page.products) || [];

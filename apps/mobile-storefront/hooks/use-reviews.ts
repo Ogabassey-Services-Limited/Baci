@@ -6,7 +6,7 @@
  */
 
 import Constants from 'expo-constants';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createLogger } from '@/lib/logger';
 import {
   MarkReviewHelpfulResponseSchema,
@@ -51,112 +51,128 @@ export function useReviews({
 
   const apiUrl = Constants.expoConfig?.extra?.apiUrl;
 
-  const fetchReviews = useCallback(
-    async (pageNum: number, append = false) => {
-      if (!productId || !apiUrl) {
-        setIsLoading(false);
-        return;
+  const fetchReviews = async (pageNum: number, append = false) => {
+    if (!productId || !apiUrl) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      if (!append) {
+        setIsLoading(true);
       }
 
-      try {
-        if (!append) {
-          setIsLoading(true);
-        }
+      const response = await fetch(
+        `${apiUrl}/api/reviews?productId=${productId}&status=approved&page=${pageNum}&limit=${limit}`
+      );
 
-        const response = await fetch(
-          `${apiUrl}/api/reviews?productId=${productId}&status=approved&page=${pageNum}&limit=${limit}`
-        );
+      if (!response.ok) {
+        throw new Error('Failed to fetch reviews');
+      }
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch reviews');
-        }
+      const rawData = await response.json();
 
-        const rawData = await response.json();
+      // 2026 Best Practice: Validate API response with Zod
+      const validatedData = parseApiResponse(
+        ReviewsApiResponseSchema,
+        rawData,
+        'reviews API'
+      );
 
-        // 2026 Best Practice: Validate API response with Zod
-        const validatedData = parseApiResponse(
-          ReviewsApiResponseSchema,
-          rawData,
-          'reviews API'
-        );
-
-        if (!validatedData) {
-          // Fallback to raw data if validation fails (graceful degradation)
-          log.warn('Reviews API response validation failed, using raw data');
-          const rawReviews = Array.isArray(rawData?.reviews)
-            ? rawData.reviews
-                .filter(
-                  (r: unknown): r is Record<string, unknown> =>
-                    r != null && typeof r === 'object'
-                )
-                .map((r: Record<string, unknown>) => ({
-                  ...r,
+      if (!validatedData) {
+        // Fallback to raw data if validation fails (graceful degradation)
+        log.warn('Reviews API response validation failed, using raw data');
+        const rawReviews: Review[] = Array.isArray(rawData?.reviews)
+          ? rawData.reviews
+              .filter(
+                (r: unknown): r is Record<string, unknown> =>
+                  r != null && typeof r === 'object'
+              )
+              .map(
+                (r: Record<string, unknown>): Review => ({
+                  id:
+                    typeof r.id === 'string'
+                      ? r.id
+                      : `fallback-${Date.now()}-${Math.random().toString(36).slice(2)}`,
                   rating:
-                    typeof r.rating === 'number' && r.rating >= 1
+                    typeof r.rating === 'number' &&
+                    r.rating >= 1 &&
+                    r.rating <= 5
                       ? r.rating
                       : 1,
+                  title: typeof r.title === 'string' ? r.title : undefined,
                   body:
                     typeof r.body === 'string'
                       ? r.body
                       : typeof r.comment === 'string'
-                        ? r.comment
+                        ? (r.comment as string)
                         : '',
                   customer_name:
                     typeof r.customer_name === 'string'
                       ? r.customer_name
                       : 'Anonymous',
-                }))
-            : [];
-          if (append) {
-            setReviews((prev) => [...prev, ...rawReviews]);
-          } else {
-            setReviews(rawReviews as Review[]);
-          }
-          if (
-            rawData?.stats &&
-            typeof rawData.stats === 'object' &&
-            typeof rawData.stats.average_rating === 'number'
-          ) {
-            setStats(rawData.stats);
-          }
-          const totalPages = rawData?.pagination?.totalPages || 1;
-          setHasMore(pageNum < totalPages);
+                  verified_purchase:
+                    typeof r.verified_purchase === 'boolean'
+                      ? r.verified_purchase
+                      : false,
+                  helpful_count:
+                    typeof r.helpful_count === 'number' ? r.helpful_count : 0,
+                  created_at:
+                    typeof r.created_at === 'string'
+                      ? r.created_at
+                      : new Date().toISOString(),
+                })
+              )
+          : [];
+        if (append) {
+          setReviews((prev) => [...prev, ...rawReviews]);
         } else {
-          // Use validated data
-          if (append) {
-            setReviews((prev) => [...prev, ...validatedData.reviews]);
-          } else {
-            setReviews(validatedData.reviews);
-          }
-
-          if (validatedData.stats) {
-            setStats(validatedData.stats);
-          }
-
-          // Check if there are more reviews
-          const totalPages = validatedData.pagination?.totalPages || 1;
-          setHasMore(pageNum < totalPages);
+          setReviews(rawReviews);
         }
-        setError(null);
-      } catch (err) {
-        log.error('Error fetching reviews:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load reviews');
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [productId, apiUrl, limit]
-  );
+        if (
+          rawData?.stats &&
+          typeof rawData.stats === 'object' &&
+          typeof rawData.stats.average_rating === 'number'
+        ) {
+          setStats(rawData.stats);
+        }
+        const totalPages = rawData?.pagination?.totalPages || 1;
+        setHasMore(pageNum < totalPages);
+      } else {
+        // Use validated data
+        if (append) {
+          setReviews((prev) => [...prev, ...validatedData.reviews]);
+        } else {
+          setReviews(validatedData.reviews);
+        }
 
+        if (validatedData.stats) {
+          setStats(validatedData.stats);
+        }
+
+        // Check if there are more reviews
+        const totalPages = validatedData.pagination?.totalPages || 1;
+        setHasMore(pageNum < totalPages);
+      }
+      setError(null);
+    } catch (err) {
+      log.error('Error fetching reviews:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load reviews');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchReviews is intentionally not in deps to avoid infinite loop (plain function, not memoized)
   useEffect(() => {
     setPage(1);
     fetchReviews(1);
-  }, [fetchReviews]);
+  }, [productId, apiUrl, limit]);
 
   // L7 fix: Use isLoadingMore state to prevent concurrent loadMore calls
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const loadMore = useCallback(async () => {
+  const loadMore = async () => {
     if (!hasMore || isLoading || isLoadingMore) return;
 
     setIsLoadingMore(true);
@@ -167,12 +183,12 @@ export function useReviews({
     } finally {
       setIsLoadingMore(false);
     }
-  }, [hasMore, isLoading, isLoadingMore, page, fetchReviews]);
+  };
 
-  const refetch = useCallback(async () => {
+  const refetch = async () => {
     setPage(1);
     await fetchReviews(1);
-  }, [fetchReviews]);
+  };
 
   return {
     reviews,
