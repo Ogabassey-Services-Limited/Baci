@@ -27,6 +27,18 @@ import { useUIStore } from '@/stores/ui-store';
 (useUIStore as unknown as { getState: typeof mockGetState }).getState =
   mockGetState;
 
+// Mock expo-haptics
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn().mockResolvedValue(undefined),
+  notificationAsync: jest.fn().mockResolvedValue(undefined),
+  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Heavy: 'heavy' },
+  NotificationFeedbackType: {
+    Success: 'success',
+    Error: 'error',
+    Warning: 'warning',
+  },
+}));
+
 // Mock logger
 jest.mock('@/lib/logger', () => ({
   createLogger: jest.fn(() => ({
