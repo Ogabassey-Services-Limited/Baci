@@ -110,6 +110,8 @@ export function ChatModal({
             key={s.label}
             style={[styles.suggestionChip, { borderColor: colors.border }]}
             onPress={() => onSuggestionPress(s.label)}
+            accessibilityRole="button"
+            accessibilityLabel={`Suggestion: ${s.label}`}
           >
             <Ionicons name={s.icon} size={14} color={BRAND.primary} />
             <Text style={[styles.suggestionText, { color: colors.text }]}>

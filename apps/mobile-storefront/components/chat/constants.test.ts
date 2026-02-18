@@ -6,6 +6,7 @@ import {
   NUDGE_HIDDEN_DURATION,
   NUDGE_INITIAL_DELAY,
   NUDGE_VISIBLE_DURATION,
+  SCREEN_WIDTH,
   SNAP_THRESHOLD,
 } from './constants';
 
@@ -44,16 +45,16 @@ describe('chat constants', () => {
   });
 
   describe('SNAP_THRESHOLD', () => {
-    it('is a positive number', () => {
+    it('equals half the screen width', () => {
       expect(typeof SNAP_THRESHOLD).toBe('number');
-      expect(SNAP_THRESHOLD).toBeGreaterThan(0);
+      expect(SNAP_THRESHOLD).toBe(SCREEN_WIDTH / 2);
     });
   });
 
   describe('API_BASE_URL', () => {
-    it('starts with "http"', () => {
+    it('starts with "https://"', () => {
       expect(typeof API_BASE_URL).toBe('string');
-      expect(API_BASE_URL.startsWith('http')).toBe(true);
+      expect(API_BASE_URL.startsWith('https://')).toBe(true);
     });
   });
 

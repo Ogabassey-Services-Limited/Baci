@@ -216,6 +216,31 @@ describe('useChat', () => {
     });
   });
 
+  it('handles network errors in santa mode with appropriate error message', async () => {
+    // Arrange
+    global.fetch = jest.fn().mockRejectedValue(new Error('Network failure'));
+    mockIsChatOpen = true;
+    const { result } = renderHook(() => useChat(true));
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(1);
+    });
+
+    // Act
+    await act(async () => {
+      result.current.handleSend('Hello');
+    });
+
+    // Assert: a santa-mode error message is added
+    await waitFor(() => {
+      const errorMsg = result.current.messages.find(
+        (m) => m.role === 'model' && m.id.startsWith('error-')
+      );
+      expect(errorMsg).toBeDefined();
+      expect(errorMsg?.text).toBeTruthy();
+    });
+  });
+
   it('handles non-ok response by adding an error message', async () => {
     // Arrange
     global.fetch = jest

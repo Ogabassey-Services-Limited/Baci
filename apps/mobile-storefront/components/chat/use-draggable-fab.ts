@@ -1,21 +1,19 @@
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, PanResponder, Platform } from 'react-native';
-import {
-  EDGE_MARGIN,
-  FAB_SIZE,
-  SCREEN_HEIGHT,
-  SCREEN_WIDTH,
-} from './constants';
+import { EDGE_MARGIN, FAB_SIZE } from './constants';
 
 export function useDraggableFab(bottomOffset: number) {
   const [isDragging, setIsDragging] = useState(false);
 
+  // Use runtime dimensions for initial position (not stale module-level constants)
+  const { width: initialW, height: initialH } = Dimensions.get('window');
+
   // Draggable FAB position - starts at bottom right
   const pan = useRef(
     new Animated.ValueXY({
-      x: SCREEN_WIDTH - FAB_SIZE - EDGE_MARGIN,
-      y: SCREEN_HEIGHT - bottomOffset - FAB_SIZE,
+      x: initialW - FAB_SIZE - EDGE_MARGIN,
+      y: initialH - bottomOffset - FAB_SIZE,
     })
   ).current;
 
@@ -26,8 +24,8 @@ export function useDraggableFab(bottomOffset: number) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // M29 fix: Track animated values via listeners instead of accessing private _value
-  const panXRef = useRef(SCREEN_WIDTH - FAB_SIZE - EDGE_MARGIN);
-  const panYRef = useRef(SCREEN_HEIGHT - bottomOffset - FAB_SIZE);
+  const panXRef = useRef(initialW - FAB_SIZE - EDGE_MARGIN);
+  const panYRef = useRef(initialH - bottomOffset - FAB_SIZE);
 
   useEffect(() => {
     const xId = pan.x.addListener(({ value }) => {

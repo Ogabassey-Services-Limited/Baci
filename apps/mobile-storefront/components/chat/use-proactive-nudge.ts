@@ -11,15 +11,6 @@ export function useProactiveNudge(isChatOpen: boolean) {
   const [proactiveMsg, setProactiveMsg] = useState<string | null>(null);
   const nudgeFadeAnim = useRef(new Animated.Value(0)).current;
   const _nudgeTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const _mountedRef = useRef(true);
-
-  // Track mounted state for animation callbacks
-  useEffect(() => {
-    _mountedRef.current = true;
-    return () => {
-      _mountedRef.current = false;
-    };
-  }, []);
 
   // H25 fix: Proactive nudge logic with proper mounted guard to prevent timer leaks.
   // Use a local `active` flag that the cleanup sets to false, ensuring no new
@@ -28,7 +19,7 @@ export function useProactiveNudge(isChatOpen: boolean) {
     let active = true;
 
     const startVisibleCycle = () => {
-      if (!active || isChatOpen || !_mountedRef.current) return;
+      if (!active || isChatOpen) return;
 
       const randomMsg =
         PROACTIVE_MESSAGES[
@@ -55,7 +46,7 @@ export function useProactiveNudge(isChatOpen: boolean) {
         duration: 300,
         useNativeDriver: true,
       }).start(() => {
-        if (!active || !_mountedRef.current) return;
+        if (!active) return;
         setProactiveMsg(null);
         if (!isChatOpen) {
           _nudgeTimerRef.current = setTimeout(

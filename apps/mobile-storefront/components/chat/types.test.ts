@@ -40,11 +40,5 @@ describe('types constants', () => {
         expect(msg.trim().length).toBeGreaterThan(0);
       }
     });
-
-    it('contains only string values', () => {
-      for (const msg of PROACTIVE_MESSAGES) {
-        expect(typeof msg).toBe('string');
-      }
-    });
   });
 });

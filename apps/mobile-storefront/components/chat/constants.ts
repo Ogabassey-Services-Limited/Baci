@@ -26,7 +26,8 @@ export const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } =
   Dimensions.get('window');
 
 // API base URL - uses the web app's API
-export const API_BASE_URL = 'https://ogabassey.usebaci.com';
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ?? 'https://ogabassey.usebaci.com';
 
 // FAB dimensions and margins
 export const FAB_SIZE = 60;

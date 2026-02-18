@@ -60,7 +60,7 @@ export function useChat(santaMode: boolean) {
     if (!messageText.trim() || isLoadingRef.current) return;
 
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     }
 
     const userMessage: ChatMessage = {
@@ -138,7 +138,9 @@ export function useChat(santaMode: boolean) {
         setMessages((prev) => [...prev, aiMessage]);
 
         if (Platform.OS === 'ios') {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Haptics.notificationAsync(
+            Haptics.NotificationFeedbackType.Success
+          ).catch(() => {});
         }
       } finally {
         clearTimeout(_timeoutId);
