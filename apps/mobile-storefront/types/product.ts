@@ -68,9 +68,6 @@ export interface ProductVariant {
   price_modifier?: number;
   image?: string;
   images?: string[];
-  color?: string;
-  storage?: string;
-  platform?: string;
   in_stock?: boolean;
   stock_quantity?: number;
   attributes?: Record<string, string>;

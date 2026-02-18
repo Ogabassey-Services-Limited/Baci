@@ -428,7 +428,7 @@ export const ProductRowSchema = z.object({
   specifications: z.record(z.string(), z.string()).nullable().optional(),
   has_variants: z.boolean().nullable().optional(),
   variant_attributes: z
-    .record(z.string(), z.array(z.string()))
+    .array(z.object({ param: z.string(), options: z.array(z.string()) }))
     .nullable()
     .optional(),
   categories: z

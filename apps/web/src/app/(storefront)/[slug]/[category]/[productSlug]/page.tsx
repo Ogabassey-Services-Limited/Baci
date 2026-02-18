@@ -417,8 +417,8 @@ function toOgabasseyProduct(
       new Set(
         product.variants
           .map(
-            (v: { attributes?: Record<string, string>; storage?: string }) =>
-              v.attributes?.storage || v.storage
+            (v: { attributes?: Record<string, string> }) =>
+              v.attributes?.storage
           )
           .filter(Boolean) as string[]
       )

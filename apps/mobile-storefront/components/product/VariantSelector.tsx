@@ -134,8 +134,7 @@ export function VariantSelector({
     for (const s of storageArray) {
       // Find matching variant for price info
       const variant = variants?.find(
-        (v) =>
-          v.storage === s || v.attributes?.storage === s || v.name?.includes(s)
+        (v) => v.attributes?.storage === s || v.name?.includes(s)
       );
 
       normalizedStorage.push({

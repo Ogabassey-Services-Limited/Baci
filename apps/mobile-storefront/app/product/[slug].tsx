@@ -489,7 +489,6 @@ export default function ProductDetailScreen() {
     if (selectedStorage && product.variants) {
       const variant = product.variants.find(
         (v) =>
-          v.storage === selectedStorage ||
           v.attributes?.storage === selectedStorage ||
           v.name?.includes(selectedStorage)
       );
@@ -883,7 +882,7 @@ export default function ProductDetailScreen() {
           {(product.colors ||
             product.color_images ||
             product.variant_attributes?.storage ||
-            product.variants?.some((v) => v.storage)) && (
+            product.variants?.some((v) => v.attributes?.storage)) && (
             <View style={styles.section}>
               <VariantSelector
                 colors={product.colors}
@@ -891,7 +890,7 @@ export default function ProductDetailScreen() {
                 storage={
                   product.variant_attributes?.storage ||
                   product.variants
-                    ?.map((v) => v.storage)
+                    ?.map((v) => v.attributes?.storage)
                     .filter((s): s is string => !!s)
                 }
                 variants={product.variants}
@@ -913,7 +912,7 @@ export default function ProductDetailScreen() {
             product.variants.length > 0 &&
             !product.colors &&
             !product.color_images &&
-            !product.variants.some((v) => v.storage) && (
+            !product.variants.some((v) => v.attributes?.storage) && (
               <View style={styles.section}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>
                   Options

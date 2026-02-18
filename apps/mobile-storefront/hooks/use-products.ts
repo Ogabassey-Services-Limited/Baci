@@ -57,6 +57,18 @@ interface ProductsPage {
   total: number;
 }
 
+/** Convert [{param, options}] array to Record<string, string[]> for UI consumption */
+function normalizeVariantAttributes(
+  attrs: { param: string; options: string[] }[] | null | undefined
+): Record<string, string[]> | undefined {
+  if (!attrs || !Array.isArray(attrs)) return undefined;
+  const record: Record<string, string[]> = {};
+  for (const { param, options } of attrs) {
+    record[param] = options;
+  }
+  return Object.keys(record).length > 0 ? record : undefined;
+}
+
 // 2026 Best Practice: Transform database product to app Product type with validation
 function transformProduct(item: unknown): Product {
   // Validate the item shape
@@ -399,7 +411,7 @@ export function useProduct(slug: string) {
         ...transformProduct(item),
         specifications: item.specifications,
         has_variants: item.has_variants || false,
-        variant_attributes: item.variant_attributes,
+        variant_attributes: normalizeVariantAttributes(item.variant_attributes),
         variants: [], // To be populated by separate variants fetch if needed
       } as Product;
     },

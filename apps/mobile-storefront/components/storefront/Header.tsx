@@ -38,19 +38,10 @@ export function Header({
   onSearchCancel,
 }: HeaderProps) {
   const insets = useSafeAreaInsets();
-  const searchInputRef = useRef<TextInput>(null);
   const itemCount = useCartStore((state) => state.itemCount());
   const openDrawer = useDrawerStore((state) => state.openDrawer);
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const theme = useThemeStore((state) => state.theme);
-
-  // Focus the search input when search mode activates (ref-based to avoid autoFocus a11y warning)
-  useEffect(() => {
-    if (isSearchActive) {
-      const timer = setTimeout(() => searchInputRef.current?.focus(), 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isSearchActive]);
 
   const handleSearchPress = () => {
     if (onSearchPress) {
@@ -179,7 +170,7 @@ export function Header({
                   </Pressable>
                 ) : (
                   <TextInput
-                    ref={searchInputRef}
+                    autoFocus
                     style={[styles.searchInput, { color: '#000' }]}
                     value={searchQuery}
                     onChangeText={onSearchQueryChange}
