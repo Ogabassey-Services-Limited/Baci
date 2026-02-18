@@ -8,13 +8,8 @@
  * - Works across iOS and Android
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Keyboard, Platform } from 'react-native';
-
-interface _UseKeyboardOptions {
-  /** Dismiss keyboard on submit */
-  dismissOnSubmit?: boolean;
-}
 
 interface UseKeyboardResult {
   /** Whether keyboard is currently visible */
@@ -67,9 +62,9 @@ export function useKeyboard(): UseKeyboardResult {
     };
   }, []);
 
-  const dismissKeyboard = useCallback(() => {
+  const dismissKeyboard = () => {
     Keyboard.dismiss();
-  }, []);
+  };
 
   /**
    * Wraps a handler function to dismiss keyboard before execution

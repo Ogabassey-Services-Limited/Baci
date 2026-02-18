@@ -6,7 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -52,7 +52,7 @@ export default function BNPLCheckoutScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // 2026 Critical Fix: Validate route params with Zod
-  const validatedParams = useMemo(() => {
+  const validatedParams = (() => {
     const result = BNPLParamsSchema.safeParse(params);
     if (!result.success) {
       return {
@@ -63,14 +63,14 @@ export default function BNPLCheckoutScreen() {
       };
     }
     return { isValid: true, error: null, data: result.data };
-  }, [params]);
+  })();
 
   const { orderId, gateway, amount } = validatedParams.data || {};
 
   // Construct the BNPL launcher URL
   // 2026 Critical Fix: Include merchant slug in path for correct multi-tenant routing
   // and as a query parameter for the order fetch API.
-  const bnplUrl = useMemo(() => {
+  const bnplUrl = (() => {
     if (!validatedParams.isValid || !orderId) return '';
 
     const slug =
@@ -85,7 +85,7 @@ export default function BNPLCheckoutScreen() {
     // If baseUrl already includes the merchant (custom domain), the path /slug /checkout still works
     // because Next.js handles the rewrite.
     return `${baseUrl}/${slug}/checkout/bnpl?orderId=${orderId}&gateway=${gateway}&merchant_slug=${slug}`;
-  }, [validatedParams, orderId, gateway]);
+  })();
 
   // 2026 Critical Fix: Show error state for invalid params
   if (!validatedParams.isValid) {

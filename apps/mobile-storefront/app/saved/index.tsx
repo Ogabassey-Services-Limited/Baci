@@ -6,7 +6,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
-import { useCallback } from 'react';
 import {
   Alert,
   FlatList,
@@ -20,8 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
-import { useSavedStore, type SavedItem } from '@/stores/saved-store';
 import { useCartStore } from '@/stores/cart-store';
+import { type SavedItem, useSavedStore } from '@/stores/saved-store';
 import { formatPrice, getDiscountPercentage } from '@/types/product';
 
 export default function SavedItemsScreen() {
@@ -34,21 +33,18 @@ export default function SavedItemsScreen() {
   const clearSaved = useSavedStore((state) => state.clearSaved);
   const addToCart = useCartStore((state) => state.addItem);
 
-  const handleRemove = useCallback(
-    (item: SavedItem) => {
-      Alert.alert('Remove Item', `Remove "${item.name}" from saved items?`, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => removeItem(item.product_id),
-        },
-      ]);
-    },
-    [removeItem]
-  );
+  const handleRemove = (item: SavedItem) => {
+    Alert.alert('Remove Item', `Remove "${item.name}" from saved items?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => removeItem(item.product_id),
+      },
+    ]);
+  };
 
-  const handleClearAll = useCallback(() => {
+  const handleClearAll = () => {
     Alert.alert(
       'Clear Saved Items',
       'Are you sure you want to remove all saved items?',
@@ -57,28 +53,25 @@ export default function SavedItemsScreen() {
         { text: 'Clear All', style: 'destructive', onPress: clearSaved },
       ]
     );
-  }, [clearSaved]);
+  };
 
-  const handleAddToCart = useCallback(
-    (item: SavedItem) => {
-      addToCart({
-        product_id: item.product_id,
-        slug: item.slug,
-        name: item.name,
-        price: item.price,
-        compare_at_price: item.compare_at_price,
-        quantity: 1,
-        image_url: item.image,
-        condition: item.condition,
-      });
-      Alert.alert('Added to Cart', `${item.name} has been added to your cart`);
-    },
-    [addToCart]
-  );
+  const handleAddToCart = (item: SavedItem) => {
+    addToCart({
+      product_id: item.product_id,
+      slug: item.slug,
+      name: item.name,
+      price: item.price,
+      compare_at_price: item.compare_at_price,
+      quantity: 1,
+      image_url: item.image,
+      condition: item.condition,
+    });
+    Alert.alert('Added to Cart', `${item.name} has been added to your cart`);
+  };
 
-  const handleProductPress = useCallback((item: SavedItem) => {
+  const handleProductPress = (item: SavedItem) => {
     router.push(`/product/${item.slug}`);
-  }, []);
+  };
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -88,126 +81,116 @@ export default function SavedItemsScreen() {
     });
   };
 
-  const renderSavedItem = useCallback(
-    ({ item }: { item: SavedItem }) => {
-      const discountPercentage = getDiscountPercentage(
-        item.price,
-        item.compare_at_price
-      );
+  const renderSavedItem = ({ item }: { item: SavedItem }) => {
+    const discountPercentage = getDiscountPercentage(
+      item.price,
+      item.compare_at_price
+    );
 
-      return (
-        <Animated.View
-          entering={FadeIn.duration(300)}
-          exiting={FadeOut.duration(200)}
-          layout={Layout.springify()}
-          style={[styles.itemCard, { backgroundColor: colors.card }]}
+    return (
+      <Animated.View
+        entering={FadeIn.duration(300)}
+        exiting={FadeOut.duration(200)}
+        layout={Layout.springify()}
+        style={[styles.itemCard, { backgroundColor: colors.card }]}
+      >
+        <Pressable
+          onPress={() => handleProductPress(item)}
+          style={styles.itemContent}
         >
-          <Pressable
-            onPress={() => handleProductPress(item)}
-            style={styles.itemContent}
-          >
-            {/* Product Image */}
-            <View style={styles.imageContainer}>
-              <Image
-                source={{ uri: item.image }}
-                style={styles.image}
-                contentFit="cover"
-                placeholder={{ blurhash: BLURHASH_VARIANTS.default }}
-                transition={200}
-                cachePolicy="memory-disk"
-              />
-              {discountPercentage && (
-                <View style={styles.discountBadge}>
-                  <Text style={styles.discountText}>
-                    -{discountPercentage}%
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Product Info */}
-            <View style={styles.infoContainer}>
-              {item.brand && (
-                <Text
-                  style={[styles.brandText, { color: colors.textSecondary }]}
-                >
-                  {item.brand}
-                </Text>
-              )}
-              <Text
-                style={[styles.nameText, { color: colors.text }]}
-                numberOfLines={2}
-              >
-                {item.name}
-              </Text>
-
-              <View style={styles.priceRow}>
-                <Text style={[styles.priceText, { color: BRAND.primary }]}>
-                  {formatPrice(item.price)}
-                </Text>
-                {item.compare_at_price && (
-                  <Text
-                    style={[
-                      styles.comparePriceText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {formatPrice(item.compare_at_price)}
-                  </Text>
-                )}
+          {/* Product Image */}
+          <View style={styles.imageContainer}>
+            <Image
+              source={{ uri: item.image }}
+              style={styles.image}
+              contentFit="cover"
+              placeholder={{ blurhash: BLURHASH_VARIANTS.default }}
+              transition={200}
+              cachePolicy="memory-disk"
+            />
+            {discountPercentage && (
+              <View style={styles.discountBadge}>
+                <Text style={styles.discountText}>-{discountPercentage}%</Text>
               </View>
-
-              <Text
-                style={[styles.savedDateText, { color: colors.textSecondary }]}
-              >
-                Saved {formatDate(item.savedAt)}
-              </Text>
-            </View>
-          </Pressable>
-
-          {/* Action Buttons */}
-          <View style={styles.actionsRow}>
-            <Pressable
-              style={[
-                styles.actionButton,
-                styles.removeButton,
-                { borderColor: colors.border },
-              ]}
-              onPress={() => handleRemove(item)}
-            >
-              <Ionicons
-                name="heart-dislike-outline"
-                size={18}
-                color={colors.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.actionButtonText,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                Remove
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.actionButton,
-                styles.cartButton,
-                { backgroundColor: BRAND.primary },
-              ]}
-              onPress={() => handleAddToCart(item)}
-            >
-              <Ionicons name="cart-outline" size={18} color="#FFF" />
-              <Text style={[styles.actionButtonText, { color: '#FFF' }]}>
-                Add to Cart
-              </Text>
-            </Pressable>
+            )}
           </View>
-        </Animated.View>
-      );
-    },
-    [colors, handleProductPress, handleRemove, handleAddToCart]
-  );
+
+          {/* Product Info */}
+          <View style={styles.infoContainer}>
+            {item.brand && (
+              <Text style={[styles.brandText, { color: colors.textSecondary }]}>
+                {item.brand}
+              </Text>
+            )}
+            <Text
+              style={[styles.nameText, { color: colors.text }]}
+              numberOfLines={2}
+            >
+              {item.name}
+            </Text>
+
+            <View style={styles.priceRow}>
+              <Text style={[styles.priceText, { color: BRAND.primary }]}>
+                {formatPrice(item.price)}
+              </Text>
+              {item.compare_at_price && (
+                <Text
+                  style={[
+                    styles.comparePriceText,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {formatPrice(item.compare_at_price)}
+                </Text>
+              )}
+            </View>
+
+            <Text
+              style={[styles.savedDateText, { color: colors.textSecondary }]}
+            >
+              Saved {formatDate(item.savedAt)}
+            </Text>
+          </View>
+        </Pressable>
+
+        {/* Action Buttons */}
+        <View style={styles.actionsRow}>
+          <Pressable
+            style={[
+              styles.actionButton,
+              styles.removeButton,
+              { borderColor: colors.border },
+            ]}
+            onPress={() => handleRemove(item)}
+          >
+            <Ionicons
+              name="heart-dislike-outline"
+              size={18}
+              color={colors.textSecondary}
+            />
+            <Text
+              style={[styles.actionButtonText, { color: colors.textSecondary }]}
+            >
+              Remove
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.actionButton,
+              styles.cartButton,
+              { backgroundColor: BRAND.primary },
+            ]}
+            onPress={() => handleAddToCart(item)}
+          >
+            <Ionicons name="cart-outline" size={18} color="#FFF" />
+            <Text style={[styles.actionButtonText, { color: '#FFF' }]}>
+              Add to Cart
+            </Text>
+          </Pressable>
+        </View>
+      </Animated.View>
+    );
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>

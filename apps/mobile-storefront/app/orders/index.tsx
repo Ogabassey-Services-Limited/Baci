@@ -6,7 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -94,7 +94,7 @@ export default function OrdersScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = async () => {
     if (!user?.id) {
       setIsLoading(false);
       return;
@@ -139,18 +139,22 @@ export default function OrdersScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [user?.id]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchOrders used in multiple places; React Compiler handles memoization (ADR-004)
   useEffect(() => {
     fetchOrders();
-  }, [fetchOrders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler handles memoization (ADR-004)
+  }, [user?.id]);
 
   // 2026 Best Practice: Auto-refetch when coming back online
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchOrders used in multiple places; React Compiler handles memoization (ADR-004)
   useEffect(() => {
     return onReconnect(() => {
       fetchOrders();
     });
-  }, [onReconnect, fetchOrders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler handles memoization (ADR-004)
+  }, [onReconnect]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);

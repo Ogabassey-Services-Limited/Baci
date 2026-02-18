@@ -72,17 +72,14 @@ export function Button({
   }, [loading, loadingText]);
 
   // 2026 Best Practice: Haptic feedback on press
-  const handlePress = React.useCallback(
-    (event: GestureResponderEvent) => {
-      if (haptic && Platform.OS === 'ios') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
-          // Ignore haptic errors (device may not support)
-        });
-      }
-      onPress?.(event);
-    },
-    [haptic, onPress]
-  );
+  const handlePress = (event: GestureResponderEvent) => {
+    if (haptic && Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+        // Ignore haptic errors (device may not support)
+      });
+    }
+    onPress?.(event);
+  };
   // Base classes
   let containerClasses =
     'flex-row items-center justify-center gap-2 rounded-md active:opacity-90 active:scale-95 disabled:opacity-50';

@@ -1,7 +1,7 @@
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { RefreshControl, StatusBar, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
@@ -42,10 +42,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  const template = useMemo(
-    () => getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID),
-    []
-  );
+  const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     template.headerStyle === 'elite' ? 'u-airtime' : null
@@ -143,18 +140,18 @@ export default function HomeScreen() {
 
   const [searchVisible, setSearchVisible] = useState(false);
 
-  const handleSearch = useCallback(() => {
+  const handleSearch = () => {
     setSearchVisible(true);
-  }, []);
+  };
 
-  const handleRefresh = useCallback(async () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
     try {
       await refetch();
     } finally {
       setRefreshing(false);
     }
-  }, [refetch]);
+  };
 
   useEffect(() => {
     return onReconnect(() => {
@@ -162,7 +159,7 @@ export default function HomeScreen() {
     });
   }, [onReconnect, refetch]);
 
-  const handleCategorySelect = useCallback((id: string | null) => {
+  const handleCategorySelect = (id: string | null) => {
     if (id?.startsWith('u-')) {
       // 2026 Best Practice: Route to Guest Utility Flow
       const type = id.replace('u-', '');
@@ -170,28 +167,25 @@ export default function HomeScreen() {
       return;
     }
     setSelectedCategoryId(id);
-  }, []);
+  };
 
-  const defaultBlocks = useMemo(
-    () => [
-      { type: 'HeroCarousel', props: { id: 'default-hero' } },
-      {
-        type: 'CategoryRail',
-        props: { id: 'default-categories', title: 'Shop by Category' },
+  const defaultBlocks = [
+    { type: 'HeroCarousel', props: { id: 'default-hero' } },
+    {
+      type: 'CategoryRail',
+      props: { id: 'default-categories', title: 'Shop by Category' },
+    },
+    {
+      type: 'ProductGrid',
+      props: {
+        id: 'default-products',
+        title: 'Featured Products',
+        limit: 12,
       },
-      {
-        type: 'ProductGrid',
-        props: {
-          id: 'default-products',
-          title: 'Featured Products',
-          limit: 12,
-        },
-      },
-    ],
-    []
-  );
+    },
+  ];
 
-  const blocks = useMemo(() => {
+  const blocks = (() => {
     let content = pageConfig?.content || defaultBlocks;
 
     // Force CategoryRail if it's missing but it's an Elite design context
@@ -217,18 +211,15 @@ export default function HomeScreen() {
 
     if (isConfigLoading && !pageConfig) return [];
     return content;
-  }, [pageConfig, isConfigLoading, defaultBlocks, template]);
+  })();
 
-  const renderItem = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ({ item }: { item: any }) => (
-      <BlockRenderer
-        blocks={[item]}
-        selectedCategoryId={selectedCategoryId}
-        onCategorySelect={handleCategorySelect}
-      />
-    ),
-    [selectedCategoryId, handleCategorySelect]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const renderItem = ({ item }: { item: any }) => (
+    <BlockRenderer
+      blocks={[item]}
+      selectedCategoryId={selectedCategoryId}
+      onCategorySelect={handleCategorySelect}
+    />
   );
 
   const renderListHeader = () => <View style={{ height: headerHeight }} />;

@@ -6,7 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -108,7 +108,7 @@ export default function SearchScreen() {
   }, []);
 
   // Save search to history
-  const saveToHistory = useCallback((searchTerm: string) => {
+  const saveToHistory = (searchTerm: string) => {
     if (!searchTerm.trim() || searchTerm.length < 2) return;
 
     setRecentSearches((prev) => {
@@ -127,7 +127,7 @@ export default function SearchScreen() {
 
       return updated;
     });
-  }, []);
+  };
 
   const { products, isLoading } = useProducts({
     search: query.length >= 2 ? query : undefined,

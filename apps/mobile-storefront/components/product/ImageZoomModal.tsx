@@ -6,7 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import {
   Dimensions,
   Modal,
@@ -62,46 +62,36 @@ export function ImageZoomModal({
   const focalY = useSharedValue(0);
 
   // Reset transform values
-  const resetTransform = useCallback(() => {
+  const resetTransform = () => {
     scale.value = withSpring(1, SPRING_CONFIG.snappy);
     translateX.value = withSpring(0, SPRING_CONFIG.snappy);
     translateY.value = withSpring(0, SPRING_CONFIG.snappy);
     savedScale.value = 1;
     savedTranslateX.value = 0;
     savedTranslateY.value = 0;
-  }, [
-    scale,
-    translateX,
-    translateY,
-    savedScale,
-    savedTranslateX,
-    savedTranslateY,
-  ]);
+  };
 
   // Handle index change with JS callback
-  const handleIndexChange = useCallback(
-    (index: number) => {
-      setCurrentIndex(index);
-      onIndexChange?.(index);
-    },
-    [onIndexChange]
-  );
+  const handleIndexChange = (index: number) => {
+    setCurrentIndex(index);
+    onIndexChange?.(index);
+  };
 
   // Navigate to previous image
-  const goToPrevious = useCallback(() => {
+  const goToPrevious = () => {
     if (currentIndex > 0) {
       resetTransform();
       handleIndexChange(currentIndex - 1);
     }
-  }, [currentIndex, resetTransform, handleIndexChange]);
+  };
 
   // Navigate to next image
-  const goToNext = useCallback(() => {
+  const goToNext = () => {
     if (currentIndex < images.length - 1) {
       resetTransform();
       handleIndexChange(currentIndex + 1);
     }
-  }, [currentIndex, images.length, resetTransform, handleIndexChange]);
+  };
 
   // Clamp translation based on scale
   const clampTranslation = (
@@ -259,7 +249,7 @@ export function ImageZoomModal({
   }));
 
   // Reset when modal opens/closes or index changes
-  const handleModalOpen = useCallback(() => {
+  const handleModalOpen = () => {
     setCurrentIndex(initialIndex);
     scale.value = 1;
     translateX.value = 0;
@@ -267,15 +257,7 @@ export function ImageZoomModal({
     savedScale.value = 1;
     savedTranslateX.value = 0;
     savedTranslateY.value = 0;
-  }, [
-    initialIndex,
-    scale,
-    translateX,
-    translateY,
-    savedScale,
-    savedTranslateX,
-    savedTranslateY,
-  ]);
+  };
 
   return (
     <Modal

@@ -11,7 +11,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -138,134 +138,122 @@ export function AddressAutocomplete({
     setInternalValue(value);
   }, [value]);
 
-  const fetchPredictions = useCallback(
-    async (input: string) => {
-      if (input.length < 2) {
-        setPredictions([]);
-        return;
+  const fetchPredictions = async (input: string) => {
+    if (input.length < 2) {
+      setPredictions([]);
+      return;
+    }
+
+    // Check cache first
+    if (predictionCache.has(input)) {
+      setPredictions(predictionCache.get(input)!);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        input,
+        sessionToken,
+        ...(country && { country }),
+      });
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/places/autocomplete?${params}`
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn(`[Autocomplete] HTTP ${response.status}: ${errorText}`);
+        if (response.status === 403) {
+          throw new Error('Google Places API requires billing to be enabled.');
+        }
+        throw new Error('Failed to fetch predictions');
       }
 
-      // Check cache first
-      if (predictionCache.has(input)) {
-        setPredictions(predictionCache.get(input)!);
-        return;
+      const data = await response.json();
+      const results = data.predictions || [];
+      setPredictions(results);
+      setCacheEntry(input, results);
+    } catch (error) {
+      console.error('Error fetching predictions:', error);
+      // Show specific error messages to the user via the console or UI
+      setPredictions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (text: string) => {
+    setInternalValue(text);
+    onChangeText?.(text);
+    setIsOpen(true);
+
+    // Debounce API call
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      fetchPredictions(text);
+    }, 300);
+  };
+
+  const handlePredictionSelect = async (prediction: PlacePrediction) => {
+    Keyboard.dismiss();
+    setInternalValue(prediction.mainText);
+    onChangeText?.(prediction.mainText);
+    setIsOpen(false);
+    setIsLoading(true);
+
+    try {
+      const params = new URLSearchParams({
+        placeId: prediction.placeId,
+        sessionToken,
+      });
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/places/details?${params}`
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn(`[PlaceDetails] HTTP ${response.status}: ${errorText}`);
+        throw new Error('Failed to fetch place details');
       }
 
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams({
-          input,
-          sessionToken,
-          ...(country && { country }),
+      const data = await response.json();
+      // API returns { details: { city, state, ... } }
+      const details = data.details;
+
+      if (details && onSelect) {
+        onSelect({
+          streetNumber: details.streetNumber || '',
+          route: details.route || '',
+          city: details.city || '',
+          state: details.state || '',
+          zip: details.postalCode || '',
+          country: details.country || '',
+          formattedAddress: details.formattedAddress || prediction.description,
         });
-
-        const response = await fetch(
-          `${API_BASE_URL}/api/places/autocomplete?${params}`
-        );
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.warn(`[Autocomplete] HTTP ${response.status}: ${errorText}`);
-          if (response.status === 403) {
-            throw new Error(
-              'Google Places API requires billing to be enabled.'
-            );
-          }
-          throw new Error('Failed to fetch predictions');
-        }
-
-        const data = await response.json();
-        const results = data.predictions || [];
-        setPredictions(results);
-        setCacheEntry(input, results);
-      } catch (error) {
-        console.error('Error fetching predictions:', error);
-        // Show specific error messages to the user via the console or UI
-        setPredictions([]);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [sessionToken, country]
-  );
-
-  const handleInputChange = useCallback(
-    (text: string) => {
-      setInternalValue(text);
-      onChangeText?.(text);
-      setIsOpen(true);
-
-      // Debounce API call
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
       }
 
-      debounceTimer.current = setTimeout(() => {
-        fetchPredictions(text);
-      }, 300);
-    },
-    [onChangeText, fetchPredictions]
-  );
+      // Refresh session token after selection
+      setSessionToken(generateSessionToken());
+    } catch (error) {
+      console.error('Error fetching place details:', error);
+    } finally {
+      setIsLoading(false);
+      setPredictions([]);
+    }
+  };
 
-  const handlePredictionSelect = useCallback(
-    async (prediction: PlacePrediction) => {
-      Keyboard.dismiss();
-      setInternalValue(prediction.mainText);
-      onChangeText?.(prediction.mainText);
-      setIsOpen(false);
-      setIsLoading(true);
-
-      try {
-        const params = new URLSearchParams({
-          placeId: prediction.placeId,
-          sessionToken,
-        });
-
-        const response = await fetch(
-          `${API_BASE_URL}/api/places/details?${params}`
-        );
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.warn(`[PlaceDetails] HTTP ${response.status}: ${errorText}`);
-          throw new Error('Failed to fetch place details');
-        }
-
-        const data = await response.json();
-        // API returns { details: { city, state, ... } }
-        const details = data.details;
-
-        if (details && onSelect) {
-          onSelect({
-            streetNumber: details.streetNumber || '',
-            route: details.route || '',
-            city: details.city || '',
-            state: details.state || '',
-            zip: details.postalCode || '',
-            country: details.country || '',
-            formattedAddress:
-              details.formattedAddress || prediction.description,
-          });
-        }
-
-        // Refresh session token after selection
-        setSessionToken(generateSessionToken());
-      } catch (error) {
-        console.error('Error fetching place details:', error);
-      } finally {
-        setIsLoading(false);
-        setPredictions([]);
-      }
-    },
-    [sessionToken, onChangeText, onSelect]
-  );
-
-  const handleClear = useCallback(() => {
+  const handleClear = () => {
     setInternalValue('');
     onChangeText?.('');
     setPredictions([]);
     setIsOpen(false);
-  }, [onChangeText]);
+  };
 
   return (
     <View style={[styles.wrapper, containerStyle]}>

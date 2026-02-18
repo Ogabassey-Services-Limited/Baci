@@ -10,7 +10,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, StyleSheet, Text } from 'react-native';
 import Animated, {
   FadeIn,
@@ -166,36 +166,30 @@ export function useToast() {
     duration: 3000,
   });
 
-  const show = useCallback(
-    (
-      message: string,
-      options?: { variant?: ToastVariant; duration?: number }
-    ) => {
-      setToastState({
-        visible: true,
-        message,
-        variant: options?.variant || 'success',
-        duration: options?.duration || 3000,
-      });
-    },
-    []
-  );
+  const show = (
+    message: string,
+    options?: { variant?: ToastVariant; duration?: number }
+  ) => {
+    setToastState({
+      visible: true,
+      message,
+      variant: options?.variant || 'success',
+      duration: options?.duration || 3000,
+    });
+  };
 
-  const hide = useCallback(() => {
+  const hide = () => {
     setToastState((prev) => ({ ...prev, visible: false }));
-  }, []);
+  };
 
-  const ToastComponent = useCallback(
-    () => (
-      <Toast
-        visible={toastState.visible}
-        message={toastState.message}
-        variant={toastState.variant}
-        duration={toastState.duration}
-        onDismiss={hide}
-      />
-    ),
-    [toastState, hide]
+  const ToastComponent = () => (
+    <Toast
+      visible={toastState.visible}
+      message={toastState.message}
+      variant={toastState.variant}
+      duration={toastState.duration}
+      onDismiss={hide}
+    />
   );
 
   return {

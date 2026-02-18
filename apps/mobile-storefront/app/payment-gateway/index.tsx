@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -50,7 +50,7 @@ export default function PaymentGatewayScreen() {
   >('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const validatedParams = useMemo(() => {
+  const validatedParams = (() => {
     const result = PaymentGatewayParamsSchema.safeParse(params);
     if (!result.success) {
       return {
@@ -60,7 +60,7 @@ export default function PaymentGatewayScreen() {
       };
     }
     return { isValid: true, error: null, data: result.data };
-  }, [params]);
+  })();
 
   const { orderId, orderNumber, gateway, authorizationUrl, reference, amount } =
     validatedParams.data || {};

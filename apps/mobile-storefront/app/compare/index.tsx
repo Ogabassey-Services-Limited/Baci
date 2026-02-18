@@ -6,7 +6,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
-import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
@@ -27,7 +26,7 @@ export default function CompareScreen() {
   const addToCart = useCartStore((state) => state.addItem);
 
   // Collect all unique spec keys across all products
-  const allSpecKeys = useMemo(() => {
+  const allSpecKeys = (() => {
     const keys = new Set<string>();
     for (const product of products) {
       if (product.specifications) {
@@ -37,7 +36,7 @@ export default function CompareScreen() {
       }
     }
     return Array.from(keys);
-  }, [products]);
+  })();
 
   const handleAddToCart = (product: (typeof products)[0]) => {
     addToCart({

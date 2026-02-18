@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 // router removed as it was unused.
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -31,6 +31,10 @@ interface UtilityPanelProps {
 const AnimatedPressable = Animated.createAnimatedComponent(TouchableOpacity);
 // Animated Icon wrapper for color interpolation
 const AnimatedIcon = Animated.createAnimatedComponent(Ionicons);
+
+// Module-level constants (stable references, no re-creation per render)
+const UTILITY_WORDS = ['Airtime!', 'Data!', 'Tv!', 'Power!', 'Gaming!'];
+const CATEGORY_IDS = ['u-airtime', 'u-data', 'u-tv', 'u-power', 'u-gaming'];
 
 interface CategoryItemProps {
   id: string;
@@ -148,13 +152,7 @@ export function UtilityPanel({
 }: UtilityPanelProps) {
   const { data: remoteCategories = [], isLoading } = useCategories();
 
-  // Web-Parity Auto-Rotation Logic
-  const utilityWords = ['Airtime!', 'Data!', 'Tv!', 'Power!', 'Gaming!'];
-  // Map utility slugs to indices
-  const categoryIds = useMemo(
-    () => ['u-airtime', 'u-data', 'u-tv', 'u-power', 'u-gaming'],
-    []
-  );
+  // Web-Parity Auto-Rotation Logic (constants at module level for stable references)
 
   const [activeUtilityIndex, setActiveUtilityIndex] = useState(0);
   const [isManualUtility, setIsManualUtility] = useState(false);
@@ -162,7 +160,7 @@ export function UtilityPanel({
   // Sync prop change to local index (if external change happens)
   useEffect(() => {
     if (selectedCategoryId) {
-      const idx = categoryIds.indexOf(selectedCategoryId);
+      const idx = CATEGORY_IDS.indexOf(selectedCategoryId);
       if (idx !== -1) {
         setActiveUtilityIndex(idx);
         // 2026 Best Practice: Do NOT mark as manual here!
@@ -171,7 +169,7 @@ export function UtilityPanel({
         // Rotation should only stop on explicit USER INTERACTION (handlePress).
       }
     }
-  }, [selectedCategoryId, categoryIds]);
+  }, [selectedCategoryId]);
 
   // Auto-rotate effect
   useEffect(() => {
@@ -180,11 +178,10 @@ export function UtilityPanel({
     if (isManualUtility) return;
 
     const interval = setInterval(() => {
-      setActiveUtilityIndex((prev) => (prev + 1) % utilityWords.length);
+      setActiveUtilityIndex((prev) => (prev + 1) % UTILITY_WORDS.length);
     }, 2800); // Slightly slower for better readability
 
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isManualUtility]);
 
   const handlePress = (id: string, index: number) => {
@@ -194,7 +191,7 @@ export function UtilityPanel({
     onCategorySelect(id);
   };
 
-  const categories = useMemo(() => {
+  const categories = (() => {
     // 2026 Best Practice: Default to utilities if slug matches or is unspecified (safe fallback for this specialized component)
     if (!slug || slug === 'utility' || slug === 'utilities') {
       return [
@@ -216,7 +213,7 @@ export function UtilityPanel({
       ];
     }
     return (remoteCategories || []) as Category[];
-  }, [slug, remoteCategories]);
+  })();
 
   if (isLoading && categories.length === 0) {
     return (
@@ -246,7 +243,7 @@ export function UtilityPanel({
               exiting={FadeOut.duration(400)}
               style={styles.promoHighlight}
             >
-              {utilityWords[activeUtilityIndex] || 'Airtime!'}
+              {UTILITY_WORDS[activeUtilityIndex] || 'Airtime!'}
             </Animated.Text>
           </Text>
         </View>

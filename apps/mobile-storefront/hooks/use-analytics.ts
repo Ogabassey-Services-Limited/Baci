@@ -18,7 +18,7 @@
  */
 
 import { usePathname } from 'expo-router';
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 import {
   identifyUser,
   isTrackingEnabled,
@@ -121,15 +121,16 @@ export function useAnalytics() {
     customer?.first_name,
     customer?.last_name,
     customer?.phone,
+    customer,
   ]);
 
   // Product viewed
-  const onProductViewed = useCallback((product: Product) => {
+  const onProductViewed = (product: Product) => {
     trackProductViewed(product);
-  }, []);
+  };
 
   // Add to cart
-  const onAddToCart = useCallback((item: CartItem, cartTotal?: number) => {
+  const onAddToCart = (item: CartItem, cartTotal?: number) => {
     trackAddToCart(
       {
         id: item.id,
@@ -141,80 +142,71 @@ export function useAnalytics() {
       },
       cartTotal
     );
-  }, []);
+  };
 
   // Checkout started
-  const onCheckoutStarted = useCallback(
-    (checkout: {
-      itemCount: number;
-      subtotal: number;
-      currency?: string;
-      items?: CartItem[];
-    }) => {
-      trackCheckoutStarted(checkout);
-    },
-    []
-  );
+  const onCheckoutStarted = (checkout: {
+    itemCount: number;
+    subtotal: number;
+    currency?: string;
+    items?: CartItem[];
+  }) => {
+    trackCheckoutStarted(checkout);
+  };
 
   // Purchase completed - includes user data for server-side tracking
-  const onPurchase = useCallback(
-    (order: Order) => {
-      // Include user data from auth store if not provided
-      const enrichedOrder = {
-        ...order,
-        email: order.email || customer?.email,
-        phone: order.phone || customer?.phone,
-        userId: order.userId || user?.id,
-      };
-      trackPurchase(enrichedOrder);
-    },
-    [customer, user]
-  );
+  const onPurchase = (order: Order) => {
+    // Include user data from auth store if not provided
+    const enrichedOrder = {
+      ...order,
+      email: order.email || customer?.email,
+      phone: order.phone || customer?.phone,
+      userId: order.userId || user?.id,
+    };
+    trackPurchase(enrichedOrder);
+  };
 
   // Search
-  const onSearch = useCallback((query: string, resultCount: number) => {
+  const onSearch = (query: string, resultCount: number) => {
     trackSearch(query, resultCount);
-  }, []);
+  };
 
   // Custom event
-  const trackEvent = useCallback(
-    (eventName: string, params?: Record<string, string | number | boolean>) => {
-      trackCustomEvent(eventName, params);
-    },
-    []
-  );
+  const trackEvent = (
+    eventName: string,
+    params?: Record<string, string | number | boolean>
+  ) => {
+    trackCustomEvent(eventName, params);
+  };
 
   // Logout - reset identity
-  const onLogout = useCallback(async () => {
+  const onLogout = async () => {
     await resetUserIdentity();
-  }, []);
+  };
 
   // Request ATT permission
-  const requestTracking = useCallback(async () => {
+  const requestTracking = async () => {
     return await requestTrackingPermission();
-  }, []);
+  };
 
   // Check if tracking is enabled
-  const isTracking = useCallback(() => {
+  const isTracking = () => {
     return isTrackingEnabled();
-  }, []);
+  };
 
   // Payment info added
-  const onPaymentInfoAdded = useCallback((paymentMethod: string) => {
+  const onPaymentInfoAdded = (paymentMethod: string) => {
     trackPaymentInfoAdded(paymentMethod);
-  }, []);
+  };
 
   // Signup tracking with user data
-  const onSignup = useCallback(
-    (method: string) => {
-      trackSignup(method, {
-        email: customer?.email,
-        phone: customer?.phone,
-        userId: user?.id,
-      });
-    },
-    [customer, user]
-  );
+  const onSignup = (method: string) => {
+    trackSignup(method, {
+      email: customer?.email,
+      phone: customer?.phone,
+      userId: user?.id,
+    });
+  };
 
   return {
     // E-commerce events

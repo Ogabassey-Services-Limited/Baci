@@ -4,14 +4,14 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { setClipboardString } from '@/lib/clipboard';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { setClipboardString } from '@/lib/clipboard';
 import { useCartStore } from '@/stores/cart-store';
 
 const copyToClipboard = async (text: string) => {
@@ -45,7 +45,7 @@ export default function CryptoPaymentScreen() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(1800); // 30 minutes
 
-  const validatedParams = useMemo(() => {
+  const validatedParams = (() => {
     const result = CryptoPaymentParamsSchema.safeParse(params);
     if (!result.success) {
       return {
@@ -55,7 +55,7 @@ export default function CryptoPaymentScreen() {
       };
     }
     return { isValid: true, error: null, data: result.data };
-  }, [params]);
+  })();
 
   const {
     orderId,
