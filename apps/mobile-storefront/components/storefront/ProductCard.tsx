@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -68,7 +68,6 @@ interface ProductCardProps {
   onPress?: () => void;
   onPressIn?: () => void;
   onWishlistToggle?: (product: Product) => void;
-  isWishlisted?: boolean;
   blurhash?: string;
 }
 
@@ -85,7 +84,6 @@ export function ProductCard({
   onPress,
   onPressIn,
   onWishlistToggle,
-  isWishlisted: _isWishlisted = false,
   blurhash = DEFAULT_BLURHASH,
 }: ProductCardProps) {
   const { width: screenWidth } = useWindowDimensions();
@@ -110,11 +108,9 @@ export function ProductCard({
   const haptics = useHaptics();
 
   // 2026 Best Practice: Calculate counts from store to show in UI
-  const cartItemCount = useMemo(() => {
-    return cartItems
-      .filter((item) => item.product_id === product.id)
-      .reduce((total, item) => total + item.quantity, 0);
-  }, [cartItems, product.id]);
+  const cartItemCount = cartItems
+    .filter((item) => item.product_id === product.id)
+    .reduce((total, item) => total + item.quantity, 0);
 
   // Real-time stock tracking
   const [, setStockQuantity] = useState<number | undefined>(
@@ -269,6 +265,8 @@ export function ProductCard({
           { width: screenWidth - 32 },
           animatedStyle,
         ]}
+        accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
+        accessibilityRole="button"
       >
         {fallbackError ? (
           <View style={[styles.editorialImage, styles.imagePlaceholder]}>
@@ -305,6 +303,8 @@ export function ProductCard({
           { backgroundColor: '#FFF', borderColor: '#F3F4F6' },
           animatedStyle,
         ]}
+        accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
+        accessibilityRole="button"
       >
         {fallbackError ? (
           <View style={[styles.listImage, styles.imagePlaceholder]}>
@@ -409,6 +409,8 @@ export function ProductCard({
       onPress={handlePress}
       onPressIn={handleAnimateIn}
       onPressOut={handleAnimateOut}
+      accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
+      accessibilityRole="button"
     >
       {/* Image Container */}
       <View style={[styles.imageWrapper, { backgroundColor: '#F9FAFB' }]}>

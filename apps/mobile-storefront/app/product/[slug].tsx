@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -65,6 +65,10 @@ import { useSavedStore } from '@/stores/saved-store';
 import type { ProductCondition } from '@/types/product';
 import { formatPrice, getDiscountPercentage } from '@/types/product';
 
+// Tab bar layout constants for fly-to-cart animation targeting
+const CART_TAB_INDEX = 2; // Cart is the 3rd tab (0-indexed)
+const TAB_COUNT = 4; // Total number of tabs
+
 // C4 FIX: Extracted FlyToCartParticle outside ProductDetailScreen to prevent re-creation on every render
 function FlyToCartParticle({
   startX,
@@ -75,9 +79,9 @@ function FlyToCartParticle({
 }) {
   const progress = useSharedValue(0);
   const particleInsets = useSafeAreaInsets();
-  const window = Dimensions.get('window');
-  const targetX = window.width / 2; // Cart tab is in center
-  const targetY = window.height - (particleInsets.bottom + 30); // Tab bar center
+  const { width, height } = useWindowDimensions();
+  const targetX = (width / TAB_COUNT) * CART_TAB_INDEX + width / TAB_COUNT / 2; // Center of cart tab
+  const targetY = height - (particleInsets.bottom + 30); // Tab bar center
 
   useEffect(() => {
     progress.value = withTiming(1, {
@@ -208,7 +212,7 @@ export default function ProductDetailScreen() {
   }, [savedToastState.show, dismissSavedToast]);
 
   // Get condition display name for cart
-  const getConditionDisplay = useCallback((): string | undefined => {
+  const getConditionDisplay = (): string | undefined => {
     if (selectedCondition) {
       const conditionMap: Record<ProductCondition, string> = {
         new: 'New',
@@ -220,10 +224,10 @@ export default function ProductDetailScreen() {
       return conditionMap[selectedCondition];
     }
     return product?.condition;
-  }, [selectedCondition, product]);
+  };
 
   // Sync quantity with cart store
-  const cartItem = useMemo(() => {
+  const cartItem = (() => {
     if (!product) return undefined;
     return items.find(
       (item) =>
@@ -233,14 +237,7 @@ export default function ProductDetailScreen() {
         (item.color || null) === (selectedColor || null) &&
         (item.storage || null) === (selectedStorage || null)
     );
-  }, [
-    product,
-    items,
-    selectedVariant,
-    selectedColor,
-    selectedStorage,
-    getConditionDisplay,
-  ]);
+  })();
 
   const quantityInCart = cartItem ? cartItem.quantity : 0;
 
@@ -384,7 +381,11 @@ export default function ProductDetailScreen() {
         </Text>
         <Pressable
           style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
-          onPress={() => router.back()}
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace('/')
+          }
+          accessibilityLabel="Go back to previous screen"
+          accessibilityRole="button"
         >
           <Text style={styles.retryButtonText}>Go Back</Text>
         </Pressable>
@@ -444,7 +445,11 @@ export default function ProductDetailScreen() {
         </Text>
         <Pressable
           style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
-          onPress={() => router.back()}
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace('/')
+          }
+          accessibilityLabel="Go back to previous screen"
+          accessibilityRole="button"
         >
           <Text style={styles.retryButtonText}>Go Back</Text>
         </Pressable>
@@ -624,7 +629,14 @@ export default function ProductDetailScreen() {
       {/* Static Header Buttons (Always Visible) */}
       <View style={[styles.headerButtons, { top: insets.top }]}>
         <Animated.View style={[styles.iconCircle, backButtonAnimatedStyle]}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Pressable
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace('/')
+            }
+            hitSlop={12}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
             <Ionicons name="arrow-back" size={22} color="#FFF" />
           </Pressable>
         </Animated.View>
@@ -636,6 +648,12 @@ export default function ProductDetailScreen() {
                 toggleSaved(product);
               }}
               hitSlop={12}
+              accessibilityLabel={
+                isSaved(product.id)
+                  ? `Remove ${product.name} from saved items`
+                  : `Save ${product.name} for later`
+              }
+              accessibilityRole="button"
             >
               <Ionicons
                 name={isSaved(product.id) ? 'heart' : 'heart-outline'}
@@ -645,7 +663,12 @@ export default function ProductDetailScreen() {
             </Pressable>
           </Animated.View>
           <Animated.View style={[styles.iconCircle, backButtonAnimatedStyle]}>
-            <Pressable onPress={handleShare} hitSlop={12}>
+            <Pressable
+              onPress={handleShare}
+              hitSlop={12}
+              accessibilityLabel="Share this product"
+              accessibilityRole="button"
+            >
               <Ionicons name="share-social-outline" size={22} color="#FFF" />
             </Pressable>
           </Animated.View>
@@ -876,10 +899,8 @@ export default function ProductDetailScreen() {
                 selectedStorage={selectedStorage}
                 onSelectColor={(color, imgs) => {
                   setSelectedColor(color);
-                  if (imgs?.length) {
-                    setColorImages(imgs);
-                    setSelectedImageIndex(0);
-                  }
+                  setColorImages(imgs?.length ? imgs : null);
+                  setSelectedImageIndex(0);
                 }}
                 onSelectStorage={setSelectedStorage}
                 basePrice={effectivePrice}
@@ -1058,6 +1079,12 @@ export default function ProductDetailScreen() {
                     borderRightColor: '#FEE2E2',
                   }}
                   hitSlop={10}
+                  accessibilityLabel={
+                    quantityInCart === 1
+                      ? 'Remove from cart'
+                      : 'Decrease quantity'
+                  }
+                  accessibilityRole="button"
                 >
                   <Ionicons
                     name={quantityInCart === 1 ? 'trash-outline' : 'remove'}
@@ -1114,6 +1141,8 @@ export default function ProductDetailScreen() {
                     borderLeftColor: '#FEE2E2',
                   }}
                   hitSlop={10}
+                  accessibilityLabel="Increase quantity"
+                  accessibilityRole="button"
                 >
                   <Ionicons name="add" size={22} color={BRAND.primary} />
                 </Pressable>

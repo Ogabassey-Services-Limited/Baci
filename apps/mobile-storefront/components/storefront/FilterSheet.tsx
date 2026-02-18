@@ -160,7 +160,7 @@ export function FilterSheet({
               <Text style={styles.presetsLabel}>Quick Select:</Text>
               <View
                 style={styles.presetButtons}
-                accessibilityRole="radiogroup"
+                accessibilityRole="summary"
                 accessibilityLabel="Quick price range presets"
               >
                 <Pressable

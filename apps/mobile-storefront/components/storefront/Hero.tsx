@@ -81,6 +81,8 @@ const EliteSlide = ({
             <Pressable
               style={styles.eliteCta}
               onPress={() => router.push(item.ctaLink)}
+              accessibilityLabel={item.ctaText}
+              accessibilityRole="button"
             >
               <Text style={styles.eliteCtaText}>{item.ctaText}</Text>
             </Pressable>
@@ -124,6 +126,8 @@ const FashionSlide = ({
       <Pressable
         style={styles.fashionCta}
         onPress={() => router.push(item.ctaLink)}
+        accessibilityLabel={item.ctaText}
+        accessibilityRole="link"
       >
         <Text style={styles.fashionCtaText}>{item.ctaText} →</Text>
       </Pressable>
@@ -160,6 +164,8 @@ const StandardSlide = ({
       <Pressable
         style={styles.standardCta}
         onPress={() => router.push(item.ctaLink)}
+        accessibilityLabel={item.ctaText}
+        accessibilityRole="button"
       >
         <Text style={styles.standardCtaText}>{item.ctaText}</Text>
       </Pressable>

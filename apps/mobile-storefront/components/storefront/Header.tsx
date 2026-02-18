@@ -7,7 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
 import { type Href, router } from 'expo-router';
-import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Logo } from '@/components/ui/Logo';
@@ -43,7 +42,7 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
 
   const storeName = Constants.expoConfig?.name || 'Baci Store';
   const isSanta = SEASONAL.shouldShowSanta(theme);
-  const seasonalTokens = useMemo(() => SEASONAL.getTokens(theme), [theme]);
+  const seasonalTokens = SEASONAL.getTokens(theme);
 
   // --- RENDER: Elite Merged Layout (Electronics/High-Tech) ---
   if (template.headerStyle === 'elite' || isSanta) {
@@ -246,7 +245,12 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
         </View>
       </View>
       {showSearch && (
-        <Pressable style={styles.defaultSearchBar} onPress={handleSearch}>
+        <Pressable
+          style={styles.defaultSearchBar}
+          onPress={handleSearch}
+          accessibilityLabel="Search our collection"
+          accessibilityRole="search"
+        >
           <Ionicons name="search" size={18} color="#999" />
           <Text style={styles.defaultSearchPlaceholder}>
             Search our collection...
