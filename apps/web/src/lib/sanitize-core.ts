@@ -41,6 +41,11 @@ export function stripHtmlTags(text: string | null | undefined): string {
   const maxLength = 100000;
   const truncated = text.length > maxLength ? text.slice(0, maxLength) : text;
 
+  // Optimization: Fast path for strings without HTML tags to avoid regex overhead
+  if (truncated.indexOf('<') === -1) {
+    return truncated;
+  }
+
   let result = truncated;
   let previous: string;
   let iterations = 0;
