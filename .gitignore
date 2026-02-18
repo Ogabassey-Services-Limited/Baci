@@ -52,7 +52,8 @@ firestore-debug.log
 # Claude Code local settings (may contain credentials)
 .claude/settings.local.json
 src_backup_*.tar.gz
-.gemini/bin/
+# Gemini agent artifacts (scripts, logs, configs)
+.gemini/
 extract_bag.py
 
 # Temporary data and image directories
@@ -116,7 +117,7 @@ pr_120*.json
 # PR todo/report files (temporary)
 pr_*_todo.md
 pr_*_report.md
-.gemini/pr_*.json
+# (covered by .gemini/ above)
 
 # Koray SEO audit reports (generated)
 KORAY_*.json
@@ -174,8 +175,7 @@ knip-results.json
 /.agent/rules/ruler.md.bak
 /.codex/config.toml
 /.codex/config.toml.bak
-/.gemini/settings.json
-/.gemini/settings.json.bak
+# (covered by .gemini/ above)
 /.mcp.json
 /.mcp.json.bak
 /.vscode/mcp.json
