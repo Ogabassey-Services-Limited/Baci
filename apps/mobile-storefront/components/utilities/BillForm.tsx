@@ -52,7 +52,12 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
   const colors = Colors[colorScheme ?? 'light'];
 
   const billType = BILL_TYPE_MAP[type];
-  const { data: billers, isLoading: billersLoading } = useVTUBillers(billType);
+  const {
+    data: billers,
+    isLoading: billersLoading,
+    isError: billersError,
+    error: billersErrorObj,
+  } = useVTUBillers(billType);
   const verify = useVTUVerify();
   const purchase = useVTUPurchase();
 
@@ -152,6 +157,13 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
             }
           }}
           isLoading={billersLoading}
+          errorMessage={
+            billersError
+              ? billersErrorObj instanceof Error
+                ? billersErrorObj.message
+                : 'Failed to load providers. Please try again.'
+              : undefined
+          }
         />
 
         {selectedBiller && (

@@ -11,6 +11,7 @@ interface Biller {
   billerType: string;
   categoryId: string;
   categoryName: string;
+  billerIconUrl?: string;
 }
 
 const TYPE_LABELS: Record<string, string> = {

@@ -55,15 +55,20 @@ export function useVTUBillers(type: string, enabled = true) {
         const duration = Date.now() - startTime;
         log.info('VTU', `Biller fetch completed in ${duration}ms`);
 
+        // Check for API error response (e.g. { error: "..." })
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
         // Runtime Integrity Check
         const result = BillerListSchema.safeParse(data);
         if (!result.success) {
           log.warn(
             'VTU',
-            'Biller API response failed Zod validation — returning empty array',
+            'Biller API response failed Zod validation',
             result.error.format()
           );
-          return [];
+          throw new Error('Invalid provider data received. Please try again.');
         }
 
         return result.data.billers;
