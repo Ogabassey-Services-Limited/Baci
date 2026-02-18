@@ -92,7 +92,7 @@ export async function getMerchantIdForApiUser(
  */
 export interface UserAccess {
   merchantId: string;
-  role: 'owner' | 'admin' | 'manager' | 'staff';
+  role: string;
   isOwner: boolean;
   isStaff: boolean;
   permissions: Record<string, Record<string, boolean>>;
