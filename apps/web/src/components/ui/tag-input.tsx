@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, X } from 'lucide-react';
-import { type KeyboardEvent, useState } from 'react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,10 @@ export function TagInput({
 }: TagInputProps) {
   const [inputValue, setInputValue] = useState('');
   const [announcement, setAnnouncement] = useState('');
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  const tagListRef = useRef<HTMLDivElement>(null);
+  const lastRemovedIndexRef = useRef<number | null>(null);
 
   // Flash announcement pattern: ensures screen reader re-announces identical sequential messages
   const flashAnnouncement = (msg: string) => {
@@ -65,9 +69,30 @@ export function TagInput({
 
   const removeTag = (index: number) => {
     const removedTag = value[index];
+    lastRemovedIndexRef.current = index;
     onChange(value.filter((_, i) => i !== index));
     flashAnnouncement(`Tag "${removedTag}" removed`);
   };
+
+  useEffect(() => {
+    if (lastRemovedIndexRef.current !== null) {
+      if (value.length === 0) {
+        inputRef.current?.focus();
+      } else {
+        const targetIndex = Math.min(
+          lastRemovedIndexRef.current,
+          value.length - 1
+        );
+        const buttons = tagListRef.current?.querySelectorAll(
+          'button[aria-label^="Remove"]'
+        );
+        if (buttons?.[targetIndex]) {
+          (buttons[targetIndex] as HTMLElement).focus();
+        }
+      }
+      lastRemovedIndexRef.current = null;
+    }
+  }, [value]);
 
   return (
     <div className={cn('space-y-2', className)}>
@@ -78,6 +103,7 @@ export function TagInput({
 
       <div className="flex gap-2">
         <Input
+          ref={inputRef}
           type="text"
           placeholder={value.length > 0 ? '' : placeholder}
           value={inputValue}
@@ -102,7 +128,7 @@ export function TagInput({
       </div>
 
       {value.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" ref={tagListRef}>
           {value.map((tag, index) => (
             <Badge
               // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
