@@ -46,10 +46,13 @@ describe('Middleware Proxy', () => {
 
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
     expect(res.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
+    expect(res.headers.get('X-XSS-Protection')).toBe('1; mode=block');
     expect(res.headers.get('Referrer-Policy')).toBe(
       'strict-origin-when-cross-origin'
     );
     expect(res.headers.get('Permissions-Policy')).toContain('camera=()');
+    expect(res.headers.get('X-DNS-Prefetch-Control')).toBe('on');
+    expect(res.headers.get('X-Permitted-Cross-Domain-Policies')).toBe('none');
 
     // API specific CSP
     const csp = res.headers.get('Content-Security-Policy') || '';

@@ -827,11 +827,14 @@ function applySecurityHeaders(
   // Add missing security headers
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set(
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(), browsing-topics=()'
   );
+  response.headers.set('X-DNS-Prefetch-Control', 'on');
+  response.headers.set('X-Permitted-Cross-Domain-Policies', 'none');
 
   // Set x-nonce header for server components (admin/auth routes only)
   // 2026 pattern: Also include it in the response so it's visible in dev tools / debug

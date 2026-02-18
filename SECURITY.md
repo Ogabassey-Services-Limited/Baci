@@ -343,7 +343,7 @@ response.headers.set('Access-Control-Allow-Credentials', 'true');
 - [x] UUID validation
 - [x] Email validation
 - [ ] Add HTTPS in production
-- [ ] Add security headers
+- [x] Add security headers
 - [ ] Implement Redis for rate limiting
 - [ ] Add request logging
 - [ ] Set up monitoring/alerts
