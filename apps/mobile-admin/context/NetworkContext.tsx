@@ -55,6 +55,8 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
     });
   }, [networkState, queryClient]);
 
+  // React Compiler (babel-plugin-react-compiler) auto-memoizes the context value,
+  // so no manual useMemo wrapper is needed. See babel.config.js for compiler config.
   return (
     <NetworkContext.Provider value={networkState}>
       {children}

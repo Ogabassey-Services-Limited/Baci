@@ -1,11 +1,15 @@
+import * as Crypto from 'expo-crypto';
+
 /**
  * Generates a RFC4122 version 4 compliant UUID
- * Used as a fallback since crypto.randomUUID() is not available in React Native without polyfills
+ * Uses crypto.randomUUID() when available (modern Hermes/JSC), falls back to expo-crypto
  */
 export function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
+    return crypto.randomUUID();
+  }
+  return Crypto.randomUUID();
 }

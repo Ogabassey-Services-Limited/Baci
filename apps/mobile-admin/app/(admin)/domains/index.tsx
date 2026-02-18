@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   RefreshControl,
@@ -49,7 +49,7 @@ export default function DomainsDashboard() {
     }
   }, [merchantPrimaryDomain, domains.length]);
 
-  const fetchDomains = useCallback(async () => {
+  const fetchDomains = async () => {
     if (!merchant?.id) {
       if (!merchantPrimaryDomain) setLoading(false);
       setRefreshing(false);
@@ -59,7 +59,7 @@ export default function DomainsDashboard() {
     try {
       const { data, error } = await supabase
         .from('domains')
-        .select('*')
+        .select('id, domain, is_primary, status, created_at, domain_type')
         .eq('merchant_id', merchant.id)
         .order('is_primary', { ascending: false })
         .order('created_at', { ascending: false });
@@ -73,16 +73,16 @@ export default function DomainsDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [merchant?.id, merchantPrimaryDomain]);
+  };
 
   useEffect(() => {
     fetchDomains();
   }, [fetchDomains]);
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = () => {
     setRefreshing(true);
     fetchDomains();
-  }, [fetchDomains]);
+  };
 
   const { actionLoading, handleOptionAction } = useDomainActions({
     onRefresh: fetchDomains,

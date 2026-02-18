@@ -12,7 +12,7 @@
 
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 import { onlineManager } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export interface NetworkState {
   /** Whether device is connected to a network */
@@ -164,7 +164,7 @@ export function useNetworkState(): UseNetworkStateResult {
     };
   }, []);
 
-  const refresh = useCallback(async () => {
+  async function refresh() {
     const netState = await NetInfo.fetch();
     const isConnected = netState.isConnected ?? true;
     const isInternetReachable = netState.isInternetReachable ?? true;
@@ -179,14 +179,14 @@ export function useNetworkState(): UseNetworkStateResult {
       connectionType: netState.type,
       isOnline,
     }));
-  }, []);
+  }
 
-  const onReconnect = useCallback((callback: () => void) => {
+  function onReconnect(callback: () => void) {
     reconnectCallbacks.current.add(callback);
     return () => {
       reconnectCallbacks.current.delete(callback);
     };
-  }, []);
+  }
 
   return {
     ...state,

@@ -18,7 +18,7 @@ export function useStoreReadiness() {
       // Get published product count
       const { count: publishedProductCount } = await supabase
         .from('products')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('merchant_id', merchant.id)
         .eq('status', 'active');
 

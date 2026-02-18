@@ -39,7 +39,7 @@ export function OnboardingProvider({
 
   useEffect(() => {
     checkOnboarding();
-  }, []);
+  }, [checkOnboarding]);
 
   const completeOnboarding = async () => {
     try {
@@ -59,8 +59,8 @@ export function OnboardingProvider({
     }
   };
 
-  // Memoize the value object to prevent unnecessary re-renders
-  // though simple usage usually doesn't need it if children are consistent
+  // React Compiler (babel-plugin-react-compiler) auto-memoizes this value object,
+  // so no manual useMemo is needed. See babel.config.js for compiler config.
   const value = {
     hasSeenOnboarding,
     completeOnboarding,

@@ -40,7 +40,7 @@ interface OnboardingResponse {
   merchantId?: string;
 }
 
-export function useOnboarding() {
+export function useRegistration() {
   const queryClient = useQueryClient();
 
   // Register Mutation

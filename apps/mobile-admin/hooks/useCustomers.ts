@@ -9,8 +9,8 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
 import { sanitizeSearchQuery } from '@/lib/sanitize';
+import { supabase } from '@/lib/supabase';
 import { useMerchant } from './useMerchant';
 
 export interface Customer {
@@ -37,6 +37,9 @@ interface CustomersPage {
 
 const PAGE_SIZE = 20;
 
+const CUSTOMER_COLUMNS =
+  'id, email, first_name, last_name, phone, address, total_orders, total_spent, store_credit, loyalty_points, created_at, last_login_at, deleted_at' as const;
+
 async function fetchCustomers(
   merchantId: string,
   cursor: number = 0,
@@ -47,7 +50,7 @@ async function fetchCustomers(
 ): Promise<CustomersPage> {
   let query = supabase
     .from('customers')
-    .select('*', { count: 'exact' })
+    .select(CUSTOMER_COLUMNS, { count: 'exact' })
     .eq('merchant_id', merchantId)
     .is('deleted_at', null) // Exclude soft-deleted customers
     .range(cursor, cursor + PAGE_SIZE - 1);
@@ -116,7 +119,7 @@ export function useCustomer(customerId: string) {
       // Fetch customer
       const { data: customer, error } = await supabase
         .from('customers')
-        .select('*')
+        .select(CUSTOMER_COLUMNS)
         .eq('id', customerId)
         .eq('merchant_id', merchant?.id)
         .single();
@@ -127,6 +130,7 @@ export function useCustomer(customerId: string) {
       const { data: orders } = await supabase
         .from('orders')
         .select('id, order_number, total, shipping_status, created_at')
+        .eq('merchant_id', merchant?.id)
         .eq('customer_id', customerId)
         .order('created_at', { ascending: false })
         .limit(5);
@@ -159,14 +163,14 @@ export function useCustomerStats() {
       // Total customers (excluding deleted)
       const { count: total } = await supabase
         .from('customers')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('merchant_id', merchant?.id)
         .is('deleted_at', null);
 
       // New this month
       const { count: newThisMonth } = await supabase
         .from('customers')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('merchant_id', merchant?.id)
         .is('deleted_at', null)
         .gte('created_at', startOfMonth);
@@ -174,7 +178,7 @@ export function useCustomerStats() {
       // New this week
       const { count: newThisWeek } = await supabase
         .from('customers')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('merchant_id', merchant?.id)
         .is('deleted_at', null)
         .gte('created_at', startOfWeek);
@@ -182,7 +186,7 @@ export function useCustomerStats() {
       // Returning customers (more than 1 order)
       const { count: returning } = await supabase
         .from('customers')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('merchant_id', merchant?.id)
         .is('deleted_at', null)
         .gt('total_orders', 1);
@@ -224,7 +228,8 @@ export function useCreateCustomer() {
         let query = supabase
           .from('customers')
           .select('id')
-          .eq('merchant_id', merchant.id);
+          .eq('merchant_id', merchant.id)
+          .is('deleted_at', null);
 
         const conditions = [];
         if (newCustomer.email) conditions.push(`email.eq.${newCustomer.email}`);
@@ -247,7 +252,7 @@ export function useCreateCustomer() {
           total_spent: 0,
           loyalty_points: 0,
         })
-        .select()
+        .select(CUSTOMER_COLUMNS)
         .single();
 
       if (error) throw new Error(error.message);
@@ -286,7 +291,7 @@ export function useUpdateCustomer() {
         })
         .eq('id', id)
         .eq('merchant_id', merchant.id)
-        .select()
+        .select(CUSTOMER_COLUMNS)
         .single();
 
       if (error) throw new Error(error.message);
@@ -311,7 +316,8 @@ export function useDeleteCustomer() {
       // Check if customer has orders
       const { count: orderCount } = await supabase
         .from('orders')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', merchant.id)
         .eq('customer_id', customerId);
 
       // Soft delete by setting deleted_at timestamp

@@ -29,8 +29,6 @@ export default function DiscountsScreen() {
   const { discounts, isLoading, deleteDiscount, isDeleting } = useDiscounts();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // const [refreshing, setRefreshing] = useState(false);
-
   const handleCreateDiscount = () => {
     router.push('/discounts/new');
   };
@@ -50,7 +48,10 @@ export default function DiscountsScreen() {
             try {
               await deleteDiscount(id);
             } catch (error) {
-              const message = error instanceof Error ? error.message : 'Failed to delete discount';
+              const message =
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to delete discount';
               Alert.alert('Delete Failed', message);
             } finally {
               setDeletingId(null);

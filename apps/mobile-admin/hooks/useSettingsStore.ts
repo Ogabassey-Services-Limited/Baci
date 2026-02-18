@@ -7,6 +7,7 @@ interface SettingsState {
   insightDismissedDate: string | null;
   setInsightDismissed: (dismissed: boolean) => void;
   shouldShowInsight: () => boolean;
+  reset: () => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -24,9 +25,16 @@ export const useSettingsStore = create<SettingsState>()(
       },
 
       shouldShowInsight: () => {
-        const { showDashboardInsight, insightDismissedDate } = get();
+        const { insightDismissedDate } = get();
         const today = new Date().toDateString();
-        return showDashboardInsight && insightDismissedDate !== today;
+        return insightDismissedDate !== today;
+      },
+
+      reset: () => {
+        set({
+          showDashboardInsight: true,
+          insightDismissedDate: null,
+        });
       },
     }),
     {

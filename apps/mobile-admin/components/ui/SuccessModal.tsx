@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
+import { useTheme } from '@/hooks/useTheme';
 
 interface SuccessModalProps {
   visible: boolean;
@@ -17,63 +18,83 @@ export function SuccessModal({
   subMessage,
   onClose,
 }: SuccessModalProps) {
+  const { colors } = useTheme();
+
   return (
     <Modal
       transparent
       visible={visible}
       animationType="fade"
       statusBarTranslucent
+      onRequestClose={onClose}
     >
       <View style={styles.overlay}>
         <Animated.View
           entering={FadeInUp.springify().damping(15)}
-          style={styles.container}
+          style={[styles.container, { backgroundColor: colors.card }]}
           accessible={true}
           accessibilityViewIsModal={true}
           accessibilityLabel={`${title} dialog. ${message}`}
         >
           <View style={styles.iconContainer}>
-            <View style={styles.iconBg}>
-              <Ionicons name="checkmark" size={40} color="#10B981" />
+            <View
+              style={[
+                styles.iconBg,
+                {
+                  backgroundColor: colors.successLight,
+                  borderColor: colors.successLight,
+                },
+              ]}
+            >
+              <Ionicons name="checkmark" size={40} color={colors.success} />
             </View>
             <View
               style={[
                 styles.particle,
-                { top: 0, left: 10, backgroundColor: '#34D399' },
+                { top: 0, left: 10, backgroundColor: colors.success },
               ]}
             />
             <View
               style={[
                 styles.particle,
-                { top: 10, right: 0, backgroundColor: '#6EE7B7' },
+                { top: 10, right: 0, backgroundColor: colors.successLight },
               ]}
             />
             <View
               style={[
                 styles.particle,
-                { bottom: 0, left: 20, backgroundColor: '#059669' },
+                { bottom: 0, left: 20, backgroundColor: colors.success },
               ]}
             />
           </View>
 
-          <Text style={styles.title}>{title}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
 
-          <Text style={styles.message}>{message}</Text>
+          <Text style={[styles.message, { color: colors.textSecondary }]}>
+            {message}
+          </Text>
 
           {subMessage && (
-            <View style={styles.subMessageContainer}>
+            <View
+              style={[
+                styles.subMessageContainer,
+                { backgroundColor: colors.backgroundLight },
+              ]}
+            >
               <Ionicons
                 name="mail-outline"
                 size={16}
-                color="#6B7280"
+                color={colors.textMuted}
                 style={{ marginTop: 2 }}
               />
-              <Text style={styles.subMessage}>{subMessage}</Text>
+              <Text style={[styles.subMessage, { color: colors.textMuted }]}>
+                {subMessage}
+              </Text>
             </View>
           )}
 
           <TouchableOpacity
-            style={styles.button}
+            style={[styles.button, { backgroundColor: colors.success }]}
             onPress={onClose}
             activeOpacity={0.8}
             accessibilityRole="button"
@@ -96,7 +117,6 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   container: {
-    backgroundColor: '#FFFFFF',
     width: '100%',
     maxWidth: 340,
     borderRadius: 24,
@@ -120,11 +140,9 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#ECFDF5',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: '#D1FAE5',
   },
   particle: {
     position: 'absolute',
@@ -135,20 +153,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#111827',
     marginBottom: 12,
     textAlign: 'center',
   },
   message: {
     fontSize: 16,
-    color: '#4B5563',
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 16,
   },
   subMessageContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
     padding: 12,
     borderRadius: 12,
     marginBottom: 24,
@@ -158,12 +173,10 @@ const styles = StyleSheet.create({
   },
   subMessage: {
     fontSize: 13,
-    color: '#6B7280',
     flex: 1,
     lineHeight: 18,
   },
   button: {
-    backgroundColor: '#10B981',
     width: '100%',
     paddingVertical: 16,
     borderRadius: 16,

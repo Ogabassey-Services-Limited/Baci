@@ -1,12 +1,13 @@
 import { Redirect, Stack, useSegments } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
-import { DARK_COLORS } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function AuthLayout() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { hasSeenOnboarding, isLoading: onboardingLoading } = useOnboarding();
+  const { colors } = useTheme();
   const segments = useSegments();
 
   if (authLoading || onboardingLoading) {
@@ -14,12 +15,12 @@ export default function AuthLayout() {
       <View
         style={{
           flex: 1,
-          backgroundColor: DARK_COLORS.background,
+          backgroundColor: colors.background,
           justifyContent: 'center',
           alignItems: 'center',
         }}
       >
-        <ActivityIndicator color={DARK_COLORS.primary} size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -29,8 +30,15 @@ export default function AuthLayout() {
   // This prevents race conditions where AuthLayout redirects while VerifyScreen is showing success modal
   const inAuthGroup = segments[0] === '(auth)';
   const isVerifyScreen = inAuthGroup && segments[1] === 'verify';
+  const isCompleteProfileScreen =
+    inAuthGroup && segments[1] === 'complete-profile';
 
-  if (isAuthenticated && hasSeenOnboarding && !isVerifyScreen) {
+  if (
+    isAuthenticated &&
+    hasSeenOnboarding &&
+    !isVerifyScreen &&
+    !isCompleteProfileScreen
+  ) {
     return <Redirect href="/(admin)/(tabs)" />;
   }
 
@@ -45,6 +53,14 @@ export default function AuthLayout() {
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
       <Stack.Screen name="verify" options={{ presentation: 'modal' }} />
+      <Stack.Screen
+        name="forgot-password"
+        options={{ presentation: 'modal' }}
+      />
+      <Stack.Screen
+        name="complete-profile"
+        options={{ gestureEnabled: false }}
+      />
     </Stack>
   );
 }

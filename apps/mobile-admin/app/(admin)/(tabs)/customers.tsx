@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import React, { memo, useCallback, useMemo, useRef } from 'react';
+import React, { useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -30,20 +30,32 @@ import {
   useCustomers,
 } from '@/hooks/useCustomers';
 import { type FailedOrder, useFailedOrders } from '@/hooks/useFailedOrders';
+import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 
 // Item height for getItemLayout optimization (card padding + content + gap)
-const CUSTOMER_ITEM_HEIGHT = 88;
+const _CUSTOMER_ITEM_HEIGHT = 88;
+
+// Helper to get currency symbol from merchant's payout_currency
+const getCurrencySymbol = (currencyCode: string | null | undefined) => {
+  const symbols: Record<string, string> = {
+    NGN: '\u20A6',
+    USD: '$',
+    GBP: '\u00A3',
+    EUR: '\u20AC',
+  };
+  return symbols[currencyCode || 'NGN'] || '\u20A6';
+};
 
 // Helper functions moved outside component to prevent recreation
-const formatCurrency = (amount: number) => {
+const formatCurrency = (amount: number, symbol: string = '\u20A6') => {
   if (amount >= 1000000) {
-    return `₦${(amount / 1000000).toFixed(1)} M`;
+    return `${symbol}${(amount / 1000000).toFixed(1)} M`;
   }
   if (amount >= 1000) {
-    return `₦${(amount / 1000).toFixed(0)} k`;
+    return `${symbol}${(amount / 1000).toFixed(0)} k`;
   }
-  return `₦${amount.toLocaleString()} `;
+  return `${symbol}${amount.toLocaleString()} `;
 };
 
 const getInitials = (name: string | null) => {
@@ -83,13 +95,15 @@ interface FailedOrderItemProps {
   item: FailedOrder;
   colors: ReturnType<typeof useTheme>['colors'];
   shadows: ReturnType<typeof useTheme>['shadows'];
+  currencySymbol: string;
   onPress: (item: FailedOrder) => void;
 }
 
-const FailedOrderItem = memo(function FailedOrderItem({
+function FailedOrderItem({
   item,
   colors,
   shadows,
+  currencySymbol,
   onPress,
 }: FailedOrderItemProps) {
   const STATUS_LABELS: Record<string, string> = {
@@ -115,7 +129,7 @@ const FailedOrderItem = memo(function FailedOrderItem({
         pressed && { backgroundColor: colors.cardHover },
       ]}
       onPress={() => onPress(item)}
-      accessibilityLabel={`Follow up: ${displayName}, ${item.customer_email}, ${formatCurrency(item.total)}, ${errorMessage}`}
+      accessibilityLabel={`Follow up: ${displayName}, ${item.customer_email}, ${formatCurrency(item.total, currencySymbol)}, ${errorMessage}`}
       accessibilityRole="button"
       accessibilityHint="View customer or order details"
     >
@@ -145,14 +159,14 @@ const FailedOrderItem = memo(function FailedOrderItem({
             {
               color:
                 item.payment_status === 'pending' ||
-                  item.payment_status === 'expired'
-                  ? '#D97706'
-                  : '#EF4444',
+                item.payment_status === 'expired'
+                  ? colors.warning
+                  : colors.error,
             },
           ]}
           numberOfLines={1}
         >
-          {formatCurrency(item.total)} •{' '}
+          {formatCurrency(item.total, currencySymbol)} •{' '}
           {item.attempt_count > 1
             ? `${item.attempt_count} attempts`
             : errorMessage}
@@ -165,7 +179,11 @@ const FailedOrderItem = memo(function FailedOrderItem({
             <Pressable
               style={[
                 styles.miniActionButton,
-                { backgroundColor: '#DCFCE7', minWidth: 44, minHeight: 44 },
+                {
+                  backgroundColor: colors.successLight,
+                  minWidth: 44,
+                  minHeight: 44,
+                },
               ]}
               onPress={(e) => {
                 e.stopPropagation();
@@ -175,12 +193,16 @@ const FailedOrderItem = memo(function FailedOrderItem({
               accessibilityRole="button"
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             >
-              <Ionicons name="logo-whatsapp" size={16} color="#16A34A" />
+              <Ionicons name="logo-whatsapp" size={16} color={colors.success} />
             </Pressable>
             <Pressable
               style={[
                 styles.miniActionButton,
-                { backgroundColor: '#F3F4F6', minWidth: 44, minHeight: 44 },
+                {
+                  backgroundColor: colors.backgroundLight,
+                  minWidth: 44,
+                  minHeight: 44,
+                },
               ]}
               onPress={(e) => {
                 e.stopPropagation();
@@ -190,14 +212,18 @@ const FailedOrderItem = memo(function FailedOrderItem({
               accessibilityRole="button"
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             >
-              <Ionicons name="call" size={16} color="#4B5563" />
+              <Ionicons name="call" size={16} color={colors.textSecondary} />
             </Pressable>
           </>
         )}
         <Pressable
           style={[
             styles.miniActionButton,
-            { backgroundColor: '#DBEAFE', minWidth: 44, minHeight: 44 },
+            {
+              backgroundColor: colors.primaryLight,
+              minWidth: 44,
+              minHeight: 44,
+            },
           ]}
           onPress={(e) => {
             e.stopPropagation();
@@ -207,25 +233,27 @@ const FailedOrderItem = memo(function FailedOrderItem({
           accessibilityRole="button"
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
-          <Ionicons name="mail" size={16} color="#2563EB" />
+          <Ionicons name="mail" size={16} color={colors.primary} />
         </Pressable>
       </View>
     </Pressable>
   );
-});
+}
 
-// Memoized Customer Item component
+// Customer Item component
 interface CustomerItemProps {
   item: Customer;
   colors: ReturnType<typeof useTheme>['colors'];
   shadows: ReturnType<typeof useTheme>['shadows'];
+  currencySymbol: string;
   onPress: (id: string) => void;
 }
 
-const CustomerItem = memo(function CustomerItem({
+function CustomerItem({
   item,
   colors,
   shadows,
+  currencySymbol,
   onPress,
 }: CustomerItemProps) {
   const displayName = getDisplayName(item);
@@ -239,7 +267,7 @@ const CustomerItem = memo(function CustomerItem({
         pressed && { backgroundColor: colors.cardHover },
       ]}
       onPress={() => onPress(item.id)}
-      accessibilityLabel={`${displayName}, ${item.email}, ${item.total_orders} orders, spent ${formatCurrency(item.total_spent)}`}
+      accessibilityLabel={`${displayName}, ${item.email}, ${item.total_orders} orders, spent ${formatCurrency(item.total_spent, currencySymbol)}`}
       accessibilityRole="button"
       accessibilityHint="View customer details"
     >
@@ -273,7 +301,7 @@ const CustomerItem = memo(function CustomerItem({
           <Text style={[styles.statDot, { color: colors.textMuted }]}>•</Text>
           <View style={styles.stat}>
             <Text style={[styles.statText, { color: colors.success }]}>
-              {formatCurrency(item.total_spent)}
+              {formatCurrency(item.total_spent, currencySymbol)}
             </Text>
           </View>
         </View>
@@ -332,13 +360,24 @@ const CustomerItem = memo(function CustomerItem({
       </View>
     </Pressable>
   );
-});
+}
 
 export default function CustomersScreen() {
   const { colors, shadows, isDark } = useTheme();
+  const { merchant } = useMerchant();
+  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
   const router = useRouter();
   const [activeTab, setActiveTab] = React.useState<'all' | 'failed'>('failed');
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
+
+  // Debounce search query for server-side filtering
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Collapsible search bar animation
   // Using opacity and translateY for native driver support (better performance)
@@ -346,36 +385,33 @@ export default function CustomersScreen() {
   const lastScrollY = useRef(0);
   const isSearchVisible = useRef(true);
 
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const currentScrollY = event.nativeEvent.contentOffset.y;
-      const diff = currentScrollY - lastScrollY.current;
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const diff = currentScrollY - lastScrollY.current;
 
-      // Only trigger animation if scrolled more than 10px and not at top
-      if (Math.abs(diff) > 10) {
-        if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
-          // Scrolling down - hide search bar
-          isSearchVisible.current = false;
-          Animated.timing(searchBarAnim, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }).start();
-        } else if (diff < 0 && !isSearchVisible.current) {
-          // Scrolling up - show search bar
-          isSearchVisible.current = true;
-          Animated.timing(searchBarAnim, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-          }).start();
-        }
+    // Only trigger animation if scrolled more than 10px and not at top
+    if (Math.abs(diff) > 10) {
+      if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
+        // Scrolling down - hide search bar
+        isSearchVisible.current = false;
+        Animated.timing(searchBarAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      } else if (diff < 0 && !isSearchVisible.current) {
+        // Scrolling up - show search bar
+        isSearchVisible.current = true;
+        Animated.timing(searchBarAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
       }
+    }
 
-      lastScrollY.current = currentScrollY;
-    },
-    [searchBarAnim]
-  );
+    lastScrollY.current = currentScrollY;
+  };
 
   const {
     data,
@@ -384,7 +420,7 @@ export default function CustomersScreen() {
     hasNextPage,
     fetchNextPage,
     refetch,
-  } = useCustomers();
+  } = useCustomers({ search: debouncedSearchQuery });
 
   const {
     data: failedOrders,
@@ -395,20 +431,21 @@ export default function CustomersScreen() {
   const { data: stats } = useCustomerStats();
 
   // Flatten pages into single array and filter by search
-  const customers = useMemo(() => {
-    const allCustomers = data?.pages.flatMap((page) => page.customers) ?? [];
+  const allCustomers = data?.pages.flatMap((page) => page.customers) ?? [];
+  const customers = (() => {
     if (!searchQuery.trim()) return allCustomers;
     const q = searchQuery.toLowerCase();
     return allCustomers.filter(
       (c) =>
         c.first_name?.toLowerCase().includes(q) ||
         c.last_name?.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q)
+        c.email.toLowerCase().includes(q) ||
+        c.phone?.toLowerCase().includes(q)
     );
-  }, [data, searchQuery]);
+  })();
 
   // Filter failed orders by search
-  const filteredFailedOrders = useMemo(() => {
+  const filteredFailedOrders = (() => {
     if (!failedOrders) return [];
     if (!searchQuery.trim()) return failedOrders;
     const q = searchQuery.toLowerCase();
@@ -417,80 +454,62 @@ export default function CustomersScreen() {
         o.customer_name?.toLowerCase().includes(q) ||
         o.customer_email.toLowerCase().includes(q)
     );
-  }, [failedOrders, searchQuery]);
+  })();
 
-  const handleLoadMore = useCallback(() => {
+  const handleLoadMore = () => {
     if (activeTab === 'all' && hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
     }
-  }, [activeTab, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  };
 
-  // Navigation callbacks for memoized list items
-  const handleCustomerPress = useCallback(
-    (id: string) => {
+  // Navigation callbacks
+  const handleCustomerPress = (id: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    router.push(`/customer/${id}` as any);
+  };
+
+  const handleFailedOrderPress = (item: FailedOrder) => {
+    if (item.customer_id) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      router.push(`/customer/${id}` as any);
-    },
-    [router]
+      router.push(`/customer/${item.customer_id}` as any);
+    } else {
+      router.push(`/order/${item.id}`);
+    }
+  };
+
+  const renderCustomer = ({ item }: ListRenderItemInfo<Customer>) => (
+    <CustomerItem
+      item={item}
+      colors={colors}
+      shadows={shadows}
+      currencySymbol={currencySymbol}
+      onPress={handleCustomerPress}
+    />
   );
 
-  const handleFailedOrderPress = useCallback(
-    (item: FailedOrder) => {
-      if (item.customer_id) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        router.push(`/customer/${item.customer_id}` as any);
-      } else {
-        router.push(`/order/${item.id}`);
-      }
-    },
-    [router]
+  const renderFailedOrder = ({ item }: ListRenderItemInfo<FailedOrder>) => (
+    <FailedOrderItem
+      item={item}
+      colors={colors}
+      shadows={shadows}
+      currencySymbol={currencySymbol}
+      onPress={handleFailedOrderPress}
+    />
   );
 
-  // Memoized renderItem callbacks
-  const renderCustomer = useCallback(
-    ({ item }: ListRenderItemInfo<Customer>) => (
-      <CustomerItem
-        item={item}
-        colors={colors}
-        shadows={shadows}
-        onPress={handleCustomerPress}
-      />
-    ),
-    [colors, shadows, handleCustomerPress]
-  );
+  const customerKeyExtractor = (item: Customer) => item.id;
 
-  const renderFailedOrder = useCallback(
-    ({ item }: ListRenderItemInfo<FailedOrder>) => (
-      <FailedOrderItem
-        item={item}
-        colors={colors}
-        shadows={shadows}
-        onPress={handleFailedOrderPress}
-      />
-    ),
-    [colors, shadows, handleFailedOrderPress]
-  );
-
-  // Memoized keyExtractor callbacks
-  const customerKeyExtractor = useCallback((item: Customer) => item.id, []);
-
-  const failedOrderKeyExtractor = useCallback(
-    (item: FailedOrder) => item.id,
-    []
-  );
+  const failedOrderKeyExtractor = (item: FailedOrder) => item.id;
 
   // getItemLayout for consistent item heights (improves scroll performance)
-  const getItemLayout = useCallback(
-    (
-      _data: ArrayLike<Customer | FailedOrder> | null | undefined,
-      index: number
-    ) => ({
-      length: CUSTOMER_ITEM_HEIGHT,
-      offset: CUSTOMER_ITEM_HEIGHT * index,
-      index,
-    }),
-    []
-  );
+  const getItemLayout = (
+    _data: ArrayLike<Customer | FailedOrder> | null | undefined,
+    index: number
+  ) => ({
+    length: _CUSTOMER_ITEM_HEIGHT,
+    offset: _CUSTOMER_ITEM_HEIGHT * index,
+    index,
+  });
 
   return (
     <SafeAreaView
@@ -673,7 +692,6 @@ export default function CustomersScreen() {
             data={customers}
             renderItem={renderCustomer}
             keyExtractor={customerKeyExtractor}
-            getItemLayout={getItemLayout}
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl

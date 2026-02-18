@@ -8,6 +8,27 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useMerchant } from './useMerchant';
 
+/** Shape returned by the order_items join: products!inner(cost_price) */
+interface JoinedProduct {
+  cost_price: number | null;
+}
+
+/** Shape returned by the order_items join: orders!inner(id, merchant_id, payment_status, created_at) */
+interface JoinedOrder {
+  id: string;
+  merchant_id: string;
+  payment_status: string;
+  created_at: string;
+}
+
+/** A single order_items row with its joined relations */
+interface OrderItemWithJoins {
+  quantity: number | null;
+  price: number | null;
+  products: JoinedProduct;
+  orders: JoinedOrder;
+}
+
 export type MetricType = 'revenue' | 'sales' | 'aov' | 'profits' | 'vat';
 export type Granularity = 'hourly' | 'weekday' | 'month';
 
@@ -82,7 +103,7 @@ export function useAnalyticsDetail({
       const endDate = new Date(year, 11, 31, 23, 59, 59);
 
       // Fetch orders for the year
-      const { data: orders } = await supabase
+      const { data: orders, error: ordersError } = await supabase
         .from('orders')
         .select('id, total, tax_amount, payment_status, created_at')
         .eq('merchant_id', merchant.id)
@@ -90,8 +111,12 @@ export function useAnalyticsDetail({
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString());
 
+      if (ordersError) {
+        throw new Error(`Failed to fetch orders: ${ordersError.message}`);
+      }
+
       // Fetch order items for profit calculation
-      const { data: orderItems } = await supabase
+      const { data: orderItems, error: orderItemsError } = await supabase
         .from('order_items')
         .select(`
                     quantity,
@@ -103,6 +128,12 @@ export function useAnalyticsDetail({
         .eq('orders.payment_status', 'paid')
         .gte('orders.created_at', startDate.toISOString())
         .lte('orders.created_at', endDate.toISOString());
+
+      if (orderItemsError) {
+        throw new Error(
+          `Failed to fetch order items: ${orderItemsError.message}`
+        );
+      }
 
       // Process data based on granularity
       const buckets = getBuckets(granularity);
@@ -140,9 +171,9 @@ export function useAnalyticsDetail({
 
       // Calculate profits per bucket
       if (metric === 'profits' || metric === 'revenue') {
-        orderItems?.forEach((item) => {
-          const order = item.orders as any;
-          const product = item.products as any;
+        (orderItems as OrderItemWithJoins[])?.forEach((item) => {
+          const order = item.orders;
+          const product = item.products;
           const date = new Date(order.created_at);
           const bucketIndex = getBucketIndex(date, granularity);
 
@@ -216,6 +247,24 @@ export function useAnalyticsDetail({
           .gte('created_at', prevStartDate.toISOString())
           .lte('created_at', prevEndDate.toISOString());
 
+        // Fetch previous year order_items for profit calculation
+        let prevOrderItems: typeof orderItems = null;
+        if (metric === 'profits') {
+          const { data } = await supabase
+            .from('order_items')
+            .select(`
+                    quantity,
+                    price,
+                    products!inner(cost_price),
+                    orders!inner(id, merchant_id, payment_status, created_at)
+                `)
+            .eq('orders.merchant_id', merchant.id)
+            .eq('orders.payment_status', 'paid')
+            .gte('orders.created_at', prevStartDate.toISOString())
+            .lte('orders.created_at', prevEndDate.toISOString());
+          prevOrderItems = data;
+        }
+
         comparisonData = buckets.map((label) => ({
           label,
           value: 0,
@@ -248,6 +297,22 @@ export function useAnalyticsDetail({
             }
           }
         });
+
+        // Calculate profits for comparison period
+        if (metric === 'profits' && comparisonData) {
+          (prevOrderItems as OrderItemWithJoins[] | null)?.forEach((item) => {
+            const order = item.orders;
+            const product = item.products;
+            const date = new Date(order.created_at);
+            const bucketIndex = getBucketIndex(date, granularity);
+
+            if (bucketIndex >= 0 && bucketIndex < comparisonData?.length) {
+              const revenue = (item.price || 0) * (item.quantity || 1);
+              const cost = (product.cost_price || 0) * (item.quantity || 1);
+              comparisonData?.[bucketIndex].value += revenue - cost;
+            }
+          });
+        }
 
         if (metric === 'aov') {
           comparisonData.forEach((bucket) => {

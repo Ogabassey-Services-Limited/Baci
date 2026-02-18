@@ -7,7 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { format, isSameMonth, parseISO } from 'date-fns';
 import { Stack, useRouter } from 'expo-router';
-import { useMemo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -51,7 +50,7 @@ export default function ExpensesScreen() {
       if (!merchant?.id) return [];
       const { data, error } = await supabase
         .from('expenses')
-        .select('*')
+        .select('id, amount, category, description, date, receipt_url')
         .eq('merchant_id', merchant.id)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
@@ -62,13 +61,13 @@ export default function ExpensesScreen() {
     enabled: !!merchant?.id,
   });
 
-  const monthlyTotal = useMemo(() => {
+  const monthlyTotal = (() => {
     if (!expenses) return 0;
     const now = new Date();
     return expenses
       .filter((e) => isSameMonth(parseISO(e.date), now))
       .reduce((sum, e) => sum + Number(e.amount), 0);
-  }, [expenses]);
+  })();
 
   const renderExpenseItem = ({ item }: { item: Expense }) => (
     <Pressable

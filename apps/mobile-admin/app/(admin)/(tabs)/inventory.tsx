@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -18,41 +18,47 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { type Product, useProducts } from '@/hooks/useProducts';
+import SafeImage from '@/components/ui/SafeImage';
+import type { ThemeColors } from '@/constants/theme';
+import { useMerchant } from '@/hooks/useMerchant';
+import {
+  type Product,
+  useInventoryStats,
+  useProducts,
+} from '@/hooks/useProducts';
+import { useTheme } from '@/hooks/useTheme';
 
 // Item height for getItemLayout optimization
 const INVENTORY_ITEM_HEIGHT = 88;
 
-// Helper function moved outside component
-const formatPrice = (amount: number) => {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-  }).format(amount);
+// Helper to get currency symbol from merchant's payout_currency
+const getCurrencySymbol = (currencyCode: string | null | undefined) => {
+  const symbols: Record<string, string> = {
+    NGN: '\u20A6',
+    USD: '$',
+    GBP: '\u00A3',
+    EUR: '\u20AC',
+  };
+  return symbols[currencyCode || 'NGN'] || '\u20A6';
 };
 
-// Color type for the memoized component
-interface InventoryColors {
-  background: string;
-  card: string;
-  text: string;
-  textSecondary: string;
-  border: string;
-  inputBg: string;
-}
+// Helper function moved outside component
+const formatPrice = (amount: number, currencySymbol: string) => {
+  return `${currencySymbol}${amount.toLocaleString()}`;
+};
 
 // Memoized Inventory Product Item component
 interface InventoryProductItemProps {
   item: Product;
-  colors: InventoryColors;
+  colors: ThemeColors;
+  currencySymbol: string;
   onPress: (id: string) => void;
 }
 
-const InventoryProductItem = memo(function InventoryProductItem({
+function InventoryProductItem({
   item,
   colors,
+  currencySymbol,
   onPress,
 }: InventoryProductItemProps) {
   const threshold = item.low_stock_threshold ?? 5;
@@ -75,27 +81,26 @@ const InventoryProductItem = memo(function InventoryProductItem({
         },
       ]}
       onPress={() => onPress(item.id)}
-      accessibilityLabel={`${item.name}, ${formatPrice(item.price)}, ${stockStatusLabel}`}
+      accessibilityLabel={`${item.name}, ${formatPrice(item.price, currencySymbol)}, ${stockStatusLabel}`}
       accessibilityRole="button"
       accessibilityHint="View product details"
     >
-      <View style={[styles.productImage, { backgroundColor: colors.inputBg }]}>
-        {item.images?.[0] ? (
-          <View style={styles.productImage}>
-            <Ionicons
-              name="cube-outline"
-              size={32}
-              color={colors.textSecondary}
-            />
-          </View>
-        ) : (
+      {item.images?.[0] ? (
+        <SafeImage
+          source={{ uri: item.images[0] }}
+          style={styles.productImage}
+        />
+      ) : (
+        <View
+          style={[styles.productImage, { backgroundColor: colors.inputBg }]}
+        >
           <Ionicons
             name="cube-outline"
             size={32}
             color={colors.textSecondary}
           />
-        )}
-      </View>
+        </View>
+      )}
       <View style={styles.productInfo}>
         <Text
           style={[styles.productName, { color: colors.text }]}
@@ -107,7 +112,7 @@ const InventoryProductItem = memo(function InventoryProductItem({
           {item.sku || 'No SKU'}
         </Text>
         <Text style={[styles.productPrice, { color: colors.text }]}>
-          {formatPrice(item.price)}
+          {formatPrice(item.price, currencySymbol)}
         </Text>
       </View>
       <View style={styles.stockInfo}>
@@ -116,10 +121,10 @@ const InventoryProductItem = memo(function InventoryProductItem({
             styles.stockBadge,
             {
               backgroundColor: isOutOfStock
-                ? '#FEE2E2'
+                ? colors.errorLight
                 : isLowStock
-                  ? '#FEF3C7'
-                  : '#D1FAE5',
+                  ? colors.warningLight
+                  : colors.successLight,
             },
           ]}
         >
@@ -128,10 +133,10 @@ const InventoryProductItem = memo(function InventoryProductItem({
               styles.stockText,
               {
                 color: isOutOfStock
-                  ? '#DC2626'
+                  ? colors.error
                   : isLowStock
-                    ? '#D97706'
-                    : '#059669',
+                    ? colors.warning
+                    : colors.success,
               },
             ]}
           >
@@ -144,11 +149,12 @@ const InventoryProductItem = memo(function InventoryProductItem({
       </View>
     </Pressable>
   );
-});
+}
 
 export default function InventoryScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { colors } = useTheme();
+  const { merchant } = useMerchant();
+  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch real products from Supabase
@@ -162,79 +168,61 @@ export default function InventoryScreen() {
     isFetchingNextPage,
   } = useProducts({ search: searchQuery || undefined });
 
+  // Use server-side stats for accurate counts across all pages
+  const { data: inventoryStats } = useInventoryStats();
+
   // Flatten paginated products
-  const products = useMemo(() => {
-    return data?.pages.flatMap((page) => page.products) ?? [];
-  }, [data]);
+  const products = data?.pages.flatMap((page) => page.products) ?? [];
 
-  const colors: InventoryColors = useMemo(
-    () => ({
-      background: isDark ? '#0F172A' : '#F8FAFC',
-      card: isDark ? '#1E293B' : '#FFFFFF',
-      text: isDark ? '#F8FAFC' : '#0F172A',
-      textSecondary: isDark ? '#94A3B8' : '#64748B',
-      border: isDark ? '#334155' : '#E2E8F0',
-      inputBg: isDark ? '#1E293B' : '#F1F5F9',
-    }),
-    [isDark]
-  );
-
-  // Calculate stats from real data
-  const totalProducts = products.length;
-  const lowStockCount = products.filter(
-    (p) =>
-      p.low_stock_threshold && p.stock <= p.low_stock_threshold && p.stock > 0
-  ).length;
-  const outOfStockCount = products.filter((p) => p.stock === 0).length;
+  // Use server-side inventory stats for accurate global counts
+  const totalProducts = inventoryStats?.activeCount ?? 0;
+  const lowStockCount = inventoryStats?.lowStockCount ?? 0;
+  const outOfStockCount = inventoryStats?.outOfStockCount ?? 0;
 
   // Navigation callback
-  const handleProductPress = useCallback((id: string) => {
+  const handleProductPress = (id: string) => {
     router.push(`/product/${id}`);
-  }, []);
+  };
 
-  // Memoized renderItem callback
-  const renderProduct = useCallback(
-    ({ item }: ListRenderItemInfo<Product>) => (
-      <InventoryProductItem
-        item={item}
-        colors={colors}
-        onPress={handleProductPress}
-      />
-    ),
-    [colors, handleProductPress]
+  const renderProduct = ({ item }: ListRenderItemInfo<Product>) => (
+    <InventoryProductItem
+      item={item}
+      colors={colors}
+      currencySymbol={currencySymbol}
+      onPress={handleProductPress}
+    />
   );
 
-  // Memoized keyExtractor callback
-  const productKeyExtractor = useCallback((item: Product) => item.id, []);
+  const productKeyExtractor = (item: Product) => item.id;
 
   // getItemLayout for consistent item heights
-  const getItemLayout = useCallback(
-    (_data: ArrayLike<Product> | null | undefined, index: number) => ({
-      length: INVENTORY_ITEM_HEIGHT,
-      offset: INVENTORY_ITEM_HEIGHT * index,
-      index,
-    }),
-    []
-  );
+  const getItemLayout = (
+    _data: ArrayLike<Product> | null | undefined,
+    index: number
+  ) => ({
+    length: INVENTORY_ITEM_HEIGHT,
+    offset: INVENTORY_ITEM_HEIGHT * index,
+    index,
+  });
 
-  const renderFooter = useCallback(() => {
+  const renderFooter = () => {
     if (!isFetchingNextPage) return null;
     return (
       <View style={styles.loadingFooter}>
         <ActivityIndicator size="small" color="#3B82F6" />
       </View>
     );
-  }, [isFetchingNextPage]);
+  };
 
-  const handleLoadMore = useCallback(() => {
+  const handleLoadMore = () => {
     if (hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
     }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  };
 
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = () => {
     refetch();
-  }, [refetch]);
+  };
 
   if (isLoading) {
     return (
@@ -244,6 +232,7 @@ export default function InventoryScreen() {
           styles.centered,
           { backgroundColor: colors.background },
         ]}
+        edges={['top']}
       >
         <ActivityIndicator size="large" color="#3B82F6" />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
@@ -256,7 +245,7 @@ export default function InventoryScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['bottom']}
+      edges={['top']}
     >
       {/* Search Bar */}
       <View style={styles.searchContainer}>

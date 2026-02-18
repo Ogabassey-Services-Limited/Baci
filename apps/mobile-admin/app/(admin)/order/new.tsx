@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router, Stack } from 'expo-router';
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,18 +22,18 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import {
-  sanitizeCustomerName,
-  sanitizeEmail,
-  sanitizePhone,
-  sanitizeAddress,
-  sanitizeNotes,
-  sanitizeText,
-} from '@/lib/sanitize';
-import SafeImage from '@/components/ui/SafeImage';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import PhoneInput from 'react-native-phone-number-input';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SafeImage from '@/components/ui/SafeImage';
+import {
+  sanitizeAddress,
+  sanitizeCustomerName,
+  sanitizeEmail,
+  sanitizeNotes,
+  sanitizePhone,
+  sanitizeText,
+} from '@/lib/sanitize';
 
 interface ShippingAddress {
   name: string;
@@ -116,55 +116,55 @@ const CHANNELS: {
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
 }[] = [
-    {
-      id: 'physical',
-      label: 'Physical sales',
-      icon: 'storefront',
-      color: ORDER_SOURCE_CONFIG?.physical?.colorKey || 'primary',
-    },
-    {
-      id: 'instagram',
-      label: 'Instagram',
-      icon: 'logo-instagram',
-      color: BRAND_COLORS?.instagram || '#E4405F',
-    },
-    {
-      id: 'whatsapp',
-      label: 'WhatsApp',
-      icon: 'logo-whatsapp',
-      color: BRAND_COLORS?.whatsapp || '#25D366',
-    },
-    {
-      id: 'facebook',
-      label: 'Facebook',
-      icon: 'logo-facebook',
-      color: BRAND_COLORS?.facebook || '#1877F2',
-    },
-    {
-      id: 'tiktok',
-      label: 'Tiktok',
-      icon: 'logo-tiktok',
-      color: BRAND_COLORS?.tiktok || '#000000',
-    },
-    {
-      id: 'jumia',
-      label: 'Jumia',
-      icon: 'cart',
-      color: BRAND_COLORS?.jumia || '#F68B1E',
-    },
-    {
-      id: 'jiji',
-      label: 'Jiji',
-      icon: 'pricetag',
-      color: BRAND_COLORS?.jiji || '#3DB83A',
-    },
-    {
-      id: 'konga',
-      label: 'Konga',
-      icon: 'bag',
-      color: BRAND_COLORS?.konga || '#ED017F',
-    },
-  ];
+  {
+    id: 'physical',
+    label: 'Physical sales',
+    icon: 'storefront',
+    color: ORDER_SOURCE_CONFIG?.physical?.colorKey || 'primary',
+  },
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    icon: 'logo-instagram',
+    color: BRAND_COLORS?.instagram || '#E4405F',
+  },
+  {
+    id: 'whatsapp',
+    label: 'WhatsApp',
+    icon: 'logo-whatsapp',
+    color: BRAND_COLORS?.whatsapp || '#25D366',
+  },
+  {
+    id: 'facebook',
+    label: 'Facebook',
+    icon: 'logo-facebook',
+    color: BRAND_COLORS?.facebook || '#1877F2',
+  },
+  {
+    id: 'tiktok',
+    label: 'Tiktok',
+    icon: 'logo-tiktok',
+    color: BRAND_COLORS?.tiktok || '#000000',
+  },
+  {
+    id: 'jumia',
+    label: 'Jumia',
+    icon: 'cart',
+    color: BRAND_COLORS?.jumia || '#F68B1E',
+  },
+  {
+    id: 'jiji',
+    label: 'Jiji',
+    icon: 'pricetag',
+    color: BRAND_COLORS?.jiji || '#3DB83A',
+  },
+  {
+    id: 'konga',
+    label: 'Konga',
+    icon: 'bag',
+    color: BRAND_COLORS?.konga || '#ED017F',
+  },
+];
 
 const PAYMENT_METHODS = [
   { id: 'transfer', label: 'Transfer', icon: 'card-outline' },
@@ -177,7 +177,7 @@ export default function NewOrderScreen() {
   const { merchant } = useMerchant();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { data: productsData, isLoading: _productsLoading } = useProducts();
+  const { data: productsData } = useProducts();
   const createCustomerMutation = useCreateCustomer();
 
   // State
@@ -205,9 +205,6 @@ export default function NewOrderScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
-  const [_dateRange, _setDateRange] = useState<
-    string | { start: Date; end: Date } | null
-  >(null);
   const [editingItem, setEditingItem] = useState<OrderItem | null>(null);
   const [showEditItemModal, setShowEditItemModal] = useState(false);
   const [editPriceValue, setEditPriceValue] = useState('');
@@ -276,20 +273,19 @@ export default function NewOrderScreen() {
     }).format(amount);
 
   // Filter Products
-  const allProducts = useMemo(() => {
-    if (!productsData?.pages) return [];
-    return productsData.pages.flatMap((page) => page.products || []);
-  }, [productsData]);
+  const allProducts = productsData?.pages
+    ? productsData.pages.flatMap((page) => page.products || [])
+    : [];
 
-  const filteredProducts = useMemo(() => {
-    if (!productSearch) return allProducts;
-    const search = productSearch.toLowerCase();
-    return allProducts.filter(
-      (p) =>
-        p.name.toLowerCase().includes(search) ||
-        p.sku?.toLowerCase().includes(search)
-    );
-  }, [allProducts, productSearch]);
+  const filteredProducts = productSearch
+    ? allProducts.filter((p) => {
+        const search = productSearch.toLowerCase();
+        return (
+          p.name.toLowerCase().includes(search) ||
+          p.sku?.toLowerCase().includes(search)
+        );
+      })
+    : allProducts;
 
   const subtotal = orderItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -392,7 +388,7 @@ export default function NewOrderScreen() {
 
       const { data: existingCustomers, error: searchError } = await supabase
         .from('customers')
-        .select('*')
+        .select('id, first_name, last_name, email, phone, address')
         .eq('merchant_id', merchant?.id)
         .or(conditions.join(','))
         .limit(1);
@@ -461,10 +457,17 @@ export default function NewOrderScreen() {
       const orderNumber = generateOrderNumber();
 
       // Sanitize all customer inputs to prevent XSS
-      const sanitizedCustomerName = sanitizeCustomerName(customer.name) || 'Walk-in Customer';
-      const sanitizedCustomerEmail = customer.email ? sanitizeEmail(customer.email) : null;
-      const sanitizedCustomerPhone = customer.phone ? sanitizePhone(customer.phone) : null;
-      const sanitizedCustomerAddress = customer.address ? sanitizeAddress(customer.address) : '';
+      const sanitizedCustomerName =
+        sanitizeCustomerName(customer.name) || 'Walk-in Customer';
+      const sanitizedCustomerEmail = customer.email
+        ? sanitizeEmail(customer.email)
+        : null;
+      const sanitizedCustomerPhone = customer.phone
+        ? sanitizePhone(customer.phone)
+        : null;
+      const sanitizedCustomerAddress = customer.address
+        ? sanitizeAddress(customer.address)
+        : '';
       const sanitizedNotes = notes.trim() ? sanitizeNotes(notes) : null;
 
       // Sanitize delivery info
@@ -505,17 +508,17 @@ export default function NewOrderScreen() {
           notes: sanitizedNotes,
           shipping_address: sameAsCustomer
             ? ({
-              name: sanitizedCustomerName,
-              phone: sanitizedCustomerPhone || '',
-              address: sanitizedCustomerAddress,
-            } satisfies ShippingAddress)
+                name: sanitizedCustomerName,
+                phone: sanitizedCustomerPhone || '',
+                address: sanitizedCustomerAddress,
+              } satisfies ShippingAddress)
             : ({
-              name: sanitizedDeliveryName,
-              phone: sanitizedDeliveryPhone,
-              address: sanitizedDeliveryAddress,
-              city: sanitizedDeliveryCity,
-              state: sanitizedDeliveryState,
-            } satisfies ShippingAddress),
+                name: sanitizedDeliveryName,
+                phone: sanitizedDeliveryPhone,
+                address: sanitizedDeliveryAddress,
+                city: sanitizedDeliveryCity,
+                state: sanitizedDeliveryState,
+              } satisfies ShippingAddress),
         })
         .select()
         .single();
@@ -530,7 +533,9 @@ export default function NewOrderScreen() {
           name: sanitizeText(item.name, 200),
           quantity: item.quantity,
           price: item.price,
-          item_description: item.details ? sanitizeText(item.details, 1000) : null,
+          item_description: item.details
+            ? sanitizeText(item.details, 1000)
+            : null,
         }))
       );
 
@@ -2697,11 +2702,11 @@ export default function NewOrderScreen() {
                       prev.map((item) =>
                         item.product_id === editingItem.product_id
                           ? {
-                            ...item,
-                            price: finalPrice,
-                            quantity: finalQty,
-                            details: editDetails,
-                          }
+                              ...item,
+                              price: finalPrice,
+                              quantity: finalQty,
+                              details: editDetails,
+                            }
                           : item
                       )
                     );

@@ -14,19 +14,32 @@ import {
   View,
 } from 'react-native';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useMerchant } from '@/hooks/useMerchant';
 import {
   type TopSellingProduct,
   useTopSellingProducts,
 } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 
+const getCurrencySymbol = (currencyCode: string | null | undefined) => {
+  const symbols: Record<string, string> = {
+    NGN: '\u20A6',
+    USD: '$',
+    GBP: '\u00A3',
+    EUR: '\u20AC',
+  };
+  return symbols[currencyCode || 'NGN'] || '\u20A6';
+};
+
 export default function AnalyticsProductsScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
+  const { merchant } = useMerchant();
+  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
   const { data: topProducts, isLoading } = useTopSellingProducts(50);
 
   const formatCurrency = (amount: number) => {
-    return `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
+    return `${currencySymbol}${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
   };
 
   const renderProductItem = ({

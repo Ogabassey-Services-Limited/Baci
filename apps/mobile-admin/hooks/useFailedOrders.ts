@@ -13,9 +13,28 @@ export interface FailedOrder {
   payment_status: 'bnpl_pending' | 'failed' | 'pending' | 'expired';
   payment_method: string;
   created_at: string;
-  gateway_response?: any;
+  gateway_response?: Record<string, unknown> | null;
   gateway?: string;
   attempt_count: number;
+}
+
+/** Shape returned by the Supabase select on orders with joined transactions */
+interface FailedOrderRow {
+  id: string;
+  order_number: string;
+  customer_id: string | null;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  total: number;
+  payment_status: string;
+  payment_method: string;
+  created_at: string;
+  transactions: {
+    gateway_response: Record<string, unknown> | null;
+    status: string;
+    gateway: string;
+  }[];
 }
 
 /** Stale threshold: pending orders older than this are likely abandoned */
@@ -70,7 +89,7 @@ export function useFailedOrders() {
         FailedOrder & { attempt_count: number }
       > = {};
 
-      data.forEach((order: any) => {
+      (data as FailedOrderRow[]).forEach((order) => {
         const email = order.customer_email;
         if (!consolidated[email]) {
           consolidated[email] = {
@@ -89,10 +108,8 @@ export function useFailedOrders() {
             attempt_count: 1,
           };
         } else {
-          // Update total and attempt count
-          consolidated[email].total += order.total;
+          // Track attempt count but keep most recent order's total (data is already ordered DESC)
           consolidated[email].attempt_count += 1;
-          // Keep the most recent data (data is already ordered DESC)
         }
       });
 

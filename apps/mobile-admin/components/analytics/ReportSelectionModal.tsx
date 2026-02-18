@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import type { AnalyticsData } from '../../app/(admin)/analytics';
 import {
@@ -16,19 +17,11 @@ import {
   type Transaction,
 } from './ReportsGenerator';
 
-const COLORS = {
-  primary: '#000000',
-  background: '#FFFFFF',
-  text: '#111111',
-  textSecondary: '#666666',
-  border: '#EEEEEE',
-  overlay: 'rgba(0,0,0,0.5)',
-};
-
 interface ReportSelectionModalProps {
   visible: boolean;
   onClose: () => void;
   analyticsData: AnalyticsData;
+  merchantId: string;
   merchantName: string;
   startDate: Date;
   endDate: Date;
@@ -38,10 +31,12 @@ export default function ReportSelectionModal({
   visible,
   onClose,
   analyticsData,
+  merchantId,
   merchantName,
   startDate,
   endDate,
 }: ReportSelectionModalProps) {
+  const { colors, isDark } = useTheme();
   const [loading, setLoading] = useState(false);
 
   if (!visible) return null;
@@ -57,10 +52,11 @@ export default function ReportSelectionModal({
           .select(`
                         id,
                         created_at,
-                        total_amount,
+                        total,
                         tax_amount,
                         customer:customers(first_name, last_name)
                     `)
+          .eq('merchant_id', merchantId)
           .gte('created_at', startDate.toISOString())
           .lte('created_at', endDate.toISOString())
           .eq('payment_status', 'paid')
@@ -89,11 +85,13 @@ export default function ReportSelectionModal({
 
   return (
     <View style={styles.overlay}>
-      <View style={styles.modal}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Export Report</Text>
+      <View style={[styles.modal, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <Text style={[styles.title, { color: colors.text }]}>
+            Export Report
+          </Text>
           <Pressable onPress={onClose}>
-            <Ionicons name="close" size={24} color={COLORS.text} />
+            <Ionicons name="close" size={24} color={colors.text} />
           </Pressable>
         </View>
 
@@ -101,56 +99,87 @@ export default function ReportSelectionModal({
           <Pressable
             style={({ pressed }) => [
               styles.option,
-              pressed && styles.optionPressed,
+              { backgroundColor: colors.card, borderColor: colors.border },
+              pressed && { backgroundColor: colors.cardHover },
             ]}
             onPress={() => handleGenerate('executive')}
             disabled={loading}
           >
-            <View style={styles.iconContainer}>
-              <Ionicons name="stats-chart" size={24} color={COLORS.primary} />
+            <View
+              style={[
+                styles.iconContainer,
+                { backgroundColor: colors.primaryLight },
+              ]}
+            >
+              <Ionicons name="stats-chart" size={24} color={colors.primary} />
             </View>
             <View style={styles.optionText}>
-              <Text style={styles.optionTitle}>Executive Summary</Text>
-              <Text style={styles.optionSubtitle}>
+              <Text style={[styles.optionTitle, { color: colors.text }]}>
+                Executive Summary
+              </Text>
+              <Text
+                style={[styles.optionSubtitle, { color: colors.textSecondary }]}
+              >
                 Revenue, profit, and top performers
               </Text>
             </View>
             <Ionicons
               name="chevron-forward"
               size={20}
-              color={COLORS.textSecondary}
+              color={colors.textSecondary}
             />
           </Pressable>
 
           <Pressable
             style={({ pressed }) => [
               styles.option,
-              pressed && styles.optionPressed,
+              { backgroundColor: colors.card, borderColor: colors.border },
+              pressed && { backgroundColor: colors.cardHover },
             ]}
             onPress={() => handleGenerate('tax_ledger')}
             disabled={loading}
           >
-            <View style={styles.iconContainer}>
-              <Ionicons name="document-text" size={24} color={COLORS.primary} />
+            <View
+              style={[
+                styles.iconContainer,
+                { backgroundColor: colors.primaryLight },
+              ]}
+            >
+              <Ionicons name="document-text" size={24} color={colors.primary} />
             </View>
             <View style={styles.optionText}>
-              <Text style={styles.optionTitle}>Tax & Sales Ledger</Text>
-              <Text style={styles.optionSubtitle}>
+              <Text style={[styles.optionTitle, { color: colors.text }]}>
+                Tax & Sales Ledger
+              </Text>
+              <Text
+                style={[styles.optionSubtitle, { color: colors.textSecondary }]}
+              >
                 Detailed transaction list for audits
               </Text>
             </View>
             <Ionicons
               name="chevron-forward"
               size={20}
-              color={COLORS.textSecondary}
+              color={colors.textSecondary}
             />
           </Pressable>
         </View>
 
         {loading && (
-          <View style={styles.loader}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loaderText}>Generating PDF...</Text>
+          <View
+            style={[
+              styles.loader,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(13,13,26,0.9)'
+                  : 'rgba(255,255,255,0.9)',
+              },
+            ]}
+          >
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loaderText, { color: colors.textSecondary }]}>
+              Generating PDF...
+            </Text>
           </View>
         )}
       </View>
@@ -161,12 +190,11 @@ export default function ReportSelectionModal({
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: COLORS.overlay,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
     zIndex: 1000,
   },
   modal: {
-    backgroundColor: COLORS.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 40,
@@ -178,12 +206,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.text,
   },
   content: {
     padding: 20,
@@ -192,20 +218,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#FAFAFA',
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  optionPressed: {
-    backgroundColor: '#F0F0F0',
   },
   iconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#EEEEEE',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -216,23 +236,19 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
     marginBottom: 4,
   },
   optionSubtitle: {
     fontSize: 13,
-    color: COLORS.textSecondary,
   },
   loader: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.9)',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 20,
   },
   loaderText: {
     marginTop: 10,
-    color: COLORS.textSecondary,
     fontWeight: '500',
   },
 });
