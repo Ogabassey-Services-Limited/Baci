@@ -686,6 +686,49 @@ export function generateProductSchema(
             ? 'https://schema.org/RefurbishedCondition'
             : 'https://schema.org/NewCondition';
 
+    // Shared shipping + return policy for all variant Offers (2026 best practice)
+    const variantShippingDetails = {
+      '@type': 'OfferShippingDetails',
+      shippingRate: {
+        '@type': 'MonetaryAmount',
+        value: 0,
+        currency: currency,
+      },
+      shippingDestination: {
+        '@type': 'DefinedRegion',
+        addressCountry: country,
+      },
+      deliveryTime: {
+        '@type': 'ShippingDeliveryTime',
+        handlingTime: {
+          '@type': 'QuantitativeValue',
+          minValue: 0,
+          maxValue: 1,
+          unitCode: 'DAY',
+        },
+        transitTime: {
+          '@type': 'QuantitativeValue',
+          minValue: 1,
+          maxValue: 5,
+          unitCode: 'DAY',
+        },
+      },
+    };
+
+    const variantReturnPolicy = {
+      '@type': 'MerchantReturnPolicy',
+      applicableCountry: country,
+      returnPolicyCategory:
+        'https://schema.org/MerchantReturnFiniteReturnWindow',
+      merchantReturnDays: 7,
+      returnMethod: 'https://schema.org/ReturnInStore',
+      returnFees: 'https://schema.org/FreeReturn',
+    };
+
+    const variantPriceValidUntil = new Date(Date.now() + THIRTY_DAYS_MS)
+      .toISOString()
+      .substring(0, 10);
+
     // Build hasVariant array — each variant becomes a @type Product
     schema.hasVariant = product.variants.map((variant) => {
       const variantPrice = variant.price_override ?? product.price;
@@ -696,9 +739,18 @@ export function generateProductSchema(
         ? `${safeName} - ${escapeHtml(attrValues)}`
         : safeName;
 
+      // Variant images: use variant-specific images if available, fall back to parent images
+      const variantImages =
+        variant.images && variant.images.length > 0
+          ? variant.images.map((img) => escapeHtml(img))
+          : safeImages.length > 0
+            ? safeImages
+            : [escapeHtml(product.image || '')];
+
       return {
         '@type': 'Product',
         name: variantName,
+        image: variantImages,
         sku: variant.sku ? escapeHtml(variant.sku) : variant.id,
         offers: {
           '@type': 'Offer',
@@ -709,10 +761,13 @@ export function generateProductSchema(
               ? 'https://schema.org/InStock'
               : 'https://schema.org/OutOfStock',
           itemCondition: parentCondition,
+          priceValidUntil: variantPriceValidUntil,
           seller: {
             '@type': 'Organization',
             name: safeMerchantName,
           },
+          shippingDetails: variantShippingDetails,
+          hasMerchantReturnPolicy: variantReturnPolicy,
         },
       };
     });

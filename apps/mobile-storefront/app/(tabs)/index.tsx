@@ -100,7 +100,7 @@ export default function HomeScreen() {
       // 2026 Best Practice: Avoid hiding on bounces and initial scroll
       if (currentY <= 0) {
         headerTranslateY.value = withTiming(0, { duration: 250 });
-      } else if (diff > 10 && currentY > 100) {
+      } else if (diff > 10 && currentY > 100 && !searchVisible) {
         // Scrolling down: hide header
         headerTranslateY.value = withTiming(-headerHeight, {
           duration: 300,
@@ -124,7 +124,7 @@ export default function HomeScreen() {
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 100,
+    zIndex: searchVisible ? 10000 : 100,
   }));
 
   const backgroundAnimatedStyle = useAnimatedStyle(() => ({
@@ -139,9 +139,15 @@ export default function HomeScreen() {
   const { isOnline, onReconnect } = useNetworkState();
 
   const [searchVisible, setSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearch = () => {
     setSearchVisible(true);
+  };
+
+  const handleSearchCancel = () => {
+    setSearchVisible(false);
+    setSearchQuery('');
   };
 
   const handleRefresh = async () => {
@@ -259,7 +265,14 @@ export default function HomeScreen() {
         style={headerAnimatedStyle}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
-        <Header showSearch={true} onSearchPress={handleSearch} />
+        <Header
+          showSearch={true}
+          onSearchPress={handleSearch}
+          isSearchActive={searchVisible}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          onSearchCancel={handleSearchCancel}
+        />
 
         {!isOnline && pageConfig && (
           <OfflineNotice
@@ -313,8 +326,11 @@ export default function HomeScreen() {
       />
       <SearchDropdown
         isVisible={searchVisible}
-        onClose={() => setSearchVisible(false)}
+        onClose={handleSearchCancel}
         topOffset={headerHeight}
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
+        hideInput={true}
       />
     </View>
   );

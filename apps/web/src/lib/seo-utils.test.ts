@@ -222,6 +222,76 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(v1Offer.availability).toBe('https://schema.org/OutOfStock');
     expect(v2Offer.availability).toBe('https://schema.org/InStock');
   });
+
+  it('includes variant-level images with fallback to parent images', () => {
+    const product = makeProduct({
+      images: [
+        { url: 'https://cdn.example.com/parent.avif', alt: 'Parent', order: 0 },
+      ],
+      variants: [
+        {
+          id: 'v1',
+          product_id: 'test-123',
+          merchant_id: 'm1',
+          attributes: { color: 'Black' },
+          images: ['https://cdn.example.com/black.avif'],
+          stock_quantity: 5,
+        },
+        {
+          id: 'v2',
+          product_id: 'test-123',
+          merchant_id: 'm1',
+          attributes: { color: 'White' },
+          stock_quantity: 3,
+          // No variant images — should fall back to parent
+        },
+      ],
+    });
+
+    const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
+    const variants = schema.hasVariant as Record<string, unknown>[];
+
+    // v1 has its own images
+    expect(variants[0].image).toEqual(['https://cdn.example.com/black.avif']);
+    // v2 falls back to parent images
+    expect(variants[1].image).toEqual(['https://cdn.example.com/parent.avif']);
+  });
+
+  it('includes shippingDetails and returnPolicy on variant Offers (2026 best practice)', () => {
+    const product = makeProduct({
+      variants: [
+        {
+          id: 'v1',
+          product_id: 'test-123',
+          merchant_id: 'm1',
+          attributes: { storage: '128GB' },
+          stock_quantity: 5,
+        },
+      ],
+    });
+
+    const schema = generateProductSchema(product, 'TestStore', 'NGN', 'NG');
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const offer = variants[0].offers as Record<string, unknown>;
+
+    // priceValidUntil is a YYYY-MM-DD string
+    expect(offer.priceValidUntil).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    // shippingDetails
+    const shipping = offer.shippingDetails as Record<string, unknown>;
+    expect(shipping['@type']).toBe('OfferShippingDetails');
+    const dest = shipping.shippingDestination as Record<string, unknown>;
+    expect(dest.addressCountry).toBe('NG');
+
+    // returnPolicy
+    const returnPolicy = offer.hasMerchantReturnPolicy as Record<
+      string,
+      unknown
+    >;
+    expect(returnPolicy['@type']).toBe('MerchantReturnPolicy');
+    expect(returnPolicy.applicableCountry).toBe('NG');
+    expect(returnPolicy.merchantReturnDays).toBe(7);
+  });
 });
 
 describe('generateSlug', () => {
