@@ -739,7 +739,11 @@ export async function generateMetadata({
       title: product.meta_title || product.name,
       description: product.meta_description || product.description,
       images: product.images?.length
-        ? product.images.map((img) => ({ url: img.url, alt: img.alt }))
+        ? product.images.map((img) => ({
+            url: typeof img === 'string' ? img : img.url,
+            alt:
+              typeof img === 'string' ? product.name : img.alt || product.name,
+          }))
         : [
             {
               url: product.imageLarge || product.image,
