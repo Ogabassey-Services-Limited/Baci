@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -26,18 +27,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
@@ -62,7 +59,7 @@ export async function GET(request: NextRequest) {
     } = await supabase
       .from('points_transactions')
       .select('*', { count: 'exact' })
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('customer_id', customerId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -79,7 +76,7 @@ export async function GET(request: NextRequest) {
     const { data: loyalty } = await supabase
       .from('customer_loyalty')
       .select('points_balance, lifetime_points, current_tier')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('customer_id', customerId)
       .single();
 
@@ -118,18 +115,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     const body = await request.json();
     const { customerId, points, reason, type = 'adjust' } = body;
@@ -153,7 +146,7 @@ export async function POST(request: NextRequest) {
     const { data: initialLoyalty, error: loyaltyError } = await supabase
       .from('customer_loyalty')
       .select('*')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('customer_id', customerId)
       .single();
 
@@ -165,7 +158,7 @@ export async function POST(request: NextRequest) {
         .from('customer_loyalty')
         .insert({
           customer_id: customerId,
-          merchant_id: merchant.id,
+          merchant_id: merchantId,
           points_balance: 0,
           lifetime_points: 0,
           referral_code: Math.random()
@@ -229,7 +222,7 @@ export async function POST(request: NextRequest) {
       .from('points_transactions')
       .insert({
         customer_id: customerId,
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
         type: type,
         points: points,
         balance_after: newBalance,

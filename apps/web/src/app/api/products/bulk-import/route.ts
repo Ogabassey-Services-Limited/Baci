@@ -1,6 +1,11 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
 import { revalidateProducts } from '@/lib/cache-revalidation';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { generateProductSlug } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 
@@ -72,19 +77,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant (supports both owners and staff members)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'products', 'create')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
 
     // Parse form data
     const formData = await request.formData();
@@ -142,7 +147,7 @@ export async function POST(request: NextRequest) {
 
         // Create product - use generateProductSlug for consistency with other routes
         const productData = {
-          merchant_id: merchant.id,
+          merchant_id: merchantId,
           name: row.name,
           description: row.description || '',
           base_price: price,
@@ -173,7 +178,7 @@ export async function POST(request: NextRequest) {
 
     // Invalidate product caches after bulk import
     if (successCount > 0) {
-      revalidateProducts(merchant.id);
+      revalidateProducts(merchantId);
     }
 
     return NextResponse.json({

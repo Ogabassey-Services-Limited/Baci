@@ -5,6 +5,7 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { isValidUuid } from '@/lib/sanitize-core';
 import { shippingService } from '@/lib/shipping';
 import type { ShippingProviderCode } from '@/lib/shipping/types';
@@ -40,19 +41,15 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     // Get shipment
     const { data: shipment, error: shipmentError } = await supabase
@@ -61,7 +58,7 @@ export async function POST(
         'id, provider, provider_shipment_id, order_id, status, merchant_id'
       )
       .eq('id', shipmentId)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (shipmentError || !shipment) {

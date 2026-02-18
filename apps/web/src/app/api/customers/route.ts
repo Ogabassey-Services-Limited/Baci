@@ -1,6 +1,11 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import {
   sanitizeEmail,
   sanitizeLikePattern,
@@ -34,21 +39,21 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Get merchant_id
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!merchant) {
+  // Get merchant context (supports both owners and staff members)
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+  if (!merchantContext) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }
+  const access = toUserAccess(merchantContext);
+  if (!hasPermission(access, 'customers', 'view')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  const merchantId = merchantContext.merchantId;
 
   let query = supabase
     .from('customers')
     .select('*', { count: 'exact' })
-    .eq('merchant_id', merchant.id)
+    .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -103,18 +108,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    // Get merchant context (supports both owners and staff members)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'customers', 'create')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
 
     // Explicitly whitelist allowed fields to prevent mass assignment
     const { first_name, last_name, email, phone, address, city, state, notes } =
@@ -131,7 +137,7 @@ export async function POST(request: NextRequest) {
         city: city ? sanitizeText(city, 100) : null,
         state: state ? sanitizeText(state, 100) : null,
         notes: notes ? sanitizeText(notes, 1000) : null,
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
       })
       .select()
       .single();

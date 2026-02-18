@@ -5,6 +5,11 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { shippingService } from '@/lib/shipping';
 import type {
   BookingRequest,
@@ -31,19 +36,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id, business_name, business_location, phone')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    // Permission check
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'orders', 'fulfill')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
 
     const body = await request.json();
 
@@ -66,7 +74,7 @@ export async function POST(request: NextRequest) {
       .from('orders')
       .select('id, merchant_id, shipping_status')
       .eq('id', data.orderId)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (orderError || !order) {
@@ -109,13 +117,23 @@ export async function POST(request: NextRequest) {
     // Build sender info
     let senderInfo = data.sender;
     if (!senderInfo) {
-      const locationParts = (merchant.business_location || 'Lagos')
+      // Fetch merchant location/phone details for sender fallback
+      const { data: merchantDetails } = await supabase
+        .from('merchants')
+        .select('business_name, business_location, phone')
+        .eq('id', merchantId)
+        .single();
+
+      const locationParts = (merchantDetails?.business_location || 'Lagos')
         .split(',')
         .map((s: string) => s.trim());
       senderInfo = {
-        name: merchant.business_name || 'Merchant',
-        phone: merchant.phone || '',
-        address: merchant.business_location || 'Lagos',
+        name:
+          merchantDetails?.business_name ||
+          merchantContext.businessName ||
+          'Merchant',
+        phone: merchantDetails?.phone || '',
+        address: merchantDetails?.business_location || 'Lagos',
         city: locationParts[0] || 'Lagos',
         state: locationParts[1] || locationParts[0] || 'Lagos',
         country: 'Nigeria',
@@ -147,7 +165,7 @@ export async function POST(request: NextRequest) {
       .from('shipments')
       .insert({
         order_id: data.orderId,
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
         provider: result.provider,
         provider_shipment_id: result.providerShipmentId,
         tracking_number: result.trackingNumber,

@@ -2,6 +2,11 @@ import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getAppUrl } from '@/env';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 
@@ -47,25 +52,26 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'staff', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
     // Get staff members
     const { data: staff, error: staffError } = await supabase
       .from('staff_members')
       .select('*')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .neq('status', 'removed')
       .order('created_at', { ascending: false });
 
@@ -112,19 +118,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id, business_name')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'staff', 'invite')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+    const businessName = merchantContext.businessName;
 
     // Parse request body
     const body = await request.json();
@@ -156,7 +164,7 @@ export async function POST(request: NextRequest) {
     const { data: existing } = await supabase
       .from('staff_members')
       .select('id, status')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('email', email.toLowerCase())
       .single();
 
@@ -216,7 +224,7 @@ export async function POST(request: NextRequest) {
     const { data: newStaff, error: createError } = await supabase
       .from('staff_members')
       .insert({
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
         email: email.toLowerCase(),
         name,
         role,
@@ -241,7 +249,7 @@ export async function POST(request: NextRequest) {
     sendEmail({
       to: email.toLowerCase(),
       toName: name,
-      subject: `You've been invited to join ${merchant.business_name}`,
+      subject: `You've been invited to join ${businessName}`,
       htmlContent: `
         <!DOCTYPE html>
         <html>
@@ -254,7 +262,7 @@ export async function POST(request: NextRequest) {
             <h1 style="color: #6366f1; margin: 0;">You're Invited!</h1>
           </div>
           <p>Hi ${name},</p>
-          <p>You've been invited to join <strong>${merchant.business_name}</strong> as a <strong>${role.replace('_', ' ')}</strong>.</p>
+          <p>You've been invited to join <strong>${businessName}</strong> as a <strong>${role.replace('_', ' ')}</strong>.</p>
           <p>Click the button below to accept your invitation and set up your account:</p>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${inviteUrl}" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 500;">Accept Invitation</a>
@@ -264,12 +272,12 @@ export async function POST(request: NextRequest) {
           </p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
           <p style="font-size: 12px; color: #666; text-align: center;">
-            This invitation was sent by ${merchant.business_name} via Baci.
+            This invitation was sent by ${businessName} via Baci.
           </p>
         </body>
         </html>
       `,
-      textContent: `Hi ${name},\n\nYou've been invited to join ${merchant.business_name} as a ${role.replace('_', ' ')}.\n\nClick the link below to accept your invitation:\n${inviteUrl}\n\nThis invitation will expire in 7 days.\n\nIf you didn't expect this invitation, you can safely ignore this email.`,
+      textContent: `Hi ${name},\n\nYou've been invited to join ${businessName} as a ${role.replace('_', ' ')}.\n\nClick the link below to accept your invitation:\n${inviteUrl}\n\nThis invitation will expire in 7 days.\n\nIf you didn't expect this invitation, you can safely ignore this email.`,
       emailType: 'team',
     }).catch((err) => console.error('Staff invitation email error:', err));
 

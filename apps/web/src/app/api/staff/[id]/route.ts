@@ -2,6 +2,11 @@ import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getAppUrl } from '@/env';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 interface RouteParams {
@@ -26,26 +31,27 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'staff', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
     // Get staff member
     const { data: staff, error } = await supabase
       .from('staff_members')
       .select('*')
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (error || !staff) {
@@ -92,26 +98,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'staff', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
     // Verify staff member belongs to merchant
     const { data: existing } = await supabase
       .from('staff_members')
       .select('id')
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (!existing) {
@@ -185,26 +192,27 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'staff', 'remove')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
     // Soft delete staff member
     const { error } = await supabase
       .from('staff_members')
       .update({ status: 'removed' })
       .eq('id', id)
-      .eq('merchant_id', merchant.id);
+      .eq('merchant_id', merchantId);
 
     if (error) {
       console.error('Failed to remove staff:', error);
@@ -242,26 +250,28 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id, business_name')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'staff', 'invite')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+    const businessName = merchantContext.businessName;
+
     // Get staff member
     const { data: staff } = await supabase
       .from('staff_members')
       .select('id, email, status')
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (!staff) {
@@ -302,6 +312,11 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     }
 
     const inviteUrl = `${getAppUrl()}/invite/${invitationToken}`;
+
+    // Note: businessName may be undefined if not set on merchant record
+    // The email send is intentionally not included here (matching original behavior)
+    // where the resend only returns the new inviteUrl without sending an email
+    void businessName; // acknowledge the variable is available if needed
 
     return NextResponse.json({
       success: true,

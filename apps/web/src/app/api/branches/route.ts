@@ -8,6 +8,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 // =============================================================================
@@ -44,56 +45,15 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
-      // Check if user is staff
-      const { data: staffMember } = await supabase
-        .from('staff_members')
-        .select('merchant_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .single();
-
-      if (!staffMember) {
-        return NextResponse.json(
-          { error: 'Merchant not found' },
-          { status: 404 }
-        );
-      }
-
-      // Staff - list branches for their merchant
-      const { data: branches } = await supabase
-        .from('branches')
-        .select(`
-          id,
-          name,
-          address,
-          city,
-          state,
-          phone,
-          is_default,
-          active,
-          created_at,
-          manager_id,
-          staff_members:manager_id (
-            id,
-            full_name
-          )
-        `)
-        .eq('merchant_id', staffMember.merchant_id)
-        .order('is_default', { ascending: false })
-        .order('created_at', { ascending: true });
-
-      return NextResponse.json({ success: true, branches: branches || [] });
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
+    const merchantId = merchantContext.merchantId;
 
-    // Merchant owner
     const { data: branches } = await supabase
       .from('branches')
       .select(`
@@ -112,7 +72,7 @@ export async function GET(_request: NextRequest) {
           full_name
         )
       `)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .order('is_default', { ascending: false })
       .order('created_at', { ascending: true });
 
@@ -142,19 +102,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     // Parse and validate request body
     const body = await request.json();
@@ -174,7 +129,7 @@ export async function POST(request: NextRequest) {
     const { data: branch, error } = await supabase
       .from('branches')
       .insert({
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
         name,
         address: address || null,
         city: city || null,

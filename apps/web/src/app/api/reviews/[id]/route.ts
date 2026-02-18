@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -24,6 +29,27 @@ export async function GET(
     const { id } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'orders', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const { data: review, error } = await supabase
       .from('product_reviews')
@@ -85,16 +111,15 @@ export async function PATCH(
       return NextResponse.json({ error: 'Review not found' }, { status: 404 });
     }
 
-    // Verify user owns the merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('id', review.merchant_id)
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    // Verify user owns or is staff of the merchant
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext || merchantContext.merchantId !== review.merchant_id) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'orders', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Build update object
@@ -177,16 +202,15 @@ export async function DELETE(
       return NextResponse.json({ error: 'Review not found' }, { status: 404 });
     }
 
-    // Verify user owns the merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('id', review.merchant_id)
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    // Verify user owns or is staff of the merchant
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext || merchantContext.merchantId !== review.merchant_id) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'orders', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Delete the review

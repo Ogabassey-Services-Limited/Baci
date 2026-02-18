@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 // GET /api/vtu/transactions - Get VTU transaction history for merchant
@@ -17,19 +22,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
 
     // Parse query params
     const page = Number.parseInt(searchParams.get('page') || '1', 10);
@@ -47,7 +53,7 @@ export async function GET(request: Request) {
     let query = supabase
       .from('vtu_transactions')
       .select('*', { count: 'exact' })
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
     if (status) {
@@ -89,7 +95,7 @@ export async function GET(request: Request) {
     const { data: stats } = await supabase
       .from('vtu_transactions')
       .select('status, amount, merchant_commission')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('status', 'successful');
 
     const totalSuccessful = stats?.length || 0;

@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 import type {
   MerchantNotificationFilters,
@@ -29,18 +34,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
+    }
+    const merchantId = merchantContext.merchantId;
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'dashboard', 'view')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
     // Parse query params
@@ -80,7 +85,7 @@ export async function GET(request: NextRequest) {
           is_system
         )
       `)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .is('dismissed_at', null) // Don't show dismissed notifications
       .order('created_at', { ascending: false });
 
@@ -148,7 +153,7 @@ export async function GET(request: NextRequest) {
     const { count: unreadCount, error: countError } = await supabase
       .from('merchant_notifications')
       .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .is('read_at', null)
       .is('dismissed_at', null);
 

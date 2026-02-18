@@ -6,6 +6,11 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { shippingService } from '@/lib/shipping';
 import type { QuoteRequest } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
@@ -94,26 +99,44 @@ export async function POST(request: NextRequest) {
       } = await supabase.auth.getUser();
 
       if (user) {
-        const { data: merchant } = await supabase
-          .from('merchants')
-          .select('business_name, business_location, phone')
-          .eq('user_id', user.id)
-          .single();
+        // Resolve merchant context (supports both owners and staff)
+        const merchantContext = await getMerchantForApiRequest(
+          supabase,
+          user.id
+        );
 
-        if (merchant) {
-          // Parse business location (format: "City, State" or just "City")
-          const locationParts = (merchant.business_location || 'Lagos')
-            .split(',')
-            .map((s: string) => s.trim());
-          senderInfo = {
-            name: merchant.business_name || 'Merchant',
-            phone: merchant.phone || '',
-            address: merchant.business_location || 'Lagos',
-            city: locationParts[0] || 'Lagos',
-            state: locationParts[1] || locationParts[0] || 'Lagos',
-            country: 'Nigeria',
-            countryCode: 'NG',
-          };
+        if (merchantContext) {
+          // Permission check
+          const access = toUserAccess(merchantContext);
+          if (!hasPermission(access, 'orders', 'fulfill')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+          }
+
+          // Fetch location/phone details by merchant id
+          const { data: merchantDetails } = await supabase
+            .from('merchants')
+            .select('business_name, business_location, phone')
+            .eq('id', merchantContext.merchantId)
+            .single();
+
+          if (merchantDetails) {
+            // Parse business location (format: "City, State" or just "City")
+            const locationParts = (merchantDetails.business_location || 'Lagos')
+              .split(',')
+              .map((s: string) => s.trim());
+            senderInfo = {
+              name:
+                merchantDetails.business_name ||
+                merchantContext.businessName ||
+                'Merchant',
+              phone: merchantDetails.phone || '',
+              address: merchantDetails.business_location || 'Lagos',
+              city: locationParts[0] || 'Lagos',
+              state: locationParts[1] || locationParts[0] || 'Lagos',
+              country: 'Nigeria',
+              countryCode: 'NG',
+            };
+          }
         }
       }
 

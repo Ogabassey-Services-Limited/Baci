@@ -1,7 +1,12 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
+import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { JumiaClient } from '@/lib/jumia/client';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
@@ -34,17 +39,19 @@ export async function POST(request: NextRequest) {
     if (!user)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext)
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 403 }
       );
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
 
     // 2. Parse Body
     const body = await request.json();
@@ -57,7 +64,7 @@ export async function POST(request: NextRequest) {
     } = ActionSchema.parse(body);
 
     // 3. Initialize Jumia Client
-    const jumiaClient = await JumiaClient.forMerchant(merchant.id, {
+    const jumiaClient = await JumiaClient.forMerchant(merchantId, {
       supabase,
     });
     if (!jumiaClient) {

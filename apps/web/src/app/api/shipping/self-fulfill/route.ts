@@ -5,6 +5,7 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { isValidUuid } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { SelfFulfillmentSchema } from '@/schemas/shipping';
@@ -27,14 +28,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant and verify self-fulfillment is enabled
-    const { data: merchant, error: merchantError } = await supabase
+    // Get merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+    const merchantId = merchantContext.merchantId;
+
+    // Fetch self_fulfillment_enabled for this merchant
+    const { data: merchantData, error: merchantDataError } = await supabase
       .from('merchants')
-      .select('id, business_name, self_fulfillment_enabled')
-      .eq('user_id', user.id)
+      .select('self_fulfillment_enabled')
+      .eq('id', merchantId)
       .single();
 
-    if (merchantError || !merchant) {
+    if (merchantDataError || !merchantData) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
@@ -42,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if self-fulfillment is enabled for this merchant
-    if (!merchant.self_fulfillment_enabled) {
+    if (!merchantData.self_fulfillment_enabled) {
       return NextResponse.json(
         {
           error:
@@ -75,7 +86,7 @@ export async function POST(request: NextRequest) {
         'id, merchant_id, shipping_status, customer_name, customer_phone, shipping_address'
       )
       .eq('id', data.orderId)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (orderError || !order) {
@@ -168,19 +179,15 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     const body = await request.json();
     const { orderId, ...updates } = body;
@@ -197,7 +204,7 @@ export async function PATCH(request: NextRequest) {
       .from('orders')
       .select('id, merchant_id, fulfillment_type, self_fulfillment_data')
       .eq('id', orderId)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (orderError || !order) {

@@ -4,6 +4,11 @@ import {
   calculateDomainPrice,
   getDomainPricing,
 } from '@/config/domain-pricing';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { type ContactInfo, registerDomain } from '@/lib/go54';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
@@ -66,11 +71,29 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get merchant
+    // Get merchant context (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
+    // Fetch merchant profile fields needed for domain registration contact info
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
-      .select('*')
-      .eq('user_id', user.id)
+      .select(
+        'id, first_name, last_name, business_name, email, phone, phone_number, support_phone, address, business_address, city, state, postal_code, zipcode, country'
+      )
+      .eq('id', merchantId)
       .single();
 
     if (merchantError || !merchant) {
@@ -161,7 +184,7 @@ export async function POST(request: Request) {
     }
 
     // Verify payment belongs to this merchant
-    if (payment.merchant_id !== merchant.id) {
+    if (payment.merchant_id !== merchantId) {
       return NextResponse.json(
         { error: 'Payment does not belong to this merchant' },
         { status: 403 }
@@ -198,7 +221,7 @@ export async function POST(request: Request) {
       .single();
 
     if (existingDomain) {
-      if (existingDomain.merchant_id === merchant.id) {
+      if (existingDomain.merchant_id === merchantId) {
         // Domain already registered to this merchant - likely handled by webhook
         return NextResponse.json({
           success: true,
@@ -310,7 +333,7 @@ export async function POST(request: Request) {
       const { data: newDomain, error: insertError } = await supabase
         .from('domains')
         .insert({
-          merchant_id: merchant.id,
+          merchant_id: merchantId,
           domain,
           tld,
           domain_type: 'purchased',

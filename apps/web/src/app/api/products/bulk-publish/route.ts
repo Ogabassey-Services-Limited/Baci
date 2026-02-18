@@ -1,6 +1,11 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
 import { revalidateProducts } from '@/lib/cache-revalidation';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -22,25 +27,25 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant (supports both owners and staff members)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'products', 'edit')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
 
     // Delete draft products
     const { data: deletedDrafts, error: deleteError } = await supabase
       .from('products')
       .delete()
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('status', 'draft')
       .select('id');
 
@@ -52,7 +57,7 @@ export async function POST() {
     const { data: updatedProducts, error: updateError } = await supabase
       .from('products')
       .update({ status: 'active', is_active: true })
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .neq('status', 'active')
       .select('id');
 
@@ -65,7 +70,7 @@ export async function POST() {
     }
 
     // Invalidate product caches after bulk publish
-    revalidateProducts(merchant.id);
+    revalidateProducts(merchantId);
 
     return NextResponse.json({
       success: true,

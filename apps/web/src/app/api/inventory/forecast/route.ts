@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -49,18 +50,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     const { searchParams } = new URL(request.url);
     const productId = searchParams.get('productId');
@@ -76,7 +73,7 @@ export async function GET(request: NextRequest) {
     if (productId) {
       const { data: forecastRaw, error } = await supabase
         .rpc('calculate_inventory_forecast', {
-          p_merchant_id: merchant.id,
+          p_merchant_id: merchantId,
           p_product_id: productId,
           p_variant_id: null,
         })
@@ -123,7 +120,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('products')
       .select('id, name, image, stock, low_stock_threshold', { count: 'exact' })
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .eq('manage_stock', true)
       .order('stock', { ascending: true });
@@ -151,7 +148,7 @@ export async function GET(request: NextRequest) {
     for (const product of products || []) {
       const { data: forecastRaw } = await supabase
         .rpc('calculate_inventory_forecast', {
-          p_merchant_id: merchant.id,
+          p_merchant_id: merchantId,
           p_product_id: product.id,
           p_variant_id: null,
         })

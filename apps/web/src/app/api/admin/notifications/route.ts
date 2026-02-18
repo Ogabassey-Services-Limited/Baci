@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { type ExpoPushMessage, sendPushNotifications } from '@/lib/expo-push';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 import { createNotificationSchema } from '@/schemas/notifications';
@@ -37,14 +38,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Resolve merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    // Admin routes require being the merchant owner, not staff
+    if (merchantContext.staffAccess.isStaff) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
     // Admin role check
-    const { data: merchant } = await supabase
+    const { data: adminCheck } = await supabase
       .from('merchants')
       .select('is_platform_admin')
-      .eq('user_id', user.id)
-      .single();
+      .eq('id', merchantId)
+      .maybeSingle();
 
-    if (!merchant?.is_platform_admin) {
+    if (!adminCheck?.is_platform_admin) {
       return NextResponse.json(
         { error: 'Forbidden - Admin access required' },
         { status: 403 }
@@ -226,14 +243,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Resolve merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    // Admin routes require being the merchant owner, not staff
+    if (merchantContext.staffAccess.isStaff) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
     // Admin role check
-    const { data: merchant } = await supabase
+    const { data: adminCheck } = await supabase
       .from('merchants')
       .select('is_platform_admin')
-      .eq('user_id', user.id)
-      .single();
+      .eq('id', merchantId)
+      .maybeSingle();
 
-    if (!merchant?.is_platform_admin) {
+    if (!adminCheck?.is_platform_admin) {
       return NextResponse.json(
         { error: 'Forbidden - Admin access required' },
         { status: 403 }

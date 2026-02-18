@@ -2,6 +2,7 @@ import { generateText } from 'ai';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { activeImageModel } from '@/ai/provider';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 // Configure process limit to avoid timeouts
@@ -24,14 +25,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Resolve merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    // Admin routes require being the merchant owner, not staff
+    if (merchantContext.staffAccess.isStaff) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
     // RBAC: Only platform admins can trigger AI image generation
-    const { data: merchant } = await supabase
+    const { data: adminCheck } = await supabase
       .from('merchants')
       .select('is_platform_admin')
-      .eq('user_id', user.id)
-      .single();
+      .eq('id', merchantId)
+      .maybeSingle();
 
-    if (!merchant?.is_platform_admin) {
+    if (!adminCheck?.is_platform_admin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

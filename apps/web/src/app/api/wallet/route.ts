@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 import { walletSettingsSchema } from '@/schemas/wallet';
 
@@ -21,25 +22,21 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    // Get merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     // Get or create wallet
     const { error: walletCreateError } = await supabase.rpc(
       'get_or_create_merchant_wallet',
       {
-        p_merchant_id: merchant.id,
+        p_merchant_id: merchantId,
       }
     );
     if (walletCreateError) {
@@ -53,7 +50,7 @@ export async function GET() {
     // Get wallet details with summary (includes upcoming settlements)
     const { data: walletSummary, error: summaryError } = await supabase.rpc(
       'get_wallet_summary',
-      { p_merchant_id: merchant.id }
+      { p_merchant_id: merchantId }
     );
 
     // Fallback to basic wallet if function doesn't exist yet
@@ -61,7 +58,7 @@ export async function GET() {
       const { data: wallet, error: walletError } = await supabase
         .from('merchant_wallets')
         .select('*')
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', merchantId)
         .single();
 
       if (walletError) {
@@ -109,7 +106,7 @@ export async function GET() {
       .select(
         'id, net_amount, gateway, source_type, expected_settlement_date, description'
       )
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('status', 'pending')
       .order('expected_settlement_date', { ascending: true })
       .limit(10);
@@ -189,19 +186,15 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    // Get merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     let body: unknown;
     try {
@@ -243,7 +236,7 @@ export async function PATCH(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('merchant_wallets')
       .update(updates)
-      .eq('merchant_id', merchant.id);
+      .eq('merchant_id', merchantId);
 
     if (updateError) {
       console.error('Failed to update wallet settings:', updateError);

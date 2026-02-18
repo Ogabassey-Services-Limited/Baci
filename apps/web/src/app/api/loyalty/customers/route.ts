@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -26,18 +31,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'marketing', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
 
     const { searchParams } = new URL(request.url);
     const page = Number.parseInt(searchParams.get('page') || '1', 10);
@@ -70,7 +77,7 @@ export async function GET(request: NextRequest) {
       `,
         { count: 'exact' }
       )
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .order('lifetime_points', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -101,7 +108,7 @@ export async function GET(request: NextRequest) {
     // PERFORMANCE: Get tier distribution using RPC or aggregation
     // Instead of fetching all rows, use a lightweight count query per tier
     const { data: tierCounts } = await supabase.rpc('get_loyalty_tier_counts', {
-      p_merchant_id: merchant.id,
+      p_merchant_id: merchantId,
     });
 
     // Fallback if RPC doesn't exist - use single query with group

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -51,11 +52,24 @@ async function checkPlatformAdmin(supabase: ReturnType<typeof createClient>) {
     return { isAdmin: false, error: 'Unauthorized' };
   }
 
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+  if (!merchantContext) {
+    return {
+      isAdmin: false,
+      error: 'Forbidden - Platform admin access required',
+    };
+  }
+
+  // Admin routes require being the merchant owner, not staff
+  if (merchantContext.staffAccess.isStaff) {
+    return { isAdmin: false, error: 'Permission denied' };
+  }
+
   const { data: merchant } = await supabase
     .from('merchants')
     .select('is_platform_admin')
-    .eq('user_id', user.id)
-    .single();
+    .eq('id', merchantContext.merchantId)
+    .maybeSingle();
 
   if (!merchant?.is_platform_admin) {
     return {

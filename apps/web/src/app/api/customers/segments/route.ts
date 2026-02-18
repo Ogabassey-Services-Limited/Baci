@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -26,18 +31,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    // Get merchant context (supports both owners and staff members)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'customers', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
 
     const { searchParams } = new URL(request.url);
     const segment = searchParams.get('segment');
@@ -52,7 +58,7 @@ export async function GET(request: NextRequest) {
     const { data: summary } = await supabase
       .from('customer_segment_summary')
       .select('*')
-      .eq('merchant_id', merchant.id);
+      .eq('merchant_id', merchantId);
 
     // Get customers with RFM scores
     let query = supabase
@@ -71,7 +77,7 @@ export async function GET(request: NextRequest) {
       `,
         { count: 'exact' }
       )
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .order('predicted_clv', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -93,7 +99,7 @@ export async function GET(request: NextRequest) {
     const { data: definitions } = await supabase
       .from('segment_definitions')
       .select('*')
-      .or(`merchant_id.is.null,merchant_id.eq.${merchant.id}`)
+      .or(`merchant_id.is.null,merchant_id.eq.${merchantId}`)
       .order('priority', { ascending: false });
 
     return NextResponse.json({
@@ -146,24 +152,25 @@ export async function POST(_request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    // Get merchant context (supports both owners and staff members)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'customers', 'create')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
 
     // Trigger segment refresh
     const { data: result, error } = await supabase.rpc(
       'refresh_customer_segments',
       {
-        p_merchant_id: merchant.id,
+        p_merchant_id: merchantId,
       }
     );
 

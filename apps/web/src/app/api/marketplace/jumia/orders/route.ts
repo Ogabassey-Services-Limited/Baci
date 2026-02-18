@@ -5,8 +5,13 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { notifyJumiaOrder } from '@/lib/expo-push';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { JumiaClient } from '@/lib/jumia/client';
 import { createClient } from '@/lib/supabase/server';
 
@@ -27,19 +32,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
 
     // Get cached Jumia orders from our database
     const { searchParams } = new URL(request.url);
@@ -52,7 +58,7 @@ export async function GET(request: NextRequest) {
       .select(
         'id, merchant_id, jumia_order_id, jumia_order_number, jumia_shop_id, status, customer_name, customer_phone, shipping_address, items, total_amount, currency, created_at_jumia, synced_at, updated_at, baci_order_id, notification_sent'
       )
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .order('synced_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -108,22 +114,23 @@ export async function POST(_request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
     // Get Jumia client for this merchant
-    const jumiaClient = await JumiaClient.forMerchant(merchant.id, {
+    const jumiaClient = await JumiaClient.forMerchant(merchantId, {
       supabase,
     });
 
@@ -165,7 +172,7 @@ export async function POST(_request: NextRequest) {
 
       const { error: upsertError } = await supabase.from('jumia_orders').upsert(
         {
-          merchant_id: merchant.id,
+          merchant_id: merchantId,
           jumia_order_id: order.id,
           jumia_order_number: String(order.number),
           jumia_shop_id: jumiaClient.getShopId(),
@@ -193,7 +200,7 @@ export async function POST(_request: NextRequest) {
       if (isNewOrder) {
         newOrdersCount++;
         await notifyJumiaOrder(
-          merchant.id,
+          merchantId,
           String(order.number),
           customerName,
           Number(order.totalAmount.value),
@@ -212,7 +219,7 @@ export async function POST(_request: NextRequest) {
     await supabase
       .from('marketplace_integrations')
       .update({ last_sync_at: new Date().toISOString(), sync_error: null })
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('platform', 'jumia');
 
     return NextResponse.json({
@@ -233,20 +240,19 @@ export async function POST(_request: NextRequest) {
       } = await supabase.auth.getUser();
 
       if (user) {
-        const { data: merchant } = await supabase
-          .from('merchants')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
+        const merchantContext = await getMerchantForApiRequest(
+          supabase,
+          user.id
+        );
 
-        if (merchant) {
+        if (merchantContext) {
           await supabase
             .from('marketplace_integrations')
             .update({
               sync_error:
                 error instanceof Error ? error.message : 'Unknown error',
             })
-            .eq('merchant_id', merchant.id)
+            .eq('merchant_id', merchantContext.merchantId)
             .eq('platform', 'jumia');
         }
       }

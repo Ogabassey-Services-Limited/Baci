@@ -6,6 +6,11 @@
 import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { getJumiaAuthUrl } from '@/lib/jumia/client';
 import { createClient } from '@/lib/supabase/server';
 
@@ -41,18 +46,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Get merchant for this user
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
 
     const body = await request.json();
 
@@ -74,7 +81,7 @@ export async function POST(request: NextRequest) {
         .from('marketplace_integrations')
         .upsert(
           {
-            merchant_id: merchant.id,
+            merchant_id: merchantId,
             platform: 'jumia',
             shop_id: shopId || 'default',
             shop_name: shopName || 'My Jumia Shop',
@@ -136,7 +143,7 @@ export async function POST(request: NextRequest) {
         maxAge: 60 * 10, // 10 minutes
       });
 
-      response.cookies.set('jumia_merchant_id', merchant.id, {
+      response.cookies.set('jumia_merchant_id', merchantId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
@@ -190,18 +197,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Get merchant for this user
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
 
     // Handle OAuth Redirect Flow
     if (connectionType === 'oauth') {
@@ -234,7 +243,7 @@ export async function GET(request: NextRequest) {
         maxAge: 60 * 10, // 10 minutes
       });
 
-      response.cookies.set('jumia_merchant_id', merchant.id, {
+      response.cookies.set('jumia_merchant_id', merchantId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
@@ -259,7 +268,7 @@ export async function GET(request: NextRequest) {
       .select(
         'id, shop_id, shop_name, country_code, is_active, last_sync_at, sync_error'
       )
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('platform', 'jumia')
       .eq('is_active', true);
 
