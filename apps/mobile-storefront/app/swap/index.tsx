@@ -177,11 +177,6 @@ export default function SwapScreen() {
       // Create form data
       // 2026 Note: React Native FormData accepts { uri, type, name } objects
       // This is a RN-specific API that differs from web FormData
-      if (!videoUri) {
-        setError('No video selected. Please select or record a video first.');
-        setStep('upload');
-        return;
-      }
       const formData = new FormData();
       const videoFile = {
         uri: videoUri,
