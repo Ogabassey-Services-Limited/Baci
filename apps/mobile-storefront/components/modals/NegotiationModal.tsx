@@ -188,7 +188,7 @@ export const NegotiationModal: React.FC = () => {
     try {
       const { error } = await supabase.from('negotiation_requests').insert({
         merchant_id: '3bc72679-c0f7-4db4-9054-6a4a4a95a498',
-        session_id: `mobile-${Date.now()}`,
+        session_id: `mobile-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`,
         type,
         item_info:
           type === 'single'

@@ -165,7 +165,11 @@ export async function createOrder(
   // 3. Get auth — H6 fix: use getUser() for secure JWT validation, then getSession() for token
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
+  if (authError || !user) {
+    throw new Error('Authentication required to place an order');
+  }
   const {
     data: { session },
   } = await supabase.auth.getSession();
