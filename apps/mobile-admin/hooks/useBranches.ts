@@ -57,10 +57,13 @@ function persistBranchId(branchId: string | null): void {
 /**
  * Fetch all branches for the current merchant
  */
+const BRANCH_COLUMNS =
+  'id, merchant_id, name, address, phone, manager_id, is_default, active, created_at' as const;
+
 async function fetchBranches(merchantId: string): Promise<Branch[]> {
   const { data, error } = await supabase
     .from('branches')
-    .select('*')
+    .select(BRANCH_COLUMNS)
     .eq('merchant_id', merchantId)
     .eq('active', true)
     .order('is_default', { ascending: false })
@@ -94,7 +97,7 @@ async function createBranch(
       phone: validated.phone ?? null,
       is_default: validated.is_default ?? false,
     })
-    .select()
+    .select(BRANCH_COLUMNS)
     .single();
 
   if (error) {
@@ -135,7 +138,7 @@ export function useActiveBranch() {
     queryKey: [ACTIVE_BRANCH_KEY],
     queryFn: () => getPersistedBranchId(),
     initialData: getPersistedBranchId(),
-    staleTime: Infinity, // Only update via manual invalidation in setActiveBranch
+    staleTime: Number.POSITIVE_INFINITY, // Only update via manual invalidation in setActiveBranch
   });
 
   // Find active branch: persisted > default > first

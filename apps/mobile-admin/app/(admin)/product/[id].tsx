@@ -4,11 +4,9 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import SafeImage from '@/components/ui/SafeImage';
-import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,11 +19,12 @@ import {
   Switch,
   Text,
   TextInput,
-  useColorScheme,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
+import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
+import SafeImage from '@/components/ui/SafeImage';
 import { useMerchant } from '@/hooks/useMerchant';
 import {
   useCategories,
@@ -33,7 +32,9 @@ import {
   useCreateProduct,
   useProduct,
   useUpdateProduct,
+  useUpdateProductStatus,
 } from '@/hooks/useProducts';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { stripHtmlTags } from '@/lib/utils';
 
@@ -145,17 +146,16 @@ const PriceInput = ({
 };
 
 export default function ProductEditScreen() {
-  const rawParams = useLocalSearchParams<{ id: string }>();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const rawParams = useLocalSearchParams<{ id: string; sku?: string }>();
+  const { colors } = useTheme();
   const { merchant, isLoading } = useMerchant();
   const router = useRouter();
 
   // Validate route params with Zod
-  const validatedParams = useMemo(() => {
+  const validatedParams = (() => {
     const result = routeParamsSchema.safeParse(rawParams);
     return result.success ? result.data : null;
-  }, [rawParams]);
+  })();
 
   // Extract id safely (will be undefined if validation fails)
   const id = validatedParams?.id;
@@ -166,19 +166,9 @@ export default function ProductEditScreen() {
     return `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
   };
 
-  const colors = {
-    primary: isDark ? '#4A90D9' : '#3B82F6',
-    background: isDark ? '#0F172A' : '#F8FAFC',
-    card: isDark ? '#1E293B' : '#FFFFFF',
-    text: isDark ? '#F8FAFC' : '#0F172A',
-    textSecondary: isDark ? '#94A3B8' : '#64748B',
-    border: isDark ? '#334155' : '#E2E8F0',
-    inputBg: isDark ? '#1E293B' : '#F1F5F9',
-  };
-
   const [formData, setFormData] = useState({
     name: '',
-    sku: isEditing ? '' : generateSKU(),
+    sku: isEditing ? '' : rawParams.sku || generateSKU(),
     price: 0,
     cost_price: 0,
     stock_quantity: 0,
@@ -208,7 +198,7 @@ export default function ProductEditScreen() {
   const createCategoryMutation = useCreateCategory();
 
   const handleCreateCategory = () => {
-    if (!id) return;
+    if (!newCategoryName.trim()) return;
     createCategoryMutation.mutate(newCategoryName, {
       onSuccess: (newCategory) => {
         // Auto-select the new category
@@ -284,6 +274,7 @@ export default function ProductEditScreen() {
   // Use centralized hooks
   const updateProductMutation = useUpdateProduct();
   const createProductMutation = useCreateProduct();
+  const updateStatusMutation = useUpdateProductStatus();
 
   // Show error screen for invalid route params (after all hooks)
   if (!validatedParams || !id) {
@@ -296,8 +287,33 @@ export default function ProductEditScreen() {
   }
 
   const handleSave = () => {
-    // Cast strict type for Zod
-    const payload = { ...formData }; // Clone to avoid mutation issues
+    if (!formData.name?.trim()) {
+      Alert.alert('Validation Error', 'Product name is required');
+      return;
+    }
+    if (
+      formData.price === undefined ||
+      formData.price === null ||
+      formData.price < 0
+    ) {
+      Alert.alert('Validation Error', 'Please enter a valid price');
+      return;
+    }
+
+    // Check for duplicate attribute keys (they collapse into one after save+reload)
+    const attrKeys = formData.variant_attributes
+      .map((a) => a.key.trim().toLowerCase())
+      .filter(Boolean);
+    const uniqueKeys = new Set(attrKeys);
+    if (uniqueKeys.size < attrKeys.length) {
+      Alert.alert(
+        'Duplicate Attributes',
+        'Each attribute key must be unique. Please remove or rename duplicate keys.'
+      );
+      return;
+    }
+
+    const payload = { ...formData };
 
     if (isEditing) {
       updateProductMutation.mutate(
@@ -469,9 +485,11 @@ export default function ProductEditScreen() {
         data: { publicUrl },
       } = supabase.storage.from('media').getPublicUrl(filePath);
 
-      // Update local state - replace existing or add new
-      // Currently supporting single image for edit, so replace index 0
-      setFormData({ ...formData, images: [publicUrl] });
+      // Append new image to existing images
+      setFormData({
+        ...formData,
+        images: [...(formData.images || []), publicUrl],
+      });
     } catch (error: unknown) {
       const err = error as Error;
       console.error('Upload error:', err);
@@ -645,23 +663,26 @@ export default function ProductEditScreen() {
           </View>
           <Switch
             value={formData.status === 'active'}
-            disabled={updateProductMutation.isPending}
+            disabled={updateStatusMutation.isPending}
             onValueChange={(val) => {
               const newStatus = val ? 'active' : 'draft';
               const previousStatus = formData.status;
               setFormData((prev) => ({ ...prev, status: newStatus }));
               // Autosave status change immediately if editing
               if (isEditing) {
-                updateProductMutation.mutate(
-                  {
-                    id,
-                    updates: { ...formData, status: newStatus },
-                  },
+                updateStatusMutation.mutate(
+                  { productId: id, status: newStatus },
                   {
                     onError: (error) => {
                       // Rollback to previous status on error
-                      setFormData((prev) => ({ ...prev, status: previousStatus }));
-                      const message = error instanceof Error ? error.message : 'Failed to update product status';
+                      setFormData((prev) => ({
+                        ...prev,
+                        status: previousStatus,
+                      }));
+                      const message =
+                        error instanceof Error
+                          ? error.message
+                          : 'Failed to update product status';
                       Alert.alert('Update Failed', message);
                     },
                   }

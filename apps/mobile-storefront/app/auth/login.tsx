@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -25,8 +25,11 @@ import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { TextContentTypes, useKeyboard } from '@/hooks/use-keyboard';
+import { createLogger } from '@/lib/logger';
 import { EmailSchema, getFirstError, OtpSchema } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
+
+const log = createLogger('Login');
 
 type AuthStep = 'email' | 'otp' | 'password';
 type AuthMethod = 'otp' | 'password';
@@ -34,6 +37,23 @@ type AuthMethod = 'otp' | 'password';
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+
+  /**
+   * 2026 Best Practice: Intent-preserving return navigation
+   * After auth, return to the screen the user originally intended to visit.
+   * Falls back to dismiss (if pushed as modal) or root.
+   * React Compiler handles memoization automatically.
+   */
+  const dismissAndNavigate = () => {
+    if (returnTo) {
+      router.replace(decodeURIComponent(returnTo) as '/');
+    } else if (router.canDismiss()) {
+      router.dismiss();
+    } else {
+      router.replace('/');
+    }
+  };
 
   const signInWithOtp = useAuthStore((state) => state.signInWithOtp);
   const verifyOtp = useAuthStore((state) => state.verifyOtp);
@@ -47,7 +67,6 @@ export default function LoginScreen() {
   const [authMethod, setAuthMethod] = useState<AuthMethod>('otp');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
-  const [_isAppleAvailable, setIsAppleAvailable] = useState(false);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
@@ -55,14 +74,48 @@ export default function LoginScreen() {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [_isAppleAvailable, setIsAppleAvailable] = useState(false);
 
   // 2026 Best Practice: Use keyboard hook for proper dismiss on submit
   const { withKeyboardDismiss } = useKeyboard();
 
   // Refs for input focus management
   const otpInputRef = useRef<TextInput>(null);
+  const isMountedRef = useRef(true);
+  // M5 fix: Guard to prevent concurrent OTP verification (auto-submit + manual tap)
+  const isVerifyingRef = useRef(false);
 
-  // 2026 Best Practice: Dismiss keyboard on submit
+  // Track component mount state to prevent state updates after unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  /**
+   * 2026 Best Practice: Auto-dismiss login when auth state changes.
+   * Handles the case where Google/Apple OAuth redirects back to the app
+   * but the handleGoogleSignIn async context was lost (app suspended/resumed).
+   * The onAuthStateChange listener in auth-store sets the user correctly,
+   * but this screen needs to react and navigate away.
+   */
+  const user = useAuthStore((state) => state.user);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+
+  useEffect(() => {
+    if (isInitialized && user) {
+      // User is authenticated — inline navigation to avoid dep on dismissAndNavigate
+      if (returnTo) {
+        router.replace(decodeURIComponent(returnTo) as '/');
+      } else if (router.canDismiss()) {
+        router.dismiss();
+      } else {
+        router.replace('/');
+      }
+    }
+  }, [isInitialized, user, returnTo]);
+
   // 2026 Best Practice: Dismiss keyboard on submit
   const handleContinue = withKeyboardDismiss(async () => {
     // Validate email with Zod
@@ -105,7 +158,7 @@ export default function LoginScreen() {
     );
 
     if (result.success) {
-      router.replace('/');
+      dismissAndNavigate();
     } else {
       Alert.alert('Error', result.error || 'Failed to sign in');
     }
@@ -132,6 +185,9 @@ export default function LoginScreen() {
     if (step === 'otp') {
       setStep('email');
       setOtp('');
+    } else if (step === 'password') {
+      setStep('email');
+      setPassword('');
     } else {
       router.back();
     }
@@ -170,13 +226,18 @@ export default function LoginScreen() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
+      // 2026 Best Practice: The signInWithGoogle call now clears its own Loading state
+      // in the store once the browser opens.
       const result = await signInWithGoogle();
+
       if (result.success) {
-        router.replace('/');
+        log.info('Google sign-in flow initiated successfully');
+        // The rest of the flow is handled by /auth/callback or the reactive useEffect watcher
       } else if (result.error !== 'Sign in was cancelled') {
         Alert.alert('Error', result.error || 'Failed to sign in with Google');
       }
     } catch (_error) {
+      log.error('Unexpected error in handleGoogleSignIn:', _error);
       Alert.alert(
         'Error',
         'An unexpected error occurred during Google sign-in'
@@ -192,11 +253,13 @@ export default function LoginScreen() {
     try {
       const result = await signInWithApple();
       if (result.success) {
-        router.replace('/');
+        log.info('Apple sign-in flow initiated successfully');
+        // The rest of the flow is handled by the reactive useEffect watcher
       } else if (result.error !== 'Sign in was cancelled') {
         Alert.alert('Error', result.error || 'Failed to sign in with Apple');
       }
     } catch (_error) {
+      log.error('Unexpected error in handleAppleSignIn:', _error);
       Alert.alert('Error', 'An unexpected error occurred during Apple sign-in');
     } finally {
       setIsAppleLoading(false);
@@ -391,16 +454,27 @@ export default function LoginScreen() {
               if (otpError) setOtpError(null);
               // Auto-submit when 6 digits entered
               if (text.length === 6) {
-                // handleVerifyOtp is now part of the verify logic
                 (async () => {
+                  // M5 fix: Prevent concurrent verification requests
+                  if (isVerifyingRef.current) return;
                   const otpResult = OtpSchema.safeParse(text.trim());
                   if (otpResult.success) {
-                    const result = await verifyOtp(
-                      email.toLowerCase().trim(),
-                      text.trim()
-                    );
-                    if (result.success) router.replace('/');
-                    else Alert.alert('Error', result.error || 'Invalid code');
+                    isVerifyingRef.current = true;
+                    try {
+                      const result = await verifyOtp(
+                        email.toLowerCase().trim(),
+                        text.trim()
+                      );
+                      // Bail out if unmounted during async operation
+                      if (!isMountedRef.current) return;
+                      if (result.success) {
+                        dismissAndNavigate();
+                      } else {
+                        Alert.alert('Error', result.error || 'Invalid code');
+                      }
+                    } finally {
+                      isVerifyingRef.current = false;
+                    }
                   }
                 })();
               }
@@ -423,6 +497,8 @@ export default function LoginScreen() {
           isLoading && styles.buttonDisabled,
         ]}
         onPress={async () => {
+          // M5 fix: Prevent concurrent verification requests
+          if (isVerifyingRef.current) return;
           const otpResult = OtpSchema.safeParse(otp.trim());
           const error = getFirstError(otpResult);
           if (error) {
@@ -430,12 +506,20 @@ export default function LoginScreen() {
             return;
           }
           setOtpError(null);
-          const result = await verifyOtp(
-            email.toLowerCase().trim(),
-            otp.trim()
-          );
-          if (result.success) router.replace('/');
-          else Alert.alert('Error', result.error || 'Invalid code');
+          isVerifyingRef.current = true;
+          try {
+            const result = await verifyOtp(
+              email.toLowerCase().trim(),
+              otp.trim()
+            );
+            if (result.success) {
+              dismissAndNavigate();
+            } else {
+              Alert.alert('Error', result.error || 'Invalid code');
+            }
+          } finally {
+            isVerifyingRef.current = false;
+          }
         }}
         disabled={isLoading}
       >
@@ -530,10 +614,29 @@ export default function LoginScreen() {
       </Pressable>
 
       <Pressable
-        onPress={() => {
+        onPress={async () => {
           setAuthMethod('otp');
-          setStep('email');
-          handleContinue();
+          // Validate email inline instead of calling handleContinue,
+          // which would read the stale authMethod ('password') from closure.
+          const emailResult = EmailSchema.safeParse(email.trim());
+          const error = getFirstError(emailResult);
+          if (error) {
+            setEmailError(error);
+            setStep('email');
+            return;
+          }
+          setEmailError(null);
+          const result = await signInWithOtp(email.toLowerCase().trim());
+          if (result.success) {
+            setStep('otp');
+            setTimeout(() => otpInputRef.current?.focus(), 300);
+          } else {
+            setStep('email');
+            Alert.alert(
+              'Error',
+              result.error || 'Failed to send verification code'
+            );
+          }
         }}
         style={styles.methodToggle}
       >

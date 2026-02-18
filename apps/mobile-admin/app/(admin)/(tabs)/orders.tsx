@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -38,6 +38,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 import OrderReportModal from '@/components/ui/OrderReportModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useOrderCounts } from '@/hooks/useOrderCounts';
 import { type Order, useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
@@ -52,10 +53,10 @@ import { exportOrdersRPC } from '@/utils/export-orders';
 const _ORDER_ITEM_HEIGHT = 120;
 
 // Helper functions moved outside component
-const formatPrice = (amount: number) => {
+const formatPrice = (amount: number, currency: string = 'NGN') => {
   return new Intl.NumberFormat('en-NG', {
     style: 'currency',
-    currency: 'NGN',
+    currency,
     minimumFractionDigits: 0,
   }).format(amount);
 };
@@ -73,6 +74,7 @@ interface OrderItemProps {
   item: Order;
   colors: ReturnType<typeof useTheme>['colors'];
   shadows: ReturnType<typeof useTheme>['shadows'];
+  currency: string;
   onPress: (id: string) => void;
   onStatusPress: (
     order: Order,
@@ -106,10 +108,11 @@ interface OrderItemProps {
   };
 }
 
-const OrderItem = memo(function OrderItem({
+function OrderItem({
   item,
   colors,
   shadows,
+  currency,
   onPress,
   onStatusPress,
   getShippingStatusConfig,
@@ -133,7 +136,7 @@ const OrderItem = memo(function OrderItem({
         pressed && { backgroundColor: colors.cardHover },
       ]}
       onPress={() => onPress(item.id)}
-      accessibilityLabel={`Order ${item.order_number} from ${item.customer_name}, ${formatPrice(item.total)}, ${shippingConfig.label}, ${paymentConfig.label}`}
+      accessibilityLabel={`Order ${item.order_number} from ${item.customer_name}, ${formatPrice(item.total, currency)}, ${shippingConfig.label}, ${paymentConfig.label}`}
       accessibilityRole="button"
       accessibilityHint="View order details"
     >
@@ -204,7 +207,7 @@ const OrderItem = memo(function OrderItem({
 
       <View style={styles.orderFooter}>
         <Text style={[styles.orderTotal, { color: colors.text }]}>
-          {formatPrice(item.total)}
+          {formatPrice(item.total, currency)}
         </Text>
         <View style={styles.orderMetaRow}>
           <Text style={[styles.orderMetaBold, { color: colors.textSecondary }]}>
@@ -221,7 +224,7 @@ const OrderItem = memo(function OrderItem({
       </View>
     </Pressable>
   );
-});
+}
 
 export default function OrdersScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -231,6 +234,7 @@ export default function OrdersScreen() {
   );
   const [showInsight, setShowInsight] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [dateRange, setDateRange] = useState<
@@ -248,33 +252,30 @@ export default function OrdersScreen() {
   const lastScrollY = useRef(0);
   const isSearchVisible = useRef(true);
 
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const currentScrollY = event.nativeEvent.contentOffset.y;
-      const diff = currentScrollY - lastScrollY.current;
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const diff = currentScrollY - lastScrollY.current;
 
-      if (Math.abs(diff) > 10) {
-        if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
-          isSearchVisible.current = false;
-          Animated.timing(searchBarAnim, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }).start();
-        } else if (diff < 0 && !isSearchVisible.current) {
-          isSearchVisible.current = true;
-          Animated.timing(searchBarAnim, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-          }).start();
-        }
+    if (Math.abs(diff) > 10) {
+      if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
+        isSearchVisible.current = false;
+        Animated.timing(searchBarAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      } else if (diff < 0 && !isSearchVisible.current) {
+        isSearchVisible.current = true;
+        Animated.timing(searchBarAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
       }
+    }
 
-      lastScrollY.current = currentScrollY;
-    },
-    [searchBarAnim]
-  );
+    lastScrollY.current = currentScrollY;
+  };
 
   // Fetch orders with filter
   const {
@@ -284,18 +285,16 @@ export default function OrdersScreen() {
     hasNextPage,
     fetchNextPage,
     refetch,
-  } = useOrders(statusFilter || 'all', searchQuery, dateRange);
+  } = useOrders(statusFilter || 'all', debouncedSearch, dateRange);
 
   // Flatten pages into single array, deduplicating by ID
-  const allOrders = useMemo(() => {
-    const orders = data?.pages.flatMap((page) => page.orders) ?? [];
-    const seen = new Set<string>();
-    return orders.filter((o) => {
-      if (seen.has(o.id)) return false;
-      seen.add(o.id);
-      return true;
-    });
-  }, [data]);
+  const allOrdersRaw = data?.pages.flatMap((page) => page.orders) ?? [];
+  const seenIds = new Set<string>();
+  const allOrders = allOrdersRaw.filter((o) => {
+    if (seenIds.has(o.id)) return false;
+    seenIds.add(o.id);
+    return true;
+  });
 
   // Fetch order counts
   const { data: counts } = useOrderCounts();
@@ -303,381 +302,349 @@ export default function OrdersScreen() {
   const pendingCount = counts?.pending ?? 0;
 
   // Format date range for display
-  const clearDateRange = useCallback(() => {
+  const clearDateRange = () => {
     setDateRange(null);
-  }, []);
+  };
 
-  const dateRangeLabel = useMemo(() => {
+  const dateRangeLabel = (() => {
     if (typeof dateRange === 'string') return dateRange;
     if (dateRange?.start && dateRange?.end) {
       return `${format(dateRange.start, 'MMM d, yyyy')} - ${format(dateRange.end, 'MMM d, yyyy')}`;
     }
     return 'All Time';
-  }, [dateRange]);
+  })();
 
-  const handleExport = useCallback(async () => {
+  const handleExport = async () => {
     if (allOrders.length === 0) return;
     await exportOrdersRPC(allOrders);
-  }, [allOrders]);
+  };
 
   // Map color key from shared config to actual theme color
-  const getColorFromKey = useCallback(
-    (colorKey: string): string => {
-      const colorMap: Record<string, string> = {
-        pending: colors.pending,
-        processing: colors.processing,
-        shipped: colors.shipped,
-        delivered: colors.delivered,
-        cancelled: colors.cancelled,
-        returned: colors.returned || colors.textMuted,
-        success: colors.success,
-        error: colors.error,
-        warning: colors.warning,
-        info: colors.info || colors.primary,
-        textMuted: colors.textMuted,
-        primary: colors.primary,
-        gold: colors.gold,
-        whatsapp: BRAND_COLORS.whatsapp,
-        instagram: BRAND_COLORS.instagram,
-      };
-      return colorMap[colorKey] ?? colors.textMuted;
-    },
-    [colors]
-  );
+  const getColorFromKey = (colorKey: string): string => {
+    const colorMap: Record<string, string> = {
+      pending: colors.pending,
+      processing: colors.processing,
+      shipped: colors.shipped,
+      delivered: colors.delivered,
+      cancelled: colors.cancelled,
+      returned: colors.returned || colors.textMuted,
+      success: colors.success,
+      error: colors.error,
+      warning: colors.warning,
+      info: colors.info || colors.primary,
+      textMuted: colors.textMuted,
+      primary: colors.primary,
+      gold: colors.gold,
+      whatsapp: BRAND_COLORS.whatsapp,
+      instagram: BRAND_COLORS.instagram,
+    };
+    return colorMap[colorKey] ?? colors.textMuted;
+  };
 
   // Get available status actions based on current status (from shared config)
-  const getStatusActions = useCallback(
-    (
-      currentStatus: ShippingStatus
-    ): {
-      status: ShippingStatus;
-      label: string;
-      icon: keyof typeof Ionicons.glyphMap;
-      color: string;
-    }[] => {
-      const targetStatus = (
-        (currentStatus as string) === 'fulfilled' ? 'pending' : currentStatus
-      ) as ShippingStatus;
-      const actions = SHIPPING_STATUS_ACTIONS[targetStatus] ?? [];
-      return actions.map((action) => ({
-        status: action.nextStatus,
-        label: action.label,
-        icon: action.icon as keyof typeof Ionicons.glyphMap,
-        color: getColorFromKey(
-          SHIPPING_STATUS_CONFIG[action.nextStatus]?.colorKey ?? 'textMuted'
-        ),
-      }));
-    },
-    [getColorFromKey]
-  );
+  const getStatusActions = (
+    currentStatus: ShippingStatus
+  ): {
+    status: ShippingStatus;
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    color: string;
+  }[] => {
+    const targetStatus = (
+      (currentStatus as string) === 'fulfilled' ? 'pending' : currentStatus
+    ) as ShippingStatus;
+    const actions = SHIPPING_STATUS_ACTIONS[targetStatus] ?? [];
+    return actions.map((action) => ({
+      status: action.nextStatus,
+      label: action.label,
+      icon: action.icon as keyof typeof Ionicons.glyphMap,
+      color: getColorFromKey(
+        SHIPPING_STATUS_CONFIG[action.nextStatus]?.colorKey ?? 'textMuted'
+      ),
+    }));
+  };
 
   // Handle status update
-  const handleStatusUpdate = useCallback(
-    async (newStatus: ShippingStatus) => {
-      if (!selectedOrder) return;
+  const handleStatusUpdate = async (newStatus: ShippingStatus) => {
+    if (!selectedOrder) return;
 
-      if (
-        newStatus === 'processing' &&
-        selectedOrder.payment_status !== 'paid' &&
-        !selectedOrder.is_credit_order
-      ) {
-        setShowStatusDropdown(false);
-        Alert.alert(
-          'Payment Required',
-          `This order (${selectedOrder.order_number}) hasn't been paid yet. What would you like to do?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Record Payment',
-              onPress: () => {
-                setSelectedOrder(null);
-                router.push(`/order/${selectedOrder.id}?action=record-payment`);
-              },
+    if (
+      newStatus === 'processing' &&
+      selectedOrder.payment_status !== 'paid' &&
+      !selectedOrder.is_credit_order
+    ) {
+      setShowStatusDropdown(false);
+      Alert.alert(
+        'Payment Required',
+        `This order (${selectedOrder.order_number}) hasn't been paid yet. What would you like to do?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Record Payment',
+            onPress: () => {
+              setSelectedOrder(null);
+              router.push(`/order/${selectedOrder.id}?action=record-payment`);
             },
-            {
-              text: 'Ship on Credit',
-              style: 'destructive',
-              onPress: () => {
-                setSelectedOrder(null);
-                router.push(`/order/${selectedOrder.id}?action=ship-on-credit`);
-              },
+          },
+          {
+            text: 'Ship on Credit',
+            style: 'destructive',
+            onPress: () => {
+              setSelectedOrder(null);
+              router.push(`/order/${selectedOrder.id}?action=ship-on-credit`);
             },
-          ]
-        );
-        return;
-      }
-
-      try {
-        await updateStatus.mutateAsync({
-          orderId: selectedOrder.id,
-          status: newStatus,
-        });
-        setShowStatusDropdown(false);
-        setSelectedOrder(null);
-      } catch (error) {
-        console.error('Failed to update status:', error);
-      }
-    },
-    [selectedOrder, updateStatus]
-  );
-
-  const openStatusDropdown = useCallback(
-    (
-      order: Order,
-      event: {
-        target: {
-          measure: (
-            callback: (
-              x: number,
-              y: number,
-              width: number,
-              height: number,
-              pageX: number,
-              pageY: number
-            ) => void
-          ) => void;
-        };
-      }
-    ) => {
-      event.target.measure(
-        (
-          _x: number,
-          _y: number,
-          _width: number,
-          height: number,
-          pageX: number,
-          pageY: number
-        ) => {
-          setDropdownPosition({ x: pageX - 100, y: pageY + height + 4 });
-          setSelectedOrder(order);
-          setShowStatusDropdown(true);
-        }
+          },
+        ]
       );
-    },
-    []
-  );
+      return;
+    }
+
+    try {
+      await updateStatus.mutateAsync({
+        orderId: selectedOrder.id,
+        status: newStatus,
+      });
+      setShowStatusDropdown(false);
+      setSelectedOrder(null);
+    } catch (error) {
+      console.error('Failed to update status:', error);
+    }
+  };
+
+  const openStatusDropdown = (
+    order: Order,
+    event: {
+      target: {
+        measure: (
+          callback: (
+            x: number,
+            y: number,
+            width: number,
+            height: number,
+            pageX: number,
+            pageY: number
+          ) => void
+        ) => void;
+      };
+    }
+  ) => {
+    event.target.measure(
+      (
+        _x: number,
+        _y: number,
+        _width: number,
+        height: number,
+        pageX: number,
+        pageY: number
+      ) => {
+        setDropdownPosition({ x: pageX - 100, y: pageY + height + 4 });
+        setSelectedOrder(order);
+        setShowStatusDropdown(true);
+      }
+    );
+  };
 
   // Close dropdown
-  const closeStatusDropdown = useCallback(() => {
+  const closeStatusDropdown = () => {
     setShowStatusDropdown(false);
     setSelectedOrder(null);
-  }, []);
+  };
 
   // Get shipping status display config (using shared config + theme colors)
-  const getShippingStatusConfig = useCallback(
-    (status: ShippingStatus) => {
-      const config =
-        SHIPPING_STATUS_CONFIG[status] ?? SHIPPING_STATUS_CONFIG.pending;
-      return {
-        color: getColorFromKey(config.colorKey),
-        label: config.label,
-      };
-    },
-    [getColorFromKey]
-  );
+  const getShippingStatusConfig = (status: ShippingStatus) => {
+    const config =
+      SHIPPING_STATUS_CONFIG[status] ?? SHIPPING_STATUS_CONFIG.pending;
+    return {
+      color: getColorFromKey(config.colorKey),
+      label: config.label,
+    };
+  };
 
   // Get payment status display config (using shared config + theme colors)
-  const getPaymentStatusConfig = useCallback(
-    (status: PaymentStatus) => {
-      const config =
-        PAYMENT_STATUS_CONFIG[status] ?? PAYMENT_STATUS_CONFIG.pending;
-      return {
-        color: getColorFromKey(config.colorKey),
-        label: config.label,
-      };
-    },
-    [getColorFromKey]
-  );
+  const getPaymentStatusConfig = (status: PaymentStatus) => {
+    const config =
+      PAYMENT_STATUS_CONFIG[status] ?? PAYMENT_STATUS_CONFIG.pending;
+    return {
+      color: getColorFromKey(config.colorKey),
+      label: config.label,
+    };
+  };
 
   // Source icon config (using shared config + theme colors)
-  const getSourceConfig = useCallback(
-    (source: string | null) => {
-      if (!source)
+  const getSourceConfig = (source: string | null) => {
+    if (!source)
+      return {
+        icon: 'globe-outline' as const,
+        color: colors.textSecondary,
+        label: 'Website',
+      };
+
+    const normalizedSource = source.toLowerCase().trim();
+
+    switch (normalizedSource) {
+      case 'instagram':
+        return {
+          icon: 'logo-instagram' as const,
+          color: '#C13584',
+          label: 'Instagram',
+        };
+      case 'whatsapp':
+        return {
+          icon: 'logo-whatsapp' as const,
+          color: '#25D366',
+          label: 'WhatsApp',
+        };
+      case 'facebook':
+        return {
+          icon: 'logo-facebook' as const,
+          color: '#1877F2',
+          label: 'Facebook',
+        };
+      case 'twitter':
+      case 'x':
+        return {
+          icon: 'logo-twitter' as const,
+          color: '#1DA1F2',
+          label: 'Twitter',
+        };
+      case 'tiktok':
+        return {
+          icon: 'logo-tiktok' as const,
+          color: '#000000',
+          label: 'TikTok',
+        };
+      case 'snapchat':
+        return {
+          icon: 'logo-snapchat' as const,
+          color: '#FFFC00',
+          label: 'Snapchat',
+        };
+      case 'youtube':
+        return {
+          icon: 'logo-youtube' as const,
+          color: '#FF0000',
+          label: 'YouTube',
+        };
+      case 'pinterest':
+        return {
+          icon: 'logo-pinterest' as const,
+          color: '#BD081C',
+          label: 'Pinterest',
+        };
+      case 'linkedin':
+        return {
+          icon: 'logo-linkedin' as const,
+          color: '#0A66C2',
+          label: 'LinkedIn',
+        };
+      case 'telegram':
+        return {
+          icon: 'paper-plane' as const,
+          color: '#0088CC',
+          label: 'Telegram',
+        };
+      case 'amazon':
+        return {
+          icon: 'logo-amazon' as const,
+          color: '#FF9900',
+          label: 'Amazon',
+        };
+      case 'jumia':
+        return { icon: 'cart' as const, color: '#FF9900', label: 'Jumia' };
+      case 'konga':
+        return { icon: 'cart' as const, color: '#ED017F', label: 'Konga' };
+      case 'jiji':
+        return { icon: 'cart' as const, color: '#3DBE29', label: 'Jiji' };
+      case 'mobile_app':
+        return {
+          icon: 'phone-portrait-outline' as const,
+          color: colors.primary,
+          label: 'Mobile App',
+        };
+      case 'online_store':
+      case 'website':
+      case 'storefront':
         return {
           icon: 'globe-outline' as const,
-          color: colors.textSecondary,
+          color: colors.info || colors.textSecondary,
           label: 'Website',
         };
-
-      const normalizedSource = source.toLowerCase().trim();
-
-      switch (normalizedSource) {
-        case 'instagram':
-          return {
-            icon: 'logo-instagram' as const,
-            color: '#C13584',
-            label: 'Instagram',
-          };
-        case 'whatsapp':
-          return {
-            icon: 'logo-whatsapp' as const,
-            color: '#25D366',
-            label: 'WhatsApp',
-          };
-        case 'facebook':
-          return {
-            icon: 'logo-facebook' as const,
-            color: '#1877F2',
-            label: 'Facebook',
-          };
-        case 'twitter':
-        case 'x':
-          return {
-            icon: 'logo-twitter' as const,
-            color: '#1DA1F2',
-            label: 'Twitter',
-          };
-        case 'tiktok':
-          return {
-            icon: 'logo-tiktok' as const,
-            color: '#000000',
-            label: 'TikTok',
-          };
-        case 'snapchat':
-          return {
-            icon: 'logo-snapchat' as const,
-            color: '#FFFC00',
-            label: 'Snapchat',
-          };
-        case 'youtube':
-          return {
-            icon: 'logo-youtube' as const,
-            color: '#FF0000',
-            label: 'YouTube',
-          };
-        case 'pinterest':
-          return {
-            icon: 'logo-pinterest' as const,
-            color: '#BD081C',
-            label: 'Pinterest',
-          };
-        case 'linkedin':
-          return {
-            icon: 'logo-linkedin' as const,
-            color: '#0A66C2',
-            label: 'LinkedIn',
-          };
-        case 'telegram':
-          return {
-            icon: 'paper-plane' as const,
-            color: '#0088CC',
-            label: 'Telegram',
-          };
-        case 'amazon':
-          return {
-            icon: 'logo-amazon' as const,
-            color: '#FF9900',
-            label: 'Amazon',
-          };
-        case 'jumia':
-          return { icon: 'cart' as const, color: '#FF9900', label: 'Jumia' };
-        case 'konga':
-          return { icon: 'cart' as const, color: '#ED017F', label: 'Konga' };
-        case 'jiji':
-          return { icon: 'cart' as const, color: '#3DBE29', label: 'Jiji' };
-        case 'mobile_app':
-          return {
-            icon: 'phone-portrait-outline' as const,
-            color: colors.primary,
-            label: 'Mobile App',
-          };
-        case 'online_store':
-        case 'website':
-        case 'storefront':
-          return {
-            icon: 'globe-outline' as const,
-            color: colors.info || colors.textSecondary,
-            label: 'Website',
-          };
-        case 'pos':
-          return {
-            icon: 'calculator-outline' as const,
-            color: colors.success,
-            label: 'POS',
-          };
-        case 'physical':
-          return {
-            icon: 'storefront-outline' as const,
-            color: colors.gold,
-            label: 'Store',
-          };
-        case 'staff_entry':
-          return {
-            icon: 'person-outline' as const,
-            color: colors.textSecondary,
-            label: 'Staff',
-          };
-        default: {
-          const label = source.charAt(0).toUpperCase() + source.slice(1);
-          return {
-            icon: 'pricetag-outline' as const,
-            color: colors.textSecondary,
-            label: label,
-          };
-        }
+      case 'pos':
+        return {
+          icon: 'calculator-outline' as const,
+          color: colors.success,
+          label: 'POS',
+        };
+      case 'physical':
+        return {
+          icon: 'storefront-outline' as const,
+          color: colors.gold,
+          label: 'Store',
+        };
+      case 'staff_entry':
+        return {
+          icon: 'person-outline' as const,
+          color: colors.textSecondary,
+          label: 'Staff',
+        };
+      default: {
+        const label = source.charAt(0).toUpperCase() + source.slice(1);
+        return {
+          icon: 'pricetag-outline' as const,
+          color: colors.textSecondary,
+          label: label,
+        };
       }
-    },
-    [colors]
-  );
+    }
+  };
 
-  const handleLoadMore = useCallback(() => {
+  const handleLoadMore = () => {
     if (hasNextPage && !isFetchingNextPage) {
       fetchNextPage();
     }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  };
 
   // Navigation callback for orders
-  const handleOrderPress = useCallback((id: string) => {
+  const handleOrderPress = (id: string) => {
     router.push(`/order/${id}`);
-  }, []);
+  };
 
-  // Memoized renderItem callback
-  const renderOrder = useCallback(
-    ({ item }: SectionListRenderItemInfo<Order, OrderSection>) => (
-      <OrderItem
-        item={item}
-        colors={colors}
-        shadows={shadows}
-        onPress={handleOrderPress}
-        onStatusPress={openStatusDropdown}
-        getShippingStatusConfig={getShippingStatusConfig}
-        getPaymentStatusConfig={getPaymentStatusConfig}
-        getSourceConfig={getSourceConfig}
-      />
-    ),
-    [
-      colors,
-      shadows,
-      handleOrderPress,
-      openStatusDropdown,
-      getShippingStatusConfig,
-      getPaymentStatusConfig,
-      getSourceConfig,
-    ]
+  const merchantCurrency = merchant?.payout_currency || 'NGN';
+
+  const renderOrder = ({
+    item,
+  }: SectionListRenderItemInfo<Order, OrderSection>) => (
+    <OrderItem
+      item={item}
+      colors={colors}
+      shadows={shadows}
+      currency={merchantCurrency}
+      onPress={handleOrderPress}
+      onStatusPress={openStatusDropdown}
+      getShippingStatusConfig={getShippingStatusConfig}
+      getPaymentStatusConfig={getPaymentStatusConfig}
+      getSourceConfig={getSourceConfig}
+    />
   );
 
-  // Memoized keyExtractor callback
-  const orderKeyExtractor = useCallback((item: Order) => item.id, []);
+  const orderKeyExtractor = (item: Order) => item.id;
 
   // Group orders by relative date for section list
-  const sections = useMemo(() => {
-    return groupOrdersByRelativeDate(allOrders);
-  }, [allOrders]);
+  const sections = groupOrdersByRelativeDate(allOrders);
 
   // Section header renderer
-  const renderSectionHeader = useCallback(
-    ({ section }: { section: SectionListData<Order, OrderSection> }) => (
-      <View
-        style={[styles.sectionHeader, { backgroundColor: colors.background }]}
-      >
-        <Text
-          style={[styles.sectionHeaderText, { color: colors.textSecondary }]}
-        >
-          {section.title}
-        </Text>
-      </View>
-    ),
-    [colors]
+  const renderSectionHeader = ({
+    section,
+  }: {
+    section: SectionListData<Order, OrderSection>;
+  }) => (
+    <View
+      style={[styles.sectionHeader, { backgroundColor: colors.background }]}
+    >
+      <Text style={[styles.sectionHeaderText, { color: colors.textSecondary }]}>
+        {section.title}
+      </Text>
+    </View>
   );
 
   const FilterTab = ({

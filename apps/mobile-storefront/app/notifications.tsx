@@ -4,12 +4,13 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { router, Stack } from 'expo-router';
+import { Redirect, router, Stack } from 'expo-router';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useAuthStore } from '@/stores/auth-store';
+import { useRequireAuth } from '@/hooks/use-auth-guard';
 
 interface Notification {
   id: string;
@@ -24,6 +25,9 @@ export default function NotificationsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((state) => state.user);
+
+  // 2026 Best Practice: Declarative auth-gate with intent-preserving returnTo
+  const { redirectTo } = useRequireAuth();
 
   // Placeholder notifications - in production, fetch from API
   const notifications: Notification[] = [];
@@ -87,16 +91,13 @@ export default function NotificationsScreen() {
           ? "We'll notify you about order updates and special offers"
           : 'Sign in to receive order updates and special offers'}
       </Text>
-      {!user && (
-        <Pressable
-          style={[styles.signInButton, { backgroundColor: BRAND.primary }]}
-          onPress={() => router.push('/auth/login')}
-        >
-          <Text style={styles.signInText}>Sign In</Text>
-        </Pressable>
-      )}
     </View>
   );
+
+  // Declarative auth-gate: redirect to login if not authenticated
+  if (redirectTo) {
+    return <Redirect href={redirectTo} />;
+  }
 
   return (
     <SafeAreaView
@@ -106,7 +107,6 @@ export default function NotificationsScreen() {
       <Stack.Screen
         options={{
           title: 'Notifications',
-          headerBackTitle: 'Back',
         }}
       />
       <FlatList

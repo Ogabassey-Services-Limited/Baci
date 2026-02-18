@@ -43,9 +43,19 @@ export interface OfferSchema {
   [key: string]: unknown;
 }
 
+export interface AggregateOfferSchema {
+  '@type': 'AggregateOffer';
+  lowPrice: number;
+  highPrice: number;
+  priceCurrency: string;
+  offerCount: number;
+  availability?: string;
+  [key: string]: unknown;
+}
+
 export interface ProductSchemaMarkup {
   '@context': 'https://schema.org';
-  '@type': 'Product';
+  '@type': 'Product' | 'ProductGroup';
   name?: string;
   description?: string;
   image?: string[];
@@ -57,7 +67,10 @@ export interface ProductSchemaMarkup {
     bestRating?: number;
     worstRating?: number;
   };
-  offers?: OfferSchema | OfferSchema[];
+  offers?: OfferSchema | OfferSchema[] | AggregateOfferSchema;
+  productGroupID?: string;
+  hasVariant?: unknown[];
+  variesBy?: string[];
   // Index signature for compatibility with Record<string, unknown>
   // Allows additional schema.org properties (sku, gtin, weight, etc.)
   [key: string]: unknown;

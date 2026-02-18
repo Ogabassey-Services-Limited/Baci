@@ -44,7 +44,7 @@ describe('Kuda API Client', () => {
             text: () => Promise.resolve('new-token'),
           } as Response);
         }
-        return mockKudaResponse({ transactionReference: 'tx-123' });
+        return mockKudaResponse({ reference: 'tx-123' });
       });
       globalThis.fetch = fetchMock;
 
@@ -72,7 +72,7 @@ describe('Kuda API Client', () => {
             text: () => Promise.resolve('valid-token'),
           } as Response);
         }
-        return mockKudaResponse({ transactionReference: 'tx-mtn-123' });
+        return mockKudaResponse({ reference: 'tx-mtn-123', pin: null });
       });
       globalThis.fetch = fetchMock;
 
@@ -151,7 +151,7 @@ describe('Kuda API Client', () => {
             ok: true,
             text: () => Promise.resolve('token'),
           } as Response);
-        return mockKudaResponse({ transactionReference: 'tx-data-123' });
+        return mockKudaResponse({ reference: 'tx-data-123' });
       });
       globalThis.fetch = fetchMock;
 

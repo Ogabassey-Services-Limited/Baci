@@ -7,6 +7,9 @@ import type {
 } from '@/lib/types/discounts';
 import { useMerchant } from './useMerchant';
 
+const DISCOUNT_COLUMNS =
+  'id, merchant_id, code, discount_type, discount_value, minimum_purchase_amount, maximum_discount_amount, starts_at, expires_at, usage_limit, usage_count, usage_limit_per_customer, is_active, applies_to, product_ids, category_ids, customer_ids, customer_eligibility, description, created_at, updated_at' as const;
+
 export function useDiscounts() {
   const { merchant } = useMerchant();
   const queryClient = useQueryClient();
@@ -18,7 +21,7 @@ export function useDiscounts() {
 
       const { data, error } = await supabase
         .from('discount_codes')
-        .select('*')
+        .select(DISCOUNT_COLUMNS)
         .eq('merchant_id', merchant.id)
         .order('created_at', { ascending: false });
 
@@ -35,7 +38,7 @@ export function useDiscounts() {
       const { data, error } = await supabase
         .from('discount_codes')
         .insert([{ ...newDiscount, merchant_id: merchant.id }])
-        .select()
+        .select(DISCOUNT_COLUMNS)
         .single();
 
       if (error) throw error;
@@ -55,7 +58,7 @@ export function useDiscounts() {
         .update(updates)
         .eq('id', id)
         .eq('merchant_id', merchant.id)
-        .select()
+        .select(DISCOUNT_COLUMNS)
         .single();
 
       if (error) throw error;

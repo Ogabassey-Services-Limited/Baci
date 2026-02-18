@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 // router removed as it was unused.
-import React, { memo, useEffect, useMemo, useState } from 'react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -17,7 +18,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { BRAND, SPACING } from '@/constants/Colors';
-import { useCategories, type Category } from '@/hooks/use-products';
+import { type Category, useCategories } from '@/hooks/use-products';
 
 interface UtilityPanelProps {
   variant?: 'card' | 'circle' | 'pill';
@@ -31,6 +32,10 @@ const AnimatedPressable = Animated.createAnimatedComponent(TouchableOpacity);
 // Animated Icon wrapper for color interpolation
 const AnimatedIcon = Animated.createAnimatedComponent(Ionicons);
 
+// Module-level constants (stable references, no re-creation per render)
+const UTILITY_WORDS = ['Airtime!', 'Data!', 'Tv!', 'Power!', 'Gaming!'];
+const CATEGORY_IDS = ['u-airtime', 'u-data', 'u-tv', 'u-power', 'u-gaming'];
+
 interface CategoryItemProps {
   id: string;
   name: string;
@@ -41,8 +46,8 @@ interface CategoryItemProps {
   onPress: () => void;
 }
 
-// 2026 Best Practice: Memoize category items to prevent unnecessary re-renders
-const CategoryItem = memo(function CategoryItem({
+// React Compiler handles memoization (ADR-004)
+function CategoryItem({
   name,
   iconName,
   variant,
@@ -91,9 +96,9 @@ const CategoryItem = memo(function CategoryItem({
     };
   });
 
-  const handlePressIn = () => { };
+  const handlePressIn = () => {};
 
-  const handlePressOut = () => { };
+  const handlePressOut = () => {};
 
   if (variant === 'circle') {
     return (
@@ -137,7 +142,7 @@ const CategoryItem = memo(function CategoryItem({
 
   // Fallback for non-circle variants (keep basic logic)
   return null;
-});
+}
 
 export function UtilityPanel({
   variant = 'circle',
@@ -147,13 +152,7 @@ export function UtilityPanel({
 }: UtilityPanelProps) {
   const { data: remoteCategories = [], isLoading } = useCategories();
 
-  // Web-Parity Auto-Rotation Logic
-  const utilityWords = ['Airtime!', 'Data!', 'Tv!', 'Power!', 'Gaming!'];
-  // Map utility slugs to indices
-  const categoryIds = useMemo(
-    () => ['u-airtime', 'u-data', 'u-tv', 'u-power', 'u-gaming'],
-    []
-  );
+  // Web-Parity Auto-Rotation Logic (constants at module level for stable references)
 
   const [activeUtilityIndex, setActiveUtilityIndex] = useState(0);
   const [isManualUtility, setIsManualUtility] = useState(false);
@@ -161,7 +160,7 @@ export function UtilityPanel({
   // Sync prop change to local index (if external change happens)
   useEffect(() => {
     if (selectedCategoryId) {
-      const idx = categoryIds.indexOf(selectedCategoryId);
+      const idx = CATEGORY_IDS.indexOf(selectedCategoryId);
       if (idx !== -1) {
         setActiveUtilityIndex(idx);
         // 2026 Best Practice: Do NOT mark as manual here!
@@ -170,7 +169,7 @@ export function UtilityPanel({
         // Rotation should only stop on explicit USER INTERACTION (handlePress).
       }
     }
-  }, [selectedCategoryId, categoryIds]);
+  }, [selectedCategoryId]);
 
   // Auto-rotate effect
   useEffect(() => {
@@ -179,11 +178,11 @@ export function UtilityPanel({
     if (isManualUtility) return;
 
     const interval = setInterval(() => {
-      setActiveUtilityIndex((prev) => (prev + 1) % utilityWords.length);
+      setActiveUtilityIndex((prev) => (prev + 1) % UTILITY_WORDS.length);
     }, 2800); // Slightly slower for better readability
 
     return () => clearInterval(interval);
-  }, [isManualUtility, utilityWords.length]);
+  }, [isManualUtility]);
 
   const handlePress = (id: string, index: number) => {
     setIsManualUtility(true);
@@ -192,7 +191,7 @@ export function UtilityPanel({
     onCategorySelect(id);
   };
 
-  const categories = useMemo(() => {
+  const categories = (() => {
     // 2026 Best Practice: Default to utilities if slug matches or is unspecified (safe fallback for this specialized component)
     if (!slug || slug === 'utility' || slug === 'utilities') {
       return [
@@ -214,7 +213,7 @@ export function UtilityPanel({
       ];
     }
     return (remoteCategories || []) as Category[];
-  }, [slug, remoteCategories]);
+  })();
 
   if (isLoading && categories.length === 0) {
     return (
@@ -244,7 +243,7 @@ export function UtilityPanel({
               exiting={FadeOut.duration(400)}
               style={styles.promoHighlight}
             >
-              {utilityWords[activeUtilityIndex] || 'Airtime!'}
+              {UTILITY_WORDS[activeUtilityIndex] || 'Airtime!'}
             </Animated.Text>
           </Text>
         </View>
@@ -256,7 +255,9 @@ export function UtilityPanel({
             id={category.id}
             name={category.name}
             slug={category.slug}
-            iconName={category.icon as React.ComponentProps<typeof Ionicons>['name']}
+            iconName={
+              category.icon as React.ComponentProps<typeof Ionicons>['name']
+            }
             variant={itemVariant}
             // Active if: (Manual Interaction & matches selection) OR (Auto Mode & index matches)
             isActive={

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const path = require('path');
+const path = require('node:path');
 const { getDefaultConfig } = require('expo/metro-config');
 
 /**
@@ -36,6 +36,36 @@ config.resolver = {
   unstable_enableSymlinks: true,
   // 2026: Enable package exports as it is now the standard for modern libraries
   unstable_enablePackageExports: false,
+  // Force ALL React resolutions to the single workspace root copy
+  // This prevents nested node_modules (expo-keep-awake, expo-modules-core, etc.)
+  // from loading their own React 19.2.4 alongside the app's React 19.1.0
+  resolveRequest: (context, moduleName, platform) => {
+    // M27 fix: Wrap in try-catch to prevent metro bundler crash
+    // when react-dom or subpath cannot be resolved (e.g. missing package)
+    try {
+      if (
+        moduleName === 'react' ||
+        moduleName === 'react-dom' ||
+        moduleName.startsWith('react/') ||
+        moduleName.startsWith('react-dom/')
+      ) {
+        const forcedRoot = path.resolve(
+          workspaceRoot,
+          'node_modules',
+          moduleName
+        );
+        return {
+          filePath: require.resolve(forcedRoot),
+          type: 'sourceFile',
+        };
+      }
+    } catch {
+      // If resolution fails (e.g. react-dom not installed for RN),
+      // fall through to default resolution
+    }
+    // Fall back to default resolution for everything else
+    return context.resolveRequest(context, moduleName, platform);
+  },
 };
 
 module.exports = config;

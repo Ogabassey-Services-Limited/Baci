@@ -5,8 +5,8 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { Redirect, router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -17,9 +17,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { OfflineNotice, OfflineEmptyState } from '@/components/OfflineNotice';
+import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
@@ -30,7 +31,7 @@ const log = createLogger('OrdersList');
 interface Order {
   id: string;
   order_number: string;
-  status: string;
+  shipping_status: string;
   total: number;
   created_at: string;
   items_count: number;
@@ -39,7 +40,6 @@ interface Order {
     product_name: string;
     quantity: number;
     price: number;
-    image_url?: string;
   }>;
 }
 
@@ -82,6 +82,9 @@ export default function OrdersScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((state) => state.user);
 
+  // 2026 Best Practice: Declarative auth-gate with intent-preserving returnTo
+  const { redirectTo } = useRequireAuth();
+
   // 2026 Best Practice: Network state monitoring for offline UX
   const { isOnline, onReconnect } = useNetworkState();
 
@@ -91,7 +94,7 @@ export default function OrdersScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = async () => {
     if (!user?.id) {
       setIsLoading(false);
       return;
@@ -103,15 +106,14 @@ export default function OrdersScreen() {
         .select(`
           id,
           order_number,
-          status,
+          shipping_status,
           total,
           created_at,
           order_items (
             id,
-            product_name,
+            name,
             quantity,
-            price,
-            image_url
+            price
           )
         `)
         .eq('customer_id', user.id)
@@ -121,8 +123,11 @@ export default function OrdersScreen() {
 
       const formattedOrders = (data || []).map((order) => ({
         ...order,
-        items_count: order.order_items?.length || 0,
-        items: order.order_items || [],
+        items_count: (order.order_items ?? []).length,
+        items: (order.order_items ?? []).map((item) => ({
+          ...item,
+          product_name: item.name,
+        })),
       }));
 
       setOrders(formattedOrders);
@@ -134,18 +139,22 @@ export default function OrdersScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [user?.id]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchOrders used in multiple places; React Compiler handles memoization (ADR-004)
   useEffect(() => {
     fetchOrders();
-  }, [fetchOrders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler handles memoization (ADR-004)
+  }, [user?.id]);
 
   // 2026 Best Practice: Auto-refetch when coming back online
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchOrders used in multiple places; React Compiler handles memoization (ADR-004)
   useEffect(() => {
     return onReconnect(() => {
       fetchOrders();
     });
-  }, [onReconnect, fetchOrders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler handles memoization (ADR-004)
+  }, [onReconnect]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -173,6 +182,11 @@ export default function OrdersScreen() {
     return ORDER_STATUS_CONFIG[status] || ORDER_STATUS_CONFIG.pending;
   };
 
+  // Declarative auth-gate: redirect to login if not authenticated
+  if (redirectTo) {
+    return <Redirect href={redirectTo} />;
+  }
+
   // Filter orders based on search query (matches web functionality)
   const filteredOrders = orders.filter((order) => {
     if (!searchQuery.trim()) return true;
@@ -183,7 +197,7 @@ export default function OrdersScreen() {
     const orderNumberMatch = order.order_number?.toLowerCase().includes(query);
 
     // Search by status
-    const statusConfig = getStatusConfig(order.status);
+    const statusConfig = getStatusConfig(order.shipping_status);
     const statusMatch = statusConfig.label.toLowerCase().includes(query);
 
     // Search by product names
@@ -195,7 +209,7 @@ export default function OrdersScreen() {
   });
 
   const renderOrderItem = ({ item }: { item: Order }) => {
-    const statusConfig = getStatusConfig(item.status);
+    const statusConfig = getStatusConfig(item.shipping_status);
 
     return (
       <TouchableOpacity
@@ -219,7 +233,11 @@ export default function OrdersScreen() {
             ]}
           >
             <Ionicons
-              name={statusConfig.icon as React.ComponentProps<typeof Ionicons>['name']}
+              name={
+                statusConfig.icon as React.ComponentProps<
+                  typeof Ionicons
+                >['name']
+              }
               size={14}
               color={statusConfig.color}
             />

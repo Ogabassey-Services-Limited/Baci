@@ -115,7 +115,7 @@ export default function ReviewsPage() {
 
   useEffect(() => {
     fetchReviews();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes fetchReviews
   }, [fetchReviews]);
 
   const updateReviewStatus = async (

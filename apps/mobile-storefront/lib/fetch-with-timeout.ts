@@ -56,16 +56,40 @@ export async function fetchWithTimeout(
   url: string,
   options: FetchWithTimeoutOptions = {}
 ): Promise<Response> {
-  const { timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options;
+  const {
+    timeout = DEFAULT_TIMEOUT,
+    signal: callerSignal,
+    ...fetchOptions
+  } = options;
 
   // Create AbortController for timeout
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+  // H22 fix: Compose caller signal with internal timeout signal.
+  // AbortSignal.any() is NOT available in Hermes (React Native), so we
+  // manually link signals via a combined AbortController.
+  let combinedSignal: AbortSignal;
+  if (callerSignal) {
+    const combined = new AbortController();
+    for (const sig of [callerSignal, controller.signal]) {
+      if (sig.aborted) {
+        combined.abort(sig.reason);
+        break;
+      }
+      sig.addEventListener('abort', () => combined.abort(sig.reason), {
+        once: true,
+      });
+    }
+    combinedSignal = combined.signal;
+  } else {
+    combinedSignal = controller.signal;
+  }
+
   try {
     const response = await fetch(url, {
       ...fetchOptions,
-      signal: controller.signal,
+      signal: combinedSignal,
     });
 
     return response;
@@ -111,5 +135,12 @@ export async function fetchJsonWithTimeout<T>(
     throw new Error(`HTTP ${response.status}: ${errorText}`);
   }
 
-  return response.json() as Promise<T>;
+  try {
+    return await (response.json() as Promise<T>);
+  } catch {
+    throw new Error(
+      `Server returned non-JSON response (HTTP ${response.status}). ` +
+        'The server may have returned an HTML error page.'
+    );
+  }
 }

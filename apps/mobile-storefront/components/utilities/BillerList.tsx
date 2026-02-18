@@ -16,6 +16,7 @@ interface BillerListProps {
   onSelect: (biller: Biller) => void;
   isLoading: boolean;
   emptyMessage?: string;
+  errorMessage?: string;
 }
 
 export function BillerList({
@@ -24,6 +25,7 @@ export function BillerList({
   onSelect,
   isLoading,
   emptyMessage = 'No providers available',
+  errorMessage,
 }: BillerListProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -35,6 +37,14 @@ export function BillerList({
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
           Loading providers...
         </Text>
+      </View>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>{errorMessage}</Text>
       </View>
     );
   }
@@ -113,5 +123,10 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    textAlign: 'center' as const,
+    color: '#DC2626',
   },
 });

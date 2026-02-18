@@ -114,8 +114,13 @@ export function PaymentMethodSelector({
   const colors = Colors[colorScheme ?? 'light'];
 
   // Check BNPL eligibility based on order total
+  // Guard against null/undefined/NaN — BNPL requires a valid positive total
+  const hasValidTotal =
+    orderTotal != null && Number.isFinite(orderTotal) && orderTotal > 0;
   const isBNPLEligible =
-    orderTotal >= BNPL_MIN_AMOUNT && orderTotal <= BNPL_MAX_AMOUNT;
+    hasValidTotal &&
+    orderTotal >= BNPL_MIN_AMOUNT &&
+    orderTotal <= BNPL_MAX_AMOUNT;
 
   // Hide installments tab if no BNPL methods are enabled
   const hasBNPLMethods =
@@ -127,13 +132,14 @@ export function PaymentMethodSelector({
     .map((method) => {
       // Add eligibility check for BNPL methods
       if (method.tab === 'installments' && !isBNPLEligible) {
+        const disabledReason =
+          hasValidTotal && orderTotal > BNPL_MAX_AMOUNT
+            ? `Maximum order: ${formatPrice(BNPL_MAX_AMOUNT)}`
+            : `Minimum order: ${formatPrice(BNPL_MIN_AMOUNT)}`;
         return {
           ...method,
           disabled: true,
-          disabledReason:
-            orderTotal < BNPL_MIN_AMOUNT
-              ? `Minimum order: ${formatPrice(BNPL_MIN_AMOUNT)}`
-              : `Maximum order: ${formatPrice(BNPL_MAX_AMOUNT)}`,
+          disabledReason,
         };
       }
       return method;
@@ -240,12 +246,12 @@ export function PaymentMethodSelector({
             ) : (
               <>
                 <Text style={[styles.installmentTitle, { color: '#92400E' }]}>
-                  {orderTotal < BNPL_MIN_AMOUNT
+                  {!hasValidTotal || orderTotal < BNPL_MIN_AMOUNT
                     ? 'Minimum Order Required'
                     : 'Maximum Order Exceeded'}
                 </Text>
                 <Text style={[styles.installmentDesc, { color: '#92400E' }]}>
-                  {orderTotal < BNPL_MIN_AMOUNT
+                  {!hasValidTotal || orderTotal < BNPL_MIN_AMOUNT
                     ? `BNPL is available for orders above ${formatPrice(BNPL_MIN_AMOUNT)}.`
                     : `BNPL is available for orders up to ${formatPrice(BNPL_MAX_AMOUNT)}.`}
                 </Text>

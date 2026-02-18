@@ -7,8 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
 import { type Href, router } from 'expo-router';
-import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Logo } from '@/components/ui/Logo';
 import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
@@ -22,18 +21,38 @@ import { useThemeStore } from '@/stores/theme-store';
 interface HeaderProps {
   showSearch?: boolean;
   onSearchPress?: () => void;
+  isSearchActive?: boolean;
+  searchQuery?: string;
+  onSearchQueryChange?: (text: string) => void;
+  onSearchCancel?: () => void;
 }
 
 // Background pattern from web (SVG Data URI)
 
-export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
+export function Header({
+  showSearch = true,
+  onSearchPress,
+  isSearchActive = false,
+  searchQuery = '',
+  onSearchQueryChange,
+  onSearchCancel,
+}: HeaderProps) {
   const insets = useSafeAreaInsets();
+  const searchInputRef = useRef<TextInput>(null);
   const itemCount = useCartStore((state) => state.itemCount());
   const openDrawer = useDrawerStore((state) => state.openDrawer);
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const theme = useThemeStore((state) => state.theme);
 
-  const handleSearch = () => {
+  // Focus the search input when search mode activates (ref-based to avoid autoFocus a11y warning)
+  useEffect(() => {
+    if (isSearchActive) {
+      const timer = setTimeout(() => searchInputRef.current?.focus(), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isSearchActive]);
+
+  const handleSearchPress = () => {
     if (onSearchPress) {
       onSearchPress();
     } else {
@@ -43,7 +62,7 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
 
   const storeName = Constants.expoConfig?.name || 'Baci Store';
   const isSanta = SEASONAL.shouldShowSanta(theme);
-  const seasonalTokens = useMemo(() => SEASONAL.getTokens(theme), [theme]);
+  const seasonalTokens = SEASONAL.getTokens(theme);
 
   // --- RENDER: Elite Merged Layout (Electronics/High-Tech) ---
   if (template.headerStyle === 'elite' || isSanta) {
@@ -68,7 +87,7 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
         )}
 
         <View style={styles.eliteContent}>
-          {/* Row 1: Nav, Logo, Actions */}
+          {/* Row 1: Nav, Logo, Actions - Always visible to prevent layout shift */}
           <View style={styles.topRow}>
             <View style={styles.leftGroup}>
               {/* Navigation drawer trigger */}
@@ -94,11 +113,11 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
 
             <View style={styles.actionRow}>
               {/* <Pressable onPress={() => router.push('/notifications' as any)} hitSlop={12} style={styles.iconBtn}>
-                <Ionicons name="notifications-outline" size={24} color="#FFF" />
-              </Pressable> */}
+              <Ionicons name="notifications-outline" size={24} color="#FFF" />
+            </Pressable> */}
               {/* Note: Web view doesn't show bell in header usually, simplifying to match web if needed, 
-                  but keeping specific user request "utility bar" separate. 
-                  Let's keep Cart prominent as per standard e-commerce. */}
+                but keeping specific user request "utility bar" separate. 
+                Let's keep Cart prominent as per standard e-commerce. */}
               <Pressable
                 onPress={() => router.push('/(tabs)/cart')}
                 hitSlop={12}
@@ -122,28 +141,68 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
 
           {/* Row 2: Search Bar */}
           {showSearch && (
-            <Pressable
-              style={[styles.searchPill, isSanta && styles.santaSearchPill]}
-              onPress={handleSearch}
-              hitSlop={12}
-              accessibilityLabel="Search products, brands and categories"
-              accessibilityRole="search"
+            <View
+              style={[
+                styles.searchRow,
+                isSearchActive && styles.searchRowActive,
+              ]}
             >
-              <Ionicons
-                name="search-outline"
-                size={20}
-                color={isSanta ? '#666' : '#999'}
-              />
-              <Text
+              <View
                 style={[
-                  styles.searchPlaceholder,
-                  isSanta && styles.santaPlaceholder,
+                  styles.searchPill,
+                  isSanta && styles.santaSearchPill,
+                  isSearchActive && styles.activeSearchPill,
                 ]}
-                numberOfLines={1}
               >
-                Search products, brands and categories
-              </Text>
-            </Pressable>
+                <Ionicons
+                  name="search-outline"
+                  size={20}
+                  color={isSearchActive ? '#a1a1aa' : isSanta ? '#666' : '#999'}
+                />
+                {!isSearchActive ? (
+                  <Pressable
+                    onPress={handleSearchPress}
+                    style={styles.searchPillPressable}
+                    hitSlop={12}
+                    accessibilityLabel="Search products, brands and categories"
+                    accessibilityRole="search"
+                  >
+                    <Text
+                      style={[
+                        styles.searchPlaceholder,
+                        isSanta && styles.santaPlaceholder,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      Search products, brands and categories
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <TextInput
+                    ref={searchInputRef}
+                    style={[styles.searchInput, { color: '#000' }]}
+                    value={searchQuery}
+                    onChangeText={onSearchQueryChange}
+                    placeholder="Search products..."
+                    placeholderTextColor="#a1a1aa"
+                    returnKeyType="search"
+                    selectTextOnFocus={true}
+                    clearButtonMode="while-editing"
+                  />
+                )}
+              </View>
+
+              {isSearchActive && (
+                <Pressable
+                  onPress={onSearchCancel}
+                  hitSlop={10}
+                  accessibilityLabel="Cancel search"
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.cancelText}>Cancel</Text>
+                </Pressable>
+              )}
+            </View>
           )}
         </View>
 
@@ -168,7 +227,7 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
           <View style={styles.actionRow}>
             {showSearch && (
               <Pressable
-                onPress={handleSearch}
+                onPress={handleSearchPress}
                 hitSlop={12}
                 style={styles.iconBtn}
                 accessibilityLabel="Search products"
@@ -246,7 +305,12 @@ export function Header({ showSearch = true, onSearchPress }: HeaderProps) {
         </View>
       </View>
       {showSearch && (
-        <Pressable style={styles.defaultSearchBar} onPress={handleSearch}>
+        <Pressable
+          style={styles.defaultSearchBar}
+          onPress={handleSearchPress}
+          accessibilityLabel="Search our collection"
+          accessibilityRole="search"
+        >
           <Ionicons name="search" size={18} color="#999" />
           <Text style={styles.defaultSearchPlaceholder}>
             Search our collection...
@@ -302,8 +366,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_900Black', // Heaviest weight
     letterSpacing: -1,
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+  },
+  searchRowActive: {
+    paddingVertical: 2,
+  },
   searchPill: {
-    width: '100%', // Full width
+    flex: 1, // Allow row to handle button
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF', // White by default for Elite based on target screenshot (white pill on black bg)
@@ -311,6 +384,22 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     paddingHorizontal: 16,
     gap: 12,
+  },
+  activeSearchPill: {
+    borderWidth: 1.5,
+    borderColor: BRAND.primary,
+  },
+  searchPillPressable: {
+    flex: 1,
+    height: '100%',
+    justifyContent: 'center',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: 'serif',
+    height: '100%',
+    padding: 0,
   },
   santaSearchPill: {
     backgroundColor: '#FFF',
@@ -323,6 +412,11 @@ const styles = StyleSheet.create({
   },
   santaPlaceholder: {
     color: '#666',
+  },
+  cancelText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
 
   // Minimal Styles

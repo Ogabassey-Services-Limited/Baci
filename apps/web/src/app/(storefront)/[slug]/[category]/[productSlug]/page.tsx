@@ -425,6 +425,39 @@ function toOgabasseyProduct(
     );
   }
 
+  // Compute attributeAxes from variant attributes for dynamic selector rendering
+  const attributeAxes: string[] = [];
+  if (product.variants && product.variants.length > 0) {
+    const axisValueCounts = new Map<string, Set<string>>();
+    for (const v of product.variants) {
+      if (v.attributes) {
+        for (const [key, val] of Object.entries(v.attributes)) {
+          if (!axisValueCounts.has(key)) {
+            axisValueCounts.set(key, new Set());
+          }
+          axisValueCounts.get(key)?.add(val);
+        }
+      }
+    }
+
+    // Order: storage, ram, color, platform, then alphabetical remainder
+    // Exclude single-value axes (not selectable)
+    const priorityOrder = ['storage', 'ram', 'color', 'platform'];
+    const sortedKeys = Array.from(axisValueCounts.entries())
+      .filter(([, values]) => values.size > 1)
+      .sort(([a], [b]) => {
+        const aIdx = priorityOrder.indexOf(a);
+        const bIdx = priorityOrder.indexOf(b);
+        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+        if (aIdx !== -1) return -1;
+        if (bIdx !== -1) return 1;
+        return a.localeCompare(b);
+      })
+      .map(([key]) => key);
+
+    attributeAxes.push(...sortedKeys);
+  }
+
   return {
     id: product.id,
     merchantId: product.merchant_id,
@@ -451,6 +484,8 @@ function toOgabasseyProduct(
     colors: product.colors,
     // Consolidated variant attributes for Platform/etc selectors
     variant_attributes: variantAttrs,
+    // Dynamic variant axes for generic selector rendering
+    attributeAxes: attributeAxes.length > 0 ? attributeAxes : undefined,
     detailedSpecs,
     specs,
     // Phase 4: Pass variants to frontend with mapping
@@ -460,12 +495,7 @@ function toOgabasseyProduct(
         (v: {
           id: string;
           sku?: string;
-          attributes?: {
-            storage?: string;
-            color?: string;
-            platform?: string;
-            ram?: string;
-          };
+          attributes?: Record<string, string>;
           price_override?: number;
           price_modifier?: number;
           stock_quantity?: number;
@@ -483,6 +513,7 @@ function toOgabasseyProduct(
             ram,
             color,
             platform,
+            attributes: v.attributes,
             price_override: v.price_override,
             price_modifier: v.price_modifier,
             stock: v.stock_quantity,
@@ -708,7 +739,11 @@ export async function generateMetadata({
       title: product.meta_title || product.name,
       description: product.meta_description || product.description,
       images: product.images?.length
-        ? product.images.map((img) => ({ url: img.url, alt: img.alt }))
+        ? product.images.map((img) => ({
+            url: typeof img === 'string' ? img : img.url,
+            alt:
+              typeof img === 'string' ? product.name : img.alt || product.name,
+          }))
         : [
             {
               url: product.imageLarge || product.image,
@@ -790,7 +825,12 @@ export default async function CategoryProductPage({ params }: PageProps) {
   const productPath = getProductUrl(product);
   const productUrl = `${baseUrl}${productPath}`;
 
-  if (productSchema.offers && !Array.isArray(productSchema.offers)) {
+  // Set URL on offers — variant products have no top-level offers (each hasVariant entry has its own)
+  if (
+    productSchema.offers &&
+    !Array.isArray(productSchema.offers) &&
+    productSchema.offers['@type'] !== 'AggregateOffer'
+  ) {
     productSchema.offers.url = escapeHtml(productUrl);
   }
 

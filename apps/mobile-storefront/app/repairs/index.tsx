@@ -1,10 +1,11 @@
 /**
- * Repairs Screen
- * Device repair services and information
- * Extends device lifespan and reduces e-waste
+ * Repairs Screen — Redesigned
+ * Premium repair services page inspired by the Swap & Trade-in design.
+ * Uses brand-colored hero, clean step list, full-width service cards.
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { router, Stack } from 'expo-router';
 import {
   Linking,
@@ -17,6 +18,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
+
+// ─── Data ──────────────────────────────────────────────
 
 interface RepairService {
   title: string;
@@ -28,102 +32,78 @@ interface RepairService {
 const REPAIR_SERVICES: RepairService[] = [
   {
     title: 'Screen Renewal',
-    price: 'From N25,000',
-    desc: "Don't let a crack end its life.",
+    price: 'From ₦25,000',
+    desc: "Cracked or unresponsive display? We'll restore it to factory clarity.",
     icon: 'phone-portrait-outline',
   },
   {
     title: 'Battery Boost',
-    price: 'From N15,000',
-    desc: 'Restore all-day power.',
+    price: 'From ₦15,000',
+    desc: 'Restore all-day power with a genuine battery replacement.',
     icon: 'battery-half-outline',
   },
   {
     title: 'Port Restoration',
-    price: 'From N12,000',
-    desc: 'Fix charging connection issues.',
+    price: 'From ₦12,000',
+    desc: "Charging issues? We'll fix or replace your connector port.",
     icon: 'flash-outline',
   },
   {
     title: 'System Revive',
-    price: 'From N10,000',
-    desc: 'Software fixes & optimization.',
+    price: 'From ₦10,000',
+    desc: 'Software optimization, OS updates, and performance tuning.',
     icon: 'settings-outline',
   },
 ];
 
-const IMPACT_CARDS = [
+const HOW_IT_WORKS = [
   {
-    title: 'Extend Lifespan',
-    desc: "Repairing adds 2-3 years to your device's life, saving you the cost of a new phone.",
-    icon: 'heart-outline' as const,
-    color: BRAND.primary,
-    bg: `${BRAND.primary}15`,
+    title: 'Book Online',
+    desc: 'Tap the button below to chat with us on WhatsApp',
+    icon: 'chatbubble-ellipses-outline' as const,
   },
   {
-    title: 'Reduce E-Waste',
-    desc: 'Electronic waste is toxic. Repairing keeps hazardous materials out of the soil.',
-    icon: 'leaf-outline' as const,
-    color: '#059669',
-    bg: '#ECFDF5',
+    title: 'Drop Off or Ship',
+    desc: 'Bring your device in or schedule a pickup',
+    icon: 'cube-outline' as const,
   },
   {
-    title: 'Data Safety',
-    desc: 'Keep your photos and files. Transferring data to a new device is risky; keeping yours is safe.',
-    icon: 'shield-checkmark-outline' as const,
-    color: '#2563EB',
-    bg: '#EFF6FF',
-  },
-];
-
-const RECYCLING_INFO = [
-  {
-    title: 'Safe Disposal',
-    desc: 'of Lithium Batteries',
-    icon: 'warning-outline' as const,
-    color: '#DC2626',
-    bg: '#FEE2E2',
+    title: 'Expert Repair',
+    desc: 'Certified technicians fix it with genuine parts',
+    icon: 'construct-outline' as const,
   },
   {
-    title: 'Glass Recycling',
-    desc: 'Screens processed correctly',
-    icon: 'phone-portrait-outline' as const,
-    color: '#6B7280',
-    bg: '#F3F4F6',
-  },
-  {
-    title: 'Component Harvest',
-    desc: 'Chips reused for repairs',
-    icon: 'hardware-chip-outline' as const,
-    color: '#2563EB',
-    bg: '#EFF6FF',
+    title: 'Pick Up',
+    desc: 'Get your device back, good as new',
+    icon: 'checkmark-done-outline' as const,
   },
 ];
 
-const SUPPORT_PHONE = '2348146978921';
+// ─── Component ─────────────────────────────────────────
 
 export default function RepairsScreen() {
   const colorScheme = useColorScheme();
+  const _isDark = colorScheme === 'dark';
   const colors = Colors[colorScheme ?? 'light'];
 
-  const handleBookRepair = () => {
+  const handleBookRepair = (service?: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const serviceText = service ? `\n\nService: ${service}` : '';
     const message = encodeURIComponent(
-      `Hello! I'd like to book a device repair.\n\nPlease let me know your available time slots.`
+      `Hello! I'd like to book a device repair.${serviceText}\n\nPlease let me know your available time slots.`
     );
-    Linking.openURL(`https://wa.me/${SUPPORT_PHONE}?text=${message}`);
-  };
-
-  const handleVisitStore = () => {
-    Linking.openURL(`https://wa.me/${SUPPORT_PHONE}`);
+    Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=${message}`);
   };
 
   const handleSwap = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/swap');
   };
 
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
+      edges={['bottom', 'left', 'right']}
     >
       <Stack.Screen
         options={{
@@ -141,102 +121,76 @@ export default function RepairsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerIcon}>
-            <Ionicons name="build" size={24} color={BRAND.primary} />
-          </View>
-          <View style={styles.headerText}>
-            <Text style={[styles.headerTitle, { color: colors.text }]}>
-              Repair Lab
-            </Text>
-            <Text
-              style={[styles.headerSubtitle, { color: colors.textSecondary }]}
-            >
-              Expert repairs that save you money
-            </Text>
-          </View>
-        </View>
-
-        {/* Hero Card */}
+        {/* ── Hero Card ── */}
         <View style={styles.heroCard}>
           <View style={styles.heroBadge}>
-            <Ionicons name="sparkles" size={12} color={BRAND.primary} />
-            <Text style={styles.heroBadgeText}>Premium Service</Text>
+            <Ionicons name="shield-checkmark" size={12} color="#FFF" />
+            <Text style={styles.heroBadgeText}>Certified Technicians</Text>
           </View>
           <Text style={styles.heroTitle}>
-            Don't Ditch It.{'\n'}
-            <Text style={{ color: BRAND.primary }}>Fix It.</Text>
+            Don't Replace It.{'\n'}Repair It.
           </Text>
           <Text style={styles.heroSubtitle}>
-            Every device repaired is one less in a landfill. Our certified
-            technicians use genuine parts to give your gadget a second life.
+            Expert repairs with genuine parts. Every device fixed is one less in
+            a landfill — saving you money and the planet.
           </Text>
-          <View style={styles.heroButtons}>
-            <Pressable style={styles.primaryButton} onPress={handleBookRepair}>
-              <Text style={styles.primaryButtonText}>Book a Repair</Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.secondaryButton,
-                { borderColor: 'rgba(255,255,255,0.3)' },
-              ]}
-              onPress={handleSwap}
-            >
-              <Text style={styles.secondaryButtonText}>Trade-in Instead</Text>
-            </Pressable>
-          </View>
+          <Pressable
+            style={styles.heroButton}
+            onPress={() => handleBookRepair()}
+            accessibilityRole="button"
+            accessibilityLabel="Book a Repair"
+            accessibilityHint="Opens WhatsApp to schedule a repair with a technician"
+          >
+            <Text style={styles.heroButtonText}>Book a Repair</Text>
+            <Ionicons name="arrow-forward" size={18} color={BRAND.primary} />
+          </Pressable>
         </View>
 
-        {/* Impact Cards */}
-        <View style={styles.impactContainer}>
-          {IMPACT_CARDS.map((card, index) => (
+        {/* ── How It Works ── */}
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          How it Works
+        </Text>
+        <View style={styles.stepsContainer}>
+          {HOW_IT_WORKS.map((step, index) => (
             <View
               key={index}
-              style={[styles.impactCard, { backgroundColor: colors.card }]}
+              style={[styles.stepCard, { backgroundColor: colors.card }]}
             >
-              <View style={[styles.impactIcon, { backgroundColor: card.bg }]}>
-                <Ionicons name={card.icon} size={24} color={card.color} />
+              <View style={styles.stepIconContainer}>
+                <Ionicons name={step.icon} size={24} color={BRAND.primary} />
               </View>
-              <Text style={[styles.impactTitle, { color: colors.text }]}>
-                {card.title}
-              </Text>
-              <Text
-                style={[styles.impactDesc, { color: colors.textSecondary }]}
-              >
-                {card.desc}
-              </Text>
+              <View style={styles.stepTextContainer}>
+                <Text style={[styles.stepTitle, { color: colors.text }]}>
+                  {index + 1}. {step.title}
+                </Text>
+                <Text
+                  style={[styles.stepDesc, { color: colors.textSecondary }]}
+                >
+                  {step.desc}
+                </Text>
+              </View>
             </View>
           ))}
         </View>
 
-        {/* Services Section */}
-        <View style={styles.servicesSection}>
-          <View style={styles.servicesHeader}>
-            <Ionicons name="build" size={18} color={BRAND.primary} />
-            <Text style={[styles.servicesTitle, { color: colors.text }]}>
-              Restoration Services
-            </Text>
-          </View>
-
-          <View style={styles.servicesGrid}>
-            {REPAIR_SERVICES.map((service, index) => (
-              <Pressable
-                key={index}
-                style={[styles.serviceCard, { backgroundColor: colors.card }]}
-              >
-                <View
-                  style={[
-                    styles.serviceIcon,
-                    { backgroundColor: colors.background },
-                  ]}
-                >
-                  <Ionicons
-                    name={service.icon}
-                    size={22}
-                    color={colors.textSecondary}
-                  />
-                </View>
+        {/* ── Services ── */}
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          Our Services
+        </Text>
+        <View style={styles.servicesList}>
+          {REPAIR_SERVICES.map((service, index) => (
+            <Pressable
+              key={index}
+              style={[styles.serviceCard, { backgroundColor: colors.card }]}
+              onPress={() => handleBookRepair(service.title)}
+              accessibilityRole="button"
+              accessibilityLabel={`${service.title}, ${service.price}`}
+              accessibilityHint={`Inquire about ${service.title} repair`}
+            >
+              <View style={styles.serviceIconContainer}>
+                <Ionicons name={service.icon} size={22} color={BRAND.primary} />
+              </View>
+              <View style={styles.serviceContent}>
                 <Text style={[styles.serviceTitle, { color: colors.text }]}>
                   {service.title}
                 </Text>
@@ -245,95 +199,83 @@ export default function RepairsScreen() {
                 >
                   {service.desc}
                 </Text>
-                <View style={styles.serviceFooter}>
-                  <Text style={[styles.servicePrice, { color: BRAND.primary }]}>
-                    {service.price}
-                  </Text>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={16}
-                    color={colors.textSecondary}
-                  />
-                </View>
-              </Pressable>
-            ))}
+              </View>
+              <View style={styles.servicePriceBadge}>
+                <Text style={styles.servicePriceText}>{service.price}</Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* ── Free Cleaning Banner ── */}
+        <View
+          style={[
+            styles.freeBanner,
+            {
+              backgroundColor: _isDark ? 'rgba(5, 150, 105, 0.12)' : '#ECFDF5',
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.freeBannerIcon,
+              {
+                backgroundColor: _isDark ? 'rgba(5, 150, 105, 0.2)' : '#D1FAE5',
+              },
+            ]}
+          >
+            <Ionicons
+              name="sparkles"
+              size={24}
+              color={_isDark ? '#34D399' : '#059669'}
+            />
+          </View>
+          <View style={styles.freeBannerContent}>
+            <Text style={[styles.freeBannerTitle, { color: colors.text }]}>
+              Free Port & Speaker Cleaning
+            </Text>
+            <Text
+              style={[styles.freeBannerDesc, { color: colors.textSecondary }]}
+            >
+              Often, a "broken" port is just dirty. Visit us for a{' '}
+              <Text style={{ fontWeight: '700' }}>free cleaning</Text> — no
+              appointment needed.
+            </Text>
           </View>
         </View>
 
-        {/* Preventative Care Banner */}
-        <View style={[styles.careCard, { backgroundColor: colors.card }]}>
-          <View style={styles.careIconContainer}>
-            <Ionicons name="sparkles" size={32} color={BRAND.primary} />
-          </View>
-          <View style={styles.careContent}>
-            <Text style={[styles.careTitle, { color: colors.text }]}>
-              Preventative Care is Free
-            </Text>
-            <Text style={[styles.careDesc, { color: colors.textSecondary }]}>
-              Often, a "broken" charging port is just dirty. Visit us for a{' '}
-              <Text style={{ fontWeight: '700' }}>free cleaning service</Text>.
-              We'll clear out dust and lint from your speakers and ports.
-            </Text>
+        {/* ── Trade-in CTA ── */}
+        <View style={[styles.tradeinCard, { backgroundColor: colors.card }]}>
+          <View style={styles.tradeinContent}>
+            <Ionicons name="swap-horizontal" size={24} color={BRAND.primary} />
+            <View style={styles.tradeinText}>
+              <Text style={[styles.tradeinTitle, { color: colors.text }]}>
+                Beyond Repair?
+              </Text>
+              <Text
+                style={[styles.tradeinDesc, { color: colors.textSecondary }]}
+              >
+                Trade in your old device for credit toward a new one.
+              </Text>
+            </View>
           </View>
           <Pressable
-            style={[styles.careButton, { backgroundColor: colors.text }]}
-            onPress={handleVisitStore}
+            style={styles.tradeinButton}
+            onPress={handleSwap}
+            accessibilityRole="button"
+            accessibilityLabel="Trade-in your device"
+            accessibilityHint="Navigate to Swap and Trade-in page"
           >
-            <Text style={styles.careButtonText}>Visit Store</Text>
+            <Text style={styles.tradeinButtonText}>Trade-in</Text>
+            <Ionicons name="arrow-forward" size={16} color={BRAND.primary} />
           </Pressable>
-        </View>
-
-        {/* Recycling Section */}
-        <View style={styles.recyclingSection}>
-          <View style={styles.recyclingIcon}>
-            <Ionicons name="sync" size={28} color="#6B7280" />
-          </View>
-          <Text style={[styles.recyclingTitle, { color: colors.text }]}>
-            Beyond Repair? Recycle Responsibly.
-          </Text>
-          <Text style={[styles.recyclingDesc, { color: colors.textSecondary }]}>
-            If your device is truly at the end of its life, don't throw it in
-            the trash. Electronic waste contains harmful chemicals. Drop it off
-            at any of our locations, and we will ensure it is recycled safely.
-          </Text>
-
-          <View style={styles.recyclingGrid}>
-            {RECYCLING_INFO.map((item, index) => (
-              <View
-                key={index}
-                style={[styles.recyclingCard, { backgroundColor: colors.card }]}
-              >
-                <View
-                  style={[
-                    styles.recyclingCardIcon,
-                    { backgroundColor: item.bg },
-                  ]}
-                >
-                  <Ionicons name={item.icon} size={18} color={item.color} />
-                </View>
-                <View style={styles.recyclingCardText}>
-                  <Text
-                    style={[styles.recyclingCardTitle, { color: colors.text }]}
-                  >
-                    {item.title}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.recyclingCardDesc,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {item.desc}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+// ─── Styles ──────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
@@ -346,33 +288,10 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     paddingBottom: 40,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    marginBottom: SPACING.lg,
-  },
-  headerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: RADIUS.md,
-    backgroundColor: `${BRAND.primary}15`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerText: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    marginTop: 2,
-  },
+
+  // ── Hero ──
   heroCard: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: BRAND.primary,
     borderRadius: RADIUS.xl,
     padding: SPACING.lg,
     marginBottom: SPACING.xl,
@@ -381,9 +300,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: `${BRAND.primary}30`,
-    borderWidth: 1,
-    borderColor: `${BRAND.primary}40`,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignSelf: 'flex-start',
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
@@ -391,224 +308,189 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   heroBadgeText: {
-    color: BRAND.primary,
+    color: '#FFF',
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   heroTitle: {
     color: '#FFF',
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
-    lineHeight: 34,
+    lineHeight: 32,
     marginBottom: SPACING.sm,
   },
   heroSubtitle: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.8)',
     fontSize: 13,
     lineHeight: 20,
     marginBottom: SPACING.lg,
   },
-  heroButtons: {
+  heroButton: {
+    backgroundColor: '#FFF',
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: SPACING.sm,
-  },
-  primaryButton: {
-    backgroundColor: BRAND.primary,
     paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
     borderRadius: RADIUS.lg,
   },
-  primaryButtonText: {
-    color: '#FFF',
-    fontSize: 14,
+  heroButtonText: {
+    color: BRAND.primary,
+    fontSize: 15,
     fontWeight: '700',
   },
-  secondaryButton: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
+
+  // ── Section Titles ──
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: SPACING.md,
   },
-  secondaryButtonText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  impactContainer: {
-    flexDirection: 'row',
+
+  // ── Steps ──
+  stepsContainer: {
     gap: SPACING.sm,
     marginBottom: SPACING.xl,
   },
-  impactCard: {
-    flex: 1,
+  stepCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: SPACING.md,
     borderRadius: RADIUS.lg,
-    alignItems: 'center',
+    gap: SPACING.md,
   },
-  impactIcon: {
+  stepIconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
+    backgroundColor: `${BRAND.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
   },
-  impactTitle: {
-    fontSize: 12,
+  stepTextContainer: {
+    flex: 1,
+  },
+  stepTitle: {
+    fontSize: 14,
     fontWeight: '700',
-    marginBottom: 4,
-    textAlign: 'center',
+    marginBottom: 2,
   },
-  impactDesc: {
-    fontSize: 10,
-    textAlign: 'center',
-    lineHeight: 14,
+  stepDesc: {
+    fontSize: 12,
+    lineHeight: 17,
   },
-  servicesSection: {
+
+  // ── Services ──
+  servicesList: {
+    gap: SPACING.sm,
     marginBottom: SPACING.xl,
   },
-  servicesHeader: {
+  serviceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
-    marginBottom: SPACING.md,
-  },
-  servicesTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  servicesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  serviceCard: {
-    width: '48%',
     padding: SPACING.md,
     borderRadius: RADIUS.lg,
+    gap: SPACING.md,
   },
-  serviceIcon: {
+  serviceIconContainer: {
     width: 44,
     height: 44,
     borderRadius: RADIUS.md,
+    backgroundColor: `${BRAND.primary}15`,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
+  },
+  serviceContent: {
+    flex: 1,
   },
   serviceTitle: {
     fontSize: 14,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   serviceDesc: {
-    fontSize: 11,
-    lineHeight: 16,
-    marginBottom: SPACING.sm,
+    fontSize: 12,
+    lineHeight: 17,
   },
-  serviceFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
-  },
-  servicePrice: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  careCard: {
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    marginBottom: SPACING.xl,
-  },
-  careIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  servicePriceBadge: {
     backgroundColor: `${BRAND.primary}15`,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  careContent: {
-    marginBottom: SPACING.md,
-  },
-  careTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: SPACING.xs,
-  },
-  careDesc: {
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  careButton: {
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.lg,
-    alignSelf: 'flex-start',
-  },
-  careButtonText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  recyclingSection: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    alignItems: 'center',
-  },
-  recyclingIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  recyclingTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: SPACING.sm,
-  },
-  recyclingDesc: {
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: SPACING.lg,
-  },
-  recyclingGrid: {
-    width: '100%',
-    gap: SPACING.sm,
-  },
-  recyclingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: RADIUS.md,
-    gap: SPACING.sm,
   },
-  recyclingCardIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.sm,
+  servicePriceText: {
+    color: BRAND.primary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+
+  // ── Free Cleaning Banner ──
+  freeBanner: {
+    flexDirection: 'row',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    gap: SPACING.md,
+    marginBottom: SPACING.lg,
+    alignItems: 'flex-start',
+  },
+  freeBannerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  recyclingCardText: {
+  freeBannerContent: {
     flex: 1,
   },
-  recyclingCardTitle: {
+  freeBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  freeBannerDesc: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  // ── Trade-in CTA ──
+  tradeinCard: {
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+  },
+  tradeinContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  tradeinText: {
+    flex: 1,
+  },
+  tradeinTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  tradeinDesc: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  tradeinButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: BRAND.primary,
+  },
+  tradeinButtonText: {
+    color: BRAND.primary,
     fontSize: 13,
     fontWeight: '700',
-  },
-  recyclingCardDesc: {
-    fontSize: 11,
   },
 });

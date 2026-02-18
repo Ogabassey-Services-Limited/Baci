@@ -1,9 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import SafeImage from '@/components/ui/SafeImage';
-import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +14,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
+import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
+import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
@@ -33,10 +33,8 @@ export default function BlogPostDetailScreen() {
   const { merchant } = useMerchant();
 
   // Validate route params with Zod
-  const validatedParams = useMemo(() => {
-    const result = routeParamsSchema.safeParse(rawParams);
-    return result.success ? result.data : null;
-  }, [rawParams]);
+  const paramsResult = routeParamsSchema.safeParse(rawParams);
+  const validatedParams = paramsResult.success ? paramsResult.data : null;
 
   // Extract id safely (will be undefined if validation fails)
   const id = validatedParams?.id;
@@ -53,12 +51,12 @@ export default function BlogPostDetailScreen() {
     'draft'
   );
 
-  const fetchPost = useCallback(async () => {
+  const fetchPost = async () => {
     if (!id || id === 'new') return;
     try {
       const { data, error } = await supabase
         .from('blog_posts')
-        .select('*')
+        .select('title, excerpt, category, featured_image_url, status')
         .eq('id', id)
         .single();
 
@@ -75,7 +73,7 @@ export default function BlogPostDetailScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  };
 
   useEffect(() => {
     if (id && id !== 'new') {

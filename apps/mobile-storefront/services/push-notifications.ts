@@ -10,22 +10,29 @@
  */
 
 import Constants from 'expo-constants';
+// M32 fix: Use type-only imports for expo-notifications types to avoid evaluation-time crashes.
+// Runtime values (AndroidImportance, SchedulableTriggerInputTypes) are accessed via the
+// dynamically imported `Notifications` module instead.
+import type {
+  NotificationResponse,
+  PermissionStatus,
+} from 'expo-notifications';
 import { Platform } from 'react-native';
+import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 
-import { createLogger } from '@/lib/logger';
 const log = createLogger('PushNotifications');
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-let Device: any = null;
-let Notifications: any = null;
+let Device: typeof import('expo-device') | null = null;
+let Notifications: typeof import('expo-notifications') | null = null;
 
 const loadNativeModules = async () => {
   if (Platform.OS === 'web') return;
   try {
     const [dev, notif] = await Promise.all([
       import('expo-device'),
-      import('expo-notifications')
+      import('expo-notifications'),
     ]);
     Device = dev;
     Notifications = notif;
@@ -52,13 +59,13 @@ loadNativeModules();
 export interface PushNotificationState {
   token: string | null;
   isRegistered: boolean;
-  permissionStatus: Notifications.PermissionStatus | null;
+  permissionStatus: PermissionStatus | null;
 }
 
 /**
  * Request push notification permissions
  */
-export async function requestPermissions(): Promise<Notifications.PermissionStatus | null> {
+export async function requestPermissions(): Promise<PermissionStatus | null> {
   if (!Notifications) return null;
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
 
@@ -216,7 +223,7 @@ export async function removePushTokenFromServer(
  * Handle notification tap - navigate to relevant screen
  */
 export function handleNotificationResponse(
-  response: Notifications.NotificationResponse,
+  response: NotificationResponse,
   navigate: (screen: string, params?: Record<string, string>) => void
 ): void {
   const data = response.notification.request.content.data;
@@ -317,5 +324,10 @@ export async function setBadgeCount(count: number): Promise<void> {
  * Clear the badge
  */
 export async function clearBadge(): Promise<void> {
-  await Notifications.setBadgeCountAsync(0);
+  if (!Notifications?.setBadgeCountAsync) return;
+  try {
+    await Notifications.setBadgeCountAsync(0);
+  } catch {
+    // Silently fail on platforms that don't support badge count (e.g. web)
+  }
 }

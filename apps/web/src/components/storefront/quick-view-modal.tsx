@@ -293,7 +293,8 @@ export function QuickViewModal({
                           // Check if this option is available
                           const isAvailable = isVariantAvailable(
                             product.variants || [],
-                            { ...selectedAttributes, [key]: value }
+                            { ...selectedAttributes, [key]: value },
+                            product.manage_stock
                           );
 
                           return (
@@ -500,17 +501,19 @@ function getAttributeOptions(
 }
 
 /**
- * Check if a variant with given attributes exists and has stock
+ * Check if a variant with given attributes exists and has stock.
+ * If manage_stock is false/null, all matching variants are available.
  */
 function isVariantAvailable(
   variants: ProductVariant[],
-  partialAttributes: Record<string, string>
+  partialAttributes: Record<string, string>,
+  manageStock?: boolean
 ): boolean {
   return variants.some((variant) => {
     const matches = Object.entries(partialAttributes).every(
       ([key, value]) => variant.attributes[key] === value
     );
-    return matches && variant.stock_quantity > 0;
+    return matches && (!manageStock || variant.stock_quantity > 0);
   });
 }
 

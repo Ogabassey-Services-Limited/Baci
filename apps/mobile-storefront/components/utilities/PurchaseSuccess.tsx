@@ -51,8 +51,9 @@ export function PurchaseSuccess({
         Purchase Successful!
       </Text>
       <Text style={[styles.message, { color: colors.textSecondary }]}>
-        Your {TYPE_LABELS[type] || type} purchase for {identifier} was
-        successful.
+        {identifier
+          ? `Your ${TYPE_LABELS[type] || type} purchase for ${identifier} was successful.`
+          : `Your ${TYPE_LABELS[type] || type} purchase was successful.`}
       </Text>
 
       {txReference && (

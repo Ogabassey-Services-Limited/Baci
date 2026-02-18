@@ -104,7 +104,7 @@ export default function LoyaltyProgramPage() {
   useEffect(() => {
     fetchSettings();
     fetchCustomers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes these functions
   }, [fetchCustomers, fetchSettings]);
 
   async function saveSettings() {

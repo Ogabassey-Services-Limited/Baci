@@ -101,8 +101,7 @@ export default function NewDiscountScreen() {
       Alert.alert('Success', 'Discount code created successfully', [
         { text: 'OK', onPress: () => router.back() },
       ]);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
       Alert.alert('Error', 'Failed to create discount code');
     }

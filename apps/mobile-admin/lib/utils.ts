@@ -29,6 +29,7 @@ export const formatCurrency = (
 
   let formatter = formatterCache.get(cacheKey);
   if (!formatter) {
+    if (formatterCache.size > 50) formatterCache.clear();
     formatter = new Intl.NumberFormat(locale, finalOptions);
     formatterCache.set(cacheKey, formatter);
   }
@@ -39,8 +40,17 @@ export const formatCurrency = (
 /**
  * Format currency without decimal places (compact display)
  */
-export const formatCurrencyCompact = (amount: number, currency = 'NGN', locale = 'en-NG') => {
-  return formatCurrency(amount, { minimumFractionDigits: 0, maximumFractionDigits: 0 }, currency, locale);
+export const formatCurrencyCompact = (
+  amount: number,
+  currency = 'NGN',
+  locale = 'en-NG'
+) => {
+  return formatCurrency(
+    amount,
+    { minimumFractionDigits: 0, maximumFractionDigits: 0 },
+    currency,
+    locale
+  );
 };
 
 /**

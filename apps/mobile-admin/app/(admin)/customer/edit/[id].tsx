@@ -19,6 +19,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCustomer, useUpdateCustomer } from '@/hooks/useCustomers';
 import { useTheme } from '@/hooks/useTheme';
+import {
+  isValidEmail,
+  sanitizeAddress,
+  sanitizeCustomerName,
+  sanitizeEmail,
+  sanitizePhone,
+} from '@/lib/sanitize';
 
 export default function CustomerEditScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -32,6 +39,7 @@ export default function CustomerEditScreen() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneModified, setPhoneModified] = useState(false);
   const [address, setAddress] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
@@ -70,19 +78,21 @@ export default function CustomerEditScreen() {
   }, [customer]);
 
   const handleSave = async () => {
-    if (!email.trim()) {
-      Alert.alert('Error', 'Email is required');
+    if (!isValidEmail(email.trim())) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
       return;
     }
 
     try {
       await updateCustomer.mutateAsync({
         id: id || '',
-        first_name: firstName.trim() || null,
-        last_name: lastName.trim() || null,
-        email: email.trim(),
-        phone: phone.trim() || null,
-        address: address.trim() || null,
+        first_name: sanitizeCustomerName(firstName.trim()) || null,
+        last_name: sanitizeCustomerName(lastName.trim()) || null,
+        email: sanitizeEmail(email.trim()),
+        phone: phoneModified
+          ? sanitizePhone(phone.trim()) || null
+          : customer?.phone || null,
+        address: sanitizeAddress(address.trim()) || null,
       });
       Alert.alert('Success', 'Customer updated successfully', [
         { text: 'OK', onPress: () => router.back() },
@@ -293,7 +303,10 @@ export default function CustomerEditScreen() {
                 defaultValue={phone}
                 defaultCode="NG"
                 layout="first"
-                onChangeFormattedText={setPhone}
+                onChangeFormattedText={(text) => {
+                  setPhone(text);
+                  setPhoneModified(true);
+                }}
                 containerStyle={[
                   styles.phoneContainer,
                   {

@@ -128,7 +128,7 @@ async function fetchDashboardStats(
   // Build base query for orders
   let ordersQuery = supabase
     .from('orders')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('merchant_id', merchantId);
 
   if (start) {
@@ -141,11 +141,15 @@ async function fetchDashboardStats(
   }
 
   // Fetch pending orders (always total, not filtered by period)
-  const { count: pendingOrders } = await supabase
+  const { count: pendingOrders, error: pendingOrdersError } = await supabase
     .from('orders')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('merchant_id', merchantId)
     .eq('shipping_status', 'pending');
+
+  if (pendingOrdersError) {
+    console.error('[DashboardStats] Pending orders error:', pendingOrdersError);
+  }
 
   // Fetch total items for period
   let itemsQuery = supabase
@@ -157,27 +161,44 @@ async function fetchDashboardStats(
     itemsQuery = itemsQuery.gte('orders.created_at', start);
   }
 
-  const { data: itemsData } = await itemsQuery;
+  const { data: itemsData, error: itemsError } = await itemsQuery;
+
+  if (itemsError) {
+    console.error('[DashboardStats] Items data error:', itemsError);
+  }
+
   const totalItems =
     itemsData?.reduce((sum, item) => sum + (item.quantity || 1), 0) ?? 0;
 
   // Fetch customers for period
   let customersQuery = supabase
     .from('customers')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('merchant_id', merchantId);
 
   if (start) {
     customersQuery = customersQuery.gte('created_at', start);
   }
 
-  const { count: newCustomers } = await customersQuery;
+  const { count: newCustomers, error: newCustomersError } =
+    await customersQuery;
+
+  if (newCustomersError) {
+    console.error('[DashboardStats] New customers error:', newCustomersError);
+  }
 
   // Total customers (always all-time)
-  const { count: totalCustomers } = await supabase
+  const { count: totalCustomers, error: totalCustomersError } = await supabase
     .from('customers')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('merchant_id', merchantId);
+
+  if (totalCustomersError) {
+    console.error(
+      '[DashboardStats] Total customers error:',
+      totalCustomersError
+    );
+  }
 
   // Fetch revenue for period (total order value - gross revenue)
   // Note: This shows total order value regardless of payment status
@@ -191,7 +212,12 @@ async function fetchDashboardStats(
     revenueQuery = revenueQuery.gte('created_at', start);
   }
 
-  const { data: revenueData } = await revenueQuery;
+  const { data: revenueData, error: revenueError } = await revenueQuery;
+
+  if (revenueError) {
+    console.error('[DashboardStats] Revenue data error:', revenueError);
+  }
+
   const revenue =
     revenueData?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
   const avgOrderValue = orders && orders > 0 ? revenue / orders : 0;
@@ -200,12 +226,20 @@ async function fetchDashboardStats(
   let previousPeriodRevenue = 0;
   const prevPeriod = getPreviousPeriodDateRange(period);
   if (prevPeriod) {
-    const { data: prevRevenueData } = await supabase
+    const { data: prevRevenueData, error: prevRevenueError } = await supabase
       .from('orders')
       .select('total')
       .eq('merchant_id', merchantId)
       .gte('created_at', prevPeriod.start!)
       .lt('created_at', prevPeriod.end);
+
+    if (prevRevenueError) {
+      console.error(
+        '[DashboardStats] Previous revenue error:',
+        prevRevenueError
+      );
+    }
+
     previousPeriodRevenue =
       prevRevenueData?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
   }
@@ -213,7 +247,7 @@ async function fetchDashboardStats(
   // Fetch visits for period
   let visitsQuery = supabase
     .from('analytics_events')
-    .select('*', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true })
     .eq('merchant_id', merchantId)
     .eq('event_type', 'page_view');
 
@@ -221,7 +255,11 @@ async function fetchDashboardStats(
     visitsQuery = visitsQuery.gte('created_at', start);
   }
 
-  const { count: visits } = await visitsQuery;
+  const { count: visits, error: visitsError } = await visitsQuery;
+
+  if (visitsError) {
+    console.error('[DashboardStats] Visits error:', visitsError);
+  }
 
   return {
     orders: orders ?? 0,
@@ -240,11 +278,44 @@ async function fetchRevenueChart(
   merchantId: string,
   period: TimePeriod
 ): Promise<RevenueDataPoint[]> {
-  const result: RevenueDataPoint[] = [];
+  const now = new Date();
+
+  // Determine the overall date range for a single query
+  let rangeStart: Date;
+  const rangeEnd: Date = now;
 
   if (period === 'today') {
-    // Show hourly data for today (6 time slots)
-    const now = new Date();
+    rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else if (period === 'week') {
+    rangeStart = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+    rangeStart = new Date(
+      rangeStart.getFullYear(),
+      rangeStart.getMonth(),
+      rangeStart.getDate()
+    );
+  } else if (period === 'month') {
+    rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else {
+    // 'all' - last 6 months
+    const sixMonthsAgo = new Date(now);
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+    rangeStart = new Date(
+      sixMonthsAgo.getFullYear(),
+      sixMonthsAgo.getMonth(),
+      1
+    );
+  }
+
+  // Single query for the entire period
+  const { data: orders } = await supabase
+    .from('orders')
+    .select('total, created_at')
+    .eq('merchant_id', merchantId)
+    .gte('created_at', rangeStart.toISOString())
+    .lte('created_at', rangeEnd.toISOString());
+
+  // Bucket orders client-side
+  if (period === 'today') {
     const slots = [
       { label: '12am', start: 0, end: 4 },
       { label: '4am', start: 4, end: 8 },
@@ -253,69 +324,55 @@ async function fetchRevenueChart(
       { label: '4pm', start: 16, end: 20 },
       { label: '8pm', start: 20, end: 24 },
     ];
+    const buckets = slots.map((slot) => ({ label: slot.label, value: 0 }));
 
-    for (const slot of slots) {
-      const startTime = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        slot.start
-      ).toISOString();
-      const endTime = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        slot.end
-      ).toISOString();
+    orders?.forEach((order) => {
+      const hour = new Date(order.created_at).getHours();
+      const slotIndex = slots.findIndex((s) => hour >= s.start && hour < s.end);
+      if (slotIndex >= 0) {
+        buckets[slotIndex].value += order.total || 0;
+      }
+    });
 
-      const { data } = await supabase
-        .from('orders')
-        .select('total')
-        .eq('merchant_id', merchantId)
-        .gte('created_at', startTime)
-        .lt('created_at', endTime);
+    return buckets;
+  }
 
-      result.push({
-        label: slot.label,
-        value: data?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0,
-      });
-    }
-  } else if (period === 'week') {
-    // Show daily data for last 7 days
+  if (period === 'week') {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    // Build 7-day buckets from oldest to newest
+    const dayBuckets: { label: string; date: string; value: number }[] = [];
     for (let i = 6; i >= 0; i--) {
-      const date = new Date();
+      const date = new Date(now);
       date.setDate(date.getDate() - i);
-      const startOfDay = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate()
-      ).toISOString();
-      const endOfDay = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate() + 1
-      ).toISOString();
-
-      const { data } = await supabase
-        .from('orders')
-        .select('total')
-        .eq('merchant_id', merchantId)
-        .gte('created_at', startOfDay)
-        .lt('created_at', endOfDay);
-
-      result.push({
-        label: days[date.getDay()],
-        value: data?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0,
-      });
+      const dateStr = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      dayBuckets.push({ label: days[date.getDay()], date: dateStr, value: 0 });
     }
-  } else if (period === 'month') {
-    // Show weekly data for this month (4-5 weeks)
-    const now = new Date();
+
+    orders?.forEach((order) => {
+      const d = new Date(order.created_at);
+      const dateStr = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      const bucket = dayBuckets.find((b) => b.date === dateStr);
+      if (bucket) {
+        bucket.value += order.total || 0;
+      }
+    });
+
+    return dayBuckets.map(({ label, value }) => ({ label, value }));
+  }
+
+  if (period === 'month') {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const weeksInMonth = Math.ceil((now.getDate() + startOfMonth.getDay()) / 7);
+    const weekCount = Math.min(weeksInMonth, 5);
 
-    for (let week = 0; week < Math.min(weeksInMonth, 5); week++) {
+    // Build week boundary dates
+    const weekBuckets: {
+      label: string;
+      start: Date;
+      end: Date;
+      value: number;
+    }[] = [];
+    for (let week = 0; week < weekCount; week++) {
       const weekStart = new Date(startOfMonth);
       weekStart.setDate(weekStart.getDate() + week * 7 - startOfMonth.getDay());
       if (weekStart < startOfMonth) weekStart.setTime(startOfMonth.getTime());
@@ -324,63 +381,70 @@ async function fetchRevenueChart(
       weekEnd.setDate(weekEnd.getDate() + 7);
       if (weekEnd > now) weekEnd.setTime(now.getTime());
 
-      const { data } = await supabase
-        .from('orders')
-        .select('total')
-        .eq('merchant_id', merchantId)
-        .gte('created_at', weekStart.toISOString())
-        .lt('created_at', weekEnd.toISOString());
-
-      result.push({
+      weekBuckets.push({
         label: `Wk ${week + 1}`,
-        value: data?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0,
+        start: weekStart,
+        end: weekEnd,
+        value: 0,
       });
     }
-  } else {
-    // 'all' - Show monthly data for last 6 months
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      const startOfMonth = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        1
-      ).toISOString();
-      const endOfMonth = new Date(
-        date.getFullYear(),
-        date.getMonth() + 1,
-        1
-      ).toISOString();
 
-      const { data } = await supabase
-        .from('orders')
-        .select('total')
-        .eq('merchant_id', merchantId)
-        .gte('created_at', startOfMonth)
-        .lt('created_at', endOfMonth);
+    orders?.forEach((order) => {
+      const orderDate = new Date(order.created_at);
+      for (const bucket of weekBuckets) {
+        if (orderDate >= bucket.start && orderDate < bucket.end) {
+          bucket.value += order.total || 0;
+          break;
+        }
+      }
+    });
 
-      result.push({
-        label: months[date.getMonth()],
-        value: data?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0,
-      });
-    }
+    return weekBuckets.map(({ label, value }) => ({ label, value }));
   }
 
-  return result;
+  // 'all' - last 6 months
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  const monthBuckets: {
+    label: string;
+    year: number;
+    month: number;
+    value: number;
+  }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(now);
+    date.setMonth(date.getMonth() - i);
+    monthBuckets.push({
+      label: months[date.getMonth()],
+      year: date.getFullYear(),
+      month: date.getMonth(),
+      value: 0,
+    });
+  }
+
+  orders?.forEach((order) => {
+    const d = new Date(order.created_at);
+    const bucket = monthBuckets.find(
+      (b) => b.year === d.getFullYear() && b.month === d.getMonth()
+    );
+    if (bucket) {
+      bucket.value += order.total || 0;
+    }
+  });
+
+  return monthBuckets.map(({ label, value }) => ({ label, value }));
 }
 
 async function fetchTopProducts(

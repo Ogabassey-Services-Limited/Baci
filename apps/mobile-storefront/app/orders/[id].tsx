@@ -6,9 +6,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   ScrollView,
@@ -19,9 +20,11 @@ import {
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { isOrderRealtimePayload } from '@/lib/validation';
+import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('OrderDetails');
 
@@ -33,7 +36,6 @@ interface OrderItem {
   quantity: number;
   price: number;
   image_url?: string;
-  variant_name?: string;
   has_assurance?: boolean;
 }
 
@@ -50,10 +52,10 @@ interface InsurancePolicy {
 interface OrderDetails {
   id: string;
   order_number: string;
-  status: string;
+  shipping_status: string;
   subtotal: number;
   shipping_fee: number;
-  discount: number;
+  discount_amount: number;
   total: number;
   payment_method: string;
   payment_status: string;
@@ -67,7 +69,7 @@ interface OrderDetails {
     state: string;
   };
   tracking_number?: string;
-  tracking_url?: string;
+  shipping_provider?: string;
   notes?: string;
   items: OrderItem[];
 }
@@ -84,6 +86,7 @@ export default function OrderDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const user = useAuthStore((state) => state.user);
 
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [insurancePolicy, setInsurancePolicy] =
@@ -94,80 +97,104 @@ export default function OrderDetailsScreen() {
   // Realtime subscription channel ref for cleanup
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  const fetchOrder = useCallback(async () => {
+  useEffect(() => {
     if (!id) return;
 
-    try {
-      const { data, error: fetchError } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          order_number,
-          status,
-          subtotal,
-          shipping_fee,
-          discount,
-          total,
-          payment_method,
-          payment_status,
-          created_at,
-          updated_at,
-          shipping_address,
-          tracking_number,
-          tracking_url,
-          notes,
-          order_items (
-            id,
-            product_id,
-            product_name,
-            product_slug,
-            quantity,
-            price,
-            image_url,
-            variant_name,
-            has_assurance
-          )
-        `)
-        .eq('id', id)
-        .single();
-
-      if (fetchError) throw fetchError;
-
-      setOrder({
-        ...data,
-        items: data.order_items || [],
-      });
-
-      // Fetch insurance policy if any items have assurance
-      const hasAssurance = (data.order_items || []).some(
-        (item: { has_assurance?: boolean }) => item.has_assurance
-      );
-      if (hasAssurance) {
-        const { data: policy } = await supabase
-          .from('order_insurance_policies')
-          .select(
-            'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date'
-          )
-          .eq('order_id', id)
-          .maybeSingle();
-
-        if (policy) {
-          setInsurancePolicy(policy as InsurancePolicy);
-        }
-      }
-
-      setError(null);
-    } catch (err) {
-      log.error('Error fetching order:', err);
-      setError('Failed to load order details');
-    } finally {
+    // Auth check: require authenticated user to view order details
+    if (!user?.id) {
+      setError('Please sign in to view order details');
       setIsLoading(false);
+      return;
     }
-  }, [id]);
 
-  useEffect(() => {
+    const fetchOrder = async () => {
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('orders')
+          .select(`
+            id,
+            order_number,
+            shipping_status,
+            subtotal,
+            shipping_fee,
+            discount_amount,
+            total,
+            payment_method,
+            payment_status,
+            created_at,
+            updated_at,
+            shipping_address,
+            tracking_number,
+            shipping_provider,
+            notes,
+            order_items (
+              id,
+              product_id,
+              name,
+              quantity,
+              price,
+              has_assurance,
+              products (
+                slug,
+                images
+              )
+            )
+          `)
+          .eq('id', id)
+          .eq('customer_id', user.id)
+          .single();
+
+        if (fetchError) throw fetchError;
+
+        setOrder({
+          ...data,
+          items: (data.order_items ?? []).map(
+            (item: Record<string, unknown>) => {
+              const product = Array.isArray(item.products)
+                ? item.products[0]
+                : item.products;
+              return {
+                id: item.id as string,
+                product_id: item.product_id as string,
+                product_name: item.name as string,
+                product_slug: (product?.slug as string) ?? '',
+                quantity: item.quantity as number,
+                price: item.price as number,
+                image_url: (product?.images as string[] | null)?.[0],
+                has_assurance: item.has_assurance as boolean | undefined,
+              };
+            }
+          ),
+        });
+
+        // Fetch insurance policy if any items have assurance
+        const hasAssurance = (data.order_items ?? []).some(
+          (item: { has_assurance?: boolean }) => item.has_assurance
+        );
+        if (hasAssurance) {
+          const { data: policy } = await supabase
+            .from('order_insurance_policies')
+            .select(
+              'mycover_policy_number, coverage_amount, premium_amount, status, claim_status, policy_start_date, policy_expiry_date'
+            )
+            .eq('order_id', id)
+            .maybeSingle();
+
+          if (policy) {
+            setInsurancePolicy(policy as InsurancePolicy);
+          }
+        }
+
+        setError(null);
+      } catch (err) {
+        log.error('Error fetching order:', err);
+        setError('Failed to load order details');
+      } finally {
+        setIsLoading(false);
+      }
+    };
     fetchOrder();
-  }, [fetchOrder]);
+  }, [id, user?.id]);
 
   // Supabase Realtime subscription for live order status updates
   useEffect(() => {
@@ -198,10 +225,12 @@ export default function OrderDetailsScreen() {
             if (!prevOrder) return prevOrder;
             return {
               ...prevOrder,
-              status: payload.new.status ?? prevOrder.status,
+              shipping_status:
+                payload.new.shipping_status ?? prevOrder.shipping_status,
               tracking_number:
                 payload.new.tracking_number ?? prevOrder.tracking_number,
-              tracking_url: payload.new.tracking_url ?? prevOrder.tracking_url,
+              shipping_provider:
+                payload.new.shipping_provider ?? prevOrder.shipping_provider,
               updated_at: payload.new.updated_at ?? prevOrder.updated_at,
             };
           });
@@ -248,14 +277,43 @@ export default function OrderDetailsScreen() {
   };
 
   const handleTrackOrder = () => {
-    if (order?.tracking_url) {
-      Linking.openURL(order.tracking_url);
+    const trackingNumber = order?.tracking_number;
+    const provider = order?.shipping_provider?.toLowerCase();
+
+    if (!trackingNumber) {
+      Alert.alert(
+        'Tracking Unavailable',
+        'No tracking information is available for this order yet.'
+      );
+      return;
+    }
+
+    // Compute tracking URL from provider + tracking number
+    // Mirrors web API: apps/web/src/app/api/storefront/orders/track-order/route.ts
+    const encoded = encodeURIComponent(trackingNumber);
+    const providerUrls: Record<string, string> = {
+      topship: `https://topship.africa/track/${encoded}`,
+      gigl: `https://giglogistics.com/track/${encoded}`,
+      dhl: `https://www.dhl.com/en/express/tracking.html?AWB=${encoded}`,
+      fedex: `https://www.fedex.com/fedextrack/?trknbr=${encoded}`,
+      ups: `https://www.ups.com/track?tracknum=${encoded}`,
+    };
+
+    const url = provider ? providerUrls[provider] : undefined;
+    if (url) {
+      Linking.openURL(url);
+    } else {
+      Alert.alert(
+        'Tracking Unavailable',
+        'No tracking link is available for this shipping provider.'
+      );
     }
   };
 
   const handleContactSupport = () => {
-    // Open WhatsApp or email support
-    Linking.openURL('https://wa.me/2348000000000');
+    Linking.openURL(
+      `https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=${encodeURIComponent('Hi, I need help with my order')}`
+    );
   };
 
   if (isLoading) {
@@ -289,7 +347,11 @@ export default function OrderDetailsScreen() {
         <Text style={[styles.errorText, { color: colors.text }]}>
           {error || 'Order not found'}
         </Text>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace('/')
+          }
+        >
           <Text style={[styles.retryText, { color: BRAND.primary }]}>
             Go back
           </Text>
@@ -298,9 +360,10 @@ export default function OrderDetailsScreen() {
     );
   }
 
-  const currentStepIndex = getCurrentStepIndex(order.status);
+  const currentStepIndex = getCurrentStepIndex(order.shipping_status);
   const isCancelled =
-    order.status === 'cancelled' || order.status === 'refunded';
+    order.shipping_status === 'cancelled' ||
+    order.shipping_status === 'refunded';
 
   return (
     <ScrollView
@@ -401,7 +464,7 @@ export default function OrderDetailsScreen() {
           <View style={styles.cancelledStatus}>
             <Ionicons name="close-circle" size={24} color="#EF4444" />
             <Text style={styles.cancelledText}>
-              This order has been {order.status}
+              This order has been {order.shipping_status}
             </Text>
           </View>
         </View>
@@ -431,13 +494,6 @@ export default function OrderDetailsScreen() {
               >
                 {item.product_name}
               </Text>
-              {item.variant_name && (
-                <Text
-                  style={[styles.itemVariant, { color: colors.textSecondary }]}
-                >
-                  {item.variant_name}
-                </Text>
-              )}
               <View style={styles.itemPriceRow}>
                 <Text
                   style={[styles.itemQuantity, { color: colors.textSecondary }]}
@@ -649,7 +705,7 @@ export default function OrderDetailsScreen() {
               : formatPrice(order.shipping_fee)}
           </Text>
         </View>
-        {order.discount > 0 && (
+        {order.discount_amount > 0 && (
           <View style={styles.summaryRow}>
             <Text
               style={[styles.summaryLabel, { color: colors.textSecondary }]}
@@ -657,7 +713,7 @@ export default function OrderDetailsScreen() {
               Discount
             </Text>
             <Text style={[styles.summaryValue, { color: '#059669' }]}>
-              -{formatPrice(order.discount)}
+              -{formatPrice(order.discount_amount)}
             </Text>
           </View>
         )}
@@ -808,10 +864,6 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 14,
     fontWeight: '500',
-  },
-  itemVariant: {
-    fontSize: 12,
-    marginTop: 2,
   },
   itemPriceRow: {
     flexDirection: 'row',

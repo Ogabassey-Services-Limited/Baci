@@ -11,7 +11,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -24,7 +24,14 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
-import { palette } from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
+import Colors, {
+  BRAND,
+  palette,
+  RADIUS,
+  SHADOWS,
+  SPACING,
+} from '@/constants/Colors';
 
 // API base URL - follows same pattern as orders.ts for consistency
 const API_BASE_URL =
@@ -69,9 +76,21 @@ function generateSessionToken(): string {
   });
 }
 
-// Simple in-memory cache for address predictions
+// Simple in-memory cache for address predictions with max size limit
 // BUG-5-009: Improve network resilience and performance
+const PREDICTION_CACHE_MAX_SIZE = 50;
 const predictionCache = new Map<string, PlacePrediction[]>();
+
+function setCacheEntry(key: string, value: PlacePrediction[]): void {
+  // Evict oldest entries if cache exceeds max size
+  if (predictionCache.size >= PREDICTION_CACHE_MAX_SIZE) {
+    const firstKey = predictionCache.keys().next().value;
+    if (firstKey !== undefined) {
+      predictionCache.delete(firstKey);
+    }
+  }
+  predictionCache.set(key, value);
+}
 
 export function AddressAutocomplete({
   value = '',
@@ -88,151 +107,166 @@ export function AddressAutocomplete({
   const [sessionToken, setSessionToken] = useState<string>(() =>
     generateSessionToken()
   );
+  // L6 fix: Track previous session token and clear prediction cache when it changes
+  const prevSessionTokenRef = useRef(sessionToken);
+  useEffect(() => {
+    if (prevSessionTokenRef.current !== sessionToken) {
+      predictionCache.clear();
+      prevSessionTokenRef.current = sessionToken;
+    }
+  }, [sessionToken]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [internalValue, setInternalValue] = useState(value);
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // M16 fix: Clean up debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+        debounceTimer.current = null;
+      }
+    };
+  }, []);
 
   // Sync with external value
   useEffect(() => {
     setInternalValue(value);
   }, [value]);
 
-  const fetchPredictions = useCallback(
-    async (input: string) => {
-      if (input.length < 2) {
-        setPredictions([]);
-        return;
+  const fetchPredictions = async (input: string) => {
+    if (input.length < 2) {
+      setPredictions([]);
+      return;
+    }
+
+    // Check cache first
+    if (predictionCache.has(input)) {
+      setPredictions(predictionCache.get(input)!);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        input,
+        sessionToken,
+        ...(country && { country }),
+      });
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/places/autocomplete?${params}`
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn(`[Autocomplete] HTTP ${response.status}: ${errorText}`);
+        if (response.status === 403) {
+          throw new Error('Google Places API requires billing to be enabled.');
+        }
+        throw new Error('Failed to fetch predictions');
       }
 
-      // Check cache first
-      if (predictionCache.has(input)) {
-        setPredictions(predictionCache.get(input)!);
-        return;
+      const data = await response.json();
+      const results = data.predictions || [];
+      setPredictions(results);
+      setCacheEntry(input, results);
+    } catch (error) {
+      console.error('Error fetching predictions:', error);
+      // Show specific error messages to the user via the console or UI
+      setPredictions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (text: string) => {
+    setInternalValue(text);
+    onChangeText?.(text);
+    setIsOpen(true);
+
+    // Debounce API call
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      fetchPredictions(text);
+    }, 300);
+  };
+
+  const handlePredictionSelect = async (prediction: PlacePrediction) => {
+    Keyboard.dismiss();
+    setInternalValue(prediction.mainText);
+    onChangeText?.(prediction.mainText);
+    setIsOpen(false);
+    setIsLoading(true);
+
+    try {
+      const params = new URLSearchParams({
+        placeId: prediction.placeId,
+        sessionToken,
+      });
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/places/details?${params}`
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn(`[PlaceDetails] HTTP ${response.status}: ${errorText}`);
+        throw new Error('Failed to fetch place details');
       }
 
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams({
-          input,
-          sessionToken,
-          ...(country && { country }),
+      const data = await response.json();
+      // API returns { details: { city, state, ... } }
+      const details = data.details;
+
+      if (details && onSelect) {
+        onSelect({
+          streetNumber: details.streetNumber || '',
+          route: details.route || '',
+          city: details.city || '',
+          state: details.state || '',
+          zip: details.postalCode || '',
+          country: details.country || '',
+          formattedAddress: details.formattedAddress || prediction.description,
         });
-
-        const response = await fetch(
-          `${API_BASE_URL}/api/places/autocomplete?${params}`
-        );
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.warn(`[Autocomplete] HTTP ${response.status}: ${errorText}`);
-          if (response.status === 403) {
-            throw new Error(
-              'Google Places API requires billing to be enabled.'
-            );
-          }
-          throw new Error('Failed to fetch predictions');
-        }
-
-        const data = await response.json();
-        const results = data.predictions || [];
-        setPredictions(results);
-        predictionCache.set(input, results);
-      } catch (error) {
-        console.error('Error fetching predictions:', error);
-        // Show specific error messages to the user via the console or UI
-        setPredictions([]);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [sessionToken, country]
-  );
-
-  const handleInputChange = useCallback(
-    (text: string) => {
-      setInternalValue(text);
-      onChangeText?.(text);
-      setIsOpen(true);
-
-      // Debounce API call
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
       }
 
-      debounceTimer.current = setTimeout(() => {
-        fetchPredictions(text);
-      }, 300);
-    },
-    [onChangeText, fetchPredictions]
-  );
+      // Refresh session token after selection
+      setSessionToken(generateSessionToken());
+    } catch (error) {
+      console.error('Error fetching place details:', error);
+    } finally {
+      setIsLoading(false);
+      setPredictions([]);
+    }
+  };
 
-  const handlePredictionSelect = useCallback(
-    async (prediction: PlacePrediction) => {
-      Keyboard.dismiss();
-      setInternalValue(prediction.mainText);
-      onChangeText?.(prediction.mainText);
-      setIsOpen(false);
-      setIsLoading(true);
-
-      try {
-        const params = new URLSearchParams({
-          placeId: prediction.placeId,
-          sessionToken,
-        });
-
-        const response = await fetch(
-          `${API_BASE_URL}/api/places/details?${params}`
-        );
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.warn(`[PlaceDetails] HTTP ${response.status}: ${errorText}`);
-          throw new Error('Failed to fetch place details');
-        }
-
-        const data = await response.json();
-        // API returns { details: { city, state, ... } }
-        const details = data.details;
-
-        if (details && onSelect) {
-          onSelect({
-            streetNumber: details.streetNumber || '',
-            route: details.route || '',
-            city: details.city || '',
-            state: details.state || '',
-            zip: details.postalCode || '',
-            country: details.country || '',
-            formattedAddress:
-              details.formattedAddress || prediction.description,
-          });
-        }
-
-        // Refresh session token after selection
-        setSessionToken(generateSessionToken());
-      } catch (error) {
-        console.error('Error fetching place details:', error);
-      } finally {
-        setIsLoading(false);
-        setPredictions([]);
-      }
-    },
-    [sessionToken, onChangeText, onSelect]
-  );
-
-  const handleClear = useCallback(() => {
+  const handleClear = () => {
     setInternalValue('');
     onChangeText?.('');
     setPredictions([]);
     setIsOpen(false);
-  }, [onChangeText]);
+  };
 
   return (
     <View style={[styles.wrapper, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
 
-      <View style={[styles.container, error && styles.containerError]}>
+      {/* L8 fix: Add borderColor to match other input components */}
+      <View
+        style={[
+          styles.container,
+          { borderColor: colors.border },
+          error && styles.containerError,
+        ]}
+      >
         <Ionicons
           name="location-outline"
           size={18}
@@ -241,12 +275,12 @@ export function AddressAutocomplete({
         />
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, { color: colors.text }]}
           value={internalValue}
           onChangeText={handleInputChange}
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder}
-          placeholderTextColor={palette.gray[400]}
+          placeholderTextColor={colors.textSecondary}
           autoComplete="street-address"
           textContentType="fullStreetAddress"
           accessibilityLabel="Street address"
@@ -260,7 +294,7 @@ export function AddressAutocomplete({
         {isLoading ? (
           <ActivityIndicator
             size="small"
-            color={palette.red[600]}
+            color={BRAND.primary}
             style={styles.loader}
           />
         ) : internalValue ? (
@@ -270,18 +304,32 @@ export function AddressAutocomplete({
             accessibilityLabel="Clear address"
             accessibilityRole="button"
           >
-            <Ionicons name="close-circle" size={18} color={palette.gray[400]} />
+            <Ionicons
+              name="close-circle"
+              size={18}
+              color={colors.textSecondary}
+            />
           </Pressable>
         ) : null}
       </View>
 
       {/* Error Message */}
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && (
+        <Text style={[styles.error, { color: colors.destructive }]}>
+          {error}
+        </Text>
+      )}
 
       {/* Predictions Dropdown */}
       {isOpen && predictions.length > 0 && (
         <View
-          style={styles.dropdown}
+          style={[
+            styles.dropdown,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
           accessibilityRole="list"
           accessibilityLabel="Address suggestions"
         >
@@ -295,31 +343,50 @@ export function AddressAutocomplete({
                 key={item.placeId}
                 style={({ pressed }: { pressed: boolean }) => [
                   styles.predictionRow,
-                  pressed && { backgroundColor: palette.gray[100] },
+                  { borderBottomColor: colors.border },
+                  pressed && { backgroundColor: colors.muted },
                 ]}
                 onPress={() => handlePredictionSelect(item)}
                 accessibilityRole="button"
                 accessibilityLabel={`${item.mainText}, ${item.secondaryText}`}
               >
-                <View style={styles.predictionIcon}>
+                <View
+                  style={[
+                    styles.predictionIcon,
+                    { backgroundColor: colors.muted },
+                  ]}
+                >
                   <Ionicons
                     name="location"
                     size={14}
-                    color={palette.gray[500]}
+                    color={colors.textSecondary}
                   />
                 </View>
                 <View style={styles.predictionText}>
-                  <Text style={styles.predictionMain} numberOfLines={1}>
+                  <Text
+                    style={[styles.predictionMain, { color: colors.text }]}
+                    numberOfLines={1}
+                  >
                     {item.mainText}
                   </Text>
-                  <Text style={styles.predictionSecondary} numberOfLines={1}>
+                  <Text
+                    style={[
+                      styles.predictionSecondary,
+                      { color: colors.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
                     {item.secondaryText}
                   </Text>
                 </View>
               </Pressable>
             ))}
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Powered by </Text>
+            <View style={[styles.footer, { backgroundColor: colors.muted }]}>
+              <Text
+                style={[styles.footerText, { color: colors.textSecondary }]}
+              >
+                Powered by{' '}
+              </Text>
               <Text style={[styles.footerText, { color: '#4285F4' }]}>G</Text>
               <Text style={[styles.footerText, { color: '#EA4335' }]}>o</Text>
               <Text style={[styles.footerText, { color: '#FBBC05' }]}>o</Text>
@@ -337,48 +404,44 @@ export function AddressAutocomplete({
 const styles = StyleSheet.create({
   wrapper: {
     position: 'relative',
-    zIndex: 1000,
-    elevation: 1000,
+    zIndex: 100,
+    elevation: 5,
     overflow: 'visible',
   },
   label: {
     fontSize: 13,
     fontWeight: '500',
-    color: palette.gray[700],
-    marginBottom: 6,
+    marginBottom: SPACING.xs,
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: palette.gray[50],
     borderWidth: 1,
-    borderColor: palette.gray[200],
-    borderRadius: 12,
+    borderRadius: RADIUS.xl,
     overflow: 'visible',
+    minHeight: 52,
   },
   containerError: {
     borderColor: palette.red[500],
   },
   icon: {
-    paddingLeft: 12,
+    paddingLeft: SPACING.md,
   },
   input: {
     flex: 1,
     fontSize: 15,
-    color: palette.gray[900],
-    paddingVertical: 14,
-    paddingHorizontal: 10,
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.sm,
   },
   loader: {
-    paddingRight: 12,
+    paddingRight: SPACING.md,
   },
   clearButton: {
-    paddingRight: 12,
+    paddingRight: SPACING.md,
     paddingVertical: 8,
   },
   error: {
     fontSize: 12,
-    color: palette.red[500],
     marginTop: 4,
   },
   dropdown: {
@@ -386,62 +449,50 @@ const styles = StyleSheet.create({
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: palette.white,
     borderWidth: 1,
-    borderColor: palette.gray[200],
-    borderRadius: 12,
-    marginTop: 8,
-    maxHeight: 250,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-    zIndex: 10000,
+    borderRadius: RADIUS.xl,
+    marginTop: SPACING.sm,
+    maxHeight: 300,
+    ...SHADOWS.lg,
+    zIndex: 9999,
   },
   predictionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.gray[100],
-    gap: 10,
+    gap: 12,
   },
   predictionIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: palette.gray[100],
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
   predictionText: {
     flex: 1,
+    gap: 2,
   },
   predictionMain: {
     fontSize: 14,
-    fontWeight: '500',
-    color: palette.gray[900],
+    fontWeight: '600',
   },
   predictionSecondary: {
     fontSize: 12,
-    color: palette.gray[500],
-    marginTop: 2,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: SPACING.md,
     paddingVertical: 10,
-    backgroundColor: palette.gray[50],
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    borderBottomLeftRadius: RADIUS.xl,
+    borderBottomRightRadius: RADIUS.xl,
   },
   footerText: {
     fontSize: 11,
-    color: palette.gray[400],
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });

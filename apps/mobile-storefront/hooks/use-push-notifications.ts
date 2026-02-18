@@ -5,7 +5,7 @@
 
 import type { EventSubscription } from 'expo-modules-core';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { createLogger } from '@/lib/logger';
 import {
@@ -60,32 +60,27 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const responseListener = useRef<EventSubscription | null>(null);
 
   // Navigation helper for notification taps
-  const navigate = useCallback(
-    (screen: string, params?: Record<string, string>) => {
-      switch (screen) {
-        case 'order-details':
-          router.push(`/orders/${params?.id}`);
-          break;
-        case 'orders':
-          router.push('/orders');
-          break;
-        case 'product':
-          router.push(`/product/${params?.slug}`);
-          break;
-        case 'category':
-          router.push(
-            `/category/${params?.slug}` as import('expo-router').Href
-          );
-          break;
-        default:
-          router.push('/');
-      }
-    },
-    []
-  );
+  const navigate = (screen: string, params?: Record<string, string>) => {
+    switch (screen) {
+      case 'order-details':
+        router.push(`/orders/${params?.id}`);
+        break;
+      case 'orders':
+        router.push('/orders');
+        break;
+      case 'product':
+        router.push(`/product/${params?.slug}`);
+        break;
+      case 'category':
+        router.push(`/category/${params?.slug}` as import('expo-router').Href);
+        break;
+      default:
+        router.push('/');
+    }
+  };
 
   // Register for push notifications
-  const register = useCallback(async () => {
+  const register = async () => {
     if (isLoading) return;
 
     setIsLoading(true);
@@ -121,16 +116,16 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, user?.id, merchantId]);
+  };
 
   // Unregister push notifications (on logout)
-  const unregister = useCallback(async () => {
+  const unregister = async () => {
     if (pushToken) {
       await removePushTokenFromServer(pushToken);
       setPushToken(null);
       setIsRegistered(false);
     }
-  }, [pushToken]);
+  };
 
   // Set up notification listeners on mount
   useEffect(() => {

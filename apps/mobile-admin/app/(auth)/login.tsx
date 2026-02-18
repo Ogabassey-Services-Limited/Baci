@@ -239,17 +239,21 @@ export default function LoginScreen() {
     setIsLoading(true);
     setError(null);
 
-    const { error: authError } = await signIn(email.trim(), password);
+    try {
+      const { error: authError } = await signIn(email.trim(), password);
 
-    if (authError) {
-      setError(
-        authError.message === 'Invalid login credentials'
-          ? 'Incorrect email or password'
-          : authError.message
-      );
+      if (authError) {
+        setError(
+          authError.message === 'Invalid login credentials'
+            ? 'Incorrect email or password'
+            : authError.message
+        );
+      }
+    } catch (_err) {
+      setError('Network error. Please check your connection and try again.');
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   const isAnyLoading = isLoading || isGoogleLoading || isAppleLoading;

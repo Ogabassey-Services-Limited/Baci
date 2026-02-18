@@ -11,7 +11,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import {
   FlatList,
   Modal,
@@ -233,7 +233,7 @@ export function PhoneInput({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Extract the local number from the full value
-  const getLocalNumber = useCallback(() => {
+  const getLocalNumber = () => {
     if (!value) return '';
     // Remove country code if present
     if (value.startsWith(selectedCountry.dialCode)) {
@@ -248,38 +248,32 @@ export function PhoneInput({
       return value.slice(dialWithoutPlus.length);
     }
     return value;
-  }, [value, selectedCountry.dialCode]);
+  };
 
-  const handlePhoneChange = useCallback(
-    (text: string) => {
-      // Sanitize: only digits
-      let cleaned = text.replace(/[^0-9]/g, '');
+  const handlePhoneChange = (text: string) => {
+    // Sanitize: only digits
+    let cleaned = text.replace(/[^0-9]/g, '');
 
-      // Strip leading zero for Nigerian numbers
-      if (selectedCountry.code === 'NG' && cleaned.startsWith('0')) {
-        cleaned = cleaned.slice(1);
-      }
+    // Strip leading zero for Nigerian numbers
+    if (selectedCountry.code === 'NG' && cleaned.startsWith('0')) {
+      cleaned = cleaned.slice(1);
+    }
 
-      // Prepend country code
-      const fullNumber = cleaned ? `${selectedCountry.dialCode}${cleaned}` : '';
-      onChangeText?.(fullNumber);
-    },
-    [selectedCountry, onChangeText]
-  );
+    // Prepend country code
+    const fullNumber = cleaned ? `${selectedCountry.dialCode}${cleaned}` : '';
+    onChangeText?.(fullNumber);
+  };
 
-  const handleCountrySelect = useCallback(
-    (country: Country) => {
-      setSelectedCountry(country);
-      setShowCountryPicker(false);
-      setSearchQuery('');
-      // Re-format number with new country code
-      const localNum = getLocalNumber();
-      if (localNum) {
-        onChangeText?.(`${country.dialCode}${localNum}`);
-      }
-    },
-    [getLocalNumber, onChangeText]
-  );
+  const handleCountrySelect = (country: Country) => {
+    setSelectedCountry(country);
+    setShowCountryPicker(false);
+    setSearchQuery('');
+    // Re-format number with new country code
+    const localNum = getLocalNumber();
+    if (localNum) {
+      onChangeText?.(`${country.dialCode}${localNum}`);
+    }
+  };
 
   const filteredCountries = searchQuery
     ? COUNTRIES.filter(

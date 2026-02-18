@@ -182,7 +182,7 @@ export function useStorefrontFeatures({
     if (autoFetch && (merchantId || slug)) {
       fetchFeatures();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes fetchFeatures
   }, [autoFetch, merchantId, slug, fetchFeatures]);
 
   return {
@@ -282,7 +282,7 @@ export function useMerchantFeatures() {
 
   useEffect(() => {
     fetchSettings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes fetchSettings
   }, [fetchSettings]);
 
   return {

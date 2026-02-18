@@ -5,18 +5,19 @@ import { z } from 'zod';
  * Ensures runtime integrity of biller data from external APIs.
  */
 export const BillerSchema = z.object({
-    billerId: z.string().describe('Unique identifier for the biller/provider'),
-    billerName: z.string().describe('Display name of the biller'),
-    billerType: z.string().describe('Type of biller (e.g., AIRTIME, DATA)'),
-    categoryId: z.string().describe('Category ID from the Kuda API'),
-    categoryName: z.string().describe('Display name of the category'),
+  billerId: z.string().describe('Unique identifier for the biller/provider'),
+  billerName: z.string().describe('Display name of the biller'),
+  billerType: z.string().describe('Type/description of the biller'),
+  categoryId: z.string().describe('Category ID from the Kuda API'),
+  categoryName: z.string().describe('Display name of the category'),
+  billerIconUrl: z.string().optional().describe('Icon URL for the biller'),
 });
 
 /**
  * VTU Biller List Response Schema
  */
 export const BillerListSchema = z.object({
-    billers: z.array(BillerSchema),
+  billers: z.array(BillerSchema),
 });
 
 export type Biller = z.infer<typeof BillerSchema>;

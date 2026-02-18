@@ -42,38 +42,55 @@ interface SearchDropdownProps {
   onClose: () => void;
   /** Vertical offset from top of screen to position the dropdown */
   topOffset: number;
+  /** Optional: external search query for dual-control scenarios */
+  query?: string;
+  /** Optional: callback for external query changes */
+  onQueryChange?: (text: string) => void;
+  /** If true, the internal search bar is hidden — usually because Header is handling it */
+  hideInput?: boolean;
 }
 
 export function SearchDropdown({
   isVisible,
   onClose,
   topOffset,
+  query: externalQuery,
+  onQueryChange: onExternalQueryChange,
+  hideInput = false,
 }: SearchDropdownProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme as 'light' | 'dark'];
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
 
-  const [query, setQuery] = useState('');
+  const [internalQuery, setInternalQuery] = useState('');
+
+  // Use external query if provided, otherwise internal
+  const activeQuery = externalQuery !== undefined ? externalQuery : internalQuery;
+  const setQuery = onExternalQueryChange || setInternalQuery;
 
   const { recentSearches, saveSearch, clearHistory } = useSearchStorage();
   const { products, isLoading } = useProducts({
-    search: query.length >= 2 ? query : undefined,
+    search: activeQuery.length >= 2 ? activeQuery : undefined,
     limit: MAX_RESULTS,
   });
   const { data: categories = [] } = useCategories();
 
   useEffect(() => {
-    if (isVisible) {
+    if (isVisible && !hideInput) {
       const timer = setTimeout(() => inputRef.current?.focus(), 150);
       return () => clearTimeout(timer);
     }
-    Keyboard.dismiss();
-    setQuery('');
-  }, [isVisible]);
+    if (!isVisible) {
+      Keyboard.dismiss();
+      if (externalQuery === undefined) {
+        setInternalQuery('');
+      }
+    }
+  }, [isVisible, hideInput, externalQuery]);
 
   const handleProductPress = (product: Product) => {
-    saveSearch(query.trim() || product.name);
+    saveSearch(activeQuery.trim() || product.name);
     onClose();
     router.push(`/product/${product.slug}`);
   };
@@ -81,6 +98,10 @@ export function SearchDropdown({
   const handleSuggestionPress = (term: string) => {
     setQuery(term);
     saveSearch(term);
+    // Focus the input if it's visible
+    if (!hideInput) {
+      inputRef.current?.focus();
+    }
   };
 
   const handleCategoryPress = (slug: string) => {
@@ -89,15 +110,15 @@ export function SearchDropdown({
   };
 
   const handleSubmit = () => {
-    if (query.trim().length >= 2) {
-      saveSearch(query.trim());
+    if (activeQuery.trim().length >= 2) {
+      saveSearch(activeQuery.trim());
       Keyboard.dismiss();
     }
   };
 
   if (!isVisible) return null;
 
-  const hasQuery = query.length >= 2;
+  const hasQuery = activeQuery.length >= 2;
 
   return (
     <View style={[StyleSheet.absoluteFill, styles.root]}>
@@ -121,46 +142,48 @@ export function SearchDropdown({
           SHADOWS.lg,
         ]}
       >
-        {/* Search input row */}
-        <View style={[styles.inputRow, { borderBottomColor: colors.border }]}>
-          <View
-            style={[styles.inputContainer, { backgroundColor: colors.muted }]}
-          >
-            <Ionicons name="search" size={18} color={colors.icon} />
-            <TextInput
-              ref={inputRef}
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search products..."
-              placeholderTextColor={colors.placeholder}
-              style={[styles.input, { color: colors.text }]}
-              returnKeyType="search"
-              onSubmitEditing={handleSubmit}
-              clearButtonMode="while-editing"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {query.length > 0 && (
-              <Pressable
-                onPress={() => setQuery('')}
-                hitSlop={8}
-                accessibilityLabel="Clear search"
-              >
-                <Ionicons name="close-circle" size={18} color={colors.icon} />
-              </Pressable>
-            )}
+        {/* Search input row — hidden if Header is handling it */}
+        {!hideInput && (
+          <View style={[styles.inputRow, { borderBottomColor: colors.border }]}>
+            <View
+              style={[styles.inputContainer, { backgroundColor: colors.muted }]}
+            >
+              <Ionicons name="search" size={18} color={colors.icon} />
+              <TextInput
+                ref={inputRef}
+                value={activeQuery}
+                onChangeText={setQuery}
+                placeholder="Search products..."
+                placeholderTextColor={colors.placeholder}
+                style={[styles.input, { color: colors.text }]}
+                returnKeyType="search"
+                onSubmitEditing={handleSubmit}
+                clearButtonMode="while-editing"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {activeQuery.length > 0 && (
+                <Pressable
+                  onPress={() => setQuery('')}
+                  hitSlop={8}
+                  accessibilityLabel="Clear search"
+                >
+                  <Ionicons name="close-circle" size={18} color={colors.icon} />
+                </Pressable>
+              )}
+            </View>
+            <Pressable
+              onPress={onClose}
+              hitSlop={10}
+              accessibilityLabel="Cancel search"
+              accessibilityRole="button"
+            >
+              <Text style={[styles.cancelText, { color: BRAND.primary }]}>
+                Cancel
+              </Text>
+            </Pressable>
           </View>
-          <Pressable
-            onPress={onClose}
-            hitSlop={10}
-            accessibilityLabel="Cancel search"
-            accessibilityRole="button"
-          >
-            <Text style={[styles.cancelText, { color: BRAND.primary }]}>
-              Cancel
-            </Text>
-          </Pressable>
-        </View>
+        )}
 
         {/* Scrollable content */}
         <ScrollView
@@ -183,12 +206,13 @@ export function SearchDropdown({
             <ResultsContent
               products={products}
               isLoading={isLoading}
-              query={query}
+              query={activeQuery}
               colors={colors}
               onProductPress={handleProductPress}
             />
           )}
         </ScrollView>
+
       </View>
     </View>
   );
@@ -327,7 +351,7 @@ function ResultsContent({
     );
   }
 
-  if (products.length === 0) {
+  if (!products || products.length === 0) {
     return (
       <View style={styles.statusContainer}>
         <Ionicons

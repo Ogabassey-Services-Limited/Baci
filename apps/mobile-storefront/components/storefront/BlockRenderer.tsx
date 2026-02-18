@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { HeroSkeleton, ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SPACING, TYPOGRAPHY } from '@/constants/Colors';
@@ -50,16 +50,16 @@ const ProductGrid = ({
   const { data: categoriesData = [] } = useCategories();
 
   // Map category name to ID for API query
-  const selectedCategoryIdFromFilter = useMemo(() => {
+  const selectedCategoryIdFromFilter = (() => {
     if (selectedCategoryName === 'All') return undefined;
     const cat = (categoriesData as Category[]).find(
       (c) => c.name === selectedCategoryName
     );
     return cat?.id;
-  }, [selectedCategoryName, categoriesData]);
+  })();
 
   // 2026 Best Practice: Normalize category IDs
-  const normalizedCategoryId = useMemo(() => {
+  const normalizedCategoryId = (() => {
     const id = selectedCategoryIdFromFilter; // Priority to internal grid filters
     if (id) return id;
 
@@ -69,7 +69,7 @@ const ProductGrid = ({
     }
 
     return undefined;
-  }, [selectedCategoryIdFromFilter, selectedCategoryId]);
+  })();
 
   const { products, isLoading, isFetching } = useProducts({
     limit: block.props.limit || 12,
@@ -81,7 +81,7 @@ const ProductGrid = ({
   });
 
   // Derive categories and brands from data
-  const categoryNames = useMemo(() => {
+  const categoryNames = (() => {
     if (categoriesData.length > 0) {
       const allCats = (categoriesData as Category[]).map((c) => c.name);
 
@@ -134,13 +134,11 @@ const ProductGrid = ({
       return ['All', ...sorted];
     }
     return ['All', 'Phones', 'Gaming', 'Laptops', 'Accessories', 'Printers'];
-  }, [categoriesData]);
+  })();
 
-  const brands = useMemo(() => {
-    return Array.from(
-      new Set(products.map((p) => p.brand).filter(Boolean) as string[])
-    );
-  }, [products]);
+  const brands = Array.from(
+    new Set(products.map((p) => p.brand).filter(Boolean) as string[])
+  );
 
   const handlePriceChange = (min: number, max: number) => {
     setMinPrice(min);
@@ -218,7 +216,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   const { data: categories = [] } = useCategories();
   const { data: merchant, isLoading: isMerchantLoading } = useMerchant();
 
-  const selectedCategoryName = useMemo(() => {
+  const selectedCategoryName = (() => {
     if (!selectedCategoryId) return 'Airtime';
     // Check remote categories
     const cat = (categories as Category[]).find(
@@ -232,7 +230,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
     if (selectedCategoryId === 'u-power') return 'Power';
     if (selectedCategoryId === 'u-gaming') return 'Gaming';
     return 'Airtime';
-  }, [selectedCategoryId, categories]);
+  })();
 
   return (
     <View>

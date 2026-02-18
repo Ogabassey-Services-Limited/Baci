@@ -10,17 +10,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // Dynamic imports for native modules to prevent evaluation-time crashes
-let Notifications: any = null;
+let Notifications: typeof import('expo-notifications') | null = null;
 try {
   if (Platform.OS !== 'web') {
     Notifications = require('expo-notifications');
   }
-} catch (e) {
+} catch (_e) {
   console.debug('[PushHook] Native module ignored during evaluation');
 }
-import type * as NotificationsType from 'expo-notifications';
+
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   clearBadge,
   getNotificationNavigationParams,
@@ -51,13 +51,13 @@ export function usePushNotifications(): UsePushNotificationsResult {
   const router = useRouter();
 
   // Refs for notification listeners
-  const notificationListener = useRef<any>(null);
-  const responseListener = useRef<any>(null);
+  const notificationListener = useRef<EventSubscription | null>(null);
+  const responseListener = useRef<EventSubscription | null>(null);
 
   /**
    * Register for push notifications
    */
-  const registerPush = useCallback(async () => {
+  async function registerPush() {
     if (!user?.id || !merchant?.id) {
       if (__DEV__) {
         console.log('[Push] Cannot register: missing user or merchant');
@@ -100,12 +100,12 @@ export function usePushNotifications(): UsePushNotificationsResult {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, merchant?.id]);
+  }
 
   /**
    * Unregister push notifications (call on logout)
    */
-  const unregisterPush = useCallback(async () => {
+  async function unregisterPush() {
     try {
       // Get stored token
       const storedToken = await AsyncStorage.getItem(PUSH_TOKEN_STORAGE_KEY);
@@ -123,7 +123,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
     } catch (error) {
       console.error('[Push] Unregister error:', error);
     }
-  }, []);
+  }
 
   /**
    * Set up notification listeners
@@ -133,40 +133,44 @@ export function usePushNotifications(): UsePushNotificationsResult {
 
     // Listener for notifications received while app is foregrounded
     notificationListener.current =
-      Notifications.addNotificationReceivedListener((notification: any) => {
-        if (__DEV__) {
-          console.log(
-            '[Push] Notification received:',
-            notification.request.content.title
-          );
+      Notifications.addNotificationReceivedListener(
+        (notification: Notification) => {
+          if (__DEV__) {
+            console.log(
+              '[Push] Notification received:',
+              notification.request.content.title
+            );
+          }
+          // You can show an in-app toast here if desired
         }
-        // You can show an in-app toast here if desired
-      });
+      );
 
     // Listener for when user taps on a notification
     responseListener.current =
-      Notifications.addNotificationResponseReceivedListener((response: any) => {
-        if (__DEV__) {
-          console.log('[Push] Notification tapped');
-        }
+      Notifications.addNotificationResponseReceivedListener(
+        (response: NotificationResponse) => {
+          if (__DEV__) {
+            console.log('[Push] Notification tapped');
+          }
 
-        // Clear badge on interaction
-        clearBadge();
+          // Clear badge on interaction
+          clearBadge();
 
-        // Navigate to appropriate screen
-        const navParams = getNotificationNavigationParams(response);
-        if (navParams) {
-          // Use router.push for navigation
-          if (navParams.params) {
-            router.push({
-              pathname: `/(admin)/${navParams.screen}` as any,
-              params: navParams.params,
-            });
-          } else {
-            router.push(`/(admin)/${navParams.screen}` as any);
+          // Navigate to appropriate screen
+          const navParams = getNotificationNavigationParams(response);
+          if (navParams) {
+            // Use router.push for navigation
+            if (navParams.params) {
+              router.push({
+                pathname: `/(admin)/${navParams.screen}` as any,
+                params: navParams.params,
+              });
+            } else {
+              router.push(`/(admin)/${navParams.screen}` as any);
+            }
           }
         }
-      });
+      );
 
     // Cleanup listeners on unmount
     return () => {

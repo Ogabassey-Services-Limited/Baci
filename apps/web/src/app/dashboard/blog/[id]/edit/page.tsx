@@ -276,6 +276,7 @@ export default function EditBlogPostPage() {
         });
       }
     }
+    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes undoRecovery
   }, [isLoading, hasSavedData, getSavedData, formData, toast, undoRecovery]);
 
   const handleChange = (field: keyof PostFormData, value: string) => {

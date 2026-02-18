@@ -25,10 +25,10 @@ export const SubscriptionManagement = {
     } catch (error) {
       console.error('Failed to open subscription management:', error);
 
-      // Try fallback URLs
+      // Try fallback: open device settings on iOS, general Play Store on Android
       try {
         if (Platform.OS === 'ios') {
-          await Linking.openURL(iosUrl);
+          await Linking.openSettings();
           return true;
         } else if (Platform.OS === 'android') {
           // Fallback to general Play Store subscriptions page

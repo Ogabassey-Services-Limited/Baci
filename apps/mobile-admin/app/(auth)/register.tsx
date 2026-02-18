@@ -18,10 +18,10 @@ import {
   View,
 } from 'react-native';
 import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme'; // Adjust import path if needed
-import { useOnboarding } from '@/hooks/useOnboarding';
+import { useRegistration } from '@/hooks/useRegistration';
 import {
-  validatePassword,
   type PasswordValidationResult,
+  validatePassword,
 } from '@/lib/password-utils';
 import { getEmailError } from '@/lib/sanitize';
 
@@ -38,24 +38,9 @@ const BUSINESS_TYPES = [
   { id: 'other', label: 'Other' },
 ];
 
-// Construct API URL: Ensure we append the path to the base URL
-interface RegisterResponse {
-  user?: { email_confirmed_at?: string | null };
-}
-
-function isRegisterResponse(data: unknown): data is RegisterResponse {
-  if (typeof data !== 'object' || data === null) return false;
-  const obj = data as Record<string, unknown>;
-  // Valid if no user property, or user is an object with optional email_confirmed_at
-  if ('user' in obj && obj.user !== null && typeof obj.user !== 'object') {
-    return false;
-  }
-  return true;
-}
-
 export default function RegisterScreen() {
   const router = useRouter();
-  const { register, isLoading } = useOnboarding();
+  const { register, isLoading } = useRegistration();
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -130,6 +115,11 @@ export default function RegisterScreen() {
 
   const handleNext = () => {
     if (step === 1) {
+      if (!formData.firstName.trim() || !formData.lastName.trim()) {
+        Alert.alert('Error', 'Please enter your first and last name');
+        return;
+      }
+
       if (!formData.email || !formData.password || !formData.confirmPassword) {
         Alert.alert('Error', 'Please fill in all fields');
         return;
@@ -193,26 +183,12 @@ export default function RegisterScreen() {
         brandPreferences: '',
       },
       {
-        onSuccess: (data: unknown) => {
-          if (!isRegisterResponse(data)) {
-            Alert.alert(
-              'Error',
-              'Unexpected response from server. Please try again.'
-            );
-            return;
-          }
-          const response = data;
-          // Check if verifying
-          if (response.user?.email_confirmed_at) {
-            Alert.alert('Success', 'Account created!', [
-              { text: 'Continue', onPress: () => router.push('/(auth)/login') },
-            ]);
-          } else {
-            router.push({
-              pathname: '/(auth)/verify',
-              params: { email },
-            });
-          }
+        onSuccess: () => {
+          // Navigate to OTP verification screen
+          router.push({
+            pathname: '/(auth)/verify',
+            params: { email },
+          });
         },
         onError: (error: Error) => {
           console.error('Registration error:', error);

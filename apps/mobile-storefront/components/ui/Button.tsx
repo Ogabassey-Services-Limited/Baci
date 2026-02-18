@@ -10,20 +10,20 @@
  * - Haptic feedback on press (iOS)
  */
 
+import * as Haptics from 'expo-haptics';
 import { cssInterop } from 'nativewind';
 import React, { type ReactNode } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
+  type GestureResponderEvent,
   Platform,
   Pressable,
   type PressableProps,
   Text,
-  type GestureResponderEvent,
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 
 type ButtonVariant =
   | 'default'
@@ -72,17 +72,14 @@ export function Button({
   }, [loading, loadingText]);
 
   // 2026 Best Practice: Haptic feedback on press
-  const handlePress = React.useCallback(
-    (event: GestureResponderEvent) => {
-      if (haptic && Platform.OS === 'ios') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
-          // Ignore haptic errors (device may not support)
-        });
-      }
-      onPress?.(event);
-    },
-    [haptic, onPress]
-  );
+  const handlePress = (event: GestureResponderEvent) => {
+    if (haptic && Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+        // Ignore haptic errors (device may not support)
+      });
+    }
+    onPress?.(event);
+  };
   // Base classes
   let containerClasses =
     'flex-row items-center justify-center gap-2 rounded-md active:opacity-90 active:scale-95 disabled:opacity-50';
@@ -136,9 +133,18 @@ export function Button({
     containerClasses += ' w-full';
   }
 
-  // Loading indicator color logic
-  const indicatorColor =
-    variant === 'outline' || variant === 'ghost' ? 'black' : 'white'; // Simplification
+  // Loading indicator color — derived from variant text color for theme safety.
+  // Avoids hardcoded black/white which becomes invisible on some merchant themes.
+  const variantTextColors: Record<ButtonVariant, string> = {
+    default: '#FFFFFF', // primary-foreground (white on brand bg)
+    secondary: '#000000', // secondary-foreground (dark on amber bg)
+    outline: '#374151', // gray-700 — visible on transparent/border backgrounds
+    ghost: '#374151', // gray-700 — same reasoning as outline
+    destructive: '#FFFFFF', // destructive-foreground (white on red bg)
+  };
+  const indicatorColor = textStyle?.color
+    ? String(textStyle.color)
+    : variantTextColors[variant];
 
   return (
     <Pressable

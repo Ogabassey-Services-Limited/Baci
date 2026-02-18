@@ -72,6 +72,7 @@ export function getEnabledPaymentMethods(
   const methods: PaymentMethodType[] = [];
 
   if (settings.paystack_enabled) methods.push('paystack');
+  if (settings.korapay_enabled) methods.push('korapay');
   if (settings.juicyway_enabled) methods.push('juicyway');
   if (settings.pay_on_delivery_enabled) methods.push('pay_on_delivery');
   if (settings.credpal_enabled) methods.push('credpal');

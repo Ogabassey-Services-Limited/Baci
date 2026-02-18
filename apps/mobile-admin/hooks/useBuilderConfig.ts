@@ -5,7 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 // Web API base URL - uses the same Supabase project
@@ -106,11 +106,13 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       }
 
       const data = await response.json();
-      setCurrentConfig(data.config);
       return data;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
+
+  // Derive effective config: local override (from AI mutation) or query cache
+  const effectiveConfig = currentConfig ?? configData?.config ?? null;
 
   // Update config with AI (Gemini)
   const aiMutation = useMutation({
@@ -120,7 +122,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         throw new Error('Not authenticated');
       }
 
-      if (!currentConfig) {
+      if (!effectiveConfig) {
         throw new Error('No configuration loaded');
       }
 
@@ -141,7 +143,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         },
         body: JSON.stringify({
           prompt,
-          currentConfig,
+          currentConfig: effectiveConfig,
         }),
       });
 
@@ -189,7 +191,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         throw new Error('Not authenticated');
       }
 
-      if (!currentConfig) {
+      if (!effectiveConfig) {
         throw new Error('No configuration to save');
       }
 
@@ -201,7 +203,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         },
         body: JSON.stringify({
           slug: pageSlug,
-          config: currentConfig,
+          config: effectiveConfig,
           name: 'Home',
         }),
       });
@@ -212,6 +214,8 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       }
     },
     onSuccess: () => {
+      // Clear local override so query cache becomes source of truth again
+      setCurrentConfig(null);
       queryClient.invalidateQueries({ queryKey: ['builderConfig', pageSlug] });
     },
   });
@@ -249,21 +253,18 @@ export function useBuilderConfig(pageSlug: string = 'home') {
   });
 
   // Send a message to the AI
-  const sendMessage = useCallback(
-    async (prompt: string) => {
-      return aiMutation.mutateAsync(prompt);
-    },
-    [aiMutation]
-  );
+  async function sendMessage(prompt: string) {
+    return aiMutation.mutateAsync(prompt);
+  }
 
   // Clear chat history
-  const clearChat = useCallback(() => {
+  function clearChat() {
     setMessages([]);
-  }, []);
+  }
 
   return {
     // Config state
-    config: currentConfig,
+    config: effectiveConfig,
     configData,
     isLoadingConfig,
     configError,
@@ -290,7 +291,7 @@ export function useBuilderConfig(pageSlug: string = 'home') {
     // Convenience
     hasUnsavedChanges:
       !!currentConfig &&
-      JSON.stringify(currentConfig) !== JSON.stringify(configData?.config),
+      JSON.stringify(effectiveConfig) !== JSON.stringify(configData?.config),
     isPublished: configData?.isPublished ?? false,
   };
 }

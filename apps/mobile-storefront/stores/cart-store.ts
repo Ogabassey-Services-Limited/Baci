@@ -51,6 +51,8 @@ interface CartState {
   applyNegotiatedPrice: (id: string, negotiatedPrice: number) => void;
   applyCartWideNegotiation: (newTotal: number) => void;
   clearNegotiatedPrice: (id: string) => void;
+  // Restore actions (for rollback without generating new IDs)
+  restoreItems: (items: CartItem[]) => void;
   // Device assurance actions
   toggleAssurance: (id: string) => void;
 }
@@ -90,11 +92,14 @@ export const useCartStore = create<CartState>()(
       // Add item to cart
       addItem: (item) => {
         set((state) => {
-          // Check if item already exists (same product + variant)
+          // Check if item already exists (same product + variant + options)
           const existingIndex = state.items.findIndex(
             (i) =>
               i.product_id === item.product_id &&
-              i.variant_id === item.variant_id
+              i.variant_id === item.variant_id &&
+              (i.color ?? null) === (item.color ?? null) &&
+              (i.storage ?? null) === (item.storage ?? null) &&
+              (i.condition ?? null) === (item.condition ?? null)
           );
 
           if (existingIndex >= 0) {
@@ -117,7 +122,7 @@ export const useCartStore = create<CartState>()(
           // Add new item
           const newItem: CartItem = {
             ...item,
-            id: `${item.product_id}-${item.variant_id || 'default'}-${Date.now()}`,
+            id: `${item.product_id}::${item.variant_id || 'default'}::${Date.now()}`,
           };
 
           return { items: [...state.items, newItem] };
@@ -219,7 +224,14 @@ export const useCartStore = create<CartState>()(
         }));
       },
 
+      // Restore items directly (for rollback without generating new IDs)
+      restoreItems: (items) => {
+        set({ items });
+      },
+
       // Toggle device assurance for item
+      // Only stores a boolean flag; the actual fee is computed at checkout
+      // using the item's current effective price (negotiatedPrice ?? price).
       toggleAssurance: (id) => {
         set((state) => ({
           items: state.items.map((item) =>
@@ -227,7 +239,6 @@ export const useCartStore = create<CartState>()(
               ? {
                   ...item,
                   hasAssurance: !item.hasAssurance,
-                  assuranceRate: 0.05, // 5% assurance rate
                 }
               : item
           ),

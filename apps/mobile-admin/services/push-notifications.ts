@@ -11,11 +11,12 @@
  */
 
 import Constants from 'expo-constants';
+import type * as DeviceType from 'expo-device';
 import type * as NotificationsType from 'expo-notifications';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-let Device: any = null;
-let Notifications: any = null;
+let Device: typeof DeviceType | null = null;
+let Notifications: typeof NotificationsType | null = null;
 
 const loadNativeModules = async () => {
   if (Platform.OS === 'web') return;
@@ -49,22 +50,7 @@ loadNativeModules();
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
-// Configure notification behavior for foreground notifications
-if (Notifications) {
-  try {
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      }),
-    });
-  } catch {
-    console.debug('[Push] setNotificationHandler failed or deferred');
-  }
-}
+// Note: Notification handler is configured inside loadNativeModules() above
 
 export interface PushNotificationState {
   token: string | null;
@@ -149,6 +135,8 @@ export async function registerForPushNotifications(): Promise<string | null> {
  * Different channels allow users to customize notification behavior per type
  */
 async function setupAndroidChannels(): Promise<void> {
+  if (!Notifications) return;
+
   // Orders channel - HIGH priority for new order alerts
   await Notifications.setNotificationChannelAsync('orders', {
     name: 'New Orders',
@@ -210,7 +198,7 @@ export async function savePushTokenToServer(
         merchant_id: merchantId,
         token: token,
         platform: Platform.OS,
-        device_name: Device.modelName || 'Unknown Device',
+        device_name: Device?.modelName || 'Unknown Device',
         app_type: 'admin',
         is_active: true,
         last_used_at: new Date().toISOString(),
@@ -313,6 +301,9 @@ export async function scheduleLocalNotification(
   data?: Record<string, unknown>,
   triggerSeconds: number = 1
 ): Promise<string> {
+  if (!Notifications) await loadNativeModules();
+  if (!Notifications) throw new Error('Notifications module not available');
+
   const id = await Notifications.scheduleNotificationAsync({
     content: {
       title,
@@ -335,6 +326,8 @@ export async function scheduleLocalNotification(
  * Get the current badge count
  */
 export async function getBadgeCount(): Promise<number> {
+  if (!Notifications) await loadNativeModules();
+  if (!Notifications) return 0;
   return await Notifications.getBadgeCountAsync();
 }
 
@@ -342,6 +335,8 @@ export async function getBadgeCount(): Promise<number> {
  * Set the badge count
  */
 export async function setBadgeCount(count: number): Promise<void> {
+  if (!Notifications) await loadNativeModules();
+  if (!Notifications) return;
   await Notifications.setBadgeCountAsync(count);
 }
 
@@ -349,6 +344,8 @@ export async function setBadgeCount(count: number): Promise<void> {
  * Clear the badge
  */
 export async function clearBadge(): Promise<void> {
+  if (!Notifications) await loadNativeModules();
+  if (!Notifications) return;
   await Notifications.setBadgeCountAsync(0);
 }
 
@@ -356,5 +353,7 @@ export async function clearBadge(): Promise<void> {
  * Cancel all pending notifications
  */
 export async function cancelAllNotifications(): Promise<void> {
+  if (!Notifications) await loadNativeModules();
+  if (!Notifications) return;
   await Notifications.cancelAllScheduledNotificationsAsync();
 }

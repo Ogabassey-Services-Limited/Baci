@@ -57,6 +57,10 @@ export default function AdminLayout() {
           options={{ title: 'Order Details', presentation: 'card' }}
         />
         <Stack.Screen
+          name="order/new"
+          options={{ title: 'New Order', presentation: 'card' }}
+        />
+        <Stack.Screen
           name="product/[id]"
           options={{ title: 'Edit Product', presentation: 'card' }}
         />
@@ -83,12 +87,6 @@ export default function AdminLayout() {
         />
         <Stack.Screen name="customize" options={{ title: 'Customize Store' }} />
 
-        {/* Wait, discounts is a folder AND a file?  
-            Checking file list: 
-            {"name":"discounts", "isDir":true} 
-            {"name":"discounts.tsx", "sizeBytes":"8860"}
-            This usually means discounts.tsx is the list and discounts/ is details, or vice versa.
-        */}
         <Stack.Screen name="help" options={{ title: 'Help & Support' }} />
         <Stack.Screen name="kyc" options={{ title: 'Identity Verification' }} />
         <Stack.Screen
@@ -127,6 +125,16 @@ export default function AdminLayout() {
           options={{ title: 'Store Settings' }}
         />
         <Stack.Screen name="tax" options={{ title: 'Tax Settings' }} />
+        <Stack.Screen
+          name="analytics-config"
+          options={{ title: 'Analytics & Tracking' }}
+        />
+        <Stack.Screen
+          name="sales-channels"
+          options={{ title: 'Sales Channels' }}
+        />
+        <Stack.Screen name="social-media" options={{ title: 'Social Media' }} />
+        <Stack.Screen name="subscribe" options={{ title: 'Subscribe' }} />
       </Stack>
     </ErrorBoundary>
   );

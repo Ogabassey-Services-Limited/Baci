@@ -84,6 +84,7 @@ export interface Product {
   detailedSpecs?: { category: string; items: { label: string; value: string }[] }[];
   reviews?: number;
   stock?: number;
+  manage_stock?: boolean;
   videoUrl?: string; // YouTube URL for unboxing/review
   // Technical specs from API (optional but typed)
   product_key_specs?: ProductKeySpecs;
@@ -94,6 +95,8 @@ export interface Product {
   // Phase 4: Product Variants (Storage/Color/etc)
   variants?: ProductVariant[];
   variant_attributes?: Record<string, string[]>;
+  /** Ordered list of variant dimension keys to render as selectors (e.g. ['storage', 'ram']) */
+  attributeAxes?: string[];
 }
 
 export interface ProductVariant {

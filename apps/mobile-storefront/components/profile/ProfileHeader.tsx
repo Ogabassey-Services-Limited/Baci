@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -39,14 +39,17 @@ function getTierInfo(tier?: string) {
 }
 
 export function ProfileHeader({ customer, loyaltyPoints }: ProfileHeaderProps) {
-  const tier = getTierInfo(customer.loyalty_tier);
+  const tier = getTierInfo();
   const initials =
     customer.first_name?.[0]?.toUpperCase() ||
     customer.email?.[0]?.toUpperCase() ||
     'U';
+  const emailLocalPart = customer.email?.split('@')[0] ?? '';
   const displayName = customer.first_name
     ? `${customer.first_name} ${customer.last_name || ''}`.trim()
-    : 'Store Member';
+    : emailLocalPart
+      ? emailLocalPart.charAt(0).toUpperCase() + emailLocalPart.slice(1)
+      : 'Store Member';
 
   return (
     <Animated.View entering={FadeIn.duration(500)} style={styles.container}>
@@ -80,13 +83,9 @@ export function ProfileHeader({ customer, loyaltyPoints }: ProfileHeaderProps) {
         entering={FadeInDown.delay(150).duration(500)}
         style={styles.row}
       >
-        {customer.avatar_url ? (
-          <Image source={{ uri: customer.avatar_url }} style={styles.avatar} />
-        ) : (
-          <View style={styles.avatarFallback}>
-            <Text style={styles.initials}>{initials}</Text>
-          </View>
-        )}
+        <View style={styles.avatarFallback}>
+          <Text style={styles.initials}>{initials}</Text>
+        </View>
 
         <View style={styles.info}>
           <Text style={styles.name} numberOfLines={1}>

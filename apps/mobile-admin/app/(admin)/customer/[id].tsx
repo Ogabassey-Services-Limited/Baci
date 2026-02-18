@@ -13,7 +13,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCustomer, useDeleteCustomer } from '@/hooks/useCustomers';
+import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
+
+// Helper to get currency symbol from merchant's payout_currency
+const getCurrencySymbol = (currencyCode: string | null | undefined) => {
+  const symbols: Record<string, string> = {
+    NGN: '\u20A6',
+    USD: '$',
+    GBP: '\u00A3',
+    EUR: '\u20AC',
+  };
+  return symbols[currencyCode || 'NGN'] || '\u20A6';
+};
 
 interface OrderSummary {
   id: string;
@@ -26,6 +38,8 @@ interface OrderSummary {
 export default function CustomerDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors, shadows } = useTheme();
+  const { merchant } = useMerchant();
+  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
   const router = useRouter();
 
   const { data: customer, isLoading, error } = useCustomer(id || '');
@@ -70,7 +84,7 @@ export default function CustomerDetailsScreen() {
   };
 
   const formatCurrency = (amount: number) => {
-    return `₦${amount.toLocaleString()}`;
+    return `${currencySymbol}${amount.toLocaleString()}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -82,6 +96,20 @@ export default function CustomerDetailsScreen() {
   };
 
   const deleteCustomer = useDeleteCustomer();
+
+  if (!id) {
+    return (
+      <View
+        style={[
+          styles.loadingContainer,
+          { backgroundColor: colors.background },
+        ]}
+      >
+        <Stack.Screen options={{ title: 'Error', headerBackTitle: 'Back' }} />
+        <Text style={{ color: colors.text }}>Invalid customer ID</Text>
+      </View>
+    );
+  }
 
   const handleDelete = () => {
     const displayName = getDisplayName();
@@ -96,7 +124,7 @@ export default function CustomerDetailsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const result = await deleteCustomer.mutateAsync(id || '');
+              const result = await deleteCustomer.mutateAsync(id);
               Alert.alert(
                 'Customer Deleted',
                 result.hadOrders
@@ -105,9 +133,7 @@ export default function CustomerDetailsScreen() {
                 [
                   {
                     text: 'OK',
-                    onPress: () =>
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      router.replace('/(tabs)/customers' as any),
+                    onPress: () => router.replace('/(admin)/(tabs)/customers'),
                   },
                 ]
               );

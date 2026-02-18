@@ -11,7 +11,7 @@
 
 import NetInfo from '@react-native-community/netinfo';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useRef } from 'react';
+import { useRef } from 'react';
 import { Alert, Platform, ToastAndroid } from 'react-native';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
@@ -91,7 +91,7 @@ async function checkStock(
 
   const { data, error } = await supabase
     .from('products')
-    .select('stock_quantity')
+    .select('stock_quantity, manage_stock')
     .eq('id', productId)
     .single();
 
@@ -109,7 +109,16 @@ async function checkStock(
     };
   }
 
-  const currentStock = data?.stock_quantity ?? 0; // Default to 0 if no stock data
+  // If stock management is disabled, treat as unlimited
+  if (!data?.manage_stock) {
+    return {
+      available: true,
+      currentStock: Number.MAX_SAFE_INTEGER,
+      requestedQuantity,
+    };
+  }
+
+  const currentStock = data?.stock_quantity ?? 0;
   return {
     available: currentStock >= requestedQuantity,
     currentStock,
@@ -135,6 +144,19 @@ export function useCart() {
   // Track pending operations for rollback
   const pendingRollbacks = useRef<Map<string, () => void>>(new Map());
 
+  /** L11 fix: Evict oldest rollback entries to prevent memory leak under rapid mutation spam */
+  function trackRollback(id: string, fn: () => void) {
+    const map = pendingRollbacks.current;
+    // Keep at most 50 pending rollbacks
+    if (map.size >= 50) {
+      const oldestKey = map.keys().next().value;
+      if (oldestKey !== undefined) {
+        map.delete(oldestKey);
+      }
+    }
+    map.set(id, fn);
+  }
+
   /** Look up last-known stock_quantity from TanStack Query product cache */
   function getCachedStock(productId: string): number | undefined {
     const queries = queryClient.getQueriesData<{ stock_quantity?: number }[]>({
@@ -142,14 +164,17 @@ export function useCart() {
     });
     for (const [, data] of queries) {
       if (!Array.isArray(data)) continue;
-      const product = data.find(
-        (p) =>
+      for (const p of data) {
+        if (
           p &&
           typeof p === 'object' &&
           'id' in p &&
-          (p as { id: string }).id === productId
-      );
-      if (product?.stock_quantity != null) return product.stock_quantity;
+          (p as { id: string }).id === productId &&
+          p.stock_quantity != null
+        ) {
+          return p.stock_quantity;
+        }
+      }
     }
     return undefined;
   }
@@ -184,14 +209,14 @@ export function useCart() {
       // Generate a temporary ID for potential rollback
       const rollbackId = `${item.product_id}-${item.variant_id || 'default'}-${Date.now()}`;
 
-      // Capture current state for rollback
-      const previousItems = [...items];
+      // Capture current state for rollback (read fresh from store to avoid stale closure)
+      const previousItems = [...useCartStore.getState().items];
 
       // Optimistically add to cart (instant UI update)
       addItemToStore(item);
 
-      // Store rollback function
-      pendingRollbacks.current.set(rollbackId, () => {
+      // Store rollback function (L11 fix: uses trackRollback to enforce size limit)
+      trackRollback(rollbackId, () => {
         // Restore previous state
         useCartStore.setState({ items: previousItems });
       });
@@ -239,8 +264,10 @@ export function useCart() {
     },
 
     onMutate: async (id) => {
-      const previousItems = [...items];
-      const removedItem = items.find((i) => i.id === id);
+      // Read fresh from store to avoid stale closure
+      const freshItems = useCartStore.getState().items;
+      const previousItems = [...freshItems];
+      const removedItem = freshItems.find((i) => i.id === id);
 
       // Optimistically remove from cart
       removeItemFromStore(id);
@@ -261,7 +288,9 @@ export function useCart() {
    */
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ id, quantity }: { id: string; quantity: number }) => {
-      const item = items.find((i) => i.id === id);
+      // H21 fix: Read fresh items from store instead of stale closure variable
+      const freshItems = useCartStore.getState().items;
+      const item = freshItems.find((i) => i.id === id);
       if (!item) throw new Error('Item not found');
 
       // Validate stock for the new quantity, with cached fallback for offline
@@ -281,7 +310,8 @@ export function useCart() {
     },
 
     onMutate: async ({ id, quantity }) => {
-      const previousItems = [...items];
+      // Read fresh from store to avoid stale closure
+      const previousItems = [...useCartStore.getState().items];
 
       // Optimistically update quantity
       updateQuantityInStore(id, quantity);
@@ -297,8 +327,9 @@ export function useCart() {
     },
 
     onSuccess: (data) => {
-      // Invalidate specific product query to refresh stock data
-      const item = items.find((i) => i.id === data.id);
+      // Bug #96 fix: Read fresh items from store instead of stale closure
+      const freshItems = useCartStore.getState().items;
+      const item = freshItems.find((i) => i.id === data.id);
       if (item) {
         queryClient.invalidateQueries({
           queryKey: ['product', item.product_id],
@@ -308,26 +339,17 @@ export function useCart() {
   });
 
   // Wrapped functions for easier consumption
-  const addToCart = useCallback(
-    (item: AddToCartInput) => {
-      addToCartMutation.mutate(item);
-    },
-    [addToCartMutation]
-  );
+  const addToCart = (item: AddToCartInput) => {
+    addToCartMutation.mutate(item);
+  };
 
-  const removeFromCart = useCallback(
-    (id: string) => {
-      removeFromCartMutation.mutate(id);
-    },
-    [removeFromCartMutation]
-  );
+  const removeFromCart = (id: string) => {
+    removeFromCartMutation.mutate(id);
+  };
 
-  const updateQuantity = useCallback(
-    (id: string, quantity: number) => {
-      updateQuantityMutation.mutate({ id, quantity });
-    },
-    [updateQuantityMutation]
-  );
+  const updateQuantity = (id: string, quantity: number) => {
+    updateQuantityMutation.mutate({ id, quantity });
+  };
 
   return {
     // State
@@ -353,9 +375,11 @@ export function useCart() {
 
 /**
  * Hook for just getting cart count (optimized for tab bar badge)
+ * M18 fix: Compute count directly in selector to avoid calling a function
+ * inside the selector (which creates a new value every time and causes re-renders).
  */
 export function useCartCount() {
-  return useCartStore((state) => state.itemCount());
+  return useCartStore((state) => state.items.length);
 }
 
 /**

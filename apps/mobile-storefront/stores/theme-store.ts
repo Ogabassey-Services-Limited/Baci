@@ -25,13 +25,24 @@ export const useThemeStore = create<ThemeState>()(
     {
       name: 'app-theme-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      onRehydrateStorage: (_state) => {
+      // M26 fix: Handle edge cases in rehydration callback.
+      // The callback fires after AsyncStorage has loaded and state has been merged.
+      // Use queueMicrotask to ensure the store is fully ready before reading/writing.
+      onRehydrateStorage: () => {
         return (rehydratedState, error) => {
-          if (error || !rehydratedState) return;
+          if (error) {
+            // Rehydration failed — fall back to the default (season-based) theme.
+            // The initial state already handles this, so no action needed.
+            return;
+          }
+          if (!rehydratedState) return;
 
-          // 2026 Standard: Force reset seasonal theme if out of season
+          // 2026 Standard: Force reset seasonal theme if out of season.
+          // Defer setState to avoid writing during the rehydration cycle.
           if (rehydratedState.theme === 'santa' && !SEASONAL.isDecember()) {
-            rehydratedState.setTheme('standard');
+            queueMicrotask(() => {
+              useThemeStore.setState({ theme: 'standard' });
+            });
           }
         };
       },

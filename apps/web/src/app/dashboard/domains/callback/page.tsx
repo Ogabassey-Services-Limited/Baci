@@ -89,7 +89,7 @@ function DomainPaymentCallbackContent() {
 
   useEffect(() => {
     completePurchase();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes completePurchase
   }, [completePurchase]);
 
   return (

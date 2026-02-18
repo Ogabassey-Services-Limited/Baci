@@ -4,7 +4,8 @@ import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createServiceClient } from '@/lib/supabase/service';
 
-const OGABASSEY_MERCHANT_ID = '063f1367-a2f2-4ec3-a626-d183050c99a0';
+// Ogabassey merchant ID — single source of truth across all chat endpoints
+const OGABASSEY_MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
 
 /**
  * Common handler for product lookup
@@ -145,14 +146,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  if (!productName) {
+  if (!productName || typeof productName !== 'string') {
     return NextResponse.json(
       { error: 'Product name is required' },
       { status: 400 }
     );
   }
 
-  return handleProductLookup(productName);
+  if (productName.length > 200) {
+    return NextResponse.json(
+      { error: 'Product name too long' },
+      { status: 400 }
+    );
+  }
+
+  return handleProductLookup(productName.trim());
 }
 
 /**

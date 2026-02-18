@@ -141,7 +141,8 @@ export function VariantSelector({
       normalizedStorage.push({
         value: s,
         priceModifier: variant?.price_modifier,
-        priceOverride: variant?.price_override,
+        priceOverride:
+          variant?.price_override != null ? variant.price_override : undefined,
         stock: variant?.stock_quantity,
       });
     }
@@ -232,18 +233,19 @@ export function VariantSelector({
             {normalizedStorage.map((option) => {
               const isSelected = selectedStorage === option.value;
               const hasModifier =
-                option.priceModifier !== undefined ||
-                option.priceOverride !== undefined;
-              const displayPrice = option.priceOverride
-                ? option.priceOverride
-                : option.priceModifier
-                  ? basePrice + option.priceModifier
-                  : null;
+                option.priceModifier != null || option.priceOverride != null;
+              const displayPrice =
+                option.priceOverride != null
+                  ? option.priceOverride
+                  : option.priceModifier != null
+                    ? basePrice + option.priceModifier
+                    : null;
+              const isOutOfStock =
+                option.stock !== undefined && option.stock === 0;
               const isLowStock =
                 option.stock !== undefined &&
                 option.stock > 0 &&
                 option.stock <= 5;
-              const isOutOfStock = option.stock === 0;
 
               return (
                 <Pressable
@@ -263,7 +265,7 @@ export function VariantSelector({
                     },
                   ]}
                   accessibilityRole="radio"
-                  accessibilityLabel={`${option.value}${displayPrice ? `, ${formatPrice(displayPrice)}` : ''}${isOutOfStock ? ', out of stock' : isLowStock ? `, ${option.stock} left` : ''}`}
+                  accessibilityLabel={`${option.value}${displayPrice != null ? `, ${formatPrice(displayPrice)}` : ''}${isOutOfStock ? ', out of stock' : isLowStock ? `, ${option.stock} left` : ''}`}
                   accessibilityState={{
                     checked: isSelected,
                     disabled: isOutOfStock,
@@ -279,7 +281,7 @@ export function VariantSelector({
                   >
                     {option.value}
                   </Text>
-                  {hasModifier && displayPrice && (
+                  {hasModifier && displayPrice != null && (
                     <Text
                       style={[
                         styles.storagePrice,

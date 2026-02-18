@@ -65,7 +65,7 @@ import {
   trackError,
   trackOrderCompleted,
 } from '@/services/analytics';
-import { createOrder, OrderError } from '@/services/orders';
+import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { type Customer, useAuthStore } from '@/stores/auth-store';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
@@ -101,6 +101,15 @@ interface QuoteResponse {
 interface ShippingLocation {
   state: string;
   city: string;
+}
+
+interface PendingCryptoOrder {
+  order: OrderResponse['order'];
+  orderResponse: OrderResponse;
+  customerEmail: string;
+  customerName: string;
+  customerPhone: string;
+  trackingToken?: string;
 }
 
 const API_BASE_URL =
@@ -289,6 +298,7 @@ type FetchQuotesArgs = {
   setIsLoadingQuotes: (value: boolean) => void;
   setSelectedQuoteId: (value: string) => void;
   setShippingQuotes: (value: ShippingQuote[]) => void;
+  signal?: AbortSignal;
 };
 
 const fetchShippingQuotes = async ({
@@ -305,6 +315,7 @@ const fetchShippingQuotes = async ({
   setIsLoadingQuotes,
   setSelectedQuoteId,
   setShippingQuotes,
+  signal,
 }: FetchQuotesArgs) => {
   if (!state || !city || items.length === 0) return;
 
@@ -331,10 +342,14 @@ const fetchShippingQuotes = async ({
           name: item.name,
           quantity: item.quantity,
           weight: 1,
-          value: item.negotiatedPrice || item.price,
+          value: item.negotiatedPrice ?? item.price,
         })),
       }),
+      signal,
     });
+
+    // If aborted between fetch and processing, bail out silently
+    if (signal?.aborted) return;
 
     if (res.ok) {
       const data: QuoteResponse & { warnings?: string[] } = await res.json();
@@ -351,9 +366,14 @@ const fetchShippingQuotes = async ({
       setShippingQuotes([]);
     }
   } catch (_error) {
+    // Don't update state if the request was aborted (superseded by a newer request)
+    if (signal?.aborted) return;
     setShippingQuotes([]);
   } finally {
-    setIsLoadingQuotes(false);
+    // Don't clear loading state if aborted — the newer request owns loading state
+    if (!signal?.aborted) {
+      setIsLoadingQuotes(false);
+    }
   }
 };
 
@@ -412,8 +432,8 @@ export default function CheckoutScreen() {
   } | null>(null);
 
   // Partial order state for multi-step crypto flow
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [pendingOrder, setPendingOrder] = React.useState<any>(null);
+  const [pendingOrder, setPendingOrder] =
+    React.useState<PendingCryptoOrder | null>(null);
 
   const [copiedCryptoField, setCopiedCryptoField] = React.useState<
     string | null
@@ -426,6 +446,7 @@ export default function CheckoutScreen() {
     watch,
     getValues,
     setValue,
+    reset,
   } = useForm<ShippingAddressInput>({
     // Cast to any for Zod 4 compatibility with @hookform/resolvers
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -457,6 +478,18 @@ export default function CheckoutScreen() {
   // against the Topship cities list once they load.
   // null = no pending suggestion, '' = state=city edge case (open picker)
   const googleSuggestedCityRef = useRef<string | null>(null);
+  // AbortController for shipping quote requests — prevents race conditions
+  // when multiple requests fire (e.g. rapid city/state changes)
+  const shippingQuoteAbortRef = useRef<AbortController | null>(null);
+  // Timer ref for crypto copy feedback — prevents setState after unmount
+  const cryptoCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup crypto copy timer on unmount
+  useEffect(() => {
+    return () => {
+      if (cryptoCopyTimerRef.current) clearTimeout(cryptoCopyTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {
@@ -486,6 +519,24 @@ export default function CheckoutScreen() {
       );
     }
   }, [step, customer, isInitialized]);
+
+  // Mid-checkout login: sync customer data into form, preserving fields the user already edited
+  useEffect(() => {
+    if (!customer) return;
+    reset(
+      {
+        email: customer.email || '',
+        firstName: customer.first_name || '',
+        lastName: customer.last_name || '',
+        phone: customer.phone || '',
+        address: getValues('address'),
+        city: getValues('city'),
+        state: getValues('state'),
+        notes: getValues('notes'),
+      },
+      { keepDirtyValues: true }
+    );
+  }, [customer, reset, getValues]);
 
   // Reset payment method if current selection is not in enabled list
   useEffect(() => {
@@ -571,6 +622,7 @@ export default function CheckoutScreen() {
       setIsLoadingCities(false);
       return;
     }
+    const controller = new AbortController();
     setShippingCities([]);
     setIsLoadingCities(true);
     const fetchCities = async () => {
@@ -578,8 +630,10 @@ export default function CheckoutScreen() {
         const res = await fetch(
           `${API_BASE_URL}/api/shipping/locations?state=${encodeURIComponent(
             watchedState
-          )}`
+          )}`,
+          { signal: controller.signal }
         );
+        if (controller.signal.aborted) return;
         if (res.ok) {
           const data = await res.json();
           const normalizedState = watchedState.trim().toLowerCase();
@@ -600,12 +654,17 @@ export default function CheckoutScreen() {
           setShippingCities([]);
         }
       } catch (_error) {
-        setShippingCities([]);
+        if (!controller.signal.aborted) {
+          setShippingCities([]);
+        }
       } finally {
-        setIsLoadingCities(false);
+        if (!controller.signal.aborted) {
+          setIsLoadingCities(false);
+        }
       }
     };
     fetchCities();
+    return () => controller.abort();
   }, [watchedState]);
 
   // Sentinel: when Topship cities finish loading, match the Google-suggested city
@@ -640,7 +699,15 @@ export default function CheckoutScreen() {
   }, [shippingCities, isLoadingCities, setValue]);
 
   useEffect(() => {
+    // Abort any in-flight shipping quote request before starting a new one
+    if (shippingQuoteAbortRef.current) {
+      shippingQuoteAbortRef.current.abort();
+    }
+
     if (watchedState && watchedCity) {
+      const controller = new AbortController();
+      shippingQuoteAbortRef.current = controller;
+
       fetchShippingQuotes({
         apiUrl: API_BASE_URL,
         state: watchedState,
@@ -655,21 +722,31 @@ export default function CheckoutScreen() {
         setIsLoadingQuotes,
         setSelectedQuoteId,
         setShippingQuotes,
+        signal: controller.signal,
       });
     } else {
+      shippingQuoteAbortRef.current = null;
       setShippingQuotes([]);
       setSelectedQuoteId('');
     }
+
+    return () => {
+      // Cleanup: abort on unmount or before next effect run
+      if (shippingQuoteAbortRef.current) {
+        shippingQuoteAbortRef.current.abort();
+      }
+    };
+    // Only refetch when location or items change — receiver details don't affect quote pricing
   }, [
     watchedState,
     watchedCity,
     items,
     customer,
+    watchedAddress,
+    watchedEmail,
     watchedFirstName,
     watchedLastName,
     watchedPhone,
-    watchedAddress,
-    watchedEmail,
   ]);
 
   const selectedQuote = shippingQuotes.find(
@@ -682,7 +759,11 @@ export default function CheckoutScreen() {
     if (item.hasAssurance) {
       return (
         sum +
-        Math.round(item.price * item.quantity * (item.assuranceRate ?? 0.05))
+        Math.round(
+          (item.negotiatedPrice ?? item.price) *
+            item.quantity *
+            (item.assuranceRate ?? 0.05)
+        )
       );
     }
     return sum;
@@ -706,7 +787,9 @@ export default function CheckoutScreen() {
     fetchTotals();
   }, [subtotal, deliveryFee, paymentSettings, assuranceFee]);
 
-  const total = orderTotals?.total || subtotal + deliveryFee + assuranceFee;
+  const taxAmount = orderTotals?.taxAmount ?? 0;
+  const total =
+    orderTotals?.total ?? subtotal + deliveryFee + assuranceFee + taxAmount;
   // Show subtotal + delivery + assurance (no VAT) in steps 1 & 2; full total (with VAT) in Review
   const displayTotal =
     step === 'review' ? total : subtotal + deliveryFee + assuranceFee;
@@ -746,6 +829,21 @@ export default function CheckoutScreen() {
 
   const handleCryptoConfirm = async (chain: string, currency: string) => {
     if (!pendingOrder) return;
+
+    // Re-validate that the crypto payment amount still matches the current
+    // order total before initiating payment (Bug #25 fix)
+    const { orderResponse: pendingResponse } = pendingOrder;
+    if (pendingResponse.amountDueToGateway !== total) {
+      Alert.alert(
+        'Amount Changed',
+        'Your order total has changed since the order was created. Please go back and try again.',
+        [{ text: 'OK' }]
+      );
+      setPendingOrder(null);
+      setShowCryptoSelection(false);
+      return;
+    }
+
     setIsProcessing(true);
     // Keep CryptoSelectionModal open (with spinner) while API loads
 
@@ -763,7 +861,10 @@ export default function CheckoutScreen() {
         `${API_BASE_URL}/api/payments/initialize`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': `crypto-init-${order.id}-${chain}-${currency}`,
+          },
           body: JSON.stringify({
             merchant_id: MERCHANT_ID,
             order_id: order.id,
@@ -796,12 +897,8 @@ export default function CheckoutScreen() {
       }
 
       setIsProcessing(false);
-      setShowCryptoSelection(false); // Close selection modal, crypto payment modal opens next
-      isOrderInFlight.current = false; // Reset flight status
-
-      // BUG-1-005 Fix: Clear cart after successful crypto order creation
-      // Cart should be cleared once order is created, not when user confirms payment
-      clearCart();
+      setShowCryptoSelection(false);
+      isOrderInFlight.current = false;
 
       const cp = initData.crypto_payment;
       setCryptoPayment({
@@ -833,8 +930,12 @@ export default function CheckoutScreen() {
 
   // 2026 Fix: Renamed to onCheckoutSubmit to work with handleSubmit
   const onCheckoutSubmit = async (address: ShippingAddressInput) => {
+    // Capture a snapshot of items at the start of the async flow so that
+    // any concurrent cart mutations do not affect the in-flight order.
+    const itemsSnapshot = [...useCartStore.getState().items];
+
     // BUG-1-003 Fix: Validate cart FIRST before any processing
-    if (items.length === 0) {
+    if (itemsSnapshot.length === 0) {
       Alert.alert(
         'Empty Cart',
         'Your cart is empty. Please add items before checking out.',
@@ -847,23 +948,45 @@ export default function CheckoutScreen() {
       return;
     }
 
-    isOrderInFlight.current = true;
-    setIsProcessing(true);
-
-    // BUG-1-003 Fix: Re-validate cart is still not empty
-    if (items.length === 0) {
-      isOrderInFlight.current = false;
-      setIsProcessing(false);
+    // Re-validate that the selected payment method is still enabled
+    // (merchant may have toggled it since the user selected it)
+    if (
+      enabledPaymentMethods.length > 0 &&
+      !enabledPaymentMethods.includes(selectedPayment)
+    ) {
       Alert.alert(
-        'Empty Cart',
-        'Your cart is empty. Please add items before checking out.',
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+        'Payment Method Unavailable',
+        'The selected payment method is no longer available. Please choose another.',
+        [{ text: 'OK', onPress: () => setStep('payment') }]
       );
       return;
     }
 
+    // Validate that a shipping quote is selected when shipping quotes are
+    // available (i.e. the address step fetched quotes for the chosen location)
+    if (shippingQuotes.length > 0 && !selectedQuoteId) {
+      Alert.alert(
+        'Shipping Required',
+        'Please select a delivery option before placing your order.',
+        [{ text: 'OK', onPress: () => setStep('address') }]
+      );
+      return;
+    }
+
+    isOrderInFlight.current = true;
+    setIsProcessing(true);
+
     // BUG-1-002 Fix: Snapshot cart items for rollback if needed
-    const cartSnapshot = [...items];
+    const cartSnapshot = [...itemsSnapshot];
+
+    // Snapshot all order values at submission time to avoid stale closures.
+    // Compute subtotal from the snapshotted items (not the closure value).
+    const snapshotSubtotal = itemsSnapshot.reduce((total, item) => {
+      const effectivePrice = item.negotiatedPrice ?? item.price;
+      return total + effectivePrice * item.quantity;
+    }, 0);
+    const snapshotDeliveryFee = deliveryFee;
+    const snapshotTaxAmount = orderTotals?.taxAmount ?? 0;
 
     try {
       trackCheckoutStep('review');
@@ -882,28 +1005,36 @@ export default function CheckoutScreen() {
           customer_email: customerEmail,
           customer_name: customerName,
           customer_phone: customerPhone,
-          items: items.map((item) => ({
-            id: item.product_id,
-            product_id: item.product_id,
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-            image_url: item.image_url,
-            variant_id: item.variant_id,
-            has_assurance: item.hasAssurance || false,
-            assurance_fee: item.hasAssurance
-              ? Math.round(
-                  item.price * item.quantity * (item.assuranceRate ?? 0.05)
-                )
-              : 0,
-          })),
-          subtotal,
-          shipping_fee: deliveryFee,
-          tax_amount: orderTotals?.taxAmount || 0,
+          items: itemsSnapshot.map((item) => {
+            const effectivePrice = item.negotiatedPrice ?? item.price;
+            return {
+              id: item.product_id,
+              product_id: item.product_id,
+              name: item.name,
+              quantity: item.quantity,
+              price: effectivePrice,
+              image_url: item.image_url,
+              variant_id: item.variant_id,
+              has_assurance: item.hasAssurance || false,
+              assurance_fee: item.hasAssurance
+                ? Math.round(
+                    effectivePrice *
+                      item.quantity *
+                      (item.assuranceRate ?? 0.05)
+                  )
+                : 0,
+            };
+          }),
+          subtotal: snapshotSubtotal,
+          shipping_fee: snapshotDeliveryFee,
+          tax_amount: snapshotTaxAmount,
           payment_method: selectedPayment,
           shipping_address: address,
           source: 'mobile_app',
         });
+
+        isOrderInFlight.current = false;
+        setIsProcessing(false);
 
         router.push({
           pathname: '/bnpl-checkout',
@@ -917,7 +1048,6 @@ export default function CheckoutScreen() {
             merchantSlug: MERCHANT_SLUG,
           },
         });
-        setIsProcessing(false);
         return;
       }
 
@@ -925,24 +1055,27 @@ export default function CheckoutScreen() {
         customer_email: customerEmail,
         customer_name: customerName,
         customer_phone: customerPhone,
-        items: items.map((item) => ({
-          id: item.product_id,
-          product_id: item.product_id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          image_url: item.image_url,
-          variant_id: item.variant_id,
-          has_assurance: item.hasAssurance || false,
-          assurance_fee: item.hasAssurance
-            ? Math.round(
-                item.price * item.quantity * (item.assuranceRate ?? 0.05)
-              )
-            : 0,
-        })),
-        subtotal,
-        shipping_fee: deliveryFee,
-        tax_amount: orderTotals?.taxAmount || 0,
+        items: itemsSnapshot.map((item) => {
+          const effectivePrice = item.negotiatedPrice ?? item.price;
+          return {
+            id: item.product_id,
+            product_id: item.product_id,
+            name: item.name,
+            quantity: item.quantity,
+            price: effectivePrice,
+            image_url: item.image_url,
+            variant_id: item.variant_id,
+            has_assurance: item.hasAssurance || false,
+            assurance_fee: item.hasAssurance
+              ? Math.round(
+                  effectivePrice * item.quantity * (item.assuranceRate ?? 0.05)
+                )
+              : 0,
+          };
+        }),
+        subtotal: snapshotSubtotal,
+        shipping_fee: snapshotDeliveryFee,
+        tax_amount: snapshotTaxAmount,
         payment_method: selectedPayment,
         shipping_address: address,
         source: 'mobile_app',
@@ -956,11 +1089,11 @@ export default function CheckoutScreen() {
         orderId: order.id,
         orderNumber,
         total: order.total,
-        subtotal,
-        shipping: deliveryFee,
-        tax: orderTotals?.taxAmount,
+        subtotal: snapshotSubtotal,
+        shipping: snapshotDeliveryFee,
+        tax: snapshotTaxAmount,
         currency: 'NGN',
-        itemCount: items.reduce((acc, item) => acc + item.quantity, 0),
+        itemCount: itemsSnapshot.reduce((acc, item) => acc + item.quantity, 0),
         paymentMethod: selectedPayment,
       });
 
@@ -1019,7 +1152,10 @@ export default function CheckoutScreen() {
           `${API_BASE_URL}/api/payments/initialize`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Idempotency-Key': `payment-init-${order.id}-${gateway}`,
+            },
             body: JSON.stringify({
               merchant_id: MERCHANT_ID,
               order_id: order.id,
@@ -1088,6 +1224,21 @@ export default function CheckoutScreen() {
       // This prevents duplicate orders from race conditions
       clearCart();
 
+      // Flush cleared cart to AsyncStorage explicitly.
+      // syncStorage.setItem (used by Zustand persist) updates the in-memory cache
+      // synchronously but fires AsyncStorage.setItem as fire-and-forget. We must
+      // await the real write to guarantee persistence before navigation.
+      const persistOpts = useCartStore.persist.getOptions();
+      const partialize = persistOpts.partialize ?? ((s: unknown) => s);
+      const persistedState = partialize(useCartStore.getState());
+      await AsyncStorage.setItem(
+        persistOpts.name ?? 'cart-storage',
+        JSON.stringify({
+          state: persistedState,
+          version: persistOpts.version ?? 0,
+        })
+      );
+
       // Navigate to success after cart is cleared
       router.replace({
         pathname: '/order-success',
@@ -1102,10 +1253,9 @@ export default function CheckoutScreen() {
     } catch (error) {
       // BUG-1-002 Fix: Rollback cart on error
       // Restore cart items if order creation failed
-      if (cartSnapshot && items.length === 0) {
-        for (const item of cartSnapshot) {
-          useCartStore.getState().addItem(item);
-        }
+      // Use restoreItems to replace the entire array without generating new IDs
+      if (cartSnapshot && useCartStore.getState().items.length === 0) {
+        useCartStore.getState().restoreItems(cartSnapshot);
       }
       if (error instanceof OrderError) {
         trackError('checkout_failed', error.message, {
@@ -1898,7 +2048,9 @@ export default function CheckoutScreen() {
                 x{item.quantity}
               </Text>
               <Text style={[styles.orderItemPrice, { color: colors.text }]}>
-                {formatPrice(item.price * item.quantity)}
+                {formatPrice(
+                  (item.negotiatedPrice ?? item.price) * item.quantity
+                )}
               </Text>
             </View>
           ))}
@@ -2341,7 +2493,12 @@ export default function CheckoutScreen() {
                       );
                       if (success) {
                         setCopiedCryptoField('address');
-                        setTimeout(() => setCopiedCryptoField(null), 2000);
+                        if (cryptoCopyTimerRef.current)
+                          clearTimeout(cryptoCopyTimerRef.current);
+                        cryptoCopyTimerRef.current = setTimeout(
+                          () => setCopiedCryptoField(null),
+                          2000
+                        );
                       }
                     }}
                   >
@@ -2425,17 +2582,17 @@ export default function CheckoutScreen() {
                   { backgroundColor: BRAND.primary },
                 ]}
                 onPress={() => {
-                  // BUG-1-005 Fix: Cart already cleared after order creation
-                  // No need to clear again here
-                  const token = cryptoPayment.trackingToken;
+                  clearCart();
+                  // Capture all needed values BEFORE nullifying to avoid stale reference
+                  const { orderId, orderNumber, trackingToken } = cryptoPayment;
                   setCryptoPayment(null);
                   router.replace({
                     pathname: '/order-success',
                     params: {
-                      orderId: cryptoPayment.orderId,
-                      orderNumber: cryptoPayment.orderNumber,
+                      orderId,
+                      orderNumber,
                       paymentMethod: 'juicyway',
-                      ...(token && { trackingToken: token }),
+                      ...(trackingToken && { trackingToken }),
                     },
                   });
                 }}

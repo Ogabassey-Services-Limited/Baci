@@ -276,7 +276,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
               </Text>
             </Pressable>
 
-            {__DEV__ && this.state.error && (
+            {typeof __DEV__ !== 'undefined' && __DEV__ && this.state.error && (
               <View
                 style={[
                   styles.debugContainer,
@@ -413,7 +413,7 @@ export function ErrorFallback({
           </Text>
         </Pressable>
 
-        {__DEV__ && error && (
+        {typeof __DEV__ !== 'undefined' && __DEV__ && error && (
           <View
             style={[
               styles.debugContainer,

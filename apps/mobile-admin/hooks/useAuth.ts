@@ -1,76 +1,36 @@
 /**
- * useAuth Hook - 2025 Best Practice
- * Uses Supabase's built-in auth state listener
- * Minimal wrapper, no heavy context needed
+ * useAuth Hook — Thin wrapper around the Zustand auth store
+ *
+ * All auth state and logic lives in stores/auth-store.ts.
+ * This wrapper preserves the existing API so all 21+ call sites
+ * continue to work without changes.
  */
 
 import type { AuthError, Session, User } from '@supabase/supabase-js';
-import { useCallback, useEffect, useState } from 'react';
-import { clearAdminQueryCache } from '@/lib/query-client';
-import { supabase } from '@/lib/supabase';
+import { useShallow } from 'zustand/shallow';
+import { useAuthStore } from '@/stores/auth-store';
 
-interface AuthState {
+export interface UseAuthReturn {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-}
-
-interface AuthActions {
   signIn: (
     email: string,
     password: string
   ) => Promise<{ error: AuthError | null }>;
-  signOut: () => Promise<void>;
+  signOut: (onBeforeSignOut?: () => Promise<void>) => Promise<void>;
 }
 
-export type UseAuthReturn = AuthState & AuthActions;
-
 export function useAuth(): UseAuthReturn {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
-
-    // Listen for auth state changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
-  }, []);
-
-  const signOut = useCallback(async () => {
-    // Clear cached data to prevent data leakage to next user
-    clearAdminQueryCache();
-    await supabase.auth.signOut();
-  }, []);
-
-  return {
-    user,
-    session,
-    isLoading,
-    isAuthenticated: !!session,
-    signIn,
-    signOut,
-  };
+  return useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      session: state.session,
+      isLoading: state.isLoading,
+      isAuthenticated: state.isAuthenticated,
+      signIn: state.signIn,
+      signOut: state.signOut,
+    }))
+  );
 }

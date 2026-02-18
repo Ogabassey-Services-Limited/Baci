@@ -11,6 +11,7 @@ import type {
   PaymentStatus,
   ShippingStatus,
 } from '@baci/shared';
+import type { InfiniteData } from '@tanstack/react-query';
 import {
   useInfiniteQuery,
   useMutation,
@@ -37,7 +38,20 @@ interface OrdersPage {
   totalCount: number;
 }
 
+/** Shape returned by Supabase select on order_items with joined products */
+interface OrderItemRow {
+  id: string;
+  product_id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  products: { name: string; images: string[] } | null;
+}
+
 const PAGE_SIZE = 20;
+
+const ORDER_COLUMNS =
+  'id, order_number, merchant_id, customer_id, customer_name, customer_email, customer_phone, shipping_status, payment_status, total, subtotal, shipping_fee, tax_amount, discount_amount, discount_code, currency, source, payment_method, notes, is_credit_order, shipping_address, recorded_by_user_id, wallet_amount_used, created_at, updated_at' as const;
 
 async function fetchOrders(
   merchantId: string,
@@ -50,7 +64,7 @@ async function fetchOrders(
 ): Promise<OrdersPage> {
   let query = supabase
     .from('orders')
-    .select('*, order_items(id)', { count: 'exact' })
+    .select(`${ORDER_COLUMNS}, order_items(id)`, { count: 'exact' })
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false })
     .range(cursor, cursor + PAGE_SIZE - 1);
@@ -69,24 +83,23 @@ async function fetchOrders(
   }
 
   if (filters?.dateFilter) {
-    const now = new Date();
     const dateFilter = filters.dateFilter;
 
     if (dateFilter === 'Today') {
-      const start = new Date(now.setHours(0, 0, 0, 0)).toISOString();
-      query = query.gte('created_at', start);
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      query = query.gte('created_at', d.toISOString());
     } else if (dateFilter === 'Last 7 Days') {
-      const start = new Date(now.setDate(now.getDate() - 7)).toISOString();
-      query = query.gte('created_at', start);
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      query = query.gte('created_at', d.toISOString());
     } else if (dateFilter === 'Last 30 Days') {
-      const start = new Date(now.setDate(now.getDate() - 30)).toISOString();
-      query = query.gte('created_at', start);
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      query = query.gte('created_at', d.toISOString());
     } else if (dateFilter === 'This Month') {
-      const start = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        1
-      ).toISOString();
+      const d = new Date();
+      const start = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
       query = query.gte('created_at', start);
     } else if (
       typeof dateFilter === 'object' &&
@@ -127,13 +140,15 @@ async function fetchOrders(
 
 async function updateOrderStatus(
   orderId: string,
-  status: ShippingStatus
+  status: ShippingStatus,
+  merchantId: string
 ): Promise<Order> {
   const { data, error } = await supabase
     .from('orders')
     .update({ shipping_status: status, updated_at: new Date().toISOString() })
     .eq('id', orderId)
-    .select();
+    .eq('merchant_id', merchantId)
+    .select(ORDER_COLUMNS);
 
   if (error) throw new Error(error.message);
   if (!data || data.length === 0) throw new Error('Order not found');
@@ -156,7 +171,7 @@ export function useOrders(
   };
 
   return useInfiniteQuery({
-    queryKey: ['orders', merchantId, filters, dateFilter], // Include dateFilter in queryKey
+    queryKey: ['orders', merchantId, filters],
     queryFn: ({ pageParam = 0 }) =>
       fetchOrders(merchantId!, pageParam, filters),
     getNextPageParam: (lastPage) => lastPage.nextCursor,
@@ -178,7 +193,10 @@ export function useUpdateOrderStatus() {
     }: {
       orderId: string;
       status: ShippingStatus;
-    }) => updateOrderStatus(orderId, status),
+    }) => {
+      if (!merchant?.id) throw new Error('Merchant ID is required');
+      return updateOrderStatus(orderId, status, merchant.id);
+    },
     onMutate: async ({ orderId, status }) => {
       if (!merchant?.id)
         return { previousOrders: [], previousOrder: undefined };
@@ -192,15 +210,15 @@ export function useUpdateOrderStatus() {
 
       // Optimistically update list
       // Optimistically update list - Match ALL order queries
-      queryClient.setQueriesData(
+      queryClient.setQueriesData<InfiniteData<OrdersPage>>(
         { queryKey: ['orders', merchant.id] },
-        (old: any) => {
+        (old) => {
           if (!old?.pages) return old;
           return {
             ...old,
-            pages: old.pages.map((page: OrdersPage) => ({
+            pages: old.pages.map((page) => ({
               ...page,
-              orders: page.orders.map((order: Order) =>
+              orders: page.orders.map((order) =>
                 order.id === orderId
                   ? { ...order, shipping_status: status }
                   : order
@@ -255,32 +273,36 @@ export function useOrder(orderId: string) {
     queryFn: async () => {
       const { data: order, error } = await supabase
         .from('orders')
-        .select('*')
+        .select(ORDER_COLUMNS)
         .eq('id', orderId)
         .eq('merchant_id', merchant?.id)
         .single();
 
       if (error) throw new Error(error.message);
 
-      // Fetch order items
-      const { data: items } = await supabase
-        .from('order_items')
-        .select('*, products(name, images)')
-        .eq('order_id', orderId);
-
-      // Fetch transactions
-      const { data: transactions } = await supabase
-        .from('transactions')
-        .select('amount')
-        .eq('order_id', orderId)
-        .eq('status', 'success');
-
-      // Fetch virtual account if exists
-      const { data: virtualAccount } = await supabase
-        .from('order_payment_accounts')
-        .select('account_number, bank_name, account_name')
-        .eq('order_id', orderId)
-        .maybeSingle();
+      // Fetch order items, transactions, and virtual account in parallel
+      const [
+        { data: items },
+        { data: transactions },
+        { data: virtualAccount },
+      ] = await Promise.all([
+        supabase
+          .from('order_items')
+          .select(
+            'id, product_id, name, quantity, price, products(name, images)'
+          )
+          .eq('order_id', orderId),
+        supabase
+          .from('transactions')
+          .select('amount')
+          .eq('order_id', orderId)
+          .eq('status', 'success'),
+        supabase
+          .from('order_payment_accounts')
+          .select('account_number, bank_name, account_name')
+          .eq('order_id', orderId)
+          .maybeSingle(),
+      ]);
 
       // Fetch recorded_by user info + staff virtual terminal if staff-created
       let recordedByName: string | null = null;
@@ -342,7 +364,7 @@ export function useOrder(orderId: string) {
         virtual_account: virtualAccount || null,
         staff_terminal: staffTerminal,
         recorded_by_name: recordedByName,
-        items: items?.map((item: any) => ({
+        items: (items as OrderItemRow[] | null)?.map((item) => ({
           id: item.id,
           product_id: item.product_id,
           name: item.name || item.products?.name,
@@ -371,24 +393,34 @@ export function useShipOnCredit() {
       orderId: string;
       creditNotes?: string;
     }) => {
+      // Get the current session for auth token
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
       const response = await fetch(
         `${BASE_URL}/api/orders/${orderId}/ship-on-credit`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
           body: JSON.stringify({ credit_notes: creditNotes }),
         }
       );
       if (!response.ok) {
-        // Safely try to parse error response
+        let errorMsg = `Request failed: ${response.status} ${response.statusText}`;
         try {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to ship on credit');
+          const errorBody = await response.json();
+          if (errorBody.error) errorMsg = errorBody.error;
         } catch {
-          throw new Error(
-            `Request failed: ${response.status} ${response.statusText}`
-          );
+          /* not JSON */
         }
+        throw new Error(errorMsg);
       }
       return response.json();
     },
@@ -507,21 +539,19 @@ export function useRecordPayment() {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          // Safely try to parse error response
+          let errorMsg = `Request failed: ${response.status} ${response.statusText}`;
           try {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to record payment');
+            const errorBody = await response.json();
+            if (errorBody.error) errorMsg = errorBody.error;
           } catch {
-            // Response was not JSON (could be HTML error page)
-            throw new Error(
-              `Request failed: ${response.status} ${response.statusText}`
-            );
+            /* not JSON */
           }
+          throw new Error(errorMsg);
         }
         return response.json();
-      } catch (error: any) {
+      } catch (error: unknown) {
         clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
+        if (error instanceof Error && error.name === 'AbortError') {
           throw new Error(
             'Request timed out. Please check your connection and try again.'
           );

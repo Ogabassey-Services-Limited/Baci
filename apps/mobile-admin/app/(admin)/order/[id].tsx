@@ -48,8 +48,10 @@ const loadNativeModules = async () => {
 
 loadNativeModules();
 
+import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
+import { generateReceiptHtml, getBankNameFromCode } from '@baci/shared';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
@@ -69,14 +71,6 @@ import {
 } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
 import { BASE_URL } from '@/lib/api-client';
-import type {
-  ReceiptMerchant,
-  ReceiptOrder,
-} from '@/lib/generate-receipt-html';
-import {
-  generateReceiptHtml,
-  getBankNameFromCode,
-} from '@/lib/generate-receipt-html';
 import { supabase } from '@/lib/supabase';
 import { parseSavedRiders } from '@/lib/validators/storage';
 
@@ -133,6 +127,17 @@ const isStatusActionAllowed = (
   }
 };
 
+// Helper to get currency symbol from merchant's payout_currency
+const getCurrencySymbol = (currencyCode: string | null | undefined) => {
+  const symbols: Record<string, string> = {
+    NGN: '\u20A6',
+    USD: '$',
+    GBP: '\u00A3',
+    EUR: '\u20AC',
+  };
+  return symbols[currencyCode || 'NGN'] || '\u20A6';
+};
+
 export default function OrderDetailsScreen() {
   const rawParams = useLocalSearchParams<{
     id: string;
@@ -161,6 +166,8 @@ export default function OrderDetailsScreen() {
   const queryClient = useQueryClient();
   const { data: order, isLoading, error } = useOrder(orderId ?? '');
   const { merchant } = useMerchant();
+  const merchantCurrency = merchant?.payout_currency || 'NGN';
+  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
   const updateStatusMutation = useUpdateOrderStatus();
   const shipOnCreditMutation = useShipOnCredit();
   const sendReminderMutation = useSendReminder();
@@ -258,7 +265,7 @@ export default function OrderDetailsScreen() {
   const formatPrice = (amount: number) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
-      currency: 'NGN',
+      currency: merchantCurrency,
       minimumFractionDigits: 0,
     }).format(amount);
   };
@@ -268,7 +275,7 @@ export default function OrderDetailsScreen() {
     const numericValue = value.replace(/[^0-9]/g, '');
     if (!numericValue) return '';
     const num = Number.parseInt(numericValue, 10);
-    return `₦${num.toLocaleString('en-NG')}`;
+    return `${currencySymbol}${num.toLocaleString('en-NG')}`;
   };
 
   const parseCurrencyInput = (formattedValue: string): string => {
@@ -305,21 +312,20 @@ export default function OrderDetailsScreen() {
     }
   }, [order, actionParam]);
 
-  const loadSavedRiders = useCallback(async () => {
-    try {
-      const saved = await AsyncStorage.getItem('saved_riders');
-      // Use Zod schema validation for safe parsing of stored data
-      setSavedRiders(parseSavedRiders(saved));
-    } catch (error) {
-      console.error('Failed to load saved riders', error);
-      setSavedRiders([]);
-    }
-  }, []);
-
-  // Load saved riders
+  // Load saved riders on mount
   useEffect(() => {
+    async function loadSavedRiders() {
+      try {
+        const saved = await AsyncStorage.getItem('saved_riders');
+        // Use Zod schema validation for safe parsing of stored data
+        setSavedRiders(parseSavedRiders(saved));
+      } catch (error) {
+        console.error('Failed to load saved riders', error);
+        setSavedRiders([]);
+      }
+    }
     loadSavedRiders();
-  }, [loadSavedRiders]);
+  }, []);
 
   // Show error screen for invalid route params (after all hooks)
   if (!validatedParams) {
@@ -358,8 +364,8 @@ export default function OrderDetailsScreen() {
 Order #${order?.order_number}
 
 *Pickup:*
-Ogabassey Store
-(Your store address here)
+${merchant?.business_name || 'Store'}
+${merchant?.business_address || ''}
 
 *Deliver to:*
 ${order?.customer_name}
@@ -408,7 +414,7 @@ Your order #${order.order_number} is on the way!
 Rider Contact: ${riderPhone || 'Dispatch Rider'}
 Please keep your phone available.
 
-Thank you for choosing Ogabassey!
+Thank you for choosing ${merchant?.business_name || 'us'}!
 `.trim();
 
     const url = `https://wa.me/${order.customer_phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
@@ -732,6 +738,8 @@ Thank you for choosing Ogabassey!
 
       queryClient.invalidateQueries({ queryKey: ['order', order.id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['order-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     } catch (err: unknown) {
       Alert.alert(
         'Error',
@@ -1439,7 +1447,11 @@ Thank you for choosing Ogabassey!
                     borderBottomColor: colors.border,
                   },
                 ]}
-                onPress={() => router.push(`/product/${item.product_id}`)}
+                onPress={
+                  item.product_id && !item.product_id.startsWith('custom-')
+                    ? () => router.push(`/product/${item.product_id}`)
+                    : undefined
+                }
               >
                 <View
                   style={[
@@ -2232,7 +2244,7 @@ Thank you for choosing Ogabassey!
                 }}
               >
                 <TextInput
-                  placeholder="₦0"
+                  placeholder={`${currencySymbol}0`}
                   placeholderTextColor={colors.textSecondary}
                   value={
                     paymentAmount ? formatCurrencyInput(paymentAmount) : ''

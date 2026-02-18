@@ -12,6 +12,10 @@
 
 import { Dimensions } from 'react-native';
 
+// M28: Intentionally static — captured once at module load for the `clamp()` fluid
+// typography helper below. This file is a constants module (not a component), so
+// useWindowDimensions() is not applicable. Font sizes are computed once at startup;
+// dynamic orientation changes do not require recalculating typography constants.
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 /**
@@ -67,6 +71,13 @@ export const SHADOWS = {
     shadowRadius: 4,
     elevation: 2,
   },
+  medium: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   lg: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -97,13 +108,17 @@ export const TYPOGRAPHY = {
     '5xl': clamp(48, 72),
     hero: clamp(32, 48), // Dedicated hero size
   },
-  // Font weights (Testing with system serif - can upgrade to Google Font later)
+  // Font weights (numeric strings as required by React Native fontWeight)
   weight: {
-    normal: 'serif',
-    medium: 'serif',
-    semibold: 'serif',
-    bold: 'serif',
-    black: 'serif',
+    normal: '400',
+    medium: '500',
+    semibold: '600',
+    bold: '700',
+    black: '900',
+  },
+  // Font family (can upgrade from system serif to a Google Font later)
+  fontFamily: {
+    serif: 'serif',
   },
   // Line heights
   lineHeight: {

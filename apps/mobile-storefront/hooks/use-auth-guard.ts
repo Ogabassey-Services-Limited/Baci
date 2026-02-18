@@ -11,10 +11,11 @@
  */
 
 import {
-  router,
   type Href,
-  useSegments,
+  router,
+  usePathname,
   useRootNavigationState,
+  useSegments,
 } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { createLogger } from '@/lib/logger';
@@ -23,7 +24,14 @@ import { useAuthStore } from '@/stores/auth-store';
 const log = createLogger('AuthGuard');
 
 // Routes that require authentication
-const PROTECTED_ROUTES = ['orders', 'addresses', 'wallet', 'profile'] as const;
+const PROTECTED_ROUTES = [
+  'account',
+  'orders',
+  'addresses',
+  'wallet',
+  'profile',
+  'receipts',
+] as const;
 
 /**
  * Hook to guard routes and handle auth state changes
@@ -35,6 +43,15 @@ export function useAuthGuard() {
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   const previousUser = useRef(user);
+  const isMountedRef = useRef(false);
+
+  // Track mount state to prevent navigation on stale routes
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     // Wait for auth to initialize and navigation to be ready
@@ -55,7 +72,7 @@ export function useAuthGuard() {
         (route) => currentSegment === route || segments.includes(route as never)
       );
 
-      if (isOnProtectedRoute) {
+      if (isOnProtectedRoute && isMountedRef.current) {
         // Redirect to home tab
         router.replace('/(tabs)');
       }
@@ -63,7 +80,9 @@ export function useAuthGuard() {
 
     // Update ref for next comparison
     previousUser.current = user;
-  }, [user, isInitialized, segments, navigationState?.key]);
+    // Bug #8 fix: Use navigationState directly (not ?.key) to ensure the effect
+    // runs reliably on mount even when key is initially undefined
+  }, [user, isInitialized, segments, navigationState]);
 
   return {
     isAuthenticated: user !== null,
@@ -72,31 +91,43 @@ export function useAuthGuard() {
 }
 
 /**
- * Hook to protect a specific screen
- * Redirects to login if not authenticated
- * Use this on screens that require auth
+ * Hook to protect a specific screen — declarative pattern.
+ *
+ * 2026 Best Practice (Expo Router):
+ * Instead of imperatively calling router.push inside a useEffect (race-prone),
+ * this hook returns `redirectTo` — a typed href the screen should render as
+ * `<Redirect href={redirectTo} />`. This is idempotent, declarative, and
+ * naturally deduplicates across multiple mounted screens.
+ *
+ * Usage:
+ * ```tsx
+ * const { isLoading, isAuthenticated, redirectTo } = useRequireAuth();
+ * if (isLoading || redirectTo) {
+ *   return redirectTo
+ *     ? <Redirect href={redirectTo} />
+ *     : <ActivityIndicator />;
+ * }
+ * ```
  */
-export function useRequireAuth(options?: { redirectTo?: string }) {
+export function useRequireAuth() {
   const user = useAuthStore((state) => state.user);
   const isInitialized = useAuthStore((state) => state.isInitialized);
-  const navigationState = useRootNavigationState();
+  const pathname = usePathname();
 
-  useEffect(() => {
-    // Wait for auth to initialize and navigation to be ready
-    if (!isInitialized || !navigationState?.key) {
-      return;
-    }
+  const isAuthenticated = user !== null;
+  const isLoading = !isInitialized;
 
-    // If not authenticated, redirect to login
-    if (!user) {
-      const redirectPath = (options?.redirectTo || '/auth/login') as Href;
-      router.replace(redirectPath);
-    }
-  }, [user, isInitialized, navigationState?.key, options?.redirectTo]);
+  // Build the redirect href declaratively — no useEffect needed
+  let redirectTo: Href | null = null;
+  if (isInitialized && !isAuthenticated) {
+    const returnTo = encodeURIComponent(pathname);
+    redirectTo = `/auth/login?returnTo=${returnTo}` as Href;
+  }
 
   return {
-    isAuthenticated: user !== null,
-    isLoading: !isInitialized,
+    isAuthenticated,
+    isLoading,
+    redirectTo,
     user,
   };
 }

@@ -23,6 +23,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
+// Bug #M21: Store the loading promise so we can await it before using ImagePicker,
+// preventing race conditions if the user taps before the module loads.
 let ImagePicker: typeof import('expo-image-picker') | null = null;
 
 const loadNativeModules = async () => {
@@ -37,9 +39,13 @@ const loadNativeModules = async () => {
   }
 };
 
-loadNativeModules();
+// Bug #M21: Store the promise so pickVideo/recordVideo can await it,
+// preventing race condition if user taps before module loads.
+const _imagePickerReady = loadNativeModules();
 
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
+import { fetchWithTimeout, LONG_TIMEOUT } from '@/lib/fetch-with-timeout';
 import { createLogger } from '@/lib/logger';
 import {
   type AIAnalysisResult,
@@ -78,7 +84,6 @@ const HOW_IT_WORKS = [
 ];
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ogabassey.com';
-const SUPPORT_PHONE = '2348146978921';
 
 export default function SwapScreen() {
   const colorScheme = useColorScheme();
@@ -89,8 +94,11 @@ export default function SwapScreen() {
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [result, setResult] = useState<AIAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const pickVideo = async () => {
+    // Bug #M21: Await module load to prevent race condition
+    await _imagePickerReady;
     if (!ImagePicker) {
       Alert.alert(
         'Not Supported',
@@ -126,6 +134,8 @@ export default function SwapScreen() {
   };
 
   const recordVideo = async () => {
+    // Bug #M21: Await module load to prevent race condition
+    await _imagePickerReady;
     if (!ImagePicker) {
       Alert.alert(
         'Not Supported',
@@ -157,7 +167,8 @@ export default function SwapScreen() {
   };
 
   const startAnalysis = async () => {
-    if (!videoUri) return;
+    if (!videoUri || isAnalyzing) return;
+    setIsAnalyzing(true);
 
     setStep('analyzing');
     setError(null);
@@ -171,38 +182,47 @@ export default function SwapScreen() {
         uri: videoUri,
         type: 'video/mp4',
         name: 'device-video.mp4',
-      };
-      // @ts-expect-error - React Native FormData accepts file-like objects with uri
+      } as unknown as Blob;
       formData.append('video', videoFile);
 
-      const response = await fetch(`${API_BASE_URL}/api/ai/grade-device`, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // Bug #H20: Do NOT set Content-Type manually for multipart/form-data.
+      // Let fetch auto-set it with the correct boundary parameter.
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/api/ai/grade-device`,
+        {
+          method: 'POST',
+          body: formData,
+          timeout: LONG_TIMEOUT,
+        }
+      );
+
+      if (!response.ok) {
+        let errorMsg = `Server error (HTTP ${response.status})`;
+        try {
+          const errData = await response.json();
+          if (errData?.error) errorMsg = errData.error;
+        } catch {
+          /* non-JSON response */
+        }
+        throw new Error(errorMsg);
+      }
 
       const rawData = await response.json();
 
-      if (!response.ok) {
-        throw new Error(rawData?.error || 'Failed to analyze device');
-      }
-
-      // 2026 Best Practice: Validate API response with Zod
+      // Bug #68: Validate AI response with Zod; do NOT fall back to unvalidated data
       const validated = parseApiResponse(
         AIGradeDeviceApiResponseSchema,
         rawData,
         'AI grade device API'
       );
 
-      // Use validated data if available, otherwise fallback
-      const resultData = validated?.data || rawData?.data;
-      if (!resultData) {
-        throw new Error('Invalid response from AI analysis');
+      if (!validated || !validated.data) {
+        throw new Error(
+          'We could not process the AI analysis result. Please try again.'
+        );
       }
 
-      setResult(resultData);
+      setResult(validated.data);
       setStep('result');
     } catch (err) {
       log.error('Analysis error:', err);
@@ -212,6 +232,8 @@ export default function SwapScreen() {
           : 'Analysis failed. Please try again.'
       );
       setStep('upload');
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -220,14 +242,14 @@ export default function SwapScreen() {
 
     const message = encodeURIComponent(
       `Hello! I did an AI trade-in check.\n\n` +
-      `Device: ${result.model}\n` +
-      `Grade: ${result.grade}\n` +
-      `Estimate: N${result.estimatedValue.toLocaleString()}\n` +
-      `Observations: ${result.observations.join(', ')}\n\n` +
-      `I'd like to proceed with the swap.`
+        `Device: ${result.model}\n` +
+        `Grade: ${result.grade}\n` +
+        `Estimate: N${result.estimatedValue.toLocaleString()}\n` +
+        `Observations: ${result.observations.map((o) => o.replace(/\n/g, ' ').trim()).join(', ')}\n\n` +
+        `I'd like to proceed with the swap.`
     );
 
-    Linking.openURL(`https://wa.me/${SUPPORT_PHONE}?text=${message}`);
+    Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=${message}`);
     setIsModalOpen(false);
   };
 
@@ -482,10 +504,11 @@ export default function SwapScreen() {
                     style={[
                       styles.analyzeButton,
                       { backgroundColor: BRAND.primary },
-                      !videoUri && styles.analyzeButtonDisabled,
+                      (!videoUri || isAnalyzing) &&
+                        styles.analyzeButtonDisabled,
                     ]}
                     onPress={startAnalysis}
-                    disabled={!videoUri}
+                    disabled={!videoUri || isAnalyzing}
                   >
                     <Text style={styles.analyzeButtonText}>Analyze Device</Text>
                     <Ionicons name="arrow-forward" size={20} color="#FFF" />

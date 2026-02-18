@@ -8,11 +8,11 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PermissionModal } from '@/components/ui/PermissionModal';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { useAuthStore } from '@/stores/auth-store';
-import { PermissionModal } from '@/components/ui/PermissionModal';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
+import { useAuthStore } from '@/stores/auth-store';
 
 export default function OrderSuccessScreen() {
   const colorScheme = useColorScheme();
@@ -35,18 +35,18 @@ export default function OrderSuccessScreen() {
     }).start();
 
     // Check for notification permissions (Soft Ask)
-    const checkPermissions = async () => {
-      // Small delay to let the success animation play (better UX)
-      setTimeout(async () => {
-        const result = await requestPermission('notifications');
-        if (result === 'soft-ask-needed') {
-          setShowPermissionModal(true);
-        }
-      }, 1500);
-    };
+    // Small delay to let the success animation play (better UX)
+    const timerId = setTimeout(async () => {
+      const result = await requestPermission('notifications');
+      if (result === 'soft-ask-needed') {
+        setShowPermissionModal(true);
+      }
+    }, 1500);
 
-    checkPermissions();
-  }, [scaleAnim]);
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [scaleAnim, requestPermission]);
 
   const handlePermissionGrant = async () => {
     setShowPermissionModal(false);
@@ -251,7 +251,7 @@ export default function OrderSuccessScreen() {
             </Text>
           </Pressable>
         </View>
-      </SafeAreaView >
+      </SafeAreaView>
 
       <PermissionModal
         visible={showPermissionModal}

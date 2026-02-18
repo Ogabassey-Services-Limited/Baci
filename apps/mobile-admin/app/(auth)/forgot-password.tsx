@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { getEmailError } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 
 export default function ForgotPasswordScreen() {
@@ -24,6 +25,12 @@ export default function ForgotPasswordScreen() {
   const handleReset = async () => {
     if (!email) {
       Alert.alert('Error', 'Please enter your email address');
+      return;
+    }
+
+    const emailError = getEmailError(email.trim());
+    if (emailError) {
+      Alert.alert('Invalid Email', emailError);
       return;
     }
 

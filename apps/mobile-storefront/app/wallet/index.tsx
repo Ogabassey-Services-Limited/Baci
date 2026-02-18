@@ -7,7 +7,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { router, Stack } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -24,11 +24,12 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useRedeemPoints, useWallet } from '@/hooks/use-wallet';
+import { createLogger } from '@/lib/logger';
 import { trackError, trackEvent } from '@/services/analytics';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
-import { createLogger } from '@/lib/logger';
 
 const log = createLogger('Wallet');
 
@@ -36,6 +37,9 @@ export default function WalletScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  // Auth gate: check Supabase user session (not customer record)
+  const { isLoading: authLoading, redirectTo } = useRequireAuth();
+  // Customer needed for analytics — may be null briefly after login
   const customer = useAuthStore((state) => state.customer);
 
   // React Query hooks - handles caching, deduplication, and realtime sync
@@ -107,7 +111,7 @@ export default function WalletScreen() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-NG', {
+    return new Date(dateString).toLocaleString('en-NG', {
       day: 'numeric',
       month: 'short',
       hour: '2-digit',
@@ -128,6 +132,30 @@ export default function WalletScreen() {
     }
   };
 
+  // Auth loading — wait for store to initialize
+  if (authLoading) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Wallet' }} />
+        <View
+          style={[
+            styles.container,
+            styles.centered,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <ActivityIndicator size="large" color={BRAND.primary} />
+        </View>
+      </>
+    );
+  }
+
+  // Not authenticated — redirect to login (with returnTo)
+  if (redirectTo) {
+    return <Redirect href={redirectTo} />;
+  }
+
+  // Authenticated but customer record still loading/creating
   if (!customer) {
     return (
       <>
@@ -139,20 +167,10 @@ export default function WalletScreen() {
             { backgroundColor: colors.background },
           ]}
         >
-          <Ionicons
-            name="wallet-outline"
-            size={64}
-            color={colors.textSecondary}
-          />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            Sign in to view your wallet
+          <ActivityIndicator size="large" color={BRAND.primary} />
+          <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
+            Preparing your wallet...
           </Text>
-          <Pressable
-            style={[styles.signInBtn, { backgroundColor: BRAND.primary }]}
-            onPress={() => router.push('/auth/login')}
-          >
-            <Text style={styles.signInBtnText}>Sign In</Text>
-          </Pressable>
         </View>
       </>
     );
@@ -204,7 +222,7 @@ export default function WalletScreen() {
           >
             <Text style={styles.balanceLabel}>Wallet Balance</Text>
             <Text style={styles.balanceAmount}>
-              {formatPrice(walletData?.balance || 0)}
+              {formatPrice(walletData?.balance ?? 0)}
             </Text>
             <View style={styles.balanceActions}>
               <Pressable style={styles.balanceAction}>
@@ -239,23 +257,19 @@ export default function WalletScreen() {
                   Loyalty Points
                 </Text>
                 <Text style={[styles.loyaltyPoints, { color: colors.text }]}>
-                  {(walletData?.loyalty_points || 0).toLocaleString()} pts
+                  {(walletData?.loyalty_points ?? 0).toLocaleString()} pts
                 </Text>
               </View>
               <View
                 style={[
                   styles.tierBadge,
                   {
-                    backgroundColor: getTierColor(
-                      walletData?.loyalty_tier || 'Bronze'
-                    ),
+                    backgroundColor: getTierColor('Bronze'),
                   },
                 ]}
               >
                 <Ionicons name="star" size={14} color="#FFF" />
-                <Text style={styles.tierText}>
-                  {walletData?.loyalty_tier || 'Bronze'}
-                </Text>
+                <Text style={styles.tierText}>Bronze</Text>
               </View>
             </View>
 
@@ -276,7 +290,7 @@ export default function WalletScreen() {
                   },
                 ]}
                 onPress={() => setShowRedeemModal(true)}
-                disabled={(walletData?.loyalty_points || 0) < 100}
+                disabled={(walletData?.loyalty_points ?? 0) < 100}
               >
                 <Ionicons name="gift-outline" size={18} color="#FFF" />
                 <Text style={styles.redeemBtnText}>Redeem Points</Text>
@@ -302,7 +316,7 @@ export default function WalletScreen() {
                   { color: colors.textSecondary },
                 ]}
               >
-                Available: {(walletData?.loyalty_points || 0).toLocaleString()}{' '}
+                Available: {(walletData?.loyalty_points ?? 0).toLocaleString()}{' '}
                 points
               </Text>
 
@@ -443,16 +457,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 16,
     marginBottom: 24,
-  },
-  signInBtn: {
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  signInBtnText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
   balanceCard: {
     margin: 16,

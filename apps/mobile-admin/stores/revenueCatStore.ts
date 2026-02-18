@@ -2,18 +2,33 @@ import { Platform } from 'react-native';
 import type {
   CustomerInfo,
   PurchasesOffering,
+  PurchasesOfferings,
   PurchasesPackage,
 } from 'react-native-purchases';
 import { create } from 'zustand';
 
+/** Typed interface for the subset of Purchases methods actually used in this store */
+interface PurchasesModule {
+  configure(config: { apiKey: string }): void;
+  getCustomerInfo(): Promise<CustomerInfo>;
+  getOfferings(): Promise<PurchasesOfferings>;
+  addCustomerInfoUpdateListener(
+    listener: (info: CustomerInfo) => void
+  ): (() => void) | undefined;
+  purchasePackage(
+    aPackage: PurchasesPackage
+  ): Promise<{ customerInfo: CustomerInfo }>;
+  restorePurchases(): Promise<CustomerInfo>;
+}
+
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-let Purchases: any = null;
+let Purchases: PurchasesModule | null = null;
 
 const loadNativeModules = async () => {
   if (Platform.OS === 'web') return;
   try {
     const purchasesModule = await import('react-native-purchases');
-    Purchases = purchasesModule.default;
+    Purchases = purchasesModule.default as unknown as PurchasesModule;
   } catch (e) {
     console.debug('[RevenueCat] Native module ignored or failed to load:', e);
   }
@@ -77,7 +92,7 @@ interface RevenueCatState {
 
 // Store listener subscription for cleanup on logout
 // Note: addCustomerInfoUpdateListener may return void in newer SDK versions
-let customerInfoListenerRemove: (() => void) | void | null = null;
+let customerInfoListenerRemove: (() => void) | undefined | null = null;
 
 export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
   currentOffering: null,
@@ -94,6 +109,9 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
     set({ isLoading: true, error: null, isInitializing: true });
 
     try {
+      // Ensure native module is loaded (module-level call may not have resolved yet)
+      if (!Purchases) await loadNativeModules();
+
       const apiKey = Platform.select({
         ios: API_KEY_IOS,
         android: API_KEY_ANDROID,
@@ -114,8 +132,11 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
       }
 
       // Guard: Ensure we are on native and Purchases is available
-      if (Platform.OS === 'web' || !Purchases) {
-        console.warn('[RevenueCat] Purchases module not available on this platform');
+      const purchasesRef = Purchases;
+      if (Platform.OS === 'web' || !purchasesRef) {
+        console.warn(
+          '[RevenueCat] Purchases module not available on this platform'
+        );
         set({
           isLoading: false,
           isInitializing: false,
@@ -125,10 +146,10 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
       }
 
       try {
-        Purchases.configure({ apiKey });
+        purchasesRef.configure({ apiKey });
 
-        const info = await Purchases.getCustomerInfo();
-        const offerings = await Purchases.getOfferings();
+        const info = await purchasesRef.getCustomerInfo();
+        const offerings = await purchasesRef.getOfferings();
 
         set({
           customerInfo: info,
@@ -141,7 +162,7 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
         });
 
         // Reactive Pattern: Automatically sync state on server confirmation
-        customerInfoListenerRemove = Purchases.addCustomerInfoUpdateListener(
+        customerInfoListenerRemove = purchasesRef.addCustomerInfoUpdateListener(
           (newInfo: CustomerInfo) => {
             const proStatus = isProFromInfo(newInfo);
             set({
@@ -173,6 +194,10 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
   purchasePackage: async (pack: PurchasesPackage) => {
     try {
       set({ isLoading: true, error: null });
+      if (!Purchases) {
+        set({ error: 'Purchases not initialized', isLoading: false });
+        return false;
+      }
       if (__DEV__) {
         console.log(
           '[RevenueCat] Starting purchase for:',
@@ -207,6 +232,10 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
   restorePurchases: async () => {
     try {
       set({ isLoading: true, error: null });
+      if (!Purchases) {
+        set({ error: 'Purchases not initialized', isLoading: false });
+        return false;
+      }
       const customerInfo = await Purchases.restorePurchases();
       const isPro = isProFromInfo(customerInfo);
 

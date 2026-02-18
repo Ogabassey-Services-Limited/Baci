@@ -1,79 +1,50 @@
 'use client';
 
-import { CheckCircle2, Download, Printer, X } from 'lucide-react';
+import {
+  generateReceiptHtml,
+  type ReceiptMerchant,
+  type ReceiptOrder,
+} from '@baci/shared';
+import { Printer, X } from 'lucide-react';
 import type React from 'react';
-import type { V2CartItem as CartItem } from '../types';
-import { Logo } from './Logo';
-
-export interface ReceiptData {
-  id: string;
-  date: string;
-  time: string;
-  total: string;
-  items: number;
-  products: CartItem[]; // Changed from Product to CartItem array
-  status: string; // Display status text
-  method: string;
-
-  // New Fields for enhanced receipt states
-  paymentStatus: 'unpaid' | 'partially_paid' | 'paid';
-  amountPaid?: string;
-  balance?: string;
-
-  // Custom Feeds
-  customerName?: string;
-  address?: string;
-  imei?: string;
-  serial?: string;
-}
+import { useRef } from 'react';
 
 interface ReceiptModalProps {
   isOpen: boolean;
   onClose: () => void;
-  data: ReceiptData | null;
+  orderData: ReceiptOrder | null;
+  merchantData: ReceiptMerchant | null;
 }
 
 export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   isOpen,
   onClose,
-  data,
+  orderData,
+  merchantData,
 }) => {
-  if (!isOpen || !data) return null;
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Determine Title based on payment status
-  const documentTitle = data.paymentStatus === 'unpaid' ? 'Invoice' : 'Receipt';
+  if (!isOpen || !orderData || !merchantData) return null;
 
-  // Helper to render watermark
-  const renderWatermark = () => {
-    const status = data.paymentStatus;
-    let text = '';
-    let colorClass = '';
+  const isPaid = orderData.payment_status === 'paid';
+  const documentTitle = isPaid ? 'Receipt' : 'Invoice';
 
-    if (status === 'unpaid') {
-      text = 'UNPAID';
-      colorClass = 'text-red-500/10 border-red-500/20';
-    } else if (status === 'partially_paid') {
-      text = 'PARTIALLY PAID';
-      colorClass = 'text-yellow-500/10 border-yellow-500/20';
-    } else {
-      text = 'PAID';
-      colorClass = 'text-green-500/10 border-green-500/20';
+  const html = generateReceiptHtml(orderData, merchantData);
+
+  const handlePrint = () => {
+    const iframe = iframeRef.current;
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.print();
     }
-
-    return (
-      <div
-        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-[30deg] border-[6px] border-dashed rounded-xl px-4 py-2 text-5xl md:text-7xl font-black uppercase pointer-events-none whitespace-nowrap z-0 select-none ${colorClass}`}
-      >
-        {text}
-      </div>
-    );
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      {/* biome-ignore lint/a11y/useKeyboardEventHandler: click overlay to close */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
+        role="presentation"
       />
 
       <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
@@ -82,18 +53,15 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           <h3 className="font-bold text-gray-900">{documentTitle} Details</h3>
           <div className="flex items-center gap-2">
             <button
+              type="button"
+              onClick={handlePrint}
               className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
-              title="Print"
+              title="Print or save as PDF"
             >
               <Printer size={18} />
             </button>
             <button
-              className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
-              title="Download PDF"
-            >
-              <Download size={18} />
-            </button>
-            <button
+              type="button"
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
             >
@@ -102,169 +70,17 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </div>
         </div>
 
-        {/* Receipt Content - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-gray-50 relative">
-          <div className="bg-white shadow-sm border border-gray-200 rounded-xl p-6 md:p-8 relative overflow-hidden">
-            {/* Decorative Top Border */}
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-[url('https://www.transparenttextures.com/patterns/diagonal-striped-brick.png')] bg-red-600" />
-
-            {/* Watermark Overlay */}
-            {renderWatermark()}
-
-            {/* Header */}
-            <div className="flex justify-between items-start mb-8 mt-2 relative z-10">
-              <Logo className="h-6 w-auto text-gray-900" />
-              <div className="text-right">
-                <p
-                  className={`text-xs font-bold uppercase tracking-widest mb-1 ${data.paymentStatus === 'unpaid' ? 'text-red-600' : 'text-gray-400'}`}
-                >
-                  {documentTitle}
-                </p>
-                <p className="text-sm font-bold text-gray-900">#{data.id}</p>
-              </div>
-            </div>
-
-            {/* Amount Display */}
-            <div className="text-center mb-8 pb-8 border-b border-dashed border-gray-200 relative z-10">
-              <p className="text-gray-500 text-xs mb-1">
-                {data.paymentStatus === 'unpaid'
-                  ? 'Total to Pay'
-                  : 'Total Amount'}
-              </p>
-              <h1
-                className={`text-3xl font-extrabold ${data.paymentStatus === 'unpaid' ? 'text-red-600' : 'text-gray-900'}`}
-              >
-                {data.total}
-              </h1>
-              <p className="text-xs text-gray-400 mt-2">
-                {data.date} • {data.time}
-              </p>
-            </div>
-
-            {/* Customer Info */}
-            <div className="grid grid-cols-2 gap-8 mb-8 text-sm relative z-10">
-              <div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-                  Billed To
-                </p>
-                <p className="font-bold text-gray-900">
-                  {data.customerName || 'Alex Doe'}
-                </p>
-                <p className="text-gray-600 text-xs mt-1 leading-relaxed">
-                  {data.address || '2 Olaide Tomori St, Ikeja, Lagos'}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-                  Payment Method
-                </p>
-                <p className="font-bold text-gray-900">{data.method}</p>
-                <p className="text-gray-500 text-xs mt-1">
-                  {data.paymentStatus === 'unpaid' ? 'Pending' : 'Verified'}
-                </p>
-              </div>
-            </div>
-
-            {/* Line Items */}
-            <div className="mb-8 relative z-10">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
-                Product Details
-              </p>
-              <div className="space-y-3">
-                {data.products.map((item, index) => (
-                  <div
-                    key={index}
-                    className="bg-gray-50 rounded-lg p-3 border border-gray-100"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="font-bold text-sm text-gray-900 line-clamp-1">
-                          {item.name}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Qty: {item.quantity}
-                        </p>
-                      </div>
-                      <p className="font-bold text-sm text-gray-900">
-                        {item.price}
-                      </p>
-                    </div>
-                    {/* Customizable Feeds */}
-                    <div className="mt-2 pt-2 border-t border-gray-200 flex flex-wrap gap-x-6 gap-y-2">
-                      {item.selectedColor && (
-                        <div className="text-xs">
-                          <span className="text-gray-400">Color:</span>{' '}
-                          <span className="text-gray-700 font-medium">
-                            {item.selectedColor}
-                          </span>
-                        </div>
-                      )}
-                      {item.selectedStorage && (
-                        <div className="text-xs">
-                          <span className="text-gray-400">Storage:</span>{' '}
-                          <span className="text-gray-700 font-medium">
-                            {item.selectedStorage}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Payment Breakdown (For Partial/Unpaid) */}
-            {(data.paymentStatus === 'partially_paid' ||
-              data.paymentStatus === 'unpaid') && (
-              <div className="mb-8 relative z-10">
-                <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-100">
-                  <div className="flex justify-between items-center mb-2 text-sm">
-                    <span className="text-gray-600">Subtotal</span>
-                    <span className="font-bold text-gray-900">
-                      {data.total}
-                    </span>
-                  </div>
-                  {data.amountPaid && (
-                    <div className="flex justify-between items-center mb-2 text-sm">
-                      <span className="text-green-600 font-medium flex items-center gap-1">
-                        <CheckCircle2 size={12} /> Paid
-                      </span>
-                      <span className="font-bold text-green-600">
-                        {data.amountPaid}
-                      </span>
-                    </div>
-                  )}
-                  <div className="border-t border-dashed border-yellow-200 my-2" />
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-red-600 font-bold">Balance Due</span>
-                    <span className="font-bold text-red-600 text-lg">
-                      {data.balance || data.total}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Footer */}
-            <div className="text-center relative z-10">
-              <p className="text-[10px] text-gray-400 mb-2">
-                Questions regarding this {documentTitle.toLowerCase()}?
-              </p>
-              <p className="text-xs font-bold text-red-600">
-                help@ogabassey.com • +234 814 697 8921
-              </p>
-            </div>
-          </div>
+        {/* Shared HTML Receipt via iframe */}
+        <div className="flex-1 overflow-hidden bg-gray-50">
+          <iframe
+            ref={iframeRef}
+            srcDoc={html}
+            title={`${documentTitle} #${orderData.order_number}`}
+            className="w-full h-full border-0"
+            style={{ minHeight: '500px' }}
+            sandbox="allow-same-origin"
+          />
         </div>
-
-        {/* Sticky Action Button (For Unpaid/Partial) */}
-        {data.paymentStatus !== 'paid' && (
-          <div className="p-4 border-t border-gray-100 bg-white rounded-b-2xl">
-            <button className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg hover:shadow-red-200 transition-all active:scale-95">
-              Pay Now {data.balance ? `(${data.balance})` : `(${data.total})`}
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

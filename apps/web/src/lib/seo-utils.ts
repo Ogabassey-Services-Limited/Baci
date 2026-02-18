@@ -150,7 +150,30 @@ const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const THIRTY_DAYS_MS = 30 * MILLISECONDS_PER_DAY;
 
 /**
+ * Maps common variant attribute keys to Google-supported variesBy property URLs.
+ * Google only recognizes 6 specific values for variesBy:
+ * color, size, suggestedAge, suggestedGender, material, pattern
+ * Unsupported attributes return undefined and are excluded from variesBy.
+ * @see https://developers.google.com/search/docs/appearance/structured-data/product#product-variants
+ */
+function schemaPropertyForAttribute(key: string): string | undefined {
+  const map: Record<string, string> = {
+    color: 'https://schema.org/color',
+    colour: 'https://schema.org/color',
+    size: 'https://schema.org/size',
+    storage: 'https://schema.org/size',
+    ram: 'https://schema.org/size',
+    material: 'https://schema.org/material',
+    pattern: 'https://schema.org/pattern',
+    age: 'https://schema.org/suggestedAge',
+    gender: 'https://schema.org/suggestedGender',
+  };
+  return map[key.toLowerCase()];
+}
+
+/**
  * Generates JSON-LD structured data for a product (2025 Google best practices)
+ * For products with variants, outputs @type ProductGroup with hasVariant (each variant has its own Offer).
  * All user-controlled string values are sanitized to prevent XSS attacks.
  * @see https://developers.google.com/search/docs/appearance/structured-data/product
  */
@@ -625,6 +648,136 @@ export function generateProductSchema(
     Object.assign(schema, sanitizedCustomSchema);
   }
 
+  // ProductGroup transformation for products with variants
+  // @see https://schema.org/ProductGroup
+  if (product.variants && product.variants.length > 0) {
+    schema['@type'] = 'ProductGroup';
+    schema.productGroupID = escapeHtml(product.slug || product.id);
+
+    // Compute variesBy from unique attribute keys across all variants
+    const allAttributeKeys = new Set<string>();
+    for (const variant of product.variants) {
+      if (variant.attributes) {
+        for (const key of Object.keys(variant.attributes)) {
+          allAttributeKeys.add(key);
+        }
+      }
+    }
+
+    if (allAttributeKeys.size > 0) {
+      // Only include Google-supported variesBy values, deduplicated
+      const variesBySet = new Set<string>();
+      for (const key of allAttributeKeys) {
+        const url = schemaPropertyForAttribute(key);
+        if (url) variesBySet.add(url);
+      }
+      if (variesBySet.size > 0) {
+        schema.variesBy = Array.from(variesBySet);
+      }
+    }
+
+    // Determine item condition from parent product
+    const parentCondition =
+      product.condition === 'used'
+        ? 'https://schema.org/UsedCondition'
+        : product.condition === 'open_box'
+          ? 'https://schema.org/UsedCondition'
+          : product.condition === 'refurbished'
+            ? 'https://schema.org/RefurbishedCondition'
+            : 'https://schema.org/NewCondition';
+
+    // Shared shipping + return policy for all variant Offers (2026 best practice)
+    const variantShippingDetails = {
+      '@type': 'OfferShippingDetails',
+      shippingRate: {
+        '@type': 'MonetaryAmount',
+        value: 0,
+        currency: currency,
+      },
+      shippingDestination: {
+        '@type': 'DefinedRegion',
+        addressCountry: country,
+      },
+      deliveryTime: {
+        '@type': 'ShippingDeliveryTime',
+        handlingTime: {
+          '@type': 'QuantitativeValue',
+          minValue: 0,
+          maxValue: 1,
+          unitCode: 'DAY',
+        },
+        transitTime: {
+          '@type': 'QuantitativeValue',
+          minValue: 1,
+          maxValue: 5,
+          unitCode: 'DAY',
+        },
+      },
+    };
+
+    const variantReturnPolicy = {
+      '@type': 'MerchantReturnPolicy',
+      applicableCountry: country,
+      returnPolicyCategory:
+        'https://schema.org/MerchantReturnFiniteReturnWindow',
+      merchantReturnDays: 7,
+      returnMethod: 'https://schema.org/ReturnInStore',
+      returnFees: 'https://schema.org/FreeReturn',
+    };
+
+    const variantPriceValidUntil = new Date(Date.now() + THIRTY_DAYS_MS)
+      .toISOString()
+      .substring(0, 10);
+
+    // Build hasVariant array — each variant becomes a @type Product
+    schema.hasVariant = product.variants.map((variant) => {
+      const variantPrice = variant.price_override ?? product.price;
+      const attrValues = variant.attributes
+        ? Object.values(variant.attributes).join(' / ')
+        : '';
+      const variantName = attrValues
+        ? `${safeName} - ${escapeHtml(attrValues)}`
+        : safeName;
+
+      // Variant images: use variant-specific images if available, fall back to parent images
+      const variantImages =
+        variant.images && variant.images.length > 0
+          ? variant.images.map((img) => escapeHtml(img))
+          : safeImages.length > 0
+            ? safeImages
+            : [escapeHtml(product.image || '')];
+
+      return {
+        '@type': 'Product',
+        name: variantName,
+        image: variantImages,
+        sku: variant.sku ? escapeHtml(variant.sku) : variant.id,
+        offers: {
+          '@type': 'Offer',
+          price: variantPrice,
+          priceCurrency: currency,
+          availability:
+            variant.stock_quantity > 0
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/OutOfStock',
+          itemCondition: parentCondition,
+          priceValidUntil: variantPriceValidUntil,
+          seller: {
+            '@type': 'Organization',
+            name: safeMerchantName,
+          },
+          shippingDetails: variantShippingDetails,
+          hasMerchantReturnPolicy: variantReturnPolicy,
+        },
+      };
+    });
+
+    // Per Google guidelines (2026): Do NOT use AggregateOffer for product variants.
+    // Offers belong on each individual variant Product in hasVariant, not on ProductGroup.
+    // Remove the parent-level Offer since variants carry their own.
+    delete schema.offers;
+  }
+
   return schema;
 }
 
@@ -913,65 +1066,6 @@ export function generateCollectionPageSchema(
     },
     numberOfItems: data.products.length,
   };
-}
-
-/**
- * Generates ProductGroup schema for products with variants (colors, sizes, etc.)
- * @see https://schema.org/ProductGroup
- */
-export interface ProductGroupData {
-  name: string;
-  description?: string;
-  url: string;
-  variants: Product[];
-  merchantName: string;
-  currency?: string;
-  variesBy?: ('color' | 'size' | 'material' | 'pattern')[];
-}
-
-export function generateProductGroupSchema(
-  data: ProductGroupData
-): Record<string, unknown> {
-  const schema: Record<string, unknown> = {
-    '@context': 'https://schema.org',
-    '@type': 'ProductGroup',
-    name: escapeHtml(data.name),
-    description: data.description ? escapeHtml(data.description) : undefined,
-    url: escapeHtml(data.url),
-    productGroupID: escapeHtml(data.name.toLowerCase().replace(/\s+/g, '-')),
-    hasVariant: data.variants.map((variant) => ({
-      '@type': 'Product',
-      name: escapeHtml(variant.name),
-      description: variant.description
-        ? escapeHtml(generateMetaDescription(variant.description, 100))
-        : undefined,
-      image: variant.imageLarge ? escapeHtml(variant.imageLarge) : undefined,
-      sku: variant.sku ? escapeHtml(variant.sku) : undefined,
-      color: variant.color ? escapeHtml(variant.color) : undefined,
-      offers: {
-        '@type': 'Offer',
-        price: variant.price,
-        priceCurrency: data.currency || 'NGN',
-        availability:
-          variant.stock > 0
-            ? 'https://schema.org/InStock'
-            : 'https://schema.org/OutOfStock',
-        seller: {
-          '@type': 'Organization',
-          name: escapeHtml(data.merchantName),
-        },
-      },
-    })),
-  };
-
-  // Add variesBy property if specified
-  if (data.variesBy && data.variesBy.length > 0) {
-    schema.variesBy = data.variesBy.map(
-      (v) => `https://schema.org/${v.charAt(0).toUpperCase() + v.slice(1)}`
-    );
-  }
-
-  return schema;
 }
 
 /**

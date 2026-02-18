@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React, { useCallback } from 'react';
+import React from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { useProducts } from '@/hooks/use-products';
+import { useCategories, useProducts } from '@/hooks/use-products';
 import type { Product } from '@/types/product';
 
 export default function CategoryScreen() {
@@ -31,22 +31,31 @@ export default function CategoryScreen() {
     slug && typeof slug === 'string' && slug.length > 0
   );
 
+  // H10 FIX: Resolve category slug to UUID since Supabase query uses category_id
+  const { data: categories = [], isLoading: categoriesLoading } =
+    useCategories();
+  const categoryId = categories.find((c) => c.slug === slug)?.id;
+
   const { products, isLoading, error, hasMore, refetch, loadMore } =
-    useProducts({ category: isValidSlug ? slug : undefined, limit: 20 });
+    useProducts({
+      category: isValidSlug ? categoryId : undefined,
+      limit: 20,
+      enabled: !categoriesLoading,
+    });
 
   const [refreshing, setRefreshing] = React.useState(false);
 
-  const handleRefresh = useCallback(async () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
-  }, [refetch]);
+  };
 
-  const handleLoadMore = useCallback(() => {
+  const handleLoadMore = () => {
     if (!isLoading && hasMore) {
       loadMore();
     }
-  }, [isLoading, hasMore, loadMore]);
+  };
 
   const handleProductPress = (product: Product) => {
     router.push(`/product/${product.slug}`);
@@ -170,7 +179,6 @@ export default function CategoryScreen() {
       <Stack.Screen
         options={{
           title: getCategoryTitle(slug || ''),
-          headerBackTitle: 'Back',
         }}
       />
       <FlatList

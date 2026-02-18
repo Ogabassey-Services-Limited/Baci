@@ -1,0 +1,265 @@
+import { StyleSheet } from 'react-native';
+import { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import { FAB_SIZE } from './constants';
+
+export const styles = StyleSheet.create({
+  fabContainer: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    zIndex: 1000,
+  },
+  fab: {
+    width: FAB_SIZE,
+    height: FAB_SIZE,
+    borderRadius: FAB_SIZE / 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS.xl,
+  },
+  fabEmoji: {
+    fontSize: 32,
+  },
+  aiBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: BRAND.primary,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  aiBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '700',
+  },
+  dragIndicator: {
+    position: 'absolute',
+    top: -30,
+    left: FAB_SIZE / 2 - 40,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: RADIUS.md,
+  },
+  dragIndicatorText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  nudgeContainer: {
+    position: 'absolute',
+    bottom: FAB_SIZE + 12,
+    width: 260,
+  },
+  nudgeRight: {
+    right: -8,
+    alignItems: 'flex-end',
+  },
+  nudgeLeft: {
+    left: -8,
+    alignItems: 'flex-start',
+  },
+  nudgeBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingLeft: 14,
+    paddingRight: 32,
+    borderRadius: 20,
+    borderWidth: 1,
+    maxWidth: '100%',
+    ...SHADOWS.lg,
+  },
+  nudgeText: {
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 18,
+    flex: 1,
+  },
+  nudgeClose: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  nudgeTailContainer: {
+    flexDirection: 'row',
+    marginTop: 2,
+  },
+  nudgeTailRight: {
+    marginRight: 12,
+    justifyContent: 'flex-end',
+  },
+  nudgeTailLeft: {
+    marginLeft: 12,
+    justifyContent: 'flex-start',
+  },
+  nudgeDot1: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1,
+    marginRight: 4,
+  },
+  nudgeDot2: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    borderWidth: 1,
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  headerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerAvatarEmoji: {
+    fontSize: 24,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  headerSubtitle: {
+    fontSize: 12,
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  messagesWrapper: {
+    flex: 1,
+  },
+  messagesList: {
+    padding: SPACING.md,
+    paddingBottom: SPACING.xl,
+  },
+  messageContainer: {
+    flexDirection: 'row',
+    marginBottom: SPACING.md,
+    alignItems: 'flex-end',
+  },
+  userMessageContainer: {
+    justifyContent: 'flex-end',
+  },
+  aiMessageContainer: {
+    justifyContent: 'flex-start',
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.xs,
+  },
+  avatarEmoji: {
+    fontSize: 16,
+  },
+  messageBubble: {
+    maxWidth: '80%',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS['2xl'],
+  },
+  userBubble: {
+    borderBottomRightRadius: RADIUS.sm,
+    marginLeft: 'auto',
+  },
+  aiBubble: {
+    borderBottomLeftRadius: RADIUS.sm,
+    borderWidth: 1,
+  },
+  messageText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    marginTop: SPACING.sm,
+  },
+  loadingBubble: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS['2xl'],
+    borderBottomLeftRadius: RADIUS.sm,
+    borderWidth: 1,
+  },
+  inputContainer: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderTopWidth: 1,
+  },
+  suggestionsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+  suggestionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+  },
+  suggestionText: {
+    fontSize: 12,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  input: {
+    flex: 1,
+    height: 44,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    fontSize: 14,
+  },
+  sendButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  poweredBy: {
+    textAlign: 'center',
+    fontSize: 10,
+    marginTop: SPACING.xs,
+  },
+});

@@ -9,8 +9,8 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
 import { sanitizeSearchQuery, sanitizeText } from '@/lib/sanitize';
+import { supabase } from '@/lib/supabase';
 import { useMerchant } from './useMerchant';
 
 export type ProductStatus = 'active' | 'draft' | 'archived';
@@ -55,6 +55,9 @@ export interface InventoryStats {
   categoryCount: number;
 }
 
+const PRODUCT_COLUMNS =
+  'id, name, description, price, compare_at_price, cost_price, stock_quantity, stock, sku, slug, images, status, category, category_id, brand, brand_id, fulfillment_details, color, variant_attributes, has_variants, manage_stock, low_stock_threshold, created_at, updated_at' as const;
+
 interface ProductsPage {
   products: Product[];
   nextCursor: number | null;
@@ -70,7 +73,7 @@ async function fetchProducts(
 ): Promise<ProductsPage> {
   let query = supabase
     .from('products')
-    .select('*', { count: 'exact' })
+    .select(PRODUCT_COLUMNS, { count: 'exact' })
     .eq('merchant_id', merchantId)
     .is('parent_product_id', null) // Only parent products
     .order('created_at', { ascending: false })
@@ -106,7 +109,8 @@ async function fetchProducts(
 
 async function updateProductStock(
   productId: string,
-  stock: number
+  stock: number,
+  merchantId: string
 ): Promise<Product> {
   const { data, error } = await supabase
     .from('products')
@@ -116,7 +120,8 @@ async function updateProductStock(
       updated_at: new Date().toISOString(),
     })
     .eq('id', productId)
-    .select()
+    .eq('merchant_id', merchantId)
+    .select(PRODUCT_COLUMNS)
     .single();
 
   if (error) throw new Error(error.message);
@@ -125,13 +130,15 @@ async function updateProductStock(
 
 async function updateProductStatus(
   productId: string,
-  status: ProductStatus
+  status: ProductStatus,
+  merchantId: string
 ): Promise<Product> {
   const { data, error } = await supabase
     .from('products')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', productId)
-    .select()
+    .eq('merchant_id', merchantId)
+    .select(PRODUCT_COLUMNS)
     .single();
 
   if (error) throw new Error(error.message);
@@ -164,13 +171,14 @@ export function useProduct(productId: string) {
     queryKey: ['product', productId],
     queryFn: async () => {
       if (!productId || productId === 'new') return null;
+      if (!merchant?.id) throw new Error('No merchant');
 
       // Fetch product
       const { data: productData, error: productError } = await supabase
         .from('products')
-        .select('*, categories(name), brands(name)')
+        .select(`${PRODUCT_COLUMNS}, categories(name), brands(name)`)
         .eq('id', productId)
-        .eq('merchant_id', merchant?.id)
+        .eq('merchant_id', merchant.id)
         .single();
 
       if (productError) throw productError;
@@ -178,9 +186,9 @@ export function useProduct(productId: string) {
       // Fetch variants if this is a parent or has_variants is true
       const { data: variants, error: variantsError } = await supabase
         .from('products')
-        .select('*')
+        .select(PRODUCT_COLUMNS)
         .eq('parent_product_id', productId)
-        .eq('merchant_id', merchant?.id); // Ensure variants also belong to the merchant
+        .eq('merchant_id', merchant.id); // Ensure variants also belong to the merchant
 
       if (variantsError && variantsError.code !== 'PGRST116') {
         // PGRST116 is "No rows found"
@@ -228,7 +236,7 @@ export function useUpdateProduct() {
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
-        .select()
+        .select(PRODUCT_COLUMNS)
         .single();
 
       if (error) throw new Error(error.message);
@@ -248,6 +256,8 @@ export function useCreateProduct() {
   return useMutation({
     mutationKey: ['createProduct'],
     mutationFn: async (newProduct: ProductFormValues) => {
+      if (!merchant?.id) throw new Error('No merchant');
+
       // 1. Validate & Transform
       const dbPayload = ProductDbSchema.parse(newProduct);
 
@@ -256,10 +266,10 @@ export function useCreateProduct() {
         .insert([
           {
             ...dbPayload,
-            merchant_id: merchant?.id,
+            merchant_id: merchant.id,
           },
         ])
-        .select()
+        .select(PRODUCT_COLUMNS)
         .single();
 
       if (error) throw new Error(error.message);
@@ -277,19 +287,33 @@ export function useUpdateProductStock() {
 
   return useMutation({
     mutationKey: ['updateProductStock'],
-    mutationFn: ({ productId, stock }: { productId: string; stock: number }) =>
-      updateProductStock(productId, stock),
+    mutationFn: ({
+      productId,
+      stock,
+    }: {
+      productId: string;
+      stock: number;
+    }) => {
+      if (!merchant?.id) throw new Error('No merchant');
+      return updateProductStock(productId, stock, merchant.id);
+    },
     onMutate: async ({ productId, stock }) => {
-      await queryClient.cancelQueries({ queryKey: ['products', merchant?.id] });
+      await queryClient.cancelQueries({ queryKey: ['products'] });
 
-      const previousProducts = queryClient.getQueryData([
-        'products',
-        merchant?.id,
-      ]);
+      const previousQueriesData: Array<{
+        queryKey: readonly unknown[];
+        data: unknown;
+      }> = [];
 
-      queryClient.setQueryData(
-        ['products', merchant?.id],
-        (old: { pages: ProductsPage[] } | undefined) => {
+      queryClient
+        .getQueriesData({ queryKey: ['products'] })
+        .forEach(([queryKey, data]) => {
+          previousQueriesData.push({ queryKey, data });
+        });
+
+      queryClient.setQueriesData<{ pages: ProductsPage[] } | undefined>(
+        { queryKey: ['products'] },
+        (old) => {
           if (!old?.pages) return old;
           return {
             ...old,
@@ -305,18 +329,17 @@ export function useUpdateProductStock() {
         }
       );
 
-      return { previousProducts };
+      return { previousQueriesData };
     },
     onError: (_err, _vars, context) => {
-      if (context?.previousProducts) {
-        queryClient.setQueryData(
-          ['products', merchant?.id],
-          context.previousProducts
-        );
+      if (context?.previousQueriesData) {
+        for (const { queryKey, data } of context.previousQueriesData) {
+          queryClient.setQueryData(queryKey, data);
+        }
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }
@@ -333,7 +356,10 @@ export function useUpdateProductStatus() {
     }: {
       productId: string;
       status: ProductStatus;
-    }) => updateProductStatus(productId, status),
+    }) => {
+      if (!merchant?.id) throw new Error('No merchant');
+      return updateProductStatus(productId, status, merchant.id);
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['products', merchant?.id] });
     },
@@ -367,6 +393,8 @@ export function useCreateCategory() {
   return useMutation({
     mutationKey: ['createCategory'],
     mutationFn: async (name: string) => {
+      if (!merchant?.id) throw new Error('No merchant');
+
       // Sanitize category name to prevent XSS
       const sanitizedName = sanitizeText(name, 200);
       if (!sanitizedName.trim()) throw new Error('Category name is required');
@@ -377,8 +405,8 @@ export function useCreateCategory() {
 
       const { data, error } = await supabase
         .from('categories')
-        .insert([{ name: sanitizedName, slug, merchant_id: merchant?.id }])
-        .select()
+        .insert([{ name: sanitizedName, slug, merchant_id: merchant.id }])
+        .select('id, name, slug')
         .single();
 
       if (error) throw error;
@@ -388,6 +416,13 @@ export function useCreateCategory() {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
+}
+
+interface TopProductRpcResult {
+  id: string;
+  name: string;
+  revenue: number;
+  units: number;
 }
 
 export interface TopSellingProduct extends Product {
@@ -418,7 +453,7 @@ export function useTopSellingProducts(limit: number = 20) {
       // RPC returns { id, name, revenue, units }
       // We need to fetch full product details or map accordingly.
       // Ideally RPC should return full details, but for now we can map partial product.
-      // Or we can fetch product details for these IDs. 
+      // Or we can fetch product details for these IDs.
       // But for speed, let's just return what we have and maybe fetch images?
 
       // Wait, the UI expects full Product object + totalSold/Revenue.
@@ -429,29 +464,32 @@ export function useTopSellingProducts(limit: number = 20) {
       // Let's modify the RPC later to return more info, OR fetch product details here.
       // Fetching details for 20 products is much faster than fetching 10,000 order items.
 
-      const rpcData = data as any[];
+      const rpcData = data as TopProductRpcResult[];
       if (!rpcData?.length) return [];
 
       const productIds = rpcData.map((d) => d.id);
 
       const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select('*')
-        .in('id', productIds);
+        .select(PRODUCT_COLUMNS)
+        .in('id', productIds)
+        .eq('merchant_id', merchant?.id);
 
       if (productsError) throw productsError;
 
-      const productsMap = new Map(productsData?.map(p => [p.id, p]));
+      const productsMap = new Map(productsData?.map((p) => [p.id, p]));
 
-      return rpcData.map(item => {
-        const product = productsMap.get(item.id);
-        if (!product) return null;
-        return {
-          ...product,
-          totalSold: Number(item.units),
-          totalRevenue: Number(item.revenue),
-        };
-      }).filter(Boolean) as TopSellingProduct[];
+      return rpcData
+        .map((item) => {
+          const product = productsMap.get(item.id);
+          if (!product) return null;
+          return {
+            ...product,
+            totalSold: Number(item.units),
+            totalRevenue: Number(item.revenue),
+          };
+        })
+        .filter(Boolean) as TopSellingProduct[];
     },
     enabled: !!merchant?.id,
   });

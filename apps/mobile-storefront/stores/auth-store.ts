@@ -10,6 +10,7 @@
 
 import type { Session, User } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import { Alert } from 'react-native';
 import { create } from 'zustand';
 import { splitFullName } from '../lib/auth-helpers';
 import { createLogger } from '../lib/logger';
@@ -28,9 +29,7 @@ export interface Customer {
   first_name?: string;
   last_name?: string;
   phone?: string;
-  avatar_url?: string;
   loyalty_points?: number;
-  loyalty_tier?: string;
 }
 
 interface AuthState {
@@ -119,7 +118,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           merchantId: null,
           isLoading: false,
           isInitialized: true,
-        });
+          _initializationInProgress: false,
+        } as Partial<AuthState>);
         return;
       }
 
@@ -135,16 +135,91 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw sessionError;
       }
 
+      // After getting session, validate JWT with server
+      if (session) {
+        const { error: userError } = await supabase.auth.getUser();
+        if (userError) {
+          // Session is invalid/expired — clear and return in guest mode
+          log.warn('Session JWT validation failed:', userError.message);
+          set({
+            user: null,
+            session: null,
+            customer: null,
+            isLoading: false,
+            isInitialized: true,
+            _initializationInProgress: false,
+          } as Partial<AuthState>);
+          return;
+        }
+      }
+
       if (session?.user) {
+        // M25 fix: Guard against undefined email before using in query
+        if (!session.user.email) {
+          log.warn('Session user has no email, skipping customer fetch');
+          set({
+            user: session.user,
+            session,
+            customer: null,
+            isLoading: false,
+            isInitialized: true,
+            _initializationInProgress: false,
+          } as Partial<AuthState>);
+          return;
+        }
+
         // Fetch customer data for this merchant
-        const { data: customerData } = await supabase
+        let { data: customerData } = await supabase
           .from('customers')
-          .select(
-            'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
-          )
+          .select('id, email, first_name, last_name, phone, loyalty_points')
           .eq('merchant_id', merchantValidation.data.id)
           .eq('email', session.user.email)
           .single();
+
+        // Create customer record if it doesn't exist (mirrors auth listener logic)
+        // This covers the case where a user returns with an active session but
+        // no customer record — the SIGNED_IN event won't fire for existing sessions.
+        if (!customerData && session.user.email) {
+          const { firstName, lastName } = splitFullName(
+            session.user.user_metadata?.full_name
+          );
+
+          const { data: newCustomer } = await supabase
+            .from('customers')
+            .insert({
+              merchant_id: merchantValidation.data.id,
+              email: session.user.email,
+              first_name: firstName,
+              last_name: lastName,
+            })
+            .select('id, email, first_name, last_name, phone, loyalty_points')
+            .single();
+
+          customerData = newCustomer;
+        }
+
+        // Backfill missing profile fields from OAuth provider on app init
+        if (customerData && session.user.user_metadata) {
+          const meta = session.user.user_metadata;
+          const { firstName, lastName } = splitFullName(meta.full_name);
+          const updates: Record<string, string> = {};
+
+          if (!customerData.first_name && firstName)
+            updates.first_name = firstName;
+          if (!customerData.last_name && lastName) updates.last_name = lastName;
+
+          if (Object.keys(updates).length > 0) {
+            const { data: updated } = await supabase
+              .from('customers')
+              .update(updates)
+              .eq('id', customerData.id)
+              .eq('merchant_id', merchantValidation.data.id)
+              .select('id, email, first_name, last_name, phone, loyalty_points')
+              .single();
+
+            if (updated) customerData = updated;
+          }
+        }
 
         // 2026 Best Practice: Validate customer data
         const customerValidation = CustomerRowSchema.safeParse(customerData);
@@ -155,10 +230,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               first_name: customerValidation.data.first_name ?? undefined,
               last_name: customerValidation.data.last_name ?? undefined,
               phone: customerValidation.data.phone ?? undefined,
-              avatar_url: customerValidation.data.avatar_url ?? undefined,
               loyalty_points:
                 customerValidation.data.loyalty_points ?? undefined,
-              loyalty_tier: customerValidation.data.loyalty_tier ?? undefined,
             }
           : null;
 
@@ -188,12 +261,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // 2026 Critical Fix: Wrap async auth listener operations in try-catch
           // to prevent unhandled promise rejections and race conditions
           try {
-            if (event === 'SIGNED_IN' && session?.user && merchantId) {
+            if (event === 'SIGNED_IN' && session?.user) {
+              // Always set user + session immediately so login screen can dismiss
+              set({ user: session.user, session });
+
+              // M25 fix: Guard against undefined email before using in query
+              if (!session.user.email || !merchantId) {
+                log.warn(
+                  'Auth listener: Skipping customer fetch —',
+                  !session.user.email ? 'no email' : 'no merchantId'
+                );
+                set({ customer: null });
+                return;
+              }
+
               // Fetch or create customer record
               let { data: customerData } = await supabase
                 .from('customers')
                 .select(
-                  'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
+                  'id, email, first_name, last_name, phone, loyalty_points'
                 )
                 .eq('merchant_id', merchantId)
                 .eq('email', session.user.email)
@@ -213,15 +299,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     email: session.user.email,
                     first_name: firstName,
                     last_name: lastName,
-                    avatar_url: session.user.user_metadata?.avatar_url,
-                    source: 'mobile_app',
                   })
                   .select(
-                    'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
+                    'id, email, first_name, last_name, phone, loyalty_points'
                   )
                   .single();
 
                 customerData = newCustomer;
+              } else if (customerData && session.user.user_metadata) {
+                // Backfill missing profile fields from OAuth provider (e.g. Google name/avatar)
+                const meta = session.user.user_metadata;
+                const { firstName, lastName } = splitFullName(meta.full_name);
+                const updates: Record<string, string> = {};
+
+                if (!customerData.first_name && firstName)
+                  updates.first_name = firstName;
+                if (!customerData.last_name && lastName)
+                  updates.last_name = lastName;
+
+                if (Object.keys(updates).length > 0) {
+                  const { data: updated } = await supabase
+                    .from('customers')
+                    .update(updates)
+                    .eq('id', customerData.id)
+                    .eq('merchant_id', merchantId)
+                    .select(
+                      'id, email, first_name, last_name, phone, loyalty_points'
+                    )
+                    .single();
+
+                  if (updated) customerData = updated;
+                }
               }
 
               // 2026 Best Practice: Validate customer data from auth listener
@@ -236,12 +344,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     last_name:
                       authCustomerValidation.data.last_name ?? undefined,
                     phone: authCustomerValidation.data.phone ?? undefined,
-                    avatar_url:
-                      authCustomerValidation.data.avatar_url ?? undefined,
                     loyalty_points:
                       authCustomerValidation.data.loyalty_points ?? undefined,
-                    loyalty_tier:
-                      authCustomerValidation.data.loyalty_tier ?? undefined,
                   }
                 : null;
 
@@ -390,20 +494,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // Sign in with Google OAuth (PKCE flow for mobile)
+  // Sign in with Google OAuth (Implicit flow — official Supabase React Native pattern)
   signInWithGoogle: async () => {
+    // 2026 Best Practice: Prevent multiple concurrent sign-in requests
+    const state = get();
+    if (state.isLoading && state.isInitialized) {
+      log.warn('Sign-in already in progress, skipping');
+      return { success: false, error: 'Sign-in already in progress' };
+    }
+
     try {
       set({ isLoading: true, error: null });
 
       const WebBrowser = await import('expo-web-browser');
-      const Linking = await import('expo-linking');
+      const { makeRedirectUri } = await import('expo-auth-session');
+      const QueryParams = await import('expo-auth-session/build/QueryParams');
 
-      // Use Linking.createURL for consistent URL generation across environments
-      const redirectUrl = Linking.createURL('/auth/callback');
+      // makeRedirectUri handles dev/prod/Expo Go variations automatically
+      const redirectUrl = makeRedirectUri();
 
       log.debug('Generated OAuth redirect URL:', redirectUrl);
 
-      // Get the OAuth URL from Supabase (PKCE flow handles CSRF via code_verifier)
+      // Implicit flow: Supabase returns tokens directly in the redirect URL
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -434,53 +546,66 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         { showInRecents: true }
       );
 
-      log.debug('OAuth Session Result:', { type: result.type });
-
       if (result.type === 'success' && result.url) {
-        // PKCE flow: extract authorization code from query params
-        const url = new URL(result.url);
-        const code = url.searchParams.get('code');
+        log.info('WebBrowser returned success URL');
 
-        if (!code) {
-          // Check for error in the redirect
-          const errorParam =
-            url.searchParams.get('error_description') ||
-            url.searchParams.get('error') ||
-            'No authorization code received';
-          log.error('OAuth redirect missing code:', errorParam);
-          set({ error: errorParam, isLoading: false });
-          return { success: false, error: errorParam };
+        // Official Supabase pattern: extract tokens from redirect URL hash/params
+        const { params, errorCode } = QueryParams.getQueryParams(result.url);
+
+        if (errorCode) {
+          log.error('OAuth error code returned:', errorCode);
+          set({ isLoading: false });
+          return { success: false, error: errorCode };
         }
 
-        // Exchange the authorization code for a session
-        const { error: sessionError } =
-          await supabase.auth.exchangeCodeForSession(code);
+        const { access_token, refresh_token } = params;
+
+        if (!access_token) {
+          log.warn(
+            'No access_token in redirect URL. Params:',
+            Object.keys(params)
+          );
+          set({ isLoading: false });
+          return {
+            success: false,
+            error: 'No access token received from Google',
+          };
+        }
+
+        log.info('Tokens received, setting session...');
+        const { data: sessionData, error: sessionError } =
+          await supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          });
 
         if (sessionError) {
-          set({ error: sessionError.message, isLoading: false });
+          log.error('setSession failed:', sessionError);
+          set({ isLoading: false });
+          Alert.alert('Sign-In Error', sessionError.message);
           return { success: false, error: sessionError.message };
         }
 
+        log.info('Session established for:', sessionData.user?.email);
         set({ isLoading: false });
         return { success: true };
       }
 
-      // User cancelled or dismissed the browser
+      set({ isLoading: false });
+
       if (result.type === 'cancel' || result.type === 'dismiss') {
-        set({ isLoading: false });
-        return { success: false, error: 'Sign in was cancelled' };
+        log.info(`Google flow ended with result: ${result.type}`);
+        return { success: false, error: 'Sign-in cancelled' };
       }
 
-      set({ isLoading: false });
-      return { success: false, error: 'OAuth flow failed' };
+      return { success: false, error: `Login failed: ${result.type}` };
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Failed to sign in with Google';
       log.error('Google sign-in error:', error);
-      set({ error: message, isLoading: false });
-      return { success: false, error: message };
+      set({ isLoading: false });
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Google sign-in failed',
+      };
     }
   },
 
@@ -493,7 +618,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       let AppleAuthentication;
       try {
         AppleAuthentication = await import('expo-apple-authentication');
-      } catch (e) {
+      } catch (_e) {
         throw new Error(
           'expo-apple-authentication not installed. Please run "npx expo install expo-apple-authentication"'
         );
@@ -546,6 +671,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: false });
       return { success: true };
     } catch (error) {
+      // 2026 Best Practice: Handle Apple Sign-In cancellation gracefully
+      // When user dismisses the Apple prompt, signInAsync throws ERR_REQUEST_CANCELED
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        (error as Error & { code: string }).code === 'ERR_REQUEST_CANCELED'
+      ) {
+        set({ isLoading: false });
+        return { success: false, error: 'Sign in was cancelled' };
+      }
+
       const message =
         error instanceof Error ? error.message : 'Failed to sign in with Apple';
       log.error('Apple sign-in error:', error);
@@ -559,19 +695,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true });
 
-      // 2026 Critical Fix: Cleanup auth subscription before sign out
-      get().cleanup();
+      // 2026 Best Practice: Do NOT call cleanup() here.
+      // The onAuthStateChange listener must survive sign-out so it can
+      // detect subsequent sign-ins (e.g., Google OAuth). The listener's
+      // SIGNED_OUT handler (line ~361) already clears user/session/customer.
+      // cleanup() is reserved for app unmount only (root layout teardown).
 
       await supabase.auth.signOut();
-      // Clear cart on logout to prevent cart data leakage between users
+      // Clear entire cart on logout to prevent cart data leakage between users.
       useCartStore.getState().clearCart();
       set({
         user: null,
         session: null,
         customer: null,
         isLoading: false,
-        isInitialized: false, // Allow re-initialization after sign out
-      });
+        isInitialized: true, // 2026 Fix: Keep initialized after sign out to allow redirects
+        _initializationInProgress: false,
+      } as Partial<AuthState>);
     } catch (error) {
       log.error('Sign out error:', error);
       set({ isLoading: false });
@@ -608,13 +748,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: false, error: 'Not logged in' };
       }
 
-      // BUG-3-006: Validate session before profile update
+      // BUG-3-006: Validate auth server-side before profile update
       const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
+        data: { user: verifiedUser },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-      if (sessionError || !session) {
+      if (authError || !verifiedUser) {
         log.warn('Session expired during profile update');
         return {
           success: false,
@@ -622,19 +762,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         };
       }
 
-      const { data: updated, error } = await supabase
-        .from('customers')
-        .update({
+      // M3 fix: Filter out undefined values to prevent nulling-out existing data
+      const updates = Object.fromEntries(
+        Object.entries({
           first_name: data.first_name,
           last_name: data.last_name,
           phone: data.phone,
-          avatar_url: data.avatar_url,
-        })
+        }).filter(([, v]) => v !== undefined)
+      );
+
+      if (Object.keys(updates).length === 0) {
+        return { success: true }; // Nothing to update
+      }
+
+      const { data: updated, error } = await supabase
+        .from('customers')
+        .update(updates)
         .eq('id', customer.id)
         .eq('merchant_id', merchantId)
-        .select(
-          'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
-        )
+        .select('id, email, first_name, last_name, phone, loyalty_points')
         .single();
 
       if (error) {
@@ -657,9 +803,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         first_name: updateValidation.data.first_name ?? undefined,
         last_name: updateValidation.data.last_name ?? undefined,
         phone: updateValidation.data.phone ?? undefined,
-        avatar_url: updateValidation.data.avatar_url ?? undefined,
         loyalty_points: updateValidation.data.loyalty_points ?? undefined,
-        loyalty_tier: updateValidation.data.loyalty_tier ?? undefined,
       };
 
       set({ customer: validatedCustomer });

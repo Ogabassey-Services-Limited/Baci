@@ -21,55 +21,73 @@ async function fetchOrderCounts(merchantId: string): Promise<OrderCounts> {
     // All orders
     supabase
       .from('orders')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId),
 
     // Pending
     supabase
       .from('orders')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId)
       .eq('shipping_status', 'pending'),
 
     // Processing
     supabase
       .from('orders')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId)
       .eq('shipping_status', 'processing'),
 
     // Shipped
     supabase
       .from('orders')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId)
       .eq('shipping_status', 'shipped'),
 
     // Delivered
     supabase
       .from('orders')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId)
       .eq('shipping_status', 'delivered'),
 
     // Cancelled
     supabase
       .from('orders')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId)
       .eq('shipping_status', 'cancelled'),
 
     // Returned
     supabase
       .from('orders')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchantId)
       .eq('shipping_status', 'returned'),
   ];
 
   const results = await Promise.all(queries);
 
-  // Extract counts, defaulting to 0 if error or null
+  // Check each result for errors
+  const labels = [
+    'all',
+    'pending',
+    'processing',
+    'shipped',
+    'delivered',
+    'cancelled',
+    'returned',
+  ] as const;
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (result.error) {
+      throw new Error(
+        `Failed to fetch ${labels[i]} order count: ${result.error.message}`
+      );
+    }
+  }
+
   return {
     all: results[0].count ?? 0,
     pending: results[1].count ?? 0,

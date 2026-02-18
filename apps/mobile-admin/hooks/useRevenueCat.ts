@@ -6,14 +6,13 @@ export function useRevenueCat() {
 
   useEffect(() => {
     // Initialize on mount if not already done
-    // Guard: skip if already initializing, has data, or has error
-    const needsInit =
-      !store.isInitializing && !store.currentOffering && !store.error;
+    // Guard: skip if already initializing or already initialized
+    const needsInit = !store.isInitializing && !store.isInitialized;
     if (needsInit) {
       store.initialize();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentional: one-time mount initialization
-  }, []);
+  }, [store]);
 
   return store;
 }

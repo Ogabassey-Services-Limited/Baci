@@ -1,5 +1,5 @@
-import React, { memo, useCallback, useEffect, useMemo } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -12,15 +12,26 @@ import Animated, {
 import { SEASONAL } from '@/lib/seasonal';
 import { useThemeStore } from '@/stores/theme-store';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const NUM_SNOWFLAKES = 40; // Optimized for performance
 
 /**
  * Individual Snowflake with Parallax properties
  * 2026 Best Practice: Use seeded randomness based on index to ensure stable values
  * across re-renders and prevent animation value recreation
+ *
+ * M31 fix: Removed React.memo — React Compiler handles memoization (ADR-004).
  */
-const Snowflake = memo(({ index, color }: { index: number; color: string }) => {
+function Snowflake({
+  index,
+  color,
+  screenWidth,
+  screenHeight,
+}: {
+  index: number;
+  color: string;
+  screenWidth: number;
+  screenHeight: number;
+}) {
   // Use index to determine "layer" (0 = back, 1 = mid, 2 = front)
   const layer = index % 3;
 
@@ -31,20 +42,15 @@ const Snowflake = memo(({ index, color }: { index: number; color: string }) => {
   // 2026 Best Practice: Use index-based seeded values instead of Math.random()
   // This ensures stable values across re-renders and prevents animation recreation
   const seed = (index * 9301 + 49297) % 233280;
-  const seededRandom = useCallback(
-    (offset: number) => ((seed + offset) % 233280) / 233280,
-    [seed]
-  );
+  // M31 fix: Removed useCallback — React Compiler handles memoization (ADR-004)
+  const seededRandom = (offset: number) => ((seed + offset) % 233280) / 233280;
 
-  // Memoize all random-based values with stable seeds
-  const xPosition = useMemo(() => seededRandom(0) * SCREEN_WIDTH, [seededRandom]);
-  const startY = useMemo(() => -seededRandom(1) * 200, [seededRandom]);
-  const duration = useMemo(
-    () => (6000 + seededRandom(2) * 4000) / speedMultiplier,
-    [speedMultiplier, seededRandom]
-  );
-  const delay = useMemo(() => seededRandom(3) * 8000, [seededRandom]);
-  const size = useMemo(() => (3 + seededRandom(4) * 4) * scale, [scale, seededRandom]);
+  // M31 fix: Removed useMemo wrappers — React Compiler handles memoization (ADR-004)
+  const xPosition = seededRandom(0) * screenWidth;
+  const startY = -seededRandom(1) * 200;
+  const duration = (6000 + seededRandom(2) * 4000) / speedMultiplier;
+  const delay = seededRandom(3) * 8000;
+  const size = (3 + seededRandom(4) * 4) * scale;
 
   // 2026 Best Practice: Initialize shared values with stable starting values
   const translateY = useSharedValue(startY);
@@ -54,7 +60,7 @@ const Snowflake = memo(({ index, color }: { index: number; color: string }) => {
     translateY.value = withDelay(
       delay,
       withRepeat(
-        withTiming(SCREEN_HEIGHT + 100, {
+        withTiming(screenHeight + 100, {
           duration: duration,
           easing: Easing.bezier(0.45, 0, 0.55, 1), // Smoother falling curve
         }),
@@ -65,7 +71,7 @@ const Snowflake = memo(({ index, color }: { index: number; color: string }) => {
     return () => {
       cancelAnimation(translateY);
     };
-  }, [delay, duration, translateY]);
+  }, [delay, duration, translateY, screenHeight]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }, { scale: scale }],
@@ -87,21 +93,30 @@ const Snowflake = memo(({ index, color }: { index: number; color: string }) => {
       ]}
     />
   );
-});
+}
 
 /**
  * SnowEffect - Elite 2026 Implementation
  */
 export function SnowEffect() {
   const theme = useThemeStore((state) => state.theme);
-  const tokens = useMemo(() => SEASONAL.getTokens(theme), [theme]);
+  // M31 fix: Removed useMemo — React Compiler handles memoization (ADR-004)
+  const tokens = SEASONAL.getTokens(theme);
+  // M34 fix: Use useWindowDimensions() hook instead of stale Dimensions.get('window')
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   if (!tokens.isSanta) return null;
 
   return (
     <View style={styles.container} pointerEvents="none">
       {Array.from({ length: NUM_SNOWFLAKES }).map((_, i) => (
-        <Snowflake key={i} index={i} color={tokens.snowColor} />
+        <Snowflake
+          key={i}
+          index={i}
+          color={tokens.snowColor ?? '#FFFFFF'}
+          screenWidth={screenWidth}
+          screenHeight={screenHeight}
+        />
       ))}
     </View>
   );

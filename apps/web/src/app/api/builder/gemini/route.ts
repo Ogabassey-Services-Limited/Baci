@@ -180,7 +180,9 @@ export async function POST(req: Request) {
         system: SYSTEM_PROMPT,
         prompt: `Current Configuration:
 \`\`\`json
-${JSON.stringify(currentConfig, null, 2)}
+${JSON.stringify(currentConfig, null, 2)
+  .replace(/ignore (previous|all|above|prior)/gi, '[filtered]')
+  .replace(/system:/gi, '[filtered]')}
 \`\`\`
 
 User Request: ${sanitizedPrompt}

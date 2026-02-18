@@ -136,36 +136,49 @@ export default function AnalyticsScreen() {
     customStart: Date,
     _customEnd: Date
   ): Date => {
-    const now = new Date();
     let startDate: Date;
 
     switch (filter) {
-      case 'today':
-        startDate = new Date(now.setHours(0, 0, 0, 0));
+      case 'today': {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        startDate = d;
         break;
+      }
       case 'yesterday': {
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        startDate = new Date(yesterday.setHours(0, 0, 0, 0));
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        d.setHours(0, 0, 0, 0);
+        startDate = d;
         break;
       }
       case 'this_week': {
-        const firstDay = new Date(now.setDate(now.getDate() - now.getDay()));
-        startDate = new Date(firstDay.setHours(0, 0, 0, 0));
+        const d = new Date();
+        d.setDate(d.getDate() - d.getDay());
+        d.setHours(0, 0, 0, 0);
+        startDate = d;
         break;
       }
       case 'last_week': {
-        const lastWeekStart = new Date(
-          now.setDate(now.getDate() - now.getDay() - 7)
-        );
-        startDate = new Date(lastWeekStart.setHours(0, 0, 0, 0));
+        const d = new Date();
+        d.setDate(d.getDate() - d.getDay() - 7);
+        d.setHours(0, 0, 0, 0);
+        startDate = d;
         break;
       }
       case 'this_month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDate = new Date(
+          new Date().getFullYear(),
+          new Date().getMonth(),
+          1
+        );
         break;
       case 'last_month':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        startDate = new Date(
+          new Date().getFullYear(),
+          new Date().getMonth() - 1,
+          1
+        );
         break;
       case 'this_year':
         startDate = new Date(year, 0, 1);
@@ -188,34 +201,37 @@ export default function AnalyticsScreen() {
     _customStart: Date,
     customEnd: Date
   ): Date => {
-    const now = new Date();
     let endDate: Date;
 
     switch (filter) {
-      case 'today':
-        endDate = new Date(now.setHours(23, 59, 59, 999));
+      case 'today': {
+        const d = new Date();
+        d.setHours(23, 59, 59, 999);
+        endDate = d;
         break;
+      }
       case 'yesterday': {
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        endDate = new Date(yesterday.setHours(23, 59, 59, 999));
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        d.setHours(23, 59, 59, 999);
+        endDate = d;
         break;
       }
       case 'this_week':
         endDate = new Date();
         break;
       case 'last_week': {
-        const lastWeekEnd = new Date(
-          now.setDate(now.getDate() - now.getDay() - 7 + 6)
-        );
-        endDate = new Date(lastWeekEnd.setHours(23, 59, 59, 999));
+        const d = new Date();
+        d.setDate(d.getDate() - d.getDay() - 7 + 6);
+        d.setHours(23, 59, 59, 999);
+        endDate = d;
         break;
       }
       case 'this_month':
         endDate = new Date();
         break;
       case 'last_month':
-        endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+        endDate = new Date(new Date().getFullYear(), new Date().getMonth(), 0);
         break;
       case 'this_year':
         endDate = new Date(year, 11, 31, 23, 59, 59);
@@ -249,7 +265,12 @@ export default function AnalyticsScreen() {
   });
 
   // Fetch analytics data
-  const { data: analytics } = useQuery<AnalyticsData>({
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const {
+    data: analytics,
+    isLoading: isAnalyticsLoading,
+    refetch: refetchAnalytics,
+  } = useQuery<AnalyticsData>({
     queryKey: [
       'analytics',
       merchant?.id,
@@ -437,7 +458,7 @@ export default function AnalyticsScreen() {
           `${customer.first_name} ${customer.last_name}`.trim() || 'Guest';
         if (!customerPurchases[name])
           customerPurchases[name] = { name, purchases: 0 };
-        customerPurchases[name].purchases += order.total || 0;
+        customerPurchases[name].purchases += 1;
       });
       const topCustomer =
         Object.values(customerPurchases).sort(
@@ -465,6 +486,12 @@ export default function AnalyticsScreen() {
     },
     enabled: !!merchant?.id,
   });
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetchAnalytics();
+    setIsRefreshing(false);
+  };
 
   const getFilterLabel = () => {
     return (
@@ -679,7 +706,21 @@ export default function AnalyticsScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+            />
+          }
         >
+          {isAnalyticsLoading && !analytics && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          )}
+
           {/* Metrics */}
           <MetricRow
             label="Revenue"
@@ -1002,6 +1043,7 @@ export default function AnalyticsScreen() {
           visible={reportModalVisible}
           onClose={() => setReportModalVisible(false)}
           analyticsData={analytics}
+          merchantId={merchant.id}
           merchantName={merchant?.business_name || 'My Store'}
           startDate={getStartDate(
             dateFilter,
@@ -1024,6 +1066,11 @@ export default function AnalyticsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollView: { flex: 1 },
+  loadingContainer: {
+    paddingVertical: SPACING['3xl'],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

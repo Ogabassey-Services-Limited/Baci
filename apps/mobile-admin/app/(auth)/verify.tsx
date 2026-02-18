@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -27,7 +27,9 @@ export default function VerifyScreen() {
 
   // Refs for proper cleanup
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const isMountedRef = useRef(true);
 
   // Cleanup all timers on unmount
@@ -82,6 +84,11 @@ export default function VerifyScreen() {
       }
     };
   }, [isTimerActive]); // Only re-run when timer transitions between 0 and >0
+
+  // H-3: Guard against missing or invalid email param (placed after all hooks)
+  if (typeof email !== 'string' || !email.trim()) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   const handleCodeChange = (text: string, index: number) => {
     const newCode = [...code];
@@ -146,8 +153,7 @@ export default function VerifyScreen() {
           type: 'email',
         });
         if (!retryError) {
-          // await refreshSession();
-          router.replace('/(admin)/(tabs)');
+          setShowSuccess(true);
           return;
         }
         Alert.alert('Verification Failed', err.message || 'Invalid code');
@@ -255,18 +261,9 @@ export default function VerifyScreen() {
             <Pressable
               style={styles.successButton}
               onPress={() => {
+                // Dismiss the modal — the auth layout will handle the redirect
+                // once the auth state updates from the Supabase listener
                 router.dismissAll();
-                // Clear any existing navigation timeout
-                if (navigationTimeoutRef.current) {
-                  clearTimeout(navigationTimeoutRef.current);
-                }
-                // Small delay to ensure modal dismissal doesn't conflict with navigation
-                navigationTimeoutRef.current = setTimeout(() => {
-                  if (isMountedRef.current) {
-                    router.replace('/(admin)/(tabs)');
-                  }
-                  navigationTimeoutRef.current = null;
-                }, 100);
               }}
             >
               <Text style={styles.successButtonText}>Enter Dashboard</Text>

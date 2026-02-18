@@ -10,6 +10,7 @@ interface UIState {
   chatInitialMessage: string | null;
   openChat: (initialMessage?: string) => void;
   closeChat: () => void;
+  clearChatInitialMessage: () => void;
 
   // Negotiation Modal State
   isNegotiationModalOpen: boolean;
@@ -41,6 +42,7 @@ export const useUIStore = create<UIState>((set) => ({
       isChatOpen: false,
       chatInitialMessage: null,
     }),
+  clearChatInitialMessage: () => set({ chatInitialMessage: null }),
 
   isNegotiationModalOpen: false,
   negotiationContext: null,

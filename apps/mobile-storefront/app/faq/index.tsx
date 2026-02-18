@@ -6,11 +6,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
 
 interface FAQItem {
   id: string;
@@ -84,7 +85,7 @@ export default function FAQScreen() {
       icon: 'logo-whatsapp',
       action: () =>
         Linking.openURL(
-          'https://wa.me/2348123456789?text=Hi, I need help with my order'
+          `https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=${encodeURIComponent('Hi, I need help with my order')}`
         ),
     },
     {

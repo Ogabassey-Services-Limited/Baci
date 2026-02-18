@@ -63,9 +63,10 @@ export async function purchaseBill(
   const requestRef = generateRequestRef();
 
   try {
+    // Kuda purchase response: { reference: string; pin: string | null }
     const response = await kudaRequest<{
-      transactionReference: string;
-      status: string;
+      reference: string;
+      pin: string | null;
     }>(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {
@@ -80,7 +81,7 @@ export async function purchaseBill(
     return {
       success: response.status,
       reference: requestRef,
-      transactionId: response.data?.transactionReference,
+      transactionId: response.data?.reference,
       message: response.message,
       status: response.status ? 'successful' : 'failed',
       amount,

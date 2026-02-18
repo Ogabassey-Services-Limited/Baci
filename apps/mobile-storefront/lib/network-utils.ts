@@ -21,7 +21,6 @@ const NETWORK_PREFIXES: Record<NetworkProvider, string[]> = {
     '07025',
     '07026',
     '0704',
-    '0913',
     '0916',
   ],
   airtel: [
@@ -50,7 +49,12 @@ export function detectNetwork(phoneNumber: string): NetworkProvider | null {
 
   // Convert 234... to 0...
   if (cleaned.startsWith('234') && cleaned.length > 3) {
-    cleaned = '0' + cleaned.slice(3);
+    cleaned = `0${cleaned.slice(3)}`;
+  }
+
+  // Normalize 10-digit format (e.g. 8031234567) to 11-digit (08031234567)
+  if (cleaned.length === 10 && /^[789]/.test(cleaned)) {
+    cleaned = `0${cleaned}`;
   }
 
   if (cleaned.length < 4) return null;

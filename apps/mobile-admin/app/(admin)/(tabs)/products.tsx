@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,9 +24,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import SafeImage from '@/components/ui/SafeImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useMerchant } from '@/hooks/useMerchant';
 import {
   type Product,
   type TopSellingProduct,
@@ -42,8 +43,20 @@ import { useTheme } from '@/hooks/useTheme';
 const PRODUCT_ITEM_HEIGHT = 96;
 const CATEGORY_ITEM_HEIGHT = 72;
 
+// Helper to get currency symbol from merchant's payout_currency
+const getCurrencySymbol = (currencyCode: string | null | undefined) => {
+  const symbols: Record<string, string> = {
+    NGN: '\u20A6',
+    USD: '$',
+    GBP: '\u00A3',
+    EUR: '\u20AC',
+  };
+  return symbols[currencyCode || 'NGN'] || '\u20A6';
+};
+
 // Helper functions moved outside component to prevent recreation
-const formatPrice = (amount: number) => `₦${amount.toLocaleString()}`;
+const formatPrice = (amount: number, currencySymbol: string) =>
+  `${currencySymbol}${amount.toLocaleString()}`;
 
 const formatMetric = (value: number) => {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
@@ -59,13 +72,15 @@ interface ProductItemProps {
   item: Product;
   colors: ReturnType<typeof useTheme>['colors'];
   shadows: ReturnType<typeof useTheme>['shadows'];
+  currencySymbol: string;
   onPress: (id: string) => void;
 }
 
-const ProductItem = memo(function ProductItem({
+function ProductItem({
   item,
   colors,
   shadows,
+  currencySymbol,
   onPress,
 }: ProductItemProps) {
   const getStockStatus = () => {
@@ -88,7 +103,7 @@ const ProductItem = memo(function ProductItem({
         pressed && { backgroundColor: colors.cardHover },
       ]}
       onPress={() => onPress(item.id)}
-      accessibilityLabel={`${item.name}, ${formatPrice(item.price)}, ${stockStatus.label}`}
+      accessibilityLabel={`${item.name}, ${formatPrice(item.price, currencySymbol)}, ${stockStatus.label}`}
       accessibilityRole="button"
       accessibilityHint="View product details"
     >
@@ -115,11 +130,11 @@ const ProductItem = memo(function ProductItem({
 
         <View style={styles.priceRow}>
           <Text style={[styles.price, { color: colors.text }]}>
-            {formatPrice(item.price)}
+            {formatPrice(item.price, currencySymbol)}
           </Text>
           {item.compare_at_price && item.compare_at_price > item.price && (
             <Text style={[styles.comparePrice, { color: colors.textMuted }]}>
-              {formatPrice(item.compare_at_price)}
+              {formatPrice(item.compare_at_price, currencySymbol)}
             </Text>
           )}
         </View>
@@ -137,20 +152,22 @@ const ProductItem = memo(function ProductItem({
       <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
     </Pressable>
   );
-});
+}
 
-// Memoized Top Selling Product Item component
+// Top Selling Product Item component
 interface TopSellingProductItemProps {
   item: TopSellingProduct;
   colors: ReturnType<typeof useTheme>['colors'];
   shadows: ReturnType<typeof useTheme>['shadows'];
+  currencySymbol: string;
   onPress: (id: string) => void;
 }
 
-const TopSellingProductItem = memo(function TopSellingProductItem({
+function TopSellingProductItem({
   item,
   colors,
   shadows,
+  currencySymbol,
   onPress,
 }: TopSellingProductItemProps) {
   const imageUrl = item.images?.[0];
@@ -164,7 +181,7 @@ const TopSellingProductItem = memo(function TopSellingProductItem({
         pressed && { backgroundColor: colors.cardHover },
       ]}
       onPress={() => onPress(item.id)}
-      accessibilityLabel={`Top seller: ${item.name}, ${formatPrice(item.price)}, ${formatMetric(item.totalSold)} sold`}
+      accessibilityLabel={`Top seller: ${item.name}, ${formatPrice(item.price, currencySymbol)}, ${formatMetric(item.totalSold)} sold`}
       accessibilityRole="button"
       accessibilityHint="View product details"
     >
@@ -195,7 +212,7 @@ const TopSellingProductItem = memo(function TopSellingProductItem({
 
         <View style={styles.priceRow}>
           <Text style={[styles.price, { color: colors.text }]}>
-            {formatPrice(item.price)}
+            {formatPrice(item.price, currencySymbol)}
           </Text>
         </View>
 
@@ -216,9 +233,9 @@ const TopSellingProductItem = memo(function TopSellingProductItem({
       <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
     </Pressable>
   );
-});
+}
 
-// Memoized Category Item component
+// Category Item component
 interface CategoryItemProps {
   item: Category;
   colors: ReturnType<typeof useTheme>['colors'];
@@ -226,12 +243,7 @@ interface CategoryItemProps {
   onPress: (id: string) => void;
 }
 
-const CategoryItem = memo(function CategoryItem({
-  item,
-  colors,
-  shadows,
-  onPress,
-}: CategoryItemProps) {
+function CategoryItem({ item, colors, shadows, onPress }: CategoryItemProps) {
   return (
     <Pressable
       style={({ pressed }) => [
@@ -256,10 +268,12 @@ const CategoryItem = memo(function CategoryItem({
       <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
     </Pressable>
   );
-});
+}
 
 export default function ProductsScreen() {
   const { colors, shadows, isDark } = useTheme();
+  const { merchant } = useMerchant();
+  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
 
   const {
     data,
@@ -276,8 +290,11 @@ export default function ProductsScreen() {
     refetch: refetchCategories,
   } = useCategories();
 
-  const { data: topSellingProducts, isLoading: isTopSellingLoading } =
-    useTopSellingProducts(20);
+  const {
+    data: topSellingProducts,
+    isLoading: isTopSellingLoading,
+    refetch: refetchTopSelling,
+  } = useTopSellingProducts(20);
   const { data: inventoryStats, isLoading: isStatsLoading } =
     useInventoryStats();
 
@@ -297,7 +314,7 @@ export default function ProductsScreen() {
 
   const createCategoryMutation = useCreateCategory();
 
-  const handleCreateCategory = useCallback(() => {
+  const handleCreateCategory = () => {
     createCategoryMutation.mutate(newCategoryName, {
       onSuccess: () => {
         setNewCategoryName('');
@@ -307,48 +324,43 @@ export default function ProductsScreen() {
         Alert.alert('Error', err.message);
       },
     });
-  }, [createCategoryMutation, newCategoryName]);
+  };
 
   // Collapsible search bar animation
   const searchBarAnim = useRef(new Animated.Value(1)).current;
   const lastScrollY = useRef(0);
   const isSearchVisible = useRef(true);
 
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const currentScrollY = event.nativeEvent.contentOffset.y;
-      const diff = currentScrollY - lastScrollY.current;
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const diff = currentScrollY - lastScrollY.current;
 
-      if (Math.abs(diff) > 10) {
-        if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
-          isSearchVisible.current = false;
-          Animated.timing(searchBarAnim, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }).start();
-        } else if (diff < 0 && !isSearchVisible.current) {
-          isSearchVisible.current = true;
-          Animated.timing(searchBarAnim, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-          }).start();
-        }
+    if (Math.abs(diff) > 10) {
+      if (diff > 0 && isSearchVisible.current && currentScrollY > 50) {
+        isSearchVisible.current = false;
+        Animated.timing(searchBarAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      } else if (diff < 0 && !isSearchVisible.current) {
+        isSearchVisible.current = true;
+        Animated.timing(searchBarAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
       }
+    }
 
-      lastScrollY.current = currentScrollY;
-    },
-    [searchBarAnim]
-  );
+    lastScrollY.current = currentScrollY;
+  };
 
   // Flatten pages into single array
-  const products = useMemo(() => {
-    return data?.pages.flatMap((page) => page.products) ?? [];
-  }, [data]);
+  const products = data?.pages.flatMap((page) => page.products) ?? [];
 
   // Filter products based on active tab and search query
-  const displayData = useMemo(() => {
+  const displayData = (() => {
     let filtered = products;
 
     if (searchQuery.trim()) {
@@ -368,111 +380,97 @@ export default function ProductsScreen() {
       default:
         return filtered;
     }
-  }, [activeTab, products, searchQuery]);
-
-
+  })();
 
   // Calculate stats
-  const stats = useMemo(() => {
-    // 2026 Best Practice: Use server-side stats for global counters
-    // Fallback to 0 if stats are still loading
-    return {
-      total: inventoryStats?.totalStock ?? 0,
-      active: inventoryStats?.activeCount ?? 0,
-      lowStock: inventoryStats?.lowStockCount ?? 0,
-      outOfStock: inventoryStats?.outOfStockCount ?? 0
-    };
-  }, [inventoryStats]);
+  const stats = {
+    total: inventoryStats?.totalStock ?? 0,
+    active: inventoryStats?.activeCount ?? 0,
+    lowStock: inventoryStats?.lowStockCount ?? 0,
+    outOfStock: inventoryStats?.outOfStockCount ?? 0,
+  };
 
-  const handleLoadMore = useCallback(() => {
+  const handleLoadMore = () => {
     if (hasNextPage && !isFetchingNextPage && activeTab !== 'top_selling') {
       fetchNextPage();
     }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage, activeTab]);
+  };
 
   // Navigation callback for products
-  const handleProductPress = useCallback((id: string) => {
+  const handleProductPress = (id: string) => {
     router.push(`/product/${id}`);
-  }, []);
+  };
 
-  // Navigation callback for categories (placeholder)
-  const handleCategoryPress = useCallback((_id: string) => {
-    // Implement category filtering logic here later or navigate
-    // router.push(`/products/category/${id}`)
-  }, []);
+  // Navigation callback for categories
+  const handleCategoryPress = (_id: string) => {
+    Alert.alert(
+      'Coming Soon',
+      'Category filtering will be available in a future update.'
+    );
+  };
 
-  // Memoized renderItem callbacks
-  const renderProduct = useCallback(
-    ({ item }: ListRenderItemInfo<Product>) => (
-      <ProductItem
-        item={item}
-        colors={colors}
-        shadows={shadows}
-        onPress={handleProductPress}
-      />
-    ),
-    [colors, shadows, handleProductPress]
+  const renderProduct = ({ item }: ListRenderItemInfo<Product>) => (
+    <ProductItem
+      item={item}
+      colors={colors}
+      shadows={shadows}
+      currencySymbol={currencySymbol}
+      onPress={handleProductPress}
+    />
   );
 
-  const renderTopSellingProduct = useCallback(
-    ({ item }: ListRenderItemInfo<TopSellingProduct>) => (
-      <TopSellingProductItem
-        item={item}
-        colors={colors}
-        shadows={shadows}
-        onPress={handleProductPress}
-      />
-    ),
-    [colors, shadows, handleProductPress]
+  const renderTopSellingProduct = ({
+    item,
+  }: ListRenderItemInfo<TopSellingProduct>) => (
+    <TopSellingProductItem
+      item={item}
+      colors={colors}
+      shadows={shadows}
+      currencySymbol={currencySymbol}
+      onPress={handleProductPress}
+    />
   );
 
-  const renderCategory = useCallback(
-    ({ item }: ListRenderItemInfo<Category>) => (
-      <CategoryItem
-        item={item}
-        colors={colors}
-        shadows={shadows}
-        onPress={handleCategoryPress}
-      />
-    ),
-    [colors, shadows, handleCategoryPress]
+  const renderCategory = ({ item }: ListRenderItemInfo<Category>) => (
+    <CategoryItem
+      item={item}
+      colors={colors}
+      shadows={shadows}
+      onPress={handleCategoryPress}
+    />
   );
 
-  // Memoized keyExtractor callbacks
-  const productKeyExtractor = useCallback((item: Product) => item.id, []);
-  const topSellingKeyExtractor = useCallback(
-    (item: TopSellingProduct) => item.id,
-    []
-  );
-  const categoryKeyExtractor = useCallback((item: Category) => item.id, []);
+  const productKeyExtractor = (item: Product) => item.id;
+  const topSellingKeyExtractor = (item: TopSellingProduct) => item.id;
+  const categoryKeyExtractor = (item: Category) => item.id;
 
   // getItemLayout for consistent item heights
-  const getProductItemLayout = useCallback(
-    (_data: ArrayLike<Product> | null | undefined, index: number) => ({
-      length: PRODUCT_ITEM_HEIGHT,
-      offset: PRODUCT_ITEM_HEIGHT * index,
-      index,
-    }),
-    []
-  );
+  const getProductItemLayout = (
+    _data: ArrayLike<Product> | null | undefined,
+    index: number
+  ) => ({
+    length: PRODUCT_ITEM_HEIGHT,
+    offset: PRODUCT_ITEM_HEIGHT * index,
+    index,
+  });
 
-  const getTopSellingItemLayout = useCallback(
-    (_data: ArrayLike<TopSellingProduct> | null | undefined, index: number) => ({
-      length: PRODUCT_ITEM_HEIGHT,
-      offset: PRODUCT_ITEM_HEIGHT * index,
-      index,
-    }),
-    []
-  );
+  const getTopSellingItemLayout = (
+    _data: ArrayLike<TopSellingProduct> | null | undefined,
+    index: number
+  ) => ({
+    length: PRODUCT_ITEM_HEIGHT,
+    offset: PRODUCT_ITEM_HEIGHT * index,
+    index,
+  });
 
-  const getCategoryItemLayout = useCallback(
-    (_data: ArrayLike<Category> | null | undefined, index: number) => ({
-      length: CATEGORY_ITEM_HEIGHT,
-      offset: CATEGORY_ITEM_HEIGHT * index,
-      index,
-    }),
-    []
-  );
+  const getCategoryItemLayout = (
+    _data: ArrayLike<Category> | null | undefined,
+    index: number
+  ) => ({
+    length: CATEGORY_ITEM_HEIGHT,
+    offset: CATEGORY_ITEM_HEIGHT * index,
+    index,
+  });
 
   // Interactive Stat Card Component
   const StatCard = ({
@@ -522,12 +520,12 @@ export default function ProductsScreen() {
     label,
   }: {
     id:
-    | 'all'
-    | 'in_stock'
-    | 'low_stock'
-    | 'out_of_stock'
-    | 'categories'
-    | 'top_selling';
+      | 'all'
+      | 'in_stock'
+      | 'low_stock'
+      | 'out_of_stock'
+      | 'categories'
+      | 'top_selling';
     label: string;
   }) => {
     const isActive = activeTab === id;
@@ -608,7 +606,7 @@ export default function ProductsScreen() {
               Total Value
             </Text>
             <Text style={[styles.summaryValue, { color: colors.text }]}>
-              {formatPrice(inventoryStats.inventoryValue)}
+              {formatPrice(inventoryStats.inventoryValue, currencySymbol)}
             </Text>
           </View>
 
@@ -623,7 +621,7 @@ export default function ProductsScreen() {
               Stock Cost
             </Text>
             <Text style={[styles.summaryValue, { color: colors.text }]}>
-              {formatPrice(inventoryStats.inventoryCost)}
+              {formatPrice(inventoryStats.inventoryCost, currencySymbol)}
             </Text>
           </View>
 
@@ -821,9 +819,7 @@ export default function ProductsScreen() {
           refreshControl={
             <RefreshControl
               refreshing={isTopSellingLoading}
-              onRefresh={() => {
-                /* Re-fetch if needed */
-              }}
+              onRefresh={refetchTopSelling}
               tintColor={colors.gold}
               colors={[colors.gold]}
             />
@@ -1040,7 +1036,9 @@ export default function ProductsScreen() {
                     : 'Create category'
                 }
                 accessibilityRole="button"
-                accessibilityState={{ disabled: createCategoryMutation.isPending }}
+                accessibilityState={{
+                  disabled: createCategoryMutation.isPending,
+                }}
                 accessibilityHint="Creates the new category"
               >
                 {createCategoryMutation.isPending ? (

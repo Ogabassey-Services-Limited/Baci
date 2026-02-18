@@ -6,7 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -108,7 +108,7 @@ export default function SearchScreen() {
   }, []);
 
   // Save search to history
-  const saveToHistory = useCallback((searchTerm: string) => {
+  const saveToHistory = (searchTerm: string) => {
     if (!searchTerm.trim() || searchTerm.length < 2) return;
 
     setRecentSearches((prev) => {
@@ -127,11 +127,17 @@ export default function SearchScreen() {
 
       return updated;
     });
-  }, []);
+  };
 
   const { products, isLoading } = useProducts({
     search: query.length >= 2 ? query : undefined,
     limit: 20,
+    category: selectedCategory !== 'All' ? selectedCategory : undefined,
+    brand: selectedBrand !== 'All' ? selectedBrand : undefined,
+    condition: selectedCondition !== 'All' ? selectedCondition : undefined,
+    minPrice: minPrice > 0 ? minPrice : undefined,
+    maxPrice: maxPrice > 0 ? maxPrice : undefined,
+    minRating: minRating > 0 ? minRating : undefined,
   });
 
   const { data: categories = [] } = useCategories();
@@ -320,7 +326,12 @@ export default function SearchScreen() {
               placeholder="Search products..."
               placeholderTextColor={colors.textSecondary}
               value={query}
-              onChangeText={setQuery}
+              onChangeText={(text) => {
+                setQuery(text);
+                if (text.trim().length === 0) {
+                  setIsSearching(false);
+                }
+              }}
               onSubmitEditing={() => {
                 if (query.trim().length >= 2) {
                   setIsSearching(true);
@@ -328,10 +339,15 @@ export default function SearchScreen() {
                 }
               }}
               returnKeyType="search"
-              autoFocus
+              autoFocus // eslint-disable-line jsx-a11y/no-autofocus -- search screen should focus input on open
             />
             {query.length > 0 && (
-              <Pressable onPress={() => setQuery('')}>
+              <Pressable
+                onPress={() => {
+                  setQuery('');
+                  setIsSearching(false);
+                }}
+              >
                 <Ionicons name="close-circle" size={18} color={colors.icon} />
               </Pressable>
             )}

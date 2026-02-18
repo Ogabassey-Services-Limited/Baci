@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,6 +20,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { createLogger } from '@/lib/logger';
@@ -64,8 +65,57 @@ import { useSavedStore } from '@/stores/saved-store';
 import type { ProductCondition } from '@/types/product';
 import { formatPrice, getDiscountPercentage } from '@/types/product';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const HEADER_HEIGHT = SCREEN_WIDTH; // Square aspect ratio for main image
+// Tab bar layout constants for fly-to-cart animation targeting
+const CART_TAB_INDEX = 2; // Cart is the 3rd tab (0-indexed)
+const TAB_COUNT = 4; // Total number of tabs
+
+// C4 FIX: Extracted FlyToCartParticle outside ProductDetailScreen to prevent re-creation on every render
+function FlyToCartParticle({
+  startX,
+  startY,
+}: {
+  startX: number;
+  startY: number;
+}) {
+  const progress = useSharedValue(0);
+  const particleInsets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const targetX = (width / TAB_COUNT) * CART_TAB_INDEX + width / TAB_COUNT / 2; // Center of cart tab
+  const targetY = height - (particleInsets.bottom + 30); // Tab bar center
+
+  useEffect(() => {
+    progress.value = withTiming(1, {
+      duration: 800,
+      easing: Easing.bezier(0.2, 0.8, 0.2, 1),
+    });
+  }, [progress]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const translateX = interpolate(progress.value, [0, 1], [startX, targetX]);
+    const translateY = interpolate(progress.value, [0, 1], [startY, targetY]);
+    const scale = interpolate(progress.value, [0, 0.5, 1], [1, 1.2, 0.2]);
+    const opacity = interpolate(progress.value, [0, 0.8, 1], [1, 1, 0]);
+
+    return {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: BRAND.primary,
+      zIndex: 9999,
+      transform: [
+        { translateX: translateX - 20 },
+        { translateY: translateY - 20 },
+        { scale },
+      ],
+      opacity,
+    };
+  });
+
+  return <Animated.View style={animatedStyle} />;
+}
 
 export default function ProductDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -73,24 +123,39 @@ export default function ProductDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  // L3 FIX: Use useWindowDimensions hook instead of module-level Dimensions.get
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
+  const HEADER_HEIGHT = SCREEN_WIDTH; // Square aspect ratio for main image
+
   // 2026 Critical Fix: Validate slug parameter early
   const isValidSlug = Boolean(
     slug && typeof slug === 'string' && slug.length > 0
   );
 
   // 2026 Best Practice: Network state monitoring for offline UX
-  const { isOnline } = useNetworkState();
+  const { isOnline, onReconnect } = useNetworkState();
 
   // 2026 Best Practice: Haptic feedback for tactile UX
   const haptics = useHaptics();
 
   // Only fetch if we have a valid slug
-  const { product, isLoading, error } = useProduct(isValidSlug ? slug : '');
+  const { product, isLoading, error, refetch } = useProduct(
+    isValidSlug ? slug : ''
+  );
   const { items, addItem, updateQuantity, removeItem } = useCartStore();
   const toggleSaved = useSavedStore((state) => state.toggleSaved);
   const isSaved = useSavedStore((state) => state.isSaved);
   const savedToastState = useSavedStore((state) => state.toastState);
   const dismissSavedToast = useSavedStore((state) => state.dismissToast);
+
+  // Auto-retry fetching product when network is restored
+  useEffect(() => {
+    return onReconnect(() => {
+      if (error || !product) {
+        refetch();
+      }
+    });
+  }, [onReconnect, error, product, refetch]);
 
   // Fetch reviews for this product
   const {
@@ -147,7 +212,7 @@ export default function ProductDetailScreen() {
   }, [savedToastState.show, dismissSavedToast]);
 
   // Get condition display name for cart
-  const getConditionDisplay = useCallback((): string | undefined => {
+  const getConditionDisplay = (): string | undefined => {
     if (selectedCondition) {
       const conditionMap: Record<ProductCondition, string> = {
         new: 'New',
@@ -159,10 +224,10 @@ export default function ProductDetailScreen() {
       return conditionMap[selectedCondition];
     }
     return product?.condition;
-  }, [selectedCondition, product]);
+  };
 
   // Sync quantity with cart store
-  const cartItem = useMemo(() => {
+  const cartItem = (() => {
     if (!product) return undefined;
     return items.find(
       (item) =>
@@ -172,14 +237,7 @@ export default function ProductDetailScreen() {
         (item.color || null) === (selectedColor || null) &&
         (item.storage || null) === (selectedStorage || null)
     );
-  }, [
-    product,
-    items,
-    selectedVariant,
-    selectedColor,
-    selectedStorage,
-    getConditionDisplay,
-  ]);
+  })();
 
   const quantityInCart = cartItem ? cartItem.quantity : 0;
 
@@ -198,14 +256,14 @@ export default function ProductDetailScreen() {
 
     // Auto-update store if it's a valid positive number
     const num = Number.parseInt(cleanText, 10);
-    if (!isNaN(num) && num > 0 && cartItem) {
+    if (!Number.isNaN(num) && num > 0 && cartItem) {
       updateQuantity(cartItem.id, num);
     }
   };
 
   const handleLocalQtyBlur = () => {
     const num = Number.parseInt(localQty, 10);
-    if (isNaN(num) || num <= 0) {
+    if (Number.isNaN(num) || num <= 0) {
       // Revert to current cart quantity if invalid
       setLocalQty(quantityInCart.toString());
     } else if (cartItem) {
@@ -217,6 +275,20 @@ export default function ProductDetailScreen() {
     { id: number; startX: number; startY: number }[]
   >([]);
   const particleIdRef = useRef(0);
+  const particleTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
+
+  // H13 FIX: Clean up all particle timers on unmount
+  useEffect(() => {
+    const timers = particleTimersRef.current;
+    return () => {
+      for (const timerId of timers.values()) {
+        clearTimeout(timerId);
+      }
+      timers.clear();
+    };
+  }, []);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const triggerFlyToCart = (event: any) => {
@@ -228,62 +300,17 @@ export default function ProductDetailScreen() {
       ...prev,
       {
         id,
-        startX: pageX || Dimensions.get('window').width / 2,
-        startY: pageY || Dimensions.get('window').height - 100,
+        startX: pageX ?? Dimensions.get('window').width / 2,
+        startY: pageY ?? Dimensions.get('window').height - 100,
       },
     ]);
 
-    // Cleanup particle after animation
-    setTimeout(() => {
+    // Cleanup particle after animation, tracked for unmount cleanup
+    const timerId = setTimeout(() => {
       setFlyingParticles((prev) => prev.filter((p) => p.id !== id));
+      particleTimersRef.current.delete(id);
     }, 1000);
-  };
-
-  const FlyToCartParticle = ({
-    startX,
-    startY,
-  }: {
-    startX: number;
-    startY: number;
-  }) => {
-    const progress = useSharedValue(0);
-    const insets = useSafeAreaInsets();
-    const window = Dimensions.get('window');
-    const targetX = window.width / 2; // Cart tab is in center
-    const targetY = window.height - (insets.bottom + 30); // Tab bar center
-
-    useEffect(() => {
-      progress.value = withTiming(1, {
-        duration: 800,
-        easing: Easing.bezier(0.2, 0.8, 0.2, 1),
-      });
-    }, [progress]);
-
-    const animatedStyle = useAnimatedStyle(() => {
-      const translateX = interpolate(progress.value, [0, 1], [startX, targetX]);
-      const translateY = interpolate(progress.value, [0, 1], [startY, targetY]);
-      const scale = interpolate(progress.value, [0, 0.5, 1], [1, 1.2, 0.2]);
-      const opacity = interpolate(progress.value, [0, 0.8, 1], [1, 1, 0]);
-
-      return {
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: BRAND.primary,
-        zIndex: 9999,
-        transform: [
-          { translateX: translateX - 20 },
-          { translateY: translateY - 20 },
-          { scale },
-        ],
-        opacity,
-      };
-    });
-
-    return <Animated.View style={animatedStyle} />;
+    particleTimersRef.current.set(id, timerId);
   };
 
   const scrollY = useSharedValue(0);
@@ -354,7 +381,11 @@ export default function ProductDetailScreen() {
         </Text>
         <Pressable
           style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
-          onPress={() => router.back()}
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace('/')
+          }
+          accessibilityLabel="Go back to previous screen"
+          accessibilityRole="button"
         >
           <Text style={styles.retryButtonText}>Go Back</Text>
         </Pressable>
@@ -390,8 +421,8 @@ export default function ProductDetailScreen() {
         >
           <OfflineEmptyState
             title="Product Unavailable Offline"
-            description="Connect to the internet to view this product"
-            onRetry={() => router.back()}
+            description="Connect to the internet to view this product. It will auto-retry when your connection is restored."
+            onRetry={() => refetch()}
           />
         </View>
       );
@@ -414,7 +445,11 @@ export default function ProductDetailScreen() {
         </Text>
         <Pressable
           style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
-          onPress={() => router.back()}
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace('/')
+          }
+          accessibilityLabel="Go back to previous screen"
+          accessibilityRole="button"
         >
           <Text style={styles.retryButtonText}>Go Back</Text>
         </Pressable>
@@ -424,11 +459,15 @@ export default function ProductDetailScreen() {
 
   // Use color-specific images if selected, otherwise default product images
   // BUG-2-001 FIX: Filter null/undefined images and fallback to placeholder
-  const images = colorImages?.length
+  const rawImages = colorImages?.length
     ? colorImages.filter(Boolean)
     : product.images?.length
       ? product.images.filter(Boolean)
       : [product.image].filter(Boolean);
+  const images =
+    rawImages.length > 0
+      ? rawImages
+      : ['https://placehold.co/400x400/f3f4f6/9ca3af?text=No+Image'];
 
   // Calculate effective price based on selected condition, storage, and variant
   const calculateEffectivePrice = () => {
@@ -481,8 +520,8 @@ export default function ProductDetailScreen() {
   const { price: calculatedPrice, comparePrice: effectiveComparePrice } =
     calculateEffectivePrice();
 
-  // Use negotiated price if available, otherwise use calculated price
-  const effectivePrice = negotiatedPrice || calculatedPrice;
+  // M11 FIX: Use ?? instead of || so negotiatedPrice of 0 is not treated as falsy
+  const effectivePrice = negotiatedPrice ?? calculatedPrice;
 
   const discountPercentage = getDiscountPercentage(
     effectivePrice,
@@ -590,7 +629,14 @@ export default function ProductDetailScreen() {
       {/* Static Header Buttons (Always Visible) */}
       <View style={[styles.headerButtons, { top: insets.top }]}>
         <Animated.View style={[styles.iconCircle, backButtonAnimatedStyle]}>
-          <Pressable onPress={() => router.back()} hitSlop={12}>
+          <Pressable
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace('/')
+            }
+            hitSlop={12}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
             <Ionicons name="arrow-back" size={22} color="#FFF" />
           </Pressable>
         </Animated.View>
@@ -602,6 +648,12 @@ export default function ProductDetailScreen() {
                 toggleSaved(product);
               }}
               hitSlop={12}
+              accessibilityLabel={
+                isSaved(product.id)
+                  ? `Remove ${product.name} from saved items`
+                  : `Save ${product.name} for later`
+              }
+              accessibilityRole="button"
             >
               <Ionicons
                 name={isSaved(product.id) ? 'heart' : 'heart-outline'}
@@ -611,7 +663,12 @@ export default function ProductDetailScreen() {
             </Pressable>
           </Animated.View>
           <Animated.View style={[styles.iconCircle, backButtonAnimatedStyle]}>
-            <Pressable onPress={handleShare} hitSlop={12}>
+            <Pressable
+              onPress={handleShare}
+              hitSlop={12}
+              accessibilityLabel="Share this product"
+              accessibilityRole="button"
+            >
               <Ionicons name="share-social-outline" size={22} color="#FFF" />
             </Pressable>
           </Animated.View>
@@ -628,7 +685,7 @@ export default function ProductDetailScreen() {
       >
         {/* Parallax Image Gallery */}
         <Pressable
-          style={styles.imageContainer}
+          style={[styles.imageContainer, { height: HEADER_HEIGHT }]}
           onPress={() => setShowImageZoom(true)}
           accessibilityLabel="Tap to zoom product image"
           accessibilityRole="button"
@@ -693,7 +750,9 @@ export default function ProductDetailScreen() {
                     ]}
                     accessibilityRole="button"
                     accessibilityLabel={`View image ${idx + 1} of ${images.length}`}
-                    accessibilityState={{ selected: selectedImageIndex === idx }}
+                    accessibilityState={{
+                      selected: selectedImageIndex === idx,
+                    }}
                     accessibilityHint="Double tap to show this image in the main view"
                   >
                     <Image
@@ -758,7 +817,7 @@ export default function ProductDetailScreen() {
             </View>
             <Text style={[styles.ratingText, { color: colors.textSecondary }]}>
               {typeof reviewStats?.average_rating === 'number' &&
-                Number.isFinite(reviewStats.average_rating)
+              Number.isFinite(reviewStats.average_rating)
                 ? `${reviewStats.average_rating.toFixed(1)} (${reviewStats.review_count ?? 0} reviews)`
                 : product.rating
                   ? `${product.rating} (${product.review_count || 0} reviews)`
@@ -782,7 +841,8 @@ export default function ProductDetailScreen() {
           </View>
 
           {/* Negotiated Price Badge */}
-          {negotiatedPrice && (
+          {/* M11 FIX: Use != null instead of truthy check so price of 0 is handled */}
+          {negotiatedPrice != null && (
             <View style={styles.negotiatedBadge}>
               <Ionicons name="pricetag" size={14} color="#10B981" />
               <Text style={styles.negotiatedText}>Your negotiated price!</Text>
@@ -790,7 +850,7 @@ export default function ProductDetailScreen() {
           )}
 
           {/* Make an Offer Button */}
-          {!negotiatedPrice && (
+          {negotiatedPrice == null && (
             <Pressable
               style={[styles.makeOfferButton, { borderColor: BRAND.primary }]}
               onPress={() => setShowNegotiationModal(true)}
@@ -824,31 +884,29 @@ export default function ProductDetailScreen() {
             product.color_images ||
             product.variant_attributes?.storage ||
             product.variants?.some((v) => v.storage)) && (
-              <View style={styles.section}>
-                <VariantSelector
-                  colors={product.colors}
-                  colorImages={product.color_images}
-                  storage={
-                    product.variant_attributes?.storage ||
-                    product.variants
-                      ?.map((v) => v.storage)
-                      .filter((s): s is string => !!s)
-                  }
-                  variants={product.variants}
-                  selectedColor={selectedColor}
-                  selectedStorage={selectedStorage}
-                  onSelectColor={(color, imgs) => {
-                    setSelectedColor(color);
-                    if (imgs?.length) {
-                      setColorImages(imgs);
-                      setSelectedImageIndex(0);
-                    }
-                  }}
-                  onSelectStorage={setSelectedStorage}
-                  basePrice={effectivePrice}
-                />
-              </View>
-            )}
+            <View style={styles.section}>
+              <VariantSelector
+                colors={product.colors}
+                colorImages={product.color_images}
+                storage={
+                  product.variant_attributes?.storage ||
+                  product.variants
+                    ?.map((v) => v.storage)
+                    .filter((s): s is string => !!s)
+                }
+                variants={product.variants}
+                selectedColor={selectedColor}
+                selectedStorage={selectedStorage}
+                onSelectColor={(color, imgs) => {
+                  setSelectedColor(color);
+                  setColorImages(imgs?.length ? imgs : null);
+                  setSelectedImageIndex(0);
+                }}
+                onSelectStorage={setSelectedStorage}
+                basePrice={effectivePrice}
+              />
+            </View>
+          )}
 
           {/* Legacy Variants (fallback for products without colors/storage) */}
           {product.variants &&
@@ -1021,6 +1079,12 @@ export default function ProductDetailScreen() {
                     borderRightColor: '#FEE2E2',
                   }}
                   hitSlop={10}
+                  accessibilityLabel={
+                    quantityInCart === 1
+                      ? 'Remove from cart'
+                      : 'Decrease quantity'
+                  }
+                  accessibilityRole="button"
                 >
                   <Ionicons
                     name={quantityInCart === 1 ? 'trash-outline' : 'remove'}
@@ -1077,6 +1141,8 @@ export default function ProductDetailScreen() {
                     borderLeftColor: '#FEE2E2',
                   }}
                   hitSlop={10}
+                  accessibilityLabel="Increase quantity"
+                  accessibilityRole="button"
                 >
                   <Ionicons name="add" size={22} color={BRAND.primary} />
                 </Pressable>
@@ -1264,7 +1330,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   imageContainer: {
-    height: HEADER_HEIGHT,
     width: '100%',
     backgroundColor: '#F3F4F6',
     overflow: 'hidden',

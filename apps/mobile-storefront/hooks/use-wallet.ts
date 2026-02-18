@@ -12,14 +12,10 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
-import { calculateCommerce, supabase } from '@/lib/supabase';
-import { useAuthStore } from '@/stores/auth-store';
-import {
-  CustomerRowSchema,
-  WalletRowSchema,
-  TransactionRowSchema,
-} from '@/lib/validation';
 import { z } from 'zod';
+import { calculateCommerce, supabase } from '@/lib/supabase';
+import { CustomerRowSchema, TransactionRowSchema } from '@/lib/validation';
+import { useAuthStore } from '@/stores/auth-store';
 
 // ============================================
 // TYPES
@@ -28,7 +24,6 @@ import { z } from 'zod';
 interface WalletData {
   balance: number;
   loyalty_points: number;
-  loyalty_tier: string;
 }
 
 interface Transaction {
@@ -64,56 +59,68 @@ async function fetchWalletData(
   customerId: string,
   merchantId: string
 ): Promise<WalletQueryData> {
-  // Parallel fetch for better performance
-  const [customerResult, walletResult, transactionsResult] = await Promise.all([
+  // Step 1: Fetch customer loyalty points + wallet record in parallel
+  const [customerResult, walletResult] = await Promise.all([
     supabase
       .from('customers')
-      .select('loyalty_points, loyalty_tier')
+      .select('loyalty_points')
       .eq('id', customerId)
       .single(),
     supabase
       .from('customer_wallets')
-      .select('balance')
+      .select('id, available_balance')
       .eq('customer_id', customerId)
       .eq('merchant_id', merchantId)
-      .single(),
-    supabase
-      .from('wallet_transactions')
-      .select('id, type, amount, description, created_at')
-      .eq('customer_id', customerId)
-      .order('created_at', { ascending: false })
-      .limit(20),
+      .maybeSingle(), // Wallet may not exist yet for new customers
   ]);
 
   if (customerResult.error) throw customerResult.error;
+  if (walletResult.error) throw walletResult.error;
 
-  // 2026 Best Practice: Validate response data with Zod
+  // Step 2: Fetch transactions if wallet exists
+  // wallet_transactions uses wallet_id (FK to customer_wallets.id), not customer_id
+  let transactionRows: Transaction[] = [];
+  if (walletResult.data?.id) {
+    const txResult = await supabase
+      .from('wallet_transactions')
+      .select('id, type, amount, description, created_at')
+      .eq('wallet_id', walletResult.data.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (!txResult.error && txResult.data) {
+      const validation = z.array(TransactionRowSchema).safeParse(txResult.data);
+      transactionRows = (
+        validation.success ? validation.data : txResult.data
+      ).map((t) => ({
+        ...t,
+        description: (t as { description?: string | null }).description ?? '',
+      })) as Transaction[];
+    }
+  }
+
+  // Validate customer data
   const customerValidation = CustomerRowSchema.pick({
     loyalty_points: true,
-    loyalty_tier: true,
   }).safeParse(customerResult.data);
 
-  const walletValidation = WalletRowSchema.safeParse(walletResult.data);
+  const safeBalance =
+    typeof walletResult.data?.available_balance === 'number'
+      ? walletResult.data.available_balance
+      : 0;
 
-  const transactionsValidation = z
-    .array(TransactionRowSchema)
-    .safeParse(transactionsResult.data);
+  const safeLoyaltyPoints = customerValidation.success
+    ? (customerValidation.data.loyalty_points ?? 0)
+    : typeof customerResult.data?.loyalty_points === 'number'
+      ? customerResult.data.loyalty_points
+      : 0;
 
   return {
     wallet: {
-      balance: walletValidation.success
-        ? walletValidation.data.balance
-        : (walletResult.data?.balance ?? 0),
-      loyalty_points: customerValidation.success
-        ? (customerValidation.data.loyalty_points ?? 0)
-        : (customerResult.data?.loyalty_points ?? 0),
-      loyalty_tier: customerValidation.success
-        ? (customerValidation.data.loyalty_tier ?? 'Bronze')
-        : (customerResult.data?.loyalty_tier ?? 'Bronze'),
+      balance: safeBalance,
+      loyalty_points: safeLoyaltyPoints,
     },
-    transactions: transactionsValidation.success
-      ? transactionsValidation.data
-      : (transactionsResult.data ?? []),
+    transactions: transactionRows,
   };
 }
 
@@ -214,10 +221,24 @@ export function useRedeemPoints() {
 
   return useMutation({
     mutationFn: async (points: number) => {
+      if (!customer?.id || !merchantId) {
+        throw new Error('Authentication required. Please sign in again.');
+      }
+
+      // Capture in local variables to prevent stale closure if auth changes mid-request
+      const customerId = customer.id;
+      const currentMerchantId = merchantId;
+
+      // Look up current points balance from cached wallet data
+      const cachedData = queryClient.getQueryData<WalletQueryData>(
+        walletKeys.data(customerId)
+      );
+      const currentPoints = cachedData?.wallet?.loyalty_points ?? 0;
+
       // First, validate with Commerce Brain
       const result = await calculateCommerce('redeem_loyalty', {
         points,
-        currentPoints: 0, // Will be validated server-side
+        currentPoints,
         pointsToNairaRate: 1,
       });
 
@@ -227,8 +248,8 @@ export function useRedeemPoints() {
 
       // Then execute the RPC
       const { error } = await supabase.rpc('redeem_loyalty_points', {
-        p_customer_id: customer?.id,
-        p_merchant_id: merchantId,
+        p_customer_id: customerId,
+        p_merchant_id: currentMerchantId,
         p_points: points,
         p_wallet_credit: result.walletCredit,
       });
@@ -250,7 +271,9 @@ export function useRedeemPoints() {
         walletKeys.data(customer?.id || '')
       );
 
-      // Optimistically update
+      // Optimistically update points only; balance is not updated optimistically
+      // because the actual conversion rate is determined server-side by calculateCommerce.
+      // The real balance will be synced on query invalidation after mutation settles.
       if (previousData) {
         queryClient.setQueryData<WalletQueryData>(
           walletKeys.data(customer?.id || ''),
@@ -259,7 +282,6 @@ export function useRedeemPoints() {
             wallet: {
               ...previousData.wallet,
               loyalty_points: previousData.wallet.loyalty_points - points,
-              balance: previousData.wallet.balance + points, // 1:1 ratio
             },
           }
         );

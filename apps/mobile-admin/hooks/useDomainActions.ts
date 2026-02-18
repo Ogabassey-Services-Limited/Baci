@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert, Linking } from 'react-native';
 import type { Domain, DomainAction } from '@/components/domains/domain-types';
+import { useMerchant } from '@/hooks/useMerchant';
 import { supabase } from '@/lib/supabase';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://baci.app/api';
@@ -10,6 +11,8 @@ interface UseDomainActionsParams {
 }
 
 export function useDomainActions({ onRefresh }: UseDomainActionsParams) {
+  const { merchant } = useMerchant();
+  const merchantId = merchant?.id;
   const [actionLoading, setActionLoading] = useState(false);
 
   const handleSetPrimary = async (domain: Domain) => {
@@ -21,23 +24,47 @@ export function useDomainActions({ onRefresh }: UseDomainActionsParams) {
       return;
     }
 
+    if (!merchantId) {
+      Alert.alert('Error', 'Merchant not loaded. Please try again.');
+      return;
+    }
+
     setActionLoading(true);
     try {
-      // Unset any existing primary domain (RLS scopes to the merchant)
+      // Find the current primary domain for rollback
+      const { data: currentPrimary } = await supabase
+        .from('domains')
+        .select('id')
+        .eq('merchant_id', merchantId)
+        .eq('is_primary', true)
+        .maybeSingle();
+
+      // Unset any existing primary domain scoped to this merchant
       const { error: unsetError } = await supabase
         .from('domains')
         .update({ is_primary: false })
+        .eq('merchant_id', merchantId)
         .eq('is_primary', true);
 
       if (unsetError) throw unsetError;
 
       // Set the new primary
-      const { error } = await supabase
+      const { error: setError } = await supabase
         .from('domains')
         .update({ is_primary: true })
+        .eq('merchant_id', merchantId)
         .eq('id', domain.id);
 
-      if (error) throw error;
+      if (setError) {
+        // Rollback: restore the original primary
+        if (currentPrimary?.id) {
+          await supabase
+            .from('domains')
+            .update({ is_primary: true })
+            .eq('id', currentPrimary.id);
+        }
+        throw setError;
+      }
 
       Alert.alert('Success', `${domain.domain} is now your primary domain.`);
       onRefresh();

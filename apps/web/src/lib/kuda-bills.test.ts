@@ -156,13 +156,13 @@ describe('purchaseBill', () => {
   });
 
   it('returns success result when purchase succeeds', async () => {
-    // Arrange
+    // Arrange — Kuda returns { reference, pin } (not transactionReference)
     const mockResponse = {
       status: true,
       message: 'Bill purchase successful',
       data: {
-        transactionReference: 'TXN-123456',
-        status: 'successful',
+        reference: 'AMZMqDjSafTsobg',
+        pin: null,
       },
     };
     vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
@@ -186,7 +186,7 @@ describe('purchaseBill', () => {
     expect(result).toEqual<PurchaseResult>({
       success: true,
       reference: 'BACI-1234567890-abcd1234',
-      transactionId: 'TXN-123456',
+      transactionId: 'AMZMqDjSafTsobg',
       message: 'Bill purchase successful',
       status: 'successful',
       amount: 5000,
@@ -257,7 +257,7 @@ describe('purchaseBill', () => {
     const mockResponse = {
       status: true,
       message: 'Success',
-      data: { transactionReference: 'TXN-789', status: 'successful' },
+      data: { reference: 'TXN-789', pin: null },
     };
     vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
 
@@ -281,7 +281,7 @@ describe('purchaseBill', () => {
     const mockResponse = {
       status: true,
       message: 'Success',
-      data: { transactionReference: 'TXN-999', status: 'successful' },
+      data: { reference: 'TXN-999', pin: null },
     };
     vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
 
@@ -302,7 +302,7 @@ describe('purchaseBill', () => {
     const mockResponse = {
       status: true,
       message: 'Success',
-      data: { transactionReference: 'TXN-555', status: 'successful' },
+      data: { reference: 'TXN-555', pin: null },
     };
     vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
     const customerIdentification = '08012345678';
@@ -328,7 +328,7 @@ describe('purchaseBill', () => {
     const successResponse = {
       status: true,
       message: 'Success',
-      data: { transactionReference: 'TXN-111', status: 'successful' },
+      data: { reference: 'TXN-111', pin: null },
     };
     vi.mocked(kudaRequest).mockResolvedValue(successResponse);
 

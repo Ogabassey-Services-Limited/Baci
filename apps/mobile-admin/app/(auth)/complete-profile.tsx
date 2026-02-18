@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import SafeImage from '@/components/ui/SafeImage';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -18,10 +17,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import SafeImage from '@/components/ui/SafeImage';
 import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useRegistration } from '@/hooks/useRegistration';
 import { supabase } from '@/lib/supabase';
-
-import { useOnboarding } from '@/hooks/useOnboarding';
 
 // Simplified Business Types
 const BUSINESS_TYPES = [
@@ -39,7 +38,7 @@ const BUSINESS_TYPES = [
 export default function CompleteProfileScreen() {
   const router = useRouter();
 
-  const { completeProfile, isLoading } = useOnboarding();
+  const { completeProfile, isLoading } = useRegistration();
   const [isInitializing, setIsInitializing] = useState(true);
 
   // Form State
@@ -135,6 +134,14 @@ export default function CompleteProfileScreen() {
       Alert.alert(
         'Error',
         'Please fill in all required fields (Name, Business Name, Type)'
+      );
+      return;
+    }
+
+    if (!formData.email?.trim()) {
+      Alert.alert(
+        'Email Required',
+        'We could not retrieve your email address. Please sign in with an account that provides an email.'
       );
       return;
     }

@@ -51,9 +51,17 @@ const FAQS: FaqItem[] = [
   },
 ];
 
-// Define props
+interface MerchantInfo {
+  business_name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  faq_items?: { question: string; answer: string }[];
+  pages?: { faq?: string };
+}
+
 interface HelpProps {
-  merchant?: any;
+  merchant?: MerchantInfo;
 }
 
 export const OgabasseyV2HelpSupport: React.FC<HelpProps> = ({ merchant }) => {
@@ -177,7 +185,7 @@ export const OgabasseyV2HelpSupport: React.FC<HelpProps> = ({ merchant }) => {
               {filteredFaqs.length > 0 ? (
                 filteredFaqs.map((faq, index) => (
                   <div
-                    key={index} // Changed to index as questions might repeat (unlikely but safer)
+                    key={faq.question}
                     className="bg-white rounded-xl border border-gray-100 overflow-hidden transition-all"
                   >
                     <button
@@ -240,10 +248,11 @@ export const OgabasseyV2HelpSupport: React.FC<HelpProps> = ({ merchant }) => {
                     </a>
                     <button
                       type="button"
-                      className="w-full flex items-center justify-center gap-2 p-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-sm transition-colors mt-2"
+                      disabled
+                      className="w-full flex items-center justify-center gap-2 p-3 bg-gray-400 text-white rounded-xl font-bold text-sm transition-colors mt-2 cursor-not-allowed"
                     >
                       <MessageSquare size={18} />
-                      Start Live Chat
+                      Live Chat (Coming Soon)
                     </button>
                   </div>
                 </div>

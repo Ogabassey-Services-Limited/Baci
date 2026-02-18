@@ -25,8 +25,3 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
   },
 });
-
-// Utility to clear admin auth (logout)
-export const clearAdminAuth = async () => {
-  await supabase.auth.signOut();
-};

@@ -51,7 +51,17 @@ export const MerchantSchema = z.object({
   tiktok_pixel_id: z.string().nullable(),
   snapchat_pixel_id: z.string().nullable(),
   twitter_pixel_id: z.string().nullable(),
-  hero_slides: z.array(z.any()).nullable(),
+  hero_slides: z
+    .array(
+      z.object({
+        id: z.string(),
+        imageUrl: z.string(),
+        headline: z.string().optional(),
+        description: z.string().optional(),
+        cta: z.string().optional(),
+      })
+    )
+    .nullable(),
   brand_colors: z
     .object({
       primary: z.string(),

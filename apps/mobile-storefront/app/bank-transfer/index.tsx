@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
@@ -36,7 +36,7 @@ export default function BankTransferScreen() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const validatedParams = useMemo(() => {
+  const validatedParams = (() => {
     const result = BankTransferParamsSchema.safeParse(params);
     if (!result.success) {
       return {
@@ -46,7 +46,7 @@ export default function BankTransferScreen() {
       };
     }
     return { isValid: true, error: null, data: result.data };
-  }, [params]);
+  })();
 
   const { orderId, orderNumber, amount, bankName, accountNumber, accountName } =
     validatedParams.data || {};

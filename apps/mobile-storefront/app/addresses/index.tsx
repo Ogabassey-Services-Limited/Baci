@@ -4,8 +4,8 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { Redirect, router } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,52 +19,65 @@ import {
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { useRequireAuth } from '@/hooks/use-auth-guard';
+import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
-import { createLogger } from '@/lib/logger';
 
 const log = createLogger('Addresses');
 
+// Matches web app's SavedAddress (stored as JSONB array in customers.saved_addresses)
 interface Address {
   id: string;
   label: string;
-  name: string;
+  full_name: string;
   phone: string;
   address: string;
   city: string;
   state: string;
+  country: string;
   postal_code?: string;
-  is_default: boolean;
-  created_at: string;
+  is_default?: boolean;
 }
 
 export default function AddressesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const user = useAuthStore((state) => state.user);
+  const customer = useAuthStore((state) => state.customer);
+  const merchantId = useAuthStore((state) => state.merchantId);
+
+  // 2026 Best Practice: Declarative auth-gate with intent-preserving returnTo
+  const { isLoading: isAuthLoading, redirectTo } = useRequireAuth();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const _settingDefaultRef = useRef(false);
 
-  const fetchAddresses = useCallback(async () => {
-    if (!user?.id) {
+  const fetchAddresses = async () => {
+    if (!customer?.id || !merchantId) {
       setIsLoading(false);
       return;
     }
 
     try {
       const { data, error: fetchError } = await supabase
-        .from('customer_addresses')
-        .select('*')
-        .eq('customer_id', user.id)
-        .order('is_default', { ascending: false })
-        .order('created_at', { ascending: false });
+        .from('customers')
+        .select('saved_addresses')
+        .eq('id', customer.id)
+        .eq('merchant_id', merchantId)
+        .single();
 
       if (fetchError) throw fetchError;
 
-      setAddresses(data || []);
+      // saved_addresses is a JSONB array on the customers table
+      const parsed = Array.isArray(data?.saved_addresses)
+        ? (data.saved_addresses as Address[])
+        : [];
+      // Sort: default addresses first
+      parsed.sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
+      setAddresses(parsed);
       setError(null);
     } catch (err) {
       log.error('Error fetching addresses:', err);
@@ -73,11 +86,13 @@ export default function AddressesScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [user?.id]);
+  };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchAddresses used in multiple places; React Compiler handles memoization (ADR-004)
   useEffect(() => {
     fetchAddresses();
-  }, [fetchAddresses]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer?.id, merchantId]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -85,24 +100,32 @@ export default function AddressesScreen() {
   };
 
   const handleSetDefault = async (addressId: string) => {
-    try {
-      // First, unset all defaults
-      await supabase
-        .from('customer_addresses')
-        .update({ is_default: false })
-        .eq('customer_id', user?.id);
+    // Guard against double-tap race condition
+    if (_settingDefaultRef.current || !customer?.id || !merchantId) return;
+    _settingDefaultRef.current = true;
 
-      // Set the new default
-      await supabase
-        .from('customer_addresses')
-        .update({ is_default: true })
-        .eq('id', addressId);
+    try {
+      // Update the JSONB array: set selected as default, clear others
+      const updated = addresses.map((a) => ({
+        ...a,
+        is_default: a.id === addressId,
+      }));
+
+      const { error: updateError } = await supabase
+        .from('customers')
+        .update({ saved_addresses: updated })
+        .eq('id', customer.id)
+        .eq('merchant_id', merchantId);
+
+      if (updateError) throw updateError;
 
       // Refresh the list
       fetchAddresses();
     } catch (err) {
       log.error('Error setting default address:', err);
       Alert.alert('Error', 'Failed to set default address');
+    } finally {
+      _settingDefaultRef.current = false;
     }
   };
 
@@ -116,15 +139,22 @@ export default function AddressesScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            if (!customer?.id || !merchantId) {
+              Alert.alert('Error', 'Please sign in to manage addresses');
+              return;
+            }
+
             try {
+              const updated = addresses.filter((a) => a.id !== address.id);
               const { error: deleteError } = await supabase
-                .from('customer_addresses')
-                .delete()
-                .eq('id', address.id);
+                .from('customers')
+                .update({ saved_addresses: updated })
+                .eq('id', customer.id)
+                .eq('merchant_id', merchantId);
 
               if (deleteError) throw deleteError;
 
-              setAddresses((prev) => prev.filter((a) => a.id !== address.id));
+              setAddresses(updated);
             } catch (err) {
               log.error('Error deleting address:', err);
               Alert.alert('Error', 'Failed to delete address');
@@ -196,7 +226,7 @@ export default function AddressesScreen() {
 
       <View style={styles.addressContent}>
         <Text style={[styles.addressName, { color: colors.text }]}>
-          {item.name}
+          {item.full_name}
         </Text>
         <Text style={[styles.addressPhone, { color: colors.textSecondary }]}>
           {item.phone}
@@ -260,28 +290,20 @@ export default function AddressesScreen() {
     </View>
   );
 
-  if (!user) {
+  if (redirectTo) {
+    return <Redirect href={redirectTo} />;
+  }
+
+  if (isAuthLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.emptyState}>
-          <Ionicons
-            name="person-outline"
-            size={64}
-            color={colors.textSecondary}
-          />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            Sign in required
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Sign in to manage your addresses
-          </Text>
-          <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: BRAND.primary }]}
-            onPress={() => router.push('/auth/login')}
-          >
-            <Text style={styles.addButtonText}>Sign In</Text>
-          </TouchableOpacity>
-        </View>
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: colors.background },
+        ]}
+      >
+        <ActivityIndicator size="large" color={BRAND.primary} />
       </View>
     );
   }

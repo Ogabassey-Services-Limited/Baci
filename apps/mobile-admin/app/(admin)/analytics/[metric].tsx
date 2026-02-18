@@ -56,6 +56,8 @@ function BarChart({
   onSelectBar,
   accentColor,
   secondaryColor,
+  gridColor,
+  labelColor,
 }: {
   data: TimeSeriesDataPoint[];
   comparisonData?: TimeSeriesDataPoint[];
@@ -63,6 +65,8 @@ function BarChart({
   onSelectBar: (index: number) => void;
   accentColor: string;
   secondaryColor: string;
+  gridColor: string;
+  labelColor: string;
 }) {
   const chartWidth = 340;
   const chartHeight = 180;
@@ -94,13 +98,13 @@ function BarChart({
               y={y}
               width={innerWidth}
               height={1}
-              fill="#E5E7EB" // colors.border
+              fill={gridColor}
             />
             <SvgText
               x={padding.left - 8}
               y={y + 4}
               fontSize={10}
-              fill="#9CA3AF" // colors.textMuted
+              fill={labelColor}
               textAnchor="end"
             >
               {formatCompact(tick)}
@@ -151,7 +155,7 @@ function BarChart({
                 x={x + barWidth / 2}
                 y={chartHeight - 8}
                 fontSize={9}
-                fill="#9CA3AF"
+                fill={labelColor}
                 textAnchor="middle"
               >
                 {d.label.slice(0, 3)}
@@ -247,7 +251,16 @@ export default function AnalyticsDetailScreen() {
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
         {isLoading && (
-          <View style={styles.loadingOverlay}>
+          <View
+            style={[
+              styles.loadingOverlay,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(13,13,26,0.5)'
+                  : 'rgba(255,255,255,0.5)',
+              },
+            ]}
+          >
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         )}
@@ -405,6 +418,8 @@ export default function AnalyticsDetailScreen() {
                 onSelectBar={setSelectedBarIndex}
                 accentColor={colors.primary}
                 secondaryColor={colors.textMuted}
+                gridColor={colors.border}
+                labelColor={colors.textMuted}
               />
             </View>
           )}
@@ -528,7 +543,6 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,

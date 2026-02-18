@@ -130,6 +130,28 @@ export const ProfileSchema = z.object({
 });
 
 // ============================================
+// IMEI VALIDATION
+// ============================================
+
+/**
+ * Validate an IMEI number using the Luhn checksum algorithm.
+ * A valid IMEI is exactly 15 digits and passes the Luhn check.
+ */
+export function isValidIMEI(imei: string): boolean {
+  if (!/^\d{15}$/.test(imei)) return false;
+  let sum = 0;
+  for (let i = 0; i < 15; i++) {
+    let digit = Number.parseInt(imei[i], 10);
+    if (i % 2 === 1) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+  }
+  return sum % 10 === 0;
+}
+
+// ============================================
 // HELPER FUNCTIONS
 // ============================================
 
@@ -281,19 +303,19 @@ export type MarkReviewHelpfulResponse = z.infer<
  * IMEI Check API response schema
  */
 export const ImeiResultSchema = z.object({
-  imei: z.string(),
-  device: z.string(),
+  imei: z.string().min(1),
+  device: z.string().min(1),
   modelNumber: z.string(),
   status: z.enum(['Clean', 'Blacklisted', 'Unknown']),
-  icloud: z.string(),
-  icloudLock: z.string(),
-  simLock: z.string(),
-  blacklistStatus: z.string(),
-  carrier: z.string(),
+  icloud: z.string().min(1),
+  icloudLock: z.string().min(1),
+  simLock: z.string().min(1),
+  blacklistStatus: z.string().min(1),
+  carrier: z.string().min(1),
   deviceImage: z.string(),
   score: z.number(),
   deviceType: z.enum(['apple', 'android', 'other']),
-  verdict: z.string(),
+  verdict: z.string().min(1),
   verdictType: z.enum(['safe', 'caution', 'danger']),
 });
 
@@ -359,29 +381,30 @@ export const MerchantRowSchema = z.object({
 export type MerchantRow = z.infer<typeof MerchantRowSchema>;
 
 // Customer row from Supabase
+// Actual columns: id, merchant_id, user_id, email, first_name, last_name, phone,
+// loyalty_points, store_credit, total_orders, total_spent, etc.
+// NOTE: avatar_url and loyalty_tier do NOT exist in the customers table.
 export const CustomerRowSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email(),
   first_name: z.string().nullable().optional(),
   last_name: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
-  avatar_url: z.string().nullable().optional(),
   loyalty_points: z.number().nullable().optional(),
-  loyalty_tier: z.string().nullable().optional(),
 });
 
 export type CustomerRow = z.infer<typeof CustomerRowSchema>;
 
 // Order row from Supabase (for realtime updates)
+// NOTE: orders table uses shipping_status (not status) and shipping_provider (not tracking_url)
 export const OrderRowSchema = z.object({
   id: z.string().uuid(),
   order_number: z.string().nullable().optional(),
-  status: z.string().optional(),
   total: z.number().optional(),
   payment_status: z.string().optional(),
   shipping_status: z.string().optional(),
   tracking_number: z.string().nullable().optional(),
-  tracking_url: z.string().nullable().optional(),
+  shipping_provider: z.string().nullable().optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
 });
@@ -399,6 +422,8 @@ export const ProductRowSchema = z.object({
   images: z.array(z.string()).nullable().optional(),
   brand: z.string().nullable().optional(),
   condition: z.string().nullable().optional(),
+  manage_stock: z.boolean().nullable().optional(),
+  stock_quantity: z.number().nullable().optional(),
   status: z.string().optional(),
   specifications: z.record(z.string(), z.string()).nullable().optional(),
   has_variants: z.boolean().nullable().optional(),
@@ -428,18 +453,23 @@ export const ProductRowSchema = z.object({
 export type ProductRow = z.infer<typeof ProductRowSchema>;
 
 // Wallet row from Supabase
+// Actual columns: id, customer_id, merchant_id, available_balance, total_earned, total_redeemed, created_at, updated_at
 export const WalletRowSchema = z.object({
-  balance: z.number().default(0),
+  id: z.string().uuid(),
+  available_balance: z.number().default(0),
 });
 
 export type WalletRow = z.infer<typeof WalletRowSchema>;
 
 // Transaction row from Supabase
+// Actual columns: id, wallet_id, merchant_id, type, amount, balance_after, source_type, source_id,
+// status, transfer_reference, transfer_status, transfer_message, description, metadata, created_at
+// NOTE: wallet_transactions uses wallet_id (not customer_id) as the FK to customer_wallets
 export const TransactionRowSchema = z.object({
   id: z.string().uuid(),
   type: z.enum(['credit', 'debit']),
   amount: z.number(),
-  description: z.string(),
+  description: z.string().nullable().optional(),
   created_at: z.string(),
 });
 

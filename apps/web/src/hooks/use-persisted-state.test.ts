@@ -28,7 +28,9 @@ describe('usePersistedState', () => {
     const { result } = renderHook(() => usePersistedState('test', 'initial'));
     act(() => result.current[1]('updated'));
     vi.advanceTimersByTime(500);
-    expect(JSON.parse(sessionStorage.getItem('test')!)).toBe('updated');
+    expect(JSON.parse(sessionStorage.getItem('test') as string)).toBe(
+      'updated'
+    );
   });
 
   it('supports localStorage option', () => {

@@ -12,14 +12,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { APP_VERSION_LABEL } from '@/constants/app-info';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
-import { useMerchant } from '@/hooks/useMerchant';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
-import { performLogoutCleanup } from '@/lib/logout';
 
 interface MenuItem {
   id: string;
@@ -40,11 +39,6 @@ interface MenuSection {
 export default function MenuScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { signOut } = useAuth();
-  const {
-    merchant: _merchant,
-    storeUrl: _storeUrl,
-    isLive: _isLive,
-  } = useMerchant();
   const { resetOnboarding } = useOnboarding();
   const { isPro, customerInfo } = useRevenueCat();
   const { unregisterPush } = usePushNotifications();
@@ -57,8 +51,7 @@ export default function MenuScreen() {
         text: 'Log Out',
         style: 'destructive',
         onPress: async () => {
-          await performLogoutCleanup(unregisterPush);
-          await signOut();
+          await signOut(unregisterPush);
         },
       },
     ]);
@@ -233,7 +226,9 @@ export default function MenuScreen() {
         pressed && { backgroundColor: colors.cardHover },
       ]}
       onPress={item.onPress}
-      accessibilityLabel={item.description ? `${item.label}. ${item.description}` : item.label}
+      accessibilityLabel={
+        item.description ? `${item.label}. ${item.description}` : item.label
+      }
       accessibilityRole="button"
       accessibilityHint={`Navigate to ${item.label}`}
     >
@@ -289,13 +284,13 @@ export default function MenuScreen() {
 
     const expiryDate = activeEntitlement?.expirationDate
       ? new Date(activeEntitlement.expirationDate).toLocaleDateString(
-        undefined,
-        {
-          day: '2-digit',
-          month: '2-digit',
-          year: '2-digit',
-        }
-      )
+          undefined,
+          {
+            day: '2-digit',
+            month: '2-digit',
+            year: '2-digit',
+          }
+        )
       : null;
 
     if (isPro) {
@@ -428,7 +423,7 @@ export default function MenuScreen() {
 
         {/* App Version */}
         <Text style={[styles.version, { color: colors.textMuted }]}>
-          Baci Admin v1.1.0
+          {APP_VERSION_LABEL}
         </Text>
 
         {/* DEV: Reset Onboarding */}

@@ -14,19 +14,18 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { APP_VERSION_LABEL } from '@/constants/app-info';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { performLogoutCleanup } from '@/lib/logout';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function SettingsScreen() {
   const { resetOnboarding } = useOnboarding();
   const { signOut } = useAuth();
   const { unregisterPush } = usePushNotifications();
-  const colorScheme = useColorScheme();
+  const { colors } = useTheme();
   const _router = useRouter();
-  const isDark = colorScheme === 'dark';
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -35,19 +34,10 @@ export default function SettingsScreen() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          await performLogoutCleanup(unregisterPush);
-          await signOut();
+          await signOut(unregisterPush);
         },
       },
     ]);
-  };
-
-  const colors = {
-    background: isDark ? '#0F172A' : '#F8FAFC',
-    card: isDark ? '#1E293B' : '#FFFFFF',
-    text: isDark ? '#F8FAFC' : '#0F172A',
-    textSecondary: isDark ? '#94A3B8' : '#64748B',
-    border: isDark ? '#334155' : '#E2E8F0',
   };
 
   const SettingItem = ({
@@ -107,7 +97,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['bottom']}
+      edges={['top']}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Store Info */}
@@ -241,7 +231,7 @@ export default function SettingsScreen() {
         </Pressable>
 
         <Text style={[styles.version, { color: colors.textSecondary }]}>
-          Baci Admin v1.0.0
+          {APP_VERSION_LABEL}
         </Text>
 
         {/* DEV: Reset Onboarding */}

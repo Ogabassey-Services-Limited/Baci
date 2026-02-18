@@ -27,6 +27,18 @@ const supabaseAnonKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
   '';
 
+// Runtime warning when Supabase credentials are missing
+if (!supabaseUrl) {
+  console.warn(
+    '[Supabase] SUPABASE_URL is not configured. Set EXPO_PUBLIC_SUPABASE_URL or configure extra.supabaseUrl in app.json.'
+  );
+}
+if (!supabaseAnonKey) {
+  console.warn(
+    '[Supabase] SUPABASE_ANON_KEY is not configured. Set EXPO_PUBLIC_SUPABASE_ANON_KEY or configure extra.supabaseAnonKey in app.json.'
+  );
+}
+
 /**
  * Custom storage adapter using expo-secure-store
  * 2026 Best Practice: sessionStorage for web (more secure than localStorage)
@@ -91,7 +103,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false, // Important for React Native
-    flowType: 'pkce', // Required for mobile OAuth deep linking
+    flowType: 'implicit', // Implicit flow is officially recommended for React Native (PKCE code_verifier gets lost with expo-web-browser)
   },
 });
 
@@ -218,27 +230,41 @@ export async function calculateCommerce(
   }
 
   try {
-    // 2026 Best Practice: AbortController timeout for edge function calls
+    // 2026 Best Practice: Timeout for edge function calls
     // Prevents requests from hanging indefinitely on poor connections
-    const controller = new AbortController();
-    const timeoutId = setTimeout(
-      () => controller.abort(),
-      EDGE_FUNCTION_TIMEOUT
-    );
-
+    // supabase.functions.invoke() does not accept an AbortSignal,
+    // so we use Promise.race to enforce the timeout.
     let result: unknown;
     let error: unknown;
 
     try {
-      const response = await supabase.functions.invoke('calculate-commerce', {
+      const invokePromise = supabase.functions.invoke('calculate-commerce', {
         body: { action, data },
       });
-      result = response.data;
-      error = response.error;
+
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const timeoutPromise = new Promise<never>((_resolve, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(
+            new CommerceError(
+              'Request timed out. Please check your connection and try again.',
+              'TIMEOUT_ERROR'
+            )
+          );
+        }, EDGE_FUNCTION_TIMEOUT);
+      });
+
+      try {
+        const response = await Promise.race([invokePromise, timeoutPromise]);
+        clearTimeout(timeoutId!);
+        result = response.data;
+        error = response.error;
+      } catch (e) {
+        clearTimeout(timeoutId!);
+        error = e;
+      }
     } catch (e) {
       error = e;
-    } finally {
-      clearTimeout(timeoutId);
     }
 
     if (error) {
@@ -260,7 +286,7 @@ export async function calculateCommerce(
       if (error instanceof Error) throw error;
       throw new CommerceError(
         (error as { message?: string })?.message ||
-          'Commerce calculation failed',
+        'Commerce calculation failed',
         'COMMERCE_BRAIN_ERROR'
       );
     }
@@ -277,7 +303,12 @@ export async function calculateCommerce(
       log.warn('Failed to track event:', trackErr);
     }
 
-    return result as any;
+    // Type assertion needed: Supabase edge function returns untyped JSON.
+    // The function overloads above guarantee the correct return type per action.
+    return result as
+      | CalculateOrderOutputType
+      | CalculateVTUOutputType
+      | RedeemLoyaltyOutputType;
   } catch (error) {
     if (error instanceof CommerceError) throw error;
 

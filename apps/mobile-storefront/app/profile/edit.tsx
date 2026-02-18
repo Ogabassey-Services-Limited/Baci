@@ -10,7 +10,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { router, Stack } from 'expo-router';
+import { Redirect, router, Stack } from 'expo-router';
 import type React from 'react';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -30,6 +30,7 @@ import { z } from 'zod';
 import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { TextContentTypes } from '@/hooks/use-keyboard';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -50,6 +51,9 @@ export default function ProfileEditScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  // 2026 Best Practice: Declarative auth-gate with intent-preserving returnTo
+  const { isLoading: isAuthLoading, redirectTo } = useRequireAuth();
+
   const customer = useAuthStore((state) => state.customer);
   const updateProfile = useAuthStore((state) => state.updateProfile);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,8 +66,7 @@ export default function ProfileEditScreen() {
     handleSubmit,
     formState: { errors, isDirty },
   } = useForm<ProfileFormData>({
-    // BUG-3-005: Cast required for Zod v3 / @hookform/resolvers v4 compatibility
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Zod 4 + @hookform/resolvers type mismatch
     resolver: zodResolver(ProfileSchema as unknown as z.ZodType<any, any, any>),
     defaultValues: {
       first_name: customer?.first_name || '',
@@ -95,6 +98,28 @@ export default function ProfileEditScreen() {
       setIsSubmitting(false);
     }
   };
+
+  // Show redirect for unauthenticated users
+  if (redirectTo) {
+    return <Redirect href={redirectTo} />;
+  }
+
+  if (isAuthLoading) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.background,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+        ]}
+      >
+        <ActivityIndicator size="large" color={BRAND.primary} />
+      </View>
+    );
+  }
 
   const FormField = ({
     name,
@@ -140,9 +165,9 @@ export default function ProfileEditScreen() {
           />
         )}
       />
-      {errors[name] && (
+      {errors?.[name] && (
         <Text style={styles.errorText} accessibilityLiveRegion="polite">
-          {errors[name]?.message}
+          {errors?.[name]?.message}
         </Text>
       )}
     </View>

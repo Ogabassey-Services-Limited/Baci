@@ -26,10 +26,11 @@ import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
-import { OnboardingProvider } from '@/context/OnboardingContext';
 import { NetworkProvider } from '@/context/NetworkContext';
-import { QueryProvider } from '@/lib/QueryProvider';
+import { OnboardingProvider } from '@/context/OnboardingContext';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
+import { QueryProvider } from '@/lib/QueryProvider';
+import { useAuthStore } from '@/stores/auth-store';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -63,6 +64,14 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   // Initialize RevenueCat (IAP)
   useRevenueCat();
+
+  // Initialize auth store ONCE — sets up a single onAuthStateChange listener
+  // instead of 21+ independent listeners from each useAuth() call site
+  const initializeAuth = useAuthStore.getState().initialize;
+  useEffect(() => {
+    const unsubscribe = initializeAuth();
+    return unsubscribe;
+  }, [initializeAuth]);
 
   const [loaded, error] = useFonts({
     Inter_400Regular,

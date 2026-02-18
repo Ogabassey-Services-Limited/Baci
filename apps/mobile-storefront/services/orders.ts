@@ -162,7 +162,14 @@ export async function createOrder(
     );
   }
 
-  // 3. Get auth token for authenticated requests
+  // 3. Get auth — H6 fix: use getUser() for secure JWT validation, then getSession() for token
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) {
+    throw new Error('Authentication required to place an order');
+  }
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -181,13 +188,13 @@ export async function createOrder(
       price: item.price,
       value: Math.round(item.price * item.quantity),
       variant_id: item.variant_id,
-      has_assurance: item.has_assurance || false,
-      assurance_fee: item.assurance_fee || 0,
+      has_assurance: item.has_assurance ?? false,
+      assurance_fee: item.assurance_fee ?? 0,
     })),
     subtotal: request.subtotal,
     shipping_fee: request.shipping_fee,
-    tax_amount: request.tax_amount || 0,
-    discount_amount: request.discount_amount || 0,
+    tax_amount: request.tax_amount ?? 0,
+    discount_amount: request.discount_amount ?? 0,
     payment_method: request.payment_method,
     payment_status:
       request.payment_method === 'pay_on_delivery' ? 'pending' : 'unpaid',
@@ -202,7 +209,7 @@ export async function createOrder(
     },
     source: 'mobile_app',
     // Include user_id if authenticated for customer profile linking
-    ...(session?.user?.id && { user_id: session.user.id }),
+    ...(user?.id && { user_id: user.id }),
   };
 
   try {
@@ -302,7 +309,7 @@ export async function createOrder(
     // 8. Track successful order creation
     trackEvent('order_created', {
       orderId: orderResponse.data.order.id,
-      orderNumber: orderResponse.data.order.order_number,
+      orderNumber: orderResponse.data.order.order_number ?? 'N/A',
       total: orderResponse.data.order.total,
       itemCount: request.items.length,
       paymentMethod: request.payment_method,
@@ -389,7 +396,8 @@ export async function createOrder(
  * For order confirmation and tracking screens
  */
 export async function getOrder(
-  orderId: string
+  orderId: string,
+  customerId: string
 ): Promise<OrderResponse['order'] | null> {
   const isOnline = await checkNetwork();
   if (!isOnline) {
@@ -405,6 +413,7 @@ export async function getOrder(
       'id, order_number, total, payment_status, shipping_status, created_at'
     )
     .eq('id', orderId)
+    .eq('customer_id', customerId)
     .single();
 
   if (error) {
@@ -431,7 +440,7 @@ export async function getCustomerOrders(customerId: string) {
   const { data, error } = await supabase
     .from('orders')
     .select(
-      'id, order_number, total, payment_status, shipping_status, created_at, order_items(*)'
+      'id, order_number, total, payment_status, shipping_status, created_at, order_items(id, product_id, name, quantity, price, has_assurance)'
     )
     .eq('customer_id', customerId)
     .eq('merchant_id', MERCHANT_ID)

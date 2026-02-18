@@ -13,11 +13,11 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleProp,
+  type StyleProp,
   StyleSheet,
   Text,
   TextInput,
-  TextStyle,
+  type TextStyle,
   View,
 } from 'react-native';
 import Animated, {
@@ -34,11 +34,12 @@ import { SafeImage } from '@/components/ui/SafeImage';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, {
   BRAND,
+  palette,
   RADIUS,
   SHADOWS,
   SPACING,
-  palette,
 } from '@/constants/Colors';
+import { useAuthStore } from '@/stores/auth-store';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
 
@@ -66,14 +67,14 @@ const CartQuantityInput = ({
       onChangeText={(text) => {
         const cleanText = text.replace(/[^0-9]/g, '');
         setLocalValue(cleanText);
-        const num = parseInt(cleanText, 10);
-        if (!isNaN(num) && num > 0) {
+        const num = Number.parseInt(cleanText, 10);
+        if (!Number.isNaN(num) && num > 0) {
           onChange(num);
         }
       }}
       onBlur={() => {
-        const num = parseInt(localValue, 10);
-        if (isNaN(num) || num <= 0) {
+        const num = Number.parseInt(localValue, 10);
+        if (Number.isNaN(num) || num <= 0) {
           setLocalValue(value.toString());
         } else {
           onChange(num);
@@ -120,11 +121,12 @@ export default function CartScreen() {
   const clearCart = useCartStore((state) => state.clearCart);
   const toggleAssurance = useCartStore((state) => state.toggleAssurance);
 
+  const { session } = useAuthStore();
   const openNegotiation = useUIStore((state) => state.openNegotiation);
 
   const triggerHaptic = () => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => { });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     }
   };
 
@@ -167,7 +169,11 @@ export default function CartScreen() {
 
   const handleCheckout = () => {
     triggerHaptic();
-    setIsIdentityModalOpen(true);
+    if (session) {
+      router.push('/checkout');
+    } else {
+      setIsIdentityModalOpen(true);
+    }
   };
 
   // Helper function to actually open item negotiation
@@ -238,7 +244,9 @@ export default function CartScreen() {
   const assuranceTotal = items.reduce((sum, item) => {
     if (!item.hasAssurance) return sum;
     const price = item.negotiatedPrice ?? item.price;
-    return sum + price * item.quantity * 0.05;
+    return (
+      sum + Math.round(price * item.quantity * (item.assuranceRate ?? 0.05))
+    );
   }, 0);
 
   const grandTotal = subtotal + assuranceTotal;
@@ -296,7 +304,9 @@ export default function CartScreen() {
         {items.map((item) => {
           const priceToUse = item.negotiatedPrice ?? item.price;
           const itemTotal = priceToUse * item.quantity;
-          const assuranceCost = item.hasAssurance ? itemTotal * 0.05 : 0;
+          const assuranceCost = item.hasAssurance
+            ? Math.round(itemTotal * (item.assuranceRate ?? 0.05))
+            : 0;
 
           return (
             <View key={item.id} style={styles.cartCard}>
@@ -539,7 +549,7 @@ export default function CartScreen() {
               styles.bulkButton,
               pressed && styles.bulkButtonPressed,
               items.some((i) => i.negotiationStatus === 'accepted') &&
-              styles.bulkButtonDisabled,
+                styles.bulkButtonDisabled,
             ]}
             onPress={openTotalNegotiation}
           >

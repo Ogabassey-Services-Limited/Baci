@@ -38,9 +38,20 @@ import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { asUploadFile } from '@/types/upload';
 
+// Helper to get currency symbol from merchant's payout_currency
+const getCurrencySymbol = (currencyCode: string | null | undefined) => {
+  const symbols: Record<string, string> = {
+    NGN: '\u20A6',
+    USD: '$',
+    GBP: '\u00A3',
+    EUR: '\u20AC',
+  };
+  return symbols[currencyCode || 'NGN'] || '\u20A6';
+};
+
 const PERIOD_OPTIONS: { value: TimePeriod; label: string }[] = [
   { value: 'today', label: 'Today' },
-  { value: 'week', label: 'This Week' },
+  { value: 'week', label: 'Last 7 Days' },
   { value: 'month', label: 'This Month' },
   { value: 'all', label: 'All Time' },
 ];
@@ -53,7 +64,14 @@ export default function HomeScreen() {
   const { merchant, storeUrl, isLive, primaryDomain } = useMerchant();
   const [period, setPeriod] = useState<TimePeriod>('week');
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
-  const { stats, revenueData, isLoading, refetch } = useDashboardStats(period);
+  const { stats, revenueData, refetch } = useDashboardStats(period);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  };
   const queryClient = useQueryClient();
   const { readiness, isLoading: isReadinessLoading } = useStoreReadiness();
   const { data: recentOrders, isLoading: isOrdersLoading } = useOrders();
@@ -136,7 +154,7 @@ export default function HomeScreen() {
   };
 
   const currentPeriodLabel =
-    PERIOD_OPTIONS.find((p) => p.value === period)?.label ?? 'This Week';
+    PERIOD_OPTIONS.find((p) => p.value === period)?.label ?? 'Last 7 Days';
 
   // Get the first name for greeting
   const firstName = merchant?.business_name?.split(' ')[0] ?? 'there';
@@ -148,11 +166,13 @@ export default function HomeScreen() {
     return 'evening';
   };
 
+  const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
+
   const formatCurrency = (amount: number) => {
     if (amount >= 1000000) {
-      return `₦${(amount / 1000000).toFixed(1)}M`;
+      return `${currencySymbol}${(amount / 1000000).toFixed(1)}M`;
     }
-    return `₦${amount.toLocaleString()}`;
+    return `${currencySymbol}${amount.toLocaleString()}`;
   };
 
   const formatMetric = (value: number) => {
@@ -249,8 +269,8 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isLoading}
-            onRefresh={refetch}
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
             tintColor={colors.gold}
             colors={[colors.gold]}
           />

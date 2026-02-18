@@ -1,7 +1,7 @@
 import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { RefreshControl, StatusBar, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
@@ -42,10 +42,7 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  const template = useMemo(
-    () => getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID),
-    []
-  );
+  const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     template.headerStyle === 'elite' ? 'u-airtime' : null
@@ -59,17 +56,17 @@ export default function HomeScreen() {
     // Check for tracking permissions (Soft Ask) - ATT
     // 2026 Best Practice: Ask during "personalized deal discovery" (Home screen)
     // Wait for a moment so they see the "deals" (products) first
-    const checkPermissions = async () => {
-      setTimeout(async () => {
-        const result = await requestPermission('tracking');
-        if (result === 'soft-ask-needed') {
-          setShowPermissionModal(true);
-        }
-      }, 3000); // 3 seconds delay
-    };
+    const timerId = setTimeout(async () => {
+      const result = await requestPermission('tracking');
+      if (result === 'soft-ask-needed') {
+        setShowPermissionModal(true);
+      }
+    }, 3000); // 3 seconds delay
 
-    checkPermissions();
-  }, []);
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [requestPermission]);
 
   const handlePermissionGrant = async () => {
     setShowPermissionModal(false);
@@ -103,7 +100,7 @@ export default function HomeScreen() {
       // 2026 Best Practice: Avoid hiding on bounces and initial scroll
       if (currentY <= 0) {
         headerTranslateY.value = withTiming(0, { duration: 250 });
-      } else if (diff > 10 && currentY > 100) {
+      } else if (diff > 10 && currentY > 100 && !searchVisible) {
         // Scrolling down: hide header
         headerTranslateY.value = withTiming(-headerHeight, {
           duration: 300,
@@ -127,7 +124,7 @@ export default function HomeScreen() {
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 100,
+    zIndex: searchVisible ? 10000 : 100,
   }));
 
   const backgroundAnimatedStyle = useAnimatedStyle(() => ({
@@ -142,19 +139,25 @@ export default function HomeScreen() {
   const { isOnline, onReconnect } = useNetworkState();
 
   const [searchVisible, setSearchVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const handleSearch = useCallback(() => {
+  const handleSearch = () => {
     setSearchVisible(true);
-  }, []);
+  };
 
-  const handleRefresh = useCallback(async () => {
+  const handleSearchCancel = () => {
+    setSearchVisible(false);
+    setSearchQuery('');
+  };
+
+  const handleRefresh = async () => {
     setRefreshing(true);
     try {
       await refetch();
     } finally {
       setRefreshing(false);
     }
-  }, [refetch]);
+  };
 
   useEffect(() => {
     return onReconnect(() => {
@@ -162,36 +165,33 @@ export default function HomeScreen() {
     });
   }, [onReconnect, refetch]);
 
-  const handleCategorySelect = useCallback((id: string | null) => {
-    if (id && id.startsWith('u-')) {
+  const handleCategorySelect = (id: string | null) => {
+    if (id?.startsWith('u-')) {
       // 2026 Best Practice: Route to Guest Utility Flow
       const type = id.replace('u-', '');
       router.push(`/utilities/${type}` as never);
       return;
     }
     setSelectedCategoryId(id);
-  }, []);
+  };
 
-  const defaultBlocks = useMemo(
-    () => [
-      { type: 'HeroCarousel', props: { id: 'default-hero' } },
-      {
-        type: 'CategoryRail',
-        props: { id: 'default-categories', title: 'Shop by Category' },
+  const defaultBlocks = [
+    { type: 'HeroCarousel', props: { id: 'default-hero' } },
+    {
+      type: 'CategoryRail',
+      props: { id: 'default-categories', title: 'Shop by Category' },
+    },
+    {
+      type: 'ProductGrid',
+      props: {
+        id: 'default-products',
+        title: 'Featured Products',
+        limit: 12,
       },
-      {
-        type: 'ProductGrid',
-        props: {
-          id: 'default-products',
-          title: 'Featured Products',
-          limit: 12,
-        },
-      },
-    ],
-    []
-  );
+    },
+  ];
 
-  const blocks = useMemo(() => {
+  const blocks = (() => {
     let content = pageConfig?.content || defaultBlocks;
 
     // Force CategoryRail if it's missing but it's an Elite design context
@@ -217,18 +217,15 @@ export default function HomeScreen() {
 
     if (isConfigLoading && !pageConfig) return [];
     return content;
-  }, [pageConfig, isConfigLoading, defaultBlocks, template]);
+  })();
 
-  const renderItem = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ({ item }: { item: any }) => (
-      <BlockRenderer
-        blocks={[item]}
-        selectedCategoryId={selectedCategoryId}
-        onCategorySelect={handleCategorySelect}
-      />
-    ),
-    [selectedCategoryId, handleCategorySelect]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const renderItem = ({ item }: { item: any }) => (
+    <BlockRenderer
+      blocks={[item]}
+      selectedCategoryId={selectedCategoryId}
+      onCategorySelect={handleCategorySelect}
+    />
   );
 
   const renderListHeader = () => <View style={{ height: headerHeight }} />;
@@ -268,7 +265,14 @@ export default function HomeScreen() {
         style={headerAnimatedStyle}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
-        <Header showSearch={true} onSearchPress={handleSearch} />
+        <Header
+          showSearch={true}
+          onSearchPress={handleSearch}
+          isSearchActive={searchVisible}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          onSearchCancel={handleSearchCancel}
+        />
 
         {!isOnline && pageConfig && (
           <OfflineNotice
@@ -297,10 +301,9 @@ export default function HomeScreen() {
         renderItem={renderItem}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         keyExtractor={(item: any, index: number) =>
-          item.props?.id || `block - ${index} `
+          item.props?.id || `block-${index}`
         }
         ListHeaderComponent={renderListHeader}
-        extraData={selectedCategoryId}
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         estimatedItemSize={600}
@@ -323,8 +326,11 @@ export default function HomeScreen() {
       />
       <SearchDropdown
         isVisible={searchVisible}
-        onClose={() => setSearchVisible(false)}
+        onClose={handleSearchCancel}
         topOffset={headerHeight}
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
+        hideInput={true}
       />
     </View>
   );

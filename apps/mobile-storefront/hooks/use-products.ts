@@ -48,6 +48,7 @@ export interface UseProductsOptions {
   minPrice?: number;
   maxPrice?: number;
   minRating?: number;
+  enabled?: boolean;
 }
 
 interface ProductsPage {
@@ -75,12 +76,19 @@ function transformProduct(item: unknown): Product {
     images: Array.isArray(product.images) ? product.images : [],
     brand: product.brand as string | undefined,
     category: Array.isArray(product.categories)
-      ? (product.categories[0] as Category).name
-      : (product.categories as unknown as Category).name,
+      ? product.categories.length > 0
+        ? (product.categories[0] as Category).name
+        : ''
+      : product.categories != null
+        ? (product.categories as unknown as Category).name
+        : '',
     condition: product.condition as Product['condition'],
     rating: 4.5,
     review_count: 0,
-    in_stock: true,
+    manage_stock: (product.manage_stock as boolean) ?? false,
+    in_stock:
+      !(product.manage_stock as boolean) ||
+      ((product.stock_quantity as number) ?? 0) > 0,
   };
 }
 
@@ -145,7 +153,7 @@ async function fetchProductsPage(
     .select(
       `
       id, name, slug, description, price, compare_at_price,
-      images, brand, condition,
+      images, brand, condition, manage_stock, stock_quantity,
       categories (id, name, slug)
     `,
       { count: 'exact' }
@@ -157,7 +165,12 @@ async function fetchProductsPage(
     query = query.eq('category_id', options.category);
   }
   if (options.search) {
-    query = query.ilike('name', `%${options.search}%`);
+    // L5 FIX: Escape % and _ wildcards in search query before passing to ilike
+    const escapedSearch = options.search
+      .replace(/\\/g, '\\\\')
+      .replace(/%/g, '\\%')
+      .replace(/_/g, '\\_');
+    query = query.ilike('name', `%${escapedSearch}%`);
   }
   if (options.condition) {
     query = query.eq('condition', options.condition);
@@ -170,6 +183,9 @@ async function fetchProductsPage(
   }
   if (options.maxPrice !== undefined) {
     query = query.lte('price', options.maxPrice);
+  }
+  if (options.minRating !== undefined && options.minRating > 0) {
+    query = query.gte('average_rating', options.minRating);
   }
 
   switch (options.sortBy) {
@@ -218,9 +234,7 @@ export function usePageConfig(slug: string = 'home') {
   return useQuery({
     queryKey: ['page_config', slug, merchantId],
     queryFn: async () => {
-      const { data, error } = await withSupabaseRetry<{
-        published_config: unknown;
-      }>(
+      const { data, error } = await withSupabaseRetry(
         async () =>
           await supabase
             .from('page_configs')
@@ -295,7 +309,7 @@ export function useProducts(options: UseProductsOptions = {}) {
     initialPageParam: 0,
     staleTime: 1000 * 60 * 2, // 2 minutes
     placeholderData: keepPreviousData, // 2026 Best Practice: Keep previous data while fetching new category
-    enabled: !!merchantId,
+    enabled: !!merchantId && options.enabled !== false,
   });
 
   const products = query.data?.pages.flatMap((page) => page.products) || [];
@@ -343,7 +357,7 @@ export function useProduct(slug: string) {
           `
           id, name, slug, description, price, compare_at_price,
           images, brand, condition, specifications,
-          has_variants, variant_attributes,
+          has_variants, variant_attributes, manage_stock, stock_quantity,
           categories (id, name, slug)
         `
         )
@@ -409,6 +423,7 @@ export function useProduct(slug: string) {
     product: query.data || null,
     isLoading: query.isLoading,
     error: query.error?.message || null,
+    refetch: query.refetch,
   };
 }
 
@@ -456,7 +471,7 @@ export function usePrefetchProduct() {
             `
             id, name, slug, description, price, compare_at_price,
             images, brand, condition, specifications,
-            has_variants, variant_attributes,
+            has_variants, variant_attributes, manage_stock, stock_quantity,
             categories (id, name, slug)
           `
           )

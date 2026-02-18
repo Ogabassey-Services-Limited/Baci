@@ -30,27 +30,17 @@ const log = createLogger('AdTracking');
 const _analytics = () => ({
   setUserId: async (_: string) => {},
   resetAnalyticsData: async () => {},
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logViewItem: async (_: any) => {},
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logAddToCart: async (_: any) => {},
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logBeginCheckout: async (_: any) => {},
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logPurchase: async (_: any) => {},
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logAddPaymentInfo: async (_: any) => {},
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logSearch: async (_: any) => {},
+  logViewItem: async (_: unknown) => {},
+  logAddToCart: async (_: unknown) => {},
+  logBeginCheckout: async (_: unknown) => {},
+  logPurchase: async (_: unknown) => {},
+  logAddPaymentInfo: async (_: unknown) => {},
+  logSearch: async (_: unknown) => {},
   logAppOpen: async () => {},
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logScreenView: async (_: any) => {},
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logSignUp: async (_: any) => {},
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logLogin: async (_: any) => {},
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  logEvent: async (_: string, __?: any) => {},
+  logScreenView: async (_: unknown) => {},
+  logSignUp: async (_: unknown) => {},
+  logLogin: async (_: unknown) => {},
+  logEvent: async (_: string, __?: unknown) => {},
 });
 
 import Constants from 'expo-constants';
@@ -62,10 +52,41 @@ import {
 import { Platform } from 'react-native';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-let FBSettings: any = null;
-let AppEventsLogger: any = null;
-let AEMReporterIOS: any = null;
-let TikTokBusiness: any = null;
+// Minimal interfaces for dynamically loaded SDK methods we actually use
+interface FBSettingsLike {
+  initializeSDK: () => void;
+  setAdvertiserTrackingEnabled: (enabled: boolean) => void;
+}
+interface AppEventsLoggerLike {
+  logEvent: {
+    (name: string, params?: Record<string, unknown>): void;
+    (name: string, valueToSum: number, params?: Record<string, unknown>): void;
+  };
+  logPurchase: (
+    amount: number,
+    currency: string,
+    params?: Record<string, unknown>
+  ) => void;
+  setUserData: (data: Record<string, string | undefined>) => void;
+  clearUserID: () => void;
+}
+interface AEMReporterIOSLike {
+  logAEMEvent: (
+    name: string,
+    value: number,
+    currency: string,
+    params: Record<string, unknown>
+  ) => void;
+}
+interface TikTokBusinessLike {
+  init: (config: Record<string, unknown>) => Promise<void>;
+  trackEvent: (name: string, params?: Record<string, unknown>) => void;
+}
+
+let FBSettings: FBSettingsLike | null = null;
+let AppEventsLogger: AppEventsLoggerLike | null = null;
+let AEMReporterIOS: AEMReporterIOSLike | null = null;
+let TikTokBusiness: TikTokBusinessLike | null = null;
 
 const loadNativeModules = async () => {
   if (Platform.OS === 'web') return;
@@ -76,13 +97,13 @@ const loadNativeModules = async () => {
     ]);
 
     if (fb) {
-      FBSettings = fb.Settings;
-      AppEventsLogger = fb.AppEventsLogger;
-      AEMReporterIOS = fb.AEMReporterIOS;
+      FBSettings = fb.Settings as unknown as FBSettingsLike;
+      AppEventsLogger = fb.AppEventsLogger as unknown as AppEventsLoggerLike;
+      AEMReporterIOS = fb.AEMReporterIOS as unknown as AEMReporterIOSLike;
     }
 
     if (tt) {
-      TikTokBusiness = tt.default || tt;
+      TikTokBusiness = (tt.default || tt) as unknown as TikTokBusinessLike;
     }
   } catch (e) {
     console.debug('[AdTracking] Native modules ignored or failed to load:', e);
@@ -375,9 +396,13 @@ async function sendServerConversion(
       }),
     });
 
+    // M33 fix: Always consume response body to prevent resource leak.
+    // In dev mode, parse as JSON for logging. In production, drain the body.
     if (__DEV__) {
       const result = await response.json();
       log.debug(`[Server] ${eventName} sent:`, result);
+    } else {
+      await response.text();
     }
   } catch (error) {
     // Log but don't throw - analytics should never break the app
@@ -418,12 +443,7 @@ function sendClientBackup(
 
   // TikTok (backup) - Cast to any due to SDK type mismatch
   if (isTikTokInitialized && ttEvent && TikTokBusiness) {
-    (
-      TikTokBusiness.trackEvent as (
-        name: string,
-        params?: Record<string, unknown>
-      ) => void
-    )(ttEvent, {
+    TikTokBusiness.trackEvent(ttEvent, {
       ...params,
       event_id: eventId, // TikTok uses event_id for dedup
     });
@@ -736,13 +756,8 @@ export async function trackPurchase(order: {
   }
 
   // TikTok - Cast to any due to SDK type mismatch
-  if (isTikTokInitialized) {
-    (
-      TikTokBusiness.trackEvent as (
-        name: string,
-        params?: Record<string, unknown>
-      ) => void
-    )('CompletePayment', {
+  if (isTikTokInitialized && TikTokBusiness) {
+    TikTokBusiness.trackEvent('CompletePayment', {
       content_type: 'product',
       contents: order.items.map((item) => ({
         content_id: item.id,
@@ -772,9 +787,13 @@ export async function trackPaymentInfoAdded(
 
   sendServerConversion('ADD_PAYMENT_INFO', eventId, {});
 
-  AppEventsLogger.logEvent('fb_mobile_add_payment_info', { _eventId: eventId });
+  if (AppEventsLogger) {
+    AppEventsLogger.logEvent('fb_mobile_add_payment_info', {
+      _eventId: eventId,
+    });
+  }
 
-  if (Platform.OS === 'ios') {
+  if (Platform.OS === 'ios' && AEMReporterIOS) {
     AEMReporterIOS.logAEMEvent('fb_mobile_add_payment_info', 0, 'NGN', {});
   }
 }
@@ -798,18 +817,15 @@ export async function trackSearch(
 
   sendServerConversion('SEARCH', eventId, {});
 
-  AppEventsLogger.logEvent('fb_mobile_search', {
-    fb_search_string: query,
-    _eventId: eventId,
-  });
+  if (AppEventsLogger) {
+    AppEventsLogger.logEvent('fb_mobile_search', {
+      fb_search_string: query,
+      _eventId: eventId,
+    });
+  }
 
-  if (isTikTokInitialized) {
-    (
-      TikTokBusiness.trackEvent as (
-        name: string,
-        params?: Record<string, unknown>
-      ) => void
-    )('Search', {
+  if (isTikTokInitialized && TikTokBusiness) {
+    TikTokBusiness.trackEvent('Search', {
       query,
       event_id: eventId,
     });
@@ -825,7 +841,9 @@ export async function trackSearch(
  */
 export async function trackAppOpen(): Promise<void> {
   // await analytics().logAppOpen();
-  AppEventsLogger.logEvent('fb_mobile_activate_app');
+  if (AppEventsLogger) {
+    AppEventsLogger.logEvent('fb_mobile_activate_app');
+  }
 }
 
 /**
@@ -860,24 +878,21 @@ export async function trackSignup(
     userId: userData?.userId,
   });
 
-  AppEventsLogger.logEvent('fb_mobile_complete_registration', {
-    fb_registration_method: method,
-    _eventId: eventId,
-  });
+  if (AppEventsLogger) {
+    AppEventsLogger.logEvent('fb_mobile_complete_registration', {
+      fb_registration_method: method,
+      _eventId: eventId,
+    });
+  }
 
-  if (Platform.OS === 'ios') {
+  if (Platform.OS === 'ios' && AEMReporterIOS) {
     AEMReporterIOS.logAEMEvent('fb_mobile_complete_registration', 0, 'NGN', {
       fb_registration_method: method,
     });
   }
 
-  if (isTikTokInitialized) {
-    (
-      TikTokBusiness.trackEvent as (
-        name: string,
-        params?: Record<string, unknown>
-      ) => void
-    )('CompleteRegistration', {
+  if (isTikTokInitialized && TikTokBusiness) {
+    TikTokBusiness.trackEvent('CompleteRegistration', {
       registration_method: method,
       event_id: eventId,
     });
@@ -907,22 +922,19 @@ export async function trackCustomEvent(
   posthogTrack(eventName, params);
   // await analytics().logEvent(eventName, params);
 
-  if (params) {
-    const fbParams: Record<string, string> = { _eventId: eventId };
-    Object.entries(params).forEach(([key, value]) => {
-      fbParams[key] = String(value);
-    });
-    AppEventsLogger.logEvent(eventName, fbParams);
-  } else {
-    AppEventsLogger.logEvent(eventName, { _eventId: eventId });
+  if (AppEventsLogger) {
+    if (params) {
+      const fbParams: Record<string, string> = { _eventId: eventId };
+      Object.entries(params).forEach(([key, value]) => {
+        fbParams[key] = String(value);
+      });
+      AppEventsLogger.logEvent(eventName, fbParams);
+    } else {
+      AppEventsLogger.logEvent(eventName, { _eventId: eventId });
+    }
   }
 
-  if (isTikTokInitialized) {
-    (
-      TikTokBusiness.trackEvent as (
-        name: string,
-        params?: Record<string, unknown>
-      ) => void
-    )(eventName, { ...params, event_id: eventId });
+  if (isTikTokInitialized && TikTokBusiness) {
+    TikTokBusiness.trackEvent(eventName, { ...params, event_id: eventId });
   }
 }

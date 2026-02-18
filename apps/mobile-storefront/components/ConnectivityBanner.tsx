@@ -10,7 +10,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
@@ -48,30 +48,27 @@ export function ConnectivityBanner() {
     },
   };
 
-  const showBanner = useCallback(
-    (state: 'offline' | 'online') => {
+  // Monitor network connectivity
+  useEffect(() => {
+    const showBanner = (state: 'offline' | 'online') => {
       setBannerState(state);
       translateY.value = withTiming(0, {
         duration: 300,
         easing: Easing.out(Easing.cubic),
       });
       opacity.value = withTiming(1, { duration: 200 });
-    },
-    [opacity, translateY]
-  );
+    };
 
-  const hideBanner = useCallback(() => {
-    translateY.value = withTiming(100, {
-      duration: 300,
-      easing: Easing.in(Easing.cubic),
-    });
-    opacity.value = withTiming(0, { duration: 200 }, () => {
-      runOnJS(setBannerState)('hidden');
-    });
-  }, [opacity, translateY]);
+    const hideBanner = () => {
+      translateY.value = withTiming(100, {
+        duration: 300,
+        easing: Easing.in(Easing.cubic),
+      });
+      opacity.value = withTiming(0, { duration: 200 }, () => {
+        runOnJS(setBannerState)('hidden');
+      });
+    };
 
-  // Monitor network connectivity
-  useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
       // Only show offline if explicitly disconnected, allow null/unknown states
       const isConnected = state.isConnected === true;
@@ -119,7 +116,7 @@ export function ConnectivityBanner() {
         hideTimerRef.current = null;
       }
     };
-  }, [hideBanner, showBanner]);
+  }, [translateY, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],

@@ -8,13 +8,8 @@
  * - Works across iOS and Android
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Keyboard, Platform } from 'react-native';
-
-interface _UseKeyboardOptions {
-  /** Dismiss keyboard on submit */
-  dismissOnSubmit?: boolean;
-}
 
 interface UseKeyboardResult {
   /** Whether keyboard is currently visible */
@@ -24,7 +19,8 @@ interface UseKeyboardResult {
   /** Dismiss the keyboard programmatically */
   dismissKeyboard: () => void;
   /** Wrap a submit handler to dismiss keyboard before execution */
-  withKeyboardDismiss: <T extends (...args: unknown[]) => unknown>(handler: T) => T;
+  // biome-ignore lint/suspicious/noExplicitAny: generic function wrapper requires any[] for contravariant parameter compatibility
+  withKeyboardDismiss: <T extends (...args: any[]) => any>(handler: T) => T;
 }
 
 /**
@@ -66,23 +62,23 @@ export function useKeyboard(): UseKeyboardResult {
     };
   }, []);
 
-  const dismissKeyboard = useCallback(() => {
+  const dismissKeyboard = () => {
     Keyboard.dismiss();
-  }, []);
+  };
 
   /**
    * Wraps a handler function to dismiss keyboard before execution
    * This is a 2026 best practice for form submission UX
    */
-  const withKeyboardDismiss = useCallback(
-    <T extends (...args: unknown[]) => unknown>(handler: T): T => {
-      return ((...args: Parameters<T>) => {
-        Keyboard.dismiss();
-        return handler(...args);
-      }) as T;
-    },
-    []
-  );
+  // biome-ignore lint/suspicious/noExplicitAny: generic function wrapper requires any[] for contravariant parameter compatibility
+  const withKeyboardDismiss = <T extends (...args: any[]) => any>(
+    handler: T
+  ): T => {
+    return ((...args: Parameters<T>) => {
+      Keyboard.dismiss();
+      return handler(...args);
+    }) as T;
+  };
 
   return {
     isKeyboardVisible,

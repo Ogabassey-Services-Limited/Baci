@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -21,6 +21,8 @@ export default function SavedTabScreen() {
   const { isOnline, refresh } = useNetworkState();
 
   const handleProductPress = (slug: string) => {
+    // M12 FIX: Guard navigation - only navigate if slug is truthy
+    if (!slug) return;
     router.push(`/product/${slug}`);
   };
 
@@ -114,14 +116,14 @@ export default function SavedTabScreen() {
         />
       )}
 
-      <ScrollView
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-      >
-        {items.map((item) => (
+        renderItem={({ item }) => (
           <Pressable
-            key={item.id}
             style={[styles.productCard, { backgroundColor: colors.card }]}
             onPress={() => handleProductPress(item.slug)}
             accessibilityRole="button"
@@ -140,7 +142,7 @@ export default function SavedTabScreen() {
                 {item.name}
               </Text>
               <Text style={[styles.productPrice, { color: BRAND.primary }]}>
-                ₦{item.price.toLocaleString()}
+                ₦{(item.price ?? 0).toLocaleString()}
               </Text>
               {!isOnline && (
                 <Text
@@ -163,8 +165,8 @@ export default function SavedTabScreen() {
               <Ionicons name="heart" size={24} color={BRAND.primary} />
             </Pressable>
           </Pressable>
-        ))}
-      </ScrollView>
+        )}
+      />
     </SafeAreaView>
   );
 }

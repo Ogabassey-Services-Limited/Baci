@@ -26,8 +26,9 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { createLogger } from '@/lib/logger';
 import {
-  type ImeiResult,
   ImeiCheckApiResponseSchema,
+  type ImeiResult,
+  isValidIMEI,
   parseApiResponse,
 } from '@/lib/validation';
 
@@ -116,7 +117,10 @@ export default function ImeiCheckerScreen() {
     // 2026 Best Practice: Dismiss keyboard on submit
     Keyboard.dismiss();
 
-    if (imei.length !== 15) {
+    // Bug #M23: Prevent double-tap on IMEI check button
+    if (isLoading) return;
+
+    if (!isValidIMEI(imei)) {
       Alert.alert('Invalid IMEI', 'Please enter a valid 15-digit IMEI number.');
       return;
     }
@@ -125,6 +129,10 @@ export default function ImeiCheckerScreen() {
     setError(null);
     setResult(null);
 
+    // Bug #M22: Add AbortController with 30s timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/storefront/imei-check`,
@@ -132,10 +140,19 @@ export default function ImeiCheckerScreen() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imei, tier: selectedTier }),
+          signal: controller.signal,
         }
       );
 
+      clearTimeout(timeoutId);
+
       const rawData = await response.json();
+
+      // Bug #66: Check for HTTP errors and API-level errors BEFORE Zod validation
+      if (!response.ok || rawData?.error) {
+        setError(rawData?.error || 'Unable to check IMEI. Please try again.');
+        return;
+      }
 
       // 2026 Best Practice: Validate API response with Zod
       const validated = parseApiResponse(
@@ -144,30 +161,28 @@ export default function ImeiCheckerScreen() {
         'IMEI check API'
       );
 
-      if (
-        !response.ok ||
-        (validated && !validated.success) ||
-        (!validated && !rawData?.success)
-      ) {
-        setError(
-          validated?.error ||
-          rawData?.error ||
-          'Unable to check IMEI. Please try again.'
-        );
+      if (!validated || !validated.success) {
+        setError('Invalid response from server. Please try again.');
         return;
       }
 
-      // Use validated data if available, otherwise fallback
-      const resultData = validated?.data || rawData?.data;
+      const resultData = validated.data;
       if (!resultData) {
-        setError('Invalid response from server. Please try again.');
+        setError('No data returned from server. Please try again.');
         return;
       }
 
       setResult(resultData);
     } catch (err) {
+      clearTimeout(timeoutId);
       log.error('IMEI check failed:', err);
-      setError('Network error. Please check your connection and try again.');
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError(
+          'Request timed out. Please check your connection and try again.'
+        );
+      } else {
+        setError('Network error. Please check your connection and try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -187,7 +202,6 @@ export default function ImeiCheckerScreen() {
         return { bg: '#DEF7EC', text: '#059669', border: '#A7F3D0' };
       case 'danger':
         return { bg: '#FEE2E2', text: '#DC2626', border: '#FECACA' };
-      case 'caution':
       default:
         return { bg: '#FEF3C7', text: '#D97706', border: '#FDE68A' };
     }

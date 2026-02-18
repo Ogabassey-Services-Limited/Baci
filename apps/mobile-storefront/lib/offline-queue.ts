@@ -95,8 +95,10 @@ class OfflineQueueManager {
 
     try {
       await this.initPromise;
-    } finally {
-      // Don't clear the promise - keep it to indicate we're initialized
+    } catch (error) {
+      // Clear promise on failure so initialization can be retried
+      this.initPromise = null;
+      throw error;
     }
   }
 

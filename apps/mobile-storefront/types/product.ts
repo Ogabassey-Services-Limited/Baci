@@ -45,6 +45,7 @@ export interface Product {
   rating?: number;
   review_count?: number;
   in_stock?: boolean;
+  manage_stock?: boolean;
   stock_quantity?: number;
   has_variants?: boolean;
   colors?: (string | { name: string; value: string })[];

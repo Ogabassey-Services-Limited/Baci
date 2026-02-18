@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { formatDistanceToNow } from 'date-fns';
 import { router, Stack } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -11,8 +11,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import SafeImage from '@/components/ui/SafeImage';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SHADOWS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
@@ -45,7 +45,7 @@ export default function BlogListScreen() {
   const [agent, setAgent] = useState<AgentStatus | null>(null);
   const [agentLoading, setAgentLoading] = useState(true);
 
-  const fetchPosts = useCallback(async () => {
+  const fetchPosts = async () => {
     if (!merchant?.id) {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -55,7 +55,7 @@ export default function BlogListScreen() {
       // Fetch ALL posts once
       const { data, error } = await supabase
         .from('blog_posts')
-        .select('*')
+        .select('id, title, status, created_at, featured_image_url')
         .eq('merchant_id', merchant.id)
         .order('created_at', { ascending: false });
 
@@ -67,9 +67,9 @@ export default function BlogListScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [merchant?.id]);
+  };
 
-  const fetchAgentStatus = useCallback(async () => {
+  const fetchAgentStatus = async () => {
     if (!merchant?.id) {
       setAgentLoading(false);
       return;
@@ -77,7 +77,7 @@ export default function BlogListScreen() {
     try {
       const { data, error } = await supabase
         .from('merchant_agents')
-        .select('*')
+        .select('status, last_run_at')
         .eq('merchant_id', merchant.id)
         .single();
       if (!error && data) setAgent(data);
@@ -86,7 +86,7 @@ export default function BlogListScreen() {
     } finally {
       setAgentLoading(false);
     }
-  }, [merchant?.id]);
+  };
 
   useEffect(() => {
     fetchPosts();
@@ -100,10 +100,10 @@ export default function BlogListScreen() {
   };
 
   // Optimistic Client-Side Filtering
-  const filteredPosts = React.useMemo(() => {
-    if (activeTab === 'all') return allPosts;
-    return allPosts.filter((post) => post.status === activeTab);
-  }, [allPosts, activeTab]);
+  const filteredPosts =
+    activeTab === 'all'
+      ? allPosts
+      : allPosts.filter((post) => post.status === activeTab);
 
   const StatusBadge = ({ status }: { status: string }) => {
     const isPublished = status === 'published';

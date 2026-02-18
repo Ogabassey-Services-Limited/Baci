@@ -10,6 +10,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
   Pressable,
@@ -167,10 +168,14 @@ export default function TrackOrderScreen() {
       return;
     }
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20_000); // 20s timeout
+
     const fetchOrder = async () => {
       try {
         const res = await fetch(
-          `${API_BASE_URL}/api/storefront/orders/track-order?token=${trackingToken}&merchant_slug=${MERCHANT_SLUG}`
+          `${API_BASE_URL}/api/storefront/orders/track-order?token=${encodeURIComponent(trackingToken)}&merchant_slug=${encodeURIComponent(MERCHANT_SLUG)}`,
+          { signal: controller.signal }
         );
 
         if (!res.ok) {
@@ -183,13 +188,23 @@ export default function TrackOrderScreen() {
         const json = await res.json();
         setData(json as TrackOrderData);
       } catch (err) {
+        if (controller.signal.aborted) {
+          setError('Request timed out. Please try again.');
+          return;
+        }
         setError(err instanceof Error ? err.message : 'Failed to load order');
       } finally {
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     };
 
     fetchOrder();
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [trackingToken]);
 
   if (isLoading) {
@@ -433,9 +448,17 @@ export default function TrackOrderScreen() {
                 </View>
                 {shipping_tracking.tracking_url && (
                   <Pressable
-                    onPress={() =>
-                      Linking.openURL(shipping_tracking.tracking_url)
-                    }
+                    onPress={() => {
+                      const url = shipping_tracking.tracking_url;
+                      if (url && /^https?:\/\//i.test(url)) {
+                        Linking.openURL(url);
+                      } else {
+                        Alert.alert(
+                          'Tracking Unavailable',
+                          'No valid tracking link available.'
+                        );
+                      }
+                    }}
                     style={[
                       styles.trackBtn,
                       { backgroundColor: BRAND.primaryLight },

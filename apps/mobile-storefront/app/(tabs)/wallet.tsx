@@ -18,19 +18,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, {
   BRAND,
+  palette,
   RADIUS,
   SHADOWS,
   SPACING,
-  palette,
 } from '@/constants/Colors';
+import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { useWallet } from '@/hooks/use-wallet';
-import { useAuthStore } from '@/stores/auth-store';
 
 export default function WalletTabScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const customer = useAuthStore((state) => state.customer);
   const { data, isLoading, refetch, isRefetching } = useWallet();
+
+  // Auth gating handled by tab layout listener — this is a fallback for edge cases
+  // e.g., user signs out while already viewing this tab (tabPress listener won't fire)
+  const { isInitialized, user: authUser } = useAuthStatus();
 
   const formatPrice = (amount: number) => {
     return new Intl.NumberFormat('en-NG', {
@@ -40,7 +43,7 @@ export default function WalletTabScreen() {
     }).format(amount);
   };
 
-  if (!customer) {
+  if (!isInitialized) {
     return (
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
@@ -51,34 +54,17 @@ export default function WalletTabScreen() {
             Wallet
           </Text>
         </View>
-        <View style={styles.emptyContainer}>
-          <View
-            style={[
-              styles.emptyIconContainer,
-              { backgroundColor: palette.amber[50] },
-            ]}
-          >
-            <Ionicons
-              name="wallet-outline"
-              size={48}
-              color={palette.amber[500]}
-            />
-          </View>
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            Sign in to access your wallet
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Track your balance, earn rewards, and redeem points
-          </Text>
-          <Pressable
-            style={[styles.signInButton, { backgroundColor: BRAND.primary }]}
-            onPress={() => router.push('/auth/login')}
-          >
-            <Text style={styles.signInButtonText}>Sign In</Text>
-          </Pressable>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={BRAND.primary} />
         </View>
       </SafeAreaView>
     );
+  }
+
+  // Defense-in-depth: if user signed out while on this tab, go to Home
+  if (!authUser) {
+    router.replace('/(tabs)');
+    return null;
   }
 
   if (isLoading) {
@@ -130,7 +116,7 @@ export default function WalletTabScreen() {
         <View style={[styles.balanceCard, { backgroundColor: '#0F0F0F' }]}>
           <Text style={styles.balanceLabel}>Available Balance</Text>
           <Text style={styles.balanceAmount}>
-            {formatPrice(data?.wallet?.balance || 0)}
+            {formatPrice(data?.wallet?.balance ?? 0)}
           </Text>
           <View style={styles.balanceActions}>
             <Pressable
@@ -154,7 +140,7 @@ export default function WalletTabScreen() {
             </Text>
           </View>
           <Text style={[styles.pointsAmount, { color: palette.amber[900] }]}>
-            {(data?.wallet?.loyalty_points || 0).toLocaleString()} pts
+            {(data?.wallet?.loyalty_points ?? 0).toLocaleString()} pts
           </Text>
           <Pressable
             style={[

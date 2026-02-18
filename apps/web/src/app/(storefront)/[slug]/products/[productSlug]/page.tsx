@@ -61,12 +61,21 @@ async function getProductCached(
 
   // Transform cached product to match Product interface
   // Map database fields to Product interface expected fields
-  const productImages = cachedProduct.images as Array<{
-    url: string;
-    alt?: string;
-    order?: number;
-  }> | null;
-  const firstImage = productImages?.[0]?.url || '';
+  // Images can be stored as flat strings ["url"] or objects [{url, alt, order}]
+  const rawImages = cachedProduct.images as Array<
+    string | { url: string; alt?: string; order?: number }
+  > | null;
+  const normalizedImages = rawImages?.map((img, idx) => {
+    if (typeof img === 'string') {
+      return { url: img, alt: cachedProduct.name, order: idx };
+    }
+    return {
+      url: img.url,
+      alt: img.alt || cachedProduct.name,
+      order: img.order ?? idx,
+    };
+  });
+  const firstImage = normalizedImages?.[0]?.url || '';
 
   const product: Product = {
     id: cachedProduct.id,
@@ -86,11 +95,7 @@ async function getProductCached(
     image: firstImage,
     imageLarge: firstImage,
     imageHint: cachedProduct.name,
-    images: productImages?.map((img, idx) => ({
-      url: img.url,
-      alt: img.alt || cachedProduct.name,
-      order: img.order ?? idx,
-    })),
+    images: normalizedImages,
     // Brand/identifiers (defaults for missing fields)
     brand: '',
     gtin: '',
@@ -320,7 +325,12 @@ export default async function ProductPage({ params }: PageProps) {
   );
 
   // Add URL to the schema offers (sanitized to prevent XSS)
-  if (productSchema.offers && !Array.isArray(productSchema.offers)) {
+  // Variant products have no top-level offers (offers live on each hasVariant entry)
+  if (
+    productSchema.offers &&
+    !Array.isArray(productSchema.offers) &&
+    productSchema.offers['@type'] !== 'AggregateOffer'
+  ) {
     const productUrl = `${baseUrl}${urlPrefix}/products/${product.slug || product.id}`;
     productSchema.offers.url = escapeHtml(productUrl);
   }

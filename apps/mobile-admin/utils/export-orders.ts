@@ -1,10 +1,13 @@
 import type { Order } from '@baci/shared';
+import { escapeHtml } from '@baci/shared';
 import { format } from 'date-fns';
+import type * as PrintType from 'expo-print';
+import type * as SharingType from 'expo-sharing';
 import { Platform } from 'react-native';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-let Print: any = null;
-let Sharing: any = null;
+let Print: typeof PrintType | null = null;
+let Sharing: typeof SharingType | null = null;
 
 const loadNativeModules = async () => {
   if (Platform.OS === 'web') return;
@@ -28,11 +31,16 @@ loadNativeModules();
 
 import { supabase } from '@/lib/supabase';
 
-// Helper to escape CSV fields
+// Helper to escape CSV fields with formula injection prevention
 // biome-ignore lint/suspicious/noExplicitAny: CSV output needs to handle mixed types
 const escapeCtx = (text: any) => {
   if (text === null || text === undefined) return '';
-  const str = String(text);
+  let str = String(text);
+  // Prevent CSV formula injection: prefix dangerous starting characters
+  // that spreadsheet apps (Excel, Google Sheets) interpret as formulas
+  if (/^[=+\-@]/.test(str)) {
+    str = `'${str}`;
+  }
   if (str.includes(',') || str.includes('"') || str.includes('\n')) {
     return `"${str.replace(/"/g, '""')}"`;
   }
@@ -79,6 +87,9 @@ export const generateOrdersCSV = (orders: Order[]): string => {
 
 export const exportOrdersRPC = async (orders: Order[]) => {
   try {
+    if (!Sharing) await loadNativeModules();
+    if (!Sharing) throw new Error('Export modules not available');
+
     const csvData = generateOrdersCSV(orders);
     const filename = `orders_report_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`;
 
@@ -110,6 +121,8 @@ export const exportOrderReportPDF = async (
   storeName: string = 'My Store',
   logoUrl?: string
 ) => {
+  if (!Print || !Sharing) await loadNativeModules();
+  if (!Print || !Sharing) throw new Error('Export modules not available');
   try {
     const totalOrders = orders.length;
     const totalRevenue = orders.reduce(
@@ -174,10 +187,14 @@ export const exportOrderReportPDF = async (
     try {
       const orderIds = orders.map((o) => o.id);
       if (orderIds.length > 0) {
-        const { data: itemData } = await supabase
+        const { data: itemData, error: itemError } = await supabase
           .from('order_items')
           .select('product_id, quantity, price, products(name)')
           .in('order_id', orderIds);
+
+        if (itemError) {
+          console.warn('Failed to fetch order items:', itemError.message);
+        }
 
         totalUnitsSold =
           itemData?.reduce(
@@ -521,17 +538,17 @@ export const exportOrderReportPDF = async (
         <div class="header">
           <div class="brand">
             <div class="logo-box">
-              ${logoUrl ? `<img src="${logoUrl}" class="logo-img" alt="Store Logo" />` : storeName.charAt(0).toUpperCase()}
+              ${logoUrl && /^https?:\/\//i.test(logoUrl) ? `<img src="${escapeHtml(logoUrl)}" class="logo-img" alt="Store Logo" />` : escapeHtml(storeName.charAt(0).toUpperCase())}
             </div>
             <div class="brand-info">
-              <span class="brand-name">${storeName}</span>
+              <span class="brand-name">${escapeHtml(storeName)}</span>
               <span class="brand-slug">Operations Headquarters</span>
             </div>
           </div>
           <div class="report-meta">
             <div class="report-type">Performance Insights</div>
             <h1 class="report-date">Sales Report</h1>
-            <div class="report-period">📅 ${dateRangeLabel}</div>
+            <div class="report-period">${escapeHtml(dateRangeLabel)}</div>
           </div>
         </div>
 
@@ -589,7 +606,7 @@ export const exportOrderReportPDF = async (
             </div>
             <div class="insight-content">
               <div>
-                <div class="insight-main">${topProduct.name}</div>
+                <div class="insight-main">${escapeHtml(topProduct.name)}</div>
                 <div class="insight-sub">${topProduct.qty} units sold this period</div>
               </div>
               <div class="insight-stat">
@@ -628,7 +645,7 @@ export const exportOrderReportPDF = async (
                 ([name, data]) => `
               <div class="list-item">
                 <div class="item-info">
-                  <span class="item-name">${name}</span>
+                  <span class="item-name">${escapeHtml(name)}</span>
                   <span class="item-count">${data.count} orders</span>
                 </div>
                 <div class="item-val">₦${data.total.toLocaleString()}</div>
@@ -645,7 +662,7 @@ export const exportOrderReportPDF = async (
                 ([name, data]) => `
               <div class="list-item">
                 <div class="item-info">
-                  <span class="item-name">${name}</span>
+                  <span class="item-name">${escapeHtml(name)}</span>
                   <span class="item-count">${data.count} orders</span>
                 </div>
                 <div class="item-val">₦${data.total.toLocaleString()}</div>
@@ -705,14 +722,14 @@ export const exportOrderReportPDF = async (
                 <tr>
                   <td class="order-id">#${o.id.slice(0, 8).toUpperCase()}</td>
                   <td>
-                    <span class="order-name">${o.customer_name || 'Anonymous'}</span>
+                    <span class="order-name">${escapeHtml(o.customer_name || 'Anonymous')}</span>
                     <span class="order-sub">${format(new Date(o.created_at || new Date()), 'MMM d, yyyy')}</span>
                   </td>
-                  <td style="text-transform: capitalize; font-weight: 600;">${o.payment_method || 'Online'}</td>
+                  <td style="text-transform: capitalize; font-weight: 600;">${escapeHtml(o.payment_method || 'Online')}</td>
                   <td>
                     <span class="status-pill pill-${o.payment_status === 'paid' ? 'paid' : o.payment_status === 'refunded' ? 'refunded' : 'pending'}">
                       ${o.payment_status === 'paid' ? '✓' : o.payment_status === 'refunded' ? '↩' : '○'}
-                      ${o.payment_status.toUpperCase()}
+                      ${escapeHtml(o.payment_status?.toUpperCase() ?? 'UNKNOWN')}
                     </span>
                   </td>
                   <td style="font-weight: 800;">₦${(Number(o.total) || 0).toLocaleString()}</td>

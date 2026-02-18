@@ -35,12 +35,8 @@ export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
 
   return (
     <div className="h-full w-full flex flex-col items-center justify-center bg-red-600 text-white p-4 text-center overflow-hidden relative">
-      {/* Snowflakes animation CSS */}
-      {/* Snowflakes animation CSS */}
-      <style
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: Dynamic CSS injection for animation
-        dangerouslySetInnerHTML={{
-          __html: `
+      {/* Snowflakes animation CSS — static styles, no user input */}
+      <style>{`
         .snowflake {
           position: absolute;
           top: -10%;
@@ -49,20 +45,11 @@ export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
           animation: fall linear infinite;
           z-index: 1;
         }
-
         @keyframes fall {
-          0% {
-            transform: translateY(0);
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(105vh);
-            opacity: 0;
-          }
+          0% { transform: translateY(0); opacity: 1; }
+          100% { transform: translateY(105vh); opacity: 0; }
         }
-      `,
-        }}
-      />
+      `}</style>
 
       {/* Falling snowflakes */}
       {snowflakes.map((flake, i) => (

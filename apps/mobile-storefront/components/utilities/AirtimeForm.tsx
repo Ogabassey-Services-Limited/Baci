@@ -33,6 +33,7 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [amount, setAmount] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handlePhoneChange = (text: string) => {
     const digits = text.replace(/\D/g, '');
@@ -43,7 +44,11 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
 
   const numericAmount = Number(amount.replace(/\D/g, ''));
 
+  // Bug #61: Guard against double-tap with isSubmitting state
+  const isBusy = isSubmitting || purchase.isPending;
+
   const handlePurchase = async () => {
+    if (isBusy) return;
     if (!selectedProvider || !phoneNumber || !amount) {
       Alert.alert('Missing Information', 'Please fill in all fields.');
       return;
@@ -53,6 +58,7 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const result = await purchase.mutateAsync({
         type: 'airtime',
@@ -75,6 +81,8 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
         'Purchase Failed',
         error instanceof Error ? error.message : 'Something went wrong.'
       );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -169,13 +177,13 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
             styles.payButton,
             {
               backgroundColor: BRAND.primary,
-              opacity: purchase.isPending ? 0.7 : 1,
+              opacity: isBusy ? 0.7 : 1,
             },
           ]}
           onPress={handlePurchase}
-          disabled={purchase.isPending}
+          disabled={isBusy}
         >
-          {purchase.isPending ? (
+          {isBusy ? (
             <ActivityIndicator color="#FFF" />
           ) : (
             <Text style={styles.payButtonText}>

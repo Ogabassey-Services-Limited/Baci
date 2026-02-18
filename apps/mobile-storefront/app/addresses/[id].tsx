@@ -1,11 +1,12 @@
 /**
  * Add/Edit Address Screen
  * Form for creating or updating delivery addresses
+ * Addresses are stored as JSONB array in customers.saved_addresses
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,8 +20,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useColorScheme } from '@/components/useColorScheme';
 import { useToast } from '@/components/ui/Toast';
+import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { TextContentTypes } from '@/hooks/use-keyboard';
 import { createLogger } from '@/lib/logger';
@@ -29,9 +30,23 @@ import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('AddressForm');
 
-interface AddressForm {
+// Matches web app's SavedAddress (stored as JSONB in customers.saved_addresses)
+interface SavedAddress {
+  id: string;
   label: string;
-  name: string;
+  full_name: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  postal_code?: string;
+  is_default?: boolean;
+}
+
+interface AddressFormData {
+  label: string;
+  full_name: string;
   phone: string;
   address: string;
   city: string;
@@ -87,14 +102,15 @@ export default function AddressFormScreen() {
   const isNewAddress = id === 'new';
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const user = useAuthStore((state) => state.user);
+  const customer = useAuthStore((state) => state.customer);
+  const merchantId = useAuthStore((state) => state.merchantId);
 
   // 2026 Best Practice: Toast feedback for address save
   const toast = useToast();
 
-  const [form, setForm] = useState<AddressForm>({
+  const [form, setForm] = useState<AddressFormData>({
     label: 'Home',
-    name: '',
+    full_name: '',
     phone: '',
     address: '',
     city: '',
@@ -104,51 +120,71 @@ export default function AddressFormScreen() {
   });
   const [isLoading, setIsLoading] = useState(!isNewAddress);
   const [isSaving, setIsSaving] = useState(false);
-  const [errors, setErrors] = useState<Partial<AddressForm>>({});
+  const [errors, setErrors] = useState<Partial<AddressFormData>>({});
+  const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchAddress = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('customer_addresses')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-
-      if (data) {
-        setForm({
-          label: data.label || 'Home',
-          name: data.name || '',
-          phone: data.phone || '',
-          address: data.address || '',
-          city: data.city || '',
-          state: data.state || 'Lagos',
-          postal_code: data.postal_code || '',
-          is_default: data.is_default || false,
-        });
+  // Cleanup navigate timeout on unmount to prevent memory leak
+  useEffect(() => {
+    return () => {
+      if (navigateTimeoutRef.current) {
+        clearTimeout(navigateTimeoutRef.current);
       }
-    } catch (err) {
-      log.error('Error fetching address:', err);
-      Alert.alert('Error', 'Failed to load address');
-      router.back();
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id]);
+    };
+  }, []);
 
   useEffect(() => {
-    if (!isNewAddress && id) {
+    if (!isNewAddress && id && customer?.id && merchantId) {
+      const fetchAddress = async () => {
+        try {
+          // Fetch saved_addresses JSONB from customers table
+          const { data, error } = await supabase
+            .from('customers')
+            .select('saved_addresses')
+            .eq('id', customer.id)
+            .eq('merchant_id', merchantId)
+            .single();
+
+          if (error) throw error;
+
+          // Find the address by ID in the JSONB array
+          const addresses = Array.isArray(data?.saved_addresses)
+            ? (data.saved_addresses as SavedAddress[])
+            : [];
+          const found = addresses.find((a) => a.id === id);
+
+          if (found) {
+            setForm({
+              label: found.label ?? 'Home',
+              full_name: found.full_name ?? '',
+              phone: found.phone ?? '',
+              address: found.address ?? '',
+              city: found.city ?? '',
+              state: found.state ?? 'Lagos',
+              postal_code: found.postal_code ?? '',
+              is_default: found.is_default ?? false,
+            });
+          } else {
+            Alert.alert('Error', 'Address not found');
+            router.back();
+          }
+        } catch (err) {
+          log.error('Error fetching address:', err);
+          Alert.alert('Error', 'Failed to load address');
+          router.back();
+        } finally {
+          setIsLoading(false);
+        }
+      };
       fetchAddress();
     }
-  }, [id, isNewAddress, fetchAddress]);
+  }, [id, isNewAddress, customer?.id, merchantId]);
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<AddressForm> = {};
+    const newErrors: Partial<AddressFormData> = {};
 
-    if (!form.name.trim()) newErrors.name = 'Name is required';
+    if (!form.full_name.trim()) newErrors.full_name = 'Name is required';
     if (!form.phone.trim()) newErrors.phone = 'Phone number is required';
-    else if (!/^(\+234|0)[789]\d{9}$/.test(form.phone.replace(/\s/g, ''))) {
+    else if (!/^(\+234|234|0)[7-9]\d{9}$/.test(form.phone.replace(/\s/g, ''))) {
       newErrors.phone = 'Enter a valid Nigerian phone number';
     }
     if (!form.address.trim()) newErrors.address = 'Address is required';
@@ -163,43 +199,66 @@ export default function AddressFormScreen() {
     // 2026 Best Practice: Dismiss keyboard on submit
     Keyboard.dismiss();
 
-    if (!validateForm() || !user?.id) return;
+    if (!validateForm() || !customer?.id || !merchantId) return;
 
     setIsSaving(true);
 
     try {
-      // If setting as default, unset other defaults first
+      // Fetch current saved_addresses array
+      const { data, error: fetchError } = await supabase
+        .from('customers')
+        .select('saved_addresses')
+        .eq('id', customer.id)
+        .eq('merchant_id', merchantId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      let addresses: SavedAddress[] = Array.isArray(data?.saved_addresses)
+        ? (data.saved_addresses as SavedAddress[])
+        : [];
+
+      const addressEntry: SavedAddress = {
+        id: isNewAddress ? `addr_${Date.now()}` : id,
+        label: form.label,
+        full_name: form.full_name,
+        phone: form.phone,
+        address: form.address,
+        city: form.city,
+        state: form.state,
+        country: 'Nigeria',
+        postal_code: form.postal_code || undefined,
+        is_default: form.is_default,
+      };
+
+      // If setting as default, clear other defaults
       if (form.is_default) {
-        await supabase
-          .from('customer_addresses')
-          .update({ is_default: false })
-          .eq('customer_id', user.id);
+        addresses = addresses.map((a) => ({ ...a, is_default: false }));
       }
 
       if (isNewAddress) {
-        const { error } = await supabase.from('customer_addresses').insert({
-          customer_id: user.id,
-          ...form,
-        });
-
-        if (error) throw error;
-
-        // 2026 Best Practice: Show success toast for address creation
-        toast.success('Address added successfully');
+        addresses.push(addressEntry);
       } else {
-        const { error } = await supabase
-          .from('customer_addresses')
-          .update(form)
-          .eq('id', id);
-
-        if (error) throw error;
-
-        // 2026 Best Practice: Show success toast for address update
-        toast.success('Address saved successfully');
+        addresses = addresses.map((a) => (a.id === id ? addressEntry : a));
       }
 
+      // Write updated array back
+      const { error: updateError } = await supabase
+        .from('customers')
+        .update({ saved_addresses: addresses })
+        .eq('id', customer.id)
+        .eq('merchant_id', merchantId);
+
+      if (updateError) throw updateError;
+
+      toast.success(
+        isNewAddress
+          ? 'Address added successfully'
+          : 'Address saved successfully'
+      );
+
       // Small delay to let the toast show before navigating back
-      setTimeout(() => router.back(), 500);
+      navigateTimeoutRef.current = setTimeout(() => router.back(), 500);
     } catch (err) {
       log.error('Error saving address:', err);
       Alert.alert('Error', 'Failed to save address');
@@ -208,7 +267,10 @@ export default function AddressFormScreen() {
     }
   };
 
-  const updateField = (field: keyof AddressForm, value: string | boolean) => {
+  const updateField = (
+    field: keyof AddressFormData,
+    value: string | boolean
+  ) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field as keyof typeof errors]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -299,19 +361,20 @@ export default function AddressFormScreen() {
               {
                 backgroundColor: colors.card,
                 color: colors.text,
-                borderColor: errors.name ? '#EF4444' : colors.border,
+                borderColor: errors.full_name ? '#EF4444' : colors.border,
               },
             ]}
-            value={form.name}
-            onChangeText={(value) => updateField('name', value)}
+            value={form.full_name}
+            onChangeText={(value) => updateField('full_name', value)}
             placeholder="Enter full name"
             placeholderTextColor={colors.textSecondary}
-            // 2026 Best Practice: textContentType for iOS autofill
             textContentType={TextContentTypes.name}
             autoComplete="name"
             returnKeyType="next"
           />
-          {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+          {errors.full_name && (
+            <Text style={styles.errorText}>{errors.full_name}</Text>
+          )}
         </View>
 
         {/* Phone */}
@@ -333,7 +396,6 @@ export default function AddressFormScreen() {
             placeholder="e.g. 08012345678"
             placeholderTextColor={colors.textSecondary}
             keyboardType="phone-pad"
-            // 2026 Best Practice: textContentType for iOS autofill
             textContentType={TextContentTypes.telephoneNumber}
             autoComplete="tel"
             returnKeyType="next"
@@ -362,7 +424,6 @@ export default function AddressFormScreen() {
             placeholderTextColor={colors.textSecondary}
             multiline
             numberOfLines={3}
-            // 2026 Best Practice: textContentType for iOS autofill
             textContentType={TextContentTypes.fullStreetAddress}
             autoComplete="street-address"
           />
@@ -387,7 +448,6 @@ export default function AddressFormScreen() {
             onChangeText={(value) => updateField('city', value)}
             placeholder="Enter city"
             placeholderTextColor={colors.textSecondary}
-            // 2026 Best Practice: textContentType for iOS autofill
             textContentType={TextContentTypes.addressCity}
             autoComplete="postal-address-locality"
             returnKeyType="next"

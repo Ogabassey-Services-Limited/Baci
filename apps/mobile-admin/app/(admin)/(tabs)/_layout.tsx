@@ -24,7 +24,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
           borderTopWidth: 1,
           borderTopColor: colors.border,
@@ -58,6 +58,7 @@ export default function TabLayout() {
         name="orders"
         options={{
           title: 'Orders',
+          tabBarBadge: failedCount > 0 ? failedCount : undefined,
           tabBarIcon: ({ color, focused }) => (
             <View
               style={
@@ -100,7 +101,6 @@ export default function TabLayout() {
         name="customers"
         options={{
           title: 'Customers',
-          tabBarBadge: failedCount > 0 ? failedCount : undefined,
           tabBarIcon: ({ color, focused }) => (
             <View
               style={
