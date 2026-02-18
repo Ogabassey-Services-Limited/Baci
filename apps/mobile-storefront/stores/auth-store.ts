@@ -10,8 +10,8 @@
 
 import type { Session, User } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
-import { create } from 'zustand';
 import { Alert } from 'react-native';
+import { create } from 'zustand';
 import { splitFullName } from '../lib/auth-helpers';
 import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
@@ -29,9 +29,7 @@ export interface Customer {
   first_name?: string;
   last_name?: string;
   phone?: string;
-  avatar_url?: string;
   loyalty_points?: number;
-  loyalty_tier?: string;
 }
 
 interface AuthState {
@@ -173,12 +171,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // Fetch customer data for this merchant
         let { data: customerData } = await supabase
           .from('customers')
-          .select(
-            'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
-          )
+          .select('id, email, first_name, last_name, phone, loyalty_points')
           .eq('merchant_id', merchantValidation.data.id)
           .eq('email', session.user.email)
           .single();
+
+        // Create customer record if it doesn't exist (mirrors auth listener logic)
+        // This covers the case where a user returns with an active session but
+        // no customer record — the SIGNED_IN event won't fire for existing sessions.
+        if (!customerData && session.user.email) {
+          const { firstName, lastName } = splitFullName(
+            session.user.user_metadata?.full_name
+          );
+
+          const { data: newCustomer } = await supabase
+            .from('customers')
+            .insert({
+              merchant_id: merchantValidation.data.id,
+              email: session.user.email,
+              first_name: firstName,
+              last_name: lastName,
+            })
+            .select('id, email, first_name, last_name, phone, loyalty_points')
+            .single();
+
+          customerData = newCustomer;
+        }
 
         // Backfill missing profile fields from OAuth provider on app init
         if (customerData && session.user.user_metadata) {
@@ -189,8 +207,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           if (!customerData.first_name && firstName)
             updates.first_name = firstName;
           if (!customerData.last_name && lastName) updates.last_name = lastName;
-          if (!customerData.avatar_url && meta.avatar_url)
-            updates.avatar_url = meta.avatar_url;
 
           if (Object.keys(updates).length > 0) {
             const { data: updated } = await supabase
@@ -198,9 +214,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               .update(updates)
               .eq('id', customerData.id)
               .eq('merchant_id', merchantValidation.data.id)
-              .select(
-                'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
-              )
+              .select('id, email, first_name, last_name, phone, loyalty_points')
               .single();
 
             if (updated) customerData = updated;
@@ -211,16 +225,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const customerValidation = CustomerRowSchema.safeParse(customerData);
         const customer = customerValidation.success
           ? {
-            id: customerValidation.data.id,
-            email: customerValidation.data.email,
-            first_name: customerValidation.data.first_name ?? undefined,
-            last_name: customerValidation.data.last_name ?? undefined,
-            phone: customerValidation.data.phone ?? undefined,
-            avatar_url: customerValidation.data.avatar_url ?? undefined,
-            loyalty_points:
-              customerValidation.data.loyalty_points ?? undefined,
-            loyalty_tier: customerValidation.data.loyalty_tier ?? undefined,
-          }
+              id: customerValidation.data.id,
+              email: customerValidation.data.email,
+              first_name: customerValidation.data.first_name ?? undefined,
+              last_name: customerValidation.data.last_name ?? undefined,
+              phone: customerValidation.data.phone ?? undefined,
+              loyalty_points:
+                customerValidation.data.loyalty_points ?? undefined,
+            }
           : null;
 
         set({
@@ -267,7 +279,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               let { data: customerData } = await supabase
                 .from('customers')
                 .select(
-                  'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
+                  'id, email, first_name, last_name, phone, loyalty_points'
                 )
                 .eq('merchant_id', merchantId)
                 .eq('email', session.user.email)
@@ -287,11 +299,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     email: session.user.email,
                     first_name: firstName,
                     last_name: lastName,
-                    avatar_url: session.user.user_metadata?.avatar_url,
-                    source: 'mobile_app',
                   })
                   .select(
-                    'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
+                    'id, email, first_name, last_name, phone, loyalty_points'
                   )
                   .single();
 
@@ -306,8 +316,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                   updates.first_name = firstName;
                 if (!customerData.last_name && lastName)
                   updates.last_name = lastName;
-                if (!customerData.avatar_url && meta.avatar_url)
-                  updates.avatar_url = meta.avatar_url;
 
                 if (Object.keys(updates).length > 0) {
                   const { data: updated } = await supabase
@@ -316,7 +324,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     .eq('id', customerData.id)
                     .eq('merchant_id', merchantId)
                     .select(
-                      'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
+                      'id, email, first_name, last_name, phone, loyalty_points'
                     )
                     .single();
 
@@ -329,20 +337,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 CustomerRowSchema.safeParse(customerData);
               const validatedCustomer = authCustomerValidation.success
                 ? {
-                  id: authCustomerValidation.data.id,
-                  email: authCustomerValidation.data.email,
-                  first_name:
-                    authCustomerValidation.data.first_name ?? undefined,
-                  last_name:
-                    authCustomerValidation.data.last_name ?? undefined,
-                  phone: authCustomerValidation.data.phone ?? undefined,
-                  avatar_url:
-                    authCustomerValidation.data.avatar_url ?? undefined,
-                  loyalty_points:
-                    authCustomerValidation.data.loyalty_points ?? undefined,
-                  loyalty_tier:
-                    authCustomerValidation.data.loyalty_tier ?? undefined,
-                }
+                    id: authCustomerValidation.data.id,
+                    email: authCustomerValidation.data.email,
+                    first_name:
+                      authCustomerValidation.data.first_name ?? undefined,
+                    last_name:
+                      authCustomerValidation.data.last_name ?? undefined,
+                    phone: authCustomerValidation.data.phone ?? undefined,
+                    loyalty_points:
+                      authCustomerValidation.data.loyalty_points ?? undefined,
+                  }
                 : null;
 
               // 2026 Best Practice: Sync guest cart after login
@@ -557,16 +561,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const { access_token, refresh_token } = params;
 
         if (!access_token) {
-          log.warn('No access_token in redirect URL. Params:', Object.keys(params));
+          log.warn(
+            'No access_token in redirect URL. Params:',
+            Object.keys(params)
+          );
           set({ isLoading: false });
-          return { success: false, error: 'No access token received from Google' };
+          return {
+            success: false,
+            error: 'No access token received from Google',
+          };
         }
 
         log.info('Tokens received, setting session...');
-        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-          access_token,
-          refresh_token,
-        });
+        const { data: sessionData, error: sessionError } =
+          await supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          });
 
         if (sessionError) {
           log.error('setSession failed:', sessionError);
@@ -591,7 +602,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       log.error('Google sign-in error:', error);
       set({ isLoading: false });
-      return { success: false, error: (error as Error).message };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Google sign-in failed',
+      };
     }
   },
 
@@ -754,7 +768,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           first_name: data.first_name,
           last_name: data.last_name,
           phone: data.phone,
-          avatar_url: data.avatar_url,
         }).filter(([, v]) => v !== undefined)
       );
 
@@ -767,9 +780,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .update(updates)
         .eq('id', customer.id)
         .eq('merchant_id', merchantId)
-        .select(
-          'id, email, first_name, last_name, phone, avatar_url, loyalty_points, loyalty_tier'
-        )
+        .select('id, email, first_name, last_name, phone, loyalty_points')
         .single();
 
       if (error) {
@@ -792,9 +803,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         first_name: updateValidation.data.first_name ?? undefined,
         last_name: updateValidation.data.last_name ?? undefined,
         phone: updateValidation.data.phone ?? undefined,
-        avatar_url: updateValidation.data.avatar_url ?? undefined,
         loyalty_points: updateValidation.data.loyalty_points ?? undefined,
-        loyalty_tier: updateValidation.data.loyalty_tier ?? undefined,
       };
 
       set({ customer: validatedCustomer });

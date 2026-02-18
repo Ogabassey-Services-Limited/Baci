@@ -62,10 +62,6 @@ export default function AccountScreen() {
             typeof userMeta?.last_name === 'string'
               ? userMeta.last_name
               : undefined,
-          avatar_url:
-            typeof userMeta?.avatar_url === 'string'
-              ? userMeta.avatar_url
-              : undefined,
         }
       : null);
 

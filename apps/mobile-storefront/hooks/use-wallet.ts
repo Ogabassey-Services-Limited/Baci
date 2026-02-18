@@ -14,11 +14,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { z } from 'zod';
 import { calculateCommerce, supabase } from '@/lib/supabase';
-import {
-  CustomerRowSchema,
-  TransactionRowSchema,
-  WalletRowSchema,
-} from '@/lib/validation';
+import { CustomerRowSchema, TransactionRowSchema } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
 
 // ============================================
@@ -28,7 +24,6 @@ import { useAuthStore } from '@/stores/auth-store';
 interface WalletData {
   balance: number;
   loyalty_points: number;
-  loyalty_tier: string;
 }
 
 interface Transaction {
@@ -64,48 +59,54 @@ async function fetchWalletData(
   customerId: string,
   merchantId: string
 ): Promise<WalletQueryData> {
-  // Parallel fetch for better performance
-  const [customerResult, walletResult, transactionsResult] = await Promise.all([
+  // Step 1: Fetch customer loyalty points + wallet record in parallel
+  const [customerResult, walletResult] = await Promise.all([
     supabase
       .from('customers')
-      .select('loyalty_points, loyalty_tier')
+      .select('loyalty_points')
       .eq('id', customerId)
       .single(),
     supabase
       .from('customer_wallets')
-      .select('balance')
+      .select('id, available_balance')
       .eq('customer_id', customerId)
       .eq('merchant_id', merchantId)
-      .single(),
-    supabase
-      .from('wallet_transactions')
-      .select('id, type, amount, description, created_at')
-      .eq('customer_id', customerId)
-      .order('created_at', { ascending: false })
-      .limit(20),
+      .maybeSingle(), // Wallet may not exist yet for new customers
   ]);
 
   if (customerResult.error) throw customerResult.error;
   if (walletResult.error) throw walletResult.error;
-  if (transactionsResult.error) throw transactionsResult.error;
 
-  // 2026 Best Practice: Validate response data with Zod
+  // Step 2: Fetch transactions if wallet exists
+  // wallet_transactions uses wallet_id (FK to customer_wallets.id), not customer_id
+  let transactionRows: Transaction[] = [];
+  if (walletResult.data?.id) {
+    const txResult = await supabase
+      .from('wallet_transactions')
+      .select('id, type, amount, description, created_at')
+      .eq('wallet_id', walletResult.data.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (!txResult.error && txResult.data) {
+      const validation = z.array(TransactionRowSchema).safeParse(txResult.data);
+      transactionRows = (
+        validation.success ? validation.data : txResult.data
+      ).map((t) => ({
+        ...t,
+        description: (t as { description?: string | null }).description ?? '',
+      })) as Transaction[];
+    }
+  }
+
+  // Validate customer data
   const customerValidation = CustomerRowSchema.pick({
     loyalty_points: true,
-    loyalty_tier: true,
   }).safeParse(customerResult.data);
 
-  const walletValidation = WalletRowSchema.safeParse(walletResult.data);
-
-  const transactionsValidation = z
-    .array(TransactionRowSchema)
-    .safeParse(transactionsResult.data);
-
-  // Bug #97 fix: Only access .data when the query succeeded (no error) and data is non-null
-  const safeWalletBalance = walletValidation.success
-    ? walletValidation.data.balance
-    : typeof walletResult.data?.balance === 'number'
-      ? walletResult.data.balance
+  const safeBalance =
+    typeof walletResult.data?.available_balance === 'number'
+      ? walletResult.data.available_balance
       : 0;
 
   const safeLoyaltyPoints = customerValidation.success
@@ -114,23 +115,12 @@ async function fetchWalletData(
       ? customerResult.data.loyalty_points
       : 0;
 
-  const safeLoyaltyTier = customerValidation.success
-    ? (customerValidation.data.loyalty_tier ?? 'Bronze')
-    : typeof customerResult.data?.loyalty_tier === 'string'
-      ? customerResult.data.loyalty_tier
-      : 'Bronze';
-
   return {
     wallet: {
-      balance: safeWalletBalance,
+      balance: safeBalance,
       loyalty_points: safeLoyaltyPoints,
-      loyalty_tier: safeLoyaltyTier,
     },
-    transactions: transactionsValidation.success
-      ? transactionsValidation.data
-      : Array.isArray(transactionsResult.data)
-        ? transactionsResult.data
-        : [],
+    transactions: transactionRows,
   };
 }
 

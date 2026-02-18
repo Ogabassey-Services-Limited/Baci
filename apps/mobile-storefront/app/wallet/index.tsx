@@ -7,7 +7,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { router, Stack } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -24,6 +24,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useRedeemPoints, useWallet } from '@/hooks/use-wallet';
 import { createLogger } from '@/lib/logger';
 import { trackError, trackEvent } from '@/services/analytics';
@@ -36,6 +37,9 @@ export default function WalletScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  // Auth gate: check Supabase user session (not customer record)
+  const { isLoading: authLoading, redirectTo } = useRequireAuth();
+  // Customer needed for analytics — may be null briefly after login
   const customer = useAuthStore((state) => state.customer);
 
   // React Query hooks - handles caching, deduplication, and realtime sync
@@ -128,6 +132,30 @@ export default function WalletScreen() {
     }
   };
 
+  // Auth loading — wait for store to initialize
+  if (authLoading) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Wallet' }} />
+        <View
+          style={[
+            styles.container,
+            styles.centered,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <ActivityIndicator size="large" color={BRAND.primary} />
+        </View>
+      </>
+    );
+  }
+
+  // Not authenticated — redirect to login (with returnTo)
+  if (redirectTo) {
+    return <Redirect href={redirectTo} />;
+  }
+
+  // Authenticated but customer record still loading/creating
   if (!customer) {
     return (
       <>
@@ -139,20 +167,10 @@ export default function WalletScreen() {
             { backgroundColor: colors.background },
           ]}
         >
-          <Ionicons
-            name="wallet-outline"
-            size={64}
-            color={colors.textSecondary}
-          />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            Sign in to view your wallet
+          <ActivityIndicator size="large" color={BRAND.primary} />
+          <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
+            Preparing your wallet...
           </Text>
-          <Pressable
-            style={[styles.signInBtn, { backgroundColor: BRAND.primary }]}
-            onPress={() => router.push('/auth/login')}
-          >
-            <Text style={styles.signInBtnText}>Sign In</Text>
-          </Pressable>
         </View>
       </>
     );
@@ -246,16 +264,12 @@ export default function WalletScreen() {
                 style={[
                   styles.tierBadge,
                   {
-                    backgroundColor: getTierColor(
-                      walletData?.loyalty_tier || 'Bronze'
-                    ),
+                    backgroundColor: getTierColor('Bronze'),
                   },
                 ]}
               >
                 <Ionicons name="star" size={14} color="#FFF" />
-                <Text style={styles.tierText}>
-                  {walletData?.loyalty_tier || 'Bronze'}
-                </Text>
+                <Text style={styles.tierText}>Bronze</Text>
               </View>
             </View>
 
@@ -443,16 +457,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 16,
     marginBottom: 24,
-  },
-  signInBtn: {
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  signInBtnText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
   },
   balanceCard: {
     margin: 16,
