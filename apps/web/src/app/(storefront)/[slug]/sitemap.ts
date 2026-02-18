@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
-import { headers } from 'next/headers';
 import { generateSlug } from '@/lib/seo-utils';
 
 // Initialize Supabase client for public data access
@@ -26,40 +25,47 @@ interface ProductWithCategory {
 }
 
 /**
+ * Derive merchant slug and canonical store URL from the route segment.
+ *
+ * The [slug] param is either a plain merchant slug (from subdomain rewrite,
+ * e.g. "ogabassey") or a full custom domain (from custom-domain rewrite,
+ * e.g. "ogabassey.com").
+ */
+function resolveIdentifier(routeSlug: string) {
+  const isDomain = routeSlug.includes('.');
+  const merchantSlug = isDomain
+    ? routeSlug.replace('.com', '').replace('.', '-')
+    : routeSlug;
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+  const storeUrl = isDomain
+    ? `https://${routeSlug}`
+    : `https://${routeSlug}.${rootDomain}`;
+  return { merchantSlug, storeUrl };
+}
+
+/**
  * 2026 Best Practice: Sitemap Indexing
  * Generates multiple specialized sitemaps for easier SEO reporting in Google Search Console.
  */
 export function generateSitemaps() {
-  // Fetch merchant list is not needed here because this is already in the (storefront)/[slug] layout.
-  // We specify the IDs of the sitemaps we want to generate.
-  return [
-    { id: 'static' },
-    { id: 'products' },
-    { id: 'categories' },
-    { id: 'blog' },
-  ];
+  // Blog has its own dedicated sitemap at /blog/sitemap.xml
+  return [{ id: 'static' }, { id: 'products' }, { id: 'categories' }];
 }
 
 export default async function sitemap({
   id,
+  params,
 }: {
   id: string;
+  params: Promise<{ slug: string }>;
 }): Promise<MetadataRoute.Sitemap> {
-  const headersList = await headers();
-
-  const slug =
-    headersList.get('x-merchant-slug') ||
-    headersList.get('x-custom-domain')?.replace('.com', '').replace('.', '-') ||
-    'ogabassey'; // fallback
-
-  const host = headersList.get('host') || `${slug}.localhost:3000`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const storeUrl = `${protocol}://${host}`;
+  const { slug: routeSlug } = await params;
+  const { merchantSlug, storeUrl } = resolveIdentifier(routeSlug);
 
   const { data: merchant } = await supabase
     .from('merchants')
     .select('id')
-    .eq('slug', slug)
+    .eq('slug', merchantSlug)
     .single();
 
   if (!merchant) return [];
@@ -135,36 +141,6 @@ export default async function sitemap({
         changeFrequency: 'daily',
         priority: 0.7,
       }));
-    }
-
-    case 'blog': {
-      const { data: posts } = await supabase
-        .from('blog_posts')
-        .select('slug, published_at, updated_at, featured_image_url')
-        .eq('merchant_id', merchant.id)
-        .eq('status', 'published');
-
-      const entries = (posts || []).map((post) => ({
-        url: `${storeUrl}/blog/${post.slug}`,
-        lastModified: post.updated_at
-          ? new Date(post.updated_at)
-          : new Date(post.published_at || Date.now()),
-        changeFrequency: 'monthly',
-        priority: 0.8,
-        ...(post.featured_image_url?.startsWith('http') && {
-          images: [post.featured_image_url],
-        }),
-      }));
-
-      if (entries.length > 0) {
-        entries.unshift({
-          url: `${storeUrl}/blog`,
-          lastModified: new Date(),
-          changeFrequency: 'daily',
-          priority: 0.7,
-        } as MetadataRoute.Sitemap[0]);
-      }
-      return entries;
     }
 
     default:

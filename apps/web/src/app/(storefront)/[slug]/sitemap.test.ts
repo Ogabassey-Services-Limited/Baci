@@ -16,21 +16,6 @@ const mockEq: ReturnType<typeof vi.fn<(...args: any[]) => any>> = vi.fn(() => ({
 const mockSelect = vi.fn(() => ({ eq: mockEq, single: mockSingle }));
 const mockFrom = vi.fn(() => ({ select: mockSelect }));
 
-// Mock merchant returned by getRequestScopedMerchant
-let mockMerchant: {
-  id: string;
-  slug: string;
-  custom_domain?: string;
-} | null = null;
-
-const mockGetRequestScopedMerchant = vi.fn(() => Promise.resolve(mockMerchant));
-
-vi.mock('@/lib/cached-data', () => ({
-  getRequestScopedMerchant: (
-    ...args: Parameters<typeof mockGetRequestScopedMerchant>
-  ) => mockGetRequestScopedMerchant(...args),
-}));
-
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({
     from: mockFrom,
@@ -51,17 +36,12 @@ function makeParams(slug: string) {
 describe('sitemap', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockMerchant = {
-      id: 'merchant-1',
-      slug: 'ogabassey',
-      custom_domain: undefined,
-    };
-    // Default: product/category/blog queries return empty
+    // Default: merchant found via slug lookup
     mockSingle.mockResolvedValue({ data: { id: 'merchant-1' }, error: null });
   });
 
   describe('generateSitemaps()', () => {
-    it('returns four sitemap IDs', async () => {
+    it('returns three sitemap IDs (blog has its own at /blog/sitemap.xml)', async () => {
       const { generateSitemaps } = await import('./sitemap');
 
       const sitemaps = generateSitemaps();
@@ -70,38 +50,41 @@ describe('sitemap', () => {
         { id: 'static' },
         { id: 'products' },
         { id: 'categories' },
-        { id: 'blog' },
       ]);
     });
   });
 
   describe('merchant lookup', () => {
-    it('looks up merchant using route slug param', async () => {
+    it('looks up merchant by slug from route params', async () => {
       const { default: sitemap } = await import('./sitemap');
 
       await sitemap({ id: 'static', params: makeParams('ogabassey') });
 
-      expect(mockGetRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
+      expect(mockFrom).toHaveBeenCalledWith('merchants');
+      expect(mockSelect).toHaveBeenCalledWith('id');
+      expect(mockEq).toHaveBeenCalledWith('slug', 'ogabassey');
     });
 
-    it('looks up merchant using custom domain route slug', async () => {
-      mockMerchant = {
-        id: 'merchant-1',
-        slug: 'ogabassey',
-        custom_domain: 'ogabassey.com',
-      };
+    it('derives slug from custom domain route param (removes .com)', async () => {
       const { default: sitemap } = await import('./sitemap');
 
       await sitemap({ id: 'static', params: makeParams('ogabassey.com') });
 
-      // getRequestScopedMerchant handles both domain and slug identifiers
-      expect(mockGetRequestScopedMerchant).toHaveBeenCalledWith(
-        'ogabassey.com'
-      );
+      expect(mockFrom).toHaveBeenCalledWith('merchants');
+      expect(mockEq).toHaveBeenCalledWith('slug', 'ogabassey');
+    });
+
+    it('derives slug from non-.com TLDs like .ng', async () => {
+      const { default: sitemap } = await import('./sitemap');
+
+      await sitemap({ id: 'static', params: makeParams('ogabassey.ng') });
+
+      // .com is removed first (no-op for .ng), then remaining dots become hyphens
+      expect(mockEq).toHaveBeenCalledWith('slug', 'ogabassey-ng');
     });
 
     it('returns empty array when merchant is not found', async () => {
-      mockMerchant = null;
+      mockSingle.mockResolvedValue({ data: null, error: null });
 
       const { default: sitemap } = await import('./sitemap');
 
@@ -115,13 +98,7 @@ describe('sitemap', () => {
   });
 
   describe('storeUrl construction', () => {
-    it('uses custom_domain when available', async () => {
-      mockMerchant = {
-        id: 'merchant-1',
-        slug: 'ogabassey',
-        custom_domain: 'ogabassey.com',
-      };
-
+    it('uses custom domain directly when route slug is a domain', async () => {
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({
@@ -132,13 +109,7 @@ describe('sitemap', () => {
       expect(result[0].url).toBe('https://ogabassey.com');
     });
 
-    it('falls back to subdomain URL when no custom_domain', async () => {
-      mockMerchant = {
-        id: 'merchant-1',
-        slug: 'ogabassey',
-        custom_domain: undefined,
-      };
-
+    it('builds subdomain URL when route slug is a plain slug', async () => {
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({
@@ -152,12 +123,6 @@ describe('sitemap', () => {
 
   describe('static sitemap', () => {
     it('returns store URL and FAQ page', async () => {
-      mockMerchant = {
-        id: 'merchant-1',
-        slug: 'ogabassey',
-        custom_domain: 'ogabassey.com',
-      };
-
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({
@@ -175,12 +140,6 @@ describe('sitemap', () => {
 
   describe('products sitemap', () => {
     it('generates URLs with category slug when available', async () => {
-      mockMerchant = {
-        id: 'merchant-1',
-        slug: 'ogabassey',
-        custom_domain: 'ogabassey.com',
-      };
-
       const productData = [
         {
           id: 'p1',
@@ -192,6 +151,10 @@ describe('sitemap', () => {
           categories: { slug: 'smartphones' },
         },
       ];
+      mockSingle.mockResolvedValueOnce({
+        data: { id: 'merchant-1' },
+        error: null,
+      });
       mockEq.mockImplementation((key: string, value: string) => {
         if (key === 'status' && value === 'active') {
           return { data: productData, error: null };
@@ -211,6 +174,10 @@ describe('sitemap', () => {
     });
 
     it('returns empty array when no products exist', async () => {
+      mockSingle.mockResolvedValueOnce({
+        data: { id: 'merchant-1' },
+        error: null,
+      });
       mockEq.mockImplementation((key: string, value: string) => {
         if (key === 'status' && value === 'active') {
           return { data: null, error: null };
