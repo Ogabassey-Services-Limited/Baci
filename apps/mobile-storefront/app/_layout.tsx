@@ -287,6 +287,13 @@ function RootLayoutNav() {
                 }}
               />
               <Stack.Screen
+                name="receipts/index"
+                options={{
+                  title: 'Receipts & Invoices',
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
                 name="addresses/index"
                 options={{
                   title: 'My Addresses',

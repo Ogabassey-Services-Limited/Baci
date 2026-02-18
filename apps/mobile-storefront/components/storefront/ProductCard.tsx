@@ -125,7 +125,8 @@ export function ProductCard({
   // Subscribe to real-time stock updates
   // M13 FIX: Only depend on product.id to prevent infinite re-subscribe loop.
   // product.stock_quantity was causing re-subscription on every stock change.
-  const hasStockTracking = product.stock_quantity !== undefined;
+  const hasStockTracking =
+    product.manage_stock === true && product.stock_quantity !== undefined;
   useEffect(() => {
     // Only subscribe if product has stock tracking
     if (!hasStockTracking) return;

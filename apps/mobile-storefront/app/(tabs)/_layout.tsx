@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import type React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { ErrorFallback } from '@/components/ErrorBoundary';
 import { BRAND } from '@/constants/Colors';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
+import { useAuthStore } from '@/stores/auth-store';
 
 export function ErrorBoundary({
   error,
@@ -55,6 +56,23 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const cartCount = useCartStore((state) => state.itemCount());
   const savedCount = useSavedStore((state) => state.items.length);
+  const user = useAuthStore((state) => state.user);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+
+  /**
+   * 2026 Best Practice: Layout-level auth gating for tabs.
+   * Intercept tab presses BEFORE the tab screen mounts.
+   * Uses router.push (not replace) so login is stacked ON TOP → back works.
+   */
+  const createAuthListener = (tabPath: string) => ({
+    tabPress: (e: { preventDefault: () => void }) => {
+      if (isInitialized && !user) {
+        e.preventDefault();
+        const returnTo = encodeURIComponent(`/(tabs)/${tabPath}`);
+        router.push(`/auth/login?returnTo=${returnTo}`);
+      }
+    },
+  });
 
   return (
     <Tabs
@@ -149,6 +167,7 @@ export default function TabLayout() {
           tabBarLabel: ({ focused }) =>
             focused ? <Text style={styles.tabLabel}>Wallet</Text> : null,
         }}
+        listeners={createAuthListener('wallet')}
       />
       <Tabs.Screen
         name="account"
@@ -164,6 +183,7 @@ export default function TabLayout() {
           tabBarLabel: ({ focused }) =>
             focused ? <Text style={styles.tabLabel}>Account</Text> : null,
         }}
+        listeners={createAuthListener('account')}
       />
       {/* Categories hidden from tab bar but reachable via route */}
       <Tabs.Screen

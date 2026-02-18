@@ -10,7 +10,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { router, Stack } from 'expo-router';
+import { Redirect, router, Stack } from 'expo-router';
 import type React from 'react';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -51,8 +51,8 @@ export default function ProfileEditScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  // M4 fix: Auth guard - redirect unauthenticated users to login
-  const { isLoading: isAuthLoading, isAuthenticated } = useRequireAuth();
+  // 2026 Best Practice: Declarative auth-gate with intent-preserving returnTo
+  const { isLoading: isAuthLoading, redirectTo } = useRequireAuth();
 
   const customer = useAuthStore((state) => state.customer);
   const updateProfile = useAuthStore((state) => state.updateProfile);
@@ -99,8 +99,12 @@ export default function ProfileEditScreen() {
     }
   };
 
-  // M4 fix: Show loading spinner while auth initializes, or nothing if redirecting to login
-  if (isAuthLoading || !isAuthenticated) {
+  // Show redirect for unauthenticated users
+  if (redirectTo) {
+    return <Redirect href={redirectTo} />;
+  }
+
+  if (isAuthLoading) {
     return (
       <View
         style={[

@@ -11,6 +11,7 @@
 import type { Session, User } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { create } from 'zustand';
+import { Alert } from 'react-native';
 import { splitFullName } from '../lib/auth-helpers';
 import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
@@ -210,16 +211,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const customerValidation = CustomerRowSchema.safeParse(customerData);
         const customer = customerValidation.success
           ? {
-              id: customerValidation.data.id,
-              email: customerValidation.data.email,
-              first_name: customerValidation.data.first_name ?? undefined,
-              last_name: customerValidation.data.last_name ?? undefined,
-              phone: customerValidation.data.phone ?? undefined,
-              avatar_url: customerValidation.data.avatar_url ?? undefined,
-              loyalty_points:
-                customerValidation.data.loyalty_points ?? undefined,
-              loyalty_tier: customerValidation.data.loyalty_tier ?? undefined,
-            }
+            id: customerValidation.data.id,
+            email: customerValidation.data.email,
+            first_name: customerValidation.data.first_name ?? undefined,
+            last_name: customerValidation.data.last_name ?? undefined,
+            phone: customerValidation.data.phone ?? undefined,
+            avatar_url: customerValidation.data.avatar_url ?? undefined,
+            loyalty_points:
+              customerValidation.data.loyalty_points ?? undefined,
+            loyalty_tier: customerValidation.data.loyalty_tier ?? undefined,
+          }
           : null;
 
         set({
@@ -248,13 +249,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // 2026 Critical Fix: Wrap async auth listener operations in try-catch
           // to prevent unhandled promise rejections and race conditions
           try {
-            if (event === 'SIGNED_IN' && session?.user && merchantId) {
+            if (event === 'SIGNED_IN' && session?.user) {
+              // Always set user + session immediately so login screen can dismiss
+              set({ user: session.user, session });
+
               // M25 fix: Guard against undefined email before using in query
-              if (!session.user.email) {
+              if (!session.user.email || !merchantId) {
                 log.warn(
-                  'Auth listener: User has no email, skipping customer fetch'
+                  'Auth listener: Skipping customer fetch —',
+                  !session.user.email ? 'no email' : 'no merchantId'
                 );
-                set({ user: session.user, session, customer: null });
+                set({ customer: null });
                 return;
               }
 
@@ -324,20 +329,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 CustomerRowSchema.safeParse(customerData);
               const validatedCustomer = authCustomerValidation.success
                 ? {
-                    id: authCustomerValidation.data.id,
-                    email: authCustomerValidation.data.email,
-                    first_name:
-                      authCustomerValidation.data.first_name ?? undefined,
-                    last_name:
-                      authCustomerValidation.data.last_name ?? undefined,
-                    phone: authCustomerValidation.data.phone ?? undefined,
-                    avatar_url:
-                      authCustomerValidation.data.avatar_url ?? undefined,
-                    loyalty_points:
-                      authCustomerValidation.data.loyalty_points ?? undefined,
-                    loyalty_tier:
-                      authCustomerValidation.data.loyalty_tier ?? undefined,
-                  }
+                  id: authCustomerValidation.data.id,
+                  email: authCustomerValidation.data.email,
+                  first_name:
+                    authCustomerValidation.data.first_name ?? undefined,
+                  last_name:
+                    authCustomerValidation.data.last_name ?? undefined,
+                  phone: authCustomerValidation.data.phone ?? undefined,
+                  avatar_url:
+                    authCustomerValidation.data.avatar_url ?? undefined,
+                  loyalty_points:
+                    authCustomerValidation.data.loyalty_points ?? undefined,
+                  loyalty_tier:
+                    authCustomerValidation.data.loyalty_tier ?? undefined,
+                }
                 : null;
 
               // 2026 Best Practice: Sync guest cart after login
@@ -485,20 +490,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // Sign in with Google OAuth (PKCE flow for mobile)
+  // Sign in with Google OAuth (Implicit flow — official Supabase React Native pattern)
   signInWithGoogle: async () => {
+    // 2026 Best Practice: Prevent multiple concurrent sign-in requests
+    const state = get();
+    if (state.isLoading && state.isInitialized) {
+      log.warn('Sign-in already in progress, skipping');
+      return { success: false, error: 'Sign-in already in progress' };
+    }
+
     try {
       set({ isLoading: true, error: null });
 
       const WebBrowser = await import('expo-web-browser');
-      const Linking = await import('expo-linking');
+      const { makeRedirectUri } = await import('expo-auth-session');
+      const QueryParams = await import('expo-auth-session/build/QueryParams');
 
-      // Use Linking.createURL for consistent URL generation across environments
-      const redirectUrl = Linking.createURL('/auth/callback');
+      // makeRedirectUri handles dev/prod/Expo Go variations automatically
+      const redirectUrl = makeRedirectUri();
 
       log.debug('Generated OAuth redirect URL:', redirectUrl);
 
-      // Get the OAuth URL from Supabase (PKCE flow handles CSRF via code_verifier)
+      // Implicit flow: Supabase returns tokens directly in the redirect URL
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -529,53 +542,56 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         { showInRecents: true }
       );
 
-      log.debug('OAuth Session Result:', { type: result.type });
-
       if (result.type === 'success' && result.url) {
-        // PKCE flow: extract authorization code from query params
-        const url = new URL(result.url);
-        const code = url.searchParams.get('code');
+        log.info('WebBrowser returned success URL');
 
-        if (!code) {
-          // Check for error in the redirect
-          const errorParam =
-            url.searchParams.get('error_description') ||
-            url.searchParams.get('error') ||
-            'No authorization code received';
-          log.error('OAuth redirect missing code:', errorParam);
-          set({ error: errorParam, isLoading: false });
-          return { success: false, error: errorParam };
+        // Official Supabase pattern: extract tokens from redirect URL hash/params
+        const { params, errorCode } = QueryParams.getQueryParams(result.url);
+
+        if (errorCode) {
+          log.error('OAuth error code returned:', errorCode);
+          set({ isLoading: false });
+          return { success: false, error: errorCode };
         }
 
-        // Exchange the authorization code for a session
-        const { error: sessionError } =
-          await supabase.auth.exchangeCodeForSession(code);
+        const { access_token, refresh_token } = params;
+
+        if (!access_token) {
+          log.warn('No access_token in redirect URL. Params:', Object.keys(params));
+          set({ isLoading: false });
+          return { success: false, error: 'No access token received from Google' };
+        }
+
+        log.info('Tokens received, setting session...');
+        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+          access_token,
+          refresh_token,
+        });
 
         if (sessionError) {
-          set({ error: sessionError.message, isLoading: false });
+          log.error('setSession failed:', sessionError);
+          set({ isLoading: false });
+          Alert.alert('Sign-In Error', sessionError.message);
           return { success: false, error: sessionError.message };
         }
 
+        log.info('Session established for:', sessionData.user?.email);
         set({ isLoading: false });
         return { success: true };
       }
 
-      // User cancelled or dismissed the browser
+      set({ isLoading: false });
+
       if (result.type === 'cancel' || result.type === 'dismiss') {
-        set({ isLoading: false });
-        return { success: false, error: 'Sign in was cancelled' };
+        log.info(`Google flow ended with result: ${result.type}`);
+        return { success: false, error: 'Sign-in cancelled' };
       }
 
-      set({ isLoading: false });
-      return { success: false, error: 'OAuth flow failed' };
+      return { success: false, error: `Login failed: ${result.type}` };
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Failed to sign in with Google';
       log.error('Google sign-in error:', error);
-      set({ error: message, isLoading: false });
-      return { success: false, error: message };
+      set({ isLoading: false });
+      return { success: false, error: (error as Error).message };
     }
   },
 
@@ -665,21 +681,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true });
 
-      // 2026 Critical Fix: Cleanup auth subscription before sign out
-      get().cleanup();
+      // 2026 Best Practice: Do NOT call cleanup() here.
+      // The onAuthStateChange listener must survive sign-out so it can
+      // detect subsequent sign-ins (e.g., Google OAuth). The listener's
+      // SIGNED_OUT handler (line ~361) already clears user/session/customer.
+      // cleanup() is reserved for app unmount only (root layout teardown).
 
       await supabase.auth.signOut();
       // Clear entire cart on logout to prevent cart data leakage between users.
-      // This is intentionally unscoped: the mobile app serves a single merchant
-      // (MERCHANT_SLUG), so all cart items belong to the same store.
       useCartStore.getState().clearCart();
       set({
         user: null,
         session: null,
         customer: null,
         isLoading: false,
-        isInitialized: false, // Allow re-initialization after sign out
-        _initializationInProgress: false, // Reset to allow re-initialization
+        isInitialized: true, // 2026 Fix: Keep initialized after sign out to allow redirects
+        _initializationInProgress: false,
       } as Partial<AuthState>);
     } catch (error) {
       log.error('Sign out error:', error);

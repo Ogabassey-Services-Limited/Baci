@@ -91,7 +91,7 @@ async function checkStock(
 
   const { data, error } = await supabase
     .from('products')
-    .select('stock_quantity')
+    .select('stock_quantity, manage_stock')
     .eq('id', productId)
     .single();
 
@@ -109,7 +109,16 @@ async function checkStock(
     };
   }
 
-  const currentStock = data?.stock_quantity ?? 0; // Default to 0 if no stock data
+  // If stock management is disabled, treat as unlimited
+  if (!data?.manage_stock) {
+    return {
+      available: true,
+      currentStock: Number.MAX_SAFE_INTEGER,
+      requestedQuantity,
+    };
+  }
+
+  const currentStock = data?.stock_quantity ?? 0;
   return {
     available: currentStock >= requestedQuantity,
     currentStock,

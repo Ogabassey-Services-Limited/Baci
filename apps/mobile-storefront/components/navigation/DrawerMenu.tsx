@@ -10,6 +10,7 @@ import Constants from 'expo-constants';
 import { router, usePathname } from 'expo-router';
 import { useEffect } from 'react';
 import {
+  Alert,
   BackHandler,
   Dimensions,
   Platform,
@@ -55,6 +56,7 @@ const menuItems: MenuItem[] = [
     authRequired: true,
   },
   { label: 'Orders', icon: 'bag-outline', path: '/orders' },
+  { label: 'Receipts', icon: 'document-text-outline', path: '/receipts' },
   { label: 'Saved Items', icon: 'heart-outline', path: '/saved' },
   { label: 'IMEI Checker', icon: 'scan-outline', path: '/imei-check' },
   { label: 'Wallet', icon: 'wallet-outline', path: '/wallet' },
@@ -153,9 +155,18 @@ export function DrawerMenu() {
     router.push(path as import('expo-router').Href);
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     closeDrawer();
-    await signOut();
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+        },
+      },
+    ]);
   };
 
   const handleSignIn = () => {

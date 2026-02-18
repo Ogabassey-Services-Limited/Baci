@@ -223,6 +223,7 @@ export function ConditionSelector({
               </View>
 
               {item.stock !== undefined &&
+                item.stock !== null &&
                 item.stock > 0 &&
                 item.stock <= 5 && (
                   <Text style={[styles.stockWarning, { color: '#EF4444' }]}>

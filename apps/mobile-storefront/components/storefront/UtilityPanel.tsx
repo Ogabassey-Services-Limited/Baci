@@ -184,6 +184,7 @@ export function UtilityPanel({
     }, 2800); // Slightly slower for better readability
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isManualUtility]);
 
   const handlePress = (id: string, index: number) => {

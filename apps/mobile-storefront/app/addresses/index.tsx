@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,6 +22,7 @@ import Colors, { BRAND } from '@/constants/Colors';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
+import { useRequireAuth } from '@/hooks/use-auth-guard';
 
 const log = createLogger('Addresses');
 
@@ -42,6 +43,9 @@ export default function AddressesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((state) => state.user);
+
+  // 2026 Best Practice: Declarative auth-gate with intent-preserving returnTo
+  const { isLoading: isAuthLoading, redirectTo } = useRequireAuth();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -284,28 +288,20 @@ export default function AddressesScreen() {
     </View>
   );
 
-  if (!user) {
+  if (redirectTo) {
+    return <Redirect href={redirectTo} />;
+  }
+
+  if (isAuthLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.emptyState}>
-          <Ionicons
-            name="person-outline"
-            size={64}
-            color={colors.textSecondary}
-          />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            Sign in required
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Sign in to manage your addresses
-          </Text>
-          <TouchableOpacity
-            style={[styles.addButton, { backgroundColor: BRAND.primary }]}
-            onPress={() => router.push('/auth/login')}
-          >
-            <Text style={styles.addButtonText}>Sign In</Text>
-          </TouchableOpacity>
-        </View>
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { backgroundColor: colors.background },
+        ]}
+      >
+        <ActivityIndicator size="large" color={BRAND.primary} />
       </View>
     );
   }

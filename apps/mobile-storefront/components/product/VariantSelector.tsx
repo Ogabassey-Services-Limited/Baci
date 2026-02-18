@@ -243,11 +243,12 @@ export function VariantSelector({
                 : option.priceModifier
                   ? basePrice + option.priceModifier
                   : null;
+              const isOutOfStock =
+                option.stock !== undefined && option.stock === 0;
               const isLowStock =
                 option.stock !== undefined &&
                 option.stock > 0 &&
                 option.stock <= 5;
-              const isOutOfStock = option.stock === 0;
 
               return (
                 <Pressable

@@ -27,7 +27,8 @@ import { type MenuItem, MenuSection } from '@/components/profile/MenuSection';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { SocialLinks } from '@/components/profile/SocialLinks';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { palette } from '@/constants/Colors';
+import Colors, { palette, RADIUS, SHADOWS } from '@/constants/Colors';
+import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { useMerchant } from '@/hooks/use-products';
 import { supabase } from '@/lib/supabase';
 import { type Customer, useAuthStore } from '@/stores/auth-store';
@@ -36,7 +37,7 @@ export default function AccountScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  const { customer, session, isInitialized } = useAuthStore();
+  const { customer, session } = useAuthStore();
   const signOut = useAuthStore((state) => state.signOut);
   const { data: merchant } = useMerchant();
 
@@ -110,8 +111,20 @@ export default function AccountScreen() {
     };
   }, [safeCustomer?.id]);
 
+  // Auth gating handled by tab layout listener — this is a fallback for edge cases
+  // e.g., user signs out while already viewing this tab (tabPress listener won't fire)
+  const { isInitialized, user: authUser } = useAuthStatus();
+
+  // Defense-in-depth: if user signed out while on this tab, go to Home
+  useEffect(() => {
+    if (!authUser) {
+      router.replace('/(tabs)');
+    }
+  }, [authUser]);
+
   // All hooks called — safe to early return now
   if (!isInitialized) {
+    // Brief startup window — show spinner
     return (
       <View
         style={[
@@ -126,6 +139,10 @@ export default function AccountScreen() {
         <ActivityIndicator size="large" color={colors.tint} />
       </View>
     );
+  }
+
+  if (!authUser) {
+    return null;
   }
 
   const handleSignOut = () => {
@@ -160,6 +177,14 @@ export default function AccountScreen() {
           subLabel: 'Track, return, or buy again',
           route: '/orders',
           color: palette.red[500],
+        },
+        {
+          id: 'receipts',
+          icon: 'document-text-outline',
+          label: 'Receipts & Invoices',
+          subLabel: 'View and download payment records',
+          route: '/receipts',
+          color: '#059669',
         },
         {
           id: 'saved',
@@ -274,17 +299,21 @@ export default function AccountScreen() {
           />
         )}
 
-        {/* Sign out */}
-        {safeCustomer && (
+        {/* Sign out — guarded by session, not customer record (2026 best practice:
+             any authenticated user can sign out regardless of customer table state) */}
+        {session && (
           <Animated.View
             entering={FadeInDown.delay(700).duration(400)}
             style={styles.signOutWrap}
           >
             <Pressable
               style={({ pressed }) => [
-                styles.signOutBtn,
-                { borderColor: colors.border },
-                pressed && { opacity: 0.7 },
+                styles.signOutCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+                pressed && { transform: [{ scale: 0.98 }], opacity: 0.9 },
               ]}
               onPress={() => {
                 if (Platform.OS === 'ios') {
@@ -297,7 +326,18 @@ export default function AccountScreen() {
               accessibilityRole="button"
               accessibilityLabel="Sign out"
             >
-              <Ionicons name="log-out-outline" size={18} color={colors.error} />
+              <View
+                style={[
+                  styles.iconCircle,
+                  { backgroundColor: `${colors.error}15` },
+                ]}
+              >
+                <Ionicons
+                  name="log-out-outline"
+                  size={20}
+                  color={colors.error}
+                />
+              </View>
               <Text style={[styles.signOutText, { color: colors.error }]}>
                 Sign Out
               </Text>
@@ -318,22 +358,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   signOutWrap: {
-    marginTop: 40,
+    marginTop: 44,
     paddingHorizontal: 20,
     alignItems: 'center',
   },
-  signOutBtn: {
+  signOutCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
+    gap: 6,
+    paddingVertical: 14,
     paddingHorizontal: 24,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    borderRadius: RADIUS['2xl'],
+    borderWidth: StyleSheet.hairlineWidth,
+    ...SHADOWS.sm,
   },
+  iconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   signOutText: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   version: {
     textAlign: 'center',

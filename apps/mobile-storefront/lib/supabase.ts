@@ -103,7 +103,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false, // Important for React Native
-    flowType: 'pkce', // Required for mobile OAuth deep linking
+    flowType: 'implicit', // Implicit flow is officially recommended for React Native (PKCE code_verifier gets lost with expo-web-browser)
   },
 });
 
@@ -286,7 +286,7 @@ export async function calculateCommerce(
       if (error instanceof Error) throw error;
       throw new CommerceError(
         (error as { message?: string })?.message ||
-          'Commerce calculation failed',
+        'Commerce calculation failed',
         'COMMERCE_BRAIN_ERROR'
       );
     }

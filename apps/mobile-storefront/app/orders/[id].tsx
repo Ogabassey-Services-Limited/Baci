@@ -35,7 +35,6 @@ interface OrderItem {
   quantity: number;
   price: number;
   image_url?: string;
-  variant_name?: string;
   has_assurance?: boolean;
 }
 
@@ -52,10 +51,10 @@ interface InsurancePolicy {
 interface OrderDetails {
   id: string;
   order_number: string;
-  status: string;
+  shipping_status: string;
   subtotal: number;
   shipping_fee: number;
-  discount: number;
+  discount_amount: number;
   total: number;
   payment_method: string;
   payment_status: string;
@@ -69,7 +68,7 @@ interface OrderDetails {
     state: string;
   };
   tracking_number?: string;
-  tracking_url?: string;
+  shipping_provider?: string;
   notes?: string;
   items: OrderItem[];
 }
@@ -113,10 +112,10 @@ export default function OrderDetailsScreen() {
         .select(`
           id,
           order_number,
-          status,
+          shipping_status,
           subtotal,
           shipping_fee,
-          discount,
+          discount_amount,
           total,
           payment_method,
           payment_status,
@@ -124,18 +123,19 @@ export default function OrderDetailsScreen() {
           updated_at,
           shipping_address,
           tracking_number,
-          tracking_url,
+          shipping_provider,
           notes,
           order_items (
             id,
             product_id,
-            product_name,
-            product_slug,
+            name,
             quantity,
             price,
-            image_url,
-            variant_name,
-            has_assurance
+            has_assurance,
+            products (
+              slug,
+              images
+            )
           )
         `)
         .eq('id', id)
@@ -146,7 +146,21 @@ export default function OrderDetailsScreen() {
 
       setOrder({
         ...data,
-        items: data.order_items ?? [],
+        items: (data.order_items ?? []).map((item: Record<string, unknown>) => {
+          const product = Array.isArray(item.products)
+            ? item.products[0]
+            : item.products;
+          return {
+            id: item.id as string,
+            product_id: item.product_id as string,
+            product_name: item.name as string,
+            product_slug: (product?.slug as string) ?? '',
+            quantity: item.quantity as number,
+            price: item.price as number,
+            image_url: (product?.images as string[] | null)?.[0],
+            has_assurance: item.has_assurance as boolean | undefined,
+          };
+        }),
       });
 
       // Fetch insurance policy if any items have assurance
@@ -209,10 +223,12 @@ export default function OrderDetailsScreen() {
             if (!prevOrder) return prevOrder;
             return {
               ...prevOrder,
-              status: payload.new.status ?? prevOrder.status,
+              shipping_status:
+                payload.new.shipping_status ?? prevOrder.shipping_status,
               tracking_number:
                 payload.new.tracking_number ?? prevOrder.tracking_number,
-              tracking_url: payload.new.tracking_url ?? prevOrder.tracking_url,
+              shipping_provider:
+                payload.new.shipping_provider ?? prevOrder.shipping_provider,
               updated_at: payload.new.updated_at ?? prevOrder.updated_at,
             };
           });
@@ -259,14 +275,35 @@ export default function OrderDetailsScreen() {
   };
 
   const handleTrackOrder = () => {
-    const url = order?.tracking_url;
-    if (url && /^https?:\/\//i.test(url)) {
-      Linking.openURL(url);
-    } else {
-      log.warn('Invalid or missing tracking URL:', url);
+    const trackingNumber = order?.tracking_number;
+    const provider = order?.shipping_provider?.toLowerCase();
+
+    if (!trackingNumber) {
       Alert.alert(
         'Tracking Unavailable',
-        'No valid tracking link is available for this order.'
+        'No tracking information is available for this order yet.'
+      );
+      return;
+    }
+
+    // Compute tracking URL from provider + tracking number
+    // Mirrors web API: apps/web/src/app/api/storefront/orders/track-order/route.ts
+    const encoded = encodeURIComponent(trackingNumber);
+    const providerUrls: Record<string, string> = {
+      topship: `https://topship.africa/track/${encoded}`,
+      gigl: `https://giglogistics.com/track/${encoded}`,
+      dhl: `https://www.dhl.com/en/express/tracking.html?AWB=${encoded}`,
+      fedex: `https://www.fedex.com/fedextrack/?trknbr=${encoded}`,
+      ups: `https://www.ups.com/track?tracknum=${encoded}`,
+    };
+
+    const url = provider ? providerUrls[provider] : undefined;
+    if (url) {
+      Linking.openURL(url);
+    } else {
+      Alert.alert(
+        'Tracking Unavailable',
+        'No tracking link is available for this shipping provider.'
       );
     }
   };
@@ -325,9 +362,10 @@ export default function OrderDetailsScreen() {
     );
   }
 
-  const currentStepIndex = getCurrentStepIndex(order.status);
+  const currentStepIndex = getCurrentStepIndex(order.shipping_status);
   const isCancelled =
-    order.status === 'cancelled' || order.status === 'refunded';
+    order.shipping_status === 'cancelled' ||
+    order.shipping_status === 'refunded';
 
   return (
     <ScrollView
@@ -428,7 +466,7 @@ export default function OrderDetailsScreen() {
           <View style={styles.cancelledStatus}>
             <Ionicons name="close-circle" size={24} color="#EF4444" />
             <Text style={styles.cancelledText}>
-              This order has been {order.status}
+              This order has been {order.shipping_status}
             </Text>
           </View>
         </View>
@@ -458,13 +496,6 @@ export default function OrderDetailsScreen() {
               >
                 {item.product_name}
               </Text>
-              {item.variant_name && (
-                <Text
-                  style={[styles.itemVariant, { color: colors.textSecondary }]}
-                >
-                  {item.variant_name}
-                </Text>
-              )}
               <View style={styles.itemPriceRow}>
                 <Text
                   style={[styles.itemQuantity, { color: colors.textSecondary }]}
@@ -676,7 +707,7 @@ export default function OrderDetailsScreen() {
               : formatPrice(order.shipping_fee)}
           </Text>
         </View>
-        {order.discount > 0 && (
+        {order.discount_amount > 0 && (
           <View style={styles.summaryRow}>
             <Text
               style={[styles.summaryLabel, { color: colors.textSecondary }]}
@@ -684,7 +715,7 @@ export default function OrderDetailsScreen() {
               Discount
             </Text>
             <Text style={[styles.summaryValue, { color: '#059669' }]}>
-              -{formatPrice(order.discount)}
+              -{formatPrice(order.discount_amount)}
             </Text>
           </View>
         )}
@@ -835,10 +866,6 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 14,
     fontWeight: '500',
-  },
-  itemVariant: {
-    fontSize: 12,
-    marginTop: 2,
   },
   itemPriceRow: {
     flexDirection: 'row',

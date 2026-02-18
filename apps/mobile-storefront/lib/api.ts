@@ -376,10 +376,29 @@ export async function withRetry<T>(
  * }
  * ```
  */
-export async function withSupabaseRetry<T>(
-  operation: () => Promise<{ data: T | null; error: Error | null }>,
+/**
+ * Wrapper for Supabase query results with retry logic
+ *
+ * Specifically handles Supabase's { data, error } pattern and retries on
+ * network/server errors while preserving the original response structure.
+ *
+ * @example
+ * ```ts
+ * const result = await withSupabaseRetry(
+ *   () => supabase.from('products').select('*').eq('status', 'active')
+ * );
+ *
+ * if (result.error) {
+ *   // Handle error (after all retries exhausted)
+ * } else {
+ *   // Use result.data
+ * }
+ * ```
+ */
+export async function withSupabaseRetry<R extends { data: any; error: any }>(
+  operation: () => Promise<R>,
   options: Omit<RetryOptions, 'timeout'> = {}
-): Promise<{ data: T | null; error: Error | null }> {
+): Promise<R> {
   const {
     maxRetries = DEFAULT_MAX_RETRIES,
     baseDelay = BASE_RETRY_DELAY,
@@ -388,7 +407,7 @@ export async function withSupabaseRetry<T>(
     onRetry,
   } = options;
 
-  let lastError: Error | null = null;
+  let lastResult: R | null = null;
   let attempt = 0;
 
   while (attempt <= maxRetries) {
@@ -404,13 +423,12 @@ export async function withSupabaseRetry<T>(
       }
 
       const result = await operation();
+      lastResult = result;
 
       // If no error, return the result
       if (!result.error) {
         return result;
       }
-
-      lastError = result.error;
 
       // Check if this is a retryable error (network/server issues)
       const errorMessage = result.error.message.toLowerCase();
@@ -422,7 +440,8 @@ export async function withSupabaseRetry<T>(
         errorMessage.includes('fetch failed') ||
         errorMessage.includes('connection');
 
-      // Don't retry on data validation errors, auth errors, or not found
+      // Don't retry on data validation errors, standard auth errors, or not found
+      // Note: "Network request failed" is caught by isRetryableError check
       const isClientError =
         errorMessage.includes('not found') ||
         errorMessage.includes('unauthorized') ||
@@ -451,20 +470,24 @@ export async function withSupabaseRetry<T>(
       attempt++;
     } catch (error) {
       // Handle thrown errors (e.g., network check failure)
-      lastError = error instanceof Error ? error : new Error(String(error));
+      const err = error instanceof Error ? error : new Error(String(error));
 
       if (attempt >= maxRetries) {
-        return { data: null, error: lastError };
+        // We need to return a result that matches the shape of R
+        // Since we can't easily construct a generic R, we use the last result if available
+        // or re-throw if it's a critical execution error (like network check failure)
+        if (lastResult) return lastResult;
+        throw err;
       }
 
       const delayMs = calculateBackoffDelay(attempt, baseDelay, maxDelay);
 
       if (onRetry) {
-        onRetry(attempt + 1, lastError, delayMs);
+        onRetry(attempt + 1, err, delayMs);
       }
 
       log.info(
-        `Supabase retry ${attempt + 1}/${maxRetries} after ${delayMs}ms: ${lastError.message}`
+        `Supabase retry ${attempt + 1}/${maxRetries} after ${delayMs}ms: ${err.message}`
       );
 
       await sleep(delayMs);
@@ -472,5 +495,5 @@ export async function withSupabaseRetry<T>(
     }
   }
 
-  return { data: null, error: lastError };
+  return lastResult!;
 }

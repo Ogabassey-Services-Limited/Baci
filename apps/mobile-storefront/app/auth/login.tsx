@@ -4,8 +4,8 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { router, Stack } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,24 +25,35 @@ import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { TextContentTypes, useKeyboard } from '@/hooks/use-keyboard';
+import { createLogger } from '@/lib/logger';
 import { EmailSchema, getFirstError, OtpSchema } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
+
+const log = createLogger('Login');
 
 type AuthStep = 'email' | 'otp' | 'password';
 type AuthMethod = 'otp' | 'password';
 
-/** Dismiss the login modal or replace with root if modal stack is empty */
-const dismissAndNavigate = () => {
-  if (router.canDismiss()) {
-    router.dismiss();
-  } else {
-    router.replace('/');
-  }
-};
-
 export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
+
+  /**
+   * 2026 Best Practice: Intent-preserving return navigation
+   * After auth, return to the screen the user originally intended to visit.
+   * Falls back to dismiss (if pushed as modal) or root.
+   * Wrapped in useCallback so the auth-watcher effect has a stable reference.
+   */
+  const dismissAndNavigate = useCallback(() => {
+    if (returnTo) {
+      router.replace(decodeURIComponent(returnTo) as '/');
+    } else if (router.canDismiss()) {
+      router.dismiss();
+    } else {
+      router.replace('/');
+    }
+  }, [returnTo]);
 
   const signInWithOtp = useAuthStore((state) => state.signInWithOtp);
   const verifyOtp = useAuthStore((state) => state.verifyOtp);
@@ -56,7 +67,6 @@ export default function LoginScreen() {
   const [authMethod, setAuthMethod] = useState<AuthMethod>('otp');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
-  const [_isAppleAvailable, setIsAppleAvailable] = useState(false);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
@@ -82,7 +92,23 @@ export default function LoginScreen() {
     };
   }, []);
 
-  // 2026 Best Practice: Dismiss keyboard on submit
+  /**
+   * 2026 Best Practice: Auto-dismiss login when auth state changes.
+   * Handles the case where Google/Apple OAuth redirects back to the app
+   * but the handleGoogleSignIn async context was lost (app suspended/resumed).
+   * The onAuthStateChange listener in auth-store sets the user correctly,
+   * but this screen needs to react and navigate away.
+   */
+  const user = useAuthStore((state) => state.user);
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+
+  useEffect(() => {
+    if (isInitialized && user) {
+      // User is authenticated — dismiss this login screen
+      dismissAndNavigate();
+    }
+  }, [isInitialized, user, dismissAndNavigate]);
+
   // 2026 Best Practice: Dismiss keyboard on submit
   const handleContinue = withKeyboardDismiss(async () => {
     // Validate email with Zod
@@ -193,14 +219,18 @@ export default function LoginScreen() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
+      // 2026 Best Practice: The signInWithGoogle call now clears its own Loading state
+      // in the store once the browser opens.
       const result = await signInWithGoogle();
+
       if (result.success) {
-        // Login is presented as a modal - dismiss it to return to the underlying screen
-        dismissAndNavigate();
+        log.info('Google sign-in flow initiated successfully');
+        // The rest of the flow is handled by /auth/callback or the reactive useEffect watcher
       } else if (result.error !== 'Sign in was cancelled') {
         Alert.alert('Error', result.error || 'Failed to sign in with Google');
       }
     } catch (_error) {
+      log.error('Unexpected error in handleGoogleSignIn:', _error);
       Alert.alert(
         'Error',
         'An unexpected error occurred during Google sign-in'
@@ -216,11 +246,13 @@ export default function LoginScreen() {
     try {
       const result = await signInWithApple();
       if (result.success) {
-        dismissAndNavigate();
+        log.info('Apple sign-in flow initiated successfully');
+        // The rest of the flow is handled by the reactive useEffect watcher
       } else if (result.error !== 'Sign in was cancelled') {
         Alert.alert('Error', result.error || 'Failed to sign in with Apple');
       }
     } catch (_error) {
+      log.error('Unexpected error in handleAppleSignIn:', _error);
       Alert.alert('Error', 'An unexpected error occurred during Apple sign-in');
     } finally {
       setIsAppleLoading(false);

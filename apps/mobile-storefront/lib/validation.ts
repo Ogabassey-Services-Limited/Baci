@@ -283,7 +283,7 @@ export type MarkReviewHelpfulResponse = z.infer<
 export const ImeiResultSchema = z.object({
   imei: z.string().min(1),
   device: z.string().min(1),
-  modelNumber: z.string().min(1),
+  modelNumber: z.string(),
   status: z.enum(['Clean', 'Blacklisted', 'Unknown']),
   icloud: z.string().min(1),
   icloudLock: z.string().min(1),
@@ -399,6 +399,8 @@ export const ProductRowSchema = z.object({
   images: z.array(z.string()).nullable().optional(),
   brand: z.string().nullable().optional(),
   condition: z.string().nullable().optional(),
+  manage_stock: z.boolean().nullable().optional(),
+  stock_quantity: z.number().nullable().optional(),
   status: z.string().optional(),
   specifications: z.record(z.string(), z.string()).nullable().optional(),
   has_variants: z.boolean().nullable().optional(),

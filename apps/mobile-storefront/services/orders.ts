@@ -436,7 +436,7 @@ export async function getCustomerOrders(customerId: string) {
   const { data, error } = await supabase
     .from('orders')
     .select(
-      'id, order_number, total, payment_status, shipping_status, created_at, order_items(id, product_id, product_name, quantity, price, variant, image_url, has_assurance)'
+      'id, order_number, total, payment_status, shipping_status, created_at, order_items(id, product_id, name, quantity, price, has_assurance)'
     )
     .eq('customer_id', customerId)
     .eq('merchant_id', MERCHANT_ID)
