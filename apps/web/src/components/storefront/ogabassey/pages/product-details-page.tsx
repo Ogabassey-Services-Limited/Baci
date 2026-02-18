@@ -223,8 +223,9 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState<number | null>(null);
   const [secondaryColor, setSecondaryColor] = useState<number | null>(null);
-  const [selectedStorage, setSelectedStorage] = useState<number | null>(null);
-  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
+  // Generic variant attribute selections (replaces separate selectedStorage/selectedPlatform)
+  // e.g. { storage: "256GB", ram: "16GB", platform: "EU" }
+  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<
     'description' | 'specs' | 'reviews' | 'compare'
   >('description');
@@ -265,8 +266,8 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
     if (selectedColor !== null && productData.colors[selectedColor]) {
       parts.push(productData.colors[selectedColor].name);
     }
-    if (selectedStorage !== null && productData.storage[selectedStorage]) {
-      parts.push(productData.storage[selectedStorage]);
+    if (selectedAttributes.storage) {
+      parts.push(selectedAttributes.storage);
     }
     // Include condition to match use-cart generateCartItemId
     if (selectedCondition) {
@@ -380,8 +381,8 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       price = parseInt(productData.price.replace(/[^0-9]/g, ''), 10) || 0;
     }
 
-    // NULL or 0 = unlimited stock, > 0 = exact quantity
-    let stock = (productData.stock === null || productData.stock === 0) ? 999 : productData.stock;
+    // If manage_stock is false/null, treat as unlimited; otherwise use actual stock
+    let stock = productData.manage_stock ? (productData.stock ?? 0) : 999;
 
     // 1. Resolve Base Price based on Condition
     // If selected is NOT main condition, look for offer
@@ -395,36 +396,17 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       }
     }
 
-    // 2. Resolve Variant Price Modifier / Override based on Storage
-    // This applies ON TOP of condition price (or overrides it if price_override is set)
-    if (selectedStorage !== null && productData.storage && Array.isArray(productData.storage) && productData.variants) {
-      const storageValue = productData.storage[selectedStorage];
-      const variant = productData.variants.find(v => v.storage === storageValue);
-
-      if (variant) {
-        if (variant.price_override) {
-          price = variant.price_override;
-        } else if (variant.price_modifier) {
-          price += variant.price_modifier;
-        }
-
-        if (variant.stock !== undefined) {
-          stock = variant.stock;
-        }
-      }
-    }
-
-    // 3. Resolve Platform Variant (Phase 4 Ext)
-    if (selectedPlatform && productData.variants) {
-      // Find variant that matches Platform (and Storage if selected)
+    // 2. Resolve Variant Price based on selected attributes (generic multi-axis match)
+    const selectedAttrKeys = Object.keys(selectedAttributes);
+    if (selectedAttrKeys.length > 0 && productData.variants) {
+      // Find variant matching ALL selected attributes
       const variant = productData.variants.find((v) => {
-        const platformMatch =
-          (v.platform || v.attributes?.platform) === selectedPlatform;
-        const storageMatch =
-          selectedStorage !== null && productData.storage
-            ? v.storage === productData.storage[selectedStorage]
-            : true;
-        return platformMatch && storageMatch;
+        const attrs = v.attributes || {};
+        return selectedAttrKeys.every(
+          (key) => attrs[key] === selectedAttributes[key] ||
+            // Legacy field fallback (storage, platform, etc.)
+            (v as unknown as Record<string, unknown>)[key] === selectedAttributes[key]
+        );
       });
 
       if (variant) {
@@ -433,7 +415,9 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         } else if (variant.price_modifier) {
           price += variant.price_modifier;
         }
-        if (variant.stock !== undefined) stock = variant.stock;
+        if (variant.stock !== undefined) {
+          stock = variant.stock;
+        }
       }
     }
 
@@ -458,17 +442,51 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       category: productData.categories?.name || (productData as any).category,
       condition: selectedCondition as 'New' | 'Used', // Use selected condition
       brand: productData.brand,
-      // Pass platform if selected
-      ...(selectedPlatform ? { platform: selectedPlatform } : {}),
+      // Pass selected variant attributes
+      ...selectedAttributes,
     };
   };
 
+  // Compute effective attribute axes for selectors
+  const effectiveAxes = serverProduct.attributeAxes || (() => {
+    const axes: string[] = [];
+    if (productData.storage.length > 0) axes.push('storage');
+    if (productData.platforms.length > 0) axes.push('platform');
+    return axes;
+  })();
+
+  /** Get unique options for a variant attribute axis */
+  const getAxisOptions = (axis: string): string[] => {
+    if (axis === 'storage' && productData.storage.length > 0) return productData.storage;
+    if (axis === 'platform' && productData.platforms.length > 0) return productData.platforms;
+    if (!productData.variants) return [];
+    return Array.from(new Set(
+      productData.variants
+        .map((v: { attributes?: Record<string, string> }) => v.attributes?.[axis])
+        .filter(Boolean) as string[]
+    ));
+  };
+
+  /** Format axis key for display */
+  const formatAxisLabel = (axis: string): string => {
+    const labels: Record<string, string> = {
+      storage: 'Storage', ram: 'RAM', color: 'Color', platform: 'Platform',
+      processor: 'Processor', gpu: 'GPU', sim_type: 'SIM Type',
+    };
+    return labels[axis] || axis.charAt(0).toUpperCase() + axis.slice(1).replace(/_/g, ' ');
+  };
+
   const validateAndAddToCart = () => {
-    const missing = [];
+    const missing: string[] = [];
     if (selectedColor === null && productData.colors.length > 0)
       missing.push('Color');
-    if (selectedStorage === null && productData.storage.length > 0)
-      missing.push('Storage');
+
+    // Check all non-color attribute axes are selected
+    for (const axis of effectiveAxes.filter((a: string) => a !== 'color')) {
+      if (!selectedAttributes[axis] && getAxisOptions(axis).length > 0) {
+        missing.push(formatAxisLabel(axis));
+      }
+    }
 
     if (missing.length > 0) {
       setMissingFields(missing);
@@ -478,7 +496,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
 
     const productToAdd = getProductForCart();
 
-    addToCart(productToAdd as any, 1, {
+    addToCart(productToAdd as unknown as Parameters<typeof addToCart>[0], 1, {
       color:
         selectedColor !== null
           ? productData.colors[selectedColor].name
@@ -495,11 +513,9 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         secondaryColor !== null
           ? productData.colors[secondaryColor].value
           : undefined,
-      storage:
-        selectedStorage !== null
-          ? productData.storage[selectedStorage]
-          : undefined,
-      condition: selectedCondition, // Pass condition to cart
+      storage: selectedAttributes.storage,
+      condition: selectedCondition,
+      ...selectedAttributes,
     });
 
     toast({
@@ -786,29 +802,6 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               </div>
             )}
 
-            {/* Platform Selector (Phase 4 Extension) */}
-            {Array.isArray(productData.platforms) && productData.platforms.length > 0 && (
-              <div className="mb-6">
-                <label className="text-sm font-bold text-gray-900 block mb-3">
-                  Platform: <span className="text-red-600">{selectedPlatform || 'Select'}</span>
-                </label>
-                <div className="flex flex-wrap gap-3">
-                  {productData.platforms.map((platform: string) => (
-                    <button
-                      key={platform}
-                      onClick={() => setSelectedPlatform(platform === selectedPlatform ? null : platform)}
-                      className={`px-4 py-2 rounded-lg border-2 text-sm font-bold transition-all ${selectedPlatform === platform
-                        ? 'border-red-600 bg-red-50 text-red-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                        }`}
-                    >
-                      {platform}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Estimated Delivery Section */}
             <div className="mb-6 p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-start justify-between">
               <div className="flex gap-3">
@@ -825,10 +818,11 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                   <p className="text-sm font-bold text-green-600">
                     Est. Delivery: {getDeliveryEstimate()}
                   </p>
-                  {selectedStorage === null &&
-                    productData.storage.length > 0 && (
+                  {effectiveAxes.filter((a: string) => a !== 'color').some(
+                    (axis: string) => !selectedAttributes[axis] && getAxisOptions(axis).length > 0
+                  ) && (
                       <p className="text-[10px] text-gray-400 mt-1">
-                        Select storage to confirm availability
+                        Select options to confirm availability
                       </p>
                     )}
                 </div>
@@ -971,41 +965,53 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               })()}
             </p>
 
-            {/* Storage Selector */}
-            {productData.storage.length > 0 && (
-              <div className="space-y-6 mb-8">
-                <div>
-                  <label className="text-sm font-bold text-gray-900 block mb-3 flex items-center justify-between">
-                    <span>
-                      Storage:{' '}
-                      <span className="text-red-600">
-                        {selectedStorage !== null
-                          ? productData.storage[selectedStorage]
-                          : 'Select storage'}
-                      </span>
-                    </span>
-                    {selectedStorage === null && (
-                      <span className="text-xs text-red-500 animate-pulse font-normal">
-                        * Required
-                      </span>
-                    )}
-                  </label>
-                  <div className="flex flex-wrap gap-3">
-                    {productData.storage.map((size, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setSelectedStorage(idx)}
-                        className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all active:scale-95 ${selectedStorage === idx ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100' : 'border-gray-200 text-gray-700 md:hover:border-gray-400 md:hover:bg-gray-50'}`}
-                        aria-label={`Select ${size} storage`}
-                        aria-pressed={selectedStorage === idx}
-                      >
-                        {size}
-                      </button>
-                    ))}
+            {/* Dynamic Variant Attribute Selectors */}
+            {effectiveAxes
+              .filter((axis: string) => axis !== 'color')
+              .map((axis: string) => {
+                const options = getAxisOptions(axis);
+                if (options.length === 0) return null;
+                const label = formatAxisLabel(axis);
+
+                return (
+                  <div key={axis} className="space-y-6 mb-8">
+                    <div>
+                      <label className="text-sm font-bold text-gray-900 block mb-3 flex items-center justify-between">
+                        <span>
+                          {label}:{' '}
+                          <span className="text-red-600">
+                            {selectedAttributes[axis] || `Select ${label.toLowerCase()}`}
+                          </span>
+                        </span>
+                        {!selectedAttributes[axis] && (
+                          <span className="text-xs text-red-500 animate-pulse font-normal">
+                            * Required
+                          </span>
+                        )}
+                      </label>
+                      <div className="flex flex-wrap gap-3">
+                        {options.map((value) => (
+                          <button
+                            key={value}
+                            onClick={() =>
+                              setSelectedAttributes((prev) => ({ ...prev, [axis]: value }))
+                            }
+                            className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all active:scale-95 ${
+                              selectedAttributes[axis] === value
+                                ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100'
+                                : 'border-gray-200 text-gray-700 md:hover:border-gray-400 md:hover:bg-gray-50'
+                            }`}
+                            aria-label={`Select ${value} ${label.toLowerCase()}`}
+                            aria-pressed={selectedAttributes[axis] === value}
+                          >
+                            {value}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            )}
+                );
+              })}
 
             {/* Desktop Actions (Hidden on Mobile) */}
             <div className="mb-8 hidden md:block">
@@ -1378,9 +1384,11 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           <button
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
-              const missing = [];
+              const missing: string[] = [];
               if (selectedColor === null && productData.colors.length > 0) missing.push('Color');
-              if (selectedStorage === null && productData.storage.length > 0) missing.push('Storage');
+              for (const axis of effectiveAxes.filter((a: string) => a !== 'color')) {
+                if (!selectedAttributes[axis] && getAxisOptions(axis).length > 0) missing.push(formatAxisLabel(axis));
+              }
 
               if (missing.length === 0) {
                 triggerFlyToCart(rect);
@@ -1500,31 +1508,43 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                     </div>
                   )}
 
-                {/* Storage Selection in Modal */}
-                {(missingFields.includes('Storage') ||
-                  missingFields.length === 0) && (
-                    <div>
-                      <label className="text-sm font-bold text-gray-900 block mb-3">
-                        Storage
-                      </label>
-                      <div className="flex flex-wrap gap-3">
-                        {productData.storage?.map((size, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => {
-                              setSelectedStorage(idx);
-                              setMissingFields((prev) =>
-                                prev.filter((f) => f !== 'Storage')
-                              );
-                            }}
-                            className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all active:scale-95 ${selectedStorage === idx ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
-                          >
-                            {size}
-                          </button>
-                        ))}
+                {/* Dynamic Attribute Selection in Modal */}
+                {effectiveAxes
+                  .filter((axis: string) => axis !== 'color')
+                  .map((axis: string) => {
+                    const label = formatAxisLabel(axis);
+                    const options = getAxisOptions(axis);
+                    if (options.length === 0) return null;
+                    if (!missingFields.includes(label) && missingFields.length > 0) return null;
+
+                    return (
+                      <div key={axis}>
+                        <label className="text-sm font-bold text-gray-900 block mb-3">
+                          {label}
+                        </label>
+                        <div className="flex flex-wrap gap-3">
+                          {options.map((value) => (
+                            <button
+                              key={value}
+                              onClick={() => {
+                                setSelectedAttributes((prev) => ({ ...prev, [axis]: value }));
+                                setMissingFields((prev) =>
+                                  prev.filter((f) => f !== label)
+                                );
+                              }}
+                              className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all active:scale-95 ${
+                                selectedAttributes[axis] === value
+                                  ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100'
+                                  : 'border-gray-200 bg-gray-50 text-gray-700'
+                              }`}
+                            >
+                              {value}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })}
               </div>
 
               <div className="p-4 border-t border-gray-100 bg-gray-50 md:rounded-b-2xl">
@@ -1558,17 +1578,16 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         onSuccess={(price) => {
           setIsNegotiationOpen(false);
           // If options are selected (or not required), add to cart with negotiated price
-          if (
-            (selectedColor !== null ||
-              !productData.colors ||
-              productData.colors?.length === 0) &&
-            (selectedStorage !== null ||
-              !productData.storage ||
-              productData.storage?.length === 0)
-          ) {
+          const nonColorAxes = effectiveAxes.filter((a: string) => a !== 'color');
+          const allAxesSelected = nonColorAxes.every(
+            (axis: string) => selectedAttributes[axis] || getAxisOptions(axis).length === 0
+          );
+          const colorSelected = selectedColor !== null || !productData.colors || productData.colors.length === 0;
+
+          if (colorSelected && allAxesSelected) {
             const productToAdd = getProductForCart();
 
-            addToCart(productToAdd as any, 1, {
+            addToCart(productToAdd as unknown as Parameters<typeof addToCart>[0], 1, {
               color:
                 selectedColor !== null
                   ? productData.colors[selectedColor].name
@@ -1585,13 +1604,11 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                 secondaryColor !== null
                   ? productData.colors[secondaryColor].value
                   : undefined,
-              storage:
-                selectedStorage !== null
-                  ? productData.storage[selectedStorage]
-                  : undefined,
+              storage: selectedAttributes.storage,
+              ...selectedAttributes,
             });
 
-            const cartItemId = `${productData.id}-${selectedColor !== null ? productData.colors[selectedColor].name : ''}-${selectedStorage !== null ? productData.storage[selectedStorage] : ''}`;
+            const cartItemId = `${productData.id}-${selectedColor !== null ? productData.colors[selectedColor].name : ''}-${selectedAttributes.storage || ''}`;
             applyNegotiatedPrice?.(cartItemId, price);
           } else {
             // Need to select options first

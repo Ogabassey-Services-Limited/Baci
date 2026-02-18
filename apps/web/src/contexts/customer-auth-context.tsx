@@ -116,7 +116,7 @@ export function CustomerAuthProvider({
 
   useEffect(() => {
     checkSession();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes checkSession
   }, [checkSession]);
 
   // Send OTP code

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => (
+    // biome-ignore lint/performance/noImgElement: Test mock for next/image intentionally uses <img>
     <img {...props} alt={props.alt as string} />
   ),
 }));

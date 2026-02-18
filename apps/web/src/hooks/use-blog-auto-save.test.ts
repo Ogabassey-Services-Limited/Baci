@@ -40,7 +40,7 @@ describe('useBlogAutoSave', () => {
 
     const stored = localStorage.getItem('test-key');
     expect(stored).not.toBeNull();
-    const parsed = JSON.parse(stored!);
+    const parsed = JSON.parse(stored as string);
     expect(parsed.data.title).toBe('Updated');
   });
 

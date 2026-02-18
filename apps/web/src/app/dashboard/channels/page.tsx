@@ -79,11 +79,12 @@ export default function ChannelsPage() {
             : `Error: ${error}`),
       });
     }
+    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes fetchIntegrations
   }, [searchParams, fetchIntegrations, router]);
 
   useEffect(() => {
     fetchIntegrations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler auto-memoizes fetchIntegrations
   }, [fetchIntegrations]);
 
   const handleConnect = async () => {

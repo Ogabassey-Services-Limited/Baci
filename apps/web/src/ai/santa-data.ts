@@ -89,21 +89,26 @@ export const getCachedSantaProductList = unstable_cache(
  * Formats the product list into the prompt string
  */
 const formatSantaCatalog = async (merchantId: string): Promise<string> => {
-  const products = await getCachedSantaProductList(merchantId);
+  // Call the raw fetcher directly to avoid double-caching (this function is itself cached)
+  const products = await fetchSantaProductList(merchantId);
 
   if (!products.length) return '(No products available)';
 
-  // 5. Format for LLM Prompt
+  // Format for LLM Prompt — use discount percentage floors instead of absolute cost prices
+  // to prevent cost data exposure via prompt injection
   return products
     .map((p) => {
       const price = Number(p.price) || 0;
       if (p.cost_price) {
-        const minPrice = (Number(p.cost_price) || 0) + 10000;
-        return `*   ${p.name}: ₦${price.toLocaleString()} (Min Approved: ₦${minPrice.toLocaleString()}) [HAS_COST]`;
-      } else {
-        const minPrice = Math.round(price * 0.6);
-        return `*   ${p.name}: ₦${price.toLocaleString()} (Min: ₦${minPrice.toLocaleString()}) [FLEX]`;
+        const costPrice = Number(p.cost_price) || 0;
+        const maxDiscountPct = Math.min(
+          Math.floor(((price - costPrice - 10000) / price) * 100),
+          40
+        );
+        const safeDiscount = Math.max(maxDiscountPct, 0);
+        return `*   ${p.name}: ₦${price.toLocaleString()} (Max Discount: ${safeDiscount}%) [HAS_COST]`;
       }
+      return `*   ${p.name}: ₦${price.toLocaleString()} (Max Discount: 40%) [FLEX]`;
     })
     .join('\n');
 };

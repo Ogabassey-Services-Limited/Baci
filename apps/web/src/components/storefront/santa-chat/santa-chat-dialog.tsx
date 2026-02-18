@@ -9,34 +9,14 @@ import type { Product } from '@/lib/products';
 import { ChatInput } from './chat-input';
 import { ChatMessage } from './chat-message';
 import type { ChatMessage as ChatMessageType } from './types';
+import { parseSantaAction } from './types';
 import { WelcomeScreen } from './welcome-screen';
-
-// Ogabassey merchant ID for product lookups
-// Note: Merchant ID not used in frontend - products are fetched via API
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   imageUrl?: string;
-}
-
-/**
- * Parse ACTION:ADD_TO_CART commands from Santa's response
- * Format: ACTION:ADD_TO_CART|PRODUCT:ProductName|PRICE:123456
- */
-function parseSantaAction(
-  content: string
-): { productName: string; price: number } | null {
-  const actionMatch = content.match(
-    /ACTION:ADD_TO_CART\|PRODUCT:([^|]+)\|PRICE:(\d+(?:,\d+)?)/
-  );
-  if (!actionMatch) return null;
-
-  const productName = actionMatch[1].trim();
-  const price = Number.parseInt(actionMatch[2].replace(/,/g, ''), 10);
-
-  return { productName, price };
 }
 
 interface SantaChatDialogProps {
@@ -61,15 +41,34 @@ export function SantaChatDialog({
   const [cartNotification, setCartNotification] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const processedActionsRef = useRef<Set<string>>(new Set());
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   // Cart integration
   const { addToCart, cartCount, applyNegotiatedPrice, setMerchantSlug } =
     useCart();
 
-  // Set merchant slug on mount
+  // Set merchant slug on mount + cleanup abort/timers on unmount
   useEffect(() => {
     setMerchantSlug('ogabassey');
+    return () => {
+      abortControllerRef.current?.abort();
+      if (notificationTimerRef.current)
+        clearTimeout(notificationTimerRef.current);
+    };
   }, [setMerchantSlug]);
+
+  const showNotification = (msg: string) => {
+    if (notificationTimerRef.current)
+      clearTimeout(notificationTimerRef.current);
+    setCartNotification(msg);
+    notificationTimerRef.current = setTimeout(
+      () => setCartNotification(null),
+      3000
+    );
+  };
 
   /**
    * Fetch product by name and add to cart with negotiated price
@@ -79,11 +78,11 @@ export function SantaChatDialog({
     negotiatedPrice: number
   ) => {
     try {
-      // Use POST to Santa product lookup endpoint
       const response = await fetch('/api/chat/santa/product', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: productName }),
+        signal: AbortSignal.timeout(8000),
       });
 
       if (!response.ok) {
@@ -97,29 +96,18 @@ export function SantaChatDialog({
 
       if (!product) {
         console.error('[Santa Cart] Product not found:', productName);
-        setCartNotification(`Could not find "${productName}" in catalog`);
-        setTimeout(() => setCartNotification(null), 3000);
+        showNotification(`Could not find "${productName}" in catalog`);
         return;
       }
 
-      // Add to cart with the original price
       addToCart(product, 1);
 
-      // Apply the negotiated price if Smart Cart Pro is enabled
       const cartItemId = product.id;
       if (applyNegotiatedPrice && negotiatedPrice < product.price) {
         applyNegotiatedPrice(cartItemId, negotiatedPrice);
       }
 
-      // Show success notification
-      setCartNotification(`${product.name} added to cart!`);
-      setTimeout(() => setCartNotification(null), 3000);
-
-      console.log('[Santa Cart] Added to cart:', {
-        product: product.name,
-        originalPrice: product.price,
-        negotiatedPrice,
-      });
+      showNotification(`${product.name} added to cart!`);
     } catch (err) {
       console.error('[Santa Cart] Error adding to cart:', err);
     }
@@ -160,16 +148,19 @@ export function SantaChatDialog({
     setError(null);
 
     try {
+      // Cancel any previous in-flight request
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       const response = await fetch('/api/chat/santa', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           messages: updatedMessages.map((m) => ({
             role: m.role,
             content: m.content,
-            // If image exists, experimental attachments or mixed content might be needed
-            // For now, pass it as a separate field or extended content if specific provider supports it
-            // Assuming API handles experimental_attachments or just extra fields
             imageUrl: m.imageUrl,
           })),
         }),
@@ -197,23 +188,8 @@ export function SantaChatDialog({
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
-          // Parse the streaming data format from Vercel AI SDK
-          // Note: If the API returns raw text stream, this splitting isn't needed.
-          // If it returns standard AI stream protocol (0:"..."), this is correct.
-          // Keeping existing logic as safeguard.
-          const lines = chunk.split('\n');
-
-          for (const line of lines) {
-            if (line.startsWith('0:')) {
-              // Text content chunk
-              try {
-                const text = JSON.parse(line.slice(2));
-                assistantContent += text;
-              } catch {
-                // Ignore parse errors
-              }
-            }
-          }
+          // toTextStreamResponse() returns raw UTF-8 text chunks
+          assistantContent += chunk;
 
           setMessages((prev) =>
             prev.map((m) =>

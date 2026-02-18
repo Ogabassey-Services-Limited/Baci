@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
 import {
   AlertCircle,
   CheckCircle2,
@@ -7,28 +8,45 @@ import {
   ExternalLink,
   FileText,
   Leaf,
+  Loader2,
   Search,
   X,
-  Loader2,
 } from 'lucide-react';
 import type React from 'react';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { EmptyState } from '../components/empty-state';
+import { ReceiptModal } from '../components/ReceiptModal';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant';
-import { ReceiptModal, type ReceiptData } from '../components/ReceiptModal';
-import { type Product } from '@/lib/products';
+
+/** List item for display in the receipts grid */
+interface ReceiptListItem {
+  id: string;
+  order_number: string;
+  date: string;
+  total: string;
+  status: 'Paid' | 'Partially Paid' | 'Unpaid';
+  paymentStatus: 'paid' | 'partially_paid' | 'unpaid';
+  balance: string;
+  firstProductName: string;
+  firstProductImage: string;
+  /** Raw order data for the shared receipt generator */
+  rawOrder: ReceiptOrder;
+}
 
 export const OgabasseyV2Receipts: React.FC = () => {
   const { customer, isAuthenticated } = useCustomerAuth();
   const merchantContext = useMerchantSafe();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [receipts, setReceipts] = useState<ReceiptData[]>([]);
+  const [receipts, setReceipts] = useState<ReceiptListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<ReceiptOrder | null>(null);
+  const [merchantReceiptData, setMerchantReceiptData] =
+    useState<ReceiptMerchant | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Fetch orders
   useEffect(() => {
     const fetchOrders = async () => {
       if (!isAuthenticated || !merchantContext?.merchant?.slug) {
@@ -37,33 +55,95 @@ export const OgabasseyV2Receipts: React.FC = () => {
       }
 
       try {
-        const res = await fetch(`/api/storefront/orders?merchant_slug=${merchantContext.merchant.slug}`);
+        const res = await fetch(
+          `/api/storefront/orders?merchantSlug=${encodeURIComponent(merchantContext.merchant.slug)}`
+        );
         const data = await res.json();
 
         if (data.orders) {
-          const mappedReceipts: ReceiptData[] = data.orders.map((order: any) => ({
-            id: order.order_number || order.id.slice(0, 8).toUpperCase(),
-            date: new Date(order.created_at).toLocaleDateString(),
-            time: new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            total: new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.total),
-            items: order.items?.length || 0,
-            products: order.items.map((item: any) => ({
-              id: item.product_id,
-              name: item.product_name || item.name,
-              price: new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(item.price),
-              quantity: item.quantity,
-              image: item.product_image || item.image || '/placeholder.png',
-              selectedColor: item.variant_name || undefined
-            })),
-            status: order.payment_status === 'paid' ? 'Paid' : order.payment_status === 'partially_paid' ? 'Partially Paid' : 'Unpaid',
-            method: order.payment_provider || 'Bank Transfer',
-            customerName: customer ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'Customer' : 'Customer',
-            address: order.shipping_address || 'No address provided',
-            paymentStatus: (order.payment_status as 'paid' | 'unpaid' | 'partially_paid') || 'unpaid',
-            balance: '₦0.00',
-            amountPaid: new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.amount_paid || order.total),
-          }));
-          setReceipts(mappedReceipts);
+          const customerName = customer
+            ? `${customer.first_name || ''} ${customer.last_name || ''}`.trim() ||
+              'Customer'
+            : 'Customer';
+
+          const mapped: ReceiptListItem[] = data.orders.map(
+            (order: Record<string, unknown>) => {
+              const items = (order.items as Array<Record<string, unknown>>) ?? [];
+              const currency = (order.currency as string) || 'NGN';
+              const total = Number(order.total) || 0;
+              const amountPaid = Number(order.amount_paid ?? total);
+              const paymentStatus =
+                (order.payment_status as string) || 'unpaid';
+
+              const formatCurrency = (val: number) =>
+                new Intl.NumberFormat('en-NG', {
+                  style: 'currency',
+                  currency,
+                  minimumFractionDigits: 0,
+                }).format(val);
+
+              const rawOrder: ReceiptOrder = {
+                order_number:
+                  (order.order_number as string) ||
+                  String(order.id).slice(0, 8).toUpperCase(),
+                created_at: order.created_at as string,
+                currency,
+                total,
+                subtotal: Number(order.subtotal ?? total),
+                shipping_fee: Number(order.shipping_fee ?? 0),
+                tax_amount: Number(order.tax_amount ?? 0),
+                discount_amount: Number(order.discount_amount ?? 0),
+                amount_paid: amountPaid,
+                balance: Number(order.balance ?? total - amountPaid),
+                payment_status: paymentStatus,
+                payment_method: (order.payment_method as string) ?? null,
+                is_credit_order: (order.is_credit_order as boolean) ?? false,
+                customer_name: customerName,
+                customer_email: customer?.email || '',
+                customer_phone: (customer?.phone as string) ?? null,
+                shipping_address:
+                  (order.shipping_address as ReceiptOrder['shipping_address']) ??
+                  null,
+                virtual_account: null,
+                items: items.map((item) => ({
+                  product_name:
+                    (item.product_name as string) ||
+                    (item.name as string) ||
+                    'Product',
+                  quantity: Number(item.quantity) || 1,
+                  price: Number(item.price) || 0,
+                })),
+              };
+
+              const statusLabel =
+                paymentStatus === 'paid'
+                  ? 'Paid'
+                  : paymentStatus === 'partially_paid'
+                    ? 'Partially Paid'
+                    : 'Unpaid';
+
+              return {
+                id: order.id as string,
+                order_number: rawOrder.order_number,
+                date: new Date(order.created_at as string).toLocaleDateString(),
+                total: formatCurrency(total),
+                status: statusLabel,
+                paymentStatus: paymentStatus as ReceiptListItem['paymentStatus'],
+                balance: formatCurrency(Math.max(0, total - amountPaid)),
+                firstProductName:
+                  (items[0]?.product_name as string) ||
+                  (items[0]?.name as string) ||
+                  'Unknown item',
+                firstProductImage:
+                  (items[0]?.product_image as string) ||
+                  (items[0]?.image as string) ||
+                  '/placeholder.png',
+                rawOrder,
+              } satisfies ReceiptListItem;
+            }
+          );
+
+          setReceipts(mapped);
         }
       } catch (err) {
         console.error('Failed to fetch receipts', err);
@@ -75,17 +155,45 @@ export const OgabasseyV2Receipts: React.FC = () => {
     fetchOrders();
   }, [isAuthenticated, merchantContext?.merchant?.slug, customer]);
 
+  // Build merchant receipt data from context
+  useEffect(() => {
+    const m = merchantContext?.merchant;
+    if (!m) return;
+
+    setMerchantReceiptData({
+      business_name: m.business_name || null,
+      logo_url: m.logo_url || null,
+      email: m.email || '',
+      phone: m.phone || null,
+      support_email: m.support_email || null,
+      support_phone: m.support_phone || null,
+      business_address: m.business_address || null,
+      cac_rc_number: null,
+      tax_identification_number: null,
+      legal_entity_name: null,
+      brand_colors: m.brand_colors,
+      vat_registration_status: m.vat_registration_status || null,
+      vat_rate: m.vat_rate ?? null,
+      bank_code: null,
+      bank_account_number: null,
+      bank_name: null,
+      bank_account_name: null,
+      social_media: m.social_media,
+      pages: m.pages,
+    });
+  }, [merchantContext?.merchant]);
+
   const filteredReceipts = receipts.filter((receipt) => {
     const query = searchQuery.toLowerCase();
     return (
-      receipt.id.toLowerCase().includes(query) ||
-      receipt.products.some(p => p.name.toLowerCase().includes(query)) ||
+      receipt.order_number.toLowerCase().includes(query) ||
+      receipt.firstProductName.toLowerCase().includes(query) ||
       receipt.status.toLowerCase().includes(query)
     );
   });
 
-  const handleViewReceipt = (receipt: ReceiptData) => {
-    setSelectedReceipt(receipt);
+  const handleViewReceipt = (receipt: ReceiptListItem) => {
+    setSelectedOrder(receipt.rawOrder);
     setIsModalOpen(true);
   };
 
@@ -116,6 +224,19 @@ export const OgabasseyV2Receipts: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Loader2 className="animate-spin text-gray-400" size={32} />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <EmptyState
+          title="Sign in to view receipts"
+          description="Log in to your account to access your receipts and invoices."
+          variant="generic"
+          compact
+        />
       </div>
     );
   }
@@ -193,8 +314,8 @@ export const OgabasseyV2Receipts: React.FC = () => {
                   {/* Product Image */}
                   <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-50 rounded-xl p-2 shrink-0 border border-gray-100 flex items-center justify-center">
                     <img
-                      src={receipt.products[0]?.image || '/placeholder.png'}
-                      alt={receipt.products[0]?.name || 'Product'}
+                      src={receipt.firstProductImage}
+                      alt={receipt.firstProductName}
                       className="w-full h-full object-contain mix-blend-multiply"
                     />
                   </div>
@@ -205,16 +326,16 @@ export const OgabasseyV2Receipts: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         {getStatusBadge(receipt.status)}
-                        <span className="text-xs text-gray-400">•</span>
+                        <span className="text-xs text-gray-400">&bull;</span>
                         <span className="text-xs text-gray-500 font-medium">
                           {receipt.date}
                         </span>
                       </div>
                       <h3 className="font-bold text-gray-900 text-sm md:text-base mb-0.5">
-                        #{receipt.id}
+                        #{receipt.order_number}
                       </h3>
                       <p className="text-xs text-gray-500 truncate">
-                        {receipt.products[0]?.name || 'Unknown item'}
+                        {receipt.firstProductName}
                       </p>
                     </div>
 
@@ -265,7 +386,8 @@ export const OgabasseyV2Receipts: React.FC = () => {
       <ReceiptModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        data={selectedReceipt}
+        orderData={selectedOrder}
+        merchantData={merchantReceiptData}
       />
     </div>
   );

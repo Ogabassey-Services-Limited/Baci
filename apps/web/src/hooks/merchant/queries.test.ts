@@ -25,7 +25,6 @@ function createMockSupabase(
         tableHandlers[table] ?? mockQueryChain({ data: null, error: null })
       );
     }),
-    // biome-ignore lint/suspicious/noExplicitAny: mock typing
   } as any;
 }
 

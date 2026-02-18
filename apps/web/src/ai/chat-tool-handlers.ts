@@ -5,7 +5,6 @@
  * These handlers are called when the AI invokes a tool.
  */
 
-import crypto from 'node:crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type {
   AddToCartParams,
@@ -50,16 +49,20 @@ export async function handleSearchProducts(
     .order('price', { ascending: false })
     .limit(10);
 
-  // Apply search filter
+  // Apply search filter (sanitize PostgREST metacharacters to prevent injection)
   if (params.query) {
+    const safeQuery = params.query.replace(/[%_\\,()]/g, '\\$&').slice(0, 100);
     query = query.or(
-      `name.ilike.%${params.query}%,description.ilike.%${params.query}%`
+      `name.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`
     );
   }
 
   // Apply category filter
   if (params.category) {
-    query = query.ilike('category', `%${params.category}%`);
+    const safeCategory = params.category
+      .replace(/[%_\\,()]/g, '\\$&')
+      .slice(0, 100);
+    query = query.ilike('category', `%${safeCategory}%`);
   }
 
   // Apply price filters
@@ -179,41 +182,19 @@ export async function handleCreateVirtualAccount(
       return { success: false, error: 'Failed to create order' };
     }
 
-    // 2. Generate virtual account via Kuda (simplified for now)
-    // In production, this would call the Kuda API
-    // For now, we'll create a simulated response
-    const trackingRef = `CHAT-${order.id.slice(0, 8).toUpperCase()}`;
-
-    // TODO: Replace with actual Kuda API call
+    // Virtual account generation via Kuda API is not yet integrated.
+    // Block this flow to prevent customers from sending money to fake accounts.
+    // TODO: Replace with actual Kuda API call when ready
     // const kudaResponse = await kudaRequest(KudaServiceType.ADMIN_CREATE_VIRTUAL_ACCOUNT, {...});
-
-    // Simulated virtual account (replace with real Kuda integration)
-    const virtualAccount = {
-      accountNumber: `999${crypto.randomInt(1000000, 9999999)}`,
-      bankName: 'Kuda Bank',
-      accountName: `OGABASSEY/${params.customerName.toUpperCase()}`,
-    };
-
-    // 3. Update order with virtual account details
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
-
-    await supabase
-      .from('chat_orders')
-      .update({
-        virtual_account_number: virtualAccount.accountNumber,
-        virtual_account_bank: virtualAccount.bankName,
-        payment_reference: trackingRef,
-      })
-      .eq('id', order.id);
-
+    console.warn(
+      '[Chat Tools] Virtual account creation blocked — Kuda API not integrated. Order:',
+      order.id
+    );
     return {
-      success: true,
+      success: false,
       orderId: order.id,
-      accountNumber: virtualAccount.accountNumber,
-      bankName: virtualAccount.bankName,
-      accountName: virtualAccount.accountName,
-      amount: params.amount,
-      expiresAt: expiresAt.toISOString(),
+      error:
+        'Bank transfer payment is temporarily unavailable. Please use card payment at checkout or contact support.',
     };
   } catch (err) {
     console.error('[Chat Tools] Virtual account error:', err);
@@ -252,33 +233,33 @@ export async function handleCheckPaymentStatus(
 
   // Try to find order by orderId first, then by email
   if (params.orderId) {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('chat_orders')
       .select(
         'id, status, paid_at, created_at, subtotal, virtual_account_number, virtual_account_bank, metadata'
       )
       .eq('id', params.orderId)
-      .single();
+      .maybeSingle();
 
-    if (!error && data) {
+    if (data) {
       order = data;
     }
   }
 
   // If no orderId or not found, try by email (most recent)
   if (!order && params.customerEmail) {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('chat_orders')
       .select(
         'id, status, paid_at, created_at, subtotal, virtual_account_number, virtual_account_bank, metadata'
       )
       .eq('customer_email', params.customerEmail)
-      .eq('merchant_id', '3bc72679-c0f7-4db4-9054-6a4a4a95a498') // Ogabassey merchant
+      .eq('merchant_id', OGABASSEY_MERCHANT_ID)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    if (!error && data) {
+    if (data) {
       order = data;
     }
   }
@@ -328,13 +309,15 @@ export async function handleGetRecommendations(
   const supabase = createAdminClient();
 
   // First get the source product
-  const { data: sourceProduct } = await supabase
+  const { data: sourceProduct, error: sourceError } = await supabase
     .from('products')
     .select('id, name, price, category, brand')
     .eq('id', params.productId)
-    .single();
+    .maybeSingle();
 
-  if (!sourceProduct) {
+  if (sourceError || !sourceProduct) {
+    if (sourceError)
+      console.error('[Chat Tools] Source product error:', sourceError);
     return [];
   }
 
@@ -371,7 +354,12 @@ export async function handleGetRecommendations(
       .order('price', { ascending: false });
   }
 
-  const { data } = await query;
+  const { data, error: recError } = await query;
+
+  if (recError) {
+    console.error('[Chat Tools] Recommendations error:', recError);
+    return [];
+  }
 
   return (data || []).map((p) => ({
     id: p.id,

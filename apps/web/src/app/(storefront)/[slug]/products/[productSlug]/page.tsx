@@ -320,7 +320,12 @@ export default async function ProductPage({ params }: PageProps) {
   );
 
   // Add URL to the schema offers (sanitized to prevent XSS)
-  if (productSchema.offers && !Array.isArray(productSchema.offers)) {
+  // Variant products have no top-level offers (offers live on each hasVariant entry)
+  if (
+    productSchema.offers &&
+    !Array.isArray(productSchema.offers) &&
+    productSchema.offers['@type'] !== 'AggregateOffer'
+  ) {
     const productUrl = `${baseUrl}${urlPrefix}/products/${product.slug || product.id}`;
     productSchema.offers.url = escapeHtml(productUrl);
   }

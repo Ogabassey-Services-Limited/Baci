@@ -10,5 +10,5 @@ export { ChatMessage } from './chat-message';
 export { SantaChatDialog } from './santa-chat-dialog';
 export { SantaWidget } from './santa-widget';
 export type { ChatMessage as ChatMessageType, SantaAction } from './types';
-export { parseCartAction } from './types';
+export { parseSantaAction } from './types';
 export { WelcomeScreen } from './welcome-screen';

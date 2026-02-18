@@ -10,7 +10,6 @@ let mockHeaders: Record<string, string | null> = {};
 
 // Supabase query builder mock — chainable
 const mockSingle = vi.fn();
-// biome-ignore lint/suspicious/noExplicitAny: Test mock needs flexible signature for chaining
 const mockEq: ReturnType<typeof vi.fn<(...args: any[]) => any>> = vi.fn(() => ({
   eq: mockEq,
   single: mockSingle,

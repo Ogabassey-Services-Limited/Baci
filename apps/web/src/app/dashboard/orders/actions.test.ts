@@ -11,11 +11,9 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 // Mock email functions
-// biome-ignore lint/suspicious/noExplicitAny: test mock needs flexible signature
 const mockGenerateOrderConfirmationEmail = vi.fn<any>(
   () => '<html>confirmation</html>'
 );
-// biome-ignore lint/suspicious/noExplicitAny: test mock needs flexible signature
 const mockGenerateOrderConfirmationText = vi.fn<any>(() => 'confirmation text');
 
 vi.mock('@/lib/email-templates', () => ({
