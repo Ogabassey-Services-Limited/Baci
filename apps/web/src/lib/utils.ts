@@ -76,6 +76,12 @@ const COMMON_PASSWORDS = new Set([
   'love',
 ]);
 
+const COMMON_PASSWORD_SUFFIX_REGEX = /[0-9!@#$%^&*]+$/;
+const REPEATING_CHARS_REGEX = /(.)\1{2,}/;
+const SEQUENTIAL_CHARS_REGEX =
+  /(abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|012|123|234|345|456|567|678|789)/i;
+const KEYBOARD_PATTERN_REGEX = /(qwerty|asdf|zxcv|qazwsx|1qaz|2wsx)/i;
+
 /**
  * Check if password is a common/weak password
  */
@@ -84,7 +90,7 @@ export const isCommonPassword = (password: string): boolean => {
   // Check exact match
   if (COMMON_PASSWORDS.has(lower)) return true;
   // Check with common suffixes removed
-  const withoutSuffix = lower.replace(/[0-9!@#$%^&*]+$/, '');
+  const withoutSuffix = lower.replace(COMMON_PASSWORD_SUFFIX_REGEX, '');
   if (COMMON_PASSWORDS.has(withoutSuffix)) return true;
   return false;
 };
@@ -113,14 +119,9 @@ export const checkPasswordStrength = (password: string): number => {
   if (isCommonPassword(password)) return 1;
 
   // Check for keyboard patterns and repeated characters
-  const hasRepeatingChars = /(.)\1{2,}/.test(password); // aaa, 111
-  const hasSequentialChars =
-    /(abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|012|123|234|345|456|567|678|789)/i.test(
-      password
-    );
-  const hasKeyboardPattern = /(qwerty|asdf|zxcv|qazwsx|1qaz|2wsx)/i.test(
-    password
-  );
+  const hasRepeatingChars = REPEATING_CHARS_REGEX.test(password); // aaa, 111
+  const hasSequentialChars = SEQUENTIAL_CHARS_REGEX.test(password);
+  const hasKeyboardPattern = KEYBOARD_PATTERN_REGEX.test(password);
 
   // Penalize patterns
   if (hasRepeatingChars || hasSequentialChars || hasKeyboardPattern) {
