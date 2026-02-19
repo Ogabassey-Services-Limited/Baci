@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
 import { type Href, router } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Logo } from '@/components/ui/Logo';
@@ -38,10 +39,19 @@ export function Header({
   onSearchCancel,
 }: HeaderProps) {
   const insets = useSafeAreaInsets();
+  const searchInputRef = useRef<TextInput>(null);
   const itemCount = useCartStore((state) => state.itemCount());
   const openDrawer = useDrawerStore((state) => state.openDrawer);
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const theme = useThemeStore((state) => state.theme);
+
+  // Focus the search input when search mode activates (ref-based to avoid autoFocus a11y warning)
+  useEffect(() => {
+    if (isSearchActive) {
+      const timer = setTimeout(() => searchInputRef.current?.focus(), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isSearchActive]);
 
   const handleSearchPress = () => {
     if (onSearchPress) {
@@ -170,7 +180,7 @@ export function Header({
                   </Pressable>
                 ) : (
                   <TextInput
-                    autoFocus
+                    ref={searchInputRef}
                     style={[styles.searchInput, { color: '#000' }]}
                     value={searchQuery}
                     onChangeText={onSearchQueryChange}

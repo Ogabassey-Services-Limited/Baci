@@ -225,8 +225,8 @@ export function useAnalyticsDetail({
       const worstPeriod =
         nonZeroData.length > 0
           ? nonZeroData.reduce((worst, d) =>
-            d.value < worst.value ? d : worst
-          )
+              d.value < worst.value ? d : worst
+            )
           : null;
 
       // Fetch comparison data if requested
@@ -306,10 +306,10 @@ export function useAnalyticsDetail({
             const date = new Date(order.created_at);
             const bucketIndex = getBucketIndex(date, granularity);
 
-            if (bucketIndex >= 0 && bucketIndex < comparisonData.length) {
+            if (bucketIndex >= 0 && bucketIndex < comparisonData?.length) {
               const revenue = (item.price || 0) * (item.quantity || 1);
               const cost = (product.cost_price || 0) * (item.quantity || 1);
-              comparisonData[bucketIndex].value += revenue - cost;
+              comparisonData?.[bucketIndex].value += revenue - cost;
             }
           });
         }

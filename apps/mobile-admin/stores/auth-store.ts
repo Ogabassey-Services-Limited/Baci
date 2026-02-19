@@ -55,11 +55,16 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     supabase.auth
       .getUser()
       .then(({ data: { user }, error }) => {
-        if (error) {
+        if (error || !user) {
           // If we have a refresh token error, the session is dead. Clear it.
           // This prevents the "Invalid Refresh Token" loop.
-          if (error.message.includes('Refresh Token') || error.message.includes('invalid_grant')) {
-            console.warn('[AuthStore] Invalid refresh token detected, forcing sign out');
+          if (
+            error?.message.includes('Refresh Token') ||
+            error?.message.includes('invalid_grant')
+          ) {
+            console.warn(
+              '[AuthStore] Invalid refresh token detected, forcing sign out'
+            );
             get().signOut();
           }
 
@@ -70,7 +75,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             isAuthenticated: false,
             isInitialized: true,
           });
-        } else if (!user) {
+        } else {
           set({ user });
           // Also fetch session for token access after server validation
           supabase.auth

@@ -49,13 +49,7 @@ import { VariantSelector } from '@/components/product/VariantSelector';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import { HTMLRenderer } from '@/components/ui/HTMLRenderer';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, {
-  BRAND,
-  RADIUS,
-  SHADOWS,
-  SPACING,
-  TYPOGRAPHY,
-} from '@/constants/Colors';
+import Colors, { BRAND, SHADOWS, SPACING } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/use-haptics';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { useProduct } from '@/hooks/use-products';
