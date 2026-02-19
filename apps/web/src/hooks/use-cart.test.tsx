@@ -145,4 +145,36 @@ describe('useCart - Validation', () => {
       { timeout: 2000 }
     );
   });
+
+  it('safely handles malformed cart data in localStorage', async () => {
+    const malformedData = [
+      null,
+      'string',
+      { id: 'ok', name: 'Valid Item', price: 100 },
+      { id: 'no-name' },
+      { name: 'no-id' },
+      { id: 123, name: 'wrong-id-type' }, // ID should be string
+    ];
+
+    localStorageMock.setItem('baci-cart-guest', JSON.stringify(malformedData));
+
+    // Mock validation to avoid network errors in logs
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+    });
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <CartProvider>{children}</CartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    // Only one valid item should remain
+    expect(result.current.cart).toHaveLength(1);
+    expect(result.current.cart[0].id).toBe('ok');
+    expect(result.current.cart[0].name).toBe('Valid Item');
+  });
 });

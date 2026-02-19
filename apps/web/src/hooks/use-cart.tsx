@@ -16,6 +16,19 @@ import type { Product } from '@/lib/products';
 // ============================================================================
 
 /**
+ * Raw cart item shape from localStorage.
+ * Since JSON.parse returns any, we treat properties as unknown or optional
+ * until validated.
+ */
+interface StoredCartItem {
+  id: string;
+  name: string;
+  price?: unknown;
+  quantity?: unknown;
+  [key: string]: unknown;
+}
+
+/**
  * Extended cart item with support for:
  * - Basic cart (quantity, variants)
  * - Smart Cart Pro (negotiation, assurance)
@@ -162,6 +175,16 @@ const generateCartItemId = (
   return parts.join('-');
 };
 
+/**
+ * Type guard to validate if a stored item has the minimal required structure
+ * to be considered a cart item candidate.
+ */
+function isValidStoredCartItem(i: unknown): i is StoredCartItem {
+  if (typeof i !== 'object' || i === null) return false;
+  const record = i as Record<string, unknown>;
+  return typeof record.id === 'string' && typeof record.name === 'string';
+}
+
 const getCartFromStorage = (
   slug?: string | null,
   userId?: string | null
@@ -174,28 +197,18 @@ const getCartFromStorage = (
     // Validate items structure to prevent NaN prices and ghost items
     if (!Array.isArray(parsed)) return [];
 
-    return (
-      parsed
-        .filter((i: unknown) => {
-          const item = i as Partial<CartItem>;
-          // Must have valid ID and Name
-          if (!item.id || !item.name) return false;
-          return true;
-        })
-        // biome-ignore lint/suspicious/noExplicitAny: Safely casting unknown to CartItem
-        .map((i: any) => ({
-          ...i,
-          // Ensure price is a number and not NaN
-          price:
-            typeof i.price === 'number' && !Number.isNaN(i.price)
-              ? i.price
-              : Number(i.price) || 0,
-          quantity:
-            typeof i.quantity === 'number' && !Number.isNaN(i.quantity)
-              ? i.quantity
-              : Number(i.quantity) || 1,
-        })) as CartItem[]
-    );
+    return parsed.filter(isValidStoredCartItem).map((i) => ({
+      ...i,
+      // Ensure price is a number and not NaN
+      price:
+        typeof i.price === 'number' && !Number.isNaN(i.price)
+          ? i.price
+          : Number(i.price) || 0,
+      quantity:
+        typeof i.quantity === 'number' && !Number.isNaN(i.quantity)
+          ? i.quantity
+          : Number(i.quantity) || 1,
+    })) as CartItem[];
   } catch (error) {
     logger.error({
       message: 'Failed to read cart from localStorage',
