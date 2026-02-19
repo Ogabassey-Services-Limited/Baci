@@ -37,7 +37,7 @@ describe('sanitizeSvg', () => {
     const maliciousSvg =
       '<svg><foreignObject><div>Bad HTML</div></foreignObject><circle r="5"/></svg>';
     const result = sanitizeSvg(maliciousSvg);
-    expect(result).not.toContain('<foreignObject>');
+    expect(result).not.toContain('<foreignObject');
     expect(result).not.toContain('Bad HTML');
     expect(result).toContain('<circle r="5"/>');
   });
@@ -95,6 +95,22 @@ describe('sanitizeSvg', () => {
     expect(result).toContain('<circle r="5"/>');
   });
 
+  it('removes onerror event handler but preserves element', () => {
+    const maliciousSvg = '<svg><image src="x" onerror="alert(1)"/></svg>';
+    const result = sanitizeSvg(maliciousSvg);
+    expect(result).not.toContain('onerror');
+    expect(result).not.toContain('alert');
+    expect(result).toContain('<image');
+  });
+
+  it('preserves internal <use> references', () => {
+    const svgWithInternalUse =
+      '<svg><defs><circle id="s" r="5"/></defs><use href="#s"/></svg>';
+    const result = sanitizeSvg(svgWithInternalUse);
+    expect(result).toContain('href="#s"');
+    expect(result).toContain('<defs>');
+  });
+
   it('removes onclick event handler', () => {
     const maliciousSvg = '<svg><circle r="5" onclick="alert(\'XSS\')"/></svg>';
     const result = sanitizeSvg(maliciousSvg);
@@ -144,6 +160,7 @@ describe('sanitizeSvg', () => {
       '<svg><a href="data:text/html,<script>alert(\'XSS\')</script>"><circle r="5"/></a></svg>';
     const result = sanitizeSvg(maliciousSvg);
     expect(result).not.toContain('data:');
+    expect(result).not.toContain('alert');
     expect(result).toContain('href=""');
   });
 
@@ -152,6 +169,7 @@ describe('sanitizeSvg', () => {
       '<svg><image xlink:href="data:image/svg+xml,<script>alert(\'XSS\')</script>"/></svg>';
     const result = sanitizeSvg(maliciousSvg);
     expect(result).not.toContain('data:');
+    expect(result).not.toContain('alert');
     expect(result).toContain('xlink:href=""');
   });
 
@@ -160,6 +178,7 @@ describe('sanitizeSvg', () => {
       '<svg><image src="data:image/svg+xml,<script>alert(\'XSS\')</script>"/></svg>';
     const result = sanitizeSvg(maliciousSvg);
     expect(result).not.toContain('data:');
+    expect(result).not.toContain('alert');
     expect(result).toContain('src=""');
   });
 
@@ -227,6 +246,18 @@ describe('sanitizeSvg', () => {
   it('handles empty SVG', () => {
     const emptySvg = '<svg></svg>';
     expect(sanitizeSvg(emptySvg)).toBe(emptySvg);
+  });
+
+  it('throws when called with null', () => {
+    expect(() => sanitizeSvg(null as unknown as string)).toThrow();
+  });
+
+  it('throws when called with undefined', () => {
+    expect(() => sanitizeSvg(undefined as unknown as string)).toThrow();
+  });
+
+  it('returns empty string for empty input', () => {
+    expect(sanitizeSvg('')).toBe('');
   });
 
   it('preserves safe SVG attributes and elements', () => {

@@ -217,6 +217,10 @@ export function buildCsrfHeaders(
   const csrfToken = getClientCsrfToken();
   if (csrfToken) {
     headers[CSRF_HEADER_NAME] = csrfToken;
+  } else if (typeof document !== 'undefined') {
+    console.warn(
+      `[CSRF] Missing ${CSRF_HEADER_NAME} cookie. State-changing requests may be rejected with 403. Refresh the page to obtain a new token.`
+    );
   }
 
   return headers;

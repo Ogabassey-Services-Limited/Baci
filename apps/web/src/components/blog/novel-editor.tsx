@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { uploadFn } from '@/components/blog/novel-features/image-upload';
 import { Separator } from '@/components/ui/separator';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { defaultExtensions } from './novel-features/extensions';
 import { ProductExtension } from './novel-features/product-extension';
 import { ColorSelector } from './novel-features/selectors/color-selector';
@@ -104,19 +105,27 @@ export default function NovelEditor({
               // biome-ignore lint/suspicious/noExplicitAny: novel types mismatch
               handleImageDrop(view, event, moved, handleUpload as any),
             transformPastedHTML: (html) => {
-              // Strip color and background-color styles to force theme defaults
+              // Sanitize pasted HTML to prevent XSS
+              const clean = sanitizeHtml(html);
+              // Strip all color-related styles to force theme defaults
               const parser = new DOMParser();
-              const doc = parser.parseFromString(html, 'text/html');
+              const doc = parser.parseFromString(clean, 'text/html');
               doc.querySelectorAll('[style]').forEach((el) => {
                 const element = el as HTMLElement;
                 element.style.color = '';
                 element.style.backgroundColor = '';
+                element.style.background = '';
+                element.style.borderColor = '';
+                element.style.outlineColor = '';
+                element.style.textDecorationColor = '';
+                element.style.fill = '';
+                element.style.stroke = '';
               });
               return doc.body.innerHTML;
             },
             attributes: {
               class:
-                'prose dark:prose-invert prose-baci text-foreground focus:outline-none max-w-none min-h-[700px] pt-10 pb-24 px-8 sm:px-12 [&_*]:text-foreground',
+                'prose dark:prose-invert prose-baci text-foreground focus:outline-none max-w-none min-h-[700px] pt-10 pb-24 px-8 sm:px-12',
             } as Record<string, string>,
           }}
           onUpdate={({ editor }) => {
@@ -139,7 +148,9 @@ export default function NovelEditor({
                 appendTo: () => document.body, // Avoid clipping in containers
                 flip: true, // Allow flip if absolutely necessary
               }}
-              className="z-[9999] flex w-fit max-w-[90vw] overflow-hidden rounded-md border border-muted bg-background/80 backdrop-blur-md shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+              role="toolbar"
+              aria-label="Text formatting toolbar"
+              className="flex w-fit max-w-[90vw] overflow-hidden rounded-md border border-muted bg-background/80 backdrop-blur-md shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             >
               <Separator orientation="vertical" />
               <NodeSelector open={openNode} onOpenChange={setOpenNode} />

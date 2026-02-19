@@ -31,7 +31,9 @@ export function sanitizeHtml(html: string): string {
       .replace(
         /<\s*\/?\s*(?:script|iframe|object|embed|form|input)\b[^>]*>/gi,
         ''
-      );
+      )
+      // Normalize leftover whitespace before > from stripped attributes
+      .replace(/<(\w+)\s+>/g, '<$1>');
   }
   return result;
 }

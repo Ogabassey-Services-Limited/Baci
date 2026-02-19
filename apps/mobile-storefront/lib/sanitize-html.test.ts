@@ -3,8 +3,8 @@ import { sanitizeHtml } from './sanitize-html';
 describe('sanitizeHtml', () => {
   it('returns empty string for falsy input', () => {
     expect(sanitizeHtml('')).toBe('');
-    expect(sanitizeHtml(null as any)).toBe('');
-    expect(sanitizeHtml(undefined as any)).toBe('');
+    expect(sanitizeHtml(null as unknown as string)).toBe('');
+    expect(sanitizeHtml(undefined as unknown as string)).toBe('');
   });
 
   it('removes <script> tags with content', () => {
@@ -51,7 +51,7 @@ describe('sanitizeHtml', () => {
   it('removes inline event handlers like onclick', () => {
     const input =
       '<button onclick="alert(1)">Click</button><div onload="steal()">Content</div>';
-    const expected = '<button >Click</button><div >Content</div>';
+    const expected = '<button>Click</button><div>Content</div>';
     expect(sanitizeHtml(input)).toBe(expected);
   });
 
@@ -112,7 +112,7 @@ describe('sanitizeHtml', () => {
     // Verify safe content is preserved
     expect(result).toContain('<div>Safe start</div>');
     expect(result).toContain('<div>Safe end</div>');
-    expect(result).toContain('<p >Click me</p>');
+    expect(result).toContain('<p>Click me</p>');
     expect(result).toContain('<a href="void(0)">Link</a>');
   });
 });
