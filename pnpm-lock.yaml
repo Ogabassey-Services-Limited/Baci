@@ -676,8 +676,8 @@ importers:
         specifier: ^3.19.0
         version: 3.19.0(@tiptap/extensions@3.19.0(@tiptap/core@3.19.0(@tiptap/pm@3.19.0))(@tiptap/pm@3.19.0))
       '@tiptap/extension-subscript':
-        specifier: ^3.19.0
-        version: 3.19.0(@tiptap/core@3.19.0(@tiptap/pm@3.19.0))(@tiptap/pm@3.19.0)
+        specifier: ^3.20.0
+        version: 3.20.0(@tiptap/core@3.19.0(@tiptap/pm@3.19.0))(@tiptap/pm@3.19.0)
       '@tiptap/extension-superscript':
         specifier: ^3.19.0
         version: 3.19.0(@tiptap/core@3.19.0(@tiptap/pm@3.19.0))(@tiptap/pm@3.19.0)
@@ -1080,8 +1080,8 @@ packages:
   '@ag-ui/proto@0.0.43':
     resolution: {integrity: sha512-JcGjwMyxd5KiRTVi3158eByPXm9lKDRMIApYgSlzhXpBwyfpub8waGFnEWqjE3U+gA1LaZHiVMIfD5NCVYj4WQ==}
 
-  '@ai-sdk/anthropic@2.0.61':
-    resolution: {integrity: sha512-vJVXVlw+jvvh87ccUgEIJyQoO7+ERhkRyZ3e8NIhVQLHN+Xu5fGCm1/ewc8KCeoWFFh0GWDeN2MmB/cwCEYlbw==}
+  '@ai-sdk/anthropic@2.0.65':
+    resolution: {integrity: sha512-HqTPP59mLQ9U6jXQcx6EORkdc5FyZu34Sitkg6jNpyMYcRjStvfx4+NWq/qaR+OTwBFcccv8hvVii0CYkH2Lag==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -1092,8 +1092,20 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/gateway@2.0.42':
+    resolution: {integrity: sha512-cIG9UkWP9p8IpBDNu7lrG4x6y9g7U2grQzzK6VEr4sgyLfoGgyiKSypzJIir1HCBXnXy7wjP2z1/0+HkeXpmcw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/google@2.0.52':
     resolution: {integrity: sha512-2XUnGi3f7TV4ujoAhA+Fg3idUoG/+Y2xjCRg70a1/m0DH1KSQqYaCboJ1C19y6ZHGdf5KNT20eJdswP6TvrY2g==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/google@2.0.53':
+    resolution: {integrity: sha512-ccCxr5mrd3AC2CjLq4e1ST7+UiN5T2Pdmgi0XdWM3QohmNBwUQ/RBG7BvL+cB/ex/j6y64tkMmpYz9zBw/SEFQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -1104,8 +1116,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/openai@2.0.89':
-    resolution: {integrity: sha512-4+qWkBCbL9HPKbgrUO/F2uXZ8GqrYxHa8SWEYIzxEJ9zvWw3ISr3t1/27O1i8MGSym+PzEyHBT48EV4LAwWaEw==}
+  '@ai-sdk/openai@2.0.91':
+    resolution: {integrity: sha512-lozfRHfSTHg5/UliQjTDcOtISYGbEpt4FS/6QM5PcLmhdT0HmROllaBmG7+JaK+uqFtDXZGgMIpz3bqB9nzqCQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -1118,6 +1130,12 @@ packages:
 
   '@ai-sdk/provider-utils@3.0.20':
     resolution: {integrity: sha512-iXHVe0apM2zUEzauqJwqmpC37A5rihrStAih5Ks+JE32iTe4LZ58y17UGBjpQQTCRw9YxMeo2UFLxLpBluyvLQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/provider-utils@3.0.21':
+    resolution: {integrity: sha512-veuMwTLxsgh31Jjn0SnBABnM1f7ebHhRWcV2ZuY3hP3iJDCZ8VXBaYqcHXoOQDqUXTCas08sKQcHyWK+zl882Q==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -5824,8 +5842,8 @@ packages:
     peerDependencies:
       '@tiptap/core': ^3.19.0
 
-  '@tiptap/extension-subscript@3.19.0':
-    resolution: {integrity: sha512-RchUOSIDprlnuzmA/znZIBKMONIlCAXHuR6XkoNX2jFJ/9OHk/si+jEeY8jJfpPDpVqZ3KrwS/zJrqhU/pT+hQ==}
+  '@tiptap/extension-subscript@3.20.0':
+    resolution: {integrity: sha512-EX3GPey4Gp9W04zM2MsP5OfMnwGtQTh1Q0ZokJAdENHpyXbche9WjK31FTzwEmTSqlU5stSsH5KwhSYlDwm5rA==}
     peerDependencies:
       '@tiptap/core': ^3.19.0
       '@tiptap/pm': ^3.19.0
@@ -6843,6 +6861,12 @@ packages:
 
   ai@5.0.129:
     resolution: {integrity: sha512-IARdFetNTedDfqpByNMm9p0oHj7JS+SpOrbgLdQdyCiDe70Xk07wnKP4Lub1ckCrxkhAxY3yxOHllGEjbpXgpQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  ai@5.0.136:
+    resolution: {integrity: sha512-Aiar6eW8WXrVx0icbTdW+1L1aFDbg/sGz02fIsqNVecedVANUMT8Nh2HUXSSlbZNgCisbZLp0m9yKeW6YRGuEQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -9790,8 +9814,8 @@ packages:
     resolution: {integrity: sha512-eVkB/CYCCei7K2WElZW9yYQFWssG0DhaDhVvr7wy5jJ22K+ck8fWW0EsLpB0sITUTvPnc97+rrbQqIr5iqiy9Q==}
     engines: {node: '>=16.9.0'}
 
-  hono@4.11.9:
-    resolution: {integrity: sha512-Eaw2YTGM6WOxA6CXbckaEvslr2Ne4NFsKrvc0v97JD5awbmeBLO5w9Ho9L9kmKonrwF9RJlW6BxT1PVv/agBHQ==}
+  hono@4.12.0:
+    resolution: {integrity: sha512-NekXntS5M94pUfiVZ8oXXK/kkri+5WpX2/Ik+LVsl+uvw+soj4roXIsPqO+XsWrAw20mOzaXOZf3Q7PfB9A/IA==}
     engines: {node: '>=16.9.0'}
 
   hookable@5.5.3:
@@ -12953,6 +12977,10 @@ packages:
     resolution: {integrity: sha512-V/yCWTTF7VJ9hIh18Ugr2zhJMP01MY7c5kh4J870L7imm6/DIzBsNLTXzMwUA3yZ5b/KBqLx8Kp3uRvd7xSe3Q==}
     engines: {node: '>=0.6'}
 
+  qs@6.15.0:
+    resolution: {integrity: sha512-mAZTtNCeetKMH+pSjrb76NAM8V9a05I9aBZOHztWy/UqcJdQYNsf59vrRKWnojAT9Y+GbIvoTBC++CPHqpDBhQ==}
+    engines: {node: '>=0.6'}
+
   quansync@0.2.11:
     resolution: {integrity: sha512-AifT7QEbW9Nri4tAwR5M/uzpBuqfZf+zwaEM/QkzEjj7NBuFD2rBuy0K3dE+8wltbezDV7JMA0WfnCPYRSYbXA==}
 
@@ -15793,10 +15821,10 @@ snapshots:
       '@bufbuild/protobuf': 2.11.0
       '@protobuf-ts/protoc': 2.11.1
 
-  '@ai-sdk/anthropic@2.0.61(zod@3.25.76)':
+  '@ai-sdk/anthropic@2.0.65(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 2.0.1
-      '@ai-sdk/provider-utils': 3.0.20(zod@3.25.76)
+      '@ai-sdk/provider-utils': 3.0.21(zod@3.25.76)
       zod: 3.25.76
 
   '@ai-sdk/gateway@2.0.35(zod@3.25.76)':
@@ -15806,10 +15834,23 @@ snapshots:
       '@vercel/oidc': 3.1.0
       zod: 3.25.76
 
+  '@ai-sdk/gateway@2.0.42(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.1
+      '@ai-sdk/provider-utils': 3.0.21(zod@3.25.76)
+      '@vercel/oidc': 3.1.0
+      zod: 3.25.76
+
   '@ai-sdk/google@2.0.52(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 2.0.1
       '@ai-sdk/provider-utils': 3.0.20(zod@3.25.76)
+      zod: 3.25.76
+
+  '@ai-sdk/google@2.0.53(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.1
+      '@ai-sdk/provider-utils': 3.0.21(zod@3.25.76)
       zod: 3.25.76
 
   '@ai-sdk/mcp@0.0.8(zod@3.25.76)':
@@ -15819,10 +15860,10 @@ snapshots:
       pkce-challenge: 5.0.1
       zod: 3.25.76
 
-  '@ai-sdk/openai@2.0.89(zod@3.25.76)':
+  '@ai-sdk/openai@2.0.91(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 2.0.1
-      '@ai-sdk/provider-utils': 3.0.20(zod@3.25.76)
+      '@ai-sdk/provider-utils': 3.0.21(zod@3.25.76)
       zod: 3.25.76
 
   '@ai-sdk/provider-utils@3.0.17(zod@3.25.76)':
@@ -15833,6 +15874,13 @@ snapshots:
       zod: 3.25.76
 
   '@ai-sdk/provider-utils@3.0.20(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.1
+      '@standard-schema/spec': 1.1.0
+      eventsource-parser: 3.0.6
+      zod: 3.25.76
+
+  '@ai-sdk/provider-utils@3.0.21(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 2.0.1
       '@standard-schema/spec': 1.1.0
@@ -16791,12 +16839,12 @@ snapshots:
   '@copilotkitnext/agent@0.0.33(@cfworker/json-schema@4.1.1)':
     dependencies:
       '@ag-ui/client': 0.0.42
-      '@ai-sdk/anthropic': 2.0.61(zod@3.25.76)
-      '@ai-sdk/google': 2.0.52(zod@3.25.76)
+      '@ai-sdk/anthropic': 2.0.65(zod@3.25.76)
+      '@ai-sdk/google': 2.0.53(zod@3.25.76)
       '@ai-sdk/mcp': 0.0.8(zod@3.25.76)
-      '@ai-sdk/openai': 2.0.89(zod@3.25.76)
+      '@ai-sdk/openai': 2.0.91(zod@3.25.76)
       '@modelcontextprotocol/sdk': 1.26.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
-      ai: 5.0.129(zod@3.25.76)
+      ai: 5.0.136(zod@3.25.76)
       rxjs: 7.8.2
       zod: 3.25.76
     transitivePeerDependencies:
@@ -16850,7 +16898,7 @@ snapshots:
       '@copilotkitnext/shared': 0.0.33
       cors: 2.8.6
       express: 4.22.1
-      hono: 4.11.9
+      hono: 4.12.0
       openai: 5.23.2(ws@8.19.0)(zod@3.25.76)
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -21931,7 +21979,7 @@ snapshots:
     dependencies:
       '@tiptap/core': 3.19.0(@tiptap/pm@3.19.0)
 
-  '@tiptap/extension-subscript@3.19.0(@tiptap/core@3.19.0(@tiptap/pm@3.19.0))(@tiptap/pm@3.19.0)':
+  '@tiptap/extension-subscript@3.20.0(@tiptap/core@3.19.0(@tiptap/pm@3.19.0))(@tiptap/pm@3.19.0)':
     dependencies:
       '@tiptap/core': 3.19.0(@tiptap/pm@3.19.0)
       '@tiptap/pm': 3.19.0
@@ -23252,6 +23300,14 @@ snapshots:
       '@opentelemetry/api': 1.9.0
       zod: 3.25.76
 
+  ai@5.0.136(zod@3.25.76):
+    dependencies:
+      '@ai-sdk/gateway': 2.0.42(zod@3.25.76)
+      '@ai-sdk/provider': 2.0.1
+      '@ai-sdk/provider-utils': 3.0.21(zod@3.25.76)
+      '@opentelemetry/api': 1.9.0
+      zod: 3.25.76
+
   ajv-formats@3.0.1(ajv@8.17.1):
     optionalDependencies:
       ajv: 8.17.1
@@ -23730,7 +23786,7 @@ snapshots:
       http-errors: 2.0.1
       iconv-lite: 0.4.24
       on-finished: 2.4.1
-      qs: 6.14.2
+      qs: 6.15.0
       raw-body: 2.5.3
       type-is: 1.6.18
       unpipe: 1.0.0
@@ -26182,7 +26238,7 @@ snapshots:
       parseurl: 1.3.3
       path-to-regexp: 0.1.12
       proxy-addr: 2.0.7
-      qs: 6.14.2
+      qs: 6.15.0
       range-parser: 1.2.1
       safe-buffer: 5.2.1
       send: 0.19.2
@@ -27188,7 +27244,7 @@ snapshots:
 
   hono@4.11.8: {}
 
-  hono@4.11.9: {}
+  hono@4.12.0: {}
 
   hookable@5.5.3: {}
 
@@ -31435,6 +31491,10 @@ snapshots:
   qrcode-terminal@0.11.0: {}
 
   qs@6.14.2:
+    dependencies:
+      side-channel: 1.1.0
+
+  qs@6.15.0:
     dependencies:
       side-channel: 1.1.0
 
