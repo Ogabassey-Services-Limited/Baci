@@ -181,4 +181,38 @@ describe('TagInput', () => {
     expect(removeButton).toHaveClass('focus-visible:ring-ring');
     expect(removeButton).toHaveClass('focus-visible:ring-offset-2');
   });
+
+  it('manages focus after removing a tag', async () => {
+    render(
+      <TagInputHarness initial={['tag1', 'tag2']} onChangeSpy={mockOnChange} />
+    );
+    const removeTag1 = screen.getByRole('button', { name: /remove tag1/i });
+
+    // Focus the first remove button
+    removeTag1.focus();
+    expect(document.activeElement).toBe(removeTag1);
+
+    // Remove the first tag
+    fireEvent.click(removeTag1);
+
+    // Expect focus to move to the next tag's remove button (tag2)
+    // Since tag1 is removed, tag2 becomes the first tag
+    await waitFor(() => {
+      const removeTag2 = screen.getByRole('button', { name: /remove tag2/i });
+      expect(document.activeElement).toBe(removeTag2);
+    });
+  });
+
+  it('moves focus to input after removing the last tag', async () => {
+    render(<TagInputHarness initial={['tag1']} onChangeSpy={mockOnChange} />);
+    const removeTag1 = screen.getByRole('button', { name: /remove tag1/i });
+
+    removeTag1.focus();
+    fireEvent.click(removeTag1);
+
+    await waitFor(() => {
+      const input = screen.getByRole('textbox', { name: /tag input/i });
+      expect(document.activeElement).toBe(input);
+    });
+  });
 });
