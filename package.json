@@ -38,8 +38,8 @@
       "react-native-worklets": "0.8.0-nightly-20260109-6efa4b2a4",
       "hono": "^4.11.7",
       "h3": "^1.15.5",
-      "tar": "^7.5.7",
-      "fast-xml-parser": "^5.3.4",
+      "tar": "^7.5.8",
+      "fast-xml-parser": "^5.3.6",
       "diff": "^8.0.3",
       "react-native-screens": "4.19.0",
       "react-native-reanimated": "4.2.1",
@@ -63,7 +63,10 @@
       "@tiptap/extension-underline": "^3.19.0",
       "@tiptap/extension-youtube": "^3.19.0",
       "axios": "^1.13.5",
-      "langsmith": "^0.4.6"
+      "langsmith": "^0.4.6",
+      "@modelcontextprotocol/sdk>ajv": "^8.18.0",
+      "expo-build-properties>ajv": "^8.18.0",
+      "expo-dev-launcher>ajv": "^8.18.0"
     },
     "patchedDependencies": {
       "react-native-worklets": "patches/react-native-worklets.patch",
