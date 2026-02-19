@@ -590,6 +590,10 @@ describe('BlogClientPage', () => {
           '/api/merchant/blog/posts/post-2',
           expect.objectContaining({
             method: 'PATCH',
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json',
+              'x-csrf-token': 'test-csrf-token',
+            }),
             body: JSON.stringify({ status: 'published' }),
           })
         );
@@ -705,6 +709,10 @@ describe('BlogClientPage', () => {
           '/api/merchant/blog/posts/post-1',
           expect.objectContaining({
             method: 'PATCH',
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json',
+              'x-csrf-token': 'test-csrf-token',
+            }),
             body: JSON.stringify({ status: 'draft' }),
           })
         );
@@ -765,6 +773,10 @@ describe('BlogClientPage', () => {
           '/api/merchant/blog/posts/post-1',
           expect.objectContaining({
             method: 'PATCH',
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json',
+              'x-csrf-token': 'test-csrf-token',
+            }),
             body: JSON.stringify({ status: 'archived' }),
           })
         );

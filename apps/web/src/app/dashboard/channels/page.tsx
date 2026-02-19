@@ -9,7 +9,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { getClientCsrfToken } from '@/lib/csrf';
+import { buildCsrfHeaders } from '@/lib/csrf';
 
 interface JumiaIntegration {
   id: string;
@@ -103,7 +103,7 @@ export default function ChannelsPage() {
     try {
       const response = await fetch('/api/marketplace/jumia/connect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildCsrfHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           connectionType: 'self_authorization',
           refreshToken: refreshToken.trim(),
@@ -146,6 +146,7 @@ export default function ChannelsPage() {
         `/api/marketplace/jumia/connect?id=${integrationId}`,
         {
           method: 'DELETE',
+          headers: buildCsrfHeaders(),
         }
       );
 
@@ -168,15 +169,9 @@ export default function ChannelsPage() {
     setMessage(null);
 
     try {
-      const syncHeaders: HeadersInit = {};
-      const csrfToken = getClientCsrfToken();
-      if (csrfToken) {
-        syncHeaders['x-csrf-token'] = csrfToken;
-      }
-
       const response = await fetch('/api/marketplace/jumia/orders', {
         method: 'POST',
-        headers: syncHeaders,
+        headers: buildCsrfHeaders(),
       });
 
       const data = await response.json();
@@ -385,9 +380,20 @@ export default function ChannelsPage() {
 
       {/* Connect Modal */}
       {showConnectModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="connect-jumia-title"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setShowConnectModal(false);
+          }}
+        >
           <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2
+              id="connect-jumia-title"
+              className="text-xl font-bold text-gray-900 dark:text-white mb-4"
+            >
               Connect Jumia Account
             </h2>
 

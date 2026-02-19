@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -21,6 +22,10 @@ const JUMIA_REDIRECT_URI = `${process.env.NEXT_PUBLIC_SITE_URL}/api/marketplace/
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF validation
+    const csrf = await checkCsrfProtection(request);
+    if (!csrf.valid) return csrf.response!;
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -297,6 +302,10 @@ export async function GET(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
+    // CSRF validation
+    const csrf = await checkCsrfProtection(request);
+    if (!csrf.valid) return csrf.response!;
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 

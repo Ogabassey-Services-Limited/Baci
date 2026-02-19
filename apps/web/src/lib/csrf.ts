@@ -188,3 +188,36 @@ export function getClientCsrfToken(): string | null {
 
   return csrfCookie.split('=').slice(1).join('=');
 }
+
+/**
+ * Build headers with CSRF token for client-side fetch calls.
+ * Merges provided extra headers with the x-csrf-token header.
+ */
+export function buildCsrfHeaders(
+  extraHeaders?: HeadersInit
+): Record<string, string> {
+  const headers: Record<string, string> = {};
+
+  // Merge extra headers
+  if (extraHeaders) {
+    if (extraHeaders instanceof Headers) {
+      extraHeaders.forEach((value, key) => {
+        headers[key] = value;
+      });
+    } else if (Array.isArray(extraHeaders)) {
+      for (const [key, value] of extraHeaders) {
+        headers[key] = value;
+      }
+    } else {
+      Object.assign(headers, extraHeaders);
+    }
+  }
+
+  // Add CSRF token if available
+  const csrfToken = getClientCsrfToken();
+  if (csrfToken) {
+    headers[CSRF_HEADER_NAME] = csrfToken;
+  }
+
+  return headers;
+}
