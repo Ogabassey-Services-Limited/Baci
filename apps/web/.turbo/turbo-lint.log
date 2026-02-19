@@ -1,5 +1,0 @@
-
-> @baci/web@0.1.0 lint /app/apps/web
-> biome check .
-
-Checked 1050 files in 4s. No fixes applied.
