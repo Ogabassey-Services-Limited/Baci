@@ -1,0 +1,120 @@
+name: Android Production Release
+
+on:
+  push:
+    tags:
+      - 'v*-admin'
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: 'Version code override (leave empty for auto)'
+        required: false
+        type: string
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '17'
+  NODE_VERSION: '22'
+  WORKING_DIR: apps/mobile-admin
+
+jobs:
+  build-and-deploy:
+    name: Build AAB & Upload to Play Store
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ${{ env.WORKING_DIR }}/android/.gradle
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      - name: Cache Turborepo
+        uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-turbo-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Decode keystore
+        working-directory: ${{ env.WORKING_DIR }}
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+
+      - name: Set environment variables
+        run: |
+          echo "ANDROID_KEYSTORE_FILE=${{ github.workspace }}/${{ env.WORKING_DIR }}/android/app/release.keystore" >> $GITHUB_ENV
+          echo "ANDROID_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GITHUB_ENV
+          echo "EXPO_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" >> $GITHUB_ENV
+          echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}" >> $GITHUB_ENV
+          echo "EXPO_PUBLIC_WEB_API_URL=https://usebaci.com" >> $GITHUB_ENV
+          echo "EXPO_PUBLIC_API_URL=https://usebaci.com" >> $GITHUB_ENV
+          echo "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=${{ secrets.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}" >> $GITHUB_ENV
+          echo "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}" >> $GITHUB_ENV
+          echo "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}" >> $GITHUB_ENV
+          echo "EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID=${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}" >> $GITHUB_ENV
+
+      - name: Build Android App Bundle
+        working-directory: ${{ env.WORKING_DIR }}/android
+        run: ./gradlew app:bundleRelease -x lint -x test --configure-on-demand --build-cache --no-daemon
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-${{ github.sha }}
+          path: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 7
+
+      - name: Upload to Google Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.ogabassey.baci
+          releaseFiles: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
+          track: production
+          status: completed
+
+      - name: Clean up keystore
+        if: always()
+        run: rm -f ${{ env.WORKING_DIR }}/android/app/release.keystore
