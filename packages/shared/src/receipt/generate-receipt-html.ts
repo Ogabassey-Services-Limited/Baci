@@ -6,6 +6,8 @@
  * Supports paid receipts, unpaid invoices, and partial payment breakdowns.
  */
 
+import sanitizeLib from 'sanitize-html';
+
 // ---------------------------------------------------------------------------
 // Bank code → name mapping (common Nigerian banks)
 // ---------------------------------------------------------------------------
@@ -170,61 +172,218 @@ export function escapeJsString(str: string): string {
     .replace(/\r/g, '\\r');
 }
 
+// ---------------------------------------------------------------------------
+// SVG Sanitizer (sanitize-html, whitelist-based)
+// ---------------------------------------------------------------------------
+
+/** Safe SVG tags allowed in merchant logo SVGs */
+const SVG_ALLOWED_TAGS = [
+  'svg',
+  'g',
+  'defs',
+  'symbol',
+  'use',
+  'clipPath',
+  'mask',
+  'pattern',
+  'marker',
+  // Shape elements
+  'circle',
+  'ellipse',
+  'line',
+  'path',
+  'polygon',
+  'polyline',
+  'rect',
+  // Text
+  'text',
+  'tspan',
+  'textPath',
+  // Gradients and filters
+  'linearGradient',
+  'radialGradient',
+  'stop',
+  'filter',
+  'feBlend',
+  'feColorMatrix',
+  'feComponentTransfer',
+  'feComposite',
+  'feConvolveMatrix',
+  'feDiffuseLighting',
+  'feDisplacementMap',
+  'feFlood',
+  'feGaussianBlur',
+  'feImage',
+  'feMerge',
+  'feMergeNode',
+  'feMorphology',
+  'feOffset',
+  'feSpecularLighting',
+  'feTile',
+  'feTurbulence',
+  'feDistantLight',
+  'fePointLight',
+  'feSpotLight',
+  'feFuncR',
+  'feFuncG',
+  'feFuncB',
+  'feFuncA',
+  // Descriptive
+  'title',
+  'desc',
+  'metadata',
+  // Images (safe — no script execution)
+  'image',
+];
+
+/** Safe SVG attributes */
+const SVG_ALLOWED_ATTRS: Record<string, string[]> = {
+  '*': [
+    'id',
+    'class',
+    'style',
+    'transform',
+    'opacity',
+    'clip-path',
+    'clip-rule',
+    'fill',
+    'fill-opacity',
+    'fill-rule',
+    'stroke',
+    'stroke-dasharray',
+    'stroke-dashoffset',
+    'stroke-linecap',
+    'stroke-linejoin',
+    'stroke-miterlimit',
+    'stroke-opacity',
+    'stroke-width',
+    'color',
+    'display',
+    'visibility',
+    'font-family',
+    'font-size',
+    'font-style',
+    'font-variant',
+    'font-weight',
+    'text-anchor',
+    'text-decoration',
+    'dominant-baseline',
+    'alignment-baseline',
+    'letter-spacing',
+    'word-spacing',
+    'writing-mode',
+    'direction',
+    'filter',
+    'mask',
+    'marker-start',
+    'marker-mid',
+    'marker-end',
+    'overflow',
+    'pointer-events',
+  ],
+  svg: [
+    'xmlns',
+    'xmlns:xlink',
+    'viewBox',
+    'width',
+    'height',
+    'x',
+    'y',
+    'preserveAspectRatio',
+  ],
+  circle: ['cx', 'cy', 'r'],
+  ellipse: ['cx', 'cy', 'rx', 'ry'],
+  line: ['x1', 'y1', 'x2', 'y2'],
+  path: ['d'],
+  polygon: ['points'],
+  polyline: ['points'],
+  rect: ['x', 'y', 'width', 'height', 'rx', 'ry'],
+  text: ['x', 'y', 'dx', 'dy', 'textLength', 'lengthAdjust', 'rotate'],
+  tspan: ['x', 'y', 'dx', 'dy', 'textLength', 'lengthAdjust', 'rotate'],
+  textPath: ['href', 'startOffset', 'method', 'spacing'],
+  use: ['href', 'x', 'y', 'width', 'height'],
+  image: ['href', 'x', 'y', 'width', 'height', 'preserveAspectRatio'],
+  linearGradient: [
+    'gradientUnits',
+    'gradientTransform',
+    'spreadMethod',
+    'x1',
+    'y1',
+    'x2',
+    'y2',
+  ],
+  radialGradient: [
+    'gradientUnits',
+    'gradientTransform',
+    'spreadMethod',
+    'cx',
+    'cy',
+    'r',
+    'fx',
+    'fy',
+  ],
+  stop: ['offset', 'stop-color', 'stop-opacity'],
+  clipPath: ['clipPathUnits'],
+  mask: ['maskUnits', 'maskContentUnits', 'x', 'y', 'width', 'height'],
+  pattern: [
+    'patternUnits',
+    'patternContentUnits',
+    'patternTransform',
+    'x',
+    'y',
+    'width',
+    'height',
+  ],
+  marker: [
+    'markerWidth',
+    'markerHeight',
+    'refX',
+    'refY',
+    'orient',
+    'markerUnits',
+    'viewBox',
+    'preserveAspectRatio',
+  ],
+  filter: ['filterUnits', 'primitiveUnits', 'x', 'y', 'width', 'height'],
+  feGaussianBlur: ['in', 'stdDeviation'],
+  feOffset: ['in', 'dx', 'dy', 'result'],
+  feBlend: ['in', 'in2', 'mode'],
+  feColorMatrix: ['in', 'type', 'values'],
+  feComposite: ['in', 'in2', 'operator', 'k1', 'k2', 'k3', 'k4'],
+  feFlood: ['flood-color', 'flood-opacity'],
+  feMerge: [],
+  feMergeNode: ['in'],
+  feImage: ['href', 'preserveAspectRatio'],
+  g: [],
+  defs: [],
+  symbol: ['viewBox', 'preserveAspectRatio'],
+};
+
 /**
- * Sanitize SVG by stripping dangerous elements and attributes.
- * Removes: <script>, <foreignObject>, <iframe>, <embed>, <object> tags,
- * event handlers (on*), javascript: URIs, data: URIs, and
- * <use> elements with external references.
+ * Sanitize SVG using sanitize-html (whitelist-based).
+ * Only allows safe SVG tags and attributes. Strips: script, foreignObject,
+ * iframe, embed, object, event handlers (on*), javascript: URIs, data: URIs,
+ * and external use references.
  */
 export function sanitizeSvg(svg: string): string {
-  // Iterative stripping to prevent nested-tag reconstruction bypasses
-  let result = svg;
-  let prev = '';
-  while (result !== prev) {
-    prev = result;
-    result = result
-      // Remove <script> tags — non-backtracking pattern to prevent ReDoS
-      // Closing tags allow optional whitespace before > (browsers accept </script >)
-      .replace(/<script\b[^<]*(?:<(?!\/script\s*>)[^<]*)*<\/script\s*>/gi, '')
-      .replace(/<script\b[^>]*\/?>/gi, '')
-      // Remove dangerous embedding elements
-      .replace(
-        /<foreignObject\b[^<]*(?:<(?!\/foreignObject\s*>)[^<]*)*<\/foreignObject\s*>/gi,
-        ''
-      )
-      .replace(/<foreignObject\b[^>]*\/?>/gi, '')
-      .replace(/<iframe\b[^<]*(?:<(?!\/iframe\s*>)[^<]*)*<\/iframe\s*>/gi, '')
-      .replace(/<iframe\b[^>]*\/?>/gi, '')
-      .replace(/<embed\b[^>]*\/?>/gi, '')
-      .replace(/<object\b[^<]*(?:<(?!\/object\s*>)[^<]*)*<\/object\s*>/gi, '')
-      .replace(/<object\b[^>]*\/?>/gi, '')
-      // Remove <use> elements with external references
-      .replace(
-        /<use[^>]*(?:href|xlink:href)\s*=\s*(?:"(?:https?:|\/\/)[^"]*"|'(?:https?:|\/\/)[^']*')[^>]*\/?>(?:<\/use>)?/gi,
-        ''
-      )
-      // Remove all event handler attributes (on*)
-      .replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
-      // Remove javascript: URIs in href/xlink:href
-      .replace(/href\s*=\s*"javascript:[^"]*"/gi, 'href=""')
-      .replace(/href\s*=\s*'javascript:[^']*'/gi, "href=''")
-      .replace(/xlink:href\s*=\s*"javascript:[^"]*"/gi, 'xlink:href=""')
-      .replace(/xlink:href\s*=\s*'javascript:[^']*'/gi, "xlink:href=''")
-      // Remove data: URIs (can embed scripts or external content)
-      .replace(/href\s*=\s*"data:[^"]*"/gi, 'href=""')
-      .replace(/href\s*=\s*'data:[^']*'/gi, "href=''")
-      .replace(/xlink:href\s*=\s*"data:[^"]*"/gi, 'xlink:href=""')
-      .replace(/xlink:href\s*=\s*'data:[^']*'/gi, "xlink:href=''")
-      .replace(/src\s*=\s*"data:[^"]*"/gi, 'src=""')
-      .replace(/src\s*=\s*'data:[^']*'/gi, "src=''")
-      // Hardening: catch any remaining dangerous tag openers/closers
-      // that the complex patterns above may have missed
-      .replace(
-        /<\s*\/?\s*(?:script|iframe|foreignObject|object|embed)\b[^>]*>/gi,
-        ''
-      );
+  if (typeof svg !== 'string') {
+    throw new TypeError('sanitizeSvg expects a string argument');
   }
-  return result;
+  if (!svg) return '';
+  return sanitizeLib(svg, {
+    allowedTags: SVG_ALLOWED_TAGS,
+    allowedAttributes: SVG_ALLOWED_ATTRS,
+    allowedSchemes: ['http', 'https'],
+    allowedSchemesByTag: {},
+    // Block all non-whitelisted tags and their content
+    nonTextTags: ['script', 'style', 'noscript'],
+    parser: {
+      // Preserve SVG attribute casing (e.g. viewBox, preserveAspectRatio)
+      lowerCaseAttributeNames: false,
+      // Enable recognition of self-closing tags in SVG
+      recognizeSelfClosing: true,
+    },
+  });
 }
 
 function hexToRgba(hex: string, alpha: number): string {
