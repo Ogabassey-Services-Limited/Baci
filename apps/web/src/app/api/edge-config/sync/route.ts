@@ -1,5 +1,25 @@
 import { NextResponse } from 'next/server';
+import {
+  getEdgeConfigDomainKey,
+  getEdgeConfigSlugKey,
+} from '@/lib/edge-config-keys';
 import { createServiceClient } from '@/lib/supabase/service';
+
+function getEdgeConfigId(): string | null {
+  const directId = process.env.EDGE_CONFIG_ID?.trim();
+  if (directId) return directId;
+
+  const edgeConfigConnection = process.env.EDGE_CONFIG?.trim();
+  if (!edgeConfigConnection) return null;
+
+  try {
+    const parsed = new URL(edgeConfigConnection);
+    const id = parsed.pathname.split('/').filter(Boolean).at(-1);
+    return id?.startsWith('ecfg_') ? id : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * POST /api/edge-config/sync
@@ -7,17 +27,21 @@ import { createServiceClient } from '@/lib/supabase/service';
  * Syncs domain → merchant slug mappings to Vercel Edge Config.
  * Called by Supabase Database Webhook when domains table changes.
  *
- * Security: Protected by EDGE_CONFIG_SYNC_SECRET
+ * Security: Protected by EDGE_CONFIG_SYNC_SECRET (or VERCEL_API_TOKEN fallback)
  */
 export async function POST(request: Request) {
   try {
     // Verify authorization
-    const authHeader = request.headers.get('authorization');
-    const expectedToken = process.env.EDGE_CONFIG_SYNC_SECRET;
+    const authHeader = request.headers.get('authorization') ?? '';
+    const providedToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const allowedTokens = [
+      process.env.EDGE_CONFIG_SYNC_SECRET?.trim(),
+      process.env.VERCEL_API_TOKEN?.trim(),
+    ].filter((token): token is string => Boolean(token));
 
-    if (!expectedToken) {
+    if (allowedTokens.length === 0) {
       console.error(
-        '[Edge Config Sync] EDGE_CONFIG_SYNC_SECRET not configured'
+        '[Edge Config Sync] No authorization token configured (EDGE_CONFIG_SYNC_SECRET or VERCEL_API_TOKEN)'
       );
       return NextResponse.json(
         { error: 'Server misconfigured' },
@@ -25,15 +49,14 @@ export async function POST(request: Request) {
       );
     }
 
-    if (authHeader !== `Bearer ${expectedToken}`) {
+    if (!providedToken || !allowedTokens.includes(providedToken)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get Edge Config client
-    const edgeConfigId = process.env.EDGE_CONFIG_ID;
-    const edgeConfigToken = process.env.EDGE_CONFIG_TOKEN;
+    const edgeConfigId = getEdgeConfigId();
 
-    if (!edgeConfigId || !edgeConfigToken) {
+    if (!edgeConfigId) {
       return NextResponse.json(
         { error: 'Edge Config not configured' },
         { status: 500 }
@@ -44,7 +67,7 @@ export async function POST(request: Request) {
     const supabase = createServiceClient();
     const { data: domains, error } = await supabase
       .from('domains')
-      .select('domain, is_primary, merchants!inner(slug)')
+      .select('domain, is_primary, domain_type, merchants!inner(slug)')
       .eq('status', 'active');
 
     if (error) {
@@ -56,18 +79,22 @@ export async function POST(request: Request) {
     }
 
     // Build bidirectional mappings:
-    // 1. domain → slug  (for custom domain → merchant routing)
-    // 2. slug:X → domain (for subdomain → custom domain redirects, primary only)
+    // 1. domain_* → slug   (for custom domain → merchant routing)
+    // 2. slug_* → domain   (for subdomain → custom domain redirects, primary only)
     const domainToSlug: Record<string, string> = {};
     const slugToDomain: Record<string, string> = {};
     for (const record of domains || []) {
       // @ts-expect-error - Supabase nested select typing
       const slug = record.merchants?.slug as string | undefined;
-      if (record.domain && slug) {
-        domainToSlug[record.domain] = slug;
+      const isCustomOrPurchasedDomain =
+        record.domain_type === 'custom' || record.domain_type === 'purchased';
+      if (record.domain && slug && isCustomOrPurchasedDomain) {
+        const domainKey = getEdgeConfigDomainKey(record.domain);
+        domainToSlug[domainKey] = slug;
         // Only primary domains are used for redirects
         if (record.is_primary) {
-          slugToDomain[`slug:${slug}`] = record.domain;
+          const slugKey = getEdgeConfigSlugKey(slug);
+          slugToDomain[slugKey] = record.domain;
         }
       }
     }
@@ -81,8 +108,42 @@ export async function POST(request: Request) {
       );
     }
 
-    // Build items array for Edge Config update (both directions)
-    const items = [
+    const edgeConfigItemsUrl = `https://api.vercel.com/v1/edge-config/${edgeConfigId}/items`;
+    const vercelApiHeaders = {
+      Authorization: `Bearer ${vercelApiToken}`,
+      'Content-Type': 'application/json',
+    };
+
+    // Fetch existing keys so we can remove stale tenant mappings.
+    // Without this, deleted/updated domains could leave stale redirects.
+    const existingItemsResponse = await fetch(edgeConfigItemsUrl, {
+      method: 'GET',
+      headers: vercelApiHeaders,
+      cache: 'no-store',
+    });
+
+    if (!existingItemsResponse.ok) {
+      const errorText = await existingItemsResponse.text();
+      console.error(
+        '[Edge Config Sync] Failed to fetch existing Edge Config items:',
+        errorText
+      );
+      return NextResponse.json(
+        { error: 'Failed to fetch Edge Config items' },
+        { status: 500 }
+      );
+    }
+
+    const existingItems = (await existingItemsResponse.json()) as Array<{
+      key: string;
+    }>;
+
+    const desiredKeys = new Set([
+      ...Object.keys(domainToSlug),
+      ...Object.keys(slugToDomain),
+    ]);
+
+    const upsertItems = [
       ...Object.entries(domainToSlug).map(([domain, slug]) => ({
         operation: 'upsert' as const,
         key: domain,
@@ -95,17 +156,34 @@ export async function POST(request: Request) {
       })),
     ];
 
-    const updateResponse = await fetch(
-      `https://api.vercel.com/v1/edge-config/${edgeConfigId}/items`,
-      {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${vercelApiToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ items }),
-      }
-    );
+    const deleteItems = existingItems
+      .filter(
+        (item) =>
+          (item.key.startsWith('domain_') || item.key.startsWith('slug_')) &&
+          !desiredKeys.has(item.key)
+      )
+      .map((item) => ({
+        operation: 'delete' as const,
+        key: item.key,
+      }));
+
+    const items = [...upsertItems, ...deleteItems];
+
+    if (items.length === 0) {
+      return NextResponse.json({
+        success: true,
+        synced: 0,
+        domainMappings: 0,
+        redirectMappings: 0,
+        deletedMappings: 0,
+      });
+    }
+
+    const updateResponse = await fetch(edgeConfigItemsUrl, {
+      method: 'PATCH',
+      headers: vercelApiHeaders,
+      body: JSON.stringify({ items }),
+    });
 
     if (!updateResponse.ok) {
       const errorText = await updateResponse.text();
@@ -121,6 +199,7 @@ export async function POST(request: Request) {
       synced: items.length,
       domainMappings: Object.keys(domainToSlug).length,
       redirectMappings: Object.keys(slugToDomain).length,
+      deletedMappings: deleteItems.length,
     });
   } catch (error) {
     console.error('[Edge Config Sync] Unexpected error:', error);

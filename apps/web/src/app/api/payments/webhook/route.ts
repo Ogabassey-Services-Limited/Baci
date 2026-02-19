@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
+import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -809,10 +810,17 @@ export async function POST(request: NextRequest) {
             phonenumber: merchantData.phone || '+2348000000000',
           };
 
+          const normalizedDomain = metadata.domain.toLowerCase();
+          const purchaseYears = Number(metadata.years) || 1;
+          const tld =
+            typeof metadata.tld === 'string' && metadata.tld.startsWith('.')
+              ? metadata.tld
+              : `.${normalizedDomain.split('.').slice(-1)[0]}`;
+
           // 3. Register Domain via Go54
           const registration = await registerDomain({
-            domain: metadata.domain,
-            regperiod: Number(metadata.years) || 1,
+            domain: normalizedDomain,
+            regperiod: purchaseYears,
             contacts: {
               registrant: contactInfo,
               admin: contactInfo,
@@ -827,26 +835,103 @@ export async function POST(request: NextRequest) {
               domain: metadata.domain,
             });
 
-            // 4. Save to merchant_domains
-            const { error: domainDbError } = await supabase
-              .from('merchant_domains')
-              .insert({
-                merchant_id: transaction.merchant_id,
-                domain: metadata.domain,
-                status: 'active',
-                provider: 'go54',
-                expires_at: new Date(
-                  Date.now() + 31536000000 * (Number(metadata.years) || 1)
-                ).toISOString(),
-                auto_renew: true,
-                is_primary: false, // User sets primary manually later
-              });
+            // 4. Persist to domains table (used by proxy + storefront resolution)
+            const expiresAt = new Date();
+            expiresAt.setFullYear(expiresAt.getFullYear() + purchaseYears);
+            const nowIso = new Date().toISOString();
 
-            if (domainDbError) {
+            const { data: existingDomain, error: existingDomainError } =
+              await supabase
+                .from('domains')
+                .select('id, merchant_id')
+                .eq('domain', normalizedDomain)
+                .maybeSingle();
+
+            if (existingDomainError) {
               logger.error({
-                message: 'Failed to save merchant_domain record',
-                error: domainDbError,
+                message: 'Failed checking existing domain record',
+                error: existingDomainError,
               });
+            } else if (existingDomain) {
+              if (existingDomain.merchant_id !== transaction.merchant_id) {
+                logger.error({
+                  message:
+                    'Domain already belongs to a different merchant, skipping update',
+                  domain: normalizedDomain,
+                });
+              } else {
+                const { error: updateDomainError } = await supabase
+                  .from('domains')
+                  .update({
+                    status: 'active',
+                    ssl_status: 'active',
+                    verified_at: nowIso,
+                    expires_at: expiresAt.toISOString(),
+                    auto_renew: true,
+                    nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+                  })
+                  .eq('id', existingDomain.id);
+
+                if (updateDomainError) {
+                  logger.error({
+                    message: 'Failed to update existing domain record',
+                    error: updateDomainError,
+                    domain: normalizedDomain,
+                  });
+                } else {
+                  void triggerDomainEdgeConfigSync();
+                }
+              }
+            } else {
+              const { data: existingPrimaryDomain, error: primaryDomainError } =
+                await supabase
+                  .from('domains')
+                  .select('id')
+                  .eq('merchant_id', transaction.merchant_id)
+                  .in('domain_type', ['custom', 'purchased'])
+                  .eq('status', 'active')
+                  .eq('is_primary', true)
+                  .limit(1)
+                  .maybeSingle();
+
+              if (primaryDomainError) {
+                logger.error({
+                  message: 'Failed checking existing primary domain',
+                  error: primaryDomainError,
+                });
+              }
+
+              const shouldSetPrimary = !existingPrimaryDomain;
+
+              const { error: domainDbError } = await supabase
+                .from('domains')
+                .insert({
+                  merchant_id: transaction.merchant_id,
+                  domain: normalizedDomain,
+                  tld,
+                  domain_type: 'purchased',
+                  status: 'active',
+                  is_primary: shouldSetPrimary,
+                  verified_at: nowIso,
+                  ssl_status: 'active',
+                  go54_order_id: registration.orderId || null,
+                  purchase_price: transaction.amount,
+                  renewal_price: transaction.amount,
+                  registered_at: nowIso,
+                  expires_at: expiresAt.toISOString(),
+                  auto_renew: true,
+                  nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+                });
+
+              if (domainDbError) {
+                logger.error({
+                  message: 'Failed to save domain record',
+                  error: domainDbError,
+                  domain: normalizedDomain,
+                });
+              } else {
+                void triggerDomainEdgeConfigSync();
+              }
             }
           } else {
             logger.error({

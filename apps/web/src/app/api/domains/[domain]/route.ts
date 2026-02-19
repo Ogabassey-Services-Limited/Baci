@@ -4,6 +4,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   getDomainInformation,
   getDomainLock,
@@ -200,6 +201,8 @@ export async function DELETE(
       console.warn('Failed to remove domain from Vercel:', vercelError);
       // We do not fail the request because DB deletion succeeded
     }
+
+    void triggerDomainEdgeConfigSync();
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

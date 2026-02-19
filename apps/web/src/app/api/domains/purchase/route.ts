@@ -5,6 +5,7 @@ import {
   getDomainPricing,
 } from '@/config/domain-pricing';
 import { hasPermission } from '@/lib/api-auth';
+import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -223,6 +224,7 @@ export async function POST(request: Request) {
     if (existingDomain) {
       if (existingDomain.merchant_id === merchantId) {
         // Domain already registered to this merchant - likely handled by webhook
+        void triggerDomainEdgeConfigSync();
         return NextResponse.json({
           success: true,
           domain: existingDomain,
@@ -329,6 +331,29 @@ export async function POST(request: Request) {
       const expiresAt = new Date();
       expiresAt.setFullYear(expiresAt.getFullYear() + years);
 
+      // Promote purchased domain to primary only when merchant has no active
+      // primary custom/purchased domain yet.
+      const { data: existingPrimaryDomain, error: primaryDomainError } =
+        await supabase
+          .from('domains')
+          .select('id')
+          .eq('merchant_id', merchantId)
+          .in('domain_type', ['custom', 'purchased'])
+          .eq('status', 'active')
+          .eq('is_primary', true)
+          .limit(1)
+          .maybeSingle();
+
+      if (primaryDomainError) {
+        console.error(
+          'Failed checking existing primary domain:',
+          primaryDomainError
+        );
+      }
+
+      const shouldSetPrimary = !existingPrimaryDomain;
+      const nowIso = new Date().toISOString();
+
       // Store domain in database
       const { data: newDomain, error: insertError } = await supabase
         .from('domains')
@@ -338,22 +363,18 @@ export async function POST(request: Request) {
           tld,
           domain_type: 'purchased',
           status: 'active',
-          verified_at: new Date().toISOString(),
-          purchase_info: {
-            provider: 'go54',
-            order_id: registrationResult.orderId,
-            cost_price: priceCalculation.costPrice,
-            sell_price: priceCalculation.sellPrice,
-            profit: priceCalculation.profit,
-            registered_at: new Date().toISOString(),
-            expires_at: expiresAt.toISOString(),
-            auto_renew: true,
-            nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
-            years,
-          },
+          is_primary: shouldSetPrimary,
+          verified_at: nowIso,
+          ssl_status: 'active',
+          go54_order_id: registrationResult.orderId || null,
+          purchase_price: priceCalculation.sellPrice,
+          renewal_price: priceCalculation.sellPrice,
+          registered_at: nowIso,
+          expires_at: expiresAt.toISOString(),
+          auto_renew: true,
           nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
         })
-        .select()
+        .select('id, domain, status, is_primary')
         .single();
 
       if (insertError) {
@@ -376,6 +397,8 @@ export async function POST(request: Request) {
           },
         })
         .eq('id', payment.id);
+
+      void triggerDomainEdgeConfigSync();
 
       return NextResponse.json({
         success: true,
