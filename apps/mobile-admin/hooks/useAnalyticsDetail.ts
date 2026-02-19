@@ -309,7 +309,7 @@ export function useAnalyticsDetail({
             if (bucketIndex >= 0 && bucketIndex < comparisonData?.length) {
               const revenue = (item.price || 0) * (item.quantity || 1);
               const cost = (product.cost_price || 0) * (item.quantity || 1);
-              comparisonData?.[bucketIndex].value += revenue - cost;
+              comparisonData[bucketIndex].value += revenue - cost;
             }
           });
         }
