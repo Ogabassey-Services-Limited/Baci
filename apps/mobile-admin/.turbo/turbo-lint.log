@@ -19,9 +19,3 @@ npm warn Unknown env config "shamefully-hoist". This will stop working in the ne
   52:9  warning  The 'fetchDomains' function makes the dependencies of useEffect Hook (at line 80) change on every render. To fix this, wrap the definition of 'fetchDomains' in its own useCallback() Hook  react-hooks/exhaustive-deps
 
 ✖ 4 problems (0 errors, 4 warnings)
-
-npm notice
-npm notice New minor version of npm available! 11.7.0 -> 11.10.0
-npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.10.0
-npm notice To update run: npm install -g npm@11.10.0
-npm notice
