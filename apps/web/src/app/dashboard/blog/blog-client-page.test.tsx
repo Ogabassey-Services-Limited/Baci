@@ -72,6 +72,10 @@ vi.mock('./actions', () => ({
   getPreviewUrl: vi.fn(),
 }));
 
+vi.mock('@/lib/csrf', () => ({
+  getClientCsrfToken: vi.fn(() => 'test-csrf-token'),
+}));
+
 import { useMerchantFeatures } from '@/hooks/use-merchant-features';
 // Import mocked modules
 import { useToast } from '@/hooks/use-toast';
@@ -456,7 +460,10 @@ describe('BlogClientPage', () => {
       // API should be called
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/merchant/blog/posts/post-1',
-        { method: 'DELETE' }
+        {
+          method: 'DELETE',
+          headers: { 'x-csrf-token': 'test-csrf-token' },
+        }
       );
 
       // Success toast

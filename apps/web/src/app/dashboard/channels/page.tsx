@@ -9,6 +9,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { getClientCsrfToken } from '@/lib/csrf';
 
 interface JumiaIntegration {
   id: string;
@@ -167,8 +168,15 @@ export default function ChannelsPage() {
     setMessage(null);
 
     try {
+      const syncHeaders: HeadersInit = {};
+      const csrfToken = getClientCsrfToken();
+      if (csrfToken) {
+        syncHeaders['x-csrf-token'] = csrfToken;
+      }
+
       const response = await fetch('/api/marketplace/jumia/orders', {
         method: 'POST',
+        headers: syncHeaders,
       });
 
       const data = await response.json();
