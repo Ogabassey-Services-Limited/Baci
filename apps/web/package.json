@@ -162,7 +162,7 @@
     "baseline-browser-mapping": "^2.9.19",
     "change-case": "^5.4.4",
     "critical": "^7.2.1",
-    "eslint": "^9.39.2",
+    "eslint": "^10.0.0",
     "eslint-config-next": "^16.1.6",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsx-a11y": "^6.10.2",

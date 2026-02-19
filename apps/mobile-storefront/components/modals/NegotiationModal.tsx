@@ -130,8 +130,8 @@ export const NegotiationModal: React.FC = () => {
       }
 
       // Rejection Logic - Determine Counter Offer
-      let counterDiscount = 0;
-      let replyMessage = '';
+      let counterDiscount: number;
+      let replyMessage: string;
 
       if (attemptCount === 0) {
         counterDiscount = 0.02;
