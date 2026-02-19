@@ -181,4 +181,42 @@ describe('TagInput', () => {
     expect(removeButton).toHaveClass('focus-visible:ring-ring');
     expect(removeButton).toHaveClass('focus-visible:ring-offset-2');
   });
+
+  it('moves focus to the next available tag after deletion via button', async () => {
+    render(
+      <TagInputHarness
+        initial={['tag1', 'tag2', 'tag3']}
+        onChangeSpy={mockOnChange}
+      />
+    );
+
+    // Delete the middle tag "tag2"
+    const removeTag2 = screen.getByRole('button', { name: /remove tag2/i });
+    removeTag2.focus(); // Simulate user focusing first
+    fireEvent.click(removeTag2);
+
+    expect(mockOnChange).toHaveBeenCalledWith(['tag1', 'tag3']);
+
+    // "tag2" is gone. Index was 1. New value length is 2. Target index 1.
+    // So "tag3" (now at index 1) should be focused.
+    await waitFor(() => {
+      const removeTag3 = screen.getByRole('button', { name: /remove tag3/i });
+      expect(document.activeElement).toBe(removeTag3);
+    });
+  });
+
+  it('moves focus to the input when the last tag is deleted via button', async () => {
+    render(<TagInputHarness initial={['tag1']} onChangeSpy={mockOnChange} />);
+
+    const removeTag1 = screen.getByRole('button', { name: /remove tag1/i });
+    removeTag1.focus();
+    fireEvent.click(removeTag1);
+
+    expect(mockOnChange).toHaveBeenCalledWith([]);
+
+    await waitFor(() => {
+      const input = screen.getByRole('textbox', { name: /tag input/i });
+      expect(document.activeElement).toBe(input);
+    });
+  });
 });

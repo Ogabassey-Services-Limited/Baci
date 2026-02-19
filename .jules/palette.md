@@ -12,3 +12,8 @@
 
 **Learning:** `framer-motion` hooks like `useReducedMotion` may return complex objects (MotionValue) instead of simple booleans depending on the version, which can lead to always-true conditionals if not handled correctly.
 **Action:** Prefer native `window.matchMedia` hooks for simple boolean checks to avoid dependency quirks and ensure reliable accessibility compliance.
+
+## 2026-02-18 - Focus Management in Deletable Lists
+
+**Learning:** Removing items from a list (like `TagInput`) causes focus loss to the `body` if not managed, forcing keyboard users to re-navigate the entire page.
+**Action:** Use a `useEffect` and `useRef` to track the removed index and programmatically restore focus to the nearest remaining item or the input field.

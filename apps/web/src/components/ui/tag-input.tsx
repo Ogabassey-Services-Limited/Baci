@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, X } from 'lucide-react';
-import { type KeyboardEvent, useState } from 'react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,10 @@ export function TagInput({
 }: TagInputProps) {
   const [inputValue, setInputValue] = useState('');
   const [announcement, setAnnouncement] = useState('');
+  const [removedIndex, setRemovedIndex] = useState<number | null>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Flash announcement pattern: ensures screen reader re-announces identical sequential messages
   const flashAnnouncement = (msg: string) => {
@@ -34,11 +38,30 @@ export function TagInput({
     });
   };
 
+  // Manage focus when a tag is removed via the delete button
+  useEffect(() => {
+    if (removedIndex === null) return;
+
+    if (value.length === 0) {
+      // If no tags remain, focus the input
+      inputRef.current?.focus();
+    } else {
+      // Focus the next available tag (or the last one if we deleted the last)
+      const targetIndex = Math.min(removedIndex, value.length - 1);
+      const button = containerRef.current?.querySelector<HTMLButtonElement>(
+        `button[data-index="${targetIndex}"]`
+      );
+      button?.focus();
+    }
+    setRemovedIndex(null);
+  }, [value.length, removedIndex]);
+
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       addTag();
     } else if (e.key === 'Backspace' && !inputValue && value.length > 0) {
+      // Don't set removedIndex here, as focus should remain on input
       removeTag(value.length - 1);
     }
   };
@@ -70,7 +93,7 @@ export function TagInput({
   };
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div ref={containerRef} className={cn('space-y-2', className)}>
       {/* Screen reader announcements */}
       <output className="sr-only" aria-live="polite" aria-atomic="true">
         {announcement}
@@ -78,6 +101,7 @@ export function TagInput({
 
       <div className="flex gap-2">
         <Input
+          ref={inputRef}
           type="text"
           placeholder={value.length > 0 ? '' : placeholder}
           value={inputValue}
@@ -113,9 +137,11 @@ export function TagInput({
               {tag}
               <button
                 type="button"
+                data-index={index}
                 className="ml-2 hover:bg-destructive/20 rounded-full p-0.5 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 onClick={(e) => {
                   e.stopPropagation();
+                  setRemovedIndex(index);
                   removeTag(index);
                 }}
                 aria-label={`Remove ${tag}`}
