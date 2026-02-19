@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { describe, expect, it, vi } from 'vitest';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { proxy } from './proxy';
+
+// Mock CSRF
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
+  generateCsrfToken: vi.fn().mockReturnValue('mock-csrf-token'),
+  CSRF_TOKEN_NAME: 'csrf-token',
+}));
 
 // Mock dependencies
 vi.mock('@/lib/supabase/middleware', () => ({
@@ -87,5 +95,51 @@ describe('Middleware Proxy', () => {
     // Verify it didn't redirect (which would happen if /api was in MAIN_APP_ROUTES)
     expect(res.status).not.toBe(307);
     expect(res.status).not.toBe(308);
+  });
+
+  it('should block API requests with invalid CSRF token', async () => {
+    // Mock CSRF check failure
+    vi.mocked(checkCsrfProtection).mockResolvedValueOnce({
+      valid: false,
+      response: new NextResponse('Forbidden', { status: 403 }),
+    });
+
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/api/mutation`, {
+      method: 'POST',
+    });
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    expect(res.status).toBe(403);
+  });
+
+  it('should set CSRF cookie if missing', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    // Check Set-Cookie header
+    const setCookie = res.headers.get('set-cookie');
+    expect(setCookie).toContain('csrf-token=mock-csrf-token');
+  });
+
+  it('should not set CSRF cookie if already present', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/`, {
+      headers: {
+        host: ROOT_DOMAIN,
+        cookie: 'csrf-token=existing-token',
+      },
+    });
+
+    const res = await proxy(req);
+
+    const setCookie = res.headers.get('set-cookie');
+    // If other cookies are set, ensure csrf-token is NOT among them
+    if (setCookie) {
+      expect(setCookie).not.toContain('csrf-token=mock-csrf-token');
+    } else {
+      expect(setCookie).toBeNull();
+    }
   });
 });

@@ -20,6 +20,11 @@ import {
   extractClickIdsFromUrl,
   generateClickIdCookies,
 } from '@/lib/ad-tracking-cookies';
+import {
+  CSRF_TOKEN_NAME,
+  checkCsrfProtection,
+  generateCsrfToken,
+} from '@/lib/csrf';
 import { getCustomDomainForSlug } from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { updateSession } from '@/lib/supabase/middleware';
@@ -331,6 +336,15 @@ export async function proxy(request: NextRequest) {
       );
     }
 
+    // ==== CSRF PROTECTION (Mutation Requests) ====
+    // Enforce CSRF protection for state-changing API requests
+    // (Rate limiting handles abuse, CSRF handles malicious cross-site requests)
+    const csrfResult = await checkCsrfProtection(request);
+    if (!csrfResult.valid) {
+      // biome-ignore lint/style/noNonNullAssertion: Checked by valid flag
+      return csrfResult.response!;
+    }
+
     // ==== INPUT VALIDATION (Mutation Requests) ====
     // Enforce Content-Type and body size limits at the edge
     const method = request.method;
@@ -486,7 +500,7 @@ export async function proxy(request: NextRequest) {
         routeType,
         isLocal,
         nonce, // Pass the pre-generated nonce
-        undefined,
+        request,
         hostname
       );
     }
@@ -500,7 +514,7 @@ export async function proxy(request: NextRequest) {
         routeType,
         isLocal,
         nonce,
-        undefined,
+        request,
         hostname
       );
     }
@@ -818,6 +832,20 @@ function applySecurityHeaders(
   // Capture ad click IDs from URL params (if request provided)
   if (request && routeType === 'storefront') {
     captureAdClickIds(request, response);
+  }
+
+  // ==== CSRF INITIALIZATION ====
+  // Ensure every client has a CSRF token cookie for future requests
+  // This enables double-submit cookie protection without requiring a separate API call
+  if (request && !request.cookies.has(CSRF_TOKEN_NAME)) {
+    const token = generateCsrfToken();
+    response.cookies.set(CSRF_TOKEN_NAME, token, {
+      httpOnly: false, // Must be accessible to JS for double-submit
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
   }
 
   // Apply Content Security Policy

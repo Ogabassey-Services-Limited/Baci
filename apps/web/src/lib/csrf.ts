@@ -3,7 +3,7 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 
-const CSRF_TOKEN_NAME = 'csrf-token';
+export const CSRF_TOKEN_NAME = 'csrf-token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
 const CSRF_SECRET_NAME = 'csrf-secret';
 
