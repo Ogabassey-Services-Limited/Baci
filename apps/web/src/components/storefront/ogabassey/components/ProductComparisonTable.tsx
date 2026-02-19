@@ -8,6 +8,22 @@ import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 import type { Product } from '../types';
 
+/** Minimal shape returned by the storefront products search API */
+interface SearchResultProduct {
+    id: string | number;
+    name: string;
+    slug?: string;
+    price: number;
+    image?: string;
+    imageLarge?: string;
+    description?: string;
+    rating?: number;
+    category?: string;
+    condition?: string;
+    brand?: string;
+    specifications?: { category: string; items: { label: string; value: string }[] }[];
+}
+
 interface ProductComparisonTableProps {
     mainProduct: Product;
     storeSlug?: string;
@@ -20,7 +36,7 @@ export function ProductComparisonTable({
     const [comparisonProducts, setComparisonProducts] = useState<Product[]>([]);
     const [isSearching, setIsSearching] = useState<number | null>(null); // Index of slot being searched
     const [query, setQuery] = useState('');
-    const [results, setResults] = useState<any[]>([]);
+    const [results, setResults] = useState<SearchResultProduct[]>([]);
     const [loading, setLoading] = useState(false);
     const merchantContext = useMerchantSafe();
     const basePath = merchantContext?.basePath || (storeSlug ? `/${storeSlug}` : '');
@@ -64,7 +80,7 @@ export function ProductComparisonTable({
                 const data = await res.json();
 
                 // Filter out main product and already added products
-                const filtered = (data.products || []).filter((p: any) =>
+                const filtered = (data.products || []).filter((p: SearchResultProduct) =>
                     String(p.id) !== String(mainProduct.id) &&
                     !comparisonProducts.some(cp => String(cp.id) === String(p.id))
                 );
@@ -81,22 +97,21 @@ export function ProductComparisonTable({
         return () => clearTimeout(timeout);
     }, [query, mainProduct.id, mainProduct.merchantId, comparisonProducts]);
 
-    const addProduct = (rawProduct: any) => {
-        // Basic transformation to required Product shape
+    const addProduct = (rawProduct: SearchResultProduct) => {
+        const heroImage = rawProduct.imageLarge || rawProduct.image || '';
         const product: Product = {
             id: rawProduct.id,
             name: rawProduct.name,
             slug: rawProduct.slug,
             price: new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(rawProduct.price),
             rawPrice: rawProduct.price,
-            image: rawProduct.imageLarge || rawProduct.image,
-            images: [rawProduct.imageLarge || rawProduct.image],
-            description: rawProduct.description,
+            image: heroImage,
+            images: [heroImage],
+            description: rawProduct.description || '',
             rating: rawProduct.rating || 0,
             category: rawProduct.category,
-            condition: rawProduct.condition || 'New',
+            condition: (rawProduct.condition || 'New') as Product['condition'],
             brand: rawProduct.brand,
-            // Map detailed specs
             detailedSpecs: rawProduct.specifications || [],
         };
 
@@ -118,7 +133,7 @@ export function ProductComparisonTable({
     const findSpecValue = (product: Product, category: string, label: string) => {
         const cat = product.detailedSpecs?.find(c => c.category === category);
         if (!cat) return '-';
-        const item = cat.items.find((i: any) => i.label === label);
+        const item = cat.items.find((i) => i.label === label);
         return item ? item.value : '-';
     };
 
@@ -134,11 +149,13 @@ export function ProductComparisonTable({
                                 Current
                             </span>
                         </div>
-                        <div className="w-24 h-24 mb-3 flex items-center justify-center">
-                            <img
+                        <div className="relative w-24 h-24 mb-3">
+                            <Image
                                 src={mainProduct.images?.[0] || mainProduct.image}
                                 alt={mainProduct.name}
-                                className="max-h-full max-w-full object-contain"
+                                fill
+                                sizes="96px"
+                                className="object-contain"
                             />
                         </div>
                         <h3 className="font-bold text-sm text-center line-clamp-2 mb-1">{mainProduct.name}</h3>
@@ -160,11 +177,13 @@ export function ProductComparisonTable({
                                         >
                                             <X size={16} />
                                         </button>
-                                        <div className="w-24 h-24 mb-3 flex items-center justify-center">
-                                            <img
+                                        <div className="relative w-24 h-24 mb-3">
+                                            <Image
                                                 src={product.images?.[0] || product.image}
                                                 alt={product.name}
-                                                className="max-h-full max-w-full object-contain mix-blend-multiply"
+                                                fill
+                                                sizes="96px"
+                                                className="object-contain mix-blend-multiply"
                                             />
                                         </div>
                                         <Link
@@ -293,7 +312,7 @@ export function ProductComparisonTable({
                             </div>
 
                             {/* Category Items */}
-                            {category.items.map((item: any, itemIdx: number) => (
+                            {category.items.map((item, itemIdx) => (
                                 <div key={itemIdx} className="grid grid-cols-4 min-h-[48px] divide-x divide-gray-100 hover:bg-gray-50/50 transition-colors">
                                     <div className="p-3 text-xs font-bold text-gray-500 flex items-center pl-6">
                                         {item.label}

@@ -10,6 +10,7 @@ import {
   generatePaymentReceiptText,
 } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
+import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
 import { purchaseInsuranceForPaidOrder } from '@/services/insurance';
@@ -106,7 +107,7 @@ export async function POST(
     // 2. Fetch Order & Items & Existing Transactions
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('*, order_items(*)')
+      .select(ORDER_WITH_ITEMS_QUERY)
       .eq('id', id)
       .eq('merchant_id', merchant.id)
       .single();

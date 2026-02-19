@@ -11,7 +11,12 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, StyleSheet, Text } from 'react-native';
+import {
+  AccessibilityInfo,
+  StyleSheet,
+  Text,
+  useColorScheme,
+} from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -19,7 +24,7 @@ import Animated, {
   SlideOutDown,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { RADIUS, SHADOWS } from '@/constants/Colors';
+import Colors, { RADIUS, SHADOWS } from '@/constants/Colors';
 
 export type ToastVariant = 'success' | 'error' | 'warning' | 'info';
 
@@ -32,35 +37,44 @@ interface ToastProps {
   position?: 'top' | 'bottom';
 }
 
-const VARIANT_CONFIG = {
-  success: {
-    icon: 'checkmark-circle' as const,
-    iconColor: '#10B981',
-    backgroundColor: '#111827',
-    textColor: '#FFFFFF',
-  },
-  error: {
-    icon: 'alert-circle' as const,
-    iconColor: '#EF4444',
-    // 2026 Critical Fix: Improve contrast ratio for WCAG AA compliance
-    // Previous: #FEF2F2 bg + #991B1B text = 2.8:1 (FAIL)
-    // Fixed: #111827 bg + #FECACA text = 12.2:1 (PASS)
-    backgroundColor: '#111827',
-    textColor: '#FECACA',
-  },
-  warning: {
-    icon: 'warning' as const,
-    iconColor: '#F59E0B',
-    backgroundColor: '#FFFBEB',
-    textColor: '#78350F',
-  },
-  info: {
-    icon: 'information-circle' as const,
-    iconColor: '#3B82F6',
-    backgroundColor: '#EFF6FF',
-    textColor: '#1E40AF',
-  },
+const VARIANT_ICONS: Record<ToastVariant, keyof typeof Ionicons.glyphMap> = {
+  success: 'checkmark-circle',
+  error: 'alert-circle',
+  warning: 'warning',
+  info: 'information-circle',
 };
+
+function getVariantColors(
+  variant: ToastVariant,
+  theme: (typeof Colors)['light']
+) {
+  switch (variant) {
+    case 'success':
+      return {
+        iconColor: theme.success,
+        backgroundColor: theme.foreground,
+        textColor: theme.background,
+      };
+    case 'error':
+      return {
+        iconColor: theme.error,
+        backgroundColor: theme.foreground,
+        textColor: theme.destructiveForeground,
+      };
+    case 'warning':
+      return {
+        iconColor: theme.warning,
+        backgroundColor: theme.card,
+        textColor: theme.foreground,
+      };
+    case 'info':
+      return {
+        iconColor: theme.tint,
+        backgroundColor: theme.card,
+        textColor: theme.foreground,
+      };
+  }
+}
 
 export function Toast({
   message,
@@ -71,8 +85,11 @@ export function Toast({
   position = 'bottom',
 }: ToastProps) {
   const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'light'];
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const config = VARIANT_CONFIG[variant];
+  const config = getVariantColors(variant, theme);
+  const icon = VARIANT_ICONS[variant];
   // M35 fix: Store onDismiss in a ref to avoid it being a dependency in useEffect.
   // When onDismiss is an inline function, it changes identity every render,
   // causing the useEffect to re-fire and potentially loop.
@@ -141,7 +158,7 @@ export function Toast({
       accessibilityLiveRegion="polite"
       accessibilityLabel={message}
     >
-      <Ionicons name={config.icon} size={20} color={config.iconColor} />
+      <Ionicons name={icon} size={20} color={config.iconColor} />
       <Text style={[styles.message, { color: config.textColor }]}>
         {message}
       </Text>
