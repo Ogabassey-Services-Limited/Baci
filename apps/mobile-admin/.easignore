@@ -1,0 +1,12 @@
+# Reduce EAS archive size (iOS builds still use EAS)
+.git
+node_modules
+android
+.turbo
+*.log
+docs
+.github
+.claude
+.pnpm-store
+apps/web
+apps/mobile-storefront
