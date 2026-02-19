@@ -24,11 +24,11 @@ export async function GET() {
       });
     }
 
-    // Test 1: Get bill types (tests authentication)
+    // Test 1: Get all billers (tests authentication + GET_BILLERS)
     console.log('Testing Kuda API connection...');
     const billTypes = await getBillTypes();
 
-    // Test 2: Get airtime providers
+    // Test 2: Get airtime providers (tests GET_BILLERS_BY_TYPE)
     const airtimeProviders = await getAirtimeProviders();
 
     return NextResponse.json({
@@ -36,7 +36,7 @@ export async function GET() {
       message: 'Kuda API connection successful!',
       data: {
         billTypesCount: billTypes.length,
-        billTypes: billTypes.slice(0, 5), // First 5 for brevity
+        billTypes: billTypes.slice(0, 5),
         airtimeProvidersCount: airtimeProviders.length,
         airtimeProviders: airtimeProviders,
       },

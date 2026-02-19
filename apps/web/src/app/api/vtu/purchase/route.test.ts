@@ -380,7 +380,8 @@ describe('POST /api/vtu/purchase', () => {
     expect(mockPurchaseAirtime).toHaveBeenCalledWith(
       '2348012345678',
       100,
-      'MTN'
+      'MTN',
+      'Test Shop'
     );
   });
 
@@ -414,7 +415,8 @@ describe('POST /api/vtu/purchase', () => {
       '2348012345678',
       'MTN-1GB',
       1000,
-      'MTN'
+      'MTN',
+      'Test Shop'
     );
   });
 
@@ -447,7 +449,8 @@ describe('POST /api/vtu/purchase', () => {
     expect(mockPurchaseBill).toHaveBeenCalledWith(
       'ikeja-electric-prepaid',
       '12345678901',
-      5000
+      5000,
+      'Test Shop'
     );
   });
 

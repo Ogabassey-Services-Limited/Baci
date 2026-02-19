@@ -1,7 +1,7 @@
 import {
   ActivityIndicator,
+  Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -17,6 +17,22 @@ interface BillerListProps {
   isLoading: boolean;
   emptyMessage?: string;
   errorMessage?: string;
+}
+
+function BillerInitial({
+  name,
+  colors,
+}: {
+  name: string;
+  colors: { textSecondary: string; border: string };
+}) {
+  return (
+    <View style={[styles.initialsCircle, { backgroundColor: colors.border }]}>
+      <Text style={[styles.initialsText, { color: colors.textSecondary }]}>
+        {name.charAt(0).toUpperCase()}
+      </Text>
+    </View>
+  );
 }
 
 export function BillerList({
@@ -60,57 +76,81 @@ export function BillerList({
   }
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.scrollContent}
-    >
+    <View style={styles.grid}>
       {billers.map((biller) => {
         const isSelected = selectedBillerId === biller.billerId;
         return (
           <Pressable
             key={biller.billerId}
             style={[
-              styles.billerChip,
+              styles.card,
               {
                 backgroundColor: isSelected ? BRAND.primary : colors.card,
                 borderColor: isSelected ? BRAND.primary : colors.border,
+                borderWidth: isSelected ? 2 : 1,
               },
             ]}
             onPress={() => onSelect(biller)}
           >
+            {biller.billerIconUrl ? (
+              <Image
+                source={{ uri: biller.billerIconUrl }}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            ) : (
+              <BillerInitial name={biller.billerName} colors={colors} />
+            )}
             <Text
               style={[
                 styles.billerName,
                 { color: isSelected ? '#FFF' : colors.text },
               ]}
-              numberOfLines={1}
+              numberOfLines={2}
             >
               {biller.billerName}
             </Text>
           </Pressable>
         );
       })}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    gap: 8,
-    paddingVertical: 4,
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  billerChip: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 10,
+  card: {
+    width: '48%',
+    padding: 16,
     borderRadius: 12,
-    borderWidth: 1,
-    minWidth: 100,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logo: {
+    width: 60,
+    height: 40,
+    marginBottom: 8,
+  },
+  initialsCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  initialsText: {
+    fontSize: 20,
+    fontWeight: '700',
   },
   billerName: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   centered: {
     padding: SPACING.lg,

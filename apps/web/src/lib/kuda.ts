@@ -19,13 +19,14 @@ export enum KudaServiceType {
   GET_TOKEN = 'GET_TOKEN',
 
   // Bill Services
-  GET_BILL_TYPES = 'GET_BILL_TYPES',
+  GET_BILLERS = 'GET_BILLERS',
   GET_BILLERS_BY_TYPE = 'GET_BILLERS_BY_TYPE',
   VERIFY_BILL_CUSTOMER = 'VERIFY_BILL_CUSTOMER',
   ADMIN_PURCHASE_BILL = 'ADMIN_PURCHASE_BILL',
   PURCHASE_BILL = 'PURCHASE_BILL',
   BILL_TSQ = 'BILL_TSQ', // Transaction status query
   ADMIN_GET_PURCHASED_BILLS = 'ADMIN_GET_PURCHASED_BILLS',
+  GET_PURCHASED_BILLS = 'GET_PURCHASED_BILLS',
 
   // Virtual Account Services
   ADMIN_CREATE_VIRTUAL_ACCOUNT = 'ADMIN_CREATE_VIRTUAL_ACCOUNT',
@@ -213,11 +214,20 @@ export async function kudaRequest<T = unknown>(
 
   const raw = await response.json();
 
-  // Normalize Kuda's mixed-case envelope (Status/status, Message/message, Data/data)
+  // Normalize Kuda's mixed-case envelope (Status/status, Message/message, Data/data).
+  // Some endpoints (e.g. VERIFY_BILL_CUSTOMER) return BOTH `data` and `Data` with
+  // different payloads — merge them so callers see all fields.
+  const lowerData = raw.data as Record<string, unknown> | undefined;
+  const upperData = raw.Data as Record<string, unknown> | undefined;
+  const mergedData =
+    lowerData && upperData
+      ? { ...lowerData, ...upperData }
+      : (lowerData ?? upperData);
+
   return {
     status: raw.status ?? raw.Status ?? false,
     message: raw.message ?? raw.Message ?? '',
-    data: raw.data ?? raw.Data,
+    data: mergedData as T | undefined,
   };
 }
 
@@ -226,31 +236,74 @@ export async function kudaRequest<T = unknown>(
 // ============================================
 
 /**
- * Get list of bill types (Airtime, Data, Electricity, etc.)
+ * Get all available billers across all categories.
+ *
+ * Uses GET_BILLERS service type. Kuda returns:
+ * { billers: [{ id, name, description, billerIconUrl, billTypeId, isActive }] }
+ * Note: GET_BILLERS uses camelCase (unlike GET_BILLERS_BY_TYPE which uses PascalCase).
  */
 export async function getBillTypes(): Promise<Biller[]> {
-  const response = await kudaRequest<{ Billers?: KudaRawBiller[] }>(
-    KudaServiceType.GET_BILL_TYPES
-  );
-  const rawBillers = response.data?.Billers || [];
-  return rawBillers.map((raw) => mapKudaBiller(raw, ''));
+  const response = await kudaRequest<{
+    billers?: Array<{
+      id: string;
+      name: string;
+      description: string;
+      billerIconUrl?: string;
+      billTypeId: string;
+      isActive?: boolean;
+    }>;
+  }>(KudaServiceType.GET_BILLERS);
+
+  const rawBillers = response.data?.billers || [];
+  return rawBillers.map((raw) => ({
+    billerId: raw.id,
+    billerName: raw.name,
+    billerType: raw.description,
+    categoryId: raw.billTypeId,
+    categoryName: '',
+    billerIconUrl: raw.billerIconUrl,
+  }));
 }
 
 /**
- * Get billers by type (e.g., all airtime providers).
+ * Get billers by type (e.g., all electricity providers).
  *
- * Kuda returns PascalCase fields: { Billers: [{ Id, Name, Description, ... }] }.
- * We normalize to our camelCase Biller interface.
+ * Kuda returns camelCase fields: { billers: [{ id, name, description, ... }] }.
+ * We normalize to our Biller interface.
  */
 export async function getBillersByType(
   billTypeName: string
 ): Promise<Biller[]> {
-  const response = await kudaRequest<{ Billers?: KudaRawBiller[] }>(
-    KudaServiceType.GET_BILLERS_BY_TYPE,
-    { BillTypeName: billTypeName }
-  );
-  const rawBillers = response.data?.Billers || [];
-  return rawBillers.map((raw) => mapKudaBiller(raw, billTypeName));
+  const response = await kudaRequest<{
+    billers?: Array<{
+      id: string;
+      name: string;
+      description: string;
+      billerIconUrl?: string;
+      billTypeId: string;
+    }>;
+    Billers?: KudaRawBiller[];
+  }>(KudaServiceType.GET_BILLERS_BY_TYPE, { BillTypeName: billTypeName });
+
+  // Handle both camelCase (production) and PascalCase (legacy/test) responses
+  const camelBillers = response.data?.billers;
+  if (camelBillers && camelBillers.length > 0) {
+    return camelBillers.map((raw) => ({
+      billerId: raw.id,
+      billerName: raw.name,
+      billerType: raw.description,
+      categoryId: raw.billTypeId,
+      categoryName: billTypeName,
+      billerIconUrl: raw.billerIconUrl,
+    }));
+  }
+
+  const pascalBillers = response.data?.Billers;
+  if (pascalBillers && pascalBillers.length > 0) {
+    return pascalBillers.map((raw) => mapKudaBiller(raw, billTypeName));
+  }
+
+  return [];
 }
 
 /**
@@ -305,12 +358,14 @@ export async function verifyBillCustomer(
 }
 
 /**
- * Purchase airtime using the primary (admin) account
+ * Purchase airtime using the primary (admin) account.
+ * @param customerName - Customer's name for the Kuda transaction record.
  */
 export async function purchaseAirtime(
   phoneNumber: string,
   amount: number,
-  networkProvider: NetworkProvider
+  networkProvider: NetworkProvider,
+  customerName: string = 'Customer'
 ): Promise<PurchaseResult> {
   const requestRef = generateRequestRef();
 
@@ -345,10 +400,11 @@ export async function purchaseAirtime(
     }>(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {
-        Amount: amount.toString(),
-        BillItemIdentifier: billItemIdentifier,
-        PhoneNumber: phoneNumber,
+        CustomerFirstName: customerName,
         CustomerIdentifier: phoneNumber,
+        PhoneNumber: phoneNumber,
+        BillItemIdentifier: billItemIdentifier,
+        Amount: (amount * 100).toString(), // Convert Naira to Kobo
       },
       requestRef
     );
@@ -377,13 +433,15 @@ export async function purchaseAirtime(
 }
 
 /**
- * Purchase data bundle
+ * Purchase data bundle.
+ * @param customerName - Customer's name for the Kuda transaction record.
  */
 export async function purchaseData(
   phoneNumber: string,
   dataPlanCode: string,
   amount: number,
-  networkProvider: NetworkProvider
+  networkProvider: NetworkProvider,
+  customerName: string = 'Customer'
 ): Promise<PurchaseResult> {
   const requestRef = generateRequestRef();
 
@@ -395,10 +453,11 @@ export async function purchaseData(
     }>(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {
-        Amount: amount.toString(),
-        BillItemIdentifier: dataPlanCode,
-        PhoneNumber: phoneNumber,
+        CustomerFirstName: customerName,
         CustomerIdentifier: phoneNumber,
+        PhoneNumber: phoneNumber,
+        BillItemIdentifier: dataPlanCode,
+        Amount: (amount * 100).toString(), // Convert Naira to Kobo
       },
       requestRef
     );
@@ -429,20 +488,28 @@ export async function purchaseData(
 /**
  * Check transaction status (BILL_TSQ).
  *
+ * Kuda docs: pass EITHER BillResponseReference OR BillRequestRef, not both.
+ * Prefer BillResponseReference when available.
+ *
  * Kuda returns: { finalStatus, transactionStatus, postingStatus, pin, ... }
  */
 export async function checkTransactionStatus(
-  billResponseReference: string,
-  billRequestRef: string
+  billResponseReference?: string,
+  billRequestRef?: string
 ): Promise<{ status: string; message: string }> {
+  if (!billResponseReference && !billRequestRef) {
+    return { status: 'failed', message: 'No reference provided' };
+  }
+
+  const data: Record<string, unknown> = billResponseReference
+    ? { BillResponseReference: billResponseReference }
+    : { BillRequestRef: billRequestRef };
+
   const response = await kudaRequest<{
     finalStatus?: string;
     transactionStatus?: number;
     postingStatus?: number;
-  }>(KudaServiceType.BILL_TSQ, {
-    BillResponseReference: billResponseReference,
-    BillRequestRef: billRequestRef,
-  });
+  }>(KudaServiceType.BILL_TSQ, data);
 
   return {
     status: response.data?.finalStatus || 'unknown',
