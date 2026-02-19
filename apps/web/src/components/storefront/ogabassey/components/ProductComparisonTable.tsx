@@ -129,16 +129,18 @@ export function ProductComparisonTable({
                 <div className="grid grid-cols-4 border-b border-gray-200 bg-gray-50/50">
                     {/* Main Product */}
                     <div className="col-start-2 p-4 flex flex-col items-center justify-end h-56 border-r border-gray-100 relative bg-white">
-                        <div className="absolute top-3 right-3">
+                        <div className="absolute top-3 right-3 z-10">
                             <span className="bg-red-600 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">
                                 Current
                             </span>
                         </div>
-                        <div className="w-24 h-24 mb-3 flex items-center justify-center">
-                            <img
-                                src={mainProduct.images?.[0] || mainProduct.image}
+                        <div className="w-24 h-24 mb-3 relative">
+                            <Image
+                                src={mainProduct.images?.[0] || mainProduct.image || '/placeholder.png'}
                                 alt={mainProduct.name}
-                                className="max-h-full max-w-full object-contain"
+                                fill
+                                className="object-contain"
+                                sizes="96px"
                             />
                         </div>
                         <h3 className="font-bold text-sm text-center line-clamp-2 mb-1">{mainProduct.name}</h3>
@@ -156,15 +158,17 @@ export function ProductComparisonTable({
                                     <>
                                         <button
                                             onClick={() => removeProduct(slotIdx)}
-                                            className="absolute top-3 right-3 text-gray-400 hover:text-red-600 transition-colors"
+                                            className="absolute top-3 right-3 text-gray-400 hover:text-red-600 transition-colors z-10"
                                         >
                                             <X size={16} />
                                         </button>
-                                        <div className="w-24 h-24 mb-3 flex items-center justify-center">
-                                            <img
-                                                src={product.images?.[0] || product.image}
+                                        <div className="w-24 h-24 mb-3 relative">
+                                            <Image
+                                                src={product.images?.[0] || product.image || '/placeholder.png'}
                                                 alt={product.name}
-                                                className="max-h-full max-w-full object-contain mix-blend-multiply"
+                                                fill
+                                                className="object-contain mix-blend-multiply"
+                                                sizes="96px"
                                             />
                                         </div>
                                         <Link
