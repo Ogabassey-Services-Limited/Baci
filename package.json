@@ -63,7 +63,8 @@
       "@tiptap/extension-underline": "^3.19.0",
       "@tiptap/extension-youtube": "^3.19.0",
       "axios": "^1.13.5",
-      "langsmith": "^0.4.6"
+      "langsmith": "^0.4.6",
+      "sharp": "0.33.5"
     },
     "patchedDependencies": {
       "react-native-worklets": "patches/react-native-worklets.patch",
