@@ -7,6 +7,7 @@ import {
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
 import { createGiglShipment } from '@/lib/gigl';
 import { logger } from '@/lib/logger';
+import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { giglProvider } from '@/lib/shipping/providers/gigl';
 import { createClient } from '@/lib/supabase/server';
@@ -202,7 +203,7 @@ export async function GET(request: NextRequest) {
     // Build query
     let query = supabase
       .from('orders')
-      .select('*, order_items(*)')
+      .select(ORDER_WITH_ITEMS_QUERY)
       .eq('merchant_id', merchant.id)
       .order('created_at', { ascending: false });
 

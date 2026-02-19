@@ -1,4 +1,4 @@
 
-> @baci/web@0.1.0 typecheck /Users/mac/Baci-app/apps/web
+> @baci/web@0.1.0 typecheck /app/apps/web
 > tsc --noEmit
 
