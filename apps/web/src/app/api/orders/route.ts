@@ -303,7 +303,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User mismatch' }, { status: 403 });
     }
 
-    const resolvedUserId = user?.id ?? user_id ?? null;
+    // SECURITY: Only use user_id from authenticated session.
+    // Do NOT trust user_id from body if user is unauthenticated (guest).
+    const resolvedUserId = user?.id || null;
 
     // Fetch merchant to verify it exists (include business_name, slug for email)
     const { data: merchant, error: merchantFetchError } = await supabase
