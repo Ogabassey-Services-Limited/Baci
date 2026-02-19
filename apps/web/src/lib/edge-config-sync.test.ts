@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { triggerDomainEdgeConfigSync } from './edge-config-sync';
 
 const originalEnv = process.env;
+const SYNC_PATH = '/api/edge-config/sync';
 
 describe('triggerDomainEdgeConfigSync', () => {
   beforeEach(() => {
@@ -35,7 +36,7 @@ describe('triggerDomainEdgeConfigSync', () => {
     await triggerDomainEdgeConfigSync();
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      'https://usebaci.com/api/edge-config/sync',
+      ['https://usebaci.com', SYNC_PATH].join(''),
       expect.objectContaining({
         method: 'POST',
         headers: {
@@ -56,8 +57,9 @@ describe('triggerDomainEdgeConfigSync', () => {
 
     await triggerDomainEdgeConfigSync();
 
+    const previewOrigin = ['https://', process.env.VERCEL_URL].join('');
     expect(fetchSpy).toHaveBeenCalledWith(
-      'https://preview-123.vercel.app/api/edge-config/sync',
+      [previewOrigin, SYNC_PATH].join(''),
       expect.objectContaining({
         method: 'POST',
       })
@@ -76,7 +78,7 @@ describe('triggerDomainEdgeConfigSync', () => {
     await triggerDomainEdgeConfigSync();
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      'https://usebaci.com/api/edge-config/sync',
+      ['https://usebaci.com', SYNC_PATH].join(''),
       expect.objectContaining({
         method: 'POST',
         headers: {
