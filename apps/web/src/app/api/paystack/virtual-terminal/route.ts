@@ -8,7 +8,11 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
-import { authenticateApiRequest } from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createVirtualTerminal } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
 
@@ -57,19 +61,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id, business_name')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+    const businessName = merchantContext.businessName;
 
     // Parse and validate request body
     const body = await request.json();
@@ -86,7 +92,7 @@ export async function POST(request: NextRequest) {
 
     // Create terminal via Paystack API
     const result = await createVirtualTerminal(
-      name || `${merchant.business_name} Account`,
+      name || `${businessName} Account`,
       destinations
     );
 
@@ -103,11 +109,11 @@ export async function POST(request: NextRequest) {
     const { data: savedTerminal, error: insertError } = await supabase
       .from('virtual_terminals')
       .insert({
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
         staff_id: staffId || null,
         branch_id: branchId || null,
         code: result.data.code,
-        name: name || `${merchant.business_name} Account`,
+        name: name || `${businessName} Account`,
         account_number: nubanMethod?.account_number || null,
         account_name: nubanMethod?.account_name || null,
         bank: nubanMethod?.bank || null,
@@ -135,14 +141,14 @@ export async function POST(request: NextRequest) {
     const { data: existingLegacy } = await supabase
       .from('merchants')
       .select('virtual_terminal_code')
-      .eq('id', merchant.id)
+      .eq('id', merchantId)
       .single();
 
     if (!existingLegacy?.virtual_terminal_code) {
       await supabase
         .from('merchants')
         .update({ virtual_terminal_code: result.data.code })
-        .eq('id', merchant.id);
+        .eq('id', merchantId);
     }
 
     return NextResponse.json({
@@ -150,7 +156,7 @@ export async function POST(request: NextRequest) {
       terminal: {
         id: savedTerminal?.id,
         code: result.data.code,
-        name: name || `${merchant.business_name} Terminal`,
+        name: name || `${businessName} Terminal`,
         accountNumber: nubanMethod?.account_number,
         accountName: nubanMethod?.account_name,
         bank: nubanMethod?.bank,
@@ -185,58 +191,22 @@ export async function GET(request: NextRequest) {
     const { user } = auth;
     const supabase = auth.supabase;
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
-      // Check if user is staff
-      const { data: staffMember } = await supabase
-        .from('staff_members')
-        .select('merchant_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .single();
-
-      if (!staffMember) {
-        return NextResponse.json(
-          { error: 'Merchant not found' },
-          { status: 404 }
-        );
-      }
-
-      // Staff member - get terminals for their merchant
-      const { data: terminals } = await supabase
-        .from('virtual_terminals')
-        .select(`
-          id,
-          code,
-          name,
-          account_number,
-          account_name,
-          bank,
-          payment_link,
-          active,
-          created_at,
-          staff_id,
-          staff_members (
-            id,
-            full_name
-          )
-        `)
-        .eq('merchant_id', staffMember.merchant_id)
-        .order('created_at', { ascending: false });
-
-      return NextResponse.json({
-        success: true,
-        terminals: terminals || [],
-      });
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
-    // Merchant owner - get all terminals
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
+    // Get all terminals for this merchant
     const { data: terminals } = await supabase
       .from('virtual_terminals')
       .select(`
@@ -255,7 +225,7 @@ export async function GET(request: NextRequest) {
           full_name
         )
       `)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
     return NextResponse.json({

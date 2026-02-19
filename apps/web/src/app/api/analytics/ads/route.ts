@@ -1,7 +1,12 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import type { AdTrackingData } from '@/lib/ad-tracking-cookies';
+import { hasPermission } from '@/lib/api-auth';
 import { cache, generateCacheKey } from '@/lib/cache';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -48,11 +53,24 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant with analytics config
+    // Resolve merchant context (supports both owners and staff members)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'analytics', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
+
+    // Fetch merchant analytics config columns by resolved merchant ID
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select(`
-        id,
         offline_conversions_enabled,
         facebook_pixel_id,
         facebook_capi_token,
@@ -63,7 +81,7 @@ export async function GET(request: Request) {
         snapchat_pixel_id,
         snapchat_capi_token
       `)
-      .eq('user_id', user.id)
+      .eq('id', merchantId)
       .single();
 
     if (merchantError || !merchant) {
@@ -76,7 +94,7 @@ export async function GET(request: Request) {
     // Generate cache key
     const cacheKey = generateCacheKey(
       'ad-analytics',
-      merchant.id,
+      merchantId,
       startDate.toISOString(),
       endDate.toISOString()
     );
@@ -91,7 +109,7 @@ export async function GET(request: Request) {
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
       .select('id, total, ad_tracking, created_at, payment_status')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('payment_status', 'paid')
       .gte('created_at', startDate.toISOString())
       .lte('created_at', endDate.toISOString());

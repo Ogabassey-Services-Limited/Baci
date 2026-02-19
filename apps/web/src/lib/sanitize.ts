@@ -131,3 +131,48 @@ export function sanitizeHtml(dirty: string): string {
     // Return clean HTML string (not DOM nodes)
   });
 }
+
+/**
+ * Sanitize HTML for RSS/Atom feeds.
+ *
+ * More restrictive than the general sanitizer — strips structural elements
+ * (div, span, table) that RSS readers handle poorly and removes classes/IDs.
+ * Ensures all links have rel="noopener noreferrer".
+ */
+export function sanitizeForFeed(dirty: string): string {
+  return sanitizeLib(dirty, {
+    allowedTags: [
+      'p',
+      'br',
+      'strong',
+      'em',
+      'u',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'ul',
+      'ol',
+      'li',
+      'blockquote',
+      'pre',
+      'code',
+      'a',
+      'img',
+    ],
+    allowedAttributes: {
+      a: ['href', 'title', 'rel'],
+      img: ['src', 'alt', 'title', 'width', 'height'],
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    allowProtocolRelative: false,
+    transformTags: {
+      a: (tagName, attribs) => ({
+        tagName,
+        attribs: { ...attribs, rel: 'noopener noreferrer' },
+      }),
+    },
+  });
+}

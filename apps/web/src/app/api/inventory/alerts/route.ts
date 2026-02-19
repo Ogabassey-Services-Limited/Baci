@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -25,18 +26,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'active';
@@ -54,7 +51,7 @@ export async function GET(request: NextRequest) {
           low_stock_threshold
         )
       `)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('status', status)
       .order('created_at', { ascending: false });
 
@@ -76,7 +73,7 @@ export async function GET(request: NextRequest) {
     const { data: typeCounts } = await supabase
       .from('inventory_alerts')
       .select('alert_type')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('status', 'active');
 
     const alertsByType: Record<string, number> = {};
@@ -112,18 +109,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     const body = await request.json();
     const { alertIds, action } = body;
@@ -159,7 +152,7 @@ export async function PATCH(request: NextRequest) {
       .from('inventory_alerts')
       .update(updates)
       .in('id', alertIds)
-      .eq('merchant_id', merchant.id);
+      .eq('merchant_id', merchantId);
 
     if (error) {
       console.error('Error updating alerts:', error);

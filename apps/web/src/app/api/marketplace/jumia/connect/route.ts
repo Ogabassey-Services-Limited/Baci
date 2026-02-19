@@ -6,8 +6,28 @@
 import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { getJumiaAuthUrl } from '@/lib/jumia/client';
 import { createClient } from '@/lib/supabase/server';
+
+const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [
+  z.object({
+    connectionType: z.literal('self_authorization'),
+    refreshToken: z.string().min(1, 'Refresh token is required'),
+    shopId: z.string().optional(),
+    shopName: z.string().optional(),
+    countryCode: z.string().length(2).optional(),
+  }),
+  z.object({
+    connectionType: z.literal('oauth'),
+  }),
+]);
 
 // For Self Authorization flow, only refresh token is needed
 // For OAuth flow, you'll need client_id/secret from Jumia partner dashboard
@@ -16,6 +36,15 @@ const JUMIA_REDIRECT_URI = `${process.env.NEXT_PUBLIC_SITE_URL}/api/marketplace/
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF validation
+    const csrf = await checkCsrfProtection(request);
+    if (!csrf.valid) {
+      return (
+        csrf.response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -41,20 +70,30 @@ export async function POST(request: NextRequest) {
     }
 
     // Get merchant for this user
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
-    const body = await request.json();
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
+    const rawBody = await request.json();
+    const parsed = _jumiaConnectSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const body = parsed.data;
 
     // Check connection type
     if (body.connectionType === 'self_authorization') {
@@ -62,19 +101,12 @@ export async function POST(request: NextRequest) {
       // This is for machine-to-machine connections
       const { refreshToken, shopId, shopName, countryCode } = body;
 
-      if (!refreshToken) {
-        return NextResponse.json(
-          { error: 'Refresh token is required for self authorization' },
-          { status: 400 }
-        );
-      }
-
       // Store the integration with refresh token
       const { data: integration, error: insertError } = await supabase
         .from('marketplace_integrations')
         .upsert(
           {
-            merchant_id: merchant.id,
+            merchant_id: merchantId,
             platform: 'jumia',
             shop_id: shopId || 'default',
             shop_name: shopName || 'My Jumia Shop',
@@ -87,7 +119,7 @@ export async function POST(request: NextRequest) {
             onConflict: 'merchant_id,platform,shop_id',
           }
         )
-        .select()
+        .select('id, shop_id, shop_name')
         .single();
 
       if (insertError) {
@@ -136,7 +168,7 @@ export async function POST(request: NextRequest) {
         maxAge: 60 * 10, // 10 minutes
       });
 
-      response.cookies.set('jumia_merchant_id', merchant.id, {
+      response.cookies.set('jumia_merchant_id', merchantId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
@@ -190,18 +222,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Get merchant for this user
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
 
     // Handle OAuth Redirect Flow
     if (connectionType === 'oauth') {
@@ -234,7 +268,7 @@ export async function GET(request: NextRequest) {
         maxAge: 60 * 10, // 10 minutes
       });
 
-      response.cookies.set('jumia_merchant_id', merchant.id, {
+      response.cookies.set('jumia_merchant_id', merchantId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
@@ -259,7 +293,7 @@ export async function GET(request: NextRequest) {
       .select(
         'id, shop_id, shop_name, country_code, is_active, last_sync_at, sync_error'
       )
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('platform', 'jumia')
       .eq('is_active', true);
 
@@ -288,6 +322,15 @@ export async function GET(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
+    // CSRF validation
+    const csrf = await checkCsrfProtection(request);
+    if (!csrf.valid) {
+      return (
+        csrf.response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -300,6 +343,20 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Get merchant for this user (prevents IDOR)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const deleteAccess = toUserAccess(merchantContext);
+    if (!hasPermission(deleteAccess, 'integrations', 'manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const integrationId = searchParams.get('id');
 
@@ -310,17 +367,27 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Deactivate the integration (soft delete for audit trail)
-    const { error: updateError } = await supabase
+    // Deactivate the integration scoped to merchant (soft delete for audit trail)
+    const { data: updated, error: updateError } = await supabase
       .from('marketplace_integrations')
       .update({ is_active: false })
-      .eq('id', integrationId);
+      .eq('id', integrationId)
+      .eq('merchant_id', merchantContext.merchantId)
+      .select('id')
+      .maybeSingle();
 
     if (updateError) {
       console.error('[Jumia Disconnect] Error:', updateError);
       return NextResponse.json(
         { error: 'Failed to disconnect' },
         { status: 500 }
+      );
+    }
+
+    if (!updated) {
+      return NextResponse.json(
+        { error: 'Integration not found' },
+        { status: 404 }
       );
     }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, X } from 'lucide-react';
-import { type KeyboardEvent, useState } from 'react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,10 @@ export function TagInput({
 }: TagInputProps) {
   const [inputValue, setInputValue] = useState('');
   const [announcement, setAnnouncement] = useState('');
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  const tagListRef = useRef<HTMLDivElement>(null);
+  const lastRemovedIndexRef = useRef<number | null>(null);
 
   // Flash announcement pattern: ensures screen reader re-announces identical sequential messages
   const flashAnnouncement = (msg: string) => {
@@ -65,9 +69,29 @@ export function TagInput({
 
   const removeTag = (index: number) => {
     const removedTag = value[index];
+    lastRemovedIndexRef.current = index;
     onChange(value.filter((_, i) => i !== index));
     flashAnnouncement(`Tag "${removedTag}" removed`);
   };
+
+  // After a tag is removed, move focus to the nearest tag or back to the input
+  useEffect(() => {
+    if (lastRemovedIndexRef.current === null) return;
+
+    if (value.length === 0) {
+      inputRef.current?.focus();
+    } else {
+      const targetIndex = Math.min(
+        lastRemovedIndexRef.current,
+        value.length - 1
+      );
+      const button = tagListRef.current?.querySelector<HTMLButtonElement>(
+        `button[data-tag-remove="${targetIndex}"]`
+      );
+      button?.focus();
+    }
+    lastRemovedIndexRef.current = null;
+  }, [value]);
 
   return (
     <div className={cn('space-y-2', className)}>
@@ -78,6 +102,7 @@ export function TagInput({
 
       <div className="flex gap-2">
         <Input
+          ref={inputRef}
           type="text"
           placeholder={value.length > 0 ? '' : placeholder}
           value={inputValue}
@@ -102,7 +127,7 @@ export function TagInput({
       </div>
 
       {value.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2" ref={tagListRef}>
           {value.map((tag, index) => (
             <Badge
               // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
@@ -113,6 +138,7 @@ export function TagInput({
               {tag}
               <button
                 type="button"
+                data-tag-remove={index}
                 className="ml-2 hover:bg-destructive/20 rounded-full p-0.5 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 onClick={(e) => {
                   e.stopPropagation();

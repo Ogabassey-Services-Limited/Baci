@@ -1,6 +1,11 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 
 const BUCKET_NAME = 'media';
 
@@ -48,19 +53,22 @@ export async function GET(_request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Get merchant
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!merchant) {
+  // Get merchant (supports both owners and staff)
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+  if (!merchantContext) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }
 
+  // Permission check
+  const access = toUserAccess(merchantContext);
+  if (!hasPermission(access, 'products', 'view')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const merchantId = merchantContext.merchantId;
+
   // List files from Supabase Storage
-  const merchantFolder = `${merchant.id}/`;
+  const merchantFolder = `${merchantId}/`;
 
   const { data: files, error: listError } = await supabase.storage
     .from(BUCKET_NAME)
@@ -121,16 +129,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Get merchant
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!merchant) {
+  // Get merchant (supports both owners and staff)
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+  if (!merchantContext) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }
+
+  // Permission check
+  const access = toUserAccess(merchantContext);
+  if (!hasPermission(access, 'products', 'create')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const merchantId = merchantContext.merchantId;
 
   try {
     const formData = await request.formData();
@@ -179,7 +190,7 @@ export async function POST(request: Request) {
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(7);
     const fileName = `${timestamp}-${randomStr}.${ext}`;
-    const filePath = `${merchant.id}/${fileName}`;
+    const filePath = `${merchantId}/${fileName}`;
 
     // Convert File to ArrayBuffer then to Buffer
     const arrayBuffer = await file.arrayBuffer();
@@ -253,19 +264,22 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Get merchant
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!merchant) {
+  // Get merchant (supports both owners and staff)
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+  if (!merchantContext) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }
 
+  // Permission check
+  const access = toUserAccess(merchantContext);
+  if (!hasPermission(access, 'products', 'delete')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const merchantId = merchantContext.merchantId;
+
   // Delete file from Supabase Storage
-  const filePath = `${merchant.id}/${fileId}`;
+  const filePath = `${merchantId}/${fileId}`;
 
   const { error } = await supabase.storage.from(BUCKET_NAME).remove([filePath]);
 

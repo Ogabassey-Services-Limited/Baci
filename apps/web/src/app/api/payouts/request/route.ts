@@ -1,6 +1,11 @@
 import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { type Currency, sendPayout } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
@@ -38,18 +43,29 @@ export async function POST(_request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id, business_name, email')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    // Permission check
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
+    // Fetch merchant email (not returned by getMerchantForApiRequest)
+    const { data: merchantDetails } = await supabase
+      .from('merchants')
+      .select('email')
+      .eq('id', merchantId)
+      .single();
 
     // Check minimum payout amount
     const minimumAmount = MINIMUM_PAYOUT_AMOUNTS[currency as Currency] || 5000;
@@ -62,7 +78,7 @@ export async function POST(_request: Request) {
 
     // Get merchant balance
     const { data: balance } = await supabase.rpc('get_merchant_balance', {
-      merchant_id_param: merchant.id,
+      merchant_id_param: merchantId,
       currency_param: currency,
     });
 
@@ -86,7 +102,7 @@ export async function POST(_request: Request) {
     const { data: payoutRequest, error: payoutError } = await supabase
       .from('payout_requests')
       .insert({
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
         amount,
         currency,
         status: 'processing',
@@ -117,14 +133,14 @@ export async function POST(_request: Request) {
           type: 'bank_account',
           amount,
           currency: currency as Currency,
-          narration: `Withdrawal for ${merchant.business_name}`,
+          narration: `Withdrawal for ${merchantContext.businessName}`,
           bank_account: {
             bank: bank_code,
             account: account_number,
           },
           customer: {
-            name: merchant.business_name,
-            email: merchant.email,
+            name: merchantContext.businessName ?? '',
+            email: merchantDetails?.email ?? '',
           },
         },
       });
@@ -157,7 +173,7 @@ export async function POST(_request: Request) {
       const { error: transactionError } = await supabase
         .from('transactions')
         .insert({
-          merchant_id: merchant.id,
+          merchant_id: merchantId,
           transaction_type: 'payout',
           amount,
           currency,
@@ -236,24 +252,28 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
+    // Permission check
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'settings', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
     // Fetch payout requests
     const { data: payouts, error: payoutsError } = await supabase
       .from('payout_requests')
       .select('*')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
     if (payoutsError) {

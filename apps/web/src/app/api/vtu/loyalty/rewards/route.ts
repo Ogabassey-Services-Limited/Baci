@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 // GET /api/vtu/loyalty/rewards - Get available airtime rewards for a merchant
@@ -18,7 +23,7 @@ export async function GET(request: Request) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Get merchant
+    // Get merchant by slug (public lookup, no auth required)
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id')
@@ -83,19 +88,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'marketing', 'create')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
 
     const body = await request.json();
     const {
@@ -135,7 +141,7 @@ export async function POST(request: Request) {
     const { data: reward, error } = await supabase
       .from('loyalty_airtime_rewards')
       .insert({
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
         name,
         description,
         points_required,
@@ -183,19 +189,20 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'marketing', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
 
     const body = await request.json();
     const { id, ...updates } = body;
@@ -231,7 +238,7 @@ export async function PATCH(request: Request) {
       .from('loyalty_airtime_rewards')
       .update(sanitizedUpdates)
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .select()
       .single();
 
@@ -270,19 +277,20 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'marketing', 'delete')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -299,7 +307,7 @@ export async function DELETE(request: Request) {
       .from('loyalty_airtime_rewards')
       .delete()
       .eq('id', id)
-      .eq('merchant_id', merchant.id);
+      .eq('merchant_id', merchantId);
 
     if (error) {
       console.error('Failed to delete airtime reward:', error);

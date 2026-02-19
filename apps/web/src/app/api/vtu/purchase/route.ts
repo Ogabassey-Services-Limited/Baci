@@ -200,12 +200,14 @@ export async function POST(request: Request) {
 
     // Execute the purchase
     let result: PurchaseResult;
+    const customerFirstName = merchant.business_name || 'Customer';
 
     if (type === 'airtime') {
       result = await purchaseAirtime(
         formattedPhone,
         amount,
-        networkProvider as NetworkProvider
+        networkProvider as NetworkProvider,
+        customerFirstName
       );
     } else if (type === 'data') {
       if (!dataPlanCode) {
@@ -218,14 +220,16 @@ export async function POST(request: Request) {
         formattedPhone,
         dataPlanCode,
         amount,
-        networkProvider as NetworkProvider
+        networkProvider as NetworkProvider,
+        customerFirstName
       );
     } else if (billItemIdentifier && customerIdentifier) {
       // Electricity, Cable TV, Betting — generic bill purchase
       result = await purchaseBill(
         billItemIdentifier,
         customerIdentifier,
-        amount
+        amount,
+        customerFirstName
       );
     } else {
       return NextResponse.json(

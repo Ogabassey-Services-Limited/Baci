@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import {
   createSubaccount,
   resolveAccountNumber,
@@ -61,14 +66,30 @@ export async function POST(request: NextRequest) {
     }
     const accountDetails = accountResult.data;
 
-    // 2. Get Merchant Details
-    const { data: merchant } = await supabase
+    // 2. Get Merchant Context (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
+    // Fetch additional merchant fields needed for subaccount operations
+    const { data: merchantDetails } = await supabase
       .from('merchants')
-      .select('id, paystack_subaccount_code, business_name, email, phone')
-      .eq('user_id', user.id)
+      .select('paystack_subaccount_code, business_name, email, phone')
+      .eq('id', merchantId)
       .single();
 
-    if (!merchant) {
+    if (!merchantDetails) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
@@ -76,12 +97,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Create or Update Subaccount in Paystack
-    let subaccountCode = merchant.paystack_subaccount_code;
+    let subaccountCode = merchantDetails.paystack_subaccount_code;
 
     if (subaccountCode) {
       // Update existing subaccount
       const updateResult = await updateSubaccount(subaccountCode, {
-        business_name: businessName || merchant.business_name,
+        business_name: businessName || merchantDetails.business_name,
         settlement_bank: bankCode,
         account_number: accountNumber,
         percentage_charge: PLATFORM_COMMISSION_PERCENTAGE,
@@ -95,13 +116,13 @@ export async function POST(request: NextRequest) {
     } else {
       // Create new subaccount
       const subaccountResult = await createSubaccount({
-        business_name: businessName || merchant.business_name,
+        business_name: businessName || merchantDetails.business_name,
         settlement_bank: bankCode,
         account_number: accountNumber,
         percentage_charge: PLATFORM_COMMISSION_PERCENTAGE,
-        primary_contact_email: merchant.email || user.email,
+        primary_contact_email: merchantDetails.email || user.email,
         primary_contact_name: accountDetails.account_name, // Use bank account name as contact
-        primary_contact_phone: merchant.phone || undefined,
+        primary_contact_phone: merchantDetails.phone || undefined,
       });
       if (!subaccountResult.success) {
         return NextResponse.json(
@@ -123,7 +144,7 @@ export async function POST(request: NextRequest) {
         payout_mode: payoutMode || 'manual',
         auto_payout_enabled: autoPayoutEnabled || false,
       })
-      .eq('id', merchant.id);
+      .eq('id', merchantId);
 
     if (updateError) {
       throw updateError;

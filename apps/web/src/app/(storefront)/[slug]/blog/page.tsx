@@ -119,8 +119,11 @@ const getMerchantAndPosts = cache(
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  const { page } = await searchParams;
+  const currentPage = Number.parseInt(page || '1', 10);
   const data = await getMerchantAndPosts(slug);
 
   if (!data) {
@@ -132,7 +135,20 @@ export async function generateMetadata({
   const host = headersList.get('host') || `${data.merchant.slug}.usebaci.com`;
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
-  const canonicalUrl = `${baseUrl}/blog`;
+  const canonicalUrl =
+    currentPage > 1 ? `${baseUrl}/blog?page=${currentPage}` : `${baseUrl}/blog`;
+
+  // Build prev/next pagination links
+  const prevUrl =
+    currentPage > 2
+      ? `${baseUrl}/blog?page=${currentPage - 1}`
+      : currentPage === 2
+        ? `${baseUrl}/blog`
+        : undefined;
+  const nextUrl =
+    currentPage < data.totalPages
+      ? `${baseUrl}/blog?page=${currentPage + 1}`
+      : undefined;
 
   return {
     title: `Blog | ${data.merchant.business_name}`,
@@ -153,6 +169,10 @@ export async function generateMetadata({
       types: {
         'application/rss+xml': `${baseUrl}/api/blog/feed/${slug}`,
       },
+    },
+    other: {
+      ...(prevUrl ? { 'link-prev': prevUrl } : {}),
+      ...(nextUrl ? { 'link-next': nextUrl } : {}),
     },
     robots: {
       index: true,

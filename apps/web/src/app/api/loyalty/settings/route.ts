@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -21,23 +26,25 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'marketing', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
     const { data: settings, error } = await supabase
       .from('loyalty_settings')
       .select('*')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (error && error.code !== 'PGRST116') {
@@ -109,18 +116,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'marketing', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
 
     const body = await request.json();
     const {
@@ -143,7 +152,7 @@ export async function POST(request: NextRequest) {
       .from('loyalty_settings')
       .upsert(
         {
-          merchant_id: merchant.id,
+          merchant_id: merchantId,
           enabled: enabled ?? false,
           program_name: program_name ?? 'Rewards Program',
           points_per_currency: points_per_currency ?? 1.0,

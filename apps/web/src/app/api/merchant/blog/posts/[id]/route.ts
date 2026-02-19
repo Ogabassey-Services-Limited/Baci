@@ -4,38 +4,13 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { calculateReadingTime, calculateWordCount } from '@/lib/blog-utils';
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
-
-/**
- * Blog Post API - Single Post Operations
- *
- * GET: Get a single blog post by ID
- * PATCH: Update a blog post
- * DELETE: Delete a blog post
- */
-
-// Validation schema for updating a blog post
 import { blogPostSchema } from '@/lib/validations/blog';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
-}
-
-// Calculate reading time based on word count
-function calculateReadingTime(content: string): number {
-  const wordsPerMinute = 200;
-  const wordCount = calculateWordCount(content);
-  return Math.ceil(wordCount / wordsPerMinute);
-}
-
-// Calculate word count
-function calculateWordCount(content: string): number {
-  if (!content) return 0;
-
-  // Strip HTML tags if content is HTML
-  const textOnly = content.replace(/<[^>]*>/g, ' ');
-  return textOnly.split(/\s+/).filter(Boolean).length;
 }
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {

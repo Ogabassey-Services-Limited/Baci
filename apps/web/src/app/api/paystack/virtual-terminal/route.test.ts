@@ -53,11 +53,14 @@ describe('POST /api/paystack/virtual-terminal', () => {
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'u-1' } },
     });
+    const eqChain: Record<string, unknown> = {
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    eqChain.eq = vi.fn().mockReturnValue(eqChain);
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: null, error: null }),
-        }),
+        eq: vi.fn().mockReturnValue(eqChain),
       }),
     });
 
@@ -72,6 +75,10 @@ describe('POST /api/paystack/virtual-terminal', () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { id: 'm-1', business_name: 'Test Biz' },
+            error: null,
+          }),
           single: vi.fn().mockResolvedValue({
             data: { id: 'm-1', business_name: 'Test Biz' },
             error: null,
@@ -106,6 +113,14 @@ describe('POST /api/paystack/virtual-terminal', () => {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'm-1',
+                  business_name: 'Test Biz',
+                  virtual_terminal_code: null,
+                },
+                error: null,
+              }),
               single: vi.fn().mockResolvedValue({
                 data: {
                   id: 'm-1',
@@ -122,7 +137,12 @@ describe('POST /api/paystack/virtual-terminal', () => {
       if (table === 'virtual_terminals') {
         return { insert: insertMock };
       }
-      return { select: vi.fn().mockReturnThis() };
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
     });
 
     vi.mocked(createVirtualTerminal).mockResolvedValue({
@@ -155,6 +175,10 @@ describe('POST /api/paystack/virtual-terminal', () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { id: 'm-1', business_name: 'Test Biz' },
+            error: null,
+          }),
           single: vi.fn().mockResolvedValue({
             data: { id: 'm-1', business_name: 'Test Biz' },
             error: null,
@@ -196,6 +220,10 @@ describe('GET /api/paystack/virtual-terminal', () => {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: 'm-1' },
+                error: null,
+              }),
               single: vi.fn().mockResolvedValue({
                 data: { id: 'm-1' },
                 error: null,
@@ -223,7 +251,12 @@ describe('GET /api/paystack/virtual-terminal', () => {
           }),
         };
       }
-      return { select: vi.fn().mockReturnThis() };
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
     });
 
     const res = await GET(createGetRequest());

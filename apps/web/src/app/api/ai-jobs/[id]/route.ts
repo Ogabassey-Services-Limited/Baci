@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 // GET /api/ai-jobs/[id] - Get a specific AI job
@@ -21,26 +26,29 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant record
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant record (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
+    // Permission check
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'products', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
     // Get job (ensure it belongs to this merchant)
     const { data: job, error: jobError } = await supabase
       .from('ai_jobs')
       .select('*')
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (jobError || !job) {

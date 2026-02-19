@@ -102,10 +102,6 @@ export interface Product {
 export interface ProductVariant {
   id: string;
   name?: string;
-  storage?: string;
-  ram?: string;
-  color?: string;
-  platform?: string; // Phase 4 Extension
   price_override?: number;
   price_modifier?: number;
   stock?: number;

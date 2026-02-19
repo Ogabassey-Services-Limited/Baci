@@ -177,20 +177,28 @@ export function escapeJsString(str: string): string {
  * <use> elements with external references.
  */
 export function sanitizeSvg(svg: string): string {
-  return (
-    svg
-      // Remove <script> tags (self-closing and paired)
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<script[\s\S]*?\/>/gi, '')
+  // Iterative stripping to prevent nested-tag reconstruction bypasses
+  let result = svg;
+  let prev = '';
+  while (result !== prev) {
+    prev = result;
+    result = result
+      // Remove <script> tags — non-backtracking pattern to prevent ReDoS
+      // Closing tags allow optional whitespace before > (browsers accept </script >)
+      .replace(/<script\b[^<]*(?:<(?!\/script\s*>)[^<]*)*<\/script\s*>/gi, '')
+      .replace(/<script\b[^>]*\/?>/gi, '')
       // Remove dangerous embedding elements
-      .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, '')
-      .replace(/<foreignObject[\s\S]*?\/>/gi, '')
-      .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
-      .replace(/<iframe[\s\S]*?\/>/gi, '')
-      .replace(/<embed[\s\S]*?\/?>(?:<\/embed>)?/gi, '')
-      .replace(/<object[\s\S]*?<\/object>/gi, '')
-      .replace(/<object[\s\S]*?\/>/gi, '')
-      // Remove <use> elements with external references (href="http://..." or xlink:href="http://...")
+      .replace(
+        /<foreignObject\b[^<]*(?:<(?!\/foreignObject\s*>)[^<]*)*<\/foreignObject\s*>/gi,
+        ''
+      )
+      .replace(/<foreignObject\b[^>]*\/?>/gi, '')
+      .replace(/<iframe\b[^<]*(?:<(?!\/iframe\s*>)[^<]*)*<\/iframe\s*>/gi, '')
+      .replace(/<iframe\b[^>]*\/?>/gi, '')
+      .replace(/<embed\b[^>]*\/?>/gi, '')
+      .replace(/<object\b[^<]*(?:<(?!\/object\s*>)[^<]*)*<\/object\s*>/gi, '')
+      .replace(/<object\b[^>]*\/?>/gi, '')
+      // Remove <use> elements with external references
       .replace(
         /<use[^>]*(?:href|xlink:href)\s*=\s*(?:"(?:https?:|\/\/)[^"]*"|'(?:https?:|\/\/)[^']*')[^>]*\/?>(?:<\/use>)?/gi,
         ''
@@ -209,7 +217,14 @@ export function sanitizeSvg(svg: string): string {
       .replace(/xlink:href\s*=\s*'data:[^']*'/gi, "xlink:href=''")
       .replace(/src\s*=\s*"data:[^"]*"/gi, 'src=""')
       .replace(/src\s*=\s*'data:[^']*'/gi, "src=''")
-  );
+      // Hardening: catch any remaining dangerous tag openers/closers
+      // that the complex patterns above may have missed
+      .replace(
+        /<\s*\/?\s*(?:script|iframe|foreignObject|object|embed)\b[^>]*>/gi,
+        ''
+      );
+  }
+  return result;
 }
 
 function hexToRgba(hex: string, alpha: number): string {

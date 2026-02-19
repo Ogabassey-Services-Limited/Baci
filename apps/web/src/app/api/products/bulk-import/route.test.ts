@@ -50,6 +50,12 @@ vi.mock('@/lib/supabase/server', () => ({
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn(() =>
+                Promise.resolve({
+                  data: merchant,
+                  error: null,
+                })
+              ),
               single: vi.fn(() =>
                 Promise.resolve({
                   data: merchant,
@@ -65,7 +71,12 @@ vi.mock('@/lib/supabase/server', () => ({
           insert: vi.fn(() => Promise.resolve({ error: insertError })),
         };
       }
-      return { select: vi.fn().mockReturnThis() };
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
+        single: vi.fn(() => Promise.resolve({ data: null, error: null })),
+      };
     }),
   })),
 }));

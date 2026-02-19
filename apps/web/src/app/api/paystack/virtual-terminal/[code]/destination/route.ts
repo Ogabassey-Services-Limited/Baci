@@ -8,6 +8,11 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import {
   assignVirtualTerminalDestinations,
   unassignVirtualTerminalDestinations,
@@ -55,14 +60,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify merchant owns this terminal
-    const { data: merchant } = await supabase
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Terminal not found or not authorized' },
+        { status: 404 }
+      );
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
+    // Verify merchant owns this terminal by checking virtual_terminal_code
+    const { data: merchantRecord } = await supabase
       .from('merchants')
-      .select('id, virtual_terminal_code')
-      .eq('user_id', user.id)
+      .select('virtual_terminal_code')
+      .eq('id', merchantId)
       .single();
 
-    if (!merchant || merchant.virtual_terminal_code !== code) {
+    if (!merchantRecord || merchantRecord.virtual_terminal_code !== code) {
       return NextResponse.json(
         { error: 'Terminal not found or not authorized' },
         { status: 404 }
@@ -117,14 +137,29 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify merchant owns this terminal
-    const { data: merchant } = await supabase
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Terminal not found or not authorized' },
+        { status: 404 }
+      );
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
+    // Verify merchant owns this terminal by checking virtual_terminal_code
+    const { data: merchantRecord } = await supabase
       .from('merchants')
-      .select('id, virtual_terminal_code')
-      .eq('user_id', user.id)
+      .select('virtual_terminal_code')
+      .eq('id', merchantId)
       .single();
 
-    if (!merchant || merchant.virtual_terminal_code !== code) {
+    if (!merchantRecord || merchantRecord.virtual_terminal_code !== code) {
       return NextResponse.json(
         { error: 'Terminal not found or not authorized' },
         { status: 404 }

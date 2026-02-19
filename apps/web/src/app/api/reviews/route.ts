@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -44,19 +49,18 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
 
-      // Verify user owns this merchant
-      const { data: merchant } = await supabase
-        .from('merchants')
-        .select('id')
-        .eq('id', merchantId)
-        .eq('user_id', user.id)
-        .single();
-
-      if (!merchant) {
+      // Verify user owns or is staff of this merchant
+      const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+      if (!merchantContext || merchantContext.merchantId !== merchantId) {
         return NextResponse.json(
           { error: 'Merchant not found' },
           { status: 404 }
         );
+      }
+
+      const access = toUserAccess(merchantContext);
+      if (!hasPermission(access, 'orders', 'view')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
     }
 

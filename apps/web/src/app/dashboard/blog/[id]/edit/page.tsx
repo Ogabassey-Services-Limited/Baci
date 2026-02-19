@@ -436,9 +436,15 @@ export default function EditBlogPostPage() {
 
       const postData = sanitizeBlogPostData(rawPostData);
 
+      const patchHeaders: HeadersInit = { 'Content-Type': 'application/json' };
+      const patchCsrf = getClientCsrfToken();
+      if (patchCsrf) {
+        patchHeaders['x-csrf-token'] = patchCsrf;
+      }
+
       const response = await fetch(`/api/merchant/blog/posts/${postId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: patchHeaders,
         body: JSON.stringify(postData),
       });
 

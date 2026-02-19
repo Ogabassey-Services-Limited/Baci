@@ -141,8 +141,8 @@ export function NegotiationModal({
       }
 
       // Rejection Logic - Determine Counter Offer
-      let counterDiscount = 0;
-      let replyMessage = '';
+      let counterDiscount: number;
+      let replyMessage: string;
 
       if (attemptCount === 0) {
         // First Try: Counter with 2% off

@@ -56,6 +56,18 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       .getUser()
       .then(({ data: { user }, error }) => {
         if (error || !user) {
+          // If we have a refresh token error, the session is dead. Clear it.
+          // This prevents the "Invalid Refresh Token" loop.
+          if (
+            error?.message.includes('Refresh Token') ||
+            error?.message.includes('invalid_grant')
+          ) {
+            console.warn(
+              '[AuthStore] Invalid refresh token detected, forcing sign out'
+            );
+            get().signOut();
+          }
+
           set({
             session: null,
             user: null,

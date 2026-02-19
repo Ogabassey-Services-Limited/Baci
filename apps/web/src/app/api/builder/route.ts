@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
 import { generateDefaultConfig } from '@/lib/builder-defaults';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 
 export async function GET(request: Request) {
@@ -14,11 +19,25 @@ export async function GET(request: Request) {
 
   const { user, supabase } = auth;
 
+  // Resolve merchant context (supports both owners and staff)
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+  if (!merchantContext) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+
+  // Permission check
+  const access = toUserAccess(merchantContext);
+  if (!hasPermission(access, 'builder', 'view')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const merchantId = merchantContext.merchantId;
+
   // Get merchant with full details for template generation
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('id', merchantId)
     .single();
 
   if (merchantError || !merchant) {
@@ -29,7 +48,7 @@ export async function GET(request: Request) {
   const { data: pageConfig, error: configError } = await supabase
     .from('page_configs')
     .select('*')
-    .eq('merchant_id', merchant.id)
+    .eq('merchant_id', merchantId)
     .eq('page_slug', pageSlug)
     .single();
 
@@ -94,22 +113,26 @@ export async function POST(request: Request) {
 
   const { user, supabase } = auth;
 
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!merchant) {
+  // Resolve merchant context (supports both owners and staff)
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+  if (!merchantContext) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }
+
+  // Permission check
+  const access = toUserAccess(merchantContext);
+  if (!hasPermission(access, 'builder', 'edit')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const merchantId = merchantContext.merchantId;
 
   // Upsert page config (save as draft)
   const { data, error } = await supabase
     .from('page_configs')
     .upsert(
       {
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
         page_slug: slug || 'home',
         page_name: name || 'Home',
         draft_config: config,
@@ -144,19 +167,25 @@ export async function PUT(request: Request) {
 
   const { user, supabase } = auth;
 
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-  if (!merchant)
+  // Resolve merchant context (supports both owners and staff)
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+  if (!merchantContext) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+
+  // Permission check
+  const access = toUserAccess(merchantContext);
+  if (!hasPermission(access, 'builder', 'edit')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const merchantId = merchantContext.merchantId;
 
   // Get current draft
   const { data: currentConfig } = await supabase
     .from('page_configs')
     .select('*')
-    .eq('merchant_id', merchant.id)
+    .eq('merchant_id', merchantId)
     .eq('page_slug', slug)
     .single();
 

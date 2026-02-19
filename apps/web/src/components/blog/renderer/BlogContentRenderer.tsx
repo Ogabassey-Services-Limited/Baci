@@ -1,10 +1,15 @@
 'use client';
 
+import { toHtml } from 'hast-util-to-html';
+import { common, createLowlight } from 'lowlight';
 import Image from 'next/image';
 import type React from 'react';
+import { generateHeadingId } from '@/lib/blog-utils';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeUrl } from '@/lib/sanitize-core';
 import { cn } from '@/lib/utils';
+
+const lowlight = createLowlight(common);
 
 // Explicit text alignment class mapping for Tailwind tree-shaking (2026 best practice)
 const TEXT_ALIGN_CLASSES: Record<string, string> = {
@@ -111,6 +116,12 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
   return <>{content}</>;
 };
 
+/** Recursively extract plain text from a TipTap node tree. */
+function extractNodeText(node: TipTapNode): string {
+  if (node.text) return node.text;
+  return node.content?.map(extractNodeText).join('') || '';
+}
+
 const NodeRenderer = ({
   node,
   index: _index,
@@ -146,7 +157,24 @@ const NodeRenderer = ({
           4: 'text-xl font-bold mt-6 mb-3',
         }[level as 1 | 2 | 3 | 4] || 'text-lg font-bold';
 
-      return <Tag className={cn(sizeClasses, textAlignClass)}>{children}</Tag>;
+      const headingText = extractNodeText(node);
+      const headingId = generateHeadingId(headingText);
+
+      return (
+        <Tag
+          id={headingId}
+          className={cn(sizeClasses, textAlignClass, 'scroll-mt-20 group')}
+        >
+          {children}
+          <a
+            href={`#${headingId}`}
+            className="ml-2 opacity-0 group-hover:opacity-50 transition-opacity text-muted-foreground"
+            aria-label={`Link to ${headingText}`}
+          >
+            #
+          </a>
+        </Tag>
+      );
     }
 
     case 'bulletList':
@@ -219,12 +247,34 @@ const NodeRenderer = ({
         </td>
       );
 
-    case 'codeBlock':
-      return (
+    case 'codeBlock': {
+      const language = node.attrs?.language || '';
+      const codeText = extractNodeText(node);
+      let highlightedHtml = '';
+      try {
+        const tree =
+          language && lowlight.registered(language)
+            ? lowlight.highlight(language, codeText)
+            : lowlight.highlightAuto(codeText);
+        highlightedHtml = toHtml(tree);
+      } catch {
+        // Fallback to plain text if highlighting fails
+      }
+
+      return highlightedHtml ? (
+        <pre className="bg-slate-950 text-slate-50 p-6 rounded-xl font-mono text-sm overflow-x-auto my-8">
+          <code
+            className={language ? `language-${language}` : undefined}
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: lowlight output is safe (no user HTML)
+            dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+          />
+        </pre>
+      ) : (
         <pre className="bg-slate-950 text-slate-50 p-6 rounded-xl font-mono text-sm overflow-x-auto my-8">
           <code>{children}</code>
         </pre>
       );
+    }
 
     case 'horizontalRule':
       return <hr className="my-12 border-t border-border" />;

@@ -1,6 +1,11 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
 import { cache, generateCacheKey } from '@/lib/cache';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -38,24 +43,24 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant context (supports both owners and staff members)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'analytics', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
 
     // Generate cache key based on merchant ID and date range
     const cacheKey = generateCacheKey(
       'analytics',
-      merchant.id,
+      merchantId,
       currentPeriodStart.toISOString(),
       currentPeriodEnd.toISOString()
     );
@@ -74,23 +79,23 @@ export async function GET(request: Request) {
       { data: salesByPaymentData, error: salesByPaymentError },
     ] = await Promise.all([
       supabase.rpc('get_analytics_summary', {
-        p_merchant_id: merchant.id,
+        p_merchant_id: merchantId,
         p_start_date: currentPeriodStart.toISOString(),
         p_end_date: currentPeriodEnd.toISOString(),
       }),
       supabase.rpc('get_top_products', {
-        p_merchant_id: merchant.id,
+        p_merchant_id: merchantId,
         p_start_date: currentPeriodStart.toISOString(),
         p_end_date: currentPeriodEnd.toISOString(),
         p_limit: 10,
       }),
       supabase.rpc('get_sales_by_channel', {
-        p_merchant_id: merchant.id,
+        p_merchant_id: merchantId,
         p_start_date: currentPeriodStart.toISOString(),
         p_end_date: currentPeriodEnd.toISOString(),
       }),
       supabase.rpc('get_sales_by_payment_method', {
-        p_merchant_id: merchant.id,
+        p_merchant_id: merchantId,
         p_start_date: currentPeriodStart.toISOString(),
         p_end_date: currentPeriodEnd.toISOString(),
       }),
@@ -192,7 +197,7 @@ export async function GET(request: Request) {
     const { data: recentOrders } = await supabase
       .from('orders')
       .select('id, customer_name, customer_email, total, created_at')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false })
       .limit(5);
 

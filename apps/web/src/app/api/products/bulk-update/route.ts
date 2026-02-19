@@ -1,9 +1,14 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import type { Change } from '@/app/dashboard/products/actions';
+import { hasPermission } from '@/lib/api-auth';
 import { revalidateProducts } from '@/lib/cache-revalidation';
 import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { generateProductSlug, generateSlug } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 
@@ -23,18 +28,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id, business_name, country')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'products', 'edit')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
+
+    // Fetch business_name and country for product creation
+    const { data: merchantDetails } = await supabase
+      .from('merchants')
+      .select('business_name, country')
+      .eq('id', merchantId)
+      .single();
+    const merchantBusinessName =
+      merchantDetails?.business_name ?? merchantContext.businessName ?? '';
+    const merchantCountry = merchantDetails?.country ?? null;
 
     const body = await request.json();
     const changes: Change[] = body.changes;
@@ -72,12 +87,12 @@ export async function POST(request: NextRequest) {
           } else if (change.details.sku) {
             matchQuery = matchQuery
               .eq('sku', change.details.sku)
-              .eq('merchant_id', merchant.id);
+              .eq('merchant_id', merchantId);
           } else {
             // Fallback: match by name and merchant_id (risky but necessary for name-only sheets)
             matchQuery = matchQuery
               .eq('name', change.details.name)
-              .eq('merchant_id', merchant.id);
+              .eq('merchant_id', merchantId);
           }
 
           const { error } = await matchQuery;
@@ -94,14 +109,14 @@ export async function POST(request: NextRequest) {
             change.details.sku ||
             generateSlug(change.details.name).toUpperCase().substring(0, 20);
 
-          const country = merchant.country
-            ? getCountryByCode(merchant.country)
+          const country = merchantCountry
+            ? getCountryByCode(merchantCountry)
             : undefined;
           const currency = country ? country.currency : 'USD';
 
           // Basic product insert
           const { error } = await supabase.from('products').insert({
-            merchant_id: merchant.id,
+            merchant_id: merchantId,
             name: change.details.name,
             description: change.details.description || '',
             price: change.details.price,
@@ -112,7 +127,7 @@ export async function POST(request: NextRequest) {
             is_active: false,
             condition: 'new',
             manage_stock: true,
-            brand: change.details.brand || merchant.business_name,
+            brand: change.details.brand || merchantBusinessName,
 
             category: change.details.category || 'General',
             taxable: true,
@@ -124,7 +139,7 @@ export async function POST(request: NextRequest) {
               sku: sku,
               brand: {
                 '@type': 'Brand',
-                name: change.details.brand || merchant.business_name,
+                name: change.details.brand || merchantBusinessName,
               },
               offers: {
                 '@type': 'Offer',
@@ -163,7 +178,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Invalidate product caches after bulk update
-    revalidateProducts(merchant.id);
+    revalidateProducts(merchantId);
 
     return NextResponse.json({ success: true, results });
   } catch (error) {

@@ -8,7 +8,12 @@ import {
   geminiFlash,
   withRetry,
 } from '@/ai/provider';
+import { hasPermission } from '@/lib/api-auth';
 import { cache, generateCacheKey } from '@/lib/cache';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 // Schema for AI insights
@@ -154,18 +159,18 @@ async function handleInsightsRequest() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Get merchant
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (merchantError || !merchant) {
+  // Get merchant context (supports both owners and staff members)
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+  if (!merchantContext) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }
+  const access = toUserAccess(merchantContext);
+  if (!hasPermission(access, 'analytics', 'view')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  const merchantId = merchantContext.merchantId;
 
-  const result = await generateInsights(supabase, merchant.id, user.id);
+  const result = await generateInsights(supabase, merchantId, user.id);
 
   if (result.error) {
     return NextResponse.json(

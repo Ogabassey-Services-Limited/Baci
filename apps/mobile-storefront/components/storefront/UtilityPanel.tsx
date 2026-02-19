@@ -19,6 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BRAND, SPACING } from '@/constants/Colors';
 import { type Category, useCategories } from '@/hooks/use-products';
+import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
 
 interface UtilityPanelProps {
   variant?: 'card' | 'circle' | 'pill';
@@ -151,6 +152,9 @@ export function UtilityPanel({
   slug,
 }: UtilityPanelProps) {
   const { data: remoteCategories = [], isLoading } = useCategories();
+
+  // Prefetch all bill categories so data is ready when user taps a category
+  usePrefetchBillers();
 
   // Web-Parity Auto-Rotation Logic (constants at module level for stable references)
 

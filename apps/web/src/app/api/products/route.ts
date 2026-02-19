@@ -4,6 +4,7 @@ import { revalidateProducts } from '@/lib/cache-revalidation';
 import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import type { Product } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
@@ -58,19 +59,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant record
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id, business_name')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant record (works for both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     // Parse query parameters
     const searchParams = request.nextUrl.searchParams;
@@ -93,7 +90,7 @@ export async function GET(request: NextRequest) {
         `*, variants:product_variants(id, product_id, merchant_id, attributes, price_override, stock_quantity, sku, primary_image, images)`,
         { count: 'exact' }
       )
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
     // If fetching by IDs, ignore pagination and other filters usually
@@ -260,7 +257,7 @@ export async function GET(request: NextRequest) {
     try {
       const { data: rpcStats, error: rpcError } = await supabase.rpc(
         'get_merchant_inventory_stats',
-        { p_merchant_id: merchant.id }
+        { p_merchant_id: merchantId }
       );
 
       if (!rpcError && rpcStats) {
@@ -281,7 +278,7 @@ export async function GET(request: NextRequest) {
         const oosResult = await supabase
           .from('products')
           .select('*', { count: 'exact', head: true })
-          .eq('merchant_id', merchant.id)
+          .eq('merchant_id', merchantId)
           .eq('stock_quantity', 0);
 
         outOfStockCount = oosResult.count || 0;
@@ -343,19 +340,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant record
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id, business_name, country')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant record (works for both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
+    const businessName = merchantContext.businessName ?? '';
+
+    // Fetch extra merchant fields needed for product creation
+    const { data: merchantData } = await supabase
+      .from('merchants')
+      .select('country')
+      .eq('id', merchantId)
+      .single();
 
     const rawBody = await request.json();
 
@@ -400,7 +401,7 @@ export async function POST(request: NextRequest) {
       image: body.images?.[0]?.url || '',
       imageLarge: body.images?.[0]?.url || '',
       imageHint: body.imageHint || '',
-      brand: body.brand || merchant.business_name,
+      brand: body.brand || businessName,
       sku: sku,
       gtin: body.gtin ?? '',
       mpn: body.mpn ?? '',
@@ -409,24 +410,20 @@ export async function POST(request: NextRequest) {
       condition: body.condition,
     };
 
-    const country = merchant.country
-      ? getCountryByCode(merchant.country)
+    const country = merchantData?.country
+      ? getCountryByCode(merchantData.country)
       : undefined;
     const currency = country ? country.currency : 'USD';
     // Sanitize user-provided schema_markup to prevent XSS (defense in depth)
     const schema_markup = body.schema_markup
       ? sanitizeSchemaMarkup(body.schema_markup)
-      : generateProductSchema(
-          productForSchema,
-          merchant.business_name,
-          currency
-        );
+      : generateProductSchema(productForSchema, businessName, currency);
 
     // Check for duplicates (same slug for this merchant)
     const { data: existingProduct } = await supabase
       .from('products')
       .select('id')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .eq('slug', slug)
       .maybeSingle();
 
@@ -441,7 +438,7 @@ export async function POST(request: NextRequest) {
     const { data: product, error: productError } = await supabase
       .from('products')
       .insert({
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
         name: body.name,
         description: description,
         price: body.price,
@@ -506,7 +503,7 @@ export async function POST(request: NextRequest) {
       const variantsToInsert = body.variants.map(
         (v: Record<string, unknown>) => ({
           product_id: product.id,
-          merchant_id: merchant.id,
+          merchant_id: merchantId,
           attributes: v.attributes,
           price_override: v.price,
           cost_price: v.cost_price, // New field
@@ -557,7 +554,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Invalidate product caches so storefront shows the new product immediately
-    revalidateProducts(merchant.id, slug);
+    revalidateProducts(merchantId, slug);
 
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {

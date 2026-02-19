@@ -1,9 +1,14 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
 import { revalidateProducts } from '@/lib/cache-revalidation';
 import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import type { Product } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeText } from '@/lib/sanitize-core';
@@ -34,23 +39,24 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id, business_name')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
+    }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'products', 'view')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
 
     // Try to find by ID first, then by slug
     let query = supabase
       .from('products')
       .select('*')
-      .eq('merchant_id', merchant.id);
+      .eq('merchant_id', merchantId);
 
     // Check if id is a UUID
     const isUuid =
@@ -201,25 +207,25 @@ export async function PUT(
     }
 
     // Get merchant record
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id, business_name, country')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'products', 'edit')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
 
     // Verify product belongs to merchant
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
       .select('id, name, description, condition, condition_detail')
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (fetchError || !existingProduct) {
@@ -368,6 +374,19 @@ export async function PUT(
       );
       const schemaSku = String(updates.sku ?? '');
 
+      // Fetch country and business_name for schema generation
+      const { data: merchantDetails } = await supabase
+        .from('merchants')
+        .select('business_name, country')
+        .eq('id', merchantId)
+        .single();
+      const businessName =
+        merchantDetails?.business_name ?? merchantContext.businessName ?? '';
+      const country = merchantDetails?.country
+        ? getCountryByCode(merchantDetails.country)
+        : undefined;
+      const currency = country ? country.currency : 'USD';
+
       const productForSchema: Product = {
         id: id,
         name: schemaName,
@@ -379,7 +398,7 @@ export async function PUT(
         image: body.images?.[0]?.url || '',
         imageLarge: body.images?.[0]?.url || '',
         imageHint: body.imageHint || '',
-        brand: body.brand || merchant.business_name,
+        brand: body.brand || businessName,
         sku: schemaSku,
         gtin: body.gtin ?? '',
         mpn: body.mpn ?? '',
@@ -388,13 +407,9 @@ export async function PUT(
         condition: body.condition,
       };
 
-      const country = merchant.country
-        ? getCountryByCode(merchant.country)
-        : undefined;
-      const currency = country ? country.currency : 'USD';
       updates.schema_markup = generateProductSchema(
         productForSchema,
-        merchant.business_name,
+        businessName,
         currency
       );
     }
@@ -439,7 +454,7 @@ export async function PUT(
       const variantsToUpsert = body.variants.map((v: any) => ({
         id: v.id,
         product_id: id,
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
         attributes: v.attributes,
         price_override: v.price,
         cost_price: v.cost_price, // New field
@@ -504,7 +519,7 @@ export async function PUT(
     }
 
     // Invalidate product caches so storefront reflects changes immediately
-    revalidateProducts(merchant.id, updatedProduct.slug);
+    revalidateProducts(merchantId, updatedProduct.slug);
 
     return NextResponse.json({ product: updatedProduct });
   } catch (error) {
@@ -536,24 +551,24 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'products', 'delete')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
 
     const { error: deleteError } = await supabase
       .from('products')
       .delete()
       .eq('id', id)
-      .eq('merchant_id', merchant.id);
+      .eq('merchant_id', merchantId);
 
     if (deleteError) {
       console.error('Error deleting product:', deleteError);
@@ -564,7 +579,7 @@ export async function DELETE(
     }
 
     // Invalidate product caches after deletion
-    revalidateProducts(merchant.id);
+    revalidateProducts(merchantId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

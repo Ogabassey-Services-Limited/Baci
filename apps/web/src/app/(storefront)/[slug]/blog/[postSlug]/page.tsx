@@ -13,6 +13,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { BlogContentRenderer } from '@/components/blog/renderer/BlogContentRenderer';
+import { TableOfContents } from '@/components/blog/table-of-contents';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -220,32 +221,7 @@ export default async function BlogPostPage({ params }: PageProps) {
 
       <ViewCounter postId={post.id} />
 
-      <div
-        className="min-h-screen bg-gray-50"
-        style={
-          {
-            '--background': '0 0% 100%',
-            '--foreground': '240 10% 3.9%',
-            '--card': '0 0% 100%',
-            '--card-foreground': '240 10% 3.9%',
-            '--popover': '0 0% 100%',
-            '--popover-foreground': '240 10% 3.9%',
-            '--primary': '240 5.9% 10%',
-            '--primary-foreground': '0 0% 98%',
-            '--secondary': '240 4.8% 95.9%',
-            '--secondary-foreground': '240 5.9% 10%',
-            '--muted': '240 4.8% 95.9%',
-            '--muted-foreground': '240 3.8% 46.1%',
-            '--accent': '240 4.8% 95.9%',
-            '--accent-foreground': '240 5.9% 10%',
-            '--destructive': '0 84.2% 60.2%',
-            '--destructive-foreground': '0 0% 98%',
-            '--border': '240 5.9% 90%',
-            '--input': '240 5.9% 90%',
-            '--ring': '240 10% 3.9%',
-          } as React.CSSProperties
-        }
-      >
+      <div className="min-h-screen bg-background">
         {/* Breadcrumb Navigation */}
         <div className="border-b bg-white">
           <div className="container mx-auto px-4 py-4">
@@ -321,6 +297,9 @@ export default async function BlogPostPage({ params }: PageProps) {
                 </div>
               )}
             </header>
+
+            {/* Table of Contents (auto-generated from headings) */}
+            {isJson && <TableOfContents />}
 
             {/* Post Content */}
             <div className="mb-8">
@@ -403,6 +382,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                               src={related.featured_image_url}
                               alt={related.title}
                               fill
+                              sizes="(max-width: 768px) 100vw, 33vw"
                               className="object-cover group-hover:scale-105 transition-transform duration-300"
                             />
                           </div>

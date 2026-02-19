@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -28,25 +33,28 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    // Get merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
+    // Permission check
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'analytics', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
     // Build query
     let query = supabase
       .from('wallet_transactions')
       .select('*', { count: 'exact' })
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

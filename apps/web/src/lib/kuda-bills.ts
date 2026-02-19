@@ -54,11 +54,13 @@ export function getBillersByCategory(category: string): Promise<Biller[]> {
  *
  * Same Kuda service type as purchaseAirtime/purchaseData but with
  * flexible identifiers instead of hardcoded provider codes.
+ * @param customerName - Customer's name for the Kuda transaction record.
  */
 export async function purchaseBill(
   billItemIdentifier: string,
   customerIdentification: string,
-  amount: number
+  amount: number,
+  customerName: string = 'Customer'
 ): Promise<PurchaseResult> {
   const requestRef = generateRequestRef();
 
@@ -70,10 +72,11 @@ export async function purchaseBill(
     }>(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {
-        Amount: amount.toString(),
-        BillItemIdentifier: billItemIdentifier,
-        PhoneNumber: customerIdentification,
+        CustomerFirstName: customerName,
         CustomerIdentifier: customerIdentification,
+        PhoneNumber: customerIdentification,
+        BillItemIdentifier: billItemIdentifier,
+        Amount: (amount * 100).toString(), // Convert Naira to Kobo
       },
       requestRef
     );

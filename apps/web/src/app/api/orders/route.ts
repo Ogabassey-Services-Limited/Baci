@@ -1,10 +1,15 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createGiglShipment } from '@/lib/gigl';
 import { logger } from '@/lib/logger';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
@@ -171,24 +176,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get merchant record
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant record (supports both owners and staff members)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       logger.error({
         message: 'API: Merchant not found for user',
         userId: user.id,
-        error: merchantError,
       });
       return NextResponse.json(
         { error: 'Merchant not found for the authenticated user.' },
         { status: 404 }
       );
     }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'orders', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
 
     // Get search params for filtering
     const { searchParams } = new URL(request.url);
@@ -203,7 +207,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('orders')
       .select('*, order_items(*)')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
     // Apply filters

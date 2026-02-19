@@ -7,6 +7,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 const UpdateBranchSchema = z.object({
@@ -41,19 +42,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant to verify ownership
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     // Only fetch branches owned by this merchant
     const { data: branch, error } = await supabase
@@ -73,7 +69,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         )
       `)
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (error || !branch) {
@@ -107,19 +103,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant to verify ownership
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     const body = await request.json();
     const parseResult = UpdateBranchSchema.safeParse(body);
@@ -149,7 +140,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       .from('branches')
       .update(updateData)
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .select()
       .single();
 
@@ -188,26 +179,21 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant to verify ownership
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const merchantId = merchantContext.merchantId;
 
     // Soft delete by setting active = false (only for branches owned by this merchant)
     const { data: deletedBranch, error } = await supabase
       .from('branches')
       .update({ active: false })
       .eq('id', id)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .select('id')
       .single();
 
@@ -224,7 +210,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       .from('virtual_terminals')
       .update({ branch_id: null })
       .eq('branch_id', id)
-      .eq('merchant_id', merchant.id);
+      .eq('merchant_id', merchantId);
 
     if (terminalError) {
       // Log but don't fail - branch is already deleted, terminal cleanup is secondary

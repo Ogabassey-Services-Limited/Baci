@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -41,6 +46,21 @@ export async function GET() {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Resolve merchant context for permission check
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    // Permission check
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'dashboard', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Get merchant with all relevant fields (only columns that exist in the table)

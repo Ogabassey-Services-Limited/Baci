@@ -2,8 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import { Feed } from 'feed';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
-import sanitizeHtml from 'sanitize-html';
 import { getAppUrl } from '@/env';
+import { stripHtml } from '@/lib/blog-utils';
+import { sanitizeForFeed } from '@/lib/sanitize';
 
 /**
  * Blog RSS Feed API
@@ -42,15 +43,6 @@ interface Merchant {
   site_description: string | null;
   logo_url: string | null;
   custom_domain?: string | null;
-}
-
-// Strip HTML tags for plain text excerpts using sanitize-html
-function stripHtml(html: string): string {
-  return sanitizeHtml(html, {
-    allowedTags: [],
-    allowedAttributes: {},
-    disallowedTagsMode: 'discard',
-  }).trim();
 }
 
 // Create anonymous Supabase client for public access
@@ -190,42 +182,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       const postUrl = `${storeUrl}/blog/${post.slug}`;
       const excerpt = post.excerpt || stripHtml(post.content).substring(0, 300);
 
-      // SECURITY: Sanitize HTML content to prevent XSS in RSS readers
-      const sanitizedContent = sanitizeHtml(post.content, {
-        allowedTags: [
-          'p',
-          'br',
-          'strong',
-          'em',
-          'u',
-          'h1',
-          'h2',
-          'h3',
-          'h4',
-          'h5',
-          'h6',
-          'ul',
-          'ol',
-          'li',
-          'blockquote',
-          'pre',
-          'code',
-          'a',
-          'img',
-        ],
-        allowedAttributes: {
-          a: ['href', 'title', 'rel'],
-          img: ['src', 'alt', 'title', 'width', 'height'],
-        },
-        allowedSchemes: ['http', 'https', 'mailto'],
-        allowProtocolRelative: false,
-        transformTags: {
-          a: (tagName, attribs) => ({
-            tagName,
-            attribs: { ...attribs, rel: 'noopener noreferrer' },
-          }),
-        },
-      });
+      const sanitizedContent = sanitizeForFeed(post.content);
 
       feed.addItem({
         title: post.title,

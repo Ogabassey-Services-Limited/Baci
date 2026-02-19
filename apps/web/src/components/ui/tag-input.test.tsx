@@ -181,4 +181,72 @@ describe('TagInput', () => {
     expect(removeButton).toHaveClass('focus-visible:ring-ring');
     expect(removeButton).toHaveClass('focus-visible:ring-offset-2');
   });
+
+  describe('focus management after tag removal', () => {
+    it('focuses the next tag button when a middle tag is removed', () => {
+      render(
+        <TagInputHarness
+          initial={['first', 'second', 'third']}
+          onChangeSpy={mockOnChange}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /remove second/i }));
+
+      // After removing "second", focus should move to the tag now at index 1 ("third")
+      const thirdRemoveBtn = screen.getByRole('button', {
+        name: /remove third/i,
+      });
+      expect(thirdRemoveBtn).toHaveFocus();
+    });
+
+    it('focuses the last tag button when the last tag is removed', () => {
+      render(
+        <TagInputHarness
+          initial={['first', 'second', 'third']}
+          onChangeSpy={mockOnChange}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /remove third/i }));
+
+      // After removing the last tag, focus should wrap to the new last tag ("second")
+      const secondRemoveBtn = screen.getByRole('button', {
+        name: /remove second/i,
+      });
+      expect(secondRemoveBtn).toHaveFocus();
+    });
+
+    it('focuses the input when the only tag is removed', () => {
+      render(<TagInputHarness initial={['only']} onChangeSpy={mockOnChange} />);
+
+      fireEvent.click(screen.getByRole('button', { name: /remove only/i }));
+
+      const input = screen.getByRole('textbox', { name: /tag input/i });
+      expect(input).toHaveFocus();
+    });
+
+    it('focuses the input when removing via Backspace clears all tags', () => {
+      render(<TagInputHarness initial={['last']} onChangeSpy={mockOnChange} />);
+      const input = screen.getByRole('textbox', { name: /tag input/i });
+
+      fireEvent.keyDown(input, { key: 'Backspace' });
+
+      expect(input).toHaveFocus();
+    });
+
+    it('remove buttons have data-tag-remove attributes', () => {
+      render(
+        <TagInputHarness
+          initial={['alpha', 'beta']}
+          onChangeSpy={mockOnChange}
+        />
+      );
+
+      const alphaBtn = screen.getByRole('button', { name: /remove alpha/i });
+      const betaBtn = screen.getByRole('button', { name: /remove beta/i });
+      expect(alphaBtn).toHaveAttribute('data-tag-remove', '0');
+      expect(betaBtn).toHaveAttribute('data-tag-remove', '1');
+    });
+  });
 });

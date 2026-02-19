@@ -171,7 +171,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       platforms = variantAttrs.Platform;
     } else if (serverProduct.variants) {
       platforms = Array.from(new Set(serverProduct.variants
-        .map((v) => v.attributes?.platform || v.platform)
+        .map((v) => v.attributes?.platform)
         .filter(Boolean))) as string[];
     }
 

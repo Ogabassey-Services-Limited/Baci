@@ -5,7 +5,6 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import SafeImage from '@/components/ui/SafeImage';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -23,6 +22,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
@@ -97,7 +97,7 @@ export default function AddExpenseScreen() {
           console.error('Receipt upload failed:', e);
           // Decide: Fail whole operation or continue without receipt?
           // Let's continue but warn. For now, throw to be safe.
-          throw new Error('Failed to upload receipt image');
+          throw new Error('Failed to upload receipt image', { cause: e });
         }
       }
 

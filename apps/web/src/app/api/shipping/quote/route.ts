@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { getGiglPrice } from '@/lib/gigl';
 import { createClient } from '@/lib/supabase/server';
 
@@ -90,16 +95,30 @@ export async function POST(request: NextRequest) {
       }
     } else if (user) {
       // Fallback to user session if no merchantId provided (legacy support)
-      // This assumes the user IS the merchant, which is only true in dashboard
-      const { data: merchant } = await supabase
-        .from('merchants')
-        .select('business_location')
-        .eq('user_id', user.id)
-        .single();
+      // Supports both merchant owners and staff members
+      const merchantContext = await getMerchantForApiRequest(supabase, user.id);
 
-      if (merchant?.business_location) {
-        senderStationId = getStationIdFromCity(merchant.business_location);
-        senderCoords = getCoordinatesForCity(merchant.business_location);
+      if (merchantContext) {
+        // Permission check
+        const access = toUserAccess(merchantContext);
+        if (!hasPermission(access, 'orders', 'fulfill')) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        const { data: merchantDetails } = await supabase
+          .from('merchants')
+          .select('business_location')
+          .eq('id', merchantContext.merchantId)
+          .single();
+
+        if (merchantDetails?.business_location) {
+          senderStationId = getStationIdFromCity(
+            merchantDetails.business_location
+          );
+          senderCoords = getCoordinatesForCity(
+            merchantDetails.business_location
+          );
+        }
       }
     }
 

@@ -9,6 +9,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { buildCsrfHeaders } from '@/lib/csrf';
 
 interface JumiaIntegration {
   id: string;
@@ -102,7 +109,7 @@ export default function ChannelsPage() {
     try {
       const response = await fetch('/api/marketplace/jumia/connect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildCsrfHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           connectionType: 'self_authorization',
           refreshToken: refreshToken.trim(),
@@ -145,6 +152,7 @@ export default function ChannelsPage() {
         `/api/marketplace/jumia/connect?id=${integrationId}`,
         {
           method: 'DELETE',
+          headers: buildCsrfHeaders(),
         }
       );
 
@@ -169,6 +177,7 @@ export default function ChannelsPage() {
     try {
       const response = await fetch('/api/marketplace/jumia/orders', {
         method: 'POST',
+        headers: buildCsrfHeaders(),
       });
 
       const data = await response.json();
@@ -376,121 +385,111 @@ export default function ChannelsPage() {
       </div>
 
       {/* Connect Modal */}
-      {showConnectModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+      <Dialog open={showConnectModal} onOpenChange={setShowConnectModal}>
+        <DialogContent className="max-w-md bg-white dark:bg-gray-800 rounded-xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">
               Connect Jumia Account
-            </h2>
+            </DialogTitle>
+          </DialogHeader>
 
-            <div className="space-y-6">
-              {/* Option 1: OAuth (Recommended) */}
-              <div className="p-4 border border-orange-200 bg-orange-50 dark:bg-orange-900/10 dark:border-orange-900/30 rounded-lg">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                  <span className="text-xl">🚀</span> Fast Connection
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Log in to your Jumia Vendor Center account to connect
-                  automatically.
-                </p>
-                <a
-                  href="/api/marketplace/jumia/connect?connectionType=oauth"
-                  className="block w-full py-2.5 bg-[#f68b1e] text-white text-center rounded-lg font-medium hover:bg-[#e07e1b] transition-colors"
-                >
-                  Connect with Jumia
-                </a>
+          <div className="space-y-6">
+            {/* Option 1: OAuth (Recommended) */}
+            <div className="p-4 border border-orange-200 bg-orange-50 dark:bg-orange-900/10 dark:border-orange-900/30 rounded-lg">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+                <span className="text-xl">🚀</span> Fast Connection
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Log in to your Jumia Vendor Center account to connect
+                automatically.
+              </p>
+              <a
+                href="/api/marketplace/jumia/connect?connectionType=oauth"
+                className="block w-full py-2.5 bg-[#f68b1e] text-white text-center rounded-lg font-medium hover:bg-[#e07e1b] transition-colors"
+              >
+                Connect with Jumia
+              </a>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-200 dark:border-gray-700" />
               </div>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-gray-200 dark:border-gray-700" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white dark:bg-gray-800 px-2 text-gray-500">
-                    Or connect manually
-                  </span>
-                </div>
-              </div>
-
-              {/* Option 2: Manual Token */}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setShowManualForm(!showManualForm)}
-                  className="w-full py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
-                >
-                  {showManualForm
-                    ? 'Hide Manual Entry'
-                    : 'Enter Refresh Token Manually'}
-                </button>
-
-                {showManualForm && (
-                  <div className="mt-4 space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded text-xs text-gray-600 dark:text-gray-400">
-                      Go to <strong>Settings → Applications</strong> in Jumia
-                      Seller Center, create a &quot;Self Authorization&quot;
-                      app, and copy the token.
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="shopName"
-                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                      >
-                        Shop Name (optional)
-                      </label>
-                      <input
-                        id="shopName"
-                        type="text"
-                        value={shopName}
-                        onChange={(e) => setShopName(e.target.value)}
-                        placeholder="My Jumia Shop"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-shadow"
-                      />
-                    </div>
-
-                    <div>
-                      <label
-                        htmlFor="refreshToken"
-                        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                      >
-                        Refresh Token *
-                      </label>
-                      <textarea
-                        id="refreshToken"
-                        value={refreshToken}
-                        onChange={(e) => setRefreshToken(e.target.value)}
-                        placeholder="Paste your token..."
-                        rows={2}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-shadow"
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleConnect}
-                      disabled={connecting || !refreshToken.trim()}
-                      className="w-full py-2 bg-gray-900 dark:bg-gray-600 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
-                    >
-                      {connecting ? 'Connecting...' : 'Connect Token'}
-                    </button>
-                  </div>
-                )}
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white dark:bg-gray-800 px-2 text-gray-500">
+                  Or connect manually
+                </span>
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+            {/* Option 2: Manual Token */}
+            <div>
               <button
                 type="button"
-                onClick={() => setShowConnectModal(false)}
-                className="w-full py-2 text-center text-sm font-medium text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                onClick={() => setShowManualForm(!showManualForm)}
+                className="w-full py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
               >
-                Close
+                {showManualForm
+                  ? 'Hide Manual Entry'
+                  : 'Enter Refresh Token Manually'}
               </button>
+
+              {showManualForm && (
+                <div className="mt-4 space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded text-xs text-gray-600 dark:text-gray-400">
+                    Go to <strong>Settings → Applications</strong> in Jumia
+                    Seller Center, create a &quot;Self Authorization&quot; app,
+                    and copy the token.
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="shopName"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      Shop Name (optional)
+                    </label>
+                    <input
+                      id="shopName"
+                      type="text"
+                      value={shopName}
+                      onChange={(e) => setShopName(e.target.value)}
+                      placeholder="My Jumia Shop"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-shadow"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="refreshToken"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                    >
+                      Refresh Token *
+                    </label>
+                    <textarea
+                      id="refreshToken"
+                      value={refreshToken}
+                      onChange={(e) => setRefreshToken(e.target.value)}
+                      placeholder="Paste your token..."
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-shadow"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleConnect}
+                    disabled={connecting || !refreshToken.trim()}
+                    className="w-full py-2 bg-gray-900 dark:bg-gray-600 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                  >
+                    {connecting ? 'Connecting...' : 'Connect Token'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

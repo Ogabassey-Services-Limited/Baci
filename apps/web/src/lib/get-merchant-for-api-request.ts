@@ -1,5 +1,24 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { StaffAccess, StaffRole } from '@/hooks/use-merchant';
+import type { UserAccess } from '@/lib/api-auth';
+
+export type MerchantContext = NonNullable<
+  Awaited<ReturnType<typeof getMerchantForApiRequest>>
+>;
+
+/**
+ * Convert getMerchantForApiRequest result to UserAccess for use with hasPermission().
+ * This avoids an extra RPC call when the route already resolved the merchant.
+ */
+export function toUserAccess(ctx: MerchantContext): UserAccess {
+  return {
+    merchantId: ctx.merchantId,
+    role: ctx.staffAccess.role || 'owner',
+    isOwner: ctx.staffAccess.isOwner,
+    isStaff: ctx.staffAccess.isStaff,
+    permissions: ctx.staffAccess.permissions,
+  };
+}
 
 /**
  * Resolves merchant context for API requests, supporting both merchant owners and staff members.

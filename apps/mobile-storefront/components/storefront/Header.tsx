@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
 import { type Href, router } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Logo } from '@/components/ui/Logo';

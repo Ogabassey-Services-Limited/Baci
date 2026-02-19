@@ -1,7 +1,11 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-// import type { UpdatePreferencesInput } from '@/types/notifications';
 import z from 'zod';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 const timeStringSchema = z
@@ -47,25 +51,25 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
+    }
+    const merchantId = merchantContext.merchantId;
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'dashboard', 'view')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
     // Fetch preferences
     const { data: preferences, error } = await supabase
       .from('notification_preferences')
       .select('*')
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (error && error.code !== 'PGRST116') {
@@ -80,7 +84,7 @@ export async function GET() {
     // Return default preferences if none exist
     if (!preferences) {
       return NextResponse.json({
-        merchant_id: merchant.id,
+        merchant_id: merchantId,
         in_app_enabled: true,
         banner_enabled: true,
         quiet_hours_start: null,
@@ -116,18 +120,18 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
+    // Get merchant (supports both owners and staff)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
+    }
+    const merchantId = merchantContext.merchantId;
+    const patchAccess = toUserAccess(merchantContext);
+    if (!hasPermission(patchAccess, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
     // Parse request body
@@ -148,7 +152,7 @@ export async function PATCH(request: NextRequest) {
 
     // Build update object
     const updates: Record<string, unknown> = {
-      merchant_id: merchant.id, // For upsert
+      merchant_id: merchantId, // For upsert
     };
 
     if (body.in_app_enabled !== undefined)

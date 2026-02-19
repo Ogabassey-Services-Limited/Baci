@@ -9,6 +9,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 const RegisterTokenSchema = z.object({
@@ -46,31 +47,13 @@ export async function POST(request: NextRequest) {
 
     const { token, platform, device_name, merchant_id } = parsed.data;
 
-    // Get merchant - either from request or find user's merchant
+    // Get merchant - either from request or find user's merchant (owner or staff)
     let resolvedMerchantId = merchant_id;
 
     if (!resolvedMerchantId) {
-      // Try to find merchant for this user
-      const { data: merchant } = await supabase
-        .from('merchants')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (merchant) {
-        resolvedMerchantId = merchant.id;
-      } else {
-        // Check if user is a staff member
-        const { data: staffMember } = await supabase
-          .from('staff_members')
-          .select('merchant_id')
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .single();
-
-        if (staffMember) {
-          resolvedMerchantId = staffMember.merchant_id;
-        }
+      const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+      if (merchantContext) {
+        resolvedMerchantId = merchantContext.merchantId;
       }
     }
 

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { renderMarkdown, sanitizeUrl } from './markdown-renderer';
 
@@ -35,8 +35,6 @@ describe('sanitizeUrl', () => {
   });
 
   it('handles empty string input by returning null or a relative resolution', () => {
-    // Empty string resolves relative to dummy base — either null or a safe URL
-    const result = sanitizeUrl('');
     // The function tries new URL('', 'http://dummy.com') which gives http://dummy.com/
     // That protocol is http: so it passes — the important thing is it does not throw
     expect(() => sanitizeUrl('')).not.toThrow();

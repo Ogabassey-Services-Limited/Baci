@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -25,18 +30,19 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    // Get merchant context (supports both owners and staff members)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'customers', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
 
     // Get customer details
     const { data: customer } = await supabase
@@ -57,7 +63,7 @@ export async function GET(
       .from('customer_rfm_scores')
       .select('*')
       .eq('customer_id', customerId)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     // Get loyalty data if exists
@@ -65,7 +71,7 @@ export async function GET(
       .from('customer_loyalty')
       .select('*')
       .eq('customer_id', customerId)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .single();
 
     // Get recent orders
@@ -73,7 +79,7 @@ export async function GET(
       .from('orders')
       .select('id, total, status, payment_status, created_at')
       .eq('customer_id', customerId)
-      .eq('merchant_id', merchant.id)
+      .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false })
       .limit(10);
 
@@ -84,7 +90,7 @@ export async function GET(
         .from('segment_definitions')
         .select('*')
         .eq('segment_name', rfm.rfm_segment)
-        .or(`merchant_id.is.null,merchant_id.eq.${merchant.id}`)
+        .or(`merchant_id.is.null,merchant_id.eq.${merchantId}`)
         .single();
       segmentInfo = definition;
     }
@@ -146,25 +152,26 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: merchant } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!merchant) {
+    // Get merchant context (supports both owners and staff members)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'customers', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const merchantId = merchantContext.merchantId;
 
     // Recalculate RFM for this customer
     const { data: result, error } = await supabase.rpc(
       'calculate_customer_rfm',
       {
         p_customer_id: customerId,
-        p_merchant_id: merchant.id,
+        p_merchant_id: merchantId,
       }
     );
 

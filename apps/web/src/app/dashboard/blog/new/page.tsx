@@ -318,9 +318,15 @@ export default function NewBlogPostPage() {
         status,
       };
 
+      const saveHeaders: HeadersInit = { 'Content-Type': 'application/json' };
+      const csrfToken = getClientCsrfToken();
+      if (csrfToken) {
+        saveHeaders['x-csrf-token'] = csrfToken;
+      }
+
       const response = await fetch('/api/merchant/blog/posts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: saveHeaders,
         body: JSON.stringify(postData),
       });
 

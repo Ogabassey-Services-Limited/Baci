@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { uploadFn } from '@/components/blog/novel-features/image-upload';
 import { Separator } from '@/components/ui/separator';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { defaultExtensions } from './novel-features/extensions';
 import { ProductExtension } from './novel-features/product-extension';
 import { ColorSelector } from './novel-features/selectors/color-selector';
@@ -85,14 +86,14 @@ export default function NovelEditor({
   };
 
   return (
-    <div className="relative w-full max-w-screen-lg">
+    <div className="relative w-full max-w-4xl mx-auto">
       <EditorRoot>
         <EditorContent
           immediatelyRender={false}
           // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
           initialContent={initialValue as any}
           extensions={extensions}
-          className="relative min-h-[500px] w-full max-w-screen-lg border-muted bg-background sm:rounded-lg sm:border sm:shadow-sm"
+          className="relative min-h-[700px] w-full border-muted bg-background sm:rounded-md sm:border sm:shadow-lg"
           editorProps={{
             handleDOMEvents: {
               keydown: (_view, event) => handleCommandNavigation(event),
@@ -103,9 +104,28 @@ export default function NovelEditor({
             handleDrop: (view, event, _slice, moved) =>
               // biome-ignore lint/suspicious/noExplicitAny: novel types mismatch
               handleImageDrop(view, event, moved, handleUpload as any),
+            transformPastedHTML: (html) => {
+              // Sanitize pasted HTML to prevent XSS
+              const clean = sanitizeHtml(html);
+              // Strip all color-related styles to force theme defaults
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(clean, 'text/html');
+              doc.querySelectorAll('[style]').forEach((el) => {
+                const element = el as HTMLElement;
+                element.style.color = '';
+                element.style.backgroundColor = '';
+                element.style.background = '';
+                element.style.borderColor = '';
+                element.style.outlineColor = '';
+                element.style.textDecorationColor = '';
+                element.style.fill = '';
+                element.style.stroke = '';
+              });
+              return doc.body.innerHTML;
+            },
             attributes: {
               class:
-                'prose prose-lg dark:prose-invert prose-baci text-foreground focus:outline-none max-w-full min-h-[500px] p-6 [&_*]:text-foreground',
+                'prose dark:prose-invert prose-baci text-foreground focus:outline-none max-w-none min-h-[700px] pt-10 pb-24 px-8 sm:px-12',
             } as Record<string, string>,
           }}
           onUpdate={({ editor }) => {
@@ -120,7 +140,18 @@ export default function NovelEditor({
             />
           }
           slotAfter={
-            <EditorBubble className="flex w-fit max-w-[90vw] overflow-hidden rounded border border-muted bg-background shadow-xl">
+            <EditorBubble
+              tippyOptions={{
+                placement: 'top',
+                offset: [0, 15], // Provides breathing room above selection
+                zIndex: 9999, // Force on top
+                appendTo: () => document.body, // Avoid clipping in containers
+                flip: true, // Allow flip if absolutely necessary
+              }}
+              role="toolbar"
+              aria-label="Text formatting toolbar"
+              className="flex w-fit max-w-[90vw] overflow-hidden rounded-md border border-muted bg-background/80 backdrop-blur-md shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            >
               <Separator orientation="vertical" />
               <NodeSelector open={openNode} onOpenChange={setOpenNode} />
               <Separator orientation="vertical" />

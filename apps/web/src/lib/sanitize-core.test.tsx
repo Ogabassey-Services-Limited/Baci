@@ -100,6 +100,11 @@ describe('stripHtmlTags', () => {
     expect(result).toBe('');
   });
 
+  it('should return plain text unchanged (fast path)', () => {
+    expect(stripHtmlTags('Hello World')).toBe('Hello World');
+    expect(stripHtmlTags('  spaced text  ')).toBe('  spaced text  ');
+  });
+
   it('should limit input length to prevent ReDoS', () => {
     const longInput = '<div>'.repeat(50000);
     const result = stripHtmlTags(longInput);

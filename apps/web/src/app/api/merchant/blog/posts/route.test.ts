@@ -68,6 +68,7 @@ const createChainableMock = () => {
     eq: vi.fn(),
     neq: vi.fn(),
     or: vi.fn(),
+    textSearch: vi.fn(),
     order: vi.fn(),
     range: vi.fn(),
     single: vi.fn(),
@@ -83,6 +84,7 @@ const createChainableMock = () => {
   mock.eq.mockReturnValue(mock);
   mock.neq.mockReturnValue(mock);
   mock.or.mockReturnValue(mock);
+  mock.textSearch.mockReturnValue(mock);
   mock.order.mockReturnValue(mock);
   mock.range.mockReturnValue(mock);
 
@@ -267,7 +269,7 @@ describe('GET /api/merchant/blog/posts', () => {
       expect(mockSupabase.eq).toHaveBeenCalledWith('category', 'tech');
     });
 
-    it('searches posts by title and content', async () => {
+    it('searches posts using full-text search', async () => {
       const mockPosts = [{ id: '1', title: 'Searchable Post' }];
 
       mockSupabase.range.mockResolvedValue({
@@ -282,22 +284,27 @@ describe('GET /api/merchant/blog/posts', () => {
       const _json = await res.json();
 
       expect(res.status).toBe(200);
-      expect(mockSupabase.or).toHaveBeenCalledWith(
-        'title.ilike.%searchable%,content.ilike.%searchable%'
+      expect(mockSupabase.textSearch).toHaveBeenCalledWith(
+        'search_vector',
+        'searchable',
+        { type: 'websearch', config: 'english' }
       );
     });
 
-    it('sanitizes search input to prevent filter injection', async () => {
+    it('truncates search input to 100 characters', async () => {
       mockSupabase.range.mockResolvedValue({
         data: [],
         error: null,
         count: 0,
       });
 
-      await GET(makeRequest('/api/merchant/blog/posts?search=test%test'));
+      const longSearch = 'a'.repeat(150);
+      await GET(makeRequest(`/api/merchant/blog/posts?search=${longSearch}`));
 
-      expect(mockSupabase.or).toHaveBeenCalledWith(
-        'title.ilike.%test\\%test%,content.ilike.%test\\%test%'
+      expect(mockSupabase.textSearch).toHaveBeenCalledWith(
+        'search_vector',
+        'a'.repeat(100),
+        { type: 'websearch', config: 'english' }
       );
     });
 

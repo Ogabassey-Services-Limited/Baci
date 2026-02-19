@@ -175,10 +175,11 @@ describe('purchaseBill', () => {
     expect(kudaRequest).toHaveBeenCalledWith(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {
-        Amount: '5000',
-        BillItemIdentifier: 'EKEDC-PREPAID',
-        PhoneNumber: '1234567890',
+        CustomerFirstName: 'Customer',
         CustomerIdentifier: '1234567890',
+        PhoneNumber: '1234567890',
+        BillItemIdentifier: 'EKEDC-PREPAID',
+        Amount: '500000', // 5000 Naira = 500000 Kobo
       },
       'BACI-1234567890-abcd1234'
     );
@@ -268,7 +269,7 @@ describe('purchaseBill', () => {
     expect(kudaRequest).toHaveBeenCalledWith(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       expect.objectContaining({
-        Amount: '150000',
+        Amount: '15000000', // 150000 Naira = 15000000 Kobo
       }),
       expect.any(String)
     );
@@ -314,10 +315,11 @@ describe('purchaseBill', () => {
     expect(kudaRequest).toHaveBeenCalledWith(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {
-        Amount: '10000',
-        BillItemIdentifier: 'IKEJA-ELECTRIC',
-        PhoneNumber: customerIdentification,
+        CustomerFirstName: 'Customer',
         CustomerIdentifier: customerIdentification,
+        PhoneNumber: customerIdentification,
+        BillItemIdentifier: 'IKEJA-ELECTRIC',
+        Amount: '1000000', // 10000 Naira = 1000000 Kobo
       },
       expect.any(String)
     );
