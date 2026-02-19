@@ -184,18 +184,19 @@ export function sanitizeSvg(svg: string): string {
     prev = result;
     result = result
       // Remove <script> tags — non-backtracking pattern to prevent ReDoS
-      .replace(/<script\b[^<]*(?:<(?!\/script>)[^<]*)*<\/script>/gi, '')
+      // Closing tags allow optional whitespace before > (browsers accept </script >)
+      .replace(/<script\b[^<]*(?:<(?!\/script\s*>)[^<]*)*<\/script\s*>/gi, '')
       .replace(/<script\b[^>]*\/?>/gi, '')
       // Remove dangerous embedding elements
       .replace(
-        /<foreignObject\b[^<]*(?:<(?!\/foreignObject>)[^<]*)*<\/foreignObject>/gi,
+        /<foreignObject\b[^<]*(?:<(?!\/foreignObject\s*>)[^<]*)*<\/foreignObject\s*>/gi,
         ''
       )
       .replace(/<foreignObject\b[^>]*\/?>/gi, '')
-      .replace(/<iframe\b[^<]*(?:<(?!\/iframe>)[^<]*)*<\/iframe>/gi, '')
+      .replace(/<iframe\b[^<]*(?:<(?!\/iframe\s*>)[^<]*)*<\/iframe\s*>/gi, '')
       .replace(/<iframe\b[^>]*\/?>/gi, '')
       .replace(/<embed\b[^>]*\/?>/gi, '')
-      .replace(/<object\b[^<]*(?:<(?!\/object>)[^<]*)*<\/object>/gi, '')
+      .replace(/<object\b[^<]*(?:<(?!\/object\s*>)[^<]*)*<\/object\s*>/gi, '')
       .replace(/<object\b[^>]*\/?>/gi, '')
       // Remove <use> elements with external references
       .replace(
@@ -215,7 +216,13 @@ export function sanitizeSvg(svg: string): string {
       .replace(/xlink:href\s*=\s*"data:[^"]*"/gi, 'xlink:href=""')
       .replace(/xlink:href\s*=\s*'data:[^']*'/gi, "xlink:href=''")
       .replace(/src\s*=\s*"data:[^"]*"/gi, 'src=""')
-      .replace(/src\s*=\s*'data:[^']*'/gi, "src=''");
+      .replace(/src\s*=\s*'data:[^']*'/gi, "src=''")
+      // Hardening: catch any remaining dangerous tag openers/closers
+      // that the complex patterns above may have missed
+      .replace(
+        /<\s*\/?\s*(?:script|iframe|foreignObject|object|embed)\b[^>]*>/gi,
+        ''
+      );
   }
   return result;
 }
