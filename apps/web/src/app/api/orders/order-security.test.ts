@@ -38,14 +38,16 @@ const mockSupabase = {
   },
   from: vi.fn(() => sharedChainableMock),
   rpc: vi.fn().mockResolvedValue({
-    data: [{
-      id: 'order-id',
-      order_number: 'ORD-123',
-      total: 1000,
-      subtotal: 1000,
-      shipping_fee: 0,
-      customer_id: 'customer-id',
-    }],
+    data: [
+      {
+        id: 'order-id',
+        order_number: 'ORD-123',
+        total: 1000,
+        subtotal: 1000,
+        shipping_fee: 0,
+        customer_id: 'customer-id',
+      },
+    ],
     error: null,
   }),
 };
@@ -175,8 +177,8 @@ describe('Order API Security', () => {
   });
 
   it('should ignore body user_id and use auth user_id if authenticated', async () => {
-     const authUserId = '123e4567-e89b-12d3-a456-426614174002'; // Valid UUID
-     const spoofUserId = '123e4567-e89b-12d3-a456-426614174003'; // Valid UUID
+    const authUserId = '123e4567-e89b-12d3-a456-426614174002'; // Valid UUID
+    const spoofUserId = '123e4567-e89b-12d3-a456-426614174003'; // Valid UUID
 
     // Mock authenticated user
     mockSupabase.auth.getUser.mockResolvedValue({
