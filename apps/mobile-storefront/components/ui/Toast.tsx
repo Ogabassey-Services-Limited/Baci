@@ -19,7 +19,8 @@ import Animated, {
   SlideOutDown,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { RADIUS, SHADOWS } from '@/constants/Colors';
+import Colors, { RADIUS, SHADOWS, TYPOGRAPHY } from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
 
 export type ToastVariant = 'success' | 'error' | 'warning' | 'info';
 
@@ -32,36 +33,6 @@ interface ToastProps {
   position?: 'top' | 'bottom';
 }
 
-const VARIANT_CONFIG = {
-  success: {
-    icon: 'checkmark-circle' as const,
-    iconColor: '#10B981',
-    backgroundColor: '#111827',
-    textColor: '#FFFFFF',
-  },
-  error: {
-    icon: 'alert-circle' as const,
-    iconColor: '#EF4444',
-    // 2026 Critical Fix: Improve contrast ratio for WCAG AA compliance
-    // Previous: #FEF2F2 bg + #991B1B text = 2.8:1 (FAIL)
-    // Fixed: #111827 bg + #FECACA text = 12.2:1 (PASS)
-    backgroundColor: '#111827',
-    textColor: '#FECACA',
-  },
-  warning: {
-    icon: 'warning' as const,
-    iconColor: '#F59E0B',
-    backgroundColor: '#FFFBEB',
-    textColor: '#78350F',
-  },
-  info: {
-    icon: 'information-circle' as const,
-    iconColor: '#3B82F6',
-    backgroundColor: '#EFF6FF',
-    textColor: '#1E40AF',
-  },
-};
-
 export function Toast({
   message,
   variant = 'success',
@@ -71,8 +42,10 @@ export function Toast({
   position = 'bottom',
 }: ToastProps) {
   const insets = useSafeAreaInsets();
+  const theme = useColorScheme() ?? 'light';
+  const colors = Colors[theme];
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const config = VARIANT_CONFIG[variant];
+
   // M35 fix: Store onDismiss in a ref to avoid it being a dependency in useEffect.
   // When onDismiss is an inline function, it changes identity every render,
   // causing the useEffect to re-fire and potentially loop.
@@ -122,6 +95,41 @@ export function Toast({
     position === 'top'
       ? { top: insets.top + 16 }
       : { bottom: insets.bottom + 100 };
+
+  const getVariantConfig = (v: ToastVariant) => {
+    switch (v) {
+      case 'success':
+        return {
+          icon: 'checkmark-circle' as const,
+          iconColor: colors.success,
+          backgroundColor: colors.card,
+          textColor: colors.text,
+        };
+      case 'error':
+        return {
+          icon: 'alert-circle' as const,
+          iconColor: colors.error,
+          backgroundColor: colors.card,
+          textColor: colors.text,
+        };
+      case 'warning':
+        return {
+          icon: 'warning' as const,
+          iconColor: colors.warning,
+          backgroundColor: colors.card,
+          textColor: colors.text,
+        };
+      case 'info':
+        return {
+          icon: 'information-circle' as const,
+          iconColor: colors.text, // Fallback since no explicit info color
+          backgroundColor: colors.card,
+          textColor: colors.text,
+        };
+    }
+  };
+
+  const config = getVariantConfig(variant);
 
   return (
     <Animated.View
@@ -224,8 +232,8 @@ const styles = StyleSheet.create({
   },
   message: {
     flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 20,
+    fontSize: TYPOGRAPHY.size.sm, // Was 14
+    fontWeight: TYPOGRAPHY.weight.semibold,
+    lineHeight: 20, // Keep hardcoded or derive? 20 is ~1.4 * 14. Normal is 1.5. TYPOGRAPHY.lineHeight.normal is 1.5.
   },
 });
