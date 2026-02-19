@@ -27,7 +27,9 @@ export const blogPostSchema = z.object({
   author_title: z.string().max(100).optional().nullable(),
   author_image_url: z.string().url().optional().nullable().or(z.literal('')),
   author_bio: z.string().max(500).optional().nullable(),
-  status: z.enum(['draft', 'published', 'archived', 'scheduled']).optional(),
+  // Note: 'scheduled' exists in the DB enum but has no cron job to publish.
+  // Only accept statuses that are immediately actionable.
+  status: z.enum(['draft', 'published', 'archived']).optional(),
   published_at: z.string().datetime().nullable().optional(),
   seo_title: z
     .string()
@@ -68,7 +70,7 @@ export const createPostSchema = z.object({
   author_title: z.string().max(100).optional(),
   author_image_url: z.string().url().optional().nullable(),
   author_bio: z.string().max(500).optional(),
-  status: z.enum(['draft', 'published', 'archived', 'scheduled']).optional(),
+  status: z.enum(['draft', 'published', 'archived']).optional(),
   seo_title: z.string().max(70).optional(),
   seo_description: z.string().max(160).optional(),
   focus_keyword: z.string().max(50).optional(),

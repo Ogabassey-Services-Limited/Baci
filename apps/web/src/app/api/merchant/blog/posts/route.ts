@@ -1,203 +1,21 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import z from 'zod';
 import {
   authenticateApiRequest,
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import {
+  calculateReadingTime,
+  calculateWordCount,
+  extractKeywords,
+  generateExcerpt,
+  generateSeoDescription,
+  generateSlug,
+} from '@/lib/blog-utils';
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
-
-/**
- * Blog Posts API - List and Create
- *
- * GET: List all blog posts for the authenticated merchant
- * POST: Create a new blog post
- */
-
-// Validation schema for creating a blog post
-const createPostSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(200),
-  slug: z
-    .string()
-    .min(1)
-    .max(200)
-    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
-  content: z.string().min(1, 'Content is required'),
-  excerpt: z.string().max(300).optional(),
-  featured_image_url: z.string().url().optional().nullable(),
-  featured_image_alt: z.string().max(200).optional(),
-  category: z.string().max(100).optional(),
-  tags: z.array(z.string()).optional(),
-  keywords: z.array(z.string()).optional(),
-  author_name: z.string().min(1, 'Author name is required').max(100),
-  author_title: z.string().max(100).optional(),
-  author_image_url: z.string().url().optional().nullable(),
-  author_bio: z.string().max(500).optional(),
-  status: z.enum(['draft', 'published', 'archived']).optional(),
-  seo_title: z.string().max(70).optional(),
-  seo_description: z.string().max(160).optional(),
-  focus_keyword: z.string().max(50).optional(),
-});
-
-// Calculate reading time based on word count
-function calculateReadingTime(content: string): number {
-  const wordsPerMinute = 200;
-  const wordCount = calculateWordCount(content);
-  return Math.ceil(wordCount / wordsPerMinute);
-}
-
-// Calculate word count
-function calculateWordCount(content: string): number {
-  return content.split(/\s+/).filter(Boolean).length;
-}
-
-// Generate slug from title
-function generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .substring(0, 200);
-}
-
-// Strip HTML tags from content for plain text extraction
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-// Auto-generate SEO description from content
-function generateSeoDescription(content: string, maxLength = 155): string {
-  const plainText = stripHtml(content);
-  if (plainText.length <= maxLength) return plainText;
-
-  // Find the last complete word within maxLength
-  const truncated = plainText.substring(0, maxLength);
-  const lastSpace = truncated.lastIndexOf(' ');
-  return lastSpace > 0
-    ? `${truncated.substring(0, lastSpace)}...`
-    : `${truncated}...`;
-}
-
-// Auto-generate excerpt from content
-function generateExcerpt(content: string, maxLength = 300): string {
-  const plainText = stripHtml(content);
-  if (plainText.length <= maxLength) return plainText;
-
-  const truncated = plainText.substring(0, maxLength);
-  const lastSpace = truncated.lastIndexOf(' ');
-  return lastSpace > 0
-    ? `${truncated.substring(0, lastSpace)}...`
-    : `${truncated}...`;
-}
-
-// Extract keywords from title and content
-function extractKeywords(title: string, content: string): string[] {
-  const plainText = stripHtml(content).toLowerCase();
-  const titleWords = title.toLowerCase().split(/\s+/);
-
-  // Common stop words to exclude
-  const stopWords = new Set([
-    'the',
-    'a',
-    'an',
-    'and',
-    'or',
-    'but',
-    'in',
-    'on',
-    'at',
-    'to',
-    'for',
-    'of',
-    'with',
-    'by',
-    'from',
-    'is',
-    'are',
-    'was',
-    'were',
-    'be',
-    'been',
-    'being',
-    'have',
-    'has',
-    'had',
-    'do',
-    'does',
-    'did',
-    'will',
-    'would',
-    'could',
-    'should',
-    'may',
-    'might',
-    'must',
-    'shall',
-    'can',
-    'this',
-    'that',
-    'these',
-    'those',
-    'it',
-    'its',
-    'you',
-    'your',
-    'we',
-    'our',
-    'they',
-    'their',
-    'i',
-    'my',
-    'me',
-    'he',
-    'she',
-    'him',
-    'her',
-    'as',
-    'if',
-    'then',
-    'than',
-    'so',
-    'just',
-    'only',
-    'also',
-    'very',
-    'too',
-  ]);
-
-  // Get meaningful words from title (higher priority)
-  const keywords = titleWords.filter(
-    (word) => word.length > 3 && !stopWords.has(word)
-  );
-
-  // Add frequent words from content (limit to 10 total)
-  const contentWords = plainText
-    .split(/\s+/)
-    .filter(
-      (word) =>
-        word.length > 4 && !stopWords.has(word) && !keywords.includes(word)
-    );
-
-  // Count word frequency
-  const wordCount: Record<string, number> = {};
-  contentWords.forEach((word) => {
-    wordCount[word] = (wordCount[word] || 0) + 1;
-  });
-
-  // Sort by frequency and take top words
-  const topContentWords = Object.entries(wordCount)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10 - keywords.length)
-    .map(([word]) => word);
-
-  return [...new Set([...keywords, ...topContentWords])].slice(0, 10);
-}
+import { createPostSchema } from '@/lib/validations/blog';
 
 export async function GET(request: NextRequest) {
   try {
@@ -252,11 +70,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      // Sanitize search input to prevent filter injection (escape %, _, \)
-      const sanitized = search.replace(/[%_\\]/g, '\\$&');
-      query = query.or(
-        `title.ilike.%${sanitized}%,content.ilike.%${sanitized}%`
-      );
+      const sanitized = search.trim().slice(0, 100);
+      if (sanitized) {
+        // Use GIN-indexed full-text search, consistent with storefront search
+        query = query.textSearch('search_vector', sanitized, {
+          type: 'websearch',
+          config: 'english',
+        });
+      }
     }
 
     // Apply sorting
