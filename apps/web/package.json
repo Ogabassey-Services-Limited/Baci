@@ -107,7 +107,7 @@
     "input-otp": "^1.4.2",
     "isomorphic-dompurify": "^2.36.0",
     "jimp": "^1.6.0",
-    "jspdf": "^4.1.0",
+    "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "lowlight": "^3.3.0",
     "lucide-react": "^0.561.0",
