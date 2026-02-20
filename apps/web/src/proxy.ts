@@ -44,6 +44,18 @@ const RESERVED_SUBDOMAINS = new Set([
 // Valid subdomain pattern: alphanumeric and hyphens, 1-63 chars, no leading/trailing hyphens
 const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 
+// Pre-compiled regex patterns for performance (avoids recompilation on every request)
+const STATIC_FILES_REGEX =
+  /\.(jpg|jpeg|png|gif|svg|ico|webp|woff|woff2|ttf|eot|css|js|json)$/;
+const IMAGE_FILES_REGEX =
+  /\.(jpg|jpeg|png|gif|svg|ico|webp|woff|woff2|ttf|eot)$/;
+const BOT_USER_AGENT_REGEX =
+  /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i;
+const PRODUCT_PAGE_REGEX = /^\/[^/]+\/products\/[^/]+$/;
+const NESTED_PRODUCT_REGEX = /^\/[^/]+\/[^/]+\/[^/]+$/;
+const CATEGORY_PAGE_REGEX = /^\/[^/]+\/[^/]+\/?$/;
+const STOREFRONT_HOME_REGEX = /^\/[^/]+\/?$/;
+
 // Routes that should not be rewritten (main app routes)
 const MAIN_APP_ROUTES = [
   '/dashboard',
@@ -399,9 +411,7 @@ export async function proxy(request: NextRequest) {
     pathname !== pathname.toLowerCase() &&
     !pathname.startsWith('/_next') &&
     !pathname.startsWith('/api') &&
-    !pathname.match(
-      /\.(jpg|jpeg|png|gif|svg|ico|webp|woff|woff2|ttf|eot|css|js|json)$/
-    )
+    !pathname.match(STATIC_FILES_REGEX)
   ) {
     const url = request.nextUrl.clone();
     url.pathname = pathname.toLowerCase();
@@ -867,16 +877,13 @@ function applySecurityHeaders(
   // Storefront and API routes: no COEP to allow Google Ads iframes
 
   // Detect bots/crawlers for optimized SEO caching
-  const isBot =
-    /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i.test(
-      userAgent
-    );
+  const isBot = BOT_USER_AGENT_REGEX.test(userAgent);
 
   // Add cache headers for static assets
   if (
     pathname.startsWith('/_next/static') ||
     pathname.startsWith('/images') ||
-    pathname.match(/\.(jpg|jpeg|png|gif|svg|ico|webp|woff|woff2|ttf|eot)$/)
+    pathname.match(IMAGE_FILES_REGEX)
   ) {
     response.headers.set(
       'Cache-Control',
@@ -902,8 +909,8 @@ function applySecurityHeaders(
 
   // Cache product pages (both /products/slug and /category/slug formats)
   if (
-    pathname.match(/^\/[^/]+\/products\/[^/]+$/) ||
-    pathname.match(/^\/[^/]+\/[^/]+\/[^/]+$/)
+    pathname.match(PRODUCT_PAGE_REGEX) ||
+    pathname.match(NESTED_PRODUCT_REGEX)
   ) {
     response.headers.set(
       'Cache-Control',
@@ -916,7 +923,7 @@ function applySecurityHeaders(
 
   // Cache category pages
   if (
-    pathname.match(/^\/[^/]+\/[^/]+\/?$/) &&
+    pathname.match(CATEGORY_PAGE_REGEX) &&
     !pathname.startsWith('/dashboard') &&
     !pathname.startsWith('/api')
   ) {
@@ -931,7 +938,7 @@ function applySecurityHeaders(
 
   // Cache storefront home pages
   if (
-    pathname.match(/^\/[^/]+\/?$/) &&
+    pathname.match(STOREFRONT_HOME_REGEX) &&
     !pathname.startsWith('/dashboard') &&
     !pathname.startsWith('/api')
   ) {
