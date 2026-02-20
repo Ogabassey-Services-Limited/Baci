@@ -116,7 +116,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       }
 
       // On SIGNED_IN, reset user-specific stores to prevent cross-user data bleed
-      if (event === 'SIGNED_IN') {
+      // On SIGNED_OUT, ensure cleanup happens even if session expires passively
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
         void resetUserStores();
       }
 
