@@ -7,7 +7,7 @@ describe('isValidIMEI', () => {
   });
 
   it('accepts another valid IMEI', () => {
-    expect(isValidIMEI('353456789012345')).toBe(true);
+    expect(isValidIMEI('356938035643809')).toBe(true);
   });
 
   it('rejects an IMEI with invalid checksum', () => {
