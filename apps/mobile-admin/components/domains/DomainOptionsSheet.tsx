@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -35,24 +35,21 @@ export default function DomainOptionsSheet({
     };
   }, []);
 
-  const handleAction = useCallback(
-    (action: DomainAction) => {
-      if (!domain) return;
-      onClose();
-      // Clear any existing timeout before setting a new one
-      if (actionTimeoutRef.current) {
-        clearTimeout(actionTimeoutRef.current);
+  const handleAction = (action: DomainAction) => {
+    if (!domain) return;
+    onClose();
+    // Clear any existing timeout before setting a new one
+    if (actionTimeoutRef.current) {
+      clearTimeout(actionTimeoutRef.current);
+    }
+    // Small delay to allow sheet to close before action (smoothness)
+    actionTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        onAction(action, domain);
       }
-      // Small delay to allow sheet to close before action (smoothness)
-      actionTimeoutRef.current = setTimeout(() => {
-        if (isMountedRef.current) {
-          onAction(action, domain);
-        }
-        actionTimeoutRef.current = null;
-      }, 100);
-    },
-    [domain, onClose, onAction]
-  );
+      actionTimeoutRef.current = null;
+    }, 100);
+  };
 
   if (!domain) return null;
 
