@@ -92,7 +92,7 @@ android {
         applicationId 'com.ogabassey.baci'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        versionCode project.hasProperty('versionCode') ? project.property('versionCode').toInteger() : 1
         versionName "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
@@ -106,11 +106,24 @@ android {
         }
         release {
             def keystorePath = System.getenv("ANDROID_KEYSTORE_FILE") ?: null
+            def keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: null
+            def keyAliasVal = System.getenv("ANDROID_KEY_ALIAS") ?: null
+            def keyPasswordVal = System.getenv("ANDROID_KEY_PASSWORD") ?: null
+
             if (keystorePath != null && file(keystorePath).exists()) {
+                if (!keystorePassword || !keyAliasVal || !keyPasswordVal) {
+                    throw new GradleException(
+                        "Release keystore found but signing credentials incomplete. " +
+                        "Missing: " +
+                        (!keystorePassword ? "ANDROID_KEYSTORE_PASSWORD " : "") +
+                        (!keyAliasVal ? "ANDROID_KEY_ALIAS " : "") +
+                        (!keyPasswordVal ? "ANDROID_KEY_PASSWORD " : "")
+                    )
+                }
                 storeFile file(keystorePath)
-                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                keyAlias System.getenv("ANDROID_KEY_ALIAS")
-                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+                storePassword keystorePassword
+                keyAlias keyAliasVal
+                keyPassword keyPasswordVal
             }
         }
     }
@@ -119,7 +132,13 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig signingConfigs.release.storeFile != null ? signingConfigs.release : signingConfigs.debug
+            if (signingConfigs.release.storeFile == null) {
+                throw new GradleException(
+                    "Release build requires signing credentials. " +
+                    "Set ANDROID_KEYSTORE_FILE, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD environment variables."
+                )
+            }
+            signingConfig signingConfigs.release
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
