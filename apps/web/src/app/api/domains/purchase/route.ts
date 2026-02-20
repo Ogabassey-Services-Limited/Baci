@@ -1,11 +1,12 @@
 import { cookies } from 'next/headers';
-import { after, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
   calculateDomainPrice,
   getDomainPricing,
 } from '@/config/domain-pricing';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   getMerchantForApiRequest,
@@ -40,9 +41,7 @@ const PurchaseRequestSchema = z.object({
     .regex(DOMAIN_REGEX, 'Invalid domain format')
     .transform((value) => value.toLowerCase()),
   years: z.coerce.number().int().min(1).max(10).default(1),
-  contactInfo: z
-    .union([ContactInfoInputSchema, z.string().trim().min(1)])
-    .optional(),
+  contactInfo: ContactInfoInputSchema.optional(),
   paymentReference: z.string().trim().min(1).optional(),
 });
 
@@ -50,8 +49,16 @@ const PurchaseRequestSchema = z.object({
  * POST /api/domains/purchase
  * Purchase a domain through Go54
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
     const {
@@ -74,10 +81,7 @@ export async function POST(request: Request) {
     }
 
     const { domain, years, paymentReference } = parsedRequest.data;
-    const contactInfo =
-      typeof parsedRequest.data.contactInfo === 'string'
-        ? undefined
-        : parsedRequest.data.contactInfo;
+    const contactInfo = parsedRequest.data.contactInfo;
 
     // Extract TLD and get pricing
     let tld = `.${domain.split('.').slice(-1)[0]}`;
@@ -457,7 +461,13 @@ export async function POST(request: Request) {
         .single();
 
       if (insertError) {
-        console.error('Error storing domain:', insertError);
+        console.error('Error storing domain after Go54 registration:', {
+          domain,
+          merchantId,
+          go54OrderId: registrationResult.orderId || null,
+          registrationResult,
+          insertError,
+        });
         return NextResponse.json(
           { error: 'Domain registered but failed to store in database' },
           { status: 500 }

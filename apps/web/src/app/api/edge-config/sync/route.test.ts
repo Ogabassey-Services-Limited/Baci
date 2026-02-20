@@ -84,6 +84,22 @@ describe('POST /api/edge-config/sync', () => {
     expect(body).toEqual({ error: 'Unauthorized' });
   });
 
+  it('returns 500 when Edge Config is not configured', async () => {
+    process.env.EDGE_CONFIG_SYNC_SECRET = 'sync-secret';
+    process.env.VERCEL_API_TOKEN = 'vercel-token';
+    delete process.env.EDGE_CONFIG_ID;
+    delete process.env.EDGE_CONFIG;
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    const response = await POST(makeRequest('sync-secret'));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Edge Config not configured' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when VERCEL_API_TOKEN is absent even if EDGE_CONFIG_SYNC_SECRET is valid', async () => {
     process.env.EDGE_CONFIG_SYNC_SECRET = 'sync-secret';
     delete process.env.VERCEL_API_TOKEN;
@@ -101,6 +117,42 @@ describe('POST /api/edge-config/sync', () => {
     expect(response.status).toBe(500);
     expect(String(body.error)).toContain('VERCEL_API_TOKEN');
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when fetching domains fails', async () => {
+    process.env.EDGE_CONFIG_SYNC_SECRET = 'sync-secret';
+    process.env.VERCEL_API_TOKEN = 'vercel-token';
+    process.env.EDGE_CONFIG_ID = 'ecfg_domains_error';
+
+    mockDomainsQuery(null, { message: 'db failed' });
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+
+    const response = await POST(makeRequest('sync-secret'));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Failed to fetch domains' });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when existing Edge Config items response shape is invalid', async () => {
+    process.env.EDGE_CONFIG_SYNC_SECRET = 'sync-secret';
+    process.env.VERCEL_API_TOKEN = 'vercel-token';
+    process.env.EDGE_CONFIG_ID = 'ecfg_invalid_existing_items';
+
+    mockDomainsQuery([]);
+
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }));
+
+    const response = await POST(makeRequest('sync-secret'));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Unexpected Edge Config API response' });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it('syncs mappings and deletes stale tenant keys', async () => {

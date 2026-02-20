@@ -412,7 +412,7 @@ export async function POST(request: NextRequest) {
             notes: `Converted from chat order. Session: ${chatOrder.session_id}`,
             source: 'chat',
           })
-          .select()
+          .select('id')
           .single();
 
         if (orderCreateError || !newOrder) {
@@ -782,7 +782,9 @@ export async function POST(request: NextRequest) {
         // 1. Fetch Merchant Details for Registration
         const { data: merchantData } = await supabase
           .from('merchants')
-          .select('*, users:user_id(first_name, last_name)') // simplified join syntax
+          .select(
+            'business_name, email, address, city, state, phone, users:user_id(first_name, last_name)'
+          )
           .eq('id', transaction.merchant_id)
           .single();
 
@@ -792,13 +794,17 @@ export async function POST(request: NextRequest) {
             merchantId: transaction.merchant_id,
           });
         } else {
+          const merchantUser = Array.isArray(merchantData.users)
+            ? merchantData.users[0]
+            : merchantData.users;
+
           // 2. Prepare Contact Info (Fallbacks used for missing fields to ensure registration works)
           // Import dynamically or ensure imported at top - adding simple object here
           const contactName =
-            merchantData.users?.first_name ||
+            merchantUser?.first_name ||
             merchantData.business_name ||
             'Baci User';
-          const contactLastName = merchantData.users?.last_name || 'Merchant';
+          const contactLastName = merchantUser?.last_name || 'Merchant';
 
           const contactInfo = {
             firstname: contactName,
@@ -893,6 +899,7 @@ export async function POST(request: NextRequest) {
                 .select('id, merchant_id')
                 .eq('domain', normalizedDomain)
                 .maybeSingle();
+            const domainPurchaseAmount = Number(transaction.amount) || 0;
 
             if (existingDomainError) {
               logger.error({
@@ -916,6 +923,8 @@ export async function POST(request: NextRequest) {
                     expires_at: expiresAt.toISOString(),
                     auto_renew: true,
                     go54_order_id: registration.orderId || null,
+                    purchase_price: domainPurchaseAmount,
+                    renewal_price: domainPurchaseAmount,
                     nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
                   })
                   .eq('id', existingDomain.id);
@@ -952,7 +961,6 @@ export async function POST(request: NextRequest) {
 
               const shouldSetPrimary =
                 !primaryDomainError && !existingPrimaryDomain;
-              const domainPurchaseAmount = Number(transaction.amount) || 0;
 
               const { data: insertedDomain, error: domainDbError } =
                 await supabase
@@ -998,7 +1006,90 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (err) {
-        logger.error({ message: 'Domain fulfillment failed', error: err });
+        const fallbackDomain =
+          typeof metadata.domain === 'string'
+            ? metadata.domain.toLowerCase()
+            : null;
+
+        logger.error({
+          message: 'Domain fulfillment failed',
+          reference,
+          transactionId: transaction.id,
+          merchantId: transaction.merchant_id,
+          domain: fallbackDomain,
+          error: err,
+        });
+
+        if (fallbackDomain) {
+          const fallbackTld = fallbackDomain.endsWith('.com.ng')
+            ? '.com.ng'
+            : fallbackDomain.endsWith('.org.ng')
+              ? '.org.ng'
+              : fallbackDomain.endsWith('.net.ng')
+                ? '.net.ng'
+                : fallbackDomain.endsWith('.edu.ng')
+                  ? '.edu.ng'
+                  : fallbackDomain.endsWith('.name.ng')
+                    ? '.name.ng'
+                    : `.${fallbackDomain.split('.').slice(-1)[0]}`;
+          const nowIso = new Date().toISOString();
+
+          try {
+            const { data: existingDomain, error: existingDomainError } =
+              await supabase
+                .from('domains')
+                .select('id, merchant_id')
+                .eq('domain', fallbackDomain)
+                .maybeSingle();
+
+            if (existingDomainError) {
+              logger.error({
+                message: 'Failed checking fallback domain persistence state',
+                domain: fallbackDomain,
+                merchantId: transaction.merchant_id,
+                reference,
+                error: existingDomainError,
+              });
+            } else if (!existingDomain) {
+              const domainPurchaseAmount = Number(transaction.amount) || 0;
+              const { error: fallbackInsertError } = await supabase
+                .from('domains')
+                .insert({
+                  merchant_id: transaction.merchant_id,
+                  domain: fallbackDomain,
+                  tld: fallbackTld,
+                  domain_type: 'purchased',
+                  status: 'pending',
+                  is_primary: false,
+                  ssl_status: 'pending',
+                  purchase_price: domainPurchaseAmount,
+                  renewal_price: domainPurchaseAmount,
+                  registered_at: nowIso,
+                  auto_renew: true,
+                  nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+                });
+
+              if (fallbackInsertError) {
+                logger.error({
+                  message:
+                    'Failed to persist fallback pending domain record after fulfillment error',
+                  domain: fallbackDomain,
+                  merchantId: transaction.merchant_id,
+                  reference,
+                  error: fallbackInsertError,
+                });
+              }
+            }
+          } catch (fallbackPersistError) {
+            logger.error({
+              message: 'Fallback domain persistence threw unexpectedly',
+              domain: fallbackDomain,
+              merchantId: transaction.merchant_id,
+              reference,
+              error: fallbackPersistError,
+            });
+          }
+        }
       }
     }
 
@@ -1012,7 +1103,9 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', transaction.order_id)
-        .select('*, order_items(*), ad_tracking')
+        .select(
+          'id, order_number, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, updated_at, ad_tracking, order_items(id, product_id, name, price, quantity, subtotal)'
+        )
         .single();
 
       if (orderError) {
