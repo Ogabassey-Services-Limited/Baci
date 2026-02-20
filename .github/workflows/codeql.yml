@@ -44,6 +44,8 @@ jobs:
         uses: github/codeql-action/init@38e701f46e33fb233075bf4238cb1e5d68e429e4 # v3.31.11
         with:
           languages: ${{ matrix.language }}
+          # Keep CodeQL configuration source explicit to avoid stale config drift in code scanning UI
+          config-file: ./.github/codeql/codeql-config.yml
           # Use extended security queries for more comprehensive analysis
           queries: security-extended,security-and-quality
 

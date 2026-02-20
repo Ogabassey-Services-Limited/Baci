@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
+import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -315,7 +316,9 @@ export async function POST(request: NextRequest) {
       // Find the pending chat order
       const { data: chatOrder, error: chatOrderError } = await supabase
         .from('chat_orders')
-        .select('*')
+        .select(
+          'id, merchant_id, customer_id, customer_name, customer_email, customer_phone, shipping_address, session_id, subtotal, shipping_fee, items'
+        )
         .eq('payment_reference', reference)
         .eq('status', 'pending_payment')
         .single();
@@ -409,7 +412,7 @@ export async function POST(request: NextRequest) {
             notes: `Converted from chat order. Session: ${chatOrder.session_id}`,
             source: 'chat',
           })
-          .select()
+          .select('id')
           .single();
 
         if (orderCreateError || !newOrder) {
@@ -670,7 +673,9 @@ export async function POST(request: NextRequest) {
     // Find transaction record
     const { data: transaction, error: transactionError } = await supabase
       .from('transactions')
-      .select('*')
+      .select(
+        'id,amount,currency,merchant_id,metadata,order_id,gateway_fee,platform_fee'
+      )
       .eq('gateway_reference', reference)
       .single();
 
@@ -777,7 +782,9 @@ export async function POST(request: NextRequest) {
         // 1. Fetch Merchant Details for Registration
         const { data: merchantData } = await supabase
           .from('merchants')
-          .select('*, users:user_id(first_name, last_name)') // simplified join syntax
+          .select(
+            'business_name, email, address, city, state, phone, users:user_id(first_name, last_name)'
+          )
           .eq('id', transaction.merchant_id)
           .single();
 
@@ -787,13 +794,17 @@ export async function POST(request: NextRequest) {
             merchantId: transaction.merchant_id,
           });
         } else {
+          const merchantUser = Array.isArray(merchantData.users)
+            ? merchantData.users[0]
+            : merchantData.users;
+
           // 2. Prepare Contact Info (Fallbacks used for missing fields to ensure registration works)
           // Import dynamically or ensure imported at top - adding simple object here
           const contactName =
-            merchantData.users?.first_name ||
+            merchantUser?.first_name ||
             merchantData.business_name ||
             'Baci User';
-          const contactLastName = merchantData.users?.last_name || 'Merchant';
+          const contactLastName = merchantUser?.last_name || 'Merchant';
 
           const contactInfo = {
             firstname: contactName,
@@ -809,10 +820,60 @@ export async function POST(request: NextRequest) {
             phonenumber: merchantData.phone || '+2348000000000',
           };
 
+          const normalizedDomain = metadata.domain.toLowerCase();
+          const purchaseYears = Number(metadata.years) || 1;
+          const tld =
+            typeof metadata.tld === 'string' && metadata.tld.startsWith('.')
+              ? metadata.tld
+              : (() => {
+                  const multipartTlds = [
+                    '.com.ng',
+                    '.org.ng',
+                    '.net.ng',
+                    '.edu.ng',
+                    '.name.ng',
+                  ];
+                  const matchedMultipartTld = multipartTlds.find((candidate) =>
+                    normalizedDomain.endsWith(candidate)
+                  );
+
+                  if (matchedMultipartTld) {
+                    return `.${normalizedDomain.split('.').slice(-2).join('.')}`;
+                  }
+
+                  return `.${normalizedDomain.split('.').slice(-1)[0]}`;
+                })();
+
+          const markTransactionDomainPurchased = async (domainId?: string) => {
+            const updatedMetadata: Record<string, unknown> = {
+              ...metadata,
+              domain_purchased: normalizedDomain,
+              purchased_at: new Date().toISOString(),
+            };
+
+            if (domainId) {
+              updatedMetadata.domain_id = domainId;
+            }
+
+            const { error: transactionMetadataError } = await supabase
+              .from('transactions')
+              .update({ metadata: updatedMetadata })
+              .eq('id', transaction.id);
+
+            if (transactionMetadataError) {
+              logger.error({
+                message: 'Failed to mark transaction as domain_purchased',
+                error: transactionMetadataError,
+                transactionId: transaction.id,
+                domain: normalizedDomain,
+              });
+            }
+          };
+
           // 3. Register Domain via Go54
           const registration = await registerDomain({
-            domain: metadata.domain,
-            regperiod: Number(metadata.years) || 1,
+            domain: normalizedDomain,
+            regperiod: purchaseYears,
             contacts: {
               registrant: contactInfo,
               admin: contactInfo,
@@ -827,26 +888,113 @@ export async function POST(request: NextRequest) {
               domain: metadata.domain,
             });
 
-            // 4. Save to merchant_domains
-            const { error: domainDbError } = await supabase
-              .from('merchant_domains')
-              .insert({
-                merchant_id: transaction.merchant_id,
-                domain: metadata.domain,
-                status: 'active',
-                provider: 'go54',
-                expires_at: new Date(
-                  Date.now() + 31536000000 * (Number(metadata.years) || 1)
-                ).toISOString(),
-                auto_renew: true,
-                is_primary: false, // User sets primary manually later
-              });
+            // 4. Persist to domains table (used by proxy + storefront resolution)
+            const expiresAt = new Date();
+            expiresAt.setFullYear(expiresAt.getFullYear() + purchaseYears);
+            const nowIso = new Date().toISOString();
 
-            if (domainDbError) {
+            const { data: existingDomain, error: existingDomainError } =
+              await supabase
+                .from('domains')
+                .select('id, merchant_id')
+                .eq('domain', normalizedDomain)
+                .maybeSingle();
+            const domainPurchaseAmount = Number(transaction.amount) || 0;
+
+            if (existingDomainError) {
               logger.error({
-                message: 'Failed to save merchant_domain record',
-                error: domainDbError,
+                message: 'Failed checking existing domain record',
+                error: existingDomainError,
               });
+            } else if (existingDomain) {
+              if (existingDomain.merchant_id !== transaction.merchant_id) {
+                logger.error({
+                  message:
+                    'Domain already belongs to a different merchant, skipping update',
+                  domain: normalizedDomain,
+                });
+              } else {
+                const { error: updateDomainError } = await supabase
+                  .from('domains')
+                  .update({
+                    status: 'active',
+                    ssl_status: 'active',
+                    verified_at: nowIso,
+                    expires_at: expiresAt.toISOString(),
+                    auto_renew: true,
+                    go54_order_id: registration.orderId || null,
+                    purchase_price: domainPurchaseAmount,
+                    renewal_price: domainPurchaseAmount,
+                    nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+                  })
+                  .eq('id', existingDomain.id);
+
+                if (updateDomainError) {
+                  logger.error({
+                    message: 'Failed to update existing domain record',
+                    error: updateDomainError,
+                    domain: normalizedDomain,
+                  });
+                } else {
+                  await markTransactionDomainPurchased(existingDomain.id);
+                  after(() => triggerDomainEdgeConfigSync());
+                }
+              }
+            } else {
+              const { data: existingPrimaryDomain, error: primaryDomainError } =
+                await supabase
+                  .from('domains')
+                  .select('id')
+                  .eq('merchant_id', transaction.merchant_id)
+                  .in('domain_type', ['custom', 'purchased'])
+                  .eq('status', 'active')
+                  .eq('is_primary', true)
+                  .limit(1)
+                  .maybeSingle();
+
+              if (primaryDomainError) {
+                logger.error({
+                  message: 'Failed checking existing primary domain',
+                  error: primaryDomainError,
+                });
+              }
+
+              const shouldSetPrimary =
+                !primaryDomainError && !existingPrimaryDomain;
+
+              const { data: insertedDomain, error: domainDbError } =
+                await supabase
+                  .from('domains')
+                  .insert({
+                    merchant_id: transaction.merchant_id,
+                    domain: normalizedDomain,
+                    tld,
+                    domain_type: 'purchased',
+                    status: 'active',
+                    is_primary: shouldSetPrimary,
+                    verified_at: nowIso,
+                    ssl_status: 'active',
+                    go54_order_id: registration.orderId || null,
+                    purchase_price: domainPurchaseAmount,
+                    renewal_price: domainPurchaseAmount,
+                    registered_at: nowIso,
+                    expires_at: expiresAt.toISOString(),
+                    auto_renew: true,
+                    nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+                  })
+                  .select('id')
+                  .single();
+
+              if (domainDbError) {
+                logger.error({
+                  message: 'Failed to save domain record',
+                  error: domainDbError,
+                  domain: normalizedDomain,
+                });
+              } else {
+                await markTransactionDomainPurchased(insertedDomain?.id);
+                after(() => triggerDomainEdgeConfigSync());
+              }
             }
           } else {
             logger.error({
@@ -858,7 +1006,90 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (err) {
-        logger.error({ message: 'Domain fulfillment failed', error: err });
+        const fallbackDomain =
+          typeof metadata.domain === 'string'
+            ? metadata.domain.toLowerCase()
+            : null;
+
+        logger.error({
+          message: 'Domain fulfillment failed',
+          reference,
+          transactionId: transaction.id,
+          merchantId: transaction.merchant_id,
+          domain: fallbackDomain,
+          error: err,
+        });
+
+        if (fallbackDomain) {
+          const fallbackTld = fallbackDomain.endsWith('.com.ng')
+            ? '.com.ng'
+            : fallbackDomain.endsWith('.org.ng')
+              ? '.org.ng'
+              : fallbackDomain.endsWith('.net.ng')
+                ? '.net.ng'
+                : fallbackDomain.endsWith('.edu.ng')
+                  ? '.edu.ng'
+                  : fallbackDomain.endsWith('.name.ng')
+                    ? '.name.ng'
+                    : `.${fallbackDomain.split('.').slice(-1)[0]}`;
+          const nowIso = new Date().toISOString();
+
+          try {
+            const { data: existingDomain, error: existingDomainError } =
+              await supabase
+                .from('domains')
+                .select('id, merchant_id')
+                .eq('domain', fallbackDomain)
+                .maybeSingle();
+
+            if (existingDomainError) {
+              logger.error({
+                message: 'Failed checking fallback domain persistence state',
+                domain: fallbackDomain,
+                merchantId: transaction.merchant_id,
+                reference,
+                error: existingDomainError,
+              });
+            } else if (!existingDomain) {
+              const domainPurchaseAmount = Number(transaction.amount) || 0;
+              const { error: fallbackInsertError } = await supabase
+                .from('domains')
+                .insert({
+                  merchant_id: transaction.merchant_id,
+                  domain: fallbackDomain,
+                  tld: fallbackTld,
+                  domain_type: 'purchased',
+                  status: 'pending',
+                  is_primary: false,
+                  ssl_status: 'pending',
+                  purchase_price: domainPurchaseAmount,
+                  renewal_price: domainPurchaseAmount,
+                  registered_at: nowIso,
+                  auto_renew: true,
+                  nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+                });
+
+              if (fallbackInsertError) {
+                logger.error({
+                  message:
+                    'Failed to persist fallback pending domain record after fulfillment error',
+                  domain: fallbackDomain,
+                  merchantId: transaction.merchant_id,
+                  reference,
+                  error: fallbackInsertError,
+                });
+              }
+            }
+          } catch (fallbackPersistError) {
+            logger.error({
+              message: 'Fallback domain persistence threw unexpectedly',
+              domain: fallbackDomain,
+              merchantId: transaction.merchant_id,
+              reference,
+              error: fallbackPersistError,
+            });
+          }
+        }
       }
     }
 
@@ -872,7 +1103,9 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', transaction.order_id)
-        .select('*, order_items(*), ad_tracking')
+        .select(
+          'id, order_number, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, updated_at, ad_tracking, order_items(id, product_id, name, price, quantity, subtotal)'
+        )
         .single();
 
       if (orderError) {

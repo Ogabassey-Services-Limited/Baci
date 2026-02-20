@@ -1,10 +1,13 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   calculateDomainPrice,
   getDomainPricing,
 } from '@/config/domain-pricing';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
+import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -13,12 +16,49 @@ import { type ContactInfo, registerDomain } from '@/lib/go54';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
 
+const DOMAIN_REGEX = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
+
+const ContactInfoInputSchema = z.object({
+  firstname: z.string().optional(),
+  lastname: z.string().optional(),
+  fullname: z.string().optional(),
+  companyname: z.string().optional(),
+  email: z.string().email().optional(),
+  address1: z.string().optional(),
+  address2: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zipcode: z.string().optional(),
+  country: z.string().optional(),
+  phonenumber: z.string().optional(),
+});
+
+const PurchaseRequestSchema = z.object({
+  domain: z
+    .string()
+    .trim()
+    .min(1)
+    .regex(DOMAIN_REGEX, 'Invalid domain format')
+    .transform((value) => value.toLowerCase()),
+  years: z.coerce.number().int().min(1).max(10).default(1),
+  contactInfo: ContactInfoInputSchema.optional(),
+  paymentReference: z.string().trim().min(1).optional(),
+});
+
 /**
  * POST /api/domains/purchase
  * Purchase a domain through Go54
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
     const {
@@ -29,22 +69,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const {
-      domain,
-      years = 1,
-      contactInfo,
-      paymentReference,
-    } = await request.json();
-
-    // Validate domain - using required separator [.-] instead of optional [-.]?
-    // to prevent ReDoS (exponential backtracking) vulnerability
-    const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
-    if (!domainRegex.test(domain)) {
+    const parsedRequest = PurchaseRequestSchema.safeParse(await request.json());
+    if (!parsedRequest.success) {
       return NextResponse.json(
-        { error: 'Invalid domain format' },
+        {
+          error: 'Invalid request payload',
+          details: parsedRequest.error.flatten(),
+        },
         { status: 400 }
       );
     }
+
+    const { domain, years, paymentReference } = parsedRequest.data;
+    const contactInfo = parsedRequest.data.contactInfo;
 
     // Extract TLD and get pricing
     let tld = `.${domain.split('.').slice(-1)[0]}`;
@@ -213,16 +250,50 @@ export async function POST(request: Request) {
       );
     }
 
+    const markPaymentDomainPurchased = async (domainId?: string) => {
+      const updatedMetadata: Record<string, unknown> = {
+        ...(paymentMetadata || {}),
+        domain_purchased: domain,
+        purchased_at: new Date().toISOString(),
+      };
+
+      if (domainId) {
+        updatedMetadata.domain_id = domainId;
+      }
+
+      const { error: paymentMetadataError } = await supabase
+        .from('transactions')
+        .update({ metadata: updatedMetadata })
+        .eq('id', payment.id);
+
+      if (paymentMetadataError) {
+        console.error(
+          'Failed to mark payment as domain purchased:',
+          paymentMetadataError
+        );
+      }
+    };
+
     // Check if domain already exists
-    const { data: existingDomain } = await supabase
+    const { data: existingDomain, error: existingDomainError } = await supabase
       .from('domains')
       .select('id, merchant_id')
       .eq('domain', domain)
-      .single();
+      .maybeSingle();
+
+    if (existingDomainError) {
+      console.error('Error checking existing domain:', existingDomainError);
+      return NextResponse.json(
+        { error: 'Failed to check existing domain ownership' },
+        { status: 500 }
+      );
+    }
 
     if (existingDomain) {
       if (existingDomain.merchant_id === merchantId) {
         // Domain already registered to this merchant - likely handled by webhook
+        await markPaymentDomainPurchased(existingDomain.id);
+        after(() => triggerDomainEdgeConfigSync());
         return NextResponse.json({
           success: true,
           domain: existingDomain,
@@ -325,9 +396,46 @@ export async function POST(request: Request) {
         },
       });
 
+      if (!registrationResult.success) {
+        console.error(
+          'Go54 registration API failed:',
+          registrationResult.error
+        );
+        return NextResponse.json(
+          {
+            error: 'Failed to register domain with Go54',
+            details: registrationResult.error || 'Unknown error',
+          },
+          { status: 502 }
+        );
+      }
+
       // Calculate expiry date
       const expiresAt = new Date();
       expiresAt.setFullYear(expiresAt.getFullYear() + years);
+
+      // Promote purchased domain to primary only when merchant has no active
+      // primary custom/purchased domain yet.
+      const { data: existingPrimaryDomain, error: primaryDomainError } =
+        await supabase
+          .from('domains')
+          .select('id')
+          .eq('merchant_id', merchantId)
+          .in('domain_type', ['custom', 'purchased'])
+          .eq('status', 'active')
+          .eq('is_primary', true)
+          .limit(1)
+          .maybeSingle();
+
+      if (primaryDomainError) {
+        console.error(
+          'Failed checking existing primary domain:',
+          primaryDomainError
+        );
+      }
+
+      const shouldSetPrimary = !primaryDomainError && !existingPrimaryDomain;
+      const nowIso = new Date().toISOString();
 
       // Store domain in database
       const { data: newDomain, error: insertError } = await supabase
@@ -338,26 +446,28 @@ export async function POST(request: Request) {
           tld,
           domain_type: 'purchased',
           status: 'active',
-          verified_at: new Date().toISOString(),
-          purchase_info: {
-            provider: 'go54',
-            order_id: registrationResult.orderId,
-            cost_price: priceCalculation.costPrice,
-            sell_price: priceCalculation.sellPrice,
-            profit: priceCalculation.profit,
-            registered_at: new Date().toISOString(),
-            expires_at: expiresAt.toISOString(),
-            auto_renew: true,
-            nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
-            years,
-          },
+          is_primary: shouldSetPrimary,
+          verified_at: nowIso,
+          ssl_status: 'active',
+          go54_order_id: registrationResult.orderId || null,
+          purchase_price: priceCalculation.sellPrice,
+          renewal_price: priceCalculation.sellPrice,
+          registered_at: nowIso,
+          expires_at: expiresAt.toISOString(),
+          auto_renew: true,
           nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
         })
-        .select()
+        .select('id, domain, status, is_primary')
         .single();
 
       if (insertError) {
-        console.error('Error storing domain:', insertError);
+        console.error('Error storing domain after Go54 registration:', {
+          domain,
+          merchantId,
+          go54OrderId: registrationResult.orderId || null,
+          registrationResult,
+          insertError,
+        });
         return NextResponse.json(
           { error: 'Domain registered but failed to store in database' },
           { status: 500 }
@@ -365,17 +475,9 @@ export async function POST(request: Request) {
       }
 
       // Mark payment as used for this domain purchase (prevent reuse)
-      await supabase
-        .from('transactions')
-        .update({
-          metadata: {
-            ...(paymentMetadata || {}),
-            domain_purchased: domain,
-            domain_id: newDomain.id,
-            purchased_at: new Date().toISOString(),
-          },
-        })
-        .eq('id', payment.id);
+      await markPaymentDomainPurchased(newDomain.id);
+
+      after(() => triggerDomainEdgeConfigSync());
 
       return NextResponse.json({
         success: true,
