@@ -38,7 +38,8 @@ describe('Rate Limit — in-memory fallback', () => {
       writable: false,
     });
 
-    const _result = await checkRateLimit(req);
+    const result = await checkRateLimit(req);
+    expect(result.remaining).toBe(49);
     // Should use 9.9.9.9 instead of 1.1.1.1
     // We can verify this by making requests from 1.1.1.1 afterwards
     // If 1.1.1.1 is still fresh (count 0), then 9.9.9.9 was used.
@@ -50,6 +51,20 @@ describe('Rate Limit — in-memory fallback', () => {
     // If 1.1.1.1 was NOT used in the first call, its remaining should be 50-1=49 now (first use)
     // If it WAS used, it would be 48.
     expect(resultSpoofed.remaining).toBe(49);
+  });
+
+  it('prefers x-real-ip over x-forwarded-for when both are present', async () => {
+    const req = new NextRequest('http://localhost:3000/api/unknown');
+    req.headers.set('x-forwarded-for', '123.123.123.123, 8.8.8.8');
+    req.headers.set('x-real-ip', '7.7.7.7');
+
+    await checkRateLimit(req);
+
+    const reqFromRealIp = new NextRequest('http://localhost:3000/api/unknown');
+    reqFromRealIp.headers.set('x-forwarded-for', '7.7.7.7');
+    const resultFromRealIp = await checkRateLimit(reqFromRealIp);
+
+    expect(resultFromRealIp.remaining).toBe(48);
   });
 
   it('enforces stricter limit for newsletter subscription', async () => {

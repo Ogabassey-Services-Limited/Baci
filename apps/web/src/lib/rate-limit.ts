@@ -125,22 +125,26 @@ function getRateLimitConfig(pathname: string): {
 
 export function getClientIdentifier(request: NextRequest): string {
   // Prefer Next.js/Vercel trusted IP
-  // biome-ignore lint/suspicious/noExplicitAny: Next.js types don't include .ip by default but it exists on Vercel
-  const requestIp = (request as any).ip;
+  const requestWithIp = request as NextRequest & { ip?: string };
+  const requestIp = requestWithIp.ip;
   if (requestIp && isValidIP(requestIp)) {
     return requestIp;
   }
 
-  const forwarded = request.headers.get('x-forwarded-for');
   const realIp = request.headers.get('x-real-ip');
+  const forwarded = request.headers.get('x-forwarded-for');
+
+  if (realIp && isValidIP(realIp)) return realIp;
 
   if (forwarded) {
     const ips = forwarded.split(',').map((ip) => ip.trim());
-    const validIp = ips.find((ip) => isValidIP(ip));
-    if (validIp) return validIp;
+    for (let i = ips.length - 1; i >= 0; i--) {
+      const candidate = ips[i];
+      if (candidate && isValidIP(candidate)) {
+        return candidate;
+      }
+    }
   }
-
-  if (realIp && isValidIP(realIp)) return realIp;
 
   return 'unknown';
 }
