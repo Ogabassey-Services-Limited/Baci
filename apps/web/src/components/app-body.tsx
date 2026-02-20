@@ -46,7 +46,16 @@ export default function AppBody({
   // Define CSS variables for the merchant's theme
   const themeStyle = merchant?.brand_colors
     ? {
-        // Core shadcn/ui variables to prevent "blue flash"
+        // Core shadcn/ui variables — override globals.css defaults to prevent
+        // "blue flash" where dashboard theme colors briefly show on storefronts
+        '--background': hexToHslComponents(merchant.brand_colors.background),
+        '--foreground': hexToHslComponents(
+          getContrastingTextColor(merchant.brand_colors.background)
+        ),
+        '--card': hexToHslComponents(merchant.brand_colors.background),
+        '--card-foreground': hexToHslComponents(
+          getContrastingTextColor(merchant.brand_colors.background)
+        ),
         '--primary': hexToHslComponents(merchant.brand_colors.primary),
         '--primary-foreground': hexToHslComponents(
           getContrastingTextColor(merchant.brand_colors.primary)
