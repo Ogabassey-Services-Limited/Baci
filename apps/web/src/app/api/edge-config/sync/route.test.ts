@@ -84,6 +84,25 @@ describe('POST /api/edge-config/sync', () => {
     expect(body).toEqual({ error: 'Unauthorized' });
   });
 
+  it('returns 500 when VERCEL_API_TOKEN is absent even if EDGE_CONFIG_SYNC_SECRET is valid', async () => {
+    process.env.EDGE_CONFIG_SYNC_SECRET = 'sync-secret';
+    delete process.env.VERCEL_API_TOKEN;
+    process.env.EDGE_CONFIG_ID = 'ecfg_missing_vercel_token';
+
+    mockDomainsQuery([]);
+
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('unauthorized', { status: 401 }));
+
+    const response = await POST(makeRequest('sync-secret'));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(String(body.error)).toContain('VERCEL_API_TOKEN');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('syncs mappings and deletes stale tenant keys', async () => {
     process.env.EDGE_CONFIG_SYNC_SECRET = 'sync-secret';
     process.env.VERCEL_API_TOKEN = 'vercel-token';

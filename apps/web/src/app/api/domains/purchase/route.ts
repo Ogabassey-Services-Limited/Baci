@@ -246,6 +246,30 @@ export async function POST(request: Request) {
       );
     }
 
+    const markPaymentDomainPurchased = async (domainId?: string) => {
+      const updatedMetadata: Record<string, unknown> = {
+        ...(paymentMetadata || {}),
+        domain_purchased: domain,
+        purchased_at: new Date().toISOString(),
+      };
+
+      if (domainId) {
+        updatedMetadata.domain_id = domainId;
+      }
+
+      const { error: paymentMetadataError } = await supabase
+        .from('transactions')
+        .update({ metadata: updatedMetadata })
+        .eq('id', payment.id);
+
+      if (paymentMetadataError) {
+        console.error(
+          'Failed to mark payment as domain purchased:',
+          paymentMetadataError
+        );
+      }
+    };
+
     // Check if domain already exists
     const { data: existingDomain, error: existingDomainError } = await supabase
       .from('domains')
@@ -264,6 +288,7 @@ export async function POST(request: Request) {
     if (existingDomain) {
       if (existingDomain.merchant_id === merchantId) {
         // Domain already registered to this merchant - likely handled by webhook
+        await markPaymentDomainPurchased(existingDomain.id);
         after(() => triggerDomainEdgeConfigSync());
         return NextResponse.json({
           success: true,
@@ -367,6 +392,20 @@ export async function POST(request: Request) {
         },
       });
 
+      if (!registrationResult.success) {
+        console.error(
+          'Go54 registration API failed:',
+          registrationResult.error
+        );
+        return NextResponse.json(
+          {
+            error: 'Failed to register domain with Go54',
+            details: registrationResult.error || 'Unknown error',
+          },
+          { status: 502 }
+        );
+      }
+
       // Calculate expiry date
       const expiresAt = new Date();
       expiresAt.setFullYear(expiresAt.getFullYear() + years);
@@ -426,17 +465,7 @@ export async function POST(request: Request) {
       }
 
       // Mark payment as used for this domain purchase (prevent reuse)
-      await supabase
-        .from('transactions')
-        .update({
-          metadata: {
-            ...(paymentMetadata || {}),
-            domain_purchased: domain,
-            domain_id: newDomain.id,
-            purchased_at: new Date().toISOString(),
-          },
-        })
-        .eq('id', payment.id);
+      await markPaymentDomainPurchased(newDomain.id);
 
       after(() => triggerDomainEdgeConfigSync());
 

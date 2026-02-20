@@ -83,6 +83,16 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!vercelApiToken) {
+      console.error(
+        '[Edge Config Sync] VERCEL_API_TOKEN is required for Vercel API calls'
+      );
+      return NextResponse.json(
+        { error: 'VERCEL_API_TOKEN is required for Vercel API calls' },
+        { status: 500 }
+      );
+    }
+
     // Fetch all active primary domains from Supabase
     const supabase = createServiceClient();
     const { data: domains, error } = await supabase

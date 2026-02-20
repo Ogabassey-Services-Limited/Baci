@@ -838,6 +838,32 @@ export async function POST(request: NextRequest) {
                   return `.${normalizedDomain.split('.').slice(-1)[0]}`;
                 })();
 
+          const markTransactionDomainPurchased = async (domainId?: string) => {
+            const updatedMetadata: Record<string, unknown> = {
+              ...metadata,
+              domain_purchased: normalizedDomain,
+              purchased_at: new Date().toISOString(),
+            };
+
+            if (domainId) {
+              updatedMetadata.domain_id = domainId;
+            }
+
+            const { error: transactionMetadataError } = await supabase
+              .from('transactions')
+              .update({ metadata: updatedMetadata })
+              .eq('id', transaction.id);
+
+            if (transactionMetadataError) {
+              logger.error({
+                message: 'Failed to mark transaction as domain_purchased',
+                error: transactionMetadataError,
+                transactionId: transaction.id,
+                domain: normalizedDomain,
+              });
+            }
+          };
+
           // 3. Register Domain via Go54
           const registration = await registerDomain({
             domain: normalizedDomain,
@@ -889,6 +915,7 @@ export async function POST(request: NextRequest) {
                     verified_at: nowIso,
                     expires_at: expiresAt.toISOString(),
                     auto_renew: true,
+                    go54_order_id: registration.orderId || null,
                     nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
                   })
                   .eq('id', existingDomain.id);
@@ -900,6 +927,7 @@ export async function POST(request: NextRequest) {
                     domain: normalizedDomain,
                   });
                 } else {
+                  await markTransactionDomainPurchased(existingDomain.id);
                   after(() => triggerDomainEdgeConfigSync());
                 }
               }
@@ -926,25 +954,28 @@ export async function POST(request: NextRequest) {
                 !primaryDomainError && !existingPrimaryDomain;
               const domainPurchaseAmount = Number(transaction.amount) || 0;
 
-              const { error: domainDbError } = await supabase
-                .from('domains')
-                .insert({
-                  merchant_id: transaction.merchant_id,
-                  domain: normalizedDomain,
-                  tld,
-                  domain_type: 'purchased',
-                  status: 'active',
-                  is_primary: shouldSetPrimary,
-                  verified_at: nowIso,
-                  ssl_status: 'active',
-                  go54_order_id: registration.orderId || null,
-                  purchase_price: domainPurchaseAmount,
-                  renewal_price: domainPurchaseAmount,
-                  registered_at: nowIso,
-                  expires_at: expiresAt.toISOString(),
-                  auto_renew: true,
-                  nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
-                });
+              const { data: insertedDomain, error: domainDbError } =
+                await supabase
+                  .from('domains')
+                  .insert({
+                    merchant_id: transaction.merchant_id,
+                    domain: normalizedDomain,
+                    tld,
+                    domain_type: 'purchased',
+                    status: 'active',
+                    is_primary: shouldSetPrimary,
+                    verified_at: nowIso,
+                    ssl_status: 'active',
+                    go54_order_id: registration.orderId || null,
+                    purchase_price: domainPurchaseAmount,
+                    renewal_price: domainPurchaseAmount,
+                    registered_at: nowIso,
+                    expires_at: expiresAt.toISOString(),
+                    auto_renew: true,
+                    nameservers: ['ns1.whogohost.com', 'ns2.whogohost.com'],
+                  })
+                  .select('id')
+                  .single();
 
               if (domainDbError) {
                 logger.error({
@@ -953,6 +984,7 @@ export async function POST(request: NextRequest) {
                   domain: normalizedDomain,
                 });
               } else {
+                await markTransactionDomainPurchased(insertedDomain?.id);
                 after(() => triggerDomainEdgeConfigSync());
               }
             }
