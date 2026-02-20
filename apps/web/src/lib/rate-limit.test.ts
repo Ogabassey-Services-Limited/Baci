@@ -28,6 +28,45 @@ describe('Rate Limit — in-memory fallback', () => {
     expect(result.limit).toBe(50);
   });
 
+  it('prefers request.ip over x-forwarded-for when available', async () => {
+    const req = new NextRequest('http://localhost:3000/api/unknown');
+    req.headers.set('x-forwarded-for', '1.1.1.1');
+
+    // Mock request.ip using Object.defineProperty as it is a getter
+    Object.defineProperty(req, 'ip', {
+      value: '9.9.9.9',
+      writable: false,
+    });
+
+    const result = await checkRateLimit(req);
+    expect(result.remaining).toBe(49);
+    // Should use 9.9.9.9 instead of 1.1.1.1
+    // We can verify this by making requests from 1.1.1.1 afterwards
+    // If 1.1.1.1 is still fresh (count 0), then 9.9.9.9 was used.
+
+    const reqFromSpoofed = new NextRequest('http://localhost:3000/api/unknown');
+    reqFromSpoofed.headers.set('x-forwarded-for', '1.1.1.1');
+    const resultSpoofed = await checkRateLimit(reqFromSpoofed);
+
+    // If 1.1.1.1 was NOT used in the first call, its remaining should be 50-1=49 now (first use)
+    // If it WAS used, it would be 48.
+    expect(resultSpoofed.remaining).toBe(49);
+  });
+
+  it('prefers x-real-ip over x-forwarded-for when both are present', async () => {
+    const req = new NextRequest('http://localhost:3000/api/unknown');
+    req.headers.set('x-forwarded-for', '123.123.123.123, 8.8.8.8');
+    req.headers.set('x-real-ip', '7.7.7.7');
+
+    await checkRateLimit(req);
+
+    const reqFromRealIp = new NextRequest('http://localhost:3000/api/unknown');
+    reqFromRealIp.headers.set('x-forwarded-for', '7.7.7.7');
+    const resultFromRealIp = await checkRateLimit(reqFromRealIp);
+
+    expect(resultFromRealIp.remaining).toBe(48);
+  });
+
   it('enforces stricter limit for newsletter subscription', async () => {
     const req = new NextRequest(
       'http://localhost:3000/api/newsletter/subscribe'
