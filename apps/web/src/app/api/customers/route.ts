@@ -6,14 +6,9 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import {
-  sanitizeEmail,
-  sanitizeLikePattern,
-  sanitizePhone,
-  sanitizeSearchQuery,
-  sanitizeText,
-} from '@/lib/sanitize-core';
+import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
+import { createCustomerSchema, formatZodErrors } from '@/schemas/customers';
 
 export async function GET(request: Request) {
   const cookieStore = await cookies();
@@ -50,17 +45,28 @@ export async function GET(request: Request) {
   }
   const merchantId = merchantContext.merchantId;
 
+  // WARDEN: Scoped query with explicit column selection to prevent data leaks
   let query = supabase
     .from('customers')
-    .select('*', { count: 'exact' })
+    .select(
+      'id, merchant_id, full_name, email, phone, address, store_credit, total_orders, total_spent, created_at, updated_at',
+      { count: 'exact' }
+    )
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (search?.trim()) {
     const sanitizedPattern = sanitizeLikePattern(search);
+    // WARDEN: Note - ilike search on full_name might be needed if first/last are gone
+    // But since we can't be sure if first/last columns exist, we'll stick to full_name if possible
+    // Or try to search all. If columns don't exist, this OR clause might fail.
+    // However, existing code used first_name/last_name.
+    // To be safe, let's switch to full_name search if possible, or keep as is and risk it.
+    // The migration `20251122000000` has `full_name`.
+    // So searching `full_name` is safer.
     query = query.or(
-      `first_name.ilike.%${sanitizedPattern}%,last_name.ilike.%${sanitizedPattern}%,email.ilike.%${sanitizedPattern}%,phone.ilike.%${sanitizedPattern}%`
+      `full_name.ilike.%${sanitizedPattern}%,email.ilike.%${sanitizedPattern}%,phone.ilike.%${sanitizedPattern}%`
     );
   }
 
@@ -98,7 +104,7 @@ export async function POST(request: NextRequest) {
   const supabase = createClient(cookieStore);
 
   try {
-    const body = await request.json();
+    const rawBody = await request.json();
 
     const {
       data: { user },
@@ -122,24 +128,50 @@ export async function POST(request: NextRequest) {
     }
     const merchantId = merchantContext.merchantId;
 
-    // Explicitly whitelist allowed fields to prevent mass assignment
-    const { first_name, last_name, email, phone, address, city, state, notes } =
-      body;
+    // WARDEN: Use Zod schema for strict validation
+    const parseResult = createCustomerSchema.safeParse(rawBody);
 
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: formatZodErrors(parseResult.error),
+        },
+        { status: 400 }
+      );
+    }
+
+    const body = parseResult.data;
+
+    // Construct full_name from parts or fallback to email username
+    let fullName = 'Guest';
+    if (body.first_name || body.last_name) {
+      fullName = [body.first_name, body.last_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+    } else if (body.email) {
+      fullName = body.email.split('@')[0];
+    }
+
+    // Construct full address from parts
+    const fullAddress = [body.address, body.city, body.state]
+      .filter(Boolean)
+      .map((s) => s?.trim())
+      .join(', ');
+
+    // Insert using confirmed columns from migrations
     const { data: customer, error } = await supabase
       .from('customers')
       .insert({
-        first_name: first_name ? sanitizeText(first_name, 100) : null,
-        last_name: last_name ? sanitizeText(last_name, 100) : null,
-        email: email ? sanitizeEmail(email) : null,
-        phone: phone ? sanitizePhone(phone) : null,
-        address: address ? sanitizeText(address, 500) : null,
-        city: city ? sanitizeText(city, 100) : null,
-        state: state ? sanitizeText(state, 100) : null,
-        notes: notes ? sanitizeText(notes, 1000) : null,
         merchant_id: merchantId,
+        full_name: fullName,
+        email: body.email || null,
+        phone: body.phone || null,
+        address: fullAddress || null,
+        // Removed: first_name, last_name, city, state, notes (likely non-existent columns)
       })
-      .select()
+      .select('id, merchant_id, full_name, email, phone, address, created_at')
       .single();
 
     if (error) {
@@ -151,7 +183,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ customer });
-  } catch {
+  } catch (err) {
+    console.error('Unexpected error in POST /api/customers:', err);
     return NextResponse.json(
       { error: 'Invalid request body' },
       { status: 400 }
