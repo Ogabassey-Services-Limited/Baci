@@ -205,6 +205,9 @@ export function sanitizeSvg(svg: string): string {
         /<\s*\/?\s*(?:script|iframe|foreignObject|object|embed)\b[^>]*>/gi,
         ''
       )
+      // Final hardening: strip any residual starts of dangerous tags,
+      // even if they are malformed or truncated (e.g. just "<script")
+      .replace(/<\s*(?:script|iframe|foreignObject|object|embed)\b/gi, '')
       // Remove <use> elements with external references
       .replace(
         /<use[^>]*(?:href|xlink:href)\s*=\s*(?:"(?:https?:|\/\/)[^"]*"|'(?:https?:|\/\/)[^']*')[^>]*\/?>(?:<\/use>)?/gi,

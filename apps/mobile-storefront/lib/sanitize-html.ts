@@ -36,6 +36,9 @@ export function sanitizeHtml(html: string): string {
         /<\s*\/?\s*(?:script|iframe|object|embed|form|input)\b[^>]*>/gi,
         ''
       )
+      // Final hardening: strip any residual starts of dangerous tags,
+      // even if they are malformed or truncated (e.g. just "<script")
+      .replace(/<\s*(?:script|iframe|object|embed|form|input)\b/gi, '')
       // Normalize leftover whitespace before > from stripped attributes
       .replace(/<(\w+)\s+>/g, '<$1>');
   }
