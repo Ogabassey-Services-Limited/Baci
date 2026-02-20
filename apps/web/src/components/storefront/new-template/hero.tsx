@@ -1,4 +1,5 @@
 import { Gamepad2 } from 'lucide-react';
+import Image from 'next/image';
 import type React from 'react';
 import { RotatingWord } from './rotating-word';
 
@@ -10,10 +11,13 @@ export const Hero: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-auto lg:h-[500px]">
           {/* 1. Main Hero Banner (Spans 3 Columns) */}
           <div className="lg:col-span-3 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300">
-            <img
+            <Image
               src="https://cdn.ogabassey.com/products/new-arrivals-banner.avif"
               alt="VR Headset"
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 z-0"
+              fill
+              priority
+              sizes="(max-width: 1024px) 100vw, 75vw"
+              className="object-cover transition-transform duration-700 group-hover:scale-105 z-0"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-10" />
 
@@ -58,10 +62,13 @@ export const Hero: React.FC = () => {
           <div className="flex flex-col gap-4 h-full lg:col-span-1">
             {/* 2a. Top Unit: MacBook Promo */}
             <div className="flex-1 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 bg-black">
-              <img
+              <Image
                 src="https://cdn.ogabassey.com/products/new-arrivals-banner.avif"
                 alt="MacBook Pro"
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 z-0"
+                fill
+                priority
+                sizes="(max-width: 1024px) 100vw, 25vw"
+                className="object-cover transition-transform duration-700 group-hover:scale-105 z-0"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent z-10" />
 
@@ -90,10 +97,13 @@ export const Hero: React.FC = () => {
 
             {/* 2b. Bottom Unit: PS5 Promo */}
             <div className="flex-1 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 bg-[#2D0C7E]">
-              <img
+              <Image
                 src="https://cdn.ogabassey.com/products/flash-sale-banner.avif"
                 alt="PS5 Controller"
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 z-0 opacity-80"
+                fill
+                priority
+                sizes="(max-width: 1024px) 100vw, 25vw"
+                className="object-cover transition-transform duration-700 group-hover:scale-105 z-0 opacity-80"
               />
               <div className="absolute inset-0 bg-gradient-to-tr from-[#2D0C7E] via-[#2D0C7E]/60 to-transparent z-10" />
 
