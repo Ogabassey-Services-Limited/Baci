@@ -16,4 +16,4 @@
 ## 2026-02-18 - Focus Management in Deletable Lists
 
 **Learning:** Removing items from a list (like `TagInput`) causes focus loss to the `body` if not managed, forcing keyboard users to re-navigate the entire page.
-**Action:** Use a `useEffect` and `useRef` to track the removed index and programmatically restore focus to the nearest remaining item or the input field.
+**Action:** Use a `useEffect` and `useRef` to track the removed index and programmatically restore focus to the nearest remaining item or the input field. Note: Implementation superseded by #300.
