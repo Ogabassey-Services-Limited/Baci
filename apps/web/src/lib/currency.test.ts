@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  COMPACT_OPTIONS,
   formatCurrency,
   formatCurrencyCompact,
   getCurrencyConfig,
@@ -51,6 +52,10 @@ describe('Currency Utils', () => {
           maximumFractionDigits: 0,
         })
       ).toBe('$1,000');
+    });
+
+    it('should handle COMPACT_OPTIONS constant', () => {
+      expect(formatCurrency(1000, 'NG', COMPACT_OPTIONS)).toBe('₦1,000');
     });
 
     it('should handle undefined country (default to USD)', () => {

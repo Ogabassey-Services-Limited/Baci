@@ -31,6 +31,15 @@ const COUNTRY_LOCALES: Record<string, string> = {
 };
 
 /**
+ * Common options for compact currency display (no decimals)
+ * constant reference to avoid object creation on every render
+ */
+export const COMPACT_OPTIONS: Partial<Intl.NumberFormatOptions> = {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+};
+
+/**
  * Get currency configuration for a country
  * Defaults to USD if country not found
  */
@@ -73,17 +82,20 @@ export function formatCurrencyWithConfig(
   options?: Partial<Intl.NumberFormatOptions>
 ): string {
   try {
-    // Generate cache key based on config and options
-    // Optimized: avoid JSON.stringify for the common case (no custom options)
-    // Check !options first to avoid Object.keys allocation in the hot path
-    const cacheKey =
-      !options || Object.keys(options).length === 0
-        ? `${config.locale}:${config.code}`
-        : JSON.stringify({
-            locale: config.locale,
-            currency: config.code,
-            ...options,
-          });
+    let cacheKey: string;
+
+    // Optimized: check for reference equality first for COMPACT_OPTIONS to skip JSON.stringify
+    if (options === COMPACT_OPTIONS) {
+      cacheKey = `${config.locale}:${config.code}:compact`;
+    } else if (!options || Object.keys(options).length === 0) {
+      cacheKey = `${config.locale}:${config.code}`;
+    } else {
+      cacheKey = JSON.stringify({
+        locale: config.locale,
+        currency: config.code,
+        ...options,
+      });
+    }
 
     let formatter = FORMATTER_CACHE.get(cacheKey);
 
@@ -97,19 +109,14 @@ export function formatCurrencyWithConfig(
         ...options,
       });
 
-      // LRU eviction: remove least-recently-used entry when cache is full
+      // Simple eviction: clear cache when full
+      // Faster than individual delete/set for eviction
       if (FORMATTER_CACHE.size >= MAX_CACHE_SIZE) {
-        const firstKey = FORMATTER_CACHE.keys().next().value;
-        if (firstKey !== undefined) {
-          FORMATTER_CACHE.delete(firstKey);
-        }
+        FORMATTER_CACHE.clear();
       }
       FORMATTER_CACHE.set(cacheKey, formatter);
-    } else {
-      // Move to end to indicate "Recent" usage (LRU order)
-      FORMATTER_CACHE.delete(cacheKey);
-      FORMATTER_CACHE.set(cacheKey, formatter);
     }
+    // Removed LRU re-ordering logic on read to avoid Map mutation overhead on hot path
 
     return formatter.format(amount);
   } catch {
@@ -151,10 +158,7 @@ export function formatCurrencyCompact(
   amount: number,
   countryCode?: string | null
 ): string {
-  return formatCurrency(amount, countryCode, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
+  return formatCurrency(amount, countryCode, COMPACT_OPTIONS);
 }
 
 /**
