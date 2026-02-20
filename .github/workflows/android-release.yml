@@ -50,7 +50,7 @@ jobs:
       - name: Get pnpm store directory
         id: pnpm-cache
         shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
       - name: Cache pnpm store
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -111,6 +111,7 @@ jobs:
           if [ -n "$VERSION_CODE" ]; then
             GRADLE_ARGS="$GRADLE_ARGS -PversionCode=$VERSION_CODE"
           fi
+          # shellcheck disable=SC2086
           ./gradlew $GRADLE_ARGS
 
       - name: Upload AAB artifact
