@@ -27,9 +27,6 @@ import { enableScreens } from 'react-native-screens';
 
 enableScreens();
 
-// 2026 Best Practice: Remove commented debug code from production files
-// Debug utilities should be in separate dev-only files if needed
-
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ConnectivityBanner } from '@/components/ConnectivityBanner';
@@ -59,14 +56,11 @@ export function ErrorBoundary({
 }
 
 export const unstable_settings = {
-  // Ensure that reloading keeps proper navigation
   initialRouteName: '(tabs)',
 };
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-// Custom theme with Ogabassey brand colors
 const OgabasseyLightTheme = {
   ...DefaultTheme,
   colors: {
@@ -105,67 +99,46 @@ export default function RootLayout() {
   });
 
   const initialize = useAuthStore((state) => state.initialize);
-  const cleanup = useAuthStore((state) => state.cleanup); // BUG-4-004: Get cleanup function
+  const cleanup = useAuthStore((state) => state.cleanup);
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const { register: registerPushNotifications } = usePushNotifications();
-
-  // Bug #15 fix: Module-level guard to prevent concurrent initialize() calls
-  // (e.g., from StrictMode or fast re-mount)
   const initPromiseRef = useRef<Promise<void> | null>(null);
 
-  // H2 fix: Clear initPromiseRef when isInitialized resets to false (sign-out)
-  // so that re-initialization can proceed on next login
   useEffect(() => {
     if (!isInitialized) {
       initPromiseRef.current = null;
     }
   }, [isInitialized]);
 
-  // Initialize auth, analytics, and offline queue on app start
   useEffect(() => {
     const initializeApp = async () => {
-      // Initialize auth if not already done
       if (!useAuthStore.getState().isInitialized) {
         await initialize();
       }
-
-      // Initialize analytics (PostHog)
       await initAnalytics();
-
-      // 2026 Best Practice: Initialize offline mutation queue
-      // This enables critical operations like orders to be queued when offline
-      // and automatically processed when network is restored
       await offlineQueue.initialize();
-
-      // Register handler for queued order creation
       offlineQueue.registerHandler('create_order', async (orderData) => {
         return await createOrder(orderData as CreateOrderRequest);
       });
     };
 
-    // Guard: only run once; subsequent calls await the first
     if (!initPromiseRef.current) {
       initPromiseRef.current = initializeApp();
     }
 
-    // BUG-4-004: Cleanup auth subscription and offline queue on unmount
     return () => {
       cleanup();
       offlineQueue.destroy();
     };
   }, [initialize, cleanup]);
 
-  // Register for push notifications after auth initializes
   useEffect(() => {
-    // Small delay to ensure app is ready
     const timer = setTimeout(() => {
       registerPushNotifications();
     }, 1000);
-
     return () => clearTimeout(timer);
   }, [registerPushNotifications]);
 
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
     if (error) throw error;
   }, [error]);
@@ -186,6 +159,10 @@ export default function RootLayout() {
 function RootLayoutNav() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme as 'light' | 'dark'];
+  const enableConnectivityBanner = true;
+  const enableChatWidget = true;
+  const enableNegotiationModal = true;
+  const enableDrawerMenu = true;
 
   // 2026 Best Practice: Auth guard handles sign out redirects
   // Prevents users from seeing protected screens with stale data after logout
@@ -408,12 +385,11 @@ function RootLayoutNav() {
               />
             </Stack>
           </GlobalErrorBoundary>
-          {/* Global Connectivity Banner */}
-          <ConnectivityBanner />
-          <ChatWidget bottomOffset={140} />
-          <NegotiationModal />
-          {/* Navigation Drawer - renders on top when open */}
-          <DrawerMenu />
+          {/* Crash-isolation toggle for startup overlays */}
+          {enableConnectivityBanner ? <ConnectivityBanner /> : null}
+          {enableChatWidget ? <ChatWidget bottomOffset={140} /> : null}
+          {enableNegotiationModal ? <NegotiationModal /> : null}
+          {enableDrawerMenu ? <DrawerMenu /> : null}
         </ThemeProvider>
       </GestureHandlerRootView>
     </QueryProvider>

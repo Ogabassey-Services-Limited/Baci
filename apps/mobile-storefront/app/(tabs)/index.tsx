@@ -3,13 +3,6 @@ import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { RefreshControl, StatusBar, StyleSheet, View } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedScrollHandler,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { BlockRenderer } from '@/components/storefront/BlockRenderer';
 import { Header } from '@/components/storefront/Header';
@@ -29,14 +22,6 @@ import { getTemplateConfig } from '@/lib/templates';
 
 const PATTERN_URI =
   'https://www.transparenttextures.com/patterns/carbon-fibre.png';
-
-// 2026 Best Practice: Use any type for AnimatedFlashList
-// The type system can't properly infer animated component types with FlashList generics
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const AnimatedFlashList: any = Animated.createAnimatedComponent(
-  FlashList as any
-);
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
@@ -87,53 +72,6 @@ export default function HomeScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(150); // Initial estimate for spacer
-
-  // 2026 Best Practice: Animated Smart Header
-  const lastScrollY = useSharedValue(0);
-  const headerTranslateY = useSharedValue(0);
-
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      const currentY = event.contentOffset.y;
-      const diff = currentY - lastScrollY.value;
-
-      // 2026 Best Practice: Avoid hiding on bounces and initial scroll
-      if (currentY <= 0) {
-        headerTranslateY.value = withTiming(0, { duration: 250 });
-      } else if (diff > 10 && currentY > 100 && !searchVisible) {
-        // Scrolling down: hide header
-        headerTranslateY.value = withTiming(-headerHeight, {
-          duration: 300,
-          easing: Easing.out(Easing.quad),
-        });
-      } else if (diff < -15) {
-        // Scrolling up: show header
-        headerTranslateY.value = withTiming(0, {
-          duration: 250,
-          easing: Easing.out(Easing.quad),
-        });
-      }
-
-      lastScrollY.value = currentY;
-    },
-  });
-
-  const headerAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: headerTranslateY.value }],
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: searchVisible ? 10000 : 100,
-  }));
-
-  const backgroundAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateY: -lastScrollY.value,
-      },
-    ],
-  }));
 
   // 2026 Best Practice: Network state monitoring for offline UX
   const { isOnline, onReconnect } = useNetworkState();
@@ -250,19 +188,20 @@ export default function HomeScreen() {
 
       {/* Background Layer for Hero Overlap (Layer 1) */}
       {isElite && (
-        <Animated.View
-          style={[styles.eliteBackground, backgroundAnimatedStyle]}
-        >
+        <View style={styles.eliteBackground}>
           <Image
             source={{ uri: PATTERN_URI }}
             style={[StyleSheet.absoluteFillObject, { opacity: 0.05 }]}
             contentFit="cover"
           />
-        </Animated.View>
+        </View>
       )}
 
-      <Animated.View
-        style={headerAnimatedStyle}
+      <View
+        style={[
+          styles.headerOverlay,
+          { zIndex: searchVisible ? 10000 : 100 },
+        ]}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
         <Header
@@ -293,9 +232,9 @@ export default function HomeScreen() {
             isRetrying={refreshing}
           />
         )}
-      </Animated.View>
+      </View>
 
-      <AnimatedFlashList
+      <FlashList
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         data={blocks as any}
         renderItem={renderItem}
@@ -304,9 +243,6 @@ export default function HomeScreen() {
           item.props?.id || `block-${index}`
         }
         ListHeaderComponent={renderListHeader}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        estimatedItemSize={600}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -342,6 +278,12 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     marginBottom: 0,
+  },
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
   },
   eliteBackground: {
     position: 'absolute',
