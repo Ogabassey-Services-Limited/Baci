@@ -51,7 +51,7 @@ loadNativeModules();
 import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
 import { generateReceiptHtml, getBankNameFromCode } from '@baci/shared';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
@@ -146,17 +146,15 @@ export default function OrderDetailsScreen() {
   const { colors, shadows } = useTheme();
 
   // Validate route params with Zod
-  const validatedParams = useMemo(() => {
-    // Normalize array params to single values for validation
-    const normalizedParams = {
-      id: Array.isArray(rawParams.id) ? rawParams.id[0] : rawParams.id,
-      action: Array.isArray(rawParams.action)
-        ? rawParams.action[0]
-        : rawParams.action,
-    };
-    const result = routeParamsSchema.safeParse(normalizedParams);
-    return result.success ? result.data : null;
-  }, [rawParams]);
+  // Normalize array params to single values for validation
+  const normalizedParams = {
+    id: Array.isArray(rawParams.id) ? rawParams.id[0] : rawParams.id,
+    action: Array.isArray(rawParams.action)
+      ? rawParams.action[0]
+      : rawParams.action,
+  };
+  const result = routeParamsSchema.safeParse(normalizedParams);
+  const validatedParams = result.success ? result.data : null;
 
   // Extract validated values (will be undefined if validation fails)
   const orderId = validatedParams?.id;
