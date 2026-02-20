@@ -120,6 +120,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         void resetUserStores();
       }
 
+      // 2026 Critical Fix: On SIGNED_OUT (session expiry), reset stores to prevent stale data
+      if (event === 'SIGNED_OUT') {
+        void resetUserStores();
+      }
+
       set({
         session,
         user: session?.user ?? null,
