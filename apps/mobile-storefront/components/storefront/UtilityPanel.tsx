@@ -1,22 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 // router removed as it was unused.
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  interpolateColor,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 import { BRAND, SPACING } from '@/constants/Colors';
 import { type Category, useCategories } from '@/hooks/use-products';
 import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
@@ -28,10 +22,6 @@ interface UtilityPanelProps {
   selectedCategoryName?: string;
   slug?: string;
 }
-
-const AnimatedPressable = Animated.createAnimatedComponent(TouchableOpacity);
-// Animated Icon wrapper for color interpolation
-const AnimatedIcon = Animated.createAnimatedComponent(Ionicons);
 
 // Module-level constants (stable references, no re-creation per render)
 const UTILITY_WORDS = ['Airtime!', 'Data!', 'Tv!', 'Power!', 'Gaming!'];
@@ -55,89 +45,58 @@ function CategoryItem({
   isActive,
   onPress,
 }: CategoryItemProps) {
-  const progress = useSharedValue(isActive ? 1 : 0);
+  const iconScale = useRef(new Animated.Value(isActive ? 1.05 : 1)).current;
+  const labelOpacity = useRef(new Animated.Value(isActive ? 1 : 0.8)).current;
 
   useEffect(() => {
-    progress.value = withTiming(isActive ? 1 : 0, { duration: 300 });
-  }, [isActive, progress]);
-
-  const animatedContainerStyle = useAnimatedStyle(() => {
-    return {
-      backgroundColor: interpolateColor(
-        progress.value,
-        [0, 1],
-        ['#F3F4F6', '#FEF2F2'] // gray-100 to red-50 (tint)
-      ),
-      borderColor: interpolateColor(
-        progress.value,
-        [0, 1],
-        ['transparent', BRAND.primary]
-      ),
-      borderWidth: 1, // Ensure border exists for transition
-    };
-  });
-
-  const animatedIconProps = useAnimatedStyle(() => {
-    return {
-      color: interpolateColor(
-        progress.value,
-        [0, 1],
-        ['#4B5563', BRAND.primary] // gray-600 to brand primary
-      ),
-    };
-  });
-
-  const animatedLabelStyle = useAnimatedStyle(() => {
-    return {
-      color: interpolateColor(
-        progress.value,
-        [0, 1],
-        ['#4B5563', '#111827'] // gray-600 to gray-900
-      ),
-    };
-  });
-
-  const handlePressIn = () => {};
-
-  const handlePressOut = () => {};
+    Animated.parallel([
+      Animated.spring(iconScale, {
+        toValue: isActive ? 1.05 : 1,
+        damping: 16,
+        stiffness: 180,
+        mass: 1,
+        useNativeDriver: true,
+      }),
+      Animated.timing(labelOpacity, {
+        toValue: isActive ? 1 : 0.8,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [isActive, iconScale, labelOpacity]);
 
   if (variant === 'circle') {
     return (
-      <AnimatedPressable
+      <TouchableOpacity
         onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
         style={[styles.circleItem]}
+        activeOpacity={0.85}
       >
         <Animated.View
           style={[
             styles.circleIcon,
-            animatedContainerStyle,
+            isActive && styles.circleIconActive,
             isActive && styles.activeShadow,
+            { transform: [{ scale: iconScale }] },
           ]}
         >
-          {/* Using Ionicons directly inside Animated.View if color prop animation is tricky, 
-              but Reanimated color interpolation on parent View text/icons requires AnimatedComponent.
-              Simple approach: Re-render icon color based on isActive for reliability if needed, 
-              but let's try basic animated styles or prop. Reanimated supports `color` not on View.
-              So we use AnimatedIcon. 
-           */}
-          <AnimatedIcon
+          <Ionicons
             name={iconName}
             size={20} // Web parity: w-12 container -> ~20px icon
-            style={animatedIconProps}
+            color={isActive ? BRAND.primary : '#4B5563'}
           />
         </Animated.View>
         <Animated.Text
           style={[
             styles.circleLabel,
-            animatedLabelStyle,
-            isActive && { fontWeight: '700' },
+            isActive && styles.circleLabelActive,
+            { opacity: labelOpacity },
           ]}
         >
           {name}
         </Animated.Text>
-      </AnimatedPressable>
+      </TouchableOpacity>
     );
   }
 
@@ -160,6 +119,11 @@ export function UtilityPanel({
 
   const [activeUtilityIndex, setActiveUtilityIndex] = useState(0);
   const [isManualUtility, setIsManualUtility] = useState(false);
+  const promoWordProgress = useRef(new Animated.Value(1)).current;
+  const promoWordTranslateY = promoWordProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [4, 0],
+  });
 
   // Sync prop change to local index (if external change happens)
   useEffect(() => {
@@ -187,6 +151,16 @@ export function UtilityPanel({
 
     return () => clearInterval(interval);
   }, [isManualUtility]);
+
+  useEffect(() => {
+    promoWordProgress.setValue(0);
+    Animated.timing(promoWordProgress, {
+      toValue: 1,
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [activeUtilityIndex, promoWordProgress]);
 
   const handlePress = (id: string, index: number) => {
     setIsManualUtility(true);
@@ -242,10 +216,13 @@ export function UtilityPanel({
           <Text style={styles.promoText}>
             We Pay <Text style={styles.promoHighlight}>YOU</Text> When You Buy{' '}
             <Animated.Text
-              key={`utility-${activeUtilityIndex}`}
-              entering={FadeIn.duration(400)}
-              exiting={FadeOut.duration(400)}
-              style={styles.promoHighlight}
+              style={[
+                styles.promoHighlight,
+                {
+                  opacity: promoWordProgress,
+                  transform: [{ translateY: promoWordTranslateY }],
+                },
+              ]}
             >
               {UTILITY_WORDS[activeUtilityIndex] || 'Airtime!'}
             </Animated.Text>
@@ -313,6 +290,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
+  circleIconActive: {
+    backgroundColor: '#FEF2F2',
+    borderColor: BRAND.primary,
+    borderWidth: 1,
+  },
   activeShadow: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -326,6 +308,10 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     textAlign: 'center',
     marginTop: 2,
+  },
+  circleLabelActive: {
+    color: '#111827',
+    fontWeight: '700',
   },
   // Keep pill styles just in case valid/used elsewhere, though variant is mostly circle here
   pillItem: {},
