@@ -173,11 +173,6 @@ export function DrawerMenu() {
   const isActive = (path: string) =>
     pathname === path || pathname?.startsWith(`${path}/`);
 
-  // JS-thread early return for rendering
-  if (!isOpen && translateX.value === -DRAWER_WIDTH) {
-    return null;
-  }
-
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       {/* Backdrop — pointerEvents driven by isOpen prop for reliable tappability */}
@@ -191,6 +186,7 @@ export function DrawerMenu() {
       {/* Drawer — L1 fix: Use theme-aware colors instead of hardcoded white */}
       <GestureDetector gesture={panGesture}>
         <Animated.View
+          pointerEvents={isOpen ? 'auto' : 'none'}
           style={[
             styles.drawer,
             {
