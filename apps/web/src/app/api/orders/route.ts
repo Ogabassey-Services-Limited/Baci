@@ -260,6 +260,7 @@ export async function POST(request: NextRequest) {
 
     // Capture IP and User Agent for enhanced ad tracking (improves Event Match Quality)
     const clientIp =
+      request.ip ||
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
       request.headers.get('x-real-ip') ||
       undefined;

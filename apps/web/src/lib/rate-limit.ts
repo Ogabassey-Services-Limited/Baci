@@ -124,6 +124,11 @@ function getRateLimitConfig(pathname: string): {
 // ---------------------------------------------------------------------------
 
 function getClientIdentifier(request: NextRequest): string {
+  // Prefer Next.js/Vercel trusted IP
+  if (request.ip && isValidIP(request.ip)) {
+    return request.ip;
+  }
+
   const forwarded = request.headers.get('x-forwarded-for');
   const realIp = request.headers.get('x-real-ip');
 
