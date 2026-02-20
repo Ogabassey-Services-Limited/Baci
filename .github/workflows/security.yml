@@ -50,9 +50,9 @@ jobs:
         if: always()
         run: |
           if [ -s semgrep.sarif ]; then
-            echo "sarif_exists=true" >> $GITHUB_OUTPUT
+            echo "sarif_exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "sarif_exists=false" >> $GITHUB_OUTPUT
+            echo "sarif_exists=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Upload SARIF file
