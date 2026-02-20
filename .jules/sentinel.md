@@ -29,3 +29,11 @@
 1. In API routes: Ignore sensitive fields like `user_id` from request bodies if the user is not authenticated.
 2. In Database RPCs: Always derive `user_id` from `auth.uid()`. If unauthenticated, force `user_id` to NULL or reject the operation if authentication is required.
 3. Use strict equality checks: `IF p_user_id IS NOT NULL AND p_user_id <> auth.uid() THEN RAISE EXCEPTION ...`
+
+## 2026-02-20 - IP Spoofing in Rate Limiting
+
+**Vulnerability:** The rate limiting logic relied on naive `x-forwarded-for` parsing, which allowed spoofed client IPs to be selected from attacker-controlled header values.
+
+**Learning:** `X-Forwarded-For` can be manipulated by clients. Security-sensitive logic should prefer trusted platform-provided IP data and conservative header parsing fallbacks.
+
+**Prevention:** For rate limiting and auditing, prioritize trusted request IP signals first, then fall back to validated proxy headers (`x-real-ip`, sanitized `x-forwarded-for`) instead of trusting arbitrary header order.
