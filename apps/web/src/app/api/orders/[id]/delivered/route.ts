@@ -8,6 +8,7 @@ import {
   generateOrderDeliveredText,
 } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
+import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sendEmail } from '@/lib/zeptomail';
 
 /** Order item interface for email templates (2026 best practice) */
@@ -75,7 +76,7 @@ export async function POST(
     // Fetch order with items
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('*, order_items(*)')
+      .select(ORDER_WITH_ITEMS_QUERY)
       .eq('id', id)
       .eq('merchant_id', merchant.id)
       .single();

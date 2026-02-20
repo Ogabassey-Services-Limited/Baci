@@ -12,6 +12,7 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { createGiglShipment } from '@/lib/gigl';
 import { logger } from '@/lib/logger';
+import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { giglProvider } from '@/lib/shipping/providers/gigl';
 import { createClient } from '@/lib/supabase/server';
@@ -206,7 +207,7 @@ export async function GET(request: NextRequest) {
     // Build query
     let query = supabase
       .from('orders')
-      .select('*, order_items(*)')
+      .select(ORDER_WITH_ITEMS_QUERY)
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
@@ -307,7 +308,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User mismatch' }, { status: 403 });
     }
 
-    const resolvedUserId = user?.id ?? user_id ?? null;
+    // SECURITY: Only use user_id from authenticated session.
+    // Do NOT trust user_id from body if user is unauthenticated (guest).
+    const resolvedUserId = user?.id || null;
 
     // Fetch merchant to verify it exists (include business_name, slug for email)
     const { data: merchant, error: merchantFetchError } = await supabase
