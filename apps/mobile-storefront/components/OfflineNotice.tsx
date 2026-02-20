@@ -18,12 +18,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInUp,
-  SlideOutUp,
-} from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 
@@ -75,9 +69,7 @@ export function OfflineNotice({
 
   if (variant === 'banner') {
     return (
-      <Animated.View
-        entering={SlideInUp.duration(300)}
-        exiting={SlideOutUp.duration(300)}
+      <View
         style={[styles.banner, { backgroundColor: colors.warning }]}
         accessibilityRole="alert"
         accessibilityLabel={displayMessage}
@@ -99,15 +91,13 @@ export function OfflineNotice({
             )}
           </Pressable>
         )}
-      </Animated.View>
+      </View>
     );
   }
 
   if (variant === 'inline') {
     return (
-      <Animated.View
-        entering={FadeIn.duration(200)}
-        exiting={FadeOut.duration(200)}
+      <View
         style={styles.inline}
         accessibilityRole="alert"
         accessibilityLabel={displayMessage}
@@ -136,15 +126,13 @@ export function OfflineNotice({
             )}
           </Pressable>
         )}
-      </Animated.View>
+      </View>
     );
   }
 
   // Card variant (default)
   return (
-    <Animated.View
-      entering={FadeIn.duration(300)}
-      exiting={FadeOut.duration(300)}
+    <View
       style={[styles.card, { backgroundColor: colors.card }]}
       accessibilityRole="alert"
       accessibilityLabel={displayMessage}
@@ -204,7 +192,7 @@ export function OfflineNotice({
           )}
         </Pressable>
       )}
-    </Animated.View>
+    </View>
   );
 }
 
