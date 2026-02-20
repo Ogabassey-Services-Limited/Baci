@@ -33,6 +33,15 @@ describe('sanitizeSvg', () => {
     expect(result).toContain('<circle r="5"/>');
   });
 
+  it('removes <style> tags with content', () => {
+    const maliciousSvg =
+      '<svg><style>circle { fill: red } @import url("evil.css")</style><circle r="5"/></svg>';
+    const result = sanitizeSvg(maliciousSvg);
+    expect(result).not.toContain('<style');
+    expect(result).not.toContain('@import');
+    expect(result).toContain('<circle r="5"/>');
+  });
+
   it('removes <foreignObject> tags', () => {
     const maliciousSvg =
       '<svg><foreignObject><div>Bad HTML</div></foreignObject><circle r="5"/></svg>';

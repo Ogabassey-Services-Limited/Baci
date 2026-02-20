@@ -20,7 +20,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@c5ba7f7862a0f64c1b1a05fbac13e0b8e86ba08c # v4
 
-      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: "24"
           cache: "pnpm"
@@ -51,13 +51,16 @@ jobs:
         run: pnpm start &
         env:
           PORT: 3000
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Wait for Server
-        run: npx wait-on http://localhost:3000 --timeout 60000
+        run: npx wait-on@9.0.4 http://localhost:3000 --timeout 60000
 
       - name: Run Unlighthouse Audit
         # Run audit against local server
-        run: npx @unlighthouse/cli --site http://localhost:3000 --ci --reporter json
+        run: npx @unlighthouse/cli@0.17.4 --site http://localhost:3000 --ci --reporter json
 
       - name: Upload Lighthouse Report
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

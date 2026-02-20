@@ -14,6 +14,20 @@ describe('sanitizeHtml', () => {
     expect(sanitizeHtml(input)).toBe(expected);
   });
 
+  it('removes <style> tags with content', () => {
+    const input =
+      '<div>Safe</div><style>body { background: red } @import url("evil.css")</style><p>End</p>';
+    const expected = '<div>Safe</div><p>End</p>';
+    expect(sanitizeHtml(input)).toBe(expected);
+  });
+
+  it('removes data: URIs from href and src attributes', () => {
+    const input =
+      '<a href="data:text/html,<script>alert(1)</script>">Link</a><img src="data:image/svg+xml,bad"/>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('data:');
+  });
+
   it('removes <iframe> tags with content', () => {
     const input =
       '<p>Text</p><iframe src="evil.com"><p>nested</p></iframe><span>End</span>';
@@ -87,6 +101,7 @@ describe('sanitizeHtml', () => {
     const input = `
       <div>Safe start</div>
       <script>alert("XSS1")</script>
+      <style>body { display: none }</style>
       <p onclick="steal()">Click me</p>
       <a href="javascript:void(0)">Link</a>
       <iframe src="evil.com">Bad frame</iframe>
@@ -101,6 +116,7 @@ describe('sanitizeHtml', () => {
 
     // Verify all dangerous elements are removed
     expect(result).not.toContain('<script');
+    expect(result).not.toContain('<style');
     expect(result).not.toContain('onclick');
     expect(result).not.toContain('javascript:');
     expect(result).not.toContain('<iframe');

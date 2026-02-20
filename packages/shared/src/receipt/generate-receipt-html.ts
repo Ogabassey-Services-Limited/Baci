@@ -175,6 +175,7 @@ export function escapeJsString(str: string): string {
 // Closing tags use \b[^>]*> to handle whitespace, attributes, or garbage
 // between tag name and > (e.g. </script >, </script/>).
 const SVG_SCRIPT_RE = /<script\b[\s\S]*?<\/script\b[^>]*>/gi;
+const SVG_STYLE_RE = /<style\b[\s\S]*?<\/style\b[^>]*>/gi;
 const SVG_FOREIGN_RE = /<foreignObject\b[\s\S]*?<\/foreignObject\b[^>]*>/gi;
 const SVG_IFRAME_RE = /<iframe\b[\s\S]*?<\/iframe\b[^>]*>/gi;
 const SVG_OBJECT_RE = /<object\b[\s\S]*?<\/object\b[^>]*>/gi;
@@ -182,7 +183,7 @@ const SVG_EMBED_RE = /<embed\b[^>]*\/?>/gi;
 
 /**
  * Sanitize SVG by stripping dangerous elements and attributes.
- * Removes: <script>, <foreignObject>, <iframe>, <embed>, <object> tags,
+ * Removes: <script>, <style>, <foreignObject>, <iframe>, <embed>, <object> tags,
  * event handlers (on*), javascript: URIs, data: URIs, and
  * <use> elements with external references.
  */
@@ -196,18 +197,19 @@ export function sanitizeSvg(svg: string): string {
     result = result
       // Remove dangerous tag pairs and their content
       .replace(SVG_SCRIPT_RE, '')
+      .replace(SVG_STYLE_RE, '')
       .replace(SVG_FOREIGN_RE, '')
       .replace(SVG_IFRAME_RE, '')
       .replace(SVG_OBJECT_RE, '')
       .replace(SVG_EMBED_RE, '')
       // Hardening: catch any remaining orphaned opening/closing/self-closing tags
       .replace(
-        /<\s*\/?\s*(?:script|iframe|foreignObject|object|embed)\b[^>]*>/gi,
+        /<\s*\/?\s*(?:script|style|iframe|foreignObject|object|embed)\b[^>]*>/gi,
         ''
       )
       // Final hardening: strip any residual starts of dangerous tags,
       // even if they are malformed or truncated (e.g. just "<script")
-      .replace(/<\s*(?:script|iframe|foreignObject|object|embed)\b/gi, '')
+      .replace(/<\s*(?:script|style|iframe|foreignObject|object|embed)\b/gi, '')
       // Remove <use> elements with external references
       .replace(
         /<use[^>]*(?:href|xlink:href)\s*=\s*(?:"(?:https?:|\/\/)[^"]*"|'(?:https?:|\/\/)[^']*')[^>]*\/?>(?:<\/use>)?/gi,
