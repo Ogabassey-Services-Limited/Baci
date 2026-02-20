@@ -122,16 +122,13 @@ export function ConnectivityBanner() {
     transform: [{ translateY: translateY.value }],
     opacity: opacity.value,
   }));
-
-  if (bannerState === 'hidden') {
-    return null;
-  }
-
   const isOffline = bannerState === 'offline';
   const bannerColors = isOffline ? colors.offline : colors.online;
+  const isVisible = bannerState !== 'hidden';
 
   return (
     <Animated.View
+      pointerEvents={isVisible ? 'auto' : 'none'}
       style={[
         styles.container,
         {
