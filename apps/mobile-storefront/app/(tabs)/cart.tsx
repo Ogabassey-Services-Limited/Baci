@@ -21,6 +21,7 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -92,21 +93,6 @@ export default function CartScreen() {
 
   const arrowTranslateX = useSharedValue(0);
 
-  useEffect(() => {
-    arrowTranslateX.value = withRepeat(
-      withSequence(
-        withTiming(6, { duration: 800 }),
-        withTiming(0, { duration: 800 })
-      ),
-      -1,
-      true
-    );
-  }, [arrowTranslateX]);
-
-  const animatedArrowStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: arrowTranslateX.value }],
-  }));
-
   const [isIdentityModalOpen, setIsIdentityModalOpen] = useState(false);
   const [showNegotiateWarning, setShowNegotiateWarning] = useState(false);
   const [pendingNegotiateItem, setPendingNegotiateItem] =
@@ -123,6 +109,33 @@ export default function CartScreen() {
 
   const { session } = useAuthStore();
   const openNegotiation = useUIStore((state) => state.openNegotiation);
+  const hasItems = items.length > 0;
+
+  useEffect(() => {
+    cancelAnimation(arrowTranslateX);
+    if (!hasItems) {
+      arrowTranslateX.value = 0;
+      return;
+    }
+
+    arrowTranslateX.value = withRepeat(
+      withSequence(
+        withTiming(6, { duration: 800 }),
+        withTiming(0, { duration: 800 })
+      ),
+      -1,
+      true
+    );
+
+    return () => {
+      cancelAnimation(arrowTranslateX);
+      arrowTranslateX.value = 0;
+    };
+  }, [arrowTranslateX, hasItems]);
+
+  const animatedArrowStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: arrowTranslateX.value }],
+  }));
 
   const triggerHaptic = () => {
     if (Platform.OS === 'ios') {
