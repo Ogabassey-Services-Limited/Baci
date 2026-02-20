@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import {
   calculateDomainPrice,
   getDomainPricing,
@@ -224,7 +224,7 @@ export async function POST(request: Request) {
     if (existingDomain) {
       if (existingDomain.merchant_id === merchantId) {
         // Domain already registered to this merchant - likely handled by webhook
-        void triggerDomainEdgeConfigSync();
+        after(() => triggerDomainEdgeConfigSync());
         return NextResponse.json({
           success: true,
           domain: existingDomain,
@@ -351,7 +351,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const shouldSetPrimary = !existingPrimaryDomain;
+      const shouldSetPrimary = !primaryDomainError && !existingPrimaryDomain;
       const nowIso = new Date().toISOString();
 
       // Store domain in database
@@ -398,7 +398,7 @@ export async function POST(request: Request) {
         })
         .eq('id', payment.id);
 
-      void triggerDomainEdgeConfigSync();
+      after(() => triggerDomainEdgeConfigSync());
 
       return NextResponse.json({
         success: true,

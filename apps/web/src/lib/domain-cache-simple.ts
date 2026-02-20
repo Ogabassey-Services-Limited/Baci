@@ -16,7 +16,7 @@
  *   This is a read-only lookup - it cannot modify data.
  */
 
-import { getEdgeConfigSlugKey } from './edge-config-keys';
+import { getEdgeConfigSlugKey } from '@/lib/edge-config-keys';
 import { createAdminClient } from './supabase/admin';
 
 interface CacheEntry {
@@ -92,13 +92,19 @@ async function fetchCustomDomain(merchantSlug: string): Promise<string | null> {
   try {
     const supabase = createAdminClient();
 
-    const { data: merchant } = await supabase
+    const { data: merchant, error } = await supabase
       .from('merchants')
       .select('id, domains!left(domain, is_primary, status, domain_type)')
       .eq('slug', merchantSlug)
       .single();
 
-    if (!merchant) return null;
+    if (error || !merchant) {
+      console.error('[Domain Cache] Failed to fetch merchant domain data', {
+        merchantSlug,
+        error,
+      });
+      return null;
+    }
 
     const domains = merchant.domains as Array<{
       domain: string;

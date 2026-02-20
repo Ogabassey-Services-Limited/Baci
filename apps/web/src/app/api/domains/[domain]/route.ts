@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
   authenticateApiRequest,
@@ -202,7 +202,7 @@ export async function DELETE(
       // We do not fail the request because DB deletion succeeded
     }
 
-    void triggerDomainEdgeConfigSync();
+    after(() => triggerDomainEdgeConfigSync());
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

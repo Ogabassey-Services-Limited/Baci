@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
     // But mostly we prefer A-record flow.
     // However, if verification_token came from Vercel TXT, we might want to hint that.
 
-    void triggerDomainEdgeConfigSync();
+    after(() => triggerDomainEdgeConfigSync());
 
     return NextResponse.json({
       domain: newDomain,

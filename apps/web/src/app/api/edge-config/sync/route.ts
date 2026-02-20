@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import {
   getEdgeConfigDomainKey,
@@ -31,6 +32,14 @@ function getEdgeConfigId(): string | null {
  */
 export async function POST(request: Request) {
   try {
+    const vercelApiToken = process.env.VERCEL_API_TOKEN?.trim();
+    if (!vercelApiToken) {
+      return NextResponse.json(
+        { error: 'VERCEL_API_TOKEN not configured' },
+        { status: 500 }
+      );
+    }
+
     // Verify authorization
     const authHeader = request.headers.get('authorization') ?? '';
     const providedToken = authHeader.replace(/^Bearer\s+/i, '').trim();
@@ -49,7 +58,24 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!providedToken || !allowedTokens.includes(providedToken)) {
+    const isAuthorized =
+      providedToken.length > 0 &&
+      allowedTokens.some((allowedToken) => {
+        if (providedToken.length !== allowedToken.length) {
+          return false;
+        }
+
+        try {
+          return timingSafeEqual(
+            Buffer.from(providedToken),
+            Buffer.from(allowedToken)
+          );
+        } catch {
+          return false;
+        }
+      });
+
+    if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -100,14 +126,6 @@ export async function POST(request: Request) {
     }
 
     // Update Edge Config via Vercel API
-    const vercelApiToken = process.env.VERCEL_API_TOKEN;
-    if (!vercelApiToken) {
-      return NextResponse.json(
-        { error: 'VERCEL_API_TOKEN not configured' },
-        { status: 500 }
-      );
-    }
-
     const edgeConfigItemsUrl = `https://api.vercel.com/v1/edge-config/${edgeConfigId}/items`;
     const vercelApiHeaders = {
       Authorization: `Bearer ${vercelApiToken}`,
@@ -134,9 +152,30 @@ export async function POST(request: Request) {
       );
     }
 
-    const existingItems = (await existingItemsResponse.json()) as Array<{
-      key: string;
-    }>;
+    const existingItemsPayload: unknown = await existingItemsResponse.json();
+    const hasInvalidItems =
+      !Array.isArray(existingItemsPayload) ||
+      existingItemsPayload.some((item) => {
+        if (typeof item !== 'object' || item === null) {
+          return true;
+        }
+
+        const candidate = item as { key?: unknown };
+        return typeof candidate.key !== 'string';
+      });
+
+    if (hasInvalidItems) {
+      console.error(
+        '[Edge Config Sync] Unexpected response shape from Edge Config items API',
+        existingItemsPayload
+      );
+      return NextResponse.json(
+        { error: 'Unexpected Edge Config API response' },
+        { status: 500 }
+      );
+    }
+
+    const existingItems = existingItemsPayload as Array<{ key: string }>;
 
     const desiredKeys = new Set([
       ...Object.keys(domainToSlug),

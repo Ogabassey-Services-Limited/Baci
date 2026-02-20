@@ -815,7 +815,24 @@ export async function POST(request: NextRequest) {
           const tld =
             typeof metadata.tld === 'string' && metadata.tld.startsWith('.')
               ? metadata.tld
-              : `.${normalizedDomain.split('.').slice(-1)[0]}`;
+              : (() => {
+                  const multipartTlds = [
+                    '.com.ng',
+                    '.org.ng',
+                    '.net.ng',
+                    '.edu.ng',
+                    '.name.ng',
+                  ];
+                  const matchedMultipartTld = multipartTlds.find((candidate) =>
+                    normalizedDomain.endsWith(candidate)
+                  );
+
+                  if (matchedMultipartTld) {
+                    return `.${normalizedDomain.split('.').slice(-2).join('.')}`;
+                  }
+
+                  return `.${normalizedDomain.split('.').slice(-1)[0]}`;
+                })();
 
           // 3. Register Domain via Go54
           const registration = await registerDomain({
@@ -879,7 +896,7 @@ export async function POST(request: NextRequest) {
                     domain: normalizedDomain,
                   });
                 } else {
-                  void triggerDomainEdgeConfigSync();
+                  after(() => triggerDomainEdgeConfigSync());
                 }
               }
             } else {
@@ -901,7 +918,8 @@ export async function POST(request: NextRequest) {
                 });
               }
 
-              const shouldSetPrimary = !existingPrimaryDomain;
+              const shouldSetPrimary =
+                !primaryDomainError && !existingPrimaryDomain;
 
               const { error: domainDbError } = await supabase
                 .from('domains')
@@ -930,7 +948,7 @@ export async function POST(request: NextRequest) {
                   domain: normalizedDomain,
                 });
               } else {
-                void triggerDomainEdgeConfigSync();
+                after(() => triggerDomainEdgeConfigSync());
               }
             }
           } else {

@@ -21,4 +21,18 @@ describe('edge-config key helpers', () => {
       'domain_shop_test-domain_com'
     );
   });
+
+  it('supports empty and whitespace-only input', () => {
+    expect(getEdgeConfigSlugKey('')).toBe('slug_');
+    expect(getEdgeConfigDomainKey('')).toBe('domain_');
+    expect(getEdgeConfigSlugKey('   ')).toBe('slug_');
+    expect(getEdgeConfigDomainKey('   ')).toBe('domain_');
+  });
+
+  it('preserves dashes in normalized keys', () => {
+    expect(getEdgeConfigSlugKey('shop-test')).toBe('slug_shop-test');
+    expect(getEdgeConfigDomainKey('shop-test.com')).toBe(
+      'domain_shop-test_com'
+    );
+  });
 });

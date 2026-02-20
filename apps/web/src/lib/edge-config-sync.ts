@@ -19,9 +19,16 @@ function getSyncOrigin(): string | null {
     return null;
   }
 
-  const rootDomain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com')
-    .trim()
-    .replace(/[\r\n]/g, '');
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim().replace(
+    /[\r\n]/g,
+    ''
+  );
+
+  if (!rootDomain) {
+    throw new Error(
+      'NEXT_PUBLIC_ROOT_DOMAIN must be configured in production for Edge Config sync origin resolution.'
+    );
+  }
 
   return `https://${rootDomain}`;
 }
@@ -31,9 +38,20 @@ function getSyncOrigin(): string | null {
  * Failures are logged but never thrown to avoid breaking user flows.
  */
 export async function triggerDomainEdgeConfigSync(): Promise<void> {
-  const authToken =
-    process.env.EDGE_CONFIG_SYNC_SECRET || process.env.VERCEL_API_TOKEN;
-  if (!authToken) return;
+  const authToken = process.env.EDGE_CONFIG_SYNC_SECRET?.trim().replace(
+    /[\r\n]/g,
+    ''
+  );
+  if (!authToken) {
+    if (process.env.VERCEL_API_TOKEN) {
+      console.warn(
+        '[Edge Config Sync Trigger] EDGE_CONFIG_SYNC_SECRET is missing; VERCEL_API_TOKEN fallback is no longer used.'
+      );
+    }
+    return;
+  }
+
+  const sanitizedAuthToken = authToken.trim().replace(/[\r\n]/g, '');
 
   const origin = getSyncOrigin();
   if (!origin) return;
@@ -44,7 +62,7 @@ export async function triggerDomainEdgeConfigSync(): Promise<void> {
     const response = await fetch(syncUrl, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${authToken}`,
+        Authorization: `Bearer ${sanitizedAuthToken}`,
       },
       cache: 'no-store',
       signal: AbortSignal.timeout(8_000),
