@@ -43,6 +43,28 @@ export interface CartItem extends Product {
   assuranceRate?: number; // Percentage, default 5%
 }
 
+/**
+ * Interface representing the raw shape of a cart item from local storage.
+ * Used for validation and sanitization of potentially malformed data.
+ */
+interface StoredCartItem {
+  id: string;
+  name: string;
+  price?: unknown;
+  quantity?: unknown;
+  [key: string]: unknown;
+}
+
+/**
+ * Type guard to validate that an unknown item is a StoredCartItem.
+ * Checks for existence of required string fields 'id' and 'name'.
+ */
+function isValidStoredCartItem(item: unknown): item is StoredCartItem {
+  if (typeof item !== 'object' || item === null) return false;
+  const i = item as Record<string, unknown>;
+  return typeof i.id === 'string' && typeof i.name === 'string';
+}
+
 interface AddToCartOptions {
   variantId?: string;
   variantAttributes?: Record<string, string>;
@@ -174,28 +196,18 @@ const getCartFromStorage = (
     // Validate items structure to prevent NaN prices and ghost items
     if (!Array.isArray(parsed)) return [];
 
-    return (
-      parsed
-        .filter((i: unknown) => {
-          const item = i as Partial<CartItem>;
-          // Must have valid ID and Name
-          if (!item.id || !item.name) return false;
-          return true;
-        })
-        // biome-ignore lint/suspicious/noExplicitAny: Safely casting unknown to CartItem
-        .map((i: any) => ({
-          ...i,
-          // Ensure price is a number and not NaN
-          price:
-            typeof i.price === 'number' && !Number.isNaN(i.price)
-              ? i.price
-              : Number(i.price) || 0,
-          quantity:
-            typeof i.quantity === 'number' && !Number.isNaN(i.quantity)
-              ? i.quantity
-              : Number(i.quantity) || 1,
-        })) as CartItem[]
-    );
+    return parsed.filter(isValidStoredCartItem).map((i) => ({
+      ...i,
+      // Ensure price is a number and not NaN
+      price:
+        typeof i.price === 'number' && !Number.isNaN(i.price)
+          ? i.price
+          : Number(i.price) || 0,
+      quantity:
+        typeof i.quantity === 'number' && !Number.isNaN(i.quantity)
+          ? i.quantity
+          : Number(i.quantity) || 1,
+    })) as CartItem[];
   } catch (error) {
     logger.error({
       message: 'Failed to read cart from localStorage',

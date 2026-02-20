@@ -33,7 +33,8 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 // Mock fetch
-global.fetch = vi.fn();
+const fetchMock = vi.fn();
+global.fetch = fetchMock;
 
 describe('useCart - Validation', () => {
   beforeEach(() => {
@@ -72,7 +73,7 @@ describe('useCart - Validation', () => {
     localStorageMock.setItem('baci-cart-guest', JSON.stringify(initialCart));
 
     // Mock validation response
-    (global.fetch as any).mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         invalidProductIds: ['ghost-product'],
@@ -80,7 +81,7 @@ describe('useCart - Validation', () => {
           { id: 'price-change-product', oldPrice: 100, newPrice: 150 },
         ],
       }),
-    });
+    } as Response);
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <CartProvider>{children}</CartProvider>
@@ -124,10 +125,10 @@ describe('useCart - Validation', () => {
     localStorageMock.setItem('baci-cart-guest', JSON.stringify(initialCart));
 
     // Mock empty response
-    (global.fetch as any).mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({}), // Empty object, fields missing
-    });
+    } as Response);
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <CartProvider>{children}</CartProvider>
@@ -144,5 +145,51 @@ describe('useCart - Validation', () => {
       },
       { timeout: 2000 }
     );
+  });
+
+  it('filters out malformed items and normalizes legacy data from local storage', async () => {
+    // Setup local storage with mixed validity items
+    const mixedCart = [
+      { ...mockProduct, id: 'valid-product-1', name: 'Valid Product 1' }, // Valid
+      { ...mockProduct, id: 'missing-name', name: undefined }, // Invalid (missing name)
+      { ...mockProduct, id: undefined, name: 'Missing ID' }, // Invalid (missing id)
+      { ...mockProduct, id: 'legacy-price', price: '200' }, // Valid but legacy price (string)
+      { ...mockProduct, id: 'legacy-quantity', quantity: '5' }, // Valid but legacy quantity (string)
+      'invalid-string-item', // Invalid (not object)
+      null, // Invalid (null)
+    ];
+
+    localStorageMock.setItem('baci-cart-guest', JSON.stringify(mixedCart));
+
+    // Mock validation response (can be empty/success as we are testing initial load)
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    } as Response);
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <CartProvider>{children}</CartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    // Check cart content
+    const cart = result.current.cart;
+
+    // Should have 3 items: valid-product-1, legacy-price, legacy-quantity
+    expect(cart).toHaveLength(3);
+
+    const valid = cart.find((i) => i.id === 'valid-product-1');
+    expect(valid).toBeDefined();
+
+    const legacyPrice = cart.find((i) => i.id === 'legacy-price');
+    expect(legacyPrice).toBeDefined();
+    expect(legacyPrice?.price).toBe(200); // Should be number
+
+    const legacyQuantity = cart.find((i) => i.id === 'legacy-quantity');
+    expect(legacyQuantity).toBeDefined();
+    expect(legacyQuantity?.quantity).toBe(5); // Should be number
   });
 });
