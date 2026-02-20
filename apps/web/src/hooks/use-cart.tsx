@@ -174,28 +174,26 @@ const getCartFromStorage = (
     // Validate items structure to prevent NaN prices and ghost items
     if (!Array.isArray(parsed)) return [];
 
-    return (
-      parsed
-        .filter((i: unknown) => {
-          const item = i as Partial<CartItem>;
-          // Must have valid ID and Name
-          if (!item.id || !item.name) return false;
-          return true;
-        })
-        // biome-ignore lint/suspicious/noExplicitAny: Safely casting unknown to CartItem
-        .map((i: any) => ({
-          ...i,
-          // Ensure price is a number and not NaN
-          price:
-            typeof i.price === 'number' && !Number.isNaN(i.price)
-              ? i.price
-              : Number(i.price) || 0,
-          quantity:
-            typeof i.quantity === 'number' && !Number.isNaN(i.quantity)
-              ? i.quantity
-              : Number(i.quantity) || 1,
-        })) as CartItem[]
-    );
+    return parsed
+      .filter((i: unknown): i is Record<string, unknown> => {
+        if (typeof i !== 'object' || i === null) return false;
+        const item = i as Record<string, unknown>;
+        return typeof item.id === 'string' && typeof item.name === 'string';
+      })
+      .map(
+        (i) =>
+          ({
+            ...i,
+            price:
+              typeof i.price === 'number' && !Number.isNaN(i.price)
+                ? i.price
+                : Number(i.price) || 0,
+            quantity:
+              typeof i.quantity === 'number' && !Number.isNaN(i.quantity)
+                ? i.quantity
+                : Number(i.quantity) || 1,
+          }) as CartItem
+      );
   } catch (error) {
     logger.error({
       message: 'Failed to read cart from localStorage',

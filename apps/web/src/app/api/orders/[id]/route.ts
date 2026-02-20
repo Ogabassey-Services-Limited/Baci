@@ -4,6 +4,7 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
+import { ORDER_COLUMNS, ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 
 // GET /api/orders/[id] - Get a single order
 export async function GET(
@@ -33,7 +34,7 @@ export async function GET(
     // Get order (ensure it belongs to this merchant)
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('*, order_items(*)')
+      .select(ORDER_WITH_ITEMS_QUERY)
       .eq('id', id)
       .eq('merchant_id', merchantId)
       .single();
@@ -141,7 +142,7 @@ export async function PATCH(
       .update(updates)
       .eq('id', id)
       .eq('merchant_id', merchantId)
-      .select()
+      .select(ORDER_COLUMNS)
       .single();
 
     if (updateError) {

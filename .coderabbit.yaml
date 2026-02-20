@@ -5,7 +5,7 @@ language: "en-US"
 early_access: true # Enable latest AI features
 reviews:
   profile: "assertive" # Be critical and direct
-  request_changes_workflow: false
+  request_changes_workflow: true
   high_level_summary: true
   auto_review:
     enabled: true
