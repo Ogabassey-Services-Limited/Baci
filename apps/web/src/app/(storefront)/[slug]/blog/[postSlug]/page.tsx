@@ -215,6 +215,7 @@ export default async function BlogPostPage({ params }: PageProps) {
           nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
         */
         dangerouslySetInnerHTML={{
+          // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
           __html: safeJsonLdStringify(breadcrumbSchema),
         }}
       />
