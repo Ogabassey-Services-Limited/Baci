@@ -1,6 +1,6 @@
 'use client';
 
-import { Search, TrendingUp } from 'lucide-react';
+import { Search, TrendingUp, X } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
@@ -57,6 +57,7 @@ export function SearchAutocomplete({
   const [loading, setLoading] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Close dropdown when clicking outside
@@ -168,13 +169,17 @@ export function SearchAutocomplete({
           aria-hidden="true"
         />
         <Input
+          ref={inputRef}
           type="search"
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => value.length >= 2 && setIsOpen(true)}
-          className="pl-10"
+          className={cn(
+            'pl-10 [&::-webkit-search-cancel-button]:appearance-none',
+            value ? 'pr-10' : ''
+          )}
           aria-autocomplete="list"
           aria-controls={listboxId}
           aria-activedescendant={
@@ -186,6 +191,22 @@ export function SearchAutocomplete({
           id={id}
           name={name}
         />
+        {value && (
+          <button
+            type="button"
+            onClick={() => {
+              onChange('');
+              setIsOpen(false);
+              setSuggestions([]);
+              setPopularSearches([]);
+              inputRef.current?.focus();
+            }}
+            className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm z-20 h-8 w-8 flex items-center justify-center"
+            aria-label="Clear search"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* Screen reader announcement for results */}
