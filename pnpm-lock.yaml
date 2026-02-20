@@ -959,8 +959,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       baseline-browser-mapping:
-        specifier: ^2.9.19
-        version: 2.9.19
+        specifier: ^2.10.0
+        version: 2.10.0
       change-case:
         specifier: ^5.4.4
         version: 5.4.4
@@ -1089,8 +1089,8 @@ packages:
   '@ag-ui/proto@0.0.43':
     resolution: {integrity: sha512-JcGjwMyxd5KiRTVi3158eByPXm9lKDRMIApYgSlzhXpBwyfpub8waGFnEWqjE3U+gA1LaZHiVMIfD5NCVYj4WQ==}
 
-  '@ai-sdk/anthropic@2.0.65':
-    resolution: {integrity: sha512-HqTPP59mLQ9U6jXQcx6EORkdc5FyZu34Sitkg6jNpyMYcRjStvfx4+NWq/qaR+OTwBFcccv8hvVii0CYkH2Lag==}
+  '@ai-sdk/anthropic@2.0.66':
+    resolution: {integrity: sha512-8xte/61emegt5Zr7lAXeGz50DiA2GJOV2VSTj8hc4jSbjEXQ/gl3LviOp2IRyb2sVcBpnHcRJTdeUJNyzFTawg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -1101,8 +1101,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/gateway@2.0.42':
-    resolution: {integrity: sha512-cIG9UkWP9p8IpBDNu7lrG4x6y9g7U2grQzzK6VEr4sgyLfoGgyiKSypzJIir1HCBXnXy7wjP2z1/0+HkeXpmcw==}
+  '@ai-sdk/gateway@2.0.43':
+    resolution: {integrity: sha512-wVrXKw0ldcU04Y8EY3vR+qPdogZCZEj8pnkpRNRF552jqYPPVY88atPiC9s6XOyE+k6Y1YnusYXqwp6KKaBGAA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -1113,8 +1113,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/google@2.0.53':
-    resolution: {integrity: sha512-ccCxr5mrd3AC2CjLq4e1ST7+UiN5T2Pdmgi0XdWM3QohmNBwUQ/RBG7BvL+cB/ex/j6y64tkMmpYz9zBw/SEFQ==}
+  '@ai-sdk/google@2.0.54':
+    resolution: {integrity: sha512-VKguP0x/PUYpdQyuA/uy5pDGJy6reL0X/yDKxHfL207aCUXpFIBmyMhVs4US39dkEVhtmIFSwXauY0Pt170JRw==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -6997,8 +6997,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  ai@5.0.136:
-    resolution: {integrity: sha512-Aiar6eW8WXrVx0icbTdW+1L1aFDbg/sGz02fIsqNVecedVANUMT8Nh2HUXSSlbZNgCisbZLp0m9yKeW6YRGuEQ==}
+  ai@5.0.137:
+    resolution: {integrity: sha512-ZPqvIG5HlTEaTsf91p5CvOMWYoTxsGpHckgc8qk7FNVM9O375A1A5cvLq6CpkCdTWrdyNZMMs3brnfUIlJP20g==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -7372,8 +7372,9 @@ packages:
   base64-js@1.5.1:
     resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
 
-  baseline-browser-mapping@2.9.19:
-    resolution: {integrity: sha512-ipDqC8FrAl/76p2SSWKSI+H9tFwm7vYqXQrItCuiVPt26Km0jS+NzSsBWAaBusvSbQcfJG+JitdMm+wZAgTYqg==}
+  baseline-browser-mapping@2.10.0:
+    resolution: {integrity: sha512-lIyg0szRfYbiy67j9KN8IyeD7q7hcmqnJ1ddWmNt19ItGpNN64mnllmxUNFIOdOm6by97jlL6wfpTTJrmnjWAA==}
+    engines: {node: '>=6.0.0'}
     hasBin: true
 
   basic-ftp@5.1.0:
@@ -15970,7 +15971,7 @@ snapshots:
       '@bufbuild/protobuf': 2.11.0
       '@protobuf-ts/protoc': 2.11.1
 
-  '@ai-sdk/anthropic@2.0.65(zod@3.25.76)':
+  '@ai-sdk/anthropic@2.0.66(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 2.0.1
       '@ai-sdk/provider-utils': 3.0.21(zod@3.25.76)
@@ -15983,7 +15984,7 @@ snapshots:
       '@vercel/oidc': 3.1.0
       zod: 3.25.76
 
-  '@ai-sdk/gateway@2.0.42(zod@3.25.76)':
+  '@ai-sdk/gateway@2.0.43(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 2.0.1
       '@ai-sdk/provider-utils': 3.0.21(zod@3.25.76)
@@ -15996,7 +15997,7 @@ snapshots:
       '@ai-sdk/provider-utils': 3.0.20(zod@3.25.76)
       zod: 3.25.76
 
-  '@ai-sdk/google@2.0.53(zod@3.25.76)':
+  '@ai-sdk/google@2.0.54(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 2.0.1
       '@ai-sdk/provider-utils': 3.0.21(zod@3.25.76)
@@ -17027,12 +17028,12 @@ snapshots:
   '@copilotkitnext/agent@0.0.33(@cfworker/json-schema@4.1.1)':
     dependencies:
       '@ag-ui/client': 0.0.42
-      '@ai-sdk/anthropic': 2.0.65(zod@3.25.76)
-      '@ai-sdk/google': 2.0.53(zod@3.25.76)
+      '@ai-sdk/anthropic': 2.0.66(zod@3.25.76)
+      '@ai-sdk/google': 2.0.54(zod@3.25.76)
       '@ai-sdk/mcp': 0.0.8(zod@3.25.76)
       '@ai-sdk/openai': 2.0.91(zod@3.25.76)
       '@modelcontextprotocol/sdk': 1.26.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
-      ai: 5.0.136(zod@3.25.76)
+      ai: 5.0.137(zod@3.25.76)
       rxjs: 7.8.2
       zod: 3.25.76
     transitivePeerDependencies:
@@ -23538,9 +23539,9 @@ snapshots:
       '@opentelemetry/api': 1.9.0
       zod: 3.25.76
 
-  ai@5.0.136(zod@3.25.76):
+  ai@5.0.137(zod@3.25.76):
     dependencies:
-      '@ai-sdk/gateway': 2.0.42(zod@3.25.76)
+      '@ai-sdk/gateway': 2.0.43(zod@3.25.76)
       '@ai-sdk/provider': 2.0.1
       '@ai-sdk/provider-utils': 3.0.21(zod@3.25.76)
       '@opentelemetry/api': 1.9.0
@@ -23994,7 +23995,7 @@ snapshots:
 
   base64-js@1.5.1: {}
 
-  baseline-browser-mapping@2.9.19: {}
+  baseline-browser-mapping@2.10.0: {}
 
   basic-ftp@5.1.0: {}
 
@@ -24078,7 +24079,7 @@ snapshots:
 
   browserslist@4.28.1:
     dependencies:
-      baseline-browser-mapping: 2.9.19
+      baseline-browser-mapping: 2.10.0
       caniuse-lite: 1.0.30001769
       electron-to-chromium: 1.5.286
       node-releases: 2.0.27
@@ -30643,7 +30644,7 @@ snapshots:
     dependencies:
       '@next/env': 16.1.6
       '@swc/helpers': 0.5.15
-      baseline-browser-mapping: 2.9.19
+      baseline-browser-mapping: 2.10.0
       caniuse-lite: 1.0.30001769
       postcss: 8.4.31
       react: 19.1.0
@@ -30669,7 +30670,7 @@ snapshots:
     dependencies:
       '@next/env': 16.1.6
       '@swc/helpers': 0.5.15
-      baseline-browser-mapping: 2.9.19
+      baseline-browser-mapping: 2.10.0
       caniuse-lite: 1.0.30001769
       postcss: 8.4.31
       react: 19.2.4
