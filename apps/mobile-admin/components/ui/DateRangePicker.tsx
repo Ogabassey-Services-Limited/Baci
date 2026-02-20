@@ -139,7 +139,12 @@ export default function DateRangePicker({
             <Text style={[styles.title, { color: colors.text }]}>
               Select Date Range
             </Text>
-            <Pressable onPress={onClose} hitSlop={10}>
+            <Pressable
+              onPress={onClose}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Close date picker"
+            >
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </Pressable>
           </View>
@@ -163,6 +168,8 @@ export default function DateRangePicker({
                 },
               ]}
               onPress={() => setMode('presets')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: mode === 'presets' }}
             >
               <Text
                 style={[
@@ -187,6 +194,8 @@ export default function DateRangePicker({
                 },
               ]}
               onPress={() => setMode('calendar')}
+              accessibilityRole="button"
+              accessibilityState={{ selected: mode === 'calendar' }}
             >
               <Text
                 style={[
@@ -219,6 +228,8 @@ export default function DateRangePicker({
                       onSelect(preset);
                       onClose();
                     }}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: activePreset === preset }}
                   >
                     <Text
                       style={[
@@ -260,6 +271,8 @@ export default function DateRangePicker({
                   <Pressable
                     onPress={() => setViewDate(subMonths(viewDate, 1))}
                     style={styles.navButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Previous month"
                   >
                     <Ionicons
                       name="chevron-back"
@@ -273,6 +286,8 @@ export default function DateRangePicker({
                   <Pressable
                     onPress={() => setViewDate(addMonths(viewDate, 1))}
                     style={styles.navButton}
+                    accessibilityRole="button"
+                    accessibilityLabel="Next month"
                   >
                     <Ionicons
                       name="chevron-forward"
@@ -335,6 +350,10 @@ export default function DateRangePicker({
                           selected && { borderRadius: 8 }, // override if simple selection
                         ]}
                         onPress={() => handleDayPress(day)}
+                        accessibilityRole="button"
+                        accessibilityLabel={format(day, 'EEEE, MMMM do, yyyy')}
+                        accessibilityState={{ selected }}
+                        accessibilityHint="Double tap to select date"
                       >
                         <Text style={[styles.dayText, { color: textColor }]}>
                           {format(day, 'd')}
