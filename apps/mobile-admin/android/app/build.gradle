@@ -110,7 +110,12 @@ android {
             def keyAliasVal = System.getenv("ANDROID_KEY_ALIAS") ?: null
             def keyPasswordVal = System.getenv("ANDROID_KEY_PASSWORD") ?: null
 
-            if (keystorePath != null && file(keystorePath).exists()) {
+            if (keystorePath != null) {
+                if (!file(keystorePath).exists()) {
+                    throw new GradleException(
+                        "ANDROID_KEYSTORE_FILE is set to '${keystorePath}' but the file does not exist."
+                    )
+                }
                 if (!keystorePassword || !keyAliasVal || !keyPasswordVal) {
                     throw new GradleException(
                         "Release keystore found but signing credentials incomplete. " +
