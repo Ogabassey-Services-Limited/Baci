@@ -206,8 +206,7 @@ describe('POST /api/edge-config/sync', () => {
   it('uses EDGE_CONFIG connection URL when EDGE_CONFIG_ID is absent', async () => {
     process.env.EDGE_CONFIG_SYNC_SECRET = 'sync-secret';
     process.env.VERCEL_API_TOKEN = 'vercel-token';
-    process.env.EDGE_CONFIG =
-      'https://edge-config.vercel.com/ecfg_from_connection_url';
+    process.env.EDGE_CONFIG = 'https://example.com/ecfg_from_connection_url';
 
     mockDomainsQuery([]);
 
