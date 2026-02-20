@@ -303,7 +303,7 @@ export default function OrderReportModal({
             </View>
 
             {/* ... rest of content ... */}
-            <View style={styles.statsRow}>
+            <View style={[styles.statsRow, { borderColor: colors.border }]}>
               <View
                 style={[
                   styles.miniStat,
@@ -465,7 +465,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: SPACING.lg,
     borderWidth: 1,
-    borderColor: '#E2E8F0', // Will be overridden by theme border
     borderRadius: RADIUS.md,
     overflow: 'hidden',
   },
