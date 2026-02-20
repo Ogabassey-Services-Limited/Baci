@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { after, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   calculateDomainPrice,
   getDomainPricing,
@@ -13,6 +14,37 @@ import {
 import { type ContactInfo, registerDomain } from '@/lib/go54';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
+
+const DOMAIN_REGEX = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
+
+const ContactInfoInputSchema = z.object({
+  firstname: z.string().optional(),
+  lastname: z.string().optional(),
+  fullname: z.string().optional(),
+  companyname: z.string().optional(),
+  email: z.string().email().optional(),
+  address1: z.string().optional(),
+  address2: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zipcode: z.string().optional(),
+  country: z.string().optional(),
+  phonenumber: z.string().optional(),
+});
+
+const PurchaseRequestSchema = z.object({
+  domain: z
+    .string()
+    .trim()
+    .min(1)
+    .regex(DOMAIN_REGEX, 'Invalid domain format')
+    .transform((value) => value.toLowerCase()),
+  years: z.coerce.number().int().min(1).max(10).default(1),
+  contactInfo: z
+    .union([ContactInfoInputSchema, z.string().trim().min(1)])
+    .optional(),
+  paymentReference: z.string().trim().min(1).optional(),
+});
 
 /**
  * POST /api/domains/purchase
@@ -30,22 +62,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const {
-      domain,
-      years = 1,
-      contactInfo,
-      paymentReference,
-    } = await request.json();
-
-    // Validate domain - using required separator [.-] instead of optional [-.]?
-    // to prevent ReDoS (exponential backtracking) vulnerability
-    const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
-    if (!domainRegex.test(domain)) {
+    const parsedRequest = PurchaseRequestSchema.safeParse(await request.json());
+    if (!parsedRequest.success) {
       return NextResponse.json(
-        { error: 'Invalid domain format' },
+        {
+          error: 'Invalid request payload',
+          details: parsedRequest.error.flatten(),
+        },
         { status: 400 }
       );
     }
+
+    const { domain, years, paymentReference } = parsedRequest.data;
+    const contactInfo =
+      typeof parsedRequest.data.contactInfo === 'string'
+        ? undefined
+        : parsedRequest.data.contactInfo;
 
     // Extract TLD and get pricing
     let tld = `.${domain.split('.').slice(-1)[0]}`;
@@ -215,11 +247,19 @@ export async function POST(request: Request) {
     }
 
     // Check if domain already exists
-    const { data: existingDomain } = await supabase
+    const { data: existingDomain, error: existingDomainError } = await supabase
       .from('domains')
       .select('id, merchant_id')
       .eq('domain', domain)
-      .single();
+      .maybeSingle();
+
+    if (existingDomainError) {
+      console.error('Error checking existing domain:', existingDomainError);
+      return NextResponse.json(
+        { error: 'Failed to check existing domain ownership' },
+        { status: 500 }
+      );
+    }
 
     if (existingDomain) {
       if (existingDomain.merchant_id === merchantId) {

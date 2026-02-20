@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { triggerDomainEdgeConfigSync } from './edge-config-sync';
+import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 
 const originalEnv = process.env;
 const SYNC_PATH = '/api/edge-config/sync';

@@ -33,19 +33,13 @@ function getEdgeConfigId(): string | null {
 export async function POST(request: Request) {
   try {
     const vercelApiToken = process.env.VERCEL_API_TOKEN?.trim();
-    if (!vercelApiToken) {
-      return NextResponse.json(
-        { error: 'VERCEL_API_TOKEN not configured' },
-        { status: 500 }
-      );
-    }
 
     // Verify authorization
     const authHeader = request.headers.get('authorization') ?? '';
     const providedToken = authHeader.replace(/^Bearer\s+/i, '').trim();
     const allowedTokens = [
       process.env.EDGE_CONFIG_SYNC_SECRET?.trim(),
-      process.env.VERCEL_API_TOKEN?.trim(),
+      vercelApiToken,
     ].filter((token): token is string => Boolean(token));
 
     if (allowedTokens.length === 0) {
@@ -138,6 +132,7 @@ export async function POST(request: Request) {
       method: 'GET',
       headers: vercelApiHeaders,
       cache: 'no-store',
+      signal: AbortSignal.timeout(8_000),
     });
 
     if (!existingItemsResponse.ok) {
@@ -222,6 +217,7 @@ export async function POST(request: Request) {
       method: 'PATCH',
       headers: vercelApiHeaders,
       body: JSON.stringify({ items }),
+      signal: AbortSignal.timeout(8_000),
     });
 
     if (!updateResponse.ok) {

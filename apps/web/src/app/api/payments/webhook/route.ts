@@ -316,7 +316,9 @@ export async function POST(request: NextRequest) {
       // Find the pending chat order
       const { data: chatOrder, error: chatOrderError } = await supabase
         .from('chat_orders')
-        .select('*')
+        .select(
+          'id, merchant_id, customer_id, customer_name, customer_email, customer_phone, shipping_address, session_id, subtotal, shipping_fee, items'
+        )
         .eq('payment_reference', reference)
         .eq('status', 'pending_payment')
         .single();
@@ -671,7 +673,9 @@ export async function POST(request: NextRequest) {
     // Find transaction record
     const { data: transaction, error: transactionError } = await supabase
       .from('transactions')
-      .select('*')
+      .select(
+        'id,amount,currency,merchant_id,metadata,order_id,gateway_fee,platform_fee'
+      )
       .eq('gateway_reference', reference)
       .single();
 
@@ -920,6 +924,7 @@ export async function POST(request: NextRequest) {
 
               const shouldSetPrimary =
                 !primaryDomainError && !existingPrimaryDomain;
+              const domainPurchaseAmount = Number(transaction.amount) || 0;
 
               const { error: domainDbError } = await supabase
                 .from('domains')
@@ -933,8 +938,8 @@ export async function POST(request: NextRequest) {
                   verified_at: nowIso,
                   ssl_status: 'active',
                   go54_order_id: registration.orderId || null,
-                  purchase_price: transaction.amount,
-                  renewal_price: transaction.amount,
+                  purchase_price: domainPurchaseAmount,
+                  renewal_price: domainPurchaseAmount,
                   registered_at: nowIso,
                   expires_at: expiresAt.toISOString(),
                   auto_renew: true,

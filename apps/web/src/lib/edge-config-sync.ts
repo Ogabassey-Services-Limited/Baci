@@ -51,18 +51,16 @@ export async function triggerDomainEdgeConfigSync(): Promise<void> {
     return;
   }
 
-  const sanitizedAuthToken = authToken.trim().replace(/[\r\n]/g, '');
-
-  const origin = getSyncOrigin();
-  if (!origin) return;
-
-  const syncUrl = `${origin}${EDGE_CONFIG_SYNC_PATH}`;
-
   try {
+    const origin = getSyncOrigin();
+    if (!origin) return;
+
+    const syncUrl = `${origin}${EDGE_CONFIG_SYNC_PATH}`;
+
     const response = await fetch(syncUrl, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${sanitizedAuthToken}`,
+        Authorization: `Bearer ${authToken}`,
       },
       cache: 'no-store',
       signal: AbortSignal.timeout(8_000),
