@@ -159,7 +159,7 @@
     "@unlighthouse/core": "^0.17.4",
     "@vitejs/plugin-react": "^5.1.4",
     "babel-plugin-react-compiler": "^1.0.0",
-    "baseline-browser-mapping": "^2.9.19",
+    "baseline-browser-mapping": "^2.10.0",
     "change-case": "^5.4.4",
     "critical": "^7.2.1",
     "eslint": "^10.0.0",
