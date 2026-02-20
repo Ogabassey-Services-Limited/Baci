@@ -63,22 +63,35 @@ export function OgabasseyLayout({
               <div
                 className="text-gray-900 bg-[#0F0F0F] min-h-screen flex flex-col relative overflow-hidden"
                 style={{
-                  // Core shadcn/ui variables to prevent "blue flash" and ensure branding
+                  // Core shadcn/ui variables — override globals.css defaults to prevent
+                  // "blue flash" where dashboard theme colors briefly show on storefronts
+                  '--background': merchant?.brand_colors?.background
+                    ? hexToHslComponents(merchant.brand_colors.background)
+                    : '0 0% 6%',
+                  '--foreground': merchant?.brand_colors?.background
+                    ? hexToHslComponents(getContrastingTextColor(merchant.brand_colors.background))
+                    : '0 0% 98%',
+                  '--card': merchant?.brand_colors?.background
+                    ? hexToHslComponents(merchant.brand_colors.background)
+                    : '0 0% 6%',
+                  '--card-foreground': merchant?.brand_colors?.background
+                    ? hexToHslComponents(getContrastingTextColor(merchant.brand_colors.background))
+                    : '0 0% 98%',
                   '--primary': merchant?.brand_colors?.primary
                     ? hexToHslComponents(merchant.brand_colors.primary)
-                    : undefined,
+                    : hexToHslComponents('#d62027'),
                   '--primary-foreground': merchant?.brand_colors?.primary
                     ? hexToHslComponents(getContrastingTextColor(merchant.brand_colors.primary))
-                    : undefined,
+                    : hexToHslComponents(getContrastingTextColor('#d62027')),
                   '--accent': merchant?.brand_colors?.accent
                     ? hexToHslComponents(merchant.brand_colors.accent)
-                    : undefined,
+                    : hexToHslComponents('#d62027'),
                   '--accent-foreground': merchant?.brand_colors?.accent
                     ? hexToHslComponents(getContrastingTextColor(merchant.brand_colors.accent))
-                    : undefined,
+                    : hexToHslComponents(getContrastingTextColor('#d62027')),
                   '--ring': merchant?.brand_colors?.primary
                     ? hexToHslComponents(merchant.brand_colors.primary)
-                    : undefined,
+                    : hexToHslComponents('#d62027'),
                   // Legacy store variables
                   '--store-primary': merchant?.brand_colors?.primary || '#d62027',
                   '--store-accent': merchant?.brand_colors?.accent || '#d62027',

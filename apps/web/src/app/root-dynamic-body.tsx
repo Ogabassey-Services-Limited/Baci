@@ -11,10 +11,16 @@ export async function RootDynamicBody({ children }: { children: ReactNode }) {
   const headersList = await headers();
   const nonce = headersList.get('x-nonce') || undefined;
 
+  // Detect storefront routes via middleware-set headers to prevent
+  // next-themes from applying dashboard dark mode on merchant stores
+  const isStorefront = !!(
+    headersList.get('x-merchant-slug') || headersList.get('x-custom-domain')
+  );
+
   return (
     <>
       <NonceProvider nonce={nonce}>
-        <Providers>
+        <Providers forcedTheme={isStorefront ? 'light' : undefined}>
           {children}
           <Toaster />
         </Providers>
