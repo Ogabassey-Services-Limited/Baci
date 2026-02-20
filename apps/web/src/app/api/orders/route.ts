@@ -13,6 +13,7 @@ import {
 import { createGiglShipment } from '@/lib/gigl';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
+import { getClientIdentifier } from '@/lib/rate-limit';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { giglProvider } from '@/lib/shipping/providers/gigl';
 import { createClient } from '@/lib/supabase/server';
@@ -259,11 +260,8 @@ export async function POST(request: NextRequest) {
     const json = await request.json();
 
     // Capture IP and User Agent for enhanced ad tracking (improves Event Match Quality)
-    const clientIp =
-      request.ip ||
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      undefined;
+    // Use centralized IP resolution logic to prevent spoofing
+    const clientIp = getClientIdentifier(request);
     const clientUserAgent = request.headers.get('user-agent') || undefined;
 
     // Detect privacy region for CCPA/GDPR compliance (LDU flag)

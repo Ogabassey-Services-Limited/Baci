@@ -123,10 +123,12 @@ function getRateLimitConfig(pathname: string): {
 // Client identifier (IP)
 // ---------------------------------------------------------------------------
 
-function getClientIdentifier(request: NextRequest): string {
+export function getClientIdentifier(request: NextRequest): string {
   // Prefer Next.js/Vercel trusted IP
-  if (request.ip && isValidIP(request.ip)) {
-    return request.ip;
+  // biome-ignore lint/suspicious/noExplicitAny: Next.js types don't include .ip by default but it exists on Vercel
+  const requestIp = (request as any).ip;
+  if (requestIp && isValidIP(requestIp)) {
+    return requestIp;
   }
 
   const forwarded = request.headers.get('x-forwarded-for');

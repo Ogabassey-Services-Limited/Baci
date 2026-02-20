@@ -38,7 +38,7 @@ describe('Rate Limit — in-memory fallback', () => {
       writable: false,
     });
 
-    const result = await checkRateLimit(req);
+    const _result = await checkRateLimit(req);
     // Should use 9.9.9.9 instead of 1.1.1.1
     // We can verify this by making requests from 1.1.1.1 afterwards
     // If 1.1.1.1 is still fresh (count 0), then 9.9.9.9 was used.
