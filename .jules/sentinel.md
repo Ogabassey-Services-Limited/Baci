@@ -18,3 +18,14 @@
 3. For PUT/PATCH routes, use conditional field updates (only include fields that are explicitly provided)
 4. Add comprehensive XSS test suites that verify sanitization of all user-input fields
 5. Use `sanitizeText()` for plain text fields and `sanitizeHtml()` for rich content
+
+## 2026-02-18 - User ID Spoofing in Storefront Order Creation
+
+**Vulnerability:** The `POST /api/orders` endpoint and `create_storefront_order` RPC accepted `user_id` from the request body even for unauthenticated users. This allowed an attacker to create orders linked to arbitrary user accounts (by guessing or knowing their UUID), potentially polluting order history or enabling phishing attacks.
+
+**Learning:** Publicly accessible RPCs (even if `SECURITY DEFINER`) must never blindly trust input parameters that link data to user accounts. Authentication context (`auth.uid()`) must always be the source of truth for user identification, not client input.
+
+**Prevention:**
+1. In API routes: Ignore sensitive fields like `user_id` from request bodies if the user is not authenticated.
+2. In Database RPCs: Always derive `user_id` from `auth.uid()`. If unauthenticated, force `user_id` to NULL or reject the operation if authentication is required.
+3. Use strict equality checks: `IF p_user_id IS NOT NULL AND p_user_id <> auth.uid() THEN RAISE EXCEPTION ...`
