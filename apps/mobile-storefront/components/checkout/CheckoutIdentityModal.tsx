@@ -25,6 +25,7 @@ import {
   View,
 } from 'react-native';
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -57,16 +58,24 @@ export function CheckoutIdentityModal({
   const backdropOpacity = useSharedValue(0);
 
   useEffect(() => {
-    if (isOpen) {
-      backdropOpacity.value = withTiming(1, { duration: 200 });
-      // Smooth slide up without bouncing
-      translateY.value = withTiming(0, { duration: 300 });
-    } else {
-      backdropOpacity.value = withTiming(0, { duration: 150 });
-      translateY.value = withTiming(500, { duration: 200 });
+    cancelAnimation(backdropOpacity);
+    cancelAnimation(translateY);
+
+    if (!isOpen) {
+      backdropOpacity.value = 0;
+      translateY.value = 500;
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+
+    backdropOpacity.value = withTiming(1, { duration: 200 });
+    // Smooth slide up without bouncing
+    translateY.value = withTiming(0, { duration: 300 });
+
+    return () => {
+      cancelAnimation(backdropOpacity);
+      cancelAnimation(translateY);
+    };
+  }, [backdropOpacity, isOpen, translateY]);
 
   const animatedBackdrop = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,

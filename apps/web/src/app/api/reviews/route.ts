@@ -6,6 +6,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
+import { reviewSubmissionSchema } from '@/schemas/reviews';
 
 /**
  * Product Reviews API
@@ -14,16 +15,6 @@ import { createClient } from '@/lib/supabase/server';
  * GET /api/reviews?merchantId=xxx - Get all reviews for merchant (authenticated)
  * POST /api/reviews - Submit a new review
  */
-
-interface ReviewSubmission {
-  productId: string;
-  merchantId: string;
-  customerEmail: string;
-  customerName?: string;
-  rating: number;
-  title?: string;
-  body?: string;
-}
 
 // GET - Fetch reviews
 export async function GET(request: NextRequest) {
@@ -149,7 +140,19 @@ export async function GET(request: NextRequest) {
 // POST - Submit a new review
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as ReviewSubmission;
+    const rawBody = await request.json();
+    const validationResult = reviewSubmissionSchema.safeParse(rawBody);
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid input',
+          details: validationResult.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      );
+    }
+
     const {
       productId,
       merchantId,
@@ -158,40 +161,7 @@ export async function POST(request: NextRequest) {
       rating,
       title,
       body: reviewBody,
-    } = body;
-
-    // Validate required fields
-    if (!productId || !merchantId || !customerEmail || !rating) {
-      return NextResponse.json(
-        {
-          error:
-            'Missing required fields: productId, merchantId, customerEmail, rating',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate rating
-    if (rating < 1 || rating > 5) {
-      return NextResponse.json(
-        { error: 'Rating must be between 1 and 5' },
-        { status: 400 }
-      );
-    }
-
-    // Validate email format with length limit to prevent ReDoS
-    const isValidEmail =
-      customerEmail.length <= 254 &&
-      customerEmail.includes('@') &&
-      customerEmail.indexOf('@') > 0 &&
-      customerEmail.lastIndexOf('.') > customerEmail.indexOf('@') + 1 &&
-      !/\s/.test(customerEmail);
-    if (!isValidEmail) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      );
-    }
+    } = validationResult.data;
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -212,7 +182,7 @@ export async function POST(request: NextRequest) {
       .from('product_reviews')
       .select('id')
       .eq('product_id', productId)
-      .eq('customer_email', customerEmail.toLowerCase())
+      .eq('customer_email', customerEmail) // Already sanitized and lowercased by schema
       .single();
 
     if (existingReview) {
@@ -229,7 +199,7 @@ export async function POST(request: NextRequest) {
     const { data: orders } = await supabase
       .from('orders')
       .select('id')
-      .eq('customer_email', customerEmail.toLowerCase())
+      .eq('customer_email', customerEmail) // Already sanitized
       .eq('merchant_id', merchantId)
       .in('payment_status', ['paid'])
       .limit(1);
@@ -256,7 +226,7 @@ export async function POST(request: NextRequest) {
         product_id: productId,
         merchant_id: merchantId,
         order_id: orderId,
-        customer_email: customerEmail.toLowerCase(),
+        customer_email: customerEmail,
         customer_name: customerName || null,
         rating,
         title: title || null,

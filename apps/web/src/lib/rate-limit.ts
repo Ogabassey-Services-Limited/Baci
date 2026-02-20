@@ -123,17 +123,28 @@ function getRateLimitConfig(pathname: string): {
 // Client identifier (IP)
 // ---------------------------------------------------------------------------
 
-function getClientIdentifier(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
+export function getClientIdentifier(request: NextRequest): string {
+  // Prefer Next.js/Vercel trusted IP
+  const requestWithIp = request as NextRequest & { ip?: string };
+  const requestIp = requestWithIp.ip;
+  if (requestIp && isValidIP(requestIp)) {
+    return requestIp;
+  }
+
   const realIp = request.headers.get('x-real-ip');
+  const forwarded = request.headers.get('x-forwarded-for');
+
+  if (realIp && isValidIP(realIp)) return realIp;
 
   if (forwarded) {
     const ips = forwarded.split(',').map((ip) => ip.trim());
-    const validIp = ips.find((ip) => isValidIP(ip));
-    if (validIp) return validIp;
+    for (let i = ips.length - 1; i >= 0; i--) {
+      const candidate = ips[i];
+      if (candidate && isValidIP(candidate)) {
+        return candidate;
+      }
+    }
   }
-
-  if (realIp && isValidIP(realIp)) return realIp;
 
   return 'unknown';
 }
