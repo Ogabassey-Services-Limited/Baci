@@ -6,16 +6,17 @@
  * 2. Fall back to in-memory cache + DB query (for local dev or Edge Config outage)
  *
  * Edge Config is synced via POST /api/edge-config/sync (triggered by DB webhook).
- * Keys: "slug:{merchantSlug}" → custom domain string
+ * Keys: "slug_{merchantSlug}" -> custom domain string
  *
  * WHY THIS IS SAFE:
  * - Edge Config reads require no secrets (uses EDGE_CONFIG connection string)
  * - Domain mappings are inherently public data (DNS records are public)
  * - The DB fallback uses createAdminClient because middleware runs before auth,
  *   and RLS requires auth.uid() which doesn't exist for anonymous redirects.
- *   This is a read-only lookup — it cannot modify data.
+ *   This is a read-only lookup - it cannot modify data.
  */
 
+import { getEdgeConfigSlugKey } from '@/lib/edge-config-keys';
 import { createAdminClient } from './supabase/admin';
 
 interface CacheEntry {
@@ -37,28 +38,29 @@ export async function getCustomDomainForSlug(
 ): Promise<string | null> {
   // 1. Try Edge Config (near-zero latency, no DB)
   const edgeDomain = await readFromEdgeConfig(merchantSlug);
-  if (edgeDomain !== undefined) {
+  if (edgeDomain) {
     return edgeDomain;
   }
 
-  // 2. Fall back to in-memory cache + DB
+  // 2. Fall back to in-memory cache + DB.
+  // This also covers stale/missing Edge Config keys.
   return getFromCacheOrDb(merchantSlug);
 }
 
 /**
  * Read from Vercel Edge Config.
- * Returns the domain string, null if no domain, or undefined if Edge Config is unavailable.
+ * Returns the domain string if present, otherwise undefined.
  */
 async function readFromEdgeConfig(
   merchantSlug: string
-): Promise<string | null | undefined> {
+): Promise<string | undefined> {
   try {
     // Dynamic import to avoid build errors when Edge Config is not installed
     const { get } = await import('@vercel/edge-config');
-    const value = await get<string>(`slug:${merchantSlug}`);
-    return value ?? null;
+    const value = await get<string>(getEdgeConfigSlugKey(merchantSlug));
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
   } catch {
-    // Edge Config not configured or unavailable — fall through to DB
+    // Edge Config not configured or unavailable - fall through to DB
     return undefined;
   }
 }
@@ -90,24 +92,47 @@ async function fetchCustomDomain(merchantSlug: string): Promise<string | null> {
   try {
     const supabase = createAdminClient();
 
-    const { data: merchant } = await supabase
+    const { data: merchant, error } = await supabase
       .from('merchants')
-      .select('id, domains!left(domain, is_primary, status)')
+      .select('id, domains!left(domain, is_primary, status, domain_type)')
       .eq('slug', merchantSlug)
       .single();
 
-    if (!merchant) return null;
+    if (error || !merchant) {
+      console.error('[Domain Cache] Failed to fetch merchant domain data', {
+        merchantSlug,
+        error,
+      });
+      return null;
+    }
 
     const domains = merchant.domains as Array<{
       domain: string;
       is_primary: boolean;
       status: string;
+      domain_type: string;
     }> | null;
 
-    return (
-      domains?.find((d) => d.is_primary && d.status === 'active')?.domain ||
-      null
+    const activeCustomDomains =
+      domains?.filter(
+        (domain) =>
+          domain.status === 'active' &&
+          (domain.domain_type === 'custom' ||
+            domain.domain_type === 'purchased')
+      ) ?? [];
+
+    const primaryDomain = activeCustomDomains.find(
+      (domain) => domain.is_primary
     );
+    if (primaryDomain) return primaryDomain.domain;
+
+    // Graceful fallback: if merchant has exactly one active custom/purchased domain,
+    // use it even when is_primary wasn't set yet.
+    if (activeCustomDomains.length === 1) {
+      return activeCustomDomains[0].domain;
+    }
+
+    return null;
   } catch {
     return null;
   }

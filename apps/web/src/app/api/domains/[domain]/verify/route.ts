@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
+import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -138,6 +139,8 @@ export async function POST(
       if (updateError) {
         throw new Error('Failed to update domain status');
       }
+
+      after(() => triggerDomainEdgeConfigSync());
 
       return NextResponse.json({
         success: true,

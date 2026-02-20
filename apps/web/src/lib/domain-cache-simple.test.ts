@@ -39,17 +39,30 @@ describe('getCustomDomainForSlug', () => {
       const result = await getCustomDomainForSlug('ogabassey');
 
       expect(result).toBe('ogabassey.com');
-      expect(mockEdgeGet).toHaveBeenCalledWith('slug:ogabassey');
+      expect(mockEdgeGet).toHaveBeenCalledWith('slug_ogabassey');
       expect(mockFrom).not.toHaveBeenCalled();
     });
 
-    it('returns null from Edge Config when key not found', async () => {
+    it('falls back to DB when Edge Config key is missing', async () => {
       mockEdgeGet.mockResolvedValue(undefined);
+      mockSingle.mockResolvedValue({
+        data: {
+          id: '123',
+          domains: [
+            {
+              domain: 'fallback-from-db.com',
+              is_primary: true,
+              status: 'active',
+              domain_type: 'custom',
+            },
+          ],
+        },
+      });
 
       const result = await getCustomDomainForSlug('unknown');
 
-      expect(result).toBeNull();
-      expect(mockFrom).not.toHaveBeenCalled();
+      expect(result).toBe('fallback-from-db.com');
+      expect(mockFrom).toHaveBeenCalled();
     });
   });
 
@@ -64,7 +77,12 @@ describe('getCustomDomainForSlug', () => {
         data: {
           id: '123',
           domains: [
-            { domain: 'fallback.com', is_primary: true, status: 'active' },
+            {
+              domain: 'fallback.com',
+              is_primary: true,
+              status: 'active',
+              domain_type: 'custom',
+            },
           ],
         },
       });
@@ -82,19 +100,60 @@ describe('getCustomDomainForSlug', () => {
       expect(result).toBeNull();
     });
 
-    it('returns null when no active primary domain exists', async () => {
+    it('returns null when multiple active domains exist and none is primary', async () => {
       mockSingle.mockResolvedValue({
         data: {
           id: '123',
           domains: [
-            { domain: 'example.com', is_primary: false, status: 'active' },
-            { domain: 'pending.com', is_primary: true, status: 'pending' },
+            {
+              domain: 'example.com',
+              is_primary: false,
+              status: 'active',
+              domain_type: 'custom',
+            },
+            {
+              domain: 'another.com',
+              is_primary: false,
+              status: 'active',
+              domain_type: 'purchased',
+            },
+            {
+              domain: 'pending.com',
+              is_primary: true,
+              status: 'pending',
+              domain_type: 'custom',
+            },
           ],
         },
       });
 
       const result = await getCustomDomainForSlug('noprimary');
       expect(result).toBeNull();
+    });
+
+    it('returns single active custom domain when no primary exists', async () => {
+      mockSingle.mockResolvedValue({
+        data: {
+          id: '123',
+          domains: [
+            {
+              domain: 'single-active.com',
+              is_primary: false,
+              status: 'active',
+              domain_type: 'custom',
+            },
+            {
+              domain: 'pending.com',
+              is_primary: false,
+              status: 'pending',
+              domain_type: 'custom',
+            },
+          ],
+        },
+      });
+
+      const result = await getCustomDomainForSlug('singleactive');
+      expect(result).toBe('single-active.com');
     });
 
     it('returns null when merchant does not exist', async () => {
@@ -116,7 +175,12 @@ describe('getCustomDomainForSlug', () => {
         data: {
           id: '123',
           domains: [
-            { domain: 'cached.com', is_primary: true, status: 'active' },
+            {
+              domain: 'cached.com',
+              is_primary: true,
+              status: 'active',
+              domain_type: 'custom',
+            },
           ],
         },
       });
@@ -134,7 +198,14 @@ describe('getCustomDomainForSlug', () => {
       mockSingle.mockResolvedValue({
         data: {
           id: '123',
-          domains: [{ domain: 'old.com', is_primary: true, status: 'active' }],
+          domains: [
+            {
+              domain: 'old.com',
+              is_primary: true,
+              status: 'active',
+              domain_type: 'custom',
+            },
+          ],
         },
       });
 
@@ -146,7 +217,14 @@ describe('getCustomDomainForSlug', () => {
       mockSingle.mockResolvedValue({
         data: {
           id: '123',
-          domains: [{ domain: 'new.com', is_primary: true, status: 'active' }],
+          domains: [
+            {
+              domain: 'new.com',
+              is_primary: true,
+              status: 'active',
+              domain_type: 'custom',
+            },
+          ],
         },
       });
 

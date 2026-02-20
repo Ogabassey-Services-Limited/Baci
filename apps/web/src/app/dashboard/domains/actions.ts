@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import { createClient } from '@/lib/supabase/server';
 
 type SetPrimaryDomainResult =
@@ -74,6 +75,7 @@ export async function setPrimaryDomain(
 
     // Revalidate the domains page to show the updated primary status immediately
     revalidatePath('/dashboard/domains');
+    void triggerDomainEdgeConfigSync();
 
     return { success: true };
   } catch (error: unknown) {

@@ -1,9 +1,10 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import { vercel } from '@/lib/vercel';
 import { createDomainSchema } from '@/schemas/domains';
 
@@ -229,6 +230,8 @@ export async function POST(request: NextRequest) {
     // If Vercel requires a specific TXT challenge (e.g. ownership conflict), pass that
     // But mostly we prefer A-record flow.
     // However, if verification_token came from Vercel TXT, we might want to hint that.
+
+    after(() => triggerDomainEdgeConfigSync());
 
     return NextResponse.json({
       domain: newDomain,
