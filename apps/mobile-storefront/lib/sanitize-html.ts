@@ -2,6 +2,16 @@ const DANGEROUS_BLOCK_TAGS = new Set(['script', 'style', 'iframe', 'object', 'fo
 const DANGEROUS_SINGLE_TAGS = new Set(['embed', 'input']);
 const DANGEROUS_TAGS = new Set([...DANGEROUS_BLOCK_TAGS, ...DANGEROUS_SINGLE_TAGS]);
 const UNSAFE_URI_PREFIXES = ['javascript:', 'data:', 'vbscript:', 'blob:'] as const;
+const ALLOWED_ATTRIBUTES = new Set([
+  'class',
+  'style',
+  'href',
+  'src',
+  'alt',
+  'title',
+  'xlink:href',
+  'formaction',
+]);
 const MAX_SANITIZE_PASSES = 12;
 
 function isWhitespace(char: string | undefined): boolean {
@@ -207,7 +217,7 @@ function sanitizeSafeTag(rawTag: string): string {
       }
     }
 
-    if (lowerAttrName.startsWith('on')) continue;
+    if (!ALLOWED_ATTRIBUTES.has(lowerAttrName)) continue;
 
     let sanitizedValue = value;
     if (
