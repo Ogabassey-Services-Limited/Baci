@@ -24,6 +24,9 @@ env:
   JAVA_VERSION: '17'
   NODE_VERSION: '22'
   WORKING_DIR: apps/mobile-admin
+  # Offset added to github.run_number to avoid collisions with
+  # version codes previously uploaded via EAS (1-9) and earlier runs (10).
+  VERSION_CODE_BASE: '10'
 
 jobs:
   build-and-deploy:
@@ -89,6 +92,7 @@ jobs:
           GH_REF_TYPE: ${{ github.ref_type }}
           GH_RUN_NUMBER: ${{ github.run_number }}
           INPUT_VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_CODE_BASE: ${{ env.VERSION_CODE_BASE }}
         run: |
           if [ "$GH_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_VERSION_CODE" ]; then
             VERSION_CODE="$INPUT_VERSION_CODE"
@@ -96,7 +100,9 @@ jobs:
             VERSION_CODE="${GITHUB_REF_NAME#v}"
             VERSION_CODE="${VERSION_CODE%-admin}"
           else
-            VERSION_CODE="$GH_RUN_NUMBER"
+            # Auto-bump: run_number + base offset to avoid collisions with
+            # previously uploaded version codes (EAS builds, earlier CI runs).
+            VERSION_CODE=$(( GH_RUN_NUMBER + VERSION_CODE_BASE ))
           fi
 
           if ! [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
