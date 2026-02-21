@@ -1,33 +1,22 @@
-# Yahoo MRSS Namespace (XML Namespace URI, not a visitable URL)
-http://search.yahoo.com/mrss/
-https://search.yahoo.com/mrss/
+# Ignore patterns for lychee link checker
+# Format: <regex> or glob pattern
 
-# Broken/Timeout links
-http://alienryderflex.com/hsp.html
-https://gdpr.eu/cookies/
+# Temporary
+http://dummy\.com.*
+https://test\.supabase\.co.*
+mailto:.*
+https://example\.com.*
+.*localhost.*
+.*127\.0\.0\.1.*
 
-# External product image CDN (hotlinking blocked)
-https://fdn2.gsmarena.com/
+# Specific ignoring
+https://www\.linkedin\.com/in/.*
+https://twitter\.com/.*
+https://instagram\.com/.*
+https://facebook\.com/.*
+https://www\.tiktok\.com/.*
+https://www\.youtube\.com/.*
+https://youtu\.be/.*
 
-# API docs requiring authentication
-https://www.namecheap.com/support/api/
-
-# Auth-walled API endpoints
-https://api.zeptomail.com/v1.1/email
-
-# Flaky external assets (Favicons/CDNs)
-https://creditdirect.ng/favicon.ico
-https://korapay.com/favicon.ico
-https://credpal.com/favicon.ico
-https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is
-
-# Blockchain explorer URL prefixes (incomplete - need address appended)
-https://etherscan.io/address/
-
-# Placeholder/dummy URLs in code examples
-http://dummy.com/
-https://dummy.com/
-
-# Social media domains that rate-limit CI requests
-https://linkedin.com/
-http://linkedin.com/
+# Failing or flaky external links
+https://www\.rssboard\.org/rss-specification
