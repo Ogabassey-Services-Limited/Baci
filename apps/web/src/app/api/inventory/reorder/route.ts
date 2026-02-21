@@ -1,7 +1,12 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
+import {
+  formatZodErrors,
+  reorderSuggestionActionSchema,
+} from '@/schemas/inventory';
 
 /**
  * Reorder Suggestions API
@@ -34,10 +39,18 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'pending';
 
+    // Sentinel: Replaced select('*') with explicit columns
     const { data: suggestions, error } = await supabase
       .from('reorder_suggestions')
       .select(`
-        *,
+        id,
+        merchant_id,
+        product_id,
+        suggested_quantity,
+        status,
+        created_at,
+        accepted_at,
+        ordered_quantity,
         products (
           id,
           name,
@@ -87,6 +100,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Sentinel: Added CSRF protection
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid && response) return response;
+
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -107,22 +124,22 @@ export async function POST(request: NextRequest) {
     }
     const merchantId = merchantContext.merchantId;
 
-    const body = await request.json();
-    const { suggestionId, action, orderedQuantity } = body;
+    const rawBody = await request.json();
 
-    if (!suggestionId || !action) {
+    // Sentinel: Added Zod validation
+    const parseResult = reorderSuggestionActionSchema.safeParse(rawBody);
+
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'suggestionId and action are required' },
+        {
+          error: 'Validation failed',
+          details: formatZodErrors(parseResult.error),
+        },
         { status: 400 }
       );
     }
 
-    if (!['accept', 'reject', 'ordered'].includes(action)) {
-      return NextResponse.json(
-        { error: 'action must be "accept", "reject", or "ordered"' },
-        { status: 400 }
-      );
-    }
+    const { suggestionId, action, orderedQuantity } = parseResult.data;
 
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
