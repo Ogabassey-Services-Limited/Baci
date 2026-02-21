@@ -1,19 +1,7 @@
 // Client-side API helper with CSRF protection
 // Use this for all API calls that modify data
 
-/**
- * Get CSRF token from cookie
- */
-function getCsrfToken(): string | null {
-  if (typeof document === 'undefined') return null;
-
-  const cookies = document.cookie.split(';');
-  const csrfCookie = cookies.find((c) => c.trim().startsWith('csrf-token='));
-
-  if (!csrfCookie) return null;
-
-  return csrfCookie.split('=')[1];
-}
+import { CSRF_HEADER_NAME, getClientCsrfToken } from '@/lib/csrf';
 
 /**
  * Fetch with CSRF protection
@@ -23,7 +11,7 @@ export function fetchWithCsrf(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const csrfToken = getCsrfToken();
+  const csrfToken = getClientCsrfToken();
 
   // Add CSRF token to headers for state-changing methods
   const method = options.method?.toUpperCase() || 'GET';
@@ -32,7 +20,7 @@ export function fetchWithCsrf(
   const headers = new Headers(options.headers);
 
   if (needsCsrf && csrfToken) {
-    headers.set('x-csrf-token', csrfToken);
+    headers.set(CSRF_HEADER_NAME, csrfToken);
   }
 
   // Always set content-type for JSON requests

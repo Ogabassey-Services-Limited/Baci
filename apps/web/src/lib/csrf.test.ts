@@ -1,22 +1,30 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock next/headers
 const mockCookiesSet = vi.fn();
-const mockCookiesGet = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockReturnValue({
     set: mockCookiesSet,
-    get: mockCookiesGet,
   }),
 }));
+
+const originalNodeEnv = process.env.NODE_ENV;
 
 describe('CSRF Protection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
-    vi.unstubAllEnvs(); // Ensure env is clean
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    if (originalNodeEnv === undefined) {
+      Reflect.deleteProperty(process.env, 'NODE_ENV');
+      return;
+    }
+    Reflect.set(process.env, 'NODE_ENV', originalNodeEnv);
   });
 
   describe('setCsrfToken', () => {
@@ -27,22 +35,15 @@ describe('CSRF Protection', () => {
       await csrf.setCsrfToken();
 
       expect(mockCookiesSet).toHaveBeenCalledWith(
-        'csrf-secret',
-        expect.any(String),
-        expect.objectContaining({
-          httpOnly: true,
-          secure: false, // In development, secure is false
-        })
-      );
-
-      expect(mockCookiesSet).toHaveBeenCalledWith(
         'csrf-token',
         expect.any(String),
         expect.objectContaining({
           httpOnly: false,
           secure: false,
+          path: '/',
         })
       );
+      expect(mockCookiesSet).toHaveBeenCalledTimes(1);
     });
 
     it('should set cookies with __Host- prefix in production', async () => {
@@ -50,15 +51,7 @@ describe('CSRF Protection', () => {
       const csrf = await import('./csrf');
 
       await csrf.setCsrfToken();
-
-      expect(mockCookiesSet).toHaveBeenCalledWith(
-        '__Host-csrf-secret',
-        expect.any(String),
-        expect.objectContaining({
-          httpOnly: true,
-          secure: true,
-        })
-      );
+      const firstToken = mockCookiesSet.mock.calls[0]?.[1];
 
       expect(mockCookiesSet).toHaveBeenCalledWith(
         '__Host-csrf-token',
@@ -66,8 +59,20 @@ describe('CSRF Protection', () => {
         expect.objectContaining({
           httpOnly: false,
           secure: true,
+          path: '/',
         })
       );
+
+      expect(mockCookiesSet).toHaveBeenCalledWith(
+        'csrf-token',
+        firstToken,
+        expect.objectContaining({
+          httpOnly: false,
+          secure: true,
+          path: '/',
+        })
+      );
+      expect(mockCookiesSet).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -78,15 +83,47 @@ describe('CSRF Protection', () => {
 
       const token = 'test-token';
       const request = new NextRequest('https://example.com', {
-        headers: { 'x-csrf-token': token },
+        headers: { [csrf.CSRF_HEADER_NAME]: token },
       });
 
       // Mock cookie retrieval
-      request.cookies.get = vi.fn().mockReturnValue({ value: token });
+      const cookieGetSpy = vi
+        .spyOn(request.cookies, 'get')
+        .mockImplementation((cookieName: string | { name: string }) => {
+          const name =
+            typeof cookieName === 'string' ? cookieName : cookieName.name;
+          return name === '__Host-csrf-token'
+            ? { name, value: token }
+            : undefined;
+        });
 
       const result = await csrf.verifyCsrfToken(request);
 
-      expect(request.cookies.get).toHaveBeenCalledWith('__Host-csrf-token');
+      expect(cookieGetSpy).toHaveBeenCalledWith('__Host-csrf-token');
+      expect(result).toBe(true);
+    });
+
+    it('should verify token using legacy cookie name fallback in production', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      const csrf = await import('./csrf');
+
+      const token = 'test-token';
+      const request = new NextRequest('https://example.com', {
+        headers: { [csrf.CSRF_HEADER_NAME]: token },
+      });
+
+      const cookieGetSpy = vi
+        .spyOn(request.cookies, 'get')
+        .mockImplementation((cookieName: string | { name: string }) => {
+          const name =
+            typeof cookieName === 'string' ? cookieName : cookieName.name;
+          return name === 'csrf-token' ? { name, value: token } : undefined;
+        });
+
+      const result = await csrf.verifyCsrfToken(request);
+
+      expect(cookieGetSpy).toHaveBeenCalledWith('__Host-csrf-token');
+      expect(cookieGetSpy).toHaveBeenCalledWith('csrf-token');
       expect(result).toBe(true);
     });
 
@@ -96,16 +133,77 @@ describe('CSRF Protection', () => {
 
       const token = 'test-token';
       const request = new NextRequest('http://localhost:3000', {
-        headers: { 'x-csrf-token': token },
+        headers: { [csrf.CSRF_HEADER_NAME]: token },
       });
 
       // Mock cookie retrieval
-      request.cookies.get = vi.fn().mockReturnValue({ value: token });
+      const cookieGetSpy = vi
+        .spyOn(request.cookies, 'get')
+        .mockImplementation((cookieName: string | { name: string }) => {
+          const name =
+            typeof cookieName === 'string' ? cookieName : cookieName.name;
+          return name === 'csrf-token' ? { name, value: token } : undefined;
+        });
 
       const result = await csrf.verifyCsrfToken(request);
 
-      expect(request.cookies.get).toHaveBeenCalledWith('csrf-token');
+      expect(cookieGetSpy).toHaveBeenCalledWith('csrf-token');
       expect(result).toBe(true);
+    });
+
+    it('should return false when csrf header is missing', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      const csrf = await import('./csrf');
+
+      const request = new NextRequest('https://example.com');
+      const cookieGetSpy = vi.spyOn(request.cookies, 'get');
+
+      const result = await csrf.verifyCsrfToken(request);
+
+      expect(result).toBe(false);
+      expect(cookieGetSpy).not.toHaveBeenCalled();
+    });
+
+    it('should return false when csrf cookie is missing', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      const csrf = await import('./csrf');
+
+      const token = 'test-token';
+      const request = new NextRequest('https://example.com', {
+        headers: { [csrf.CSRF_HEADER_NAME]: token },
+      });
+      const cookieGetSpy = vi
+        .spyOn(request.cookies, 'get')
+        .mockReturnValue(undefined);
+
+      const result = await csrf.verifyCsrfToken(request);
+
+      expect(result).toBe(false);
+      expect(cookieGetSpy).toHaveBeenCalledWith('__Host-csrf-token');
+      expect(cookieGetSpy).toHaveBeenCalledWith('csrf-token');
+    });
+
+    it('should return false when csrf tokens do not match', async () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      const csrf = await import('./csrf');
+
+      const request = new NextRequest('http://localhost:3000', {
+        headers: { [csrf.CSRF_HEADER_NAME]: 'header-token' },
+      });
+      const cookieGetSpy = vi
+        .spyOn(request.cookies, 'get')
+        .mockImplementation((cookieName: string | { name: string }) => {
+          const name =
+            typeof cookieName === 'string' ? cookieName : cookieName.name;
+          return name === 'csrf-token'
+            ? { name, value: 'cookie-token' }
+            : undefined;
+        });
+
+      const result = await csrf.verifyCsrfToken(request);
+
+      expect(result).toBe(false);
+      expect(cookieGetSpy).toHaveBeenCalledWith('csrf-token');
     });
   });
 });
