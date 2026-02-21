@@ -403,7 +403,8 @@ export function SetupChecklist({
         className={cn(
           'relative overflow-hidden hidden md:block',
           compact && 'border-0 shadow-none bg-transparent',
-          !readiness.isReady && 'border-amber-200 bg-amber-50/30'
+          !readiness.isReady &&
+            'border-amber-200 bg-amber-50/30 dark:border-amber-900/60 dark:bg-amber-950/20'
         )}
       >
         {/* Dismiss button */}
