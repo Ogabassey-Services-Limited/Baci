@@ -1,11 +1,5 @@
-export type {
-  ReceiptMerchant,
-  ReceiptOptions,
-  ReceiptOrder,
-} from './generate-receipt-html';
-export {
-  escapeHtml,
-  generateReceiptHtml,
-  getBankNameFromCode,
-  sanitizeSvg,
-} from './generate-receipt-html';
+export type { ReceiptMerchant, ReceiptOptions, ReceiptOrder } from './types';
+export { getBankNameFromCode } from './bank-codes';
+export { escapeHtml, escapeJsString } from './escape-html';
+export { generateReceiptHtml } from './generate-receipt-html';
+export { sanitizeSvg } from './sanitize-svg';

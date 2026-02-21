@@ -28,6 +28,13 @@ describe('sanitizeHtml', () => {
     expect(result).not.toContain('data:');
   });
 
+  it('removes unquoted data: URIs from href and src attributes', () => {
+    const input =
+      '<a href=data:text/html,<script>alert(1)</script>>Link</a><img src=data:image/svg+xml,bad/>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('data:');
+  });
+
   it('removes <iframe> tags with content', () => {
     const input =
       '<p>Text</p><iframe src="evil.com"><p>nested</p></iframe><span>End</span>';
@@ -94,6 +101,12 @@ describe('sanitizeHtml', () => {
     const input =
       '<p>Paragraph</p><div class="box">Content</div><span style="color:red">Text</span><a href="/safe">Link</a><img src="/img.png" alt="Safe"/>';
     // Safe elements are not removed
+    expect(sanitizeHtml(input)).toBe(input);
+  });
+
+  it('does not treat tag-name prefixes as dangerous tags', () => {
+    const input =
+      '<embedded-player>Safe component</embedded-player><formatting>Safe tag</formatting>';
     expect(sanitizeHtml(input)).toBe(input);
   });
 

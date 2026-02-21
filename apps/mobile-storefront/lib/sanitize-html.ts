@@ -11,7 +11,8 @@ const FORM_RE = /<form\b[\s\S]*?<\/form\b[^>]*>/gi;
 const INPUT_RE = /<input\b[^>]*\/?>/gi;
 const EVENT_RE = /\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
 const JS_PROTO_RE = /javascript\s*:/gi;
-const DATA_URI_RE = /(?:href|src)\s*=\s*(?:"data:[^"]*"|'data:[^']*')/gi;
+const DATA_URI_RE =
+  /(?:href|src)\s*=\s*(?:"data:[^"]*"|'data:[^']*'|data:[^\s>]+)/gi;
 
 export function sanitizeHtml(html: string): string {
   if (!html) return '';
@@ -63,7 +64,7 @@ export function sanitizeHtml(html: string): string {
     'input',
   ];
   const lower = result.toLowerCase();
-  let out = '';
+  const outParts: string[] = [];
   let i = 0;
   while (i < result.length) {
     if (result[i] === '<') {
@@ -72,8 +73,11 @@ export function sanitizeHtml(html: string): string {
       let matched = false;
       for (const name of dangerous) {
         if (lower.startsWith(name, j)) {
-          matched = true;
-          break;
+          const k = j + name.length;
+          if (k >= lower.length || !/[a-z0-9-]/.test(lower[k])) {
+            matched = true;
+            break;
+          }
         }
       }
       if (matched) {
@@ -81,8 +85,8 @@ export function sanitizeHtml(html: string): string {
         continue;
       }
     }
-    out += result[i];
+    outParts.push(result[i]);
     i++;
   }
-  return out;
+  return outParts.join('');
 }

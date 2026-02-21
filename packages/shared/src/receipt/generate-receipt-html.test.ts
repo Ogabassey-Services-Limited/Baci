@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeSvg } from './generate-receipt-html';
+import { sanitizeSvg } from './sanitize-svg';
 
 describe('sanitizeSvg', () => {
   it('returns safe SVG unchanged', () => {
@@ -249,6 +249,13 @@ describe('sanitizeSvg', () => {
     const result = sanitizeSvg(maliciousSvg);
     expect(result).not.toMatch(/<script/i);
     expect(result).not.toContain('alert');
+    expect(result).toContain('<circle r="5"/>');
+  });
+
+  it('does not remove tag names that only start with dangerous prefixes', () => {
+    const safeSvg = '<svg><embedded data-safe="1"></embedded><circle r="5"/></svg>';
+    const result = sanitizeSvg(safeSvg);
+    expect(result).toContain('<embedded data-safe="1"></embedded>');
     expect(result).toContain('<circle r="5"/>');
   });
 
