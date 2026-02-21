@@ -11,7 +11,8 @@ Each iOS app also includes an app-local wrapper script at:
 - `apps/mobile-admin/ios/ci_scripts/ci_post_clone.sh`
 - `apps/mobile-storefront/ios/ci_scripts/ci_post_clone.sh`
 
-Both wrappers delegate to the repo-root script and pass app context to keep Xcode Cloud setup consistent.
+Xcode Cloud looks for `ci_scripts/ci_post_clone.sh` in the selected workspace context, so keep these wrapper files in each app workspace.
+For `apps/mobile-storefront/ios/Ogabassey.xcworkspace`, ensure `apps/mobile-storefront/ios/ci_scripts/ci_post_clone.sh` exists and delegates to the repo-root script.
 
 ## 1. App Store Connect Prerequisites
 
