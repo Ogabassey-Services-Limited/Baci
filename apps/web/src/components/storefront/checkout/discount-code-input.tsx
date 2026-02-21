@@ -6,7 +6,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { getClientCsrfToken } from '@/lib/csrf';
+
+// Get CSRF token from cookie
+function getCsrfToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  const cookies = document.cookie.split(';');
+  const csrfCookie = cookies.find((c) => c.trim().startsWith('csrf-token='));
+  if (!csrfCookie) return null;
+  return csrfCookie.split('=')[1];
+}
 
 interface DiscountResult {
   valid: boolean;
@@ -57,7 +65,7 @@ export function DiscountCodeInput({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-csrf-token': getClientCsrfToken() || '',
+          'x-csrf-token': getCsrfToken() || '',
         },
         credentials: 'include',
         body: JSON.stringify({
