@@ -2,6 +2,8 @@ name: Android Production Release
 
 on:
   push:
+    # Keep automated production releases tag-gated.
+    # Note: GitHub evaluates `paths` only for branch pushes, not tag pushes.
     tags:
       - 'v*-admin'
   workflow_dispatch:
@@ -83,19 +85,26 @@ jobs:
         id: version
         shell: bash
         env:
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_REF_TYPE: ${{ github.ref_type }}
+          GH_RUN_NUMBER: ${{ github.run_number }}
           INPUT_VERSION_CODE: ${{ inputs.version_code }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$INPUT_VERSION_CODE" ]; then
+          if [ "$GH_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_VERSION_CODE" ]; then
             VERSION_CODE="$INPUT_VERSION_CODE"
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
+          elif [ "$GH_REF_TYPE" = "tag" ]; then
             VERSION_CODE="${GITHUB_REF_NAME#v}"
             VERSION_CODE="${VERSION_CODE%-admin}"
           else
-            VERSION_CODE="${{ github.run_number }}"
+            VERSION_CODE="$GH_RUN_NUMBER"
           fi
 
           if ! [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer (>=1)."
+            exit 1
+          fi
+          if [ "$VERSION_CODE" -gt 2147483647 ]; then
+            echo "::error::Invalid version code '$VERSION_CODE'. Must be a positive integer <= 2147483647."
             exit 1
           fi
 
@@ -128,6 +137,7 @@ jobs:
           EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
           EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID: ${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}
+          VERSION_CODE: ${{ env.VERSION_CODE }}
         run: |
           GRADLE_ARGS="app:bundleRelease -x lint -x test --configure-on-demand --build-cache --no-daemon"
           GRADLE_ARGS="$GRADLE_ARGS -PversionCode=$VERSION_CODE"
@@ -149,7 +159,7 @@ jobs:
           releaseFiles: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
           track: production
           status: inProgress
-          userFraction: 0.05
+          userFraction: 0.1
 
       - name: Clean up keystore
         if: always()

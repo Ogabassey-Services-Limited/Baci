@@ -5,14 +5,14 @@ This repository contains two iOS apps:
 - Admin app: `apps/mobile-admin/ios/Baci.xcworkspace` (scheme `Baci`)
 - Storefront app: `apps/mobile-storefront/ios/Ogabassey.xcworkspace` (scheme `Ogabassey`)
 
-`ci_scripts/ci_post_clone.sh` at the repo root bootstraps Node, pnpm dependencies, and CocoaPods.
+`ci_scripts/ci_post_clone.sh` at the repo root installs Node.js via Homebrew (if missing), then bootstraps pnpm dependencies and CocoaPods.
 Each iOS app also includes an app-local wrapper script at:
 
 - `apps/mobile-admin/ios/ci_scripts/ci_post_clone.sh`
 - `apps/mobile-storefront/ios/ci_scripts/ci_post_clone.sh`
 
 Xcode Cloud looks for `ci_scripts/ci_post_clone.sh` in the selected workspace context, so keep these wrapper files in each app workspace.
-For `apps/mobile-storefront/ios/Ogabassey.xcworkspace`, ensure `apps/mobile-storefront/ios/ci_scripts/ci_post_clone.sh` exists and delegates to the repo-root script.
+For `apps/mobile-storefront/ios/Ogabassey.xcworkspace`, ensure `apps/mobile-storefront/ios/ci_scripts/ci_post_clone.sh` exists and delegates to the repo-root bootstrap script.
 
 ## 1. App Store Connect Prerequisites
 
@@ -75,6 +75,7 @@ Admin-specific:
 1. Open the failed build in Xcode Cloud UI (App Store Connect > Xcode Cloud > Builds).
 2. Check the build logs — look for errors in the `ci_post_clone.sh` output first (dependency install or CocoaPods failures).
 3. Common fixes:
+   - **"Missing required command 'node'":** The script auto-installs Node.js via Homebrew. If this still fails, ensure the Xcode Cloud macOS image has Homebrew available (all current images do). Check that `brew install node` completes in the build logs.
    - **Provisioning / certificate issues:** Ensure certificates and profiles for team `6QLNK7TXM3` are valid and not expired. Xcode Cloud auto-manages signing, but manual profiles need re-uploading if revoked.
    - **Missing environment variables:** Verify all variables from Section 4 are set in the workflow's Environment Variables tab. A missing `EXPO_PUBLIC_SUPABASE_URL` or similar will cause runtime config errors during the build.
    - **CocoaPods or dependency errors:** If `pod install` fails, check that the lockfile is committed and dependencies resolve correctly.

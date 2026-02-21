@@ -4,9 +4,6 @@ on:
   push:
     tags:
       - "v*-storefront"
-    paths:
-      - "apps/mobile-storefront/**"
-      - ".github/workflows/android-storefront-release.yml"
   workflow_dispatch:
     inputs:
       version_code:
@@ -86,19 +83,27 @@ jobs:
         id: version
         shell: bash
         env:
-          INPUT_VERSION_CODE: ${{ inputs.version_code }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_REF_TYPE: ${{ github.ref_type }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_RUN_NUMBER: ${{ github.run_number }}
+          VERSION_CODE_INPUT: ${{ inputs.version_code }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION_CODE="$INPUT_VERSION_CODE"
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
-            VERSION_CODE="${GITHUB_REF_NAME#v}"
+          if [ "$GH_EVENT_NAME" = "workflow_dispatch" ]; then
+            VERSION_CODE="$VERSION_CODE_INPUT"
+          elif [ "$GH_REF_TYPE" = "tag" ]; then
+            VERSION_CODE="${GH_REF_NAME#v}"
             VERSION_CODE="${VERSION_CODE%-storefront}"
           else
-            VERSION_CODE="${{ github.run_number }}"
+            VERSION_CODE="$GH_RUN_NUMBER"
           fi
 
           if ! [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer."
+            exit 1
+          fi
+          if [ "$VERSION_CODE" -gt 2147483647 ]; then
+            echo "::error::Invalid version code '$VERSION_CODE'. Must be a positive integer <= 2147483647."
             exit 1
           fi
 
@@ -131,7 +136,7 @@ jobs:
       - name: Configure release signing
         working-directory: ${{ env.WORKING_DIR }}
         run: |
-          cat > android/app/signing-config.gradle <<'EOF'
+          cat > android/app/signing-config.gradle <<'EOF2'
           android {
             signingConfigs {
               release {
@@ -147,7 +152,7 @@ jobs:
               }
             }
           }
-          EOF
+          EOF2
 
           echo "apply from: './signing-config.gradle'" >> android/app/build.gradle
 
@@ -178,7 +183,7 @@ jobs:
           releaseFiles: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
           track: production
           status: inProgress
-          userFraction: 0.05
+          userFraction: 0.1
 
       - name: Clean up keystore
         if: always()
