@@ -2,8 +2,13 @@ name: Android Storefront Production Release
 
 on:
   push:
+    branches:
+      - main
     tags:
-      - "v[0-9]+-storefront"
+      - "v*-storefront"
+    paths:
+      - "apps/mobile-storefront/**"
+      - ".github/workflows/android-storefront-release.yml"
   workflow_dispatch:
     inputs:
       version_code:
@@ -85,9 +90,11 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION_CODE="${{ inputs.version_code }}"
-          else
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
             VERSION_CODE="${GITHUB_REF_NAME#v}"
             VERSION_CODE="${VERSION_CODE%-storefront}"
+          else
+            VERSION_CODE="${{ github.run_number }}"
           fi
 
           if ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
