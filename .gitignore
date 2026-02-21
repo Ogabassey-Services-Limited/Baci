@@ -3,6 +3,8 @@
 # dependencies
 node_modules
 /.turbo/
+**/.turbo/
+/.pnpm-store/
 /.reports/
 /.pnp
 .pnp.*
@@ -175,7 +177,8 @@ knip-results.json
 /.agent/rules/ruler.md.bak
 /.codex/config.toml
 /.codex/config.toml.bak
-# (covered by .gemini/ above)
+/.gemini/settings.json
+/.gemini/settings.json.bak
 /.mcp.json
 /.mcp.json.bak
 /.vscode/mcp.json

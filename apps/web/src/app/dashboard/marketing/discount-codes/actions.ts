@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import z from 'zod';
+import { ensurePermission } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
 
 // Zod validation schema for discount code
@@ -71,24 +72,7 @@ export async function getDiscountCodes() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error('Unauthorized');
-  }
-
-  // Get merchant with country
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select('id, country')
-    .eq('user_id', user.id)
-    .single();
-
-  if (merchantError || !merchant) {
-    throw new Error('Merchant not found');
-  }
+  const { merchant } = await ensurePermission('marketing', 'view');
 
   // Get currency symbol
   const { getCountryByCode } = await import('@/lib/countries');
@@ -121,24 +105,8 @@ export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error('Unauthorized');
-  }
-
-  // Get merchant
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (merchantError || !merchant) {
-    throw new Error('Merchant not found');
-  }
+  const requiredAction = validatedInput.id ? 'edit' : 'create';
+  const { merchant } = await ensurePermission('marketing', requiredAction);
 
   // Base required data
   const baseData = {
@@ -246,24 +214,7 @@ export async function deleteDiscountCode(id: string) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error('Unauthorized');
-  }
-
-  // Get merchant to verify ownership via RLS or explicit check
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (merchantError || !merchant) {
-    throw new Error('Merchant not found');
-  }
+  const { merchant } = await ensurePermission('marketing', 'delete');
 
   const { error } = await supabase
     .from('discount_codes')

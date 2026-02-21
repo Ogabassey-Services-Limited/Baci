@@ -2,7 +2,8 @@ import { after, type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
   authenticateApiRequest,
-  getMerchantIdForApiUser,
+  getUserAccess,
+  hasPermission,
 } from '@/lib/api-auth';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
@@ -47,15 +48,21 @@ export async function GET(
     }
 
     const supabase = auth.supabase;
-    const merchantId = await getMerchantIdForApiUser(supabase);
+    const access = await getUserAccess(supabase);
 
     // Verify domain belongs to user's merchant account
-    if (!merchantId) {
+    if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    if (!hasPermission(access, 'settings', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = access.merchantId;
 
     const { data: domainRecord, error: domainError } = await supabase
       .from('domains')
@@ -104,14 +111,20 @@ export async function POST(
     }
 
     const supabase = auth.supabase;
-    const merchantId = await getMerchantIdForApiUser(supabase);
+    const access = await getUserAccess(supabase);
 
-    if (!merchantId) {
+    if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = access.merchantId;
 
     const body = await request.json();
     const parsed = domainActionSchema.safeParse(body);
@@ -172,14 +185,20 @@ export async function DELETE(
     }
 
     const supabase = auth.supabase;
-    const merchantId = await getMerchantIdForApiUser(supabase);
+    const access = await getUserAccess(supabase);
 
-    if (!merchantId) {
+    if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
+
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = access.merchantId;
 
     const { error: deleteError } = await supabase
       .from('domains')
