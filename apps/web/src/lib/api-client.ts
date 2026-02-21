@@ -23,6 +23,12 @@ export function fetchWithCsrf(
     headers.set(CSRF_HEADER_NAME, csrfToken);
   }
 
+  if (needsCsrf && !csrfToken) {
+    console.warn(
+      `[CSRF] Missing csrfToken; ${CSRF_HEADER_NAME} header will not be sent. State-changing requests may fail with 403.`
+    );
+  }
+
   // Always set content-type for JSON requests
   if (options.body && !headers.has('content-type')) {
     headers.set('content-type', 'application/json');

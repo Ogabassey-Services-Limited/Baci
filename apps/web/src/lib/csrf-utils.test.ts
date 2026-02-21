@@ -1,11 +1,23 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockCookiesGet = vi.fn();
+const mockCookiesSet = vi.fn();
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn().mockResolvedValue({
+    get: mockCookiesGet,
+    set: mockCookiesSet,
+  }),
+}));
+
 const originalNodeEnv = process.env.NODE_ENV;
 
 describe('CSRF utility coverage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCookiesGet.mockReset();
+    mockCookiesSet.mockReset();
     vi.resetModules();
   });
 
@@ -89,7 +101,10 @@ describe('CSRF utility coverage', () => {
       const csrf = await import('./csrf');
       const originalDocument = globalThis.document;
 
-      Reflect.deleteProperty(globalThis, 'document');
+      Object.defineProperty(globalThis, 'document', {
+        configurable: true,
+        value: undefined,
+      });
       expect(csrf.getClientCsrfToken()).toBeNull();
 
       Object.defineProperty(globalThis, 'document', {
@@ -108,6 +123,38 @@ describe('CSRF utility coverage', () => {
       const token = csrf.getClientCsrfToken();
 
       expect(token).toBe('host-token');
+    });
+  });
+
+  describe('getCsrfToken', () => {
+    it('returns null when no csrf cookie exists', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      mockCookiesGet.mockReturnValue(undefined);
+      const csrf = await import('./csrf');
+
+      const token = await csrf.getCsrfToken();
+
+      expect(token).toBeNull();
+      expect(mockCookiesGet).toHaveBeenNthCalledWith(1, '__Host-csrf-token');
+      expect(mockCookiesGet).toHaveBeenNthCalledWith(2, 'csrf-token');
+    });
+
+    it('returns the primary csrf cookie token and does not read fallback', async () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      mockCookiesGet.mockImplementation((cookieName: string) => {
+        if (cookieName === '__Host-csrf-token') {
+          return { name: cookieName, value: 'primary-token' };
+        }
+
+        return { name: cookieName, value: 'fallback-token' };
+      });
+      const csrf = await import('./csrf');
+
+      const token = await csrf.getCsrfToken();
+
+      expect(token).toBe('primary-token');
+      expect(mockCookiesGet).toHaveBeenCalledTimes(1);
+      expect(mockCookiesGet).toHaveBeenCalledWith('__Host-csrf-token');
     });
   });
 

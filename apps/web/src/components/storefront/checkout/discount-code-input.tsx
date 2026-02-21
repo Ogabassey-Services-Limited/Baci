@@ -50,7 +50,12 @@ export function DiscountCodeInput({
     const validateCode = async (retry = false): Promise<DiscountResult> => {
       // If retry, refresh CSRF token first
       if (retry) {
-        await fetch('/api/csrf');
+        const csrfResponse = await fetch('/api/csrf');
+        if (!csrfResponse.ok) {
+          throw new Error(
+            `Failed to refresh CSRF token (status ${csrfResponse.status})`
+          );
+        }
       }
 
       const response = await fetch('/api/storefront/discount/validate', {
@@ -73,6 +78,8 @@ export function DiscountCodeInput({
         if (errorData.error === 'Invalid CSRF token') {
           return validateCode(true);
         }
+
+        return errorData;
       }
 
       return response.json();
