@@ -233,7 +233,7 @@ export function sanitizeSvg(svg: string): string {
   // Post-loop absolute hardening: character-level strip of any surviving
   // dangerous tag starts, independent of the iterative loop above.
   result = result.replace(
-    /<(?:script|style|iframe|foreignObject|object|embed)/gi,
+    /<\s*(?:script|style|iframe|foreignObject|object|embed)/gi,
     ''
   );
   return result;

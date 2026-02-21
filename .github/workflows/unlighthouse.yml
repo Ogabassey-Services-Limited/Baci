@@ -56,11 +56,11 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Wait for Server
-        run: npx wait-on@9.0.4 http://localhost:3000 --timeout 60000
+        run: pnpm exec wait-on http://localhost:3000 --timeout 60000
 
       - name: Run Unlighthouse Audit
         # Run audit against local server
-        run: npx @unlighthouse/cli@0.17.4 --site http://localhost:3000 --ci --reporter json
+        run: pnpm exec unlighthouse-ci --site http://localhost:3000 --reporter json
 
       - name: Upload Lighthouse Report
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
