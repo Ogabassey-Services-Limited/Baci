@@ -78,7 +78,8 @@ Admin-specific:
    - **"Missing required command 'node'":** The script auto-installs Node.js via Homebrew. If this still fails, ensure the Xcode Cloud macOS image has Homebrew available (all current images do). Check that `brew install node` completes in the build logs.
    - **Provisioning / certificate issues:** Ensure certificates and profiles for team `6QLNK7TXM3` are valid and not expired. Xcode Cloud auto-manages signing, but manual profiles need re-uploading if revoked.
    - **Missing environment variables:** Verify all variables from Section 4 are set in the workflow's Environment Variables tab. A missing `EXPO_PUBLIC_SUPABASE_URL` or similar will cause runtime config errors during the build.
-   - **CocoaPods or dependency errors:** If `pod install` fails, check that the lockfile is committed and dependencies resolve correctly.
+   - **CocoaPods or dependency errors:** If `pod install` fails, check that the lockfile is committed and dependencies resolve correctly. The CI script pins CocoaPods to the version recorded in `Podfile.lock` (`COCOAPODS: x.y.z`) so `--deployment` mode works reliably. If you upgrade CocoaPods locally, run `pod install` to regenerate the lockfile and commit it.
+   - **"Unable to authenticate with App Store Connect":** This is a transient Xcode Cloud session issue. Re-run the build. If it persists, check that your Apple ID in the Xcode Cloud workflow still has App Store Connect access for team `6QLNK7TXM3`.
 4. To rerun: open the workflow in Xcode Cloud UI and click **Start Build**, or push a new commit to the trigger branch.
 
 **Where to find detailed build logs?**
