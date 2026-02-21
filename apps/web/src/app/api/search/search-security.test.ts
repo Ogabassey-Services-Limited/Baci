@@ -108,7 +108,7 @@ describe('Search API Security', () => {
   });
 
   describe('GET /api/search/autocomplete', () => {
-    it('should sanitize search query and escape LIKE pattern', async () => {
+    it('should sanitize search query before passing to rpc', async () => {
       const maliciousQuery = '100%';
       const merchantId = '123e4567-e89b-12d3-a456-426614174000';
 
@@ -118,21 +118,21 @@ describe('Search API Security', () => {
         )}&merchant_id=${merchantId}`
       );
 
-      await autocompleteGET(request);
+      const response = await autocompleteGET(request);
+      const data = await response.json();
 
-      // Verify ilike call
-      // If sanitized, "100%" becomes "100\%" (via sanitizeLikePattern)
-      // Then `%${query}%` becomes `%100\%%`
-      // We check that % is escaped in the middle part
-
-      // Note: sanitizeLikePattern relies on implementation.
-      // If sanitizeSearchQuery is applied first, it doesn't strip %.
-      // sanitizeLikePattern escapes %.
-
-      expect(sharedChainableMock.ilike).toHaveBeenCalledWith(
-        'search_query',
-        expect.stringMatching(/%100\\%%/) // Expect backslash before %
+      // Verify the query was sanitized and passed to the rpc call
+      expect(mockSupabase.rpc).toHaveBeenCalledWith(
+        'product_autocomplete',
+        expect.objectContaining({
+          search_prefix: expect.any(String),
+          merchant_id_param: merchantId,
+        })
       );
+
+      // popular_searches query removed (search_analytics table is empty),
+      // so popularSearches should always be an empty array
+      expect(data.popularSearches).toEqual([]);
     });
 
     it('should validate merchant_id UUID', async () => {

@@ -1,10 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  isValidUuid,
-  sanitizeLikePattern,
-  sanitizeSearchQuery,
-} from '@/lib/sanitize-core';
+import { isValidUuid, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
@@ -46,24 +42,18 @@ export async function GET(request: NextRequest) {
       {
         search_prefix: query,
         merchant_id_param: merchantId,
-        result_limit: limit - 3, // Leave room for popular searches
+        result_limit: limit,
       }
     );
 
     if (error) throw error;
 
-    // Get popular searches that match
-    const { data: popularSearches } = await supabase
-      .from('popular_searches')
-      .select('search_query, search_count')
-      .eq('merchant_id', merchantId)
-      .ilike('search_query', `%${sanitizeLikePattern(query)}%`)
-      .order('search_count', { ascending: false })
-      .limit(3);
-
+    // Popular searches disabled — search_analytics table has no data and
+    // the popular_searches view caused 16K+ sequential scans per day via
+    // RLS policy evaluation on every autocomplete keystroke.
     return NextResponse.json({
       suggestions: productSuggestions || [],
-      popularSearches: popularSearches || [],
+      popularSearches: [],
     });
   } catch (error) {
     console.error('Autocomplete error:', error);
