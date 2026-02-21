@@ -6,11 +6,12 @@ This repository contains two iOS apps:
 - Storefront app: `apps/mobile-storefront/ios/Ogabassey.xcworkspace` (scheme `Ogabassey`)
 
 `ci_scripts/ci_post_clone.sh` at the repo root bootstraps Node, pnpm dependencies, and CocoaPods.
-The repo currently includes an app-local wrapper script at:
+Each iOS app also includes an app-local wrapper script at:
 
 - `apps/mobile-admin/ios/ci_scripts/ci_post_clone.sh`
+- `apps/mobile-storefront/ios/ci_scripts/ci_post_clone.sh`
 
-For storefront, use the repo-root script (`ci_scripts/ci_post_clone.sh`) and scheme-based routing.
+Both wrappers delegate to the repo-root script and pass app context to keep Xcode Cloud setup consistent.
 
 ## 1. App Store Connect Prerequisites
 

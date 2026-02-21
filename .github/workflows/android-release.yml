@@ -2,8 +2,6 @@ name: Android Production Release
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*-admin'
     paths:
