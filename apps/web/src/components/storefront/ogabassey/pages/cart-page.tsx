@@ -30,6 +30,7 @@ const AppNegotiateIcon = ({ size = 24, className = "" }: { size?: number; classN
   </svg>
 );
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -218,15 +219,20 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                         href={`/product/${item.id}` as any}
                         className="w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 flex-shrink-0 flex items-center justify-center"
                       >
-                        <img
-                          src={item.image || '/placeholder.png'}
-                          alt={item.name}
-                          className="w-full h-full object-contain mix-blend-multiply"
-                          onError={(e) => {
-                            e.currentTarget.onerror = null; // Prevent infinite loop
-                            e.currentTarget.src = '/placeholder.png';
-                          }}
-                        />
+                        <div className="relative w-full h-full">
+                          <Image
+                            src={item.image || '/placeholder.png'}
+                            alt={item.name}
+                            fill
+                            sizes="(max-width: 768px) 80px, 112px"
+                            className="object-contain mix-blend-multiply"
+                            onError={(e) => {
+                              const target = e.currentTarget as HTMLImageElement;
+                              target.onerror = null; // Prevent infinite loop
+                              target.src = '/placeholder.png';
+                            }}
+                          />
+                        </div>
                       </Link>
 
                       {/* Content */}
