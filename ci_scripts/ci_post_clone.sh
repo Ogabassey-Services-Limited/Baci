@@ -108,6 +108,7 @@ install_node_if_missing() {
 
   echo "info: node not found — installing via Homebrew"
   assert_command brew
+  export HOMEBREW_NO_AUTO_UPDATE="${HOMEBREW_NO_AUTO_UPDATE:-1}"
   brew_formula="node@$required_major"
   if brew info "$brew_formula" >/dev/null 2>&1; then
     brew install "$brew_formula"
@@ -155,7 +156,10 @@ echo "info: Wrote '$ios_dir/.xcode.env.local'"
 cd "$ios_dir"
 if [ "${CI_POD_ALLOW_REPO_UPDATE:-0}" = "1" ]; then
   echo "info: Running pod install with repo updates enabled."
-  pod install --deployment --repo-update
+  if ! pod install --deployment --repo-update; then
+    echo "warning: pod install with --repo-update failed; retrying without repo update."
+    pod install --no-repo-update --deployment
+  fi
 else
   pod install --no-repo-update --deployment
 fi
