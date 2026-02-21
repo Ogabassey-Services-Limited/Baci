@@ -265,6 +265,7 @@ const NodeRenderer = ({
         <pre className="bg-slate-950 text-slate-50 p-6 rounded-xl font-mono text-sm overflow-x-auto my-8">
           <code
             className={language ? `language-${language}` : undefined}
+            // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
             // biome-ignore lint/security/noDangerouslySetInnerHtml: lowlight output is safe (no user HTML)
             dangerouslySetInnerHTML={{ __html: highlightedHtml }}
           />
