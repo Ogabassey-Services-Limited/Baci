@@ -1,28 +1,42 @@
-import { cookies } from 'next/headers';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import {
+  authenticateApiRequest,
+  getUserAccess,
+  hasPermission,
+} from '@/lib/api-auth';
 import { logAudit } from '@/lib/audit-logger';
 import { getDomainIDProtection, updateDomainIDProtection } from '@/lib/go54';
 import { checkRateLimit } from '@/lib/rate-limiter';
-import { createClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/domains/[domain]/id-protection
  * Get ID protection status
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ domain: string }> }
 ) {
   try {
     const { domain } = await params;
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const auth = await authenticateApiRequest(request);
 
-    if (!user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { user, supabase } = auth;
+    const access = await getUserAccess(supabase);
+
+    if (!access) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    if (!hasPermission(access, 'settings', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Rate Limiting
@@ -40,12 +54,12 @@ export async function GET(
       );
     }
 
-    // Verify the user owns this domain
+    // Verify domain ownership through merchant access context
     const { data: domainData, error: domainError } = await supabase
       .from('domains')
       .select('*')
       .eq('domain', domain)
-      .eq('merchant_id', user.id)
+      .eq('merchant_id', access.merchantId)
       .single();
 
     if (domainError || !domainData) {
@@ -76,28 +90,38 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ domain: string }> }
 ) {
-  let user = null;
-  let domainData = null;
+  let userId: string | null = null;
+  let domainData: { merchant_id: string } | null = null;
+  let supabase: SupabaseClient | null = null;
   const { domain } = await params;
-  // biome-ignore lint/suspicious/noExplicitAny: Legacy code
-  let cookieStore: any;
-  // biome-ignore lint/suspicious/noExplicitAny: Legacy code
-  let supabase: any;
 
   try {
-    cookieStore = await cookies();
-    supabase = createClient(cookieStore);
-    const authResult = await supabase.auth.getUser();
-    user = authResult.data.user;
+    const auth = await authenticateApiRequest(request);
 
-    if (!user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    userId = auth.user.id;
+    supabase = auth.supabase;
+
+    const access = await getUserAccess(supabase);
+
+    if (!access) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Rate Limiting
     const isAllowed = await checkRateLimit(
       supabase,
-      user.id,
+      userId,
       'id_protection_update',
       10,
       1
@@ -119,12 +143,12 @@ export async function POST(
       );
     }
 
-    // Verify the user owns this domain
+    // Verify domain ownership through merchant access context
     const { data: dData, error: domainError } = await supabase
       .from('domains')
-      .select('*')
+      .select('merchant_id')
       .eq('domain', domain)
-      .eq('merchant_id', user.id)
+      .eq('merchant_id', access.merchantId)
       .single();
 
     domainData = dData;
@@ -149,7 +173,7 @@ export async function POST(
 
     // Log success
     await logAudit(supabase, {
-      user_id: user.id,
+      user_id: userId,
       merchant_id: domainData.merchant_id,
       action: 'id_protection.update',
       resource_type: 'id_protection',
@@ -173,9 +197,9 @@ export async function POST(
     console.error('Error updating ID protection:', error);
 
     // Log failure
-    if (user && supabase) {
+    if (userId && supabase) {
       await logAudit(supabase, {
-        user_id: user.id,
+        user_id: userId,
         merchant_id: domainData?.merchant_id,
         action: 'id_protection.update',
         resource_type: 'id_protection',

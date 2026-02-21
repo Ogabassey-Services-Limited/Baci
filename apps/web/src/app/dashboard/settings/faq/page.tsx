@@ -1,7 +1,6 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getCachedMerchant, getCachedProducts } from '@/lib/cached-data';
-import { createClient } from '@/lib/supabase/server';
+import { ensurePermission } from '@/lib/merchant-server';
 import type { FAQItem } from '@/types/faq';
 import { FAQSettingsClient } from './client';
 
@@ -11,29 +10,19 @@ export const metadata = {
 };
 
 export default async function FAQSettingsPage() {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect('/login');
+  let merchantSlug: string | null = null;
+  try {
+    const { merchant } = await ensurePermission('settings', 'view');
+    merchantSlug = merchant.slug ?? null;
+  } catch {
+    redirect('/dashboard');
   }
 
-  // Get merchant data
-  const { data: merchantRow } = await supabase
-    .from('merchants')
-    .select('slug')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!merchantRow) {
+  if (!merchantSlug) {
     redirect('/onboarding');
   }
 
-  const merchant = await getCachedMerchant(merchantRow.slug);
+  const merchant = await getCachedMerchant(merchantSlug);
   if (!merchant) {
     redirect('/onboarding');
   }
