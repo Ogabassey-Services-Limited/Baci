@@ -20,6 +20,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { createClient } from '@/lib/supabase/client';
+import type { StorefrontOrder, StorefrontOrderItem } from '@/types/storefront';
 
 // Hook to extract store slug from pathname
 function useStoreSlug() {
@@ -37,7 +38,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
   const getUrl = (path: string) => storeSlug ? `/${storeSlug}${path}` : path;
   const router = useRouter();
 
-  const [order, setOrder] = useState<any | null>(null);
+  const [order, setOrder] = useState<StorefrontOrder | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Realtime subscription channel ref for cleanup
@@ -95,16 +96,16 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
           // Update the order state with new data from realtime
           const newData = payload.new as Record<string, unknown>;
           if (newData) {
-            setOrder((prevOrder: any) => {
+            setOrder((prevOrder: StorefrontOrder | null) => {
               if (!prevOrder) return prevOrder;
               return {
                 ...prevOrder,
-                status: newData.status ?? prevOrder.status,
-                shipping_status: newData.shipping_status ?? prevOrder.shipping_status,
-                payment_status: newData.payment_status ?? prevOrder.payment_status,
-                tracking_number: newData.tracking_number ?? prevOrder.tracking_number,
-                tracking_url: newData.tracking_url ?? prevOrder.tracking_url,
-                updated_at: newData.updated_at ?? prevOrder.updated_at,
+                status: (newData.status as string) ?? prevOrder.status,
+                shipping_status: (newData.shipping_status as string) ?? prevOrder.shipping_status,
+                payment_status: (newData.payment_status as string) ?? prevOrder.payment_status,
+                tracking_number: (newData.tracking_number as string) ?? prevOrder.tracking_number,
+                tracking_url: (newData.tracking_url as string) ?? prevOrder.tracking_url,
+                updated_at: (newData.updated_at as string) ?? prevOrder.updated_at,
               };
             });
           }
@@ -200,6 +201,18 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
     );
   }
 
+  // Safe renderer for shipping address
+  const renderShippingAddress = (address: StorefrontOrder['shipping_address']) => {
+    if (!address) return 'No address provided';
+    if (typeof address === 'string') return address;
+    if (typeof address === 'object' && address !== null) {
+      // Cast to any for dynamic property access as fallback, or use known fields
+      const addr = address as any;
+      return addr.address || addr.address_line1 || 'Address details unavailable';
+    }
+    return 'No address provided';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 w-full flex-1 flex flex-col">
@@ -259,7 +272,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                 </h2>
               </div>
               <div className="p-4 space-y-4">
-                {order.items?.map((item: any) => (
+                {order.items?.map((item: StorefrontOrderItem) => (
                   <div
                     key={item.id}
                     className="flex gap-4 items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0"
@@ -270,7 +283,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                     >
                       <img
                         src={item.product_image || item.image || '/placeholder.png'}
-                        alt={item.product_name || item.name}
+                        alt={item.product_name || item.name || 'Product'}
                         className="w-full h-full object-contain mix-blend-multiply"
                       />
                     </Link>
@@ -328,7 +341,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                   {order.shipping_provider || 'Standard Delivery'}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {order.shipping_address || 'No address provided'}
+                  {renderShippingAddress(order.shipping_address)}
                 </p>
               </div>
               <div className="border-t border-gray-50 pt-4">
