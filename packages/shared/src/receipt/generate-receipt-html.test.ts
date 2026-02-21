@@ -164,6 +164,15 @@ describe('sanitizeSvg', () => {
     expect(result).toContain('xlink:href=""');
   });
 
+  it('replaces vbscript: URIs in href with empty href', () => {
+    const maliciousSvg =
+      '<svg><a href="vbscript:msgbox(\'XSS\')"><circle r="5"/></a></svg>';
+    const result = sanitizeSvg(maliciousSvg);
+    expect(result).not.toContain('vbscript:');
+    expect(result).not.toContain('msgbox');
+    expect(result).toContain('href=""');
+  });
+
   it('replaces data: URIs in href with empty href', () => {
     const maliciousSvg =
       '<svg><a href="data:text/html,<script>alert(\'XSS\')</script>"><circle r="5"/></a></svg>';

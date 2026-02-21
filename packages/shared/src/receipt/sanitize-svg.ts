@@ -201,7 +201,11 @@ function normalizeAttrValue(value: string): string {
 function sanitizeUriValue(value: string): string {
   const normalized = normalizeAttrValue(value);
   const lower = normalized.toLowerCase();
-  if (lower.startsWith('javascript:') || lower.startsWith('data:')) {
+  if (
+    lower.startsWith('javascript:') ||
+    lower.startsWith('data:') ||
+    lower.startsWith('vbscript:')
+  ) {
     return '';
   }
   return value;
