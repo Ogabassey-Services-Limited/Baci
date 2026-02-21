@@ -4,9 +4,6 @@ on:
   push:
     tags:
       - 'v*-admin'
-    paths:
-      - 'apps/mobile-admin/**'
-      - '.github/workflows/android-release.yml'
   workflow_dispatch:
     inputs:
       version_code:
