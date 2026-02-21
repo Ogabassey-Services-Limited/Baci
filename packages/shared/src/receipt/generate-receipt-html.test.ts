@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeSvg } from './generate-receipt-html';
+import { sanitizeSvg } from './sanitize-svg';
 
 describe('sanitizeSvg', () => {
   it('returns safe SVG unchanged', () => {
@@ -30,6 +30,15 @@ describe('sanitizeSvg', () => {
     const result = sanitizeSvg(maliciousSvg);
     expect(result).not.toContain('<script');
     expect(result).not.toContain('evil.js');
+    expect(result).toContain('<circle r="5"/>');
+  });
+
+  it('removes <style> tags with content', () => {
+    const maliciousSvg =
+      '<svg><style>circle { fill: red } @import url("evil.css")</style><circle r="5"/></svg>';
+    const result = sanitizeSvg(maliciousSvg);
+    expect(result).not.toContain('<style');
+    expect(result).not.toContain('@import');
     expect(result).toContain('<circle r="5"/>');
   });
 
@@ -155,6 +164,15 @@ describe('sanitizeSvg', () => {
     expect(result).toContain('xlink:href=""');
   });
 
+  it('replaces vbscript: URIs in href with empty href', () => {
+    const maliciousSvg =
+      '<svg><a href="vbscript:msgbox(\'XSS\')"><circle r="5"/></a></svg>';
+    const result = sanitizeSvg(maliciousSvg);
+    expect(result).not.toContain('vbscript:');
+    expect(result).not.toContain('msgbox');
+    expect(result).toContain('href=""');
+  });
+
   it('replaces data: URIs in href with empty href', () => {
     const maliciousSvg =
       '<svg><a href="data:text/html,<script>alert(\'XSS\')</script>"><circle r="5"/></a></svg>';
@@ -240,6 +258,13 @@ describe('sanitizeSvg', () => {
     const result = sanitizeSvg(maliciousSvg);
     expect(result).not.toMatch(/<script/i);
     expect(result).not.toContain('alert');
+    expect(result).toContain('<circle r="5"/>');
+  });
+
+  it('does not remove tag names that only start with dangerous prefixes', () => {
+    const safeSvg = '<svg><embedded data-safe="1"></embedded><circle r="5"/></svg>';
+    const result = sanitizeSvg(safeSvg);
+    expect(result).toContain('<embedded data-safe="1"></embedded>');
     expect(result).toContain('<circle r="5"/>');
   });
 

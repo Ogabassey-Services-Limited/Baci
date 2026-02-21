@@ -16,7 +16,11 @@ import DashboardClientLayout from './client-layout';
 function ThemedDashboardLayout({ children }: { children: React.ReactNode }) {
   const { merchant } = useMerchant();
   return (
-    <AppBody merchant={merchant} showNewsletterWidget={false}>
+    <AppBody
+      merchant={merchant}
+      showNewsletterWidget={false}
+      applyMerchantCoreThemeVariables={false}
+    >
       {children}
     </AppBody>
   );

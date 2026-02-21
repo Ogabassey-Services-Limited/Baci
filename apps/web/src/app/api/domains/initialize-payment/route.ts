@@ -5,7 +5,11 @@ import {
   calculateDomainPrice,
   getDomainPricing,
 } from '@/config/domain-pricing';
-import { authenticateApiRequest } from '@/lib/api-auth';
+import {
+  authenticateApiRequest,
+  getUserAccess,
+  hasPermission,
+} from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 
 const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
@@ -45,6 +49,18 @@ export async function POST(request: NextRequest) {
 
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const access = await getUserAccess(auth.supabase);
+    if (!access) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
     let body: unknown;
@@ -94,7 +110,7 @@ export async function POST(request: NextRequest) {
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id, business_name, email, slug')
-      .eq('user_id', auth.user.id)
+      .eq('id', access.merchantId)
       .single();
 
     if (merchantError || !merchant) {

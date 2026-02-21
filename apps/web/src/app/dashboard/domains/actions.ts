@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
+import { ensurePermission } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
 
 type SetPrimaryDomainResult =
@@ -20,31 +21,7 @@ export async function setPrimaryDomain(
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      throw new Error('Unauthorized');
-    }
-
-    // Get merchant ID
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError) {
-      console.error('Failed to retrieve merchant:', merchantError);
-      throw new Error('Failed to retrieve merchant');
-    }
-
-    if (!merchant) {
-      throw new Error('Merchant not found');
-    }
+    const { merchant } = await ensurePermission('settings', 'edit');
 
     // Verify domain belongs to merchant and verify it is active
     const { data: domainRecord, error: domainError } = await supabase

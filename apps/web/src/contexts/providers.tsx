@@ -22,7 +22,7 @@ export function Providers({
       enableSystem
       disableTransitionOnChange
       nonce={nonce}
-      forcedTheme={forcedTheme}
+      {...(forcedTheme ? { forcedTheme } : {})}
     >
       <AuthProvider>
         <CartProvider>{children}</CartProvider>

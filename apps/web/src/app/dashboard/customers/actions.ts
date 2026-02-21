@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+import { ensurePermission } from '@/lib/merchant-server';
 import {
   sanitizeEmail,
   sanitizeLikePattern,
@@ -32,17 +33,37 @@ export interface CreateCustomerData {
   address: string;
 }
 
+async function resolveCustomerMerchantId(
+  action: 'view' | 'create'
+): Promise<string | null> {
+  try {
+    const { merchant } = await ensurePermission('customers', action);
+    return merchant.id;
+  } catch {
+    return null;
+  }
+}
+
 export async function getCustomers(
   merchantId: string,
   search?: string
 ): Promise<Customer[]> {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const authorizedMerchantId = await resolveCustomerMerchantId('view');
+
+  if (!authorizedMerchantId) {
+    return [];
+  }
+
+  if (merchantId !== authorizedMerchantId) {
+    return [];
+  }
 
   let query = supabase
     .from('customers')
     .select('*')
-    .eq('merchant_id', merchantId)
+    .eq('merchant_id', authorizedMerchantId)
     .order('created_at', { ascending: false });
 
   if (search?.trim()) {
@@ -65,25 +86,9 @@ export async function getCustomers(
 export async function createCustomer(formData: CreateCustomerData) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
-
-  // Authenticate user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const authorizedMerchantId = await resolveCustomerMerchantId('create');
+  if (!authorizedMerchantId) {
     throw new Error('Unauthorized');
-  }
-
-  // Get merchant_id
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!merchant) {
-    throw new Error('Merchant not found');
   }
 
   // Sanitize input
@@ -97,7 +102,7 @@ export async function createCustomer(formData: CreateCustomerData) {
       email: email ? sanitizeEmail(email) : null,
       phone: phone ? sanitizePhone(phone) : null,
       address: address ? sanitizeText(address, 500) : null,
-      merchant_id: merchant.id,
+      merchant_id: authorizedMerchantId,
     })
     .select()
     .single();
@@ -115,24 +120,8 @@ export async function getCustomer(
 ): Promise<Customer | null> {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
-
-  // Authenticate user to prevent IDOR
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return null;
-  }
-
-  // Get merchant_id for authorization
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!merchant) {
+  const authorizedMerchantId = await resolveCustomerMerchantId('view');
+  if (!authorizedMerchantId) {
     return null;
   }
 
@@ -141,7 +130,7 @@ export async function getCustomer(
     .from('customers')
     .select('*')
     .eq('id', customerId)
-    .eq('merchant_id', merchant.id)
+    .eq('merchant_id', authorizedMerchantId)
     .single();
 
   if (error || !customer) {
@@ -175,24 +164,8 @@ export async function getCustomerOrders(
 ): Promise<CustomerOrder[]> {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
-
-  // Authenticate user to prevent IDOR
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return [];
-  }
-
-  // Get merchant_id for authorization
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!merchant) {
+  const authorizedMerchantId = await resolveCustomerMerchantId('view');
+  if (!authorizedMerchantId) {
     return [];
   }
 
@@ -201,7 +174,7 @@ export async function getCustomerOrders(
     .from('customers')
     .select('id, merchant_id, email')
     .eq('id', customerId)
-    .eq('merchant_id', merchant.id)
+    .eq('merchant_id', authorizedMerchantId)
     .single();
 
   if (!customer) return [];

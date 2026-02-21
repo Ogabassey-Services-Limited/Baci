@@ -1,0 +1,161 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockEnsurePermission = vi.fn();
+const mockCreateClient = vi.fn();
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({
+    get: vi.fn(),
+    set: vi.fn(),
+  })),
+}));
+
+vi.mock('next/cache', () => ({
+  revalidatePath: vi.fn(),
+}));
+
+vi.mock('@/lib/merchant-server', () => ({
+  ensurePermission: (...args: unknown[]) => mockEnsurePermission(...args),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: (...args: unknown[]) => mockCreateClient(...args),
+}));
+
+const { getDiscountCodes, upsertDiscountCode, deleteDiscountCode } =
+  await import('./actions');
+
+describe('discount code actions staff access', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('loads discount codes using merchant from permission context', async () => {
+    const orderMock = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'dc-1',
+          code: 'SAVE10',
+          description: 'Test',
+          discount_type: 'percentage',
+          discount_value: 10,
+          minimum_purchase_amount: 0,
+          maximum_discount_amount: null,
+          usage_limit: null,
+          usage_count: 0,
+          usage_limit_per_customer: 1,
+          starts_at: null,
+          expires_at: null,
+          is_active: true,
+          applies_to: 'all',
+          created_at: new Date().toISOString(),
+        },
+      ],
+      error: null,
+    });
+    const eqMock = vi.fn().mockReturnValue({ order: orderMock });
+
+    mockCreateClient.mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({ eq: eqMock })),
+      })),
+    });
+
+    mockEnsurePermission.mockResolvedValue({
+      merchant: { id: 'merchant-staff', country: 'NG' },
+      staffAccess: { isOwner: false, isStaff: true, role: 'marketing' },
+    });
+
+    const result = await getDiscountCodes();
+
+    expect(mockEnsurePermission).toHaveBeenCalledWith('marketing', 'view');
+    expect(eqMock).toHaveBeenCalledWith('merchant_id', 'merchant-staff');
+    expect(result.discountCodes).toHaveLength(1);
+  });
+
+  it('uses marketing create permission for new codes', async () => {
+    const insertMock = vi.fn().mockResolvedValue({ error: null });
+
+    mockCreateClient.mockReturnValue({
+      from: vi.fn(() => ({
+        insert: insertMock,
+      })),
+    });
+
+    mockEnsurePermission.mockResolvedValue({
+      merchant: { id: 'merchant-staff' },
+      staffAccess: { isOwner: false, isStaff: true, role: 'marketing' },
+    });
+
+    await upsertDiscountCode({
+      code: 'save20',
+      discount_type: 'percentage',
+      discount_value: 20,
+    });
+
+    expect(mockEnsurePermission).toHaveBeenCalledWith('marketing', 'create');
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'SAVE20',
+        merchant_id: 'merchant-staff',
+      })
+    );
+  });
+
+  it('uses marketing edit permission for updates', async () => {
+    const singleMock = vi.fn().mockResolvedValue({ error: null });
+    const selectMock = vi.fn().mockReturnValue({ single: singleMock });
+    const eqMerchantMock = vi.fn().mockReturnValue({ select: selectMock });
+    const eqIdMock = vi.fn().mockReturnValue({ eq: eqMerchantMock });
+
+    mockCreateClient.mockReturnValue({
+      from: vi.fn(() => ({
+        update: vi.fn(() => ({ eq: eqIdMock })),
+      })),
+    });
+
+    mockEnsurePermission.mockResolvedValue({
+      merchant: { id: 'merchant-staff' },
+      staffAccess: { isOwner: false, isStaff: true, role: 'marketing' },
+    });
+
+    await upsertDiscountCode({
+      id: 'dc-1',
+      code: 'save30',
+      discount_type: 'percentage',
+      discount_value: 30,
+    });
+
+    expect(mockEnsurePermission).toHaveBeenCalledWith('marketing', 'edit');
+    expect(eqMerchantMock).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-staff'
+    );
+  });
+
+  it('uses marketing delete permission for deletion', async () => {
+    const singleMock = vi.fn().mockResolvedValue({ error: null });
+    const selectMock = vi.fn().mockReturnValue({ single: singleMock });
+    const eqMerchantMock = vi.fn().mockReturnValue({ select: selectMock });
+    const eqIdMock = vi.fn().mockReturnValue({ eq: eqMerchantMock });
+
+    mockCreateClient.mockReturnValue({
+      from: vi.fn(() => ({
+        delete: vi.fn(() => ({ eq: eqIdMock })),
+      })),
+    });
+
+    mockEnsurePermission.mockResolvedValue({
+      merchant: { id: 'merchant-staff' },
+      staffAccess: { isOwner: false, isStaff: true, role: 'marketing' },
+    });
+
+    await deleteDiscountCode('dc-1');
+
+    expect(mockEnsurePermission).toHaveBeenCalledWith('marketing', 'delete');
+    expect(eqMerchantMock).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-staff'
+    );
+  });
+});

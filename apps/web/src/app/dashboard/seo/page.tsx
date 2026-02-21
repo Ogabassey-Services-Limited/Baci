@@ -1,6 +1,5 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { ensurePermission } from '@/lib/merchant-server';
 import { getSEOStatus } from './actions';
 import SEOClient from './seo-client';
 
@@ -10,25 +9,16 @@ export const metadata = {
 };
 
 export default async function SEOOptimizerPage() {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect('/auth/login');
+  let merchantId: string | null = null;
+  try {
+    const { merchant } = await ensurePermission('marketing', 'view');
+    merchantId = merchant.id;
+  } catch {
+    redirect('/dashboard');
   }
 
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!merchant) {
-    redirect('/onboarding');
+  if (!merchantId) {
+    redirect('/dashboard');
   }
 
   // Fetch initial data with error handling
@@ -36,7 +26,7 @@ export default async function SEOOptimizerPage() {
   let summary: Awaited<ReturnType<typeof getSEOStatus>>['summary'] = null;
 
   try {
-    const result = await getSEOStatus(merchant.id);
+    const result = await getSEOStatus(merchantId);
     products = result.products;
     summary = result.summary;
   } catch (error) {
@@ -48,7 +38,7 @@ export default async function SEOOptimizerPage() {
     <SEOClient
       initialProducts={products}
       initialSummary={summary}
-      merchantId={merchant.id}
+      merchantId={merchantId}
     />
   );
 }

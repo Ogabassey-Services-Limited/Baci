@@ -37,25 +37,38 @@ export default function AppBody({
   merchant,
   showNewsletterWidget = true,
   showPlatformAnalytics = false,
+  applyMerchantCoreThemeVariables = true,
 }: {
   children: React.ReactNode;
   merchant?: MerchantData | null;
   showNewsletterWidget?: boolean;
   showPlatformAnalytics?: boolean;
+  /**
+   * Storefront pages can opt in to overriding core shadcn variables
+   * to prevent background flashes before merchant branding hydrates.
+   * Dashboard should keep this disabled so dark mode can control core tokens.
+   */
+  applyMerchantCoreThemeVariables?: boolean;
 }) {
   // Define CSS variables for the merchant's theme
   const themeStyle = merchant?.brand_colors
     ? {
-        // Core shadcn/ui variables — override globals.css defaults to prevent
-        // "blue flash" where dashboard theme colors briefly show on storefronts
-        '--background': hexToHslComponents(merchant.brand_colors.background),
-        '--foreground': hexToHslComponents(
-          getContrastingTextColor(merchant.brand_colors.background)
-        ),
-        '--card': hexToHslComponents(merchant.brand_colors.background),
-        '--card-foreground': hexToHslComponents(
-          getContrastingTextColor(merchant.brand_colors.background)
-        ),
+        ...(applyMerchantCoreThemeVariables
+          ? {
+              // Storefront-only: lock core tokens to merchant background
+              // to prevent an initial dashboard-theme flash during hydration.
+              '--background': hexToHslComponents(
+                merchant.brand_colors.background
+              ),
+              '--foreground': hexToHslComponents(
+                getContrastingTextColor(merchant.brand_colors.background)
+              ),
+              '--card': hexToHslComponents(merchant.brand_colors.background),
+              '--card-foreground': hexToHslComponents(
+                getContrastingTextColor(merchant.brand_colors.background)
+              ),
+            }
+          : {}),
         '--primary': hexToHslComponents(merchant.brand_colors.primary),
         '--primary-foreground': hexToHslComponents(
           getContrastingTextColor(merchant.brand_colors.primary)
