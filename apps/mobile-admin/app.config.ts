@@ -10,7 +10,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Baci',
   slug: 'baci',
   owner: 'ogabassey-services-limited',
-  version: '1.1.0',
+  version: '1.2.0',
   orientation: 'default',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
