@@ -8,6 +8,7 @@
  */
 
 import {
+  COMPACT_OPTIONS,
   type CurrencyConfig,
   formatCurrencyWithConfig as formatCurrencyWithConfigUtil,
   getCurrencyCode as getCurrencyCodeUtil,
@@ -61,10 +62,7 @@ export function useCurrency(): UseCurrencyReturn {
     formatCurrencyWithConfigUtil(amount, config);
 
   const formatCurrencyCompact = (amount: number) =>
-    formatCurrencyWithConfigUtil(amount, config, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
+    formatCurrencyWithConfigUtil(amount, config, COMPACT_OPTIONS);
 
   const currencySymbol = getCurrencySymbolUtil(countryCode);
 
@@ -99,10 +97,7 @@ export function useCurrencyWithCountry(
     formatCurrencyWithConfigUtil(amount, config);
 
   const formatCurrencyCompact = (amount: number) =>
-    formatCurrencyWithConfigUtil(amount, config, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
+    formatCurrencyWithConfigUtil(amount, config, COMPACT_OPTIONS);
 
   const currencySymbol = getCurrencySymbolUtil(countryCode);
 
