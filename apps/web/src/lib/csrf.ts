@@ -3,9 +3,10 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 
-const CSRF_TOKEN_NAME = 'csrf-token';
+const IS_PROD = process.env.NODE_ENV === 'production';
+const CSRF_TOKEN_NAME = IS_PROD ? '__Host-csrf-token' : 'csrf-token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
-const CSRF_SECRET_NAME = 'csrf-secret';
+const CSRF_SECRET_NAME = IS_PROD ? '__Host-csrf-secret' : 'csrf-secret';
 
 /**
  * Generate a cryptographically secure CSRF token using Web Crypto API
