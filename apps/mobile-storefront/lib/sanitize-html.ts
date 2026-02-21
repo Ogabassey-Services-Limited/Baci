@@ -1,10 +1,12 @@
-const EVENT_RE = /\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
-const JS_PROTO_RE = /javascript\s*:/gi;
-const DATA_URI_RE =
-  /(?:href|src)\s*=\s*(?:"data:[^"]*"|'data:[^']*'|data:[^\s>]+)/gi;
 const DANGEROUS_BLOCK_TAGS = new Set(['script', 'style', 'iframe', 'object', 'form']);
 const DANGEROUS_SINGLE_TAGS = new Set(['embed', 'input']);
 const DANGEROUS_TAGS = new Set([...DANGEROUS_BLOCK_TAGS, ...DANGEROUS_SINGLE_TAGS]);
+const UNSAFE_URI_PREFIXES = ['javascript:', 'data:', 'vbscript:', 'blob:'] as const;
+const MAX_SANITIZE_PASSES = 12;
+
+function isWhitespace(char: string | undefined): boolean {
+  return char === ' ' || char === '\n' || char === '\r' || char === '\t' || char === '\f';
+}
 
 function isTagNameChar(char: string | undefined): boolean {
   if (!char) return false;
@@ -13,8 +15,27 @@ function isTagNameChar(char: string | undefined): boolean {
 }
 
 function findTagEnd(input: string, start: number): number {
-  const end = input.indexOf('>', start);
-  return end === -1 ? input.length : end + 1;
+  let quote: '"' | "'" | null = null;
+  let cursor = start;
+  while (cursor < input.length) {
+    const char = input[cursor];
+    if (quote) {
+      if (char === quote) quote = null;
+      cursor++;
+      continue;
+    }
+
+    if (char === '"' || char === "'") {
+      quote = char;
+      cursor++;
+      continue;
+    }
+
+    if (char === '>') return cursor + 1;
+    cursor++;
+  }
+
+  return input.length;
 }
 
 function parseDangerousTagAt(input: string, start: number): {
@@ -25,13 +46,13 @@ function parseDangerousTagAt(input: string, start: number): {
   if (input[start] !== '<') return null;
 
   let cursor = start + 1;
-  while (input[cursor] === ' ') cursor++;
+  while (isWhitespace(input[cursor])) cursor++;
 
   let isClosing = false;
   if (input[cursor] === '/') {
     isClosing = true;
     cursor++;
-    while (input[cursor] === ' ') cursor++;
+    while (isWhitespace(input[cursor])) cursor++;
   }
 
   const nameStart = cursor;
@@ -55,14 +76,14 @@ function findClosingDangerousTagEnd(
     if (open === -1) return searchStart;
 
     let nameStart = open + 1;
-    while (input[nameStart] === ' ') nameStart++;
+    while (isWhitespace(input[nameStart])) nameStart++;
     if (input[nameStart] !== '/') {
       cursor = open + 1;
       continue;
     }
 
     nameStart++;
-    while (input[nameStart] === ' ') nameStart++;
+    while (isWhitespace(input[nameStart])) nameStart++;
     if (!input.startsWith(tagName, nameStart)) {
       cursor = open + 1;
       continue;
@@ -80,7 +101,144 @@ function findClosingDangerousTagEnd(
   return searchStart;
 }
 
-function stripDangerousTags(input: string): string {
+function stripUnsafeUriPrefix(value: string): string {
+  let result = value;
+  let cursor = 0;
+  while (cursor < result.length && isWhitespace(result[cursor])) cursor++;
+
+  while (true) {
+    const candidate = result.slice(cursor).toLowerCase();
+    let matchedPrefix: (typeof UNSAFE_URI_PREFIXES)[number] | null = null;
+    for (const prefix of UNSAFE_URI_PREFIXES) {
+      if (candidate.startsWith(prefix)) {
+        matchedPrefix = prefix;
+        break;
+      }
+    }
+
+    if (!matchedPrefix) {
+      return result;
+    }
+
+    result = `${result.slice(0, cursor)}${result.slice(cursor + matchedPrefix.length)}`;
+  }
+}
+
+function sanitizeSafeTag(rawTag: string): string {
+  if (rawTag.length < 3 || rawTag[0] !== '<' || rawTag[rawTag.length - 1] !== '>') {
+    return rawTag;
+  }
+
+  const lowerTag = rawTag.toLowerCase();
+  let cursor = 1;
+  while (isWhitespace(lowerTag[cursor])) cursor++;
+
+  let isClosing = false;
+  if (lowerTag[cursor] === '/') {
+    isClosing = true;
+    cursor++;
+    while (isWhitespace(lowerTag[cursor])) cursor++;
+  }
+
+  const nameStart = cursor;
+  while (isTagNameChar(lowerTag[cursor])) cursor++;
+  if (cursor === nameStart) return rawTag;
+
+  const name = lowerTag.slice(nameStart, cursor);
+  if (isClosing) return `</${name}>`;
+
+  const sanitizedAttributes: string[] = [];
+  while (cursor < rawTag.length - 1) {
+    while (cursor < rawTag.length - 1 && isWhitespace(lowerTag[cursor])) cursor++;
+    if (cursor >= rawTag.length - 1) break;
+
+    if (rawTag[cursor] === '/' || rawTag[cursor] === '>' || rawTag[cursor] === '<') {
+      break;
+    }
+
+    const attrNameStart = cursor;
+    while (
+      cursor < rawTag.length - 1 &&
+      !isWhitespace(lowerTag[cursor]) &&
+      rawTag[cursor] !== '=' &&
+      rawTag[cursor] !== '/' &&
+      rawTag[cursor] !== '>' &&
+      rawTag[cursor] !== '<'
+    ) {
+      cursor++;
+    }
+    if (cursor === attrNameStart) {
+      cursor++;
+      continue;
+    }
+
+    const attrName = rawTag.slice(attrNameStart, cursor);
+    const lowerAttrName = attrName.toLowerCase();
+
+    while (cursor < rawTag.length - 1 && isWhitespace(lowerTag[cursor])) cursor++;
+
+    let hasValue = false;
+    let quote: '"' | "'" | '' = '';
+    let value = '';
+
+    if (rawTag[cursor] === '=') {
+      hasValue = true;
+      cursor++;
+      while (cursor < rawTag.length - 1 && isWhitespace(lowerTag[cursor])) cursor++;
+
+      const maybeQuote = rawTag[cursor];
+      if (maybeQuote === '"' || maybeQuote === "'") {
+        quote = maybeQuote;
+        cursor++;
+        const valueStart = cursor;
+        while (cursor < rawTag.length - 1 && rawTag[cursor] !== quote) cursor++;
+        value = rawTag.slice(valueStart, cursor);
+        if (rawTag[cursor] === quote) cursor++;
+      } else {
+        const valueStart = cursor;
+        while (
+          cursor < rawTag.length - 1 &&
+          !isWhitespace(lowerTag[cursor]) &&
+          rawTag[cursor] !== '>'
+        ) {
+          cursor++;
+        }
+        value = rawTag.slice(valueStart, cursor);
+      }
+    }
+
+    if (lowerAttrName.startsWith('on')) continue;
+
+    let sanitizedValue = value;
+    if (
+      lowerAttrName === 'href' ||
+      lowerAttrName === 'src' ||
+      lowerAttrName === 'xlink:href' ||
+      lowerAttrName === 'formaction'
+    ) {
+      sanitizedValue = stripUnsafeUriPrefix(value);
+    }
+
+    if (!hasValue) {
+      sanitizedAttributes.push(attrName);
+      continue;
+    }
+
+    if (quote) {
+      sanitizedAttributes.push(`${attrName}=${quote}${sanitizedValue}${quote}`);
+      continue;
+    }
+
+    sanitizedAttributes.push(`${attrName}=${sanitizedValue}`);
+  }
+
+  const isSelfClosing = rawTag.slice(0, -1).trimEnd().endsWith('/');
+  const attrs = sanitizedAttributes.length > 0 ? ` ${sanitizedAttributes.join(' ')}` : '';
+
+  return isSelfClosing ? `<${name}${attrs}/>` : `<${name}${attrs}>`;
+}
+
+function sanitizeTags(input: string): string {
   const lower = input.toLowerCase();
   const out: string[] = [];
   let cursor = 0;
@@ -92,19 +250,27 @@ function stripDangerousTags(input: string): string {
       continue;
     }
 
-    const parsed = parseDangerousTagAt(lower, cursor);
-    if (!parsed) {
-      out.push(input[cursor]);
+    const dangerous = parseDangerousTagAt(lower, cursor);
+    if (dangerous) {
+      if (dangerous.isClosing || DANGEROUS_SINGLE_TAGS.has(dangerous.name)) {
+        cursor = dangerous.tagEnd;
+        continue;
+      }
+
+      cursor = findClosingDangerousTagEnd(lower, dangerous.name, dangerous.tagEnd);
+      continue;
+    }
+
+    const tagEnd = findTagEnd(input, cursor + 1);
+    const rawTag = input.slice(cursor, tagEnd);
+    if (rawTag.length === 1) {
+      out.push('<');
       cursor++;
       continue;
     }
 
-    if (parsed.isClosing || DANGEROUS_SINGLE_TAGS.has(parsed.name)) {
-      cursor = parsed.tagEnd;
-      continue;
-    }
-
-    cursor = findClosingDangerousTagEnd(lower, parsed.name, parsed.tagEnd);
+    out.push(sanitizeSafeTag(rawTag));
+    cursor = tagEnd;
   }
 
   return out.join('');
@@ -113,18 +279,16 @@ function stripDangerousTags(input: string): string {
 export function sanitizeHtml(html: string): string {
   if (!html) return '';
 
-  // Iterative stripping: re-run until no more dangerous tags remain.
-  // A single pass can be bypassed via nested-tag reconstruction (e.g. <scr<script>ipt>).
-  let result = stripDangerousTags(html);
-  let prev = '';
-  while (result !== prev) {
-    prev = result;
-    result = stripDangerousTags(result)
-      .replace(EVENT_RE, '')
-      .replace(JS_PROTO_RE, '')
-      .replace(DATA_URI_RE, '')
-      .replace(/<(\w+)\s+>/gi, '<$1>');
-    result = stripDangerousTags(result);
+  // Iterate until stable so nested-tag reconstruction cannot reintroduce dangerous tags.
+  let result = html;
+  let previous = '';
+  let passes = 0;
+  const maxPasses = MAX_SANITIZE_PASSES;
+  while (result !== previous && passes < maxPasses) {
+    previous = result;
+    result = sanitizeTags(result);
+    passes++;
   }
+
   return result;
 }
