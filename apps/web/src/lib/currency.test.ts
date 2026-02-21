@@ -3,6 +3,7 @@ import {
   COMPACT_OPTIONS,
   formatCurrency,
   formatCurrencyCompact,
+  formatCurrencyWithConfig,
   getCurrencyConfig,
 } from './currency';
 
@@ -56,6 +57,25 @@ describe('Currency Utils', () => {
 
     it('should handle COMPACT_OPTIONS constant', () => {
       expect(formatCurrency(1000, 'NG', COMPACT_OPTIONS)).toBe('₦1,000');
+    });
+
+    it('should fall back gracefully when locale is unsupported with COMPACT_OPTIONS', () => {
+      // Arrange
+      const invalidConfig = {
+        code: 'INVALID_CODE',
+        symbol: '$',
+        locale: 'invalid-locale',
+      };
+
+      // Act
+      const result = formatCurrencyWithConfig(
+        1000,
+        invalidConfig,
+        COMPACT_OPTIONS
+      );
+
+      // Assert
+      expect(result).toBe('$1000');
     });
 
     it('should handle undefined country (default to USD)', () => {

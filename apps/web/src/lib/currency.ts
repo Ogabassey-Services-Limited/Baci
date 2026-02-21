@@ -34,10 +34,10 @@ const COUNTRY_LOCALES: Record<string, string> = {
  * Common options for compact currency display (no decimals)
  * constant reference to avoid object creation on every render
  */
-export const COMPACT_OPTIONS: Partial<Intl.NumberFormatOptions> = {
+export const COMPACT_OPTIONS = {
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
-};
+} as const satisfies Partial<Intl.NumberFormatOptions>;
 
 /**
  * Get currency configuration for a country
@@ -109,14 +109,19 @@ export function formatCurrencyWithConfig(
         ...options,
       });
 
-      // Simple eviction: clear cache when full
-      // Faster than individual delete/set for eviction
+      // LRU eviction: remove least-recently-used entry when cache is full
       if (FORMATTER_CACHE.size >= MAX_CACHE_SIZE) {
-        FORMATTER_CACHE.clear();
+        const firstKey = FORMATTER_CACHE.keys().next().value;
+        if (firstKey !== undefined) {
+          FORMATTER_CACHE.delete(firstKey);
+        }
       }
       FORMATTER_CACHE.set(cacheKey, formatter);
+    } else {
+      // Move to end to indicate "Recent" usage (LRU order)
+      FORMATTER_CACHE.delete(cacheKey);
+      FORMATTER_CACHE.set(cacheKey, formatter);
     }
-    // Removed LRU re-ordering logic on read to avoid Map mutation overhead on hot path
 
     return formatter.format(amount);
   } catch {
