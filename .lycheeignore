@@ -22,3 +22,6 @@ https://youtu\.be/.*
 https://www\.rssboard\.org/rss-specification
 https://credpal\.com/favicon\.ico
 https://www\.namecheap\.com/support/api/
+
+# Trigger CI retry for transient fontless/esbuild race condition during install
+# .
