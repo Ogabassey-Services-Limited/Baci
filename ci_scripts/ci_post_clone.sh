@@ -166,12 +166,9 @@ fi
 
 if [ "${CI_POD_ALLOW_REPO_UPDATE:-0}" = "1" ]; then
   echo "info: Running pod install with repo updates enabled."
-  if ! pod install --deployment --repo-update; then
-    echo "warning: pod install with --repo-update failed; retrying without repo update."
-    pod install --no-repo-update --deployment
-  fi
+  pod install --repo-update
 else
-  pod install --no-repo-update --deployment
+  pod install --no-repo-update
 fi
 
 echo "info: CocoaPods installation finished for '$app_dir'"
