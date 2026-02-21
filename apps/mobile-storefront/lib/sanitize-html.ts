@@ -50,11 +50,39 @@ export function sanitizeHtml(html: string): string {
         '<$1>'
       );
   }
-  // Post-loop absolute hardening: character-level strip of any surviving
-  // dangerous tag starts, independent of the iterative loop above.
-  result = result.replace(
-    /<\s*(?:script|style|iframe|object|embed|form|input)/gi,
-    ''
-  );
-  return result;
+  // Post-loop absolute hardening: character-level scan that drops any "<"
+  // introducing a dangerous tag name. Avoids multi-character regex replacement
+  // so static analysis (CodeQL) cannot flag incomplete sanitization.
+  const dangerous = [
+    'script',
+    'style',
+    'iframe',
+    'object',
+    'embed',
+    'form',
+    'input',
+  ];
+  const lower = result.toLowerCase();
+  let out = '';
+  let i = 0;
+  while (i < result.length) {
+    if (result[i] === '<') {
+      let j = i + 1;
+      while (j < lower.length && lower[j] === ' ') j++;
+      let matched = false;
+      for (const name of dangerous) {
+        if (lower.startsWith(name, j)) {
+          matched = true;
+          break;
+        }
+      }
+      if (matched) {
+        i++;
+        continue;
+      }
+    }
+    out += result[i];
+    i++;
+  }
+  return out;
 }

@@ -230,12 +230,16 @@ export function sanitizeSvg(svg: string): string {
       .replace(/src\s*=\s*"data:[^"]*"/gi, 'src=""')
       .replace(/src\s*=\s*'data:[^']*'/gi, "src=''");
   }
-  // Post-loop absolute hardening: character-level strip of any surviving
-  // dangerous tag starts, independent of the iterative loop above.
-  result = result.replace(
-    /<\s*(?:script|style|iframe|foreignObject|object|embed)/gi,
-    ''
-  );
+  // Post-loop absolute hardening: iterative strip of any surviving
+  // dangerous tag starts, independent of the main loop above.
+  let prevHardening = '';
+  while (result !== prevHardening) {
+    prevHardening = result;
+    result = result.replace(
+      /<\s*(?:script|style|iframe|foreignObject|object|embed)/gi,
+      ''
+    );
+  }
   return result;
 }
 
