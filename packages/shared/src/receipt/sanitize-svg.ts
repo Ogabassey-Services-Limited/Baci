@@ -1,82 +1,274 @@
-// Tag-pair patterns for dangerous SVG elements: match <tag...>content</tag...>.
-// Uses [\s\S]*? (non-greedy) for content matching across lines.
-// Closing tags use \b[^>]*> to handle whitespace, attributes, or garbage
-// between tag name and > (e.g. </script >, </script/>).
-const SVG_SCRIPT_RE = /<script\b[\s\S]*?<\/script\b[^>]*>/gi;
-const SVG_STYLE_RE = /<style\b[\s\S]*?<\/style\b[^>]*>/gi;
-const SVG_FOREIGN_RE = /<foreignObject\b[\s\S]*?<\/foreignObject\b[^>]*>/gi;
-const SVG_IFRAME_RE = /<iframe\b[\s\S]*?<\/iframe\b[^>]*>/gi;
-const SVG_OBJECT_RE = /<object\b[\s\S]*?<\/object\b[^>]*>/gi;
-const SVG_EMBED_RE = /<embed\b[^>]*\/?>/gi;
+const DANGEROUS_TAGS = new Set([
+  'script',
+  'style',
+  'foreignobject',
+  'iframe',
+  'object',
+  'embed',
+]);
 
-/**
- * Sanitize SVG by stripping dangerous elements and attributes.
- * Removes: <script>, <style>, <foreignObject>, <iframe>, <embed>, <object> tags,
- * event handlers (on*), javascript: URIs, data: URIs, and
- * <use> elements with external references.
- */
-export function sanitizeSvg(svg: string): string {
-  // Iterative stripping to prevent nested-tag reconstruction bypasses
-  // (e.g. <scr<script>ipt> becomes <script> after first pass)
-  let result = svg;
-  let prev = '';
-  while (result !== prev) {
-    prev = result;
-    result = result
-      // Remove dangerous tag pairs and their content
-      .replace(SVG_SCRIPT_RE, '')
-      .replace(SVG_STYLE_RE, '')
-      .replace(SVG_FOREIGN_RE, '')
-      .replace(SVG_IFRAME_RE, '')
-      .replace(SVG_OBJECT_RE, '')
-      .replace(SVG_EMBED_RE, '')
-      // Hardening: catch any remaining orphaned opening/closing/self-closing tags
-      .replace(
-        /<\s*\/?\s*(?:script|style|iframe|foreignObject|object|embed)\b[^>]*>/gi,
-        ''
-      )
-      // Final hardening: strip any residual starts of dangerous tags,
-      // even if they are malformed or truncated (e.g. just "<script")
-      .replace(/<\s*(?:script|style|iframe|foreignObject|object|embed)\b/gi, '')
-      // Remove <use> elements with external references
-      .replace(
-        /<use[^>]*(?:href|xlink:href)\s*=\s*(?:"(?:https?:|\/\/)[^"]*"|'(?:https?:|\/\/)[^']*')[^>]*\/?>(?:<\/use>)?/gi,
-        ''
-      )
-      // Remove all event handler attributes (on*)
-      .replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '')
-      // Remove javascript: URIs in href/xlink:href
-      .replace(/href\s*=\s*"javascript:[^"]*"/gi, 'href=""')
-      .replace(/href\s*=\s*'javascript:[^']*'/gi, "href=''")
-      .replace(/xlink:href\s*=\s*"javascript:[^"]*"/gi, 'xlink:href=""')
-      .replace(/xlink:href\s*=\s*'javascript:[^']*'/gi, "xlink:href=''")
-      // Remove data: URIs (can embed scripts or external content)
-      .replace(/href\s*=\s*"data:[^"]*"/gi, 'href=""')
-      .replace(/href\s*=\s*'data:[^']*'/gi, "href=''")
-      .replace(/xlink:href\s*=\s*"data:[^"]*"/gi, 'xlink:href=""')
-      .replace(/xlink:href\s*=\s*'data:[^']*'/gi, "xlink:href=''")
-      .replace(/src\s*=\s*"data:[^"]*"/gi, 'src=""')
-      .replace(/src\s*=\s*'data:[^']*'/gi, "src=''");
+const DANGEROUS_PAIR_TAGS = new Set([
+  'script',
+  'style',
+  'foreignobject',
+  'iframe',
+  'object',
+]);
+
+const URI_ATTR_NAMES = new Set(['href', 'src', 'xlink:href']);
+
+type AttrQuote = '"' | "'" | null;
+
+interface ParsedTag {
+  name: string;
+  rawName: string;
+  nameEnd: number;
+  isClosing: boolean;
+  isSelfClosing: boolean;
+}
+
+interface ParsedAttribute {
+  name: string;
+  value: string | null;
+  quote: AttrQuote;
+}
+
+function isWhitespace(ch: string): boolean {
+  return /\s/.test(ch);
+}
+
+function isTagNameChar(ch: string): boolean {
+  return /[a-z0-9:-]/i.test(ch);
+}
+
+function skipWhitespace(input: string, index: number): number {
+  let i = index;
+  while (i < input.length && isWhitespace(input[i])) i++;
+  return i;
+}
+
+function findTagEnd(input: string, start: number): number {
+  let quote: AttrQuote = null;
+  for (let i = start + 1; i < input.length; i++) {
+    const ch = input[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === '>') return i;
+  }
+  return -1;
+}
+
+function parseTag(input: string, tagStart: number, tagEnd: number): ParsedTag | null {
+  let i = tagStart + 1;
+  i = skipWhitespace(input, i);
+
+  let isClosing = false;
+  if (i < tagEnd && input[i] === '/') {
+    isClosing = true;
+    i++;
+    i = skipWhitespace(input, i);
   }
 
-  // Post-loop absolute hardening: character-level scan that drops any "<"
-  // introducing a dangerous tag name, avoiding one-shot multi-character
-  // sanitization patterns that static analyzers flag as incomplete.
-  const dangerous = [
-    'script',
-    'style',
-    'iframe',
-    'foreignobject',
-    'object',
-    'embed',
-  ];
-  const lower = result.toLowerCase();
+  const nameStart = i;
+  while (i < tagEnd && isTagNameChar(input[i])) i++;
+  if (i === nameStart) return null;
+
+  let slashProbe = tagEnd - 1;
+  while (slashProbe > tagStart && isWhitespace(input[slashProbe])) slashProbe--;
+
+  return {
+    name: input.slice(nameStart, i).toLowerCase(),
+    rawName: input.slice(nameStart, i),
+    nameEnd: i,
+    isClosing,
+    isSelfClosing: !isClosing && input[slashProbe] === '/',
+  };
+}
+
+function parseAttributes(
+  rawTag: string,
+  attrStart: number,
+  tagEnd: number
+): ParsedAttribute[] {
+  const attrs: ParsedAttribute[] = [];
+  let i = attrStart;
+
+  while (i < tagEnd) {
+    i = skipWhitespace(rawTag, i);
+    if (i >= tagEnd) break;
+    if (rawTag[i] === '/') {
+      i++;
+      continue;
+    }
+
+    const nameStart = i;
+    while (
+      i < tagEnd &&
+      !isWhitespace(rawTag[i]) &&
+      rawTag[i] !== '=' &&
+      rawTag[i] !== '/' &&
+      rawTag[i] !== '>' &&
+      rawTag[i] !== '<'
+    ) {
+      i++;
+    }
+
+    if (i === nameStart) {
+      i++;
+      continue;
+    }
+
+    const name = rawTag.slice(nameStart, i);
+    i = skipWhitespace(rawTag, i);
+
+    let value: string | null = null;
+    let quote: AttrQuote = null;
+
+    if (i < tagEnd && rawTag[i] === '=') {
+      i++;
+      i = skipWhitespace(rawTag, i);
+
+      if (i >= tagEnd) {
+        value = '';
+      } else if (rawTag[i] === '"' || rawTag[i] === "'") {
+        quote = rawTag[i] as AttrQuote;
+        i++;
+        const valueStart = i;
+        while (i < tagEnd && rawTag[i] !== quote) i++;
+        value = rawTag.slice(valueStart, i);
+        if (i < tagEnd) i++;
+      } else {
+        const valueStart = i;
+        while (
+          i < tagEnd &&
+          !isWhitespace(rawTag[i]) &&
+          rawTag[i] !== '/' &&
+          rawTag[i] !== '>' &&
+          rawTag[i] !== '<'
+        ) {
+          i++;
+        }
+        value = rawTag.slice(valueStart, i);
+      }
+    }
+
+    attrs.push({ name, value, quote });
+  }
+
+  return attrs;
+}
+
+function rebuildTag(
+  rawName: string,
+  attrs: ParsedAttribute[],
+  isSelfClosing: boolean
+): string {
+  let out = `<${rawName}`;
+
+  for (const attr of attrs) {
+    if (attr.value === null) {
+      out += ` ${attr.name}`;
+      continue;
+    }
+
+    if (attr.quote === "'") {
+      out += ` ${attr.name}='${attr.value}'`;
+      continue;
+    }
+
+    if (attr.quote === '"') {
+      out += ` ${attr.name}="${attr.value}"`;
+      continue;
+    }
+
+    out += ` ${attr.name}=${attr.value}`;
+  }
+
+  out += isSelfClosing ? '/>' : '>';
+  return out;
+}
+
+function normalizeAttrValue(value: string): string {
+  return value.trim().replace(/\r/g, '').replace(/\n/g, '');
+}
+
+function sanitizeUriValue(value: string): string {
+  const normalized = normalizeAttrValue(value);
+  const lower = normalized.toLowerCase();
+  if (lower.startsWith('javascript:') || lower.startsWith('data:')) {
+    return '';
+  }
+  return value;
+}
+
+function isExternalUseReference(value: string): boolean {
+  const lower = normalizeAttrValue(value).toLowerCase();
+  return (
+    lower.startsWith('http://') ||
+    lower.startsWith('https://') ||
+    lower.startsWith('//')
+  );
+}
+
+function sanitizeStartTag(rawTag: string): string {
+  const tagEnd = rawTag.length - 1;
+  const parsed = parseTag(rawTag, 0, tagEnd);
+  if (!parsed || parsed.isClosing) return rawTag;
+
+  const attrs = parseAttributes(rawTag, parsed.nameEnd, tagEnd);
+  const sanitizedAttrs: ParsedAttribute[] = [];
+
+  for (const attr of attrs) {
+    const lowerName = attr.name.toLowerCase();
+
+    if (lowerName.startsWith('on')) {
+      continue;
+    }
+
+    if (parsed.name === 'use' && URI_ATTR_NAMES.has(lowerName) && attr.value) {
+      if (isExternalUseReference(attr.value)) {
+        return '';
+      }
+    }
+
+    if (URI_ATTR_NAMES.has(lowerName) && attr.value !== null) {
+      const sanitizedValue = sanitizeUriValue(attr.value);
+      const quote = attr.quote ?? '"';
+      sanitizedAttrs.push({
+        name: attr.name,
+        value: sanitizedValue,
+        quote,
+      });
+      continue;
+    }
+
+    sanitizedAttrs.push(attr);
+  }
+
+  return rebuildTag(parsed.rawName, sanitizedAttrs, parsed.isSelfClosing);
+}
+
+function stripDangerousTagStarts(input: string): string {
+  const lower = input.toLowerCase();
+  const dangerous = [...DANGEROUS_TAGS];
   const outParts: string[] = [];
+
   let i = 0;
-  while (i < result.length) {
-    if (result[i] === '<') {
+  while (i < input.length) {
+    if (input[i] === '<') {
       let j = i + 1;
-      while (j < lower.length && /\s/.test(lower[j])) j++;
+      while (j < lower.length && isWhitespace(lower[j])) j++;
+      if (j < lower.length && lower[j] === '/') {
+        j++;
+        while (j < lower.length && isWhitespace(lower[j])) j++;
+      }
+
       let matched = false;
       for (const name of dangerous) {
         if (lower.startsWith(name, j)) {
@@ -87,14 +279,154 @@ export function sanitizeSvg(svg: string): string {
           }
         }
       }
+
       if (matched) {
-        i++;
+        const close = findTagEnd(input, i);
+        if (close === -1) break;
+        i = close + 1;
         continue;
       }
     }
-    outParts.push(result[i]);
+
+    outParts.push(input[i]);
     i++;
   }
 
   return outParts.join('');
+}
+
+function findDangerousCloseEnd(
+  input: string,
+  from: number,
+  dangerousTag: string
+): number {
+  let depth = 1;
+  let i = from;
+
+  while (i < input.length) {
+    const nextOpen = input.indexOf('<', i);
+    if (nextOpen === -1) return input.length;
+
+    const nextClose = findTagEnd(input, nextOpen);
+    if (nextClose === -1) return input.length;
+
+    const parsed = parseTag(input, nextOpen, nextClose);
+    if (parsed && parsed.name === dangerousTag) {
+      if (parsed.isClosing) {
+        depth--;
+      } else if (!parsed.isSelfClosing) {
+        depth++;
+      }
+
+      if (depth === 0) {
+        return nextClose + 1;
+      }
+    }
+
+    i = nextClose + 1;
+  }
+
+  return input.length;
+}
+
+function findEmbeddedDangerousStart(rawTag: string): string | null {
+  const lower = rawTag.toLowerCase();
+  let quote: AttrQuote = null;
+
+  for (let i = 1; i < lower.length; i++) {
+    const ch = lower[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch !== '<') continue;
+
+    let j = i + 1;
+    while (j < lower.length && isWhitespace(lower[j])) j++;
+    if (j < lower.length && lower[j] === '/') {
+      j++;
+      while (j < lower.length && isWhitespace(lower[j])) j++;
+    }
+
+    for (const name of DANGEROUS_PAIR_TAGS) {
+      if (lower.startsWith(name, j)) {
+        const k = j + name.length;
+        if (k >= lower.length || !/[a-z0-9-]/.test(lower[k])) {
+          return name;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Sanitize SVG by stripping dangerous elements and attributes.
+ * Removes: <script>, <style>, <foreignObject>, <iframe>, <embed>, <object> tags,
+ * event handlers (on*), javascript: URIs, data: URIs, and
+ * <use> elements with external references.
+ */
+export function sanitizeSvg(svg: string): string {
+  if (svg.length === 0) return '';
+
+  const outParts: string[] = [];
+  let i = 0;
+
+  while (i < svg.length) {
+    const nextTag = svg.indexOf('<', i);
+    if (nextTag === -1) {
+      outParts.push(svg.slice(i));
+      break;
+    }
+
+    outParts.push(svg.slice(i, nextTag));
+
+    const tagEnd = findTagEnd(svg, nextTag);
+    if (tagEnd === -1) {
+      outParts.push(stripDangerousTagStarts(svg.slice(nextTag)));
+      break;
+    }
+
+    const rawTag = svg.slice(nextTag, tagEnd + 1);
+    const embeddedDangerousStart = findEmbeddedDangerousStart(rawTag);
+    if (embeddedDangerousStart) {
+      const nextMarkup = svg.indexOf('<', tagEnd + 1);
+      i = nextMarkup === -1 ? svg.length : nextMarkup;
+      continue;
+    }
+
+    const parsed = parseTag(svg, nextTag, tagEnd);
+
+    if (!parsed) {
+      outParts.push(rawTag);
+      i = tagEnd + 1;
+      continue;
+    }
+
+    if (DANGEROUS_TAGS.has(parsed.name)) {
+      if (!parsed.isClosing && DANGEROUS_PAIR_TAGS.has(parsed.name) && !parsed.isSelfClosing) {
+        i = findDangerousCloseEnd(svg, tagEnd + 1, parsed.name);
+      } else {
+        i = tagEnd + 1;
+      }
+      continue;
+    }
+
+    if (parsed.isClosing) {
+      outParts.push(rawTag);
+      i = tagEnd + 1;
+      continue;
+    }
+
+    const sanitizedTag = sanitizeStartTag(rawTag);
+    if (sanitizedTag) outParts.push(sanitizedTag);
+    i = tagEnd + 1;
+  }
+
+  return stripDangerousTagStarts(outParts.join(''));
 }
