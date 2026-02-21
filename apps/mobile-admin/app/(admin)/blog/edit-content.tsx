@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -44,28 +44,28 @@ export default function EditContentScreen() {
   const [aiInstruction, setAiInstruction] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
-  const fetchContent = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('blog_posts')
-        .select('content')
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      setContent(data.content || '');
-    } catch (e) {
-      console.error(e);
-      Alert.alert('Error', 'Failed to load content');
-      router.back();
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id]);
-
   useEffect(() => {
+    const fetchContent = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('blog_posts')
+          .select('content')
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+        setContent(data.content || '');
+      } catch (e) {
+        console.error(e);
+        Alert.alert('Error', 'Failed to load content');
+        router.back();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     if (id) fetchContent();
-  }, [id, fetchContent]);
+  }, [id]);
 
   const handleSave = () => {
     setIsSaving(true);
