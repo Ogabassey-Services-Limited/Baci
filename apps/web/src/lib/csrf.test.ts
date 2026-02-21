@@ -16,11 +16,12 @@ describe('CSRF Protection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+    vi.unstubAllEnvs(); // Ensure env is clean
   });
 
   describe('setCsrfToken', () => {
     it('should set cookies with standard names in non-production', async () => {
-      process.env.NODE_ENV = 'development';
+      vi.stubEnv('NODE_ENV', 'development');
       const csrf = await import('./csrf');
 
       await csrf.setCsrfToken();
@@ -45,7 +46,7 @@ describe('CSRF Protection', () => {
     });
 
     it('should set cookies with __Host- prefix in production', async () => {
-      process.env.NODE_ENV = 'production';
+      vi.stubEnv('NODE_ENV', 'production');
       const csrf = await import('./csrf');
 
       await csrf.setCsrfToken();
@@ -72,7 +73,7 @@ describe('CSRF Protection', () => {
 
   describe('verifyCsrfToken', () => {
     it('should verify token using correct cookie name in production', async () => {
-      process.env.NODE_ENV = 'production';
+      vi.stubEnv('NODE_ENV', 'production');
       const csrf = await import('./csrf');
 
       const token = 'test-token';
@@ -90,7 +91,7 @@ describe('CSRF Protection', () => {
     });
 
     it('should verify token using standard cookie name in development', async () => {
-      process.env.NODE_ENV = 'development';
+      vi.stubEnv('NODE_ENV', 'development');
       const csrf = await import('./csrf');
 
       const token = 'test-token';
