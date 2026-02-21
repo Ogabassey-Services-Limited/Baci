@@ -134,7 +134,9 @@ export default function BuyDomainScreen() {
 
       const data = await response.json();
       if (__DEV__) {
-        console.log(`[Diagnostic] Received ${data.results?.length || 0} results`);
+        console.log(
+          `[Diagnostic] Received ${data.results?.length || 0} results`
+        );
       }
 
       const mappedResults = (data.results || []).map(

@@ -118,6 +118,8 @@ const CountrySelect = ({
     onChange(country);
   };
 
+  const selectedCountry = options.find((option) => option.value === value);
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -128,6 +130,11 @@ const CountrySelect = ({
             'flex gap-1 rounded-none px-3 h-10 bg-transparent text-gray-900 hover:bg-gray-100 border-r border-gray-200'
           )}
           disabled={disabled}
+          aria-label={
+            selectedCountry
+              ? `Select country: ${selectedCountry.label}`
+              : 'Select country'
+          }
         >
           <FlagComponent country={value} countryName={value} />
           <ChevronsUpDown
@@ -145,6 +152,7 @@ const CountrySelect = ({
               <CommandInput
                 className="text-[var(--store-background-text,#111)] placeholder:text-[color-mix(in_srgb,var(--store-background-text,#111)_60%,transparent)]"
                 placeholder="Search country..."
+                aria-label="Search country"
               />
               <CommandEmpty className="text-[color-mix(in_srgb,var(--store-background-text,#111)_70%,transparent)]">
                 No country found.
