@@ -619,8 +619,10 @@ export const CartProvider = ({
 
   const clearCart = () => {
     setCart([]);
-    setMerchantSlugState(null);
-    saveMerchantSlugToStorage(null);
+    if (!initialMerchantSlug) {
+      setMerchantSlugState(null);
+      saveMerchantSlugToStorage(null);
+    }
     logger.info({ message: 'Cart cleared' });
   };
 
