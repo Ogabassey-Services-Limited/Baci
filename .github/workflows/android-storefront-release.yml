@@ -136,7 +136,7 @@ jobs:
       - name: Configure release signing
         working-directory: ${{ env.WORKING_DIR }}
         run: |
-          cat > android/app/signing-config.gradle <<'EOF'
+          cat > android/app/signing-config.gradle <<'EOF2'
           android {
             signingConfigs {
               release {
@@ -152,7 +152,7 @@ jobs:
               }
             }
           }
-          EOF
+          EOF2
 
           echo "apply from: './signing-config.gradle'" >> android/app/build.gradle
 

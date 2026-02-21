@@ -101,6 +101,11 @@ printf "export NODE_BINARY='%s'\n" "$escaped_node_bin" > "$ios_dir/.xcode.env.lo
 echo "info: Wrote '$ios_dir/.xcode.env.local'"
 
 cd "$ios_dir"
-pod install --no-repo-update --deployment
+if [ "${CI_POD_ALLOW_REPO_UPDATE:-0}" = "1" ]; then
+  echo "info: Running pod install with repo updates enabled."
+  pod install
+else
+  pod install --no-repo-update --deployment
+fi
 
 echo "info: CocoaPods installation finished for '$app_dir'"
