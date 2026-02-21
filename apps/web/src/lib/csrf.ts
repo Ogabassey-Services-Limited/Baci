@@ -7,11 +7,6 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 const PRIMARY_CSRF_TOKEN_NAME = IS_PROD ? '__Host-csrf-token' : 'csrf-token';
 const FALLBACK_CSRF_TOKEN_NAME = IS_PROD ? 'csrf-token' : '__Host-csrf-token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
-const PRIMARY_CSRF_SECRET_NAME = IS_PROD ? '__Host-csrf-secret' : 'csrf-secret';
-const FALLBACK_CSRF_SECRET_NAME = IS_PROD
-  ? 'csrf-secret'
-  : '__Host-csrf-secret';
-
 const CSRF_TOKEN_NAMES = [PRIMARY_CSRF_TOKEN_NAME, FALLBACK_CSRF_TOKEN_NAME];
 
 /**
@@ -27,31 +22,12 @@ export function generateCsrfToken(): string {
 }
 
 /**
- * Create CSRF token pair (token + secret)
- */
-export function createCsrfTokenPair(): { token: string; secret: string } {
-  const token = generateCsrfToken();
-  const secret = generateCsrfToken();
-
-  return { token, secret };
-}
-
-/**
  * Set CSRF token in cookies (call this in server components/API routes)
  */
 export async function setCsrfToken(): Promise<string> {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
-  const { token, secret } = createCsrfTokenPair();
-
-  // Store secret in httpOnly cookie
-  cookieStore.set(PRIMARY_CSRF_SECRET_NAME, secret, {
-    httpOnly: true,
-    secure: IS_PROD,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24, // 24 hours
-  });
+  const token = generateCsrfToken();
 
   // Store token in regular cookie (accessible to JavaScript)
   cookieStore.set(PRIMARY_CSRF_TOKEN_NAME, token, {
@@ -64,14 +40,6 @@ export async function setCsrfToken(): Promise<string> {
 
   // Grace-period compatibility for in-flight sessions still reading legacy names.
   if (IS_PROD) {
-    cookieStore.set(FALLBACK_CSRF_SECRET_NAME, secret, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24, // 24 hours
-    });
-
     cookieStore.set(FALLBACK_CSRF_TOKEN_NAME, token, {
       httpOnly: false,
       secure: true,
@@ -102,9 +70,22 @@ export async function getCsrfToken(): Promise<string | null> {
 
 /**
  * Constant-time string comparison to prevent timing attacks.
- * Uses HMAC-based comparison which is inherently constant-time.
+ * Uses Node's built-in timing-safe comparison when available.
+ * Falls back to HMAC-based comparison for non-Node runtimes.
  */
 async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+  const isNodeRuntime =
+    typeof process !== 'undefined' && Boolean(process.versions?.node);
+
+  if (isNodeRuntime) {
+    const { createHmac, timingSafeEqual: nodeTimingSafeEqual } = await import(
+      'node:crypto'
+    );
+    const macA = createHmac('sha256', 'csrf-compare').update(a).digest();
+    const macB = createHmac('sha256', 'csrf-compare').update(b).digest();
+    return nodeTimingSafeEqual(macA, macB);
+  }
+
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
@@ -144,8 +125,7 @@ export async function verifyCsrfToken(request: NextRequest): Promise<boolean> {
   }
 
   // Get token from cookie using Edge-compatible request.cookies
-  // Note: secretCookie is stored for future HMAC binding but current Double Submit
-  // Cookie pattern only validates token matching (header vs cookie)
+  // TODO: Bind CSRF token to a server-side secret (HMAC) for stronger replay resistance.
   let cookieToken: string | null = null;
   for (const name of CSRF_TOKEN_NAMES) {
     const tokenCookie = request.cookies.get(name);
