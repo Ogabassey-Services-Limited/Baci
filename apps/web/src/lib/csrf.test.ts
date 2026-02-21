@@ -3,12 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock next/headers
 const mockCookiesSet = vi.fn();
-const mockCookiesGet = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockReturnValue({
     set: mockCookiesSet,
-    get: mockCookiesGet,
   }),
 }));
 
@@ -37,16 +35,6 @@ describe('CSRF Protection', () => {
       await csrf.setCsrfToken();
 
       expect(mockCookiesSet).toHaveBeenCalledWith(
-        'csrf-secret',
-        expect.any(String),
-        expect.objectContaining({
-          httpOnly: true,
-          secure: false, // In development, secure is false
-          path: '/',
-        })
-      );
-
-      expect(mockCookiesSet).toHaveBeenCalledWith(
         'csrf-token',
         expect.any(String),
         expect.objectContaining({
@@ -55,6 +43,7 @@ describe('CSRF Protection', () => {
           path: '/',
         })
       );
+      expect(mockCookiesSet).toHaveBeenCalledTimes(1);
     });
 
     it('should set cookies with __Host- prefix in production', async () => {
@@ -62,16 +51,6 @@ describe('CSRF Protection', () => {
       const csrf = await import('./csrf');
 
       await csrf.setCsrfToken();
-
-      expect(mockCookiesSet).toHaveBeenCalledWith(
-        '__Host-csrf-secret',
-        expect.any(String),
-        expect.objectContaining({
-          httpOnly: true,
-          secure: true,
-          path: '/',
-        })
-      );
 
       expect(mockCookiesSet).toHaveBeenCalledWith(
         '__Host-csrf-token',
@@ -84,16 +63,6 @@ describe('CSRF Protection', () => {
       );
 
       expect(mockCookiesSet).toHaveBeenCalledWith(
-        'csrf-secret',
-        expect.any(String),
-        expect.objectContaining({
-          httpOnly: true,
-          secure: true,
-          path: '/',
-        })
-      );
-
-      expect(mockCookiesSet).toHaveBeenCalledWith(
         'csrf-token',
         expect.any(String),
         expect.objectContaining({
@@ -102,6 +71,7 @@ describe('CSRF Protection', () => {
           path: '/',
         })
       );
+      expect(mockCookiesSet).toHaveBeenCalledTimes(2);
     });
   });
 
