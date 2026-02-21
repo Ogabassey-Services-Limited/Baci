@@ -7,7 +7,9 @@ import { Toaster } from '@/components/ui/toaster';
 import { NonceProvider } from '@/contexts/NonceProvider';
 import { Providers } from '@/contexts/providers';
 
-const NON_STOREFRONT_TOP_LEVEL_SEGMENTS = new Set([
+// Keep this list in sync with top-level route directories under src/app.
+// Regression test: src/app/root-dynamic-body.test.ts validates coverage.
+export const NON_STOREFRONT_TOP_LEVEL_SEGMENTS = new Set([
   'about',
   'actions',
   'admin',
