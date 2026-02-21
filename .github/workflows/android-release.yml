@@ -87,9 +87,11 @@ jobs:
       - name: Resolve version code
         id: version
         shell: bash
+        env:
+          INPUT_VERSION_CODE: ${{ inputs.version_code }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version_code }}" ]; then
-            VERSION_CODE="${{ inputs.version_code }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$INPUT_VERSION_CODE" ]; then
+            VERSION_CODE="$INPUT_VERSION_CODE"
           elif [ "${{ github.ref_type }}" = "tag" ]; then
             VERSION_CODE="${GITHUB_REF_NAME#v}"
             VERSION_CODE="${VERSION_CODE%-admin}"
@@ -97,8 +99,8 @@ jobs:
             VERSION_CODE="${{ github.run_number }}"
           fi
 
-          if ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
-            echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer."
+          if ! [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer (>=1)."
             exit 1
           fi
 
@@ -131,7 +133,6 @@ jobs:
           EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
           EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID: ${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}
-          VERSION_CODE: ${{ env.VERSION_CODE }}
         run: |
           GRADLE_ARGS="app:bundleRelease -x lint -x test --configure-on-demand --build-cache --no-daemon"
           GRADLE_ARGS="$GRADLE_ARGS -PversionCode=$VERSION_CODE"

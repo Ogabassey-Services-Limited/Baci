@@ -73,10 +73,11 @@ echo "info: Using node at '$node_bin'"
 
 cd "$repo_root"
 corepack enable
-corepack prepare pnpm@10.28.0 --activate
+pnpm_spec="$(node -p "const pm=require('./package.json').packageManager || ''; if (!pm.startsWith('pnpm@')) { throw new Error('packageManager must start with pnpm@'); } pm")"
+corepack prepare "$pnpm_spec" --activate
 pnpm install --frozen-lockfile
 
-printf 'export NODE_BINARY=%s\n' "$node_bin" > "$ios_dir/.xcode.env.local"
+printf 'export NODE_BINARY="%s"\n' "$node_bin" > "$ios_dir/.xcode.env.local"
 echo "info: Wrote '$ios_dir/.xcode.env.local'"
 
 cd "$ios_dir"

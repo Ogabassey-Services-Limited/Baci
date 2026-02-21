@@ -87,9 +87,11 @@ jobs:
       - name: Resolve version code
         id: version
         shell: bash
+        env:
+          INPUT_VERSION_CODE: ${{ inputs.version_code }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION_CODE="${{ inputs.version_code }}"
+            VERSION_CODE="$INPUT_VERSION_CODE"
           elif [ "${{ github.ref_type }}" = "tag" ]; then
             VERSION_CODE="${GITHUB_REF_NAME#v}"
             VERSION_CODE="${VERSION_CODE%-storefront}"
@@ -97,7 +99,7 @@ jobs:
             VERSION_CODE="${{ github.run_number }}"
           fi
 
-          if ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
+          if ! [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer."
             exit 1
           fi
@@ -158,7 +160,6 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          VERSION_CODE: ${{ env.VERSION_CODE }}
         run: |
           GRADLE_ARGS="app:bundleRelease -x lint -x test --configure-on-demand --build-cache --no-daemon"
           # shellcheck disable=SC2086
