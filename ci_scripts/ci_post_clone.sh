@@ -154,6 +154,16 @@ printf "export NODE_BINARY='%s'\n" "$escaped_node_bin" > "$ios_dir/.xcode.env.lo
 echo "info: Wrote '$ios_dir/.xcode.env.local'"
 
 cd "$ios_dir"
+
+# Xcode Cloud images may ship with a stale or partial CocoaPods trunk repo that
+# prevents the CDN source from initialising ("Unable to add a source … named trunk").
+# Removing it lets CocoaPods recreate it cleanly on the next run.
+trunk_repo="${HOME}/.cocoapods/repos/trunk"
+if [ -d "$trunk_repo" ]; then
+  echo "info: Removing stale CocoaPods trunk repo at '$trunk_repo'"
+  rm -rf "$trunk_repo"
+fi
+
 if [ "${CI_POD_ALLOW_REPO_UPDATE:-0}" = "1" ]; then
   echo "info: Running pod install with repo updates enabled."
   if ! pod install --deployment --repo-update; then
