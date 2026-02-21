@@ -13,6 +13,9 @@ const ALLOWED_ATTRIBUTES = new Set([
   'formaction',
 ]);
 const MAX_SANITIZE_PASSES = 12;
+const MAX_UNSAFE_URI_PREFIX_LENGTH = Math.max(
+  ...UNSAFE_URI_PREFIXES.map((prefix) => prefix.length)
+);
 
 function isWhitespace(char: string | undefined): boolean {
   return char === ' ' || char === '\n' || char === '\r' || char === '\t' || char === '\f';
@@ -21,7 +24,18 @@ function isWhitespace(char: string | undefined): boolean {
 function isTagNameChar(char: string | undefined): boolean {
   if (!char) return false;
   const code = char.charCodeAt(0);
-  return (code >= 48 && code <= 57) || (code >= 97 && code <= 122) || char === '-';
+  return (
+    (code >= 48 && code <= 57) ||
+    (code >= 65 && code <= 90) ||
+    (code >= 97 && code <= 122) ||
+    char === '-'
+  );
+}
+
+function isAsciiControlChar(char: string | undefined): boolean {
+  if (!char) return false;
+  const code = char.charCodeAt(0);
+  return code <= 0x1f || code === 0x7f;
 }
 
 function findTagEnd(input: string, start: number): number {
@@ -117,7 +131,15 @@ function stripUnsafeUriPrefix(value: string): string {
   while (cursor < result.length && isWhitespace(result[cursor])) cursor++;
 
   while (true) {
-    const candidate = result.slice(cursor).toLowerCase();
+    let candidate = '';
+    let scan = cursor;
+    while (scan < result.length && candidate.length < MAX_UNSAFE_URI_PREFIX_LENGTH) {
+      if (!isAsciiControlChar(result[scan])) {
+        candidate += result[scan].toLowerCase();
+      }
+      scan++;
+    }
+
     let matchedPrefix: (typeof UNSAFE_URI_PREFIXES)[number] | null = null;
     for (const prefix of UNSAFE_URI_PREFIXES) {
       if (candidate.startsWith(prefix)) {
@@ -130,7 +152,16 @@ function stripUnsafeUriPrefix(value: string): string {
       return result;
     }
 
-    result = `${result.slice(0, cursor)}${result.slice(cursor + matchedPrefix.length)}`;
+    let consumedNormalizedChars = 0;
+    let removalEnd = cursor;
+    while (removalEnd < result.length && consumedNormalizedChars < matchedPrefix.length) {
+      if (!isAsciiControlChar(result[removalEnd])) {
+        consumedNormalizedChars++;
+      }
+      removalEnd++;
+    }
+
+    result = `${result.slice(0, cursor)}${result.slice(removalEnd)}`;
   }
 }
 
@@ -217,6 +248,9 @@ function sanitizeSafeTag(rawTag: string): string {
       }
     }
 
+    // Known limitation: this text-level sanitizer does not decode HTML entities,
+    // so entity-encoded attribute names/values may bypass these checks.
+    // A full fix requires entity decoding or a DOM-based parser.
     if (!ALLOWED_ATTRIBUTES.has(lowerAttrName)) continue;
 
     let sanitizedValue = value;

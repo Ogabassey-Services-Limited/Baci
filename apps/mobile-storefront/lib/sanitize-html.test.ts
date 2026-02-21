@@ -95,6 +95,16 @@ describe('sanitizeHtml', () => {
     expect(sanitizeHtml(input)).toBe(expected);
   });
 
+  it('treats control-char-obfuscated URI schemes as dangerous', () => {
+    const input =
+      '<a href="java\tscript:alert(1)">Link</a><img src="da\nta:text/html,pwn"/>';
+    const result = sanitizeHtml(input);
+    expect(result).toContain('href="alert(1)"');
+    expect(result).toContain('src="text/html,pwn"');
+    expect(result).not.toContain('java\tscript:');
+    expect(result).not.toContain('da\nta:');
+  });
+
   it('sanitizes xlink:href and formaction URI attributes', () => {
     const input =
       '<svg><a xlink:href="javascript:alert(1)">X</a></svg><button formaction="data:text/html,pwn">Submit</button>';
