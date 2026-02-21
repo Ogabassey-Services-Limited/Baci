@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { getClientCsrfToken } from '@/lib/csrf';
+import { buildCsrfHeaders } from '@/lib/csrf';
 
 interface DiscountResult {
   valid: boolean;
@@ -50,14 +50,19 @@ export function DiscountCodeInput({
     const validateCode = async (retry = false): Promise<DiscountResult> => {
       // If retry, refresh CSRF token first
       if (retry) {
-        await fetch('/api/csrf');
+        const csrfResponse = await fetch('/api/csrf');
+        if (!csrfResponse.ok) {
+          throw new Error(
+            `Failed to refresh CSRF token (status ${csrfResponse.status})`
+          );
+        }
       }
 
       const response = await fetch('/api/storefront/discount/validate', {
         method: 'POST',
         headers: {
+          ...buildCsrfHeaders(),
           'Content-Type': 'application/json',
-          'x-csrf-token': getClientCsrfToken() || '',
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -73,6 +78,8 @@ export function DiscountCodeInput({
         if (errorData.error === 'Invalid CSRF token') {
           return validateCode(true);
         }
+
+        return errorData;
       }
 
       return response.json();

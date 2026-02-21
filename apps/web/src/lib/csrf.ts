@@ -3,8 +3,11 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 
-const CSRF_TOKEN_NAME = 'csrf-token';
-const CSRF_HEADER_NAME = 'x-csrf-token';
+const IS_PROD = process.env.NODE_ENV === 'production';
+const PRIMARY_CSRF_TOKEN_NAME = IS_PROD ? '__Host-csrf-token' : 'csrf-token';
+const FALLBACK_CSRF_TOKEN_NAME = IS_PROD ? 'csrf-token' : '__Host-csrf-token';
+export const CSRF_HEADER_NAME = 'x-csrf-token';
+const CSRF_TOKEN_NAMES = [PRIMARY_CSRF_TOKEN_NAME, FALLBACK_CSRF_TOKEN_NAME];
 
 /**
  * Generate a cryptographically secure CSRF token using Web Crypto API
@@ -27,13 +30,24 @@ export async function setCsrfToken(): Promise<string> {
   const token = generateCsrfToken();
 
   // Store token in regular cookie (accessible to JavaScript)
-  cookieStore.set(CSRF_TOKEN_NAME, token, {
+  cookieStore.set(PRIMARY_CSRF_TOKEN_NAME, token, {
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
+    secure: IS_PROD,
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24, // 24 hours
   });
+
+  // Grace-period compatibility for in-flight sessions still reading legacy names.
+  if (IS_PROD) {
+    cookieStore.set(FALLBACK_CSRF_TOKEN_NAME, token, {
+      httpOnly: false,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+  }
 
   return token;
 }
@@ -45,9 +59,13 @@ export async function setCsrfToken(): Promise<string> {
 export async function getCsrfToken(): Promise<string | null> {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
-  const token = cookieStore.get(CSRF_TOKEN_NAME);
-
-  return token?.value ?? null;
+  for (const name of CSRF_TOKEN_NAMES) {
+    const token = cookieStore.get(name);
+    if (token?.value) {
+      return token.value;
+    }
+  }
+  return null;
 }
 
 /**
@@ -108,15 +126,22 @@ export async function verifyCsrfToken(request: NextRequest): Promise<boolean> {
 
   // Get token from cookie using Edge-compatible request.cookies
   // TODO: Bind CSRF token to a server-side secret (HMAC) for stronger replay resistance.
-  const tokenCookie = request.cookies.get(CSRF_TOKEN_NAME);
+  let cookieToken: string | null = null;
+  for (const name of CSRF_TOKEN_NAMES) {
+    const tokenCookie = request.cookies.get(name);
+    if (tokenCookie?.value) {
+      cookieToken = tokenCookie.value;
+      break;
+    }
+  }
 
-  if (!tokenCookie) {
+  if (!cookieToken) {
     console.warn('CSRF: Missing token cookie');
     return false;
   }
 
   // Verify header token matches cookie token (constant-time)
-  return await timingSafeEqual(headerToken, tokenCookie.value);
+  return await timingSafeEqual(headerToken, cookieToken);
 }
 
 /**
@@ -172,13 +197,13 @@ export function getClientCsrfToken(): string | null {
   if (typeof document === 'undefined') return null;
 
   const cookies = document.cookie.split(';');
-  const csrfCookie = cookies.find((c) =>
-    c.trim().startsWith(`${CSRF_TOKEN_NAME}=`)
-  );
-
-  if (!csrfCookie) return null;
-
-  return csrfCookie.split('=').slice(1).join('=');
+  for (const name of CSRF_TOKEN_NAMES) {
+    const csrfCookie = cookies.find((c) => c.trim().startsWith(`${name}=`));
+    if (csrfCookie) {
+      return csrfCookie.split('=').slice(1).join('=');
+    }
+  }
+  return null;
 }
 
 /**
@@ -207,9 +232,13 @@ export function buildCsrfHeaders(
 
   // Add CSRF token if available
   const csrfToken = getClientCsrfToken();
-  if (csrfToken) {
+  const hasCsrfHeader = Object.keys(headers).some(
+    (key) => key.toLowerCase() === CSRF_HEADER_NAME
+  );
+
+  if (csrfToken && !hasCsrfHeader) {
     headers[CSRF_HEADER_NAME] = csrfToken;
-  } else if (typeof document !== 'undefined') {
+  } else if (!hasCsrfHeader && typeof document !== 'undefined') {
     console.warn(
       `[CSRF] Missing ${CSRF_HEADER_NAME} cookie. State-changing requests may be rejected with 403. Refresh the page to obtain a new token.`
     );

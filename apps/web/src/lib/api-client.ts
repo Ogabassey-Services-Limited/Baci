@@ -1,7 +1,7 @@
 // Client-side API helper with CSRF protection
 // Use this for all API calls that modify data
 
-import { getClientCsrfToken } from '@/lib/csrf';
+import { CSRF_HEADER_NAME, getClientCsrfToken } from '@/lib/csrf';
 
 /**
  * Fetch with CSRF protection
@@ -20,7 +20,13 @@ export function fetchWithCsrf(
   const headers = new Headers(options.headers);
 
   if (needsCsrf && csrfToken) {
-    headers.set('x-csrf-token', csrfToken);
+    headers.set(CSRF_HEADER_NAME, csrfToken);
+  }
+
+  if (needsCsrf && !csrfToken) {
+    console.warn(
+      `[CSRF] Missing csrfToken; ${CSRF_HEADER_NAME} header will not be sent. State-changing requests may fail with 403.`
+    );
   }
 
   // Always set content-type for JSON requests
