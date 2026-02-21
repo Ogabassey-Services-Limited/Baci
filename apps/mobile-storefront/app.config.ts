@@ -1,10 +1,28 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
-const parsedAndroidVersionCode = Number(process.env.ANDROID_VERSION_CODE);
-const androidVersionCode =
-  Number.isInteger(parsedAndroidVersionCode) && parsedAndroidVersionCode > 0
-    ? parsedAndroidVersionCode
-    : undefined;
+const rawAndroidVersionCode = process.env.ANDROID_VERSION_CODE;
+const parsedAndroidVersionCode =
+  rawAndroidVersionCode === undefined ? undefined : Number(rawAndroidVersionCode);
+
+let androidVersionCode: number | undefined;
+
+if (rawAndroidVersionCode !== undefined) {
+  if (!Number.isInteger(parsedAndroidVersionCode)) {
+    console.warn(
+      `[app.config] Ignoring ANDROID_VERSION_CODE="${rawAndroidVersionCode}" because it is not an integer.`
+    );
+  } else if (parsedAndroidVersionCode <= 0) {
+    console.warn(
+      `[app.config] Ignoring ANDROID_VERSION_CODE="${rawAndroidVersionCode}" because it must be greater than 0.`
+    );
+  } else if (parsedAndroidVersionCode > 2_100_000_000) {
+    console.warn(
+      `[app.config] Ignoring ANDROID_VERSION_CODE="${rawAndroidVersionCode}" because it exceeds 2100000000.`
+    );
+  } else {
+    androidVersionCode = parsedAndroidVersionCode;
+  }
+}
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,

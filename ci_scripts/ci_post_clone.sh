@@ -29,6 +29,8 @@ resolve_app_dir() {
       ;;
   esac
 
+  # CI_PRODUCT is not guaranteed to contain repository paths in Xcode Cloud.
+  # Treat this as a best-effort fallback only; scheme routing above is authoritative.
   case "${CI_PRODUCT:-}" in
     *mobile-admin*)
       printf 'apps/mobile-admin\n'
@@ -52,6 +54,22 @@ assert_command() {
   fi
 }
 
+install_node_if_missing() {
+  if command -v node >/dev/null 2>&1; then
+    echo "info: node already available at '$(command -v node)'"
+    return
+  fi
+
+  echo "info: node not found — installing via Homebrew"
+  assert_command brew
+  brew install node
+  brew_prefix="$(brew --prefix)"
+  PATH="$brew_prefix/bin:$PATH"
+  export PATH
+  assert_command node
+  echo "info: Installed node $(node --version)"
+}
+
 repo_root="$(resolve_repo_root)"
 app_dir="$(resolve_app_dir "${1:-}")"
 ios_dir="$repo_root/$app_dir/ios"
@@ -64,6 +82,7 @@ fi
 echo "info: Xcode Cloud bootstrap for '$app_dir'"
 echo "info: Repository root '$repo_root'"
 
+install_node_if_missing
 assert_command node
 assert_command corepack
 assert_command pod
@@ -73,13 +92,15 @@ echo "info: Using node at '$node_bin'"
 
 cd "$repo_root"
 corepack enable
-corepack prepare pnpm@10.28.0 --activate
+pnpm_spec="$(node -p "const pm=require('./package.json').packageManager || ''; if (!pm.startsWith('pnpm@')) { throw new Error('packageManager must start with pnpm@'); } pm")"
+corepack prepare "$pnpm_spec" --activate
 pnpm install --frozen-lockfile
 
-printf 'export NODE_BINARY=%s\n' "$node_bin" > "$ios_dir/.xcode.env.local"
+escaped_node_bin="$(printf '%s' "$node_bin" | sed "s/'/'\"'\"'/g")"
+printf "export NODE_BINARY='%s'\n" "$escaped_node_bin" > "$ios_dir/.xcode.env.local"
 echo "info: Wrote '$ios_dir/.xcode.env.local'"
 
 cd "$ios_dir"
-pod install
+pod install --no-repo-update --deployment
 
 echo "info: CocoaPods installation finished for '$app_dir'"

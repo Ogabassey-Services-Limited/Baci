@@ -2,8 +2,9 @@
 -- Created: 2026-02-21
 -- Description: Replaces two synchronous net.http_post() triggers that consume 53.5%
 --   of total database execution time (3m50s / 10,809 calls). The staff invite trigger
---   gets error handling and a timeout. The negotiation trigger replaces the HTTP
---   round-trip with pg_notify() since the edge function only broadcasts via Realtime.
+--   gets error handling, auth headers, and a timeout. The negotiation trigger keeps
+--   DB-side logic minimal so Supabase Realtime clients can rely on WAL-based
+--   postgres_changes events.
 --
 -- Rollback instructions:
 --   To revert to the original triggers, re-run the original migration SQL from:
@@ -13,6 +14,7 @@
 --     DROP TRIGGER IF EXISTS on_staff_invite ON public.staff_members;
 --     DROP FUNCTION IF EXISTS public.handle_new_staff_invite();
 --     DROP TRIGGER IF EXISTS on_negotiation_change ON public.negotiation_requests;
+--     DROP TRIGGER IF EXISTS on_negotiation_change_status ON public.negotiation_requests;
 --     DROP FUNCTION IF EXISTS public.handle_negotiation_update();
 --   Then recreate the original functions and triggers from those migration files.
 
@@ -34,13 +36,23 @@ SECURITY DEFINER
 SET search_path = public, extensions
 AS $$
 DECLARE
-  project_url text := 'https://aivqthbxdshhltbwipbr.supabase.co';
+  project_url text := nullif(current_setting('app.project_url', true), '');
+  service_role_key text := nullif(current_setting('app.settings.service_role_key', true), '');
   function_name text := 'send-staff-invite';
   payload jsonb;
+  request_id bigint;
 BEGIN
+  IF project_url IS NULL THEN
+    RAISE EXCEPTION 'Missing required setting app.project_url for handle_new_staff_invite';
+  END IF;
+
+  IF service_role_key IS NULL THEN
+    RAISE EXCEPTION 'Missing required setting app.settings.service_role_key for handle_new_staff_invite';
+  END IF;
+
   -- Construct the payload
   payload := jsonb_build_object(
-    'type', 'INSERT',
+    'type', TG_OP,
     'table', 'staff_members',
     'record', row_to_json(NEW),
     'schema', 'public'
@@ -50,17 +62,29 @@ BEGIN
   -- The timeout prevents this trigger from blocking the transaction
   -- if the edge function is slow or unreachable.
   BEGIN
-    PERFORM net.http_post(
+    SELECT net.http_post(
       url := project_url || '/functions/v1/' || function_name,
       headers := jsonb_build_object(
-        'Content-Type', 'application/json'
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || service_role_key
       ),
       body := payload,
       timeout_milliseconds := 5000
+    ) INTO request_id;
+
+    -- Correlate async pg_net responses via net._http_response by request_id.
+    PERFORM pg_notify(
+      'staff_invite_request_ids',
+      jsonb_build_object(
+        'request_id', request_id,
+        'staff_member_id', NEW.id,
+        'operation', TG_OP
+      )::text
     );
   EXCEPTION WHEN OTHERS THEN
-    -- Log the error but do NOT block the INSERT transaction.
-    -- Staff invite emails can be retried manually if the edge function fails.
+    -- This catches enqueue-time failures only; downstream HTTP status failures
+    -- happen asynchronously in net._http_response.
+    -- Log the error but do NOT block the transaction.
     RAISE WARNING 'handle_new_staff_invite: net.http_post failed — %: %',
       SQLSTATE, SQLERRM;
   END;
@@ -77,20 +101,18 @@ CREATE TRIGGER on_staff_invite
 
 
 -- =============================================================================
--- 2. NEGOTIATION TRIGGER — Replace HTTP call with pg_notify()
+-- 2. NEGOTIATION TRIGGER — Keep DB-side logic minimal for WAL-based Realtime
 -- =============================================================================
 
 -- Drop existing trigger first
 DROP TRIGGER IF EXISTS on_negotiation_change ON public.negotiation_requests;
+DROP TRIGGER IF EXISTS on_negotiation_change_status ON public.negotiation_requests;
 
 -- Drop existing function
 DROP FUNCTION IF EXISTS public.handle_negotiation_update();
 
--- Recreate using pg_notify instead of net.http_post.
--- The original edge function only sent a Supabase Realtime broadcast.
--- pg_notify achieves the same result without an HTTP round-trip, eliminating
--- the performance bottleneck entirely. Application code listening on the
--- 'negotiation_updates' channel will receive these notifications.
+-- Keep DB-side logic minimal. Supabase Realtime postgres_changes subscriptions
+-- are driven by WAL replication from negotiation_requests changes.
 CREATE OR REPLACE FUNCTION public.handle_negotiation_update()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -98,22 +120,18 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  PERFORM pg_notify(
-    'negotiation_updates',
-    json_build_object(
-      'merchant_id', NEW.merchant_id,
-      'id', NEW.id,
-      'status', NEW.status,
-      'type', TG_OP
-    )::text
-  );
-
   RETURN NEW;
 END;
 $$;
 
--- Recreate the trigger with the same conditions as the original
+-- Recreate triggers so the function runs on inserts and on status changes only.
 CREATE TRIGGER on_negotiation_change
-  AFTER INSERT OR UPDATE ON public.negotiation_requests
+  AFTER INSERT ON public.negotiation_requests
   FOR EACH ROW
+  EXECUTE FUNCTION public.handle_negotiation_update();
+
+CREATE TRIGGER on_negotiation_change_status
+  AFTER UPDATE OF status ON public.negotiation_requests
+  FOR EACH ROW
+  WHEN (NEW.status IS DISTINCT FROM OLD.status)
   EXECUTE FUNCTION public.handle_negotiation_update();

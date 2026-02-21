@@ -7,7 +7,11 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const rawQuery = searchParams.get('q');
   const merchantId = searchParams.get('merchant_id');
-  const limit = Number.parseInt(searchParams.get('limit') || '10', 10);
+  const rawLimit = searchParams.get('limit');
+  const parsedLimit = rawLimit ? Number.parseInt(rawLimit, 10) : 10;
+  const limit = Number.isNaN(parsedLimit)
+    ? 10
+    : Math.min(100, Math.max(1, parsedLimit));
 
   if (!rawQuery || !merchantId) {
     return NextResponse.json(

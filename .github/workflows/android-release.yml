@@ -2,13 +2,10 @@ name: Android Production Release
 
 on:
   push:
-    branches:
-      - main
+    # Keep automated production releases tag-gated.
+    # Note: GitHub evaluates `paths` only for branch pushes, not tag pushes.
     tags:
       - 'v*-admin'
-    paths:
-      - 'apps/mobile-admin/**'
-      - '.github/workflows/android-release.yml'
   workflow_dispatch:
     inputs:
       version_code:
@@ -87,18 +84,23 @@ jobs:
       - name: Resolve version code
         id: version
         shell: bash
+        env:
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_REF_TYPE: ${{ github.ref_type }}
+          GH_RUN_NUMBER: ${{ github.run_number }}
+          INPUT_VERSION_CODE: ${{ inputs.version_code }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version_code }}" ]; then
-            VERSION_CODE="${{ inputs.version_code }}"
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
+          if [ "$GH_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_VERSION_CODE" ]; then
+            VERSION_CODE="$INPUT_VERSION_CODE"
+          elif [ "$GH_REF_TYPE" = "tag" ]; then
             VERSION_CODE="${GITHUB_REF_NAME#v}"
             VERSION_CODE="${VERSION_CODE%-admin}"
           else
-            VERSION_CODE="${{ github.run_number }}"
+            VERSION_CODE="$GH_RUN_NUMBER"
           fi
 
-          if ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
-            echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer."
+          if ! [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer (>=1)."
             exit 1
           fi
 
@@ -145,14 +147,15 @@ jobs:
           path: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 7
 
-      - name: Upload to Google Play (full production rollout)
+      - name: Upload to Google Play (staged rollout)
         uses: r0adkll/upload-google-play@935ef9c68bb393a8e6116b1575626a7f5be3a7fb # v1.1.3
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.ogabassey.baci
           releaseFiles: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
           track: production
-          status: completed
+          status: inProgress
+          userFraction: 0.1
 
       - name: Clean up keystore
         if: always()
