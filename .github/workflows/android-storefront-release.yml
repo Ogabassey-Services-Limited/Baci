@@ -1,31 +1,34 @@
-name: Android Production Release
+name: Android Storefront Production Release
 
 on:
   push:
     tags:
-      - 'v*-admin'
+      - "v*-storefront"
+    paths:
+      - "apps/mobile-storefront/**"
+      - ".github/workflows/android-storefront-release.yml"
   workflow_dispatch:
     inputs:
       version_code:
-        description: 'Version code override (leave empty for auto)'
-        required: false
+        description: "Play Store version code (must be higher than current production)"
+        required: true
         type: string
 
 concurrency:
-  group: android-release-${{ github.ref }}
+  group: android-storefront-release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 env:
-  JAVA_VERSION: '17'
-  NODE_VERSION: '22'
-  WORKING_DIR: apps/mobile-admin
+  JAVA_VERSION: "17"
+  NODE_VERSION: "22"
+  WORKING_DIR: apps/mobile-storefront
 
 jobs:
   build-and-deploy:
-    name: Build AAB & Upload to Play Store
+    name: Build Storefront AAB & Upload to Play Store
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -85,22 +88,34 @@ jobs:
         env:
           INPUT_VERSION_CODE: ${{ inputs.version_code }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "$INPUT_VERSION_CODE" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION_CODE="$INPUT_VERSION_CODE"
           elif [ "${{ github.ref_type }}" = "tag" ]; then
             VERSION_CODE="${GITHUB_REF_NAME#v}"
-            VERSION_CODE="${VERSION_CODE%-admin}"
+            VERSION_CODE="${VERSION_CODE%-storefront}"
           else
             VERSION_CODE="${{ github.run_number }}"
           fi
 
           if ! [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer (>=1)."
+            echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer."
             exit 1
           fi
 
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Android project via Expo prebuild
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          CI: "1"
+          ANDROID_VERSION_CODE: ${{ env.VERSION_CODE }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
+          EXPO_PUBLIC_API_URL: https://usebaci.com
+          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+        run: pnpm exec expo prebuild --platform android --clean
 
       - name: Decode keystore
         working-directory: ${{ env.WORKING_DIR }}
@@ -113,31 +128,45 @@ jobs:
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
 
-      - name: Build Android App Bundle
+      - name: Configure release signing
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          cat > android/app/signing-config.gradle <<'EOF'
+          android {
+            signingConfigs {
+              release {
+                storeFile file(System.getenv("ANDROID_KEYSTORE_FILE"))
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+              }
+            }
+            buildTypes {
+              release {
+                signingConfig signingConfigs.release
+              }
+            }
+          }
+          EOF
+
+          echo "apply from: './signing-config.gradle'" >> android/app/build.gradle
+
+      - name: Build Android App Bundle (storefront)
         working-directory: ${{ env.WORKING_DIR }}/android
         env:
           ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/${{ env.WORKING_DIR }}/android/app/release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
-          EXPO_PUBLIC_API_URL: https://usebaci.com
-          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
-          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
-          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
-          EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID: ${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}
         run: |
           GRADLE_ARGS="app:bundleRelease -x lint -x test --configure-on-demand --build-cache --no-daemon"
-          GRADLE_ARGS="$GRADLE_ARGS -PversionCode=$VERSION_CODE"
           # shellcheck disable=SC2086
           ./gradlew $GRADLE_ARGS
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: app-release-${{ github.sha }}
+          name: storefront-app-release-${{ github.sha }}
           path: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 7
 
@@ -145,7 +174,7 @@ jobs:
         uses: r0adkll/upload-google-play@935ef9c68bb393a8e6116b1575626a7f5be3a7fb # v1.1.3
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.ogabassey.baci
+          packageName: com.ogabassey.store
           releaseFiles: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
           track: production
           status: inProgress
