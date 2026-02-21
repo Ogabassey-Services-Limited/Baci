@@ -55,6 +55,12 @@ describe('sanitizeHtml', () => {
     expect(sanitizeHtml(input)).toBe(expected);
   });
 
+  it('removes self-closing dangerous tags without whitespace before />', () => {
+    const input = '<p>Text</p><embed/><input/><p>More</p>';
+    const expected = '<p>Text</p><p>More</p>';
+    expect(sanitizeHtml(input)).toBe(expected);
+  });
+
   it('removes <form> tags with content', () => {
     const input =
       '<div>Safe</div><form action="/steal"><input type="text"/></form><div>End</div>';
@@ -83,18 +89,51 @@ describe('sanitizeHtml', () => {
     expect(sanitizeHtml(input)).toBe(expected);
   });
 
-  it('handles iterative stripping for nested evasion', () => {
-    // After first pass: <scr<script>ipt>alert(1)</scr</script>ipt> becomes <script>alert(1)</script>
-    // After second pass: <script>alert(1)</script> becomes empty
-    const input = '<scr<script>ipt>alert(1)</scr</script>ipt>';
-    const expected = '';
+  it('removes repeated unsafe URI prefixes', () => {
+    const input = '<a href="javascript:javascript:alert(1)">Link</a>';
+    const expected = '<a href="alert(1)">Link</a>';
     expect(sanitizeHtml(input)).toBe(expected);
+  });
+
+  it('treats control-char-obfuscated URI schemes as dangerous', () => {
+    const input =
+      '<a href="java\tscript:alert(1)">Link</a><img src="da\nta:text/html,pwn"/>';
+    const result = sanitizeHtml(input);
+    expect(result).toContain('href="alert(1)"');
+    expect(result).toContain('src="text/html,pwn"');
+    expect(result).not.toContain('java\tscript:');
+    expect(result).not.toContain('da\nta:');
+  });
+
+  it('sanitizes xlink:href and formaction URI attributes', () => {
+    const input =
+      '<svg><a xlink:href="javascript:alert(1)">X</a></svg><button formaction="data:text/html,pwn">Submit</button>';
+    const result = sanitizeHtml(input);
+    expect(result).toContain('xlink:href="alert(1)"');
+    expect(result).toContain('formaction="text/html,pwn"');
+  });
+
+  it('handles iterative stripping for nested evasion', () => {
+    // Nested reconstruction payloads should not survive as executable tags.
+    const input = '<scr<script>ipt>alert(1)</scr</script>ipt>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('<script');
+    expect(result).not.toContain('</script');
   });
 
   it('handles closing tags with whitespace', () => {
     const input = '<script>alert(1)</script ><iframe>bad</iframe   >';
     const expected = '';
     expect(sanitizeHtml(input)).toBe(expected);
+  });
+
+  it('handles non-space whitespace between < and dangerous tag names', () => {
+    const input =
+      '<\tscript>alert(1)</script><\nstyle>body{display:none}</style><p>Safe</p>';
+    const result = sanitizeHtml(input);
+    expect(result).not.toContain('<script');
+    expect(result).not.toContain('<style');
+    expect(result).toContain('<p>Safe</p>');
   });
 
   it('preserves safe HTML elements', () => {
