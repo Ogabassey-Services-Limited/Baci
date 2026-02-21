@@ -1,81 +1,130 @@
-// Consolidated dangerous-tag stripping avoids fragmented multi-character
-// replacements that static analyzers often flag as incomplete.
-const DANGEROUS_BLOCK_RE =
-  /<(?:script|style|iframe|object|form)\b[\s\S]*?<\/(?:script|style|iframe|object|form)\b[^>]*>/gi;
-const DANGEROUS_SINGLE_RE = /<(?:embed|input)\b[^>]*\/?>/gi;
 const EVENT_RE = /\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi;
 const JS_PROTO_RE = /javascript\s*:/gi;
 const DATA_URI_RE =
   /(?:href|src)\s*=\s*(?:"data:[^"]*"|'data:[^']*'|data:[^\s>]+)/gi;
+const DANGEROUS_BLOCK_TAGS = new Set(['script', 'style', 'iframe', 'object', 'form']);
+const DANGEROUS_SINGLE_TAGS = new Set(['embed', 'input']);
+const DANGEROUS_TAGS = new Set([...DANGEROUS_BLOCK_TAGS, ...DANGEROUS_SINGLE_TAGS]);
+
+function isTagNameChar(char: string | undefined): boolean {
+  if (!char) return false;
+  const code = char.charCodeAt(0);
+  return (code >= 48 && code <= 57) || (code >= 97 && code <= 122) || char === '-';
+}
+
+function findTagEnd(input: string, start: number): number {
+  const end = input.indexOf('>', start);
+  return end === -1 ? input.length : end + 1;
+}
+
+function parseDangerousTagAt(input: string, start: number): {
+  isClosing: boolean;
+  name: string;
+  tagEnd: number;
+} | null {
+  if (input[start] !== '<') return null;
+
+  let cursor = start + 1;
+  while (input[cursor] === ' ') cursor++;
+
+  let isClosing = false;
+  if (input[cursor] === '/') {
+    isClosing = true;
+    cursor++;
+    while (input[cursor] === ' ') cursor++;
+  }
+
+  const nameStart = cursor;
+  while (isTagNameChar(input[cursor])) cursor++;
+  if (cursor === nameStart) return null;
+
+  const name = input.slice(nameStart, cursor);
+  if (!DANGEROUS_TAGS.has(name)) return null;
+
+  return { isClosing, name, tagEnd: findTagEnd(input, cursor) };
+}
+
+function findClosingDangerousTagEnd(
+  input: string,
+  tagName: string,
+  searchStart: number
+): number {
+  let cursor = searchStart;
+  while (cursor < input.length) {
+    const open = input.indexOf('<', cursor);
+    if (open === -1) return searchStart;
+
+    let nameStart = open + 1;
+    while (input[nameStart] === ' ') nameStart++;
+    if (input[nameStart] !== '/') {
+      cursor = open + 1;
+      continue;
+    }
+
+    nameStart++;
+    while (input[nameStart] === ' ') nameStart++;
+    if (!input.startsWith(tagName, nameStart)) {
+      cursor = open + 1;
+      continue;
+    }
+
+    const afterName = nameStart + tagName.length;
+    if (isTagNameChar(input[afterName])) {
+      cursor = open + 1;
+      continue;
+    }
+
+    return findTagEnd(input, afterName);
+  }
+
+  return searchStart;
+}
+
+function stripDangerousTags(input: string): string {
+  const lower = input.toLowerCase();
+  const out: string[] = [];
+  let cursor = 0;
+
+  while (cursor < input.length) {
+    if (input[cursor] !== '<') {
+      out.push(input[cursor]);
+      cursor++;
+      continue;
+    }
+
+    const parsed = parseDangerousTagAt(lower, cursor);
+    if (!parsed) {
+      out.push(input[cursor]);
+      cursor++;
+      continue;
+    }
+
+    if (parsed.isClosing || DANGEROUS_SINGLE_TAGS.has(parsed.name)) {
+      cursor = parsed.tagEnd;
+      continue;
+    }
+
+    cursor = findClosingDangerousTagEnd(lower, parsed.name, parsed.tagEnd);
+  }
+
+  return out.join('');
+}
 
 export function sanitizeHtml(html: string): string {
   if (!html) return '';
 
   // Iterative stripping: re-run until no more dangerous tags remain.
   // A single pass can be bypassed via nested-tag reconstruction (e.g. <scr<script>ipt>).
-  let result = html;
+  let result = stripDangerousTags(html);
   let prev = '';
   while (result !== prev) {
     prev = result;
-    result = result
-      .replace(DANGEROUS_BLOCK_RE, '')
-      .replace(DANGEROUS_SINGLE_RE, '')
+    result = stripDangerousTags(result)
       .replace(EVENT_RE, '')
       .replace(JS_PROTO_RE, '')
       .replace(DATA_URI_RE, '')
-      // Hardening: catch any remaining dangerous opening/closing/self-closing
-      // tags that the pair-matching patterns above may have missed (e.g. orphaned
-      // opening tags without a matching close)
-      .replace(
-        /<\s*\/?\s*(?:script|style|iframe|object|embed|form|input)\b[^>]*>/gi,
-        ''
-      )
-      // Final hardening: strip any residual starts of dangerous tags,
-      // even if they are malformed or truncated (e.g. just "<script")
-      .replace(/<\s*(?:script|style|iframe|object|embed|form|input)\b/gi, '')
-      // Normalize leftover whitespace before > from stripped attributes,
-      // but skip dangerous tag names to avoid reconstructing stripped tags.
-      .replace(
-        /<(?!script\b|style\b|iframe\b|object\b|embed\b|form\b|input\b)(\w+)\s+>/gi,
-        '<$1>'
-      );
+      .replace(/<(\w+)\s+>/gi, '<$1>');
+    result = stripDangerousTags(result);
   }
-  // Post-loop absolute hardening: character-level scan that drops any "<"
-  // introducing a dangerous tag name. Avoids multi-character regex replacement
-  // so static analysis (CodeQL) cannot flag incomplete sanitization.
-  const dangerous = [
-    'script',
-    'style',
-    'iframe',
-    'object',
-    'embed',
-    'form',
-    'input',
-  ];
-  const lower = result.toLowerCase();
-  const outParts: string[] = [];
-  let i = 0;
-  while (i < result.length) {
-    if (result[i] === '<') {
-      let j = i + 1;
-      while (j < lower.length && lower[j] === ' ') j++;
-      let matched = false;
-      for (const name of dangerous) {
-        if (lower.startsWith(name, j)) {
-          const k = j + name.length;
-          if (k >= lower.length || !/[a-z0-9-]/.test(lower[k])) {
-            matched = true;
-            break;
-          }
-        }
-      }
-      if (matched) {
-        i++;
-        continue;
-      }
-    }
-    outParts.push(result[i]);
-    i++;
-  }
-  return outParts.join('');
+  return result;
 }
