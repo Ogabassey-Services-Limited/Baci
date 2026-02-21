@@ -108,6 +108,7 @@ install_node_if_missing() {
 
   echo "info: node not found — installing via Homebrew"
   assert_command brew
+  export HOMEBREW_NO_AUTO_UPDATE="${HOMEBREW_NO_AUTO_UPDATE:-1}"
   brew_formula="node@$required_major"
   if brew info "$brew_formula" >/dev/null 2>&1; then
     brew install "$brew_formula"
@@ -153,9 +154,22 @@ printf "export NODE_BINARY='%s'\n" "$escaped_node_bin" > "$ios_dir/.xcode.env.lo
 echo "info: Wrote '$ios_dir/.xcode.env.local'"
 
 cd "$ios_dir"
+
+# Xcode Cloud images may ship with a stale or partial CocoaPods trunk repo that
+# prevents the CDN source from initialising ("Unable to add a source … named trunk").
+# Removing it lets CocoaPods recreate it cleanly on the next run.
+trunk_repo="${HOME}/.cocoapods/repos/trunk"
+if [ -d "$trunk_repo" ]; then
+  echo "info: Removing stale CocoaPods trunk repo at '$trunk_repo'"
+  rm -rf "$trunk_repo"
+fi
+
 if [ "${CI_POD_ALLOW_REPO_UPDATE:-0}" = "1" ]; then
   echo "info: Running pod install with repo updates enabled."
-  pod install --deployment --repo-update
+  if ! pod install --deployment --repo-update; then
+    echo "warning: pod install with --repo-update failed; retrying without repo update."
+    pod install --no-repo-update --deployment
+  fi
 else
   pod install --no-repo-update --deployment
 fi
