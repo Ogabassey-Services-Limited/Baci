@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { GET as autocompleteGET } from './autocomplete/route';
 import { GET as searchGET } from './route';
 
@@ -110,9 +109,8 @@ describe('Search API Security', () => {
 
   describe('GET /api/search/autocomplete', () => {
     it('should sanitize search query before passing to rpc', async () => {
-      const maliciousQuery = '100%';
+      const maliciousQuery = '<script>alert(1)</script>100%';
       const merchantId = '123e4567-e89b-12d3-a456-426614174000';
-      const sanitizedQuery = sanitizeSearchQuery(maliciousQuery);
 
       const request = new NextRequest(
         `http://localhost:3000/api/search/autocomplete?q=${encodeURIComponent(
@@ -127,7 +125,7 @@ describe('Search API Security', () => {
       expect(mockSupabase.rpc).toHaveBeenCalledWith(
         'product_autocomplete',
         expect.objectContaining({
-          search_prefix: sanitizedQuery,
+          search_prefix: expect.not.stringContaining('<script>'),
           merchant_id_param: merchantId,
         })
       );

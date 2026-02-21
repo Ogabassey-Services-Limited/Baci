@@ -103,6 +103,10 @@ jobs:
             echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer (>=1)."
             exit 1
           fi
+          if [ "$VERSION_CODE" -gt 2147483647 ]; then
+            echo "::error::Invalid version code '$VERSION_CODE'. Must be a positive integer <= 2147483647."
+            exit 1
+          fi
 
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"

@@ -2,7 +2,9 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 const rawAndroidVersionCode = process.env.ANDROID_VERSION_CODE;
 const parsedAndroidVersionCode =
-  rawAndroidVersionCode === undefined ? undefined : Number(rawAndroidVersionCode);
+  rawAndroidVersionCode === undefined
+    ? undefined
+    : Number(rawAndroidVersionCode);
 
 let androidVersionCode: number | undefined;
 
@@ -62,7 +64,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
   },
   android: {
-    ...(androidVersionCode ? { versionCode: androidVersionCode } : {}),
+    ...(androidVersionCode !== undefined
+      ? { versionCode: androidVersionCode }
+      : {}),
     package: 'com.ogabassey.store',
     scheme: 'ogabassey', // Ensure scheme is explicitly set for Android
     googleServicesFile: './google-services.json',

@@ -183,7 +183,7 @@ jobs:
           releaseFiles: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
           track: production
           status: inProgress
-          userFraction: 0.05
+          userFraction: 0.1
 
       - name: Clean up keystore
         if: always()

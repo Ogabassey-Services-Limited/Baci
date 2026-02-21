@@ -63,9 +63,9 @@ WITH CHECK ((select auth.uid()) = user_id);
 -- ============================================================================
 
 -- Non-PK unused indexes
-DROP INDEX IF EXISTS idx_merchants_about_page;
-DROP INDEX IF EXISTS idx_products_brand_trgm;
-DROP INDEX IF EXISTS branches_manager_id_idx;
+DROP INDEX IF EXISTS public.idx_merchants_about_page;
+DROP INDEX IF EXISTS public.idx_products_brand_trgm;
+DROP INDEX IF EXISTS public.branches_manager_id_idx;
 
 -- Keep materialized view unique indexes.
 -- REFRESH MATERIALIZED VIEW CONCURRENTLY depends on these unique indexes.
@@ -85,11 +85,11 @@ DROP INDEX IF EXISTS branches_manager_id_idx;
 -- These tables have stale or missing statistics, causing suboptimal query plans.
 -- ============================================================================
 
-ANALYZE staff_members;
-ANALYZE notification_preferences;
-ANALYZE segment_definitions;
-ANALYZE merchant_agents;
-ANALYZE platform_settings;
-ANALYZE role_permissions;
-ANALYZE blog_categories;
-ANALYZE brands;
+ANALYZE public.staff_members;
+ANALYZE public.notification_preferences;
+ANALYZE public.segment_definitions;
+ANALYZE public.merchant_agents;
+ANALYZE public.platform_settings;
+ANALYZE public.role_permissions;
+ANALYZE public.blog_categories;
+ANALYZE public.brands;

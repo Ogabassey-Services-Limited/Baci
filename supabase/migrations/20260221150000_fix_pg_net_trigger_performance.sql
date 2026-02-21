@@ -43,11 +43,13 @@ DECLARE
   request_id bigint;
 BEGIN
   IF project_url IS NULL THEN
-    RAISE EXCEPTION 'Missing required setting app.project_url for handle_new_staff_invite';
+    RAISE WARNING 'Missing required setting app.project_url for handle_new_staff_invite; skipping edge enqueue.';
+    RETURN NEW;
   END IF;
 
   IF service_role_key IS NULL THEN
-    RAISE EXCEPTION 'Missing required setting app.settings.service_role_key for handle_new_staff_invite';
+    RAISE WARNING 'Missing required setting app.settings.service_role_key for handle_new_staff_invite; skipping edge enqueue.';
+    RETURN NEW;
   END IF;
 
   -- Construct the payload
@@ -110,28 +112,3 @@ DROP TRIGGER IF EXISTS on_negotiation_change_status ON public.negotiation_reques
 
 -- Drop existing function
 DROP FUNCTION IF EXISTS public.handle_negotiation_update();
-
--- Keep DB-side logic minimal. Supabase Realtime postgres_changes subscriptions
--- are driven by WAL replication from negotiation_requests changes.
-CREATE OR REPLACE FUNCTION public.handle_negotiation_update()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  RETURN NEW;
-END;
-$$;
-
--- Recreate triggers so the function runs on inserts and on status changes only.
-CREATE TRIGGER on_negotiation_change
-  AFTER INSERT ON public.negotiation_requests
-  FOR EACH ROW
-  EXECUTE FUNCTION public.handle_negotiation_update();
-
-CREATE TRIGGER on_negotiation_change_status
-  AFTER UPDATE OF status ON public.negotiation_requests
-  FOR EACH ROW
-  WHEN (NEW.status IS DISTINCT FROM OLD.status)
-  EXECUTE FUNCTION public.handle_negotiation_update();

@@ -54,16 +54,69 @@ assert_command() {
   fi
 }
 
+resolve_required_node_version() {
+  nvmrc_path="$repo_root/.nvmrc"
+  if [ -f "$nvmrc_path" ]; then
+    required_from_nvmrc="$(tr -d '[:space:]' < "$nvmrc_path")"
+    if [ -n "$required_from_nvmrc" ]; then
+      printf '%s\n' "$required_from_nvmrc"
+      return
+    fi
+  fi
+
+  package_json_path="$repo_root/package.json"
+  if [ -f "$package_json_path" ]; then
+    required_from_engines="$(sed -n 's/^[[:space:]]*"node"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$package_json_path" | head -n 1)"
+    if [ -n "$required_from_engines" ]; then
+      printf '%s\n' "$required_from_engines"
+      return
+    fi
+  fi
+
+  echo "error: Unable to determine required Node.js version from .nvmrc or package.json engines.node." >&2
+  exit 1
+}
+
 install_node_if_missing() {
+  required_node_version="$(resolve_required_node_version)"
+
   if command -v node >/dev/null 2>&1; then
-    echo "info: node already available at '$(command -v node)'"
+    echo "info: node already available at '$(command -v node)' ($(node --version)); required '$required_node_version'"
     return
+  fi
+
+  if [ -s "$HOME/.nvm/nvm.sh" ]; then
+    # shellcheck disable=SC1090
+    . "$HOME/.nvm/nvm.sh"
+  fi
+
+  if command -v nvm >/dev/null 2>&1; then
+    echo "info: node not found — installing '$required_node_version' via nvm"
+    nvm install "$required_node_version"
+    nvm use "$required_node_version"
+    hash -r
+    assert_command node
+    echo "info: Installed node $(node --version)"
+    return
+  fi
+
+  required_major="$(printf '%s\n' "$required_node_version" | sed -E 's/^[^0-9]*([0-9]+).*/\1/')"
+  if [ -z "$required_major" ]; then
+    echo "error: Could not derive Node.js major version from '$required_node_version'." >&2
+    exit 1
   fi
 
   echo "info: node not found — installing via Homebrew"
   assert_command brew
-  brew install node
-  brew_prefix="$(brew --prefix)"
+  brew_formula="node@$required_major"
+  if brew info "$brew_formula" >/dev/null 2>&1; then
+    brew install "$brew_formula"
+    brew_prefix="$(brew --prefix "$brew_formula")"
+  else
+    echo "warning: Homebrew formula '$brew_formula' unavailable. Falling back to 'node'."
+    brew install node
+    brew_prefix="$(brew --prefix)"
+  fi
   PATH="$brew_prefix/bin:$PATH"
   export PATH
   assert_command node
@@ -83,7 +136,6 @@ echo "info: Xcode Cloud bootstrap for '$app_dir'"
 echo "info: Repository root '$repo_root'"
 
 install_node_if_missing
-assert_command node
 assert_command corepack
 assert_command pod
 
@@ -103,7 +155,7 @@ echo "info: Wrote '$ios_dir/.xcode.env.local'"
 cd "$ios_dir"
 if [ "${CI_POD_ALLOW_REPO_UPDATE:-0}" = "1" ]; then
   echo "info: Running pod install with repo updates enabled."
-  pod install
+  pod install --deployment --repo-update
 else
   pod install --no-repo-update --deployment
 fi
