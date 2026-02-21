@@ -4,9 +4,15 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
 const IS_PROD = process.env.NODE_ENV === 'production';
-const CSRF_TOKEN_NAME = IS_PROD ? '__Host-csrf-token' : 'csrf-token';
+const PRIMARY_CSRF_TOKEN_NAME = IS_PROD ? '__Host-csrf-token' : 'csrf-token';
+const FALLBACK_CSRF_TOKEN_NAME = IS_PROD ? 'csrf-token' : '__Host-csrf-token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
-const CSRF_SECRET_NAME = IS_PROD ? '__Host-csrf-secret' : 'csrf-secret';
+const PRIMARY_CSRF_SECRET_NAME = IS_PROD ? '__Host-csrf-secret' : 'csrf-secret';
+const FALLBACK_CSRF_SECRET_NAME = IS_PROD
+  ? 'csrf-secret'
+  : '__Host-csrf-secret';
+
+const CSRF_TOKEN_NAMES = [PRIMARY_CSRF_TOKEN_NAME, FALLBACK_CSRF_TOKEN_NAME];
 
 /**
  * Generate a cryptographically secure CSRF token using Web Crypto API
@@ -39,22 +45,41 @@ export async function setCsrfToken(): Promise<string> {
   const { token, secret } = createCsrfTokenPair();
 
   // Store secret in httpOnly cookie
-  cookieStore.set(CSRF_SECRET_NAME, secret, {
+  cookieStore.set(PRIMARY_CSRF_SECRET_NAME, secret, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: IS_PROD,
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24, // 24 hours
   });
 
   // Store token in regular cookie (accessible to JavaScript)
-  cookieStore.set(CSRF_TOKEN_NAME, token, {
+  cookieStore.set(PRIMARY_CSRF_TOKEN_NAME, token, {
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
+    secure: IS_PROD,
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24, // 24 hours
   });
+
+  // Grace-period compatibility for in-flight sessions still reading legacy names.
+  if (IS_PROD) {
+    cookieStore.set(FALLBACK_CSRF_SECRET_NAME, secret, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+
+    cookieStore.set(FALLBACK_CSRF_TOKEN_NAME, token, {
+      httpOnly: false,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24, // 24 hours
+    });
+  }
 
   return token;
 }
@@ -66,9 +91,13 @@ export async function setCsrfToken(): Promise<string> {
 export async function getCsrfToken(): Promise<string | null> {
   const { cookies } = await import('next/headers');
   const cookieStore = await cookies();
-  const token = cookieStore.get(CSRF_TOKEN_NAME);
-
-  return token?.value ?? null;
+  for (const name of CSRF_TOKEN_NAMES) {
+    const token = cookieStore.get(name);
+    if (token?.value) {
+      return token.value;
+    }
+  }
+  return null;
 }
 
 /**
@@ -117,15 +146,22 @@ export async function verifyCsrfToken(request: NextRequest): Promise<boolean> {
   // Get token from cookie using Edge-compatible request.cookies
   // Note: secretCookie is stored for future HMAC binding but current Double Submit
   // Cookie pattern only validates token matching (header vs cookie)
-  const tokenCookie = request.cookies.get(CSRF_TOKEN_NAME);
+  let cookieToken: string | null = null;
+  for (const name of CSRF_TOKEN_NAMES) {
+    const tokenCookie = request.cookies.get(name);
+    if (tokenCookie?.value) {
+      cookieToken = tokenCookie.value;
+      break;
+    }
+  }
 
-  if (!tokenCookie) {
+  if (!cookieToken) {
     console.warn('CSRF: Missing token cookie');
     return false;
   }
 
   // Verify header token matches cookie token (constant-time)
-  return await timingSafeEqual(headerToken, tokenCookie.value);
+  return await timingSafeEqual(headerToken, cookieToken);
 }
 
 /**
@@ -181,13 +217,13 @@ export function getClientCsrfToken(): string | null {
   if (typeof document === 'undefined') return null;
 
   const cookies = document.cookie.split(';');
-  const csrfCookie = cookies.find((c) =>
-    c.trim().startsWith(`${CSRF_TOKEN_NAME}=`)
-  );
-
-  if (!csrfCookie) return null;
-
-  return csrfCookie.split('=').slice(1).join('=');
+  for (const name of CSRF_TOKEN_NAMES) {
+    const csrfCookie = cookies.find((c) => c.trim().startsWith(`${name}=`));
+    if (csrfCookie) {
+      return csrfCookie.split('=').slice(1).join('=');
+    }
+  }
+  return null;
 }
 
 /**

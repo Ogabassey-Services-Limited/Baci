@@ -8,11 +8,14 @@ function getCsrfToken(): string | null {
   if (typeof document === 'undefined') return null;
 
   const cookies = document.cookie.split(';');
-  const csrfCookie = cookies.find((c) => c.trim().startsWith('csrf-token='));
+  for (const name of ['__Host-csrf-token', 'csrf-token']) {
+    const csrfCookie = cookies.find((c) => c.trim().startsWith(`${name}=`));
+    if (csrfCookie) {
+      return csrfCookie.split('=').slice(1).join('=');
+    }
+  }
 
-  if (!csrfCookie) return null;
-
-  return csrfCookie.split('=')[1];
+  return null;
 }
 
 /**

@@ -11,9 +11,13 @@ import { useToast } from '@/hooks/use-toast';
 function getCsrfToken(): string | null {
   if (typeof document === 'undefined') return null;
   const cookies = document.cookie.split(';');
-  const csrfCookie = cookies.find((c) => c.trim().startsWith('csrf-token='));
-  if (!csrfCookie) return null;
-  return csrfCookie.split('=')[1];
+  for (const name of ['__Host-csrf-token', 'csrf-token']) {
+    const csrfCookie = cookies.find((c) => c.trim().startsWith(`${name}=`));
+    if (csrfCookie) {
+      return csrfCookie.split('=').slice(1).join('=');
+    }
+  }
+  return null;
 }
 
 interface DiscountResult {
