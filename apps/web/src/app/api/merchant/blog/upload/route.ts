@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
     if (uploadError) {
       console.error('Upload error:', uploadError);
       return NextResponse.json(
-        { error: 'Failed to upload file' },
+        { error: 'Failed to upload file', code: 'UPLOAD_FAILED' },
         { status: 500 }
       );
     }
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error uploading blog image:', error);
     return NextResponse.json(
-      { error: 'Failed to upload image' },
+      { error: 'Failed to upload image', code: 'UPLOAD_EXCEPTION' },
       { status: 500 }
     );
   }

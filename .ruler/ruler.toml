@@ -1,0 +1,31 @@
+# Ruler Configuration — Baci E-commerce Platform
+# Generates CLAUDE.md, GEMINI.md, AGENTS.md, and .codex/ from .ruler/ source files.
+
+default_agents = ["claude", "gemini-cli", "antigravity", "codex", "copilot"]
+
+[agents.claude]
+enabled = true
+output_path = "CLAUDE.md"
+
+[agents.gemini-cli]
+enabled = true
+
+[agents.antigravity]
+enabled = true
+
+[agents.codex]
+enabled = true
+
+[agents.copilot]
+enabled = true
+
+# MCP Servers — distributed to tools that support MCP config
+[mcp_servers.supabase]
+command = "/usr/local/bin/npx"
+args = ["-y", "supabase-mcp"]
+env = { SUPABASE_ACCESS_TOKEN = "${SUPABASE_ACCESS_TOKEN}", SUPABASE_URL = "${SUPABASE_URL}", SUPABASE_ANON_KEY = "${SUPABASE_ANON_KEY}" }
+
+[mcp_servers.context7]
+command = "/usr/local/bin/npx"
+args = ["-y", "@upstash/context7-mcp"]
+env = { CONTEXT7_API_KEY = "${CONTEXT7_API_KEY}", CONTEXT7_API_URL = "https://context7.com/api/v1" }

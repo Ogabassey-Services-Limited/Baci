@@ -1,4 +1,0 @@
-
-> @baci/shared@0.0.1 typecheck /app/packages/shared
-> tsc --noEmit
-
