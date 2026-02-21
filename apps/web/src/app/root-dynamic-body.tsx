@@ -7,15 +7,86 @@ import { Toaster } from '@/components/ui/toaster';
 import { NonceProvider } from '@/contexts/NonceProvider';
 import { Providers } from '@/contexts/providers';
 
+const NON_STOREFRONT_TOP_LEVEL_SEGMENTS = new Set([
+  'about',
+  'actions',
+  'admin',
+  'api',
+  'auth',
+  'blog',
+  'builder',
+  'cart',
+  'checkout',
+  'contact',
+  'dashboard',
+  'debug-auth',
+  'demo',
+  'developers',
+  'features',
+  'invite',
+  'login',
+  'onboarding',
+  'pricing',
+  'privacy',
+  'reset-password',
+  'staff',
+  'template-preview',
+  'terms',
+  'track',
+]);
+
+const PATHNAME_HEADER_CANDIDATES = [
+  'x-pathname',
+  'x-invoke-path',
+  'x-matched-path',
+  'next-url',
+  'x-next-url',
+] as const;
+
+interface HeaderReader {
+  get(name: string): string | null;
+}
+
+function getFirstPathSegment(pathname: string | null): string | null {
+  if (!pathname) return null;
+  const [pathWithoutQuery] = pathname.split('?');
+  const normalized = pathWithoutQuery.trim();
+  if (!normalized.startsWith('/')) return null;
+
+  const [firstSegment] = normalized.split('/').filter(Boolean);
+  if (!firstSegment) return null;
+  if (firstSegment.startsWith('_') || firstSegment.includes('.')) return null;
+
+  return firstSegment.toLowerCase();
+}
+
+export function isStorefrontRequest(headersList: HeaderReader): boolean {
+  if (
+    headersList.get('x-merchant-slug') ||
+    headersList.get('x-custom-domain')
+  ) {
+    return true;
+  }
+
+  const pathname = PATHNAME_HEADER_CANDIDATES.map((headerName) =>
+    headersList.get(headerName)
+  ).find(
+    (value): value is string => typeof value === 'string' && value.length > 0
+  );
+
+  const firstSegment = getFirstPathSegment(pathname ?? null);
+  if (!firstSegment) return false;
+
+  return !NON_STOREFRONT_TOP_LEVEL_SEGMENTS.has(firstSegment);
+}
+
 export async function RootDynamicBody({ children }: { children: ReactNode }) {
   const headersList = await headers();
   const nonce = headersList.get('x-nonce') || undefined;
 
-  // Detect storefront routes via middleware-set headers to prevent
-  // next-themes from applying dashboard dark mode on merchant stores
-  const isStorefront = !!(
-    headersList.get('x-merchant-slug') || headersList.get('x-custom-domain')
-  );
+  // Detect storefront routes to prevent next-themes from applying
+  // dashboard dark mode before merchant theme variables render.
+  const isStorefront = isStorefrontRequest(headersList);
 
   return (
     <>
