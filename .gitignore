@@ -56,8 +56,6 @@ firestore-debug.log
 src_backup_*.tar.gz
 # Gemini agent artifacts (scripts, logs, configs)
 .gemini/
-# Jules agent artifacts
-.jules/
 extract_bag.py
 
 # Temporary data and image directories
@@ -121,9 +119,7 @@ pr_120*.json
 # PR todo/report files (temporary)
 pr_*_todo.md
 pr_*_report.md
-# (covered by .gemini/
-# Jules agent artifacts
-.jules/ above)
+# (covered by .gemini/ above)
 
 # Koray SEO audit reports (generated)
 KORAY_*.json
@@ -181,12 +177,8 @@ knip-results.json
 /.agent/rules/ruler.md.bak
 /.codex/config.toml
 /.codex/config.toml.bak
-/.gemini/
-# Jules agent artifacts
-.jules/settings.json
-/.gemini/
-# Jules agent artifacts
-.jules/settings.json.bak
+/.gemini/settings.json
+/.gemini/settings.json.bak
 /.mcp.json
 /.mcp.json.bak
 /.vscode/mcp.json

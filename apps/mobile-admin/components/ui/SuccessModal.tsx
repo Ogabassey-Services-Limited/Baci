@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
 
+const WHITE = '#FFFFFF';
 const OVERLAY_COLOR = 'rgba(0, 0, 0, 0.6)';
 
 interface SuccessModalProps {
@@ -34,11 +35,7 @@ export function SuccessModal({
       <View style={styles.overlay}>
         <Animated.View
           entering={FadeInUp.springify().damping(15)}
-          style={[
-            styles.container,
-            { backgroundColor: colors.card },
-            shadows.lg,
-          ]}
+          style={[styles.container, { backgroundColor: colors.card }, shadows.lg]}
           accessible={true}
           accessibilityViewIsModal={true}
           accessibilityLabel={`${title} dialog. ${message}`}
@@ -107,9 +104,7 @@ export function SuccessModal({
             accessibilityRole="button"
             accessibilityLabel="Dismiss success message"
           >
-            <Text style={[styles.buttonText, { color: colors.card }]}>
-              Beautiful!
-            </Text>
+            <Text style={styles.buttonText}>Beautiful!</Text>
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -187,6 +182,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: {
+    color: WHITE,
     fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
