@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import SafeImage from '@/components/ui/SafeImage';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,7 +12,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
@@ -49,88 +49,26 @@ export function DiscountItemSelector({
   );
   const [loading, setLoading] = useState(false);
 
-  // Fetch logic inlined to avoid unstable function reference in useEffect
-  const merchantId = merchant?.id;
-  useEffect(() => {
-    if (__DEV__) {
-      console.log(
-        '[DiscountItemSelector] useEffect triggered. Visible:',
-        visible,
-        'MerchantID:',
-        merchantId
-      );
-    }
-    if (!visible || !merchantId) return;
-
-    let cancelled = false;
-
-    const doFetch = async () => {
-      setLoading(true);
-      try {
-        const sanitizedSearch = sanitizeSearchQuery(search);
-        const query =
-          type === 'product'
-            ? supabase
-                .from('products')
-                .select('id, name, description, images')
-                .eq('merchant_id', merchantId)
-                .ilike('name', `%${sanitizedSearch}%`)
-                .limit(50)
-            : supabase
-                .from('categories')
-                .select('id, name, description')
-                .eq('merchant_id', merchantId)
-                .ilike('name', `%${sanitizedSearch}%`)
-                .limit(50);
-
-        const { data, error } = await query;
-
-        if (error) throw error;
-        if (!cancelled) {
-          setItems(
-            (data as Item[])?.map((item: Item) => ({
-              id: item.id,
-              name: item.name,
-              description: item.description,
-              images: item.images || [],
-            })) || []
-          );
-        }
-      } catch (error) {
-        console.error('[DiscountItemSelector] Error fetching items:', error);
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    doFetch();
-    return () => {
-      cancelled = true;
-    };
-  }, [visible, merchantId, search, type]);
-
-  // Standalone fetch for manual search submission
-  const handleSearchSubmit = async () => {
-    if (!merchantId) return;
+  const fetchItems = async () => {
     setLoading(true);
     try {
+      let query;
       const sanitizedSearch = sanitizeSearchQuery(search);
-      const query =
-        type === 'product'
-          ? supabase
-              .from('products')
-              .select('id, name, description, images')
-              .eq('merchant_id', merchantId)
-              .ilike('name', `%${sanitizedSearch}%`)
-              .limit(50)
-          : supabase
-              .from('categories')
-              .select('id, name, description')
-              .eq('merchant_id', merchantId)
-              .ilike('name', `%${sanitizedSearch}%`)
-              .limit(50);
+      if (type === 'product') {
+        query = supabase
+          .from('products')
+          .select('id, name, description, images')
+          .eq('merchant_id', merchant?.id)
+          .ilike('name', `%${sanitizedSearch}%`)
+          .limit(50);
+      } else {
+        query = supabase
+          .from('categories')
+          .select('id, name, description')
+          .eq('merchant_id', merchant?.id)
+          .ilike('name', `%${sanitizedSearch}%`)
+          .limit(50);
+      }
 
       const { data, error } = await query;
 
@@ -149,6 +87,20 @@ export function DiscountItemSelector({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log(
+        '[DiscountItemSelector] useEffect triggered. Visible:',
+        visible,
+        'MerchantID:',
+        merchant?.id
+      );
+    }
+    if (visible && merchant?.id) {
+      fetchItems();
+    }
+  }, [visible, merchant?.id, fetchItems]);
 
   const toggleSelection = (id: string) => {
     const newSet = new Set(selectedIds);
@@ -236,7 +188,7 @@ export function DiscountItemSelector({
               setSearch(text);
               // Debounce could be added here
             }}
-            onSubmitEditing={handleSearchSubmit}
+            onSubmitEditing={fetchItems}
           />
         </View>
 
