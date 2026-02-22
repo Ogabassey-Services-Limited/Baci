@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SafeImage from '@/components/ui/SafeImage';
+import { CarouselSettingsCard } from '@/components/store-settings/CarouselSettingsCard';
 // Supported Countries Configuration
 import { COUNTRIES } from '@/constants/countries';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -384,6 +385,13 @@ export default function StoreSettingsScreen() {
               </Pressable>
             </View>
           </View>
+
+          <CarouselSettingsCard
+            colors={colors}
+            shadows={shadows}
+            slideCount={merchant?.mobile_hero_slides?.length ?? 0}
+            onPress={() => router.push('/carousel-settings')}
+          />
 
           {/* Business Name */}
           <View
