@@ -78,7 +78,6 @@ export const styles = StyleSheet.create({
     gap: 8,
   },
   deleteButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },

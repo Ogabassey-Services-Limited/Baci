@@ -245,11 +245,25 @@ export default function DeleteAccountScreen() {
           >
             {isDeleting ? (
               <>
-                <ActivityIndicator color="#FFFFFF" />
-                <Text style={styles.deleteButtonText}>Deleting account...</Text>
+                <ActivityIndicator color={colors.destructiveForeground} />
+                <Text
+                  style={[
+                    styles.deleteButtonText,
+                    { color: colors.destructiveForeground },
+                  ]}
+                >
+                  Deleting account...
+                </Text>
               </>
             ) : (
-              <Text style={styles.deleteButtonText}>Delete Account</Text>
+              <Text
+                style={[
+                  styles.deleteButtonText,
+                  { color: colors.destructiveForeground },
+                ]}
+              >
+                Delete Account
+              </Text>
             )}
           </Pressable>
         </SafeAreaView>

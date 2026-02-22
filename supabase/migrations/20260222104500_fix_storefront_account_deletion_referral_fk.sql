@@ -1,6 +1,8 @@
 -- Follow-up fix for storefront account deletion:
 -- 1) Avoid FK violations on customer_loyalty.referred_by_customer_id
--- 2) Keep deletion behavior deterministic while retaining order records
+-- 2) Explicitly nullify orders.customer_id before customer deletion
+-- 3) Defensively handle audit_logs to prevent FK violations on auth.users
+-- 4) Keep deletion behavior deterministic while retaining order records
 
 CREATE OR REPLACE FUNCTION public.delete_current_storefront_account()
 RETURNS JSONB
@@ -52,11 +54,26 @@ BEGIN
     GET DIAGNOSTICS v_referrals_detached = ROW_COUNT;
   END IF;
 
+  -- Explicitly nullify order references before removing customer rows.
+  -- orders.customer_id has ON DELETE SET NULL, but we do this explicitly as a
+  -- safety measure to guarantee deterministic behaviour regardless of FK timing.
+  UPDATE public.orders
+  SET customer_id = NULL
+  WHERE customer_id IN (
+    SELECT id FROM public.customers WHERE user_id = v_user_id
+  );
+
   -- Remove storefront customer profile rows linked to this auth user.
-  -- Orders are retained (orders.customer_id is nullable and can be set to NULL).
+  -- Orders are retained with customer_id = NULL (set above).
   DELETE FROM public.customers
   WHERE user_id = v_user_id;
   GET DIAGNOSTICS v_customers_deleted = ROW_COUNT;
+
+  -- Storefront customers should not have audit_logs or notification entries,
+  -- but handle defensively to prevent FK violations during auth.users deletion.
+  IF to_regclass('public.audit_logs') IS NOT NULL THEN
+    DELETE FROM public.audit_logs WHERE user_id = v_user_id;
+  END IF;
 
   -- Remove login access.
   DELETE FROM auth.users

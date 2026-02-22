@@ -47,6 +47,10 @@ interface AuthState {
   isInitialized: boolean;
   error: string | null;
 
+  // Internal state (not part of the public API but needed to avoid type casts)
+  _authSubscription: { subscription: { unsubscribe: () => void } } | null;
+  _initializationInProgress: boolean;
+
   // Actions
   initialize: () => Promise<void>;
   cleanup: () => void; // 2026 Critical Fix: Cleanup auth subscription
@@ -82,22 +86,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isInitialized: false,
   error: null,
   // Internal: store auth subscription for cleanup (2026 Best Practice)
-  _authSubscription: null as {
-    subscription: { unsubscribe: () => void };
-  } | null,
+  _authSubscription: null,
   // 2026 Critical Fix: Prevent multiple concurrent initialize calls
-  _initializationInProgress: false as boolean,
+  _initializationInProgress: false,
 
   // Initialize auth state
   initialize: async () => {
     // 2026 Critical Fix: Prevent race conditions from multiple initialize() calls
-    const state = get() as AuthState & { _initializationInProgress: boolean };
+    const state = get();
     if (state._initializationInProgress || state.isInitialized) {
       log.debug('Initialize already in progress or completed, skipping');
       return;
     }
 
-    set({ _initializationInProgress: true } as Partial<AuthState>);
+    set({ _initializationInProgress: true });
 
     try {
       set({ isLoading: true, error: null });
@@ -125,7 +127,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isLoading: false,
           isInitialized: true,
           _initializationInProgress: false,
-        } as Partial<AuthState>);
+        });
         return;
       }
 
@@ -154,7 +156,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             isLoading: false,
             isInitialized: true,
             _initializationInProgress: false,
-          } as Partial<AuthState>);
+          });
           return;
         }
       }
@@ -170,7 +172,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             isLoading: false,
             isInitialized: true,
             _initializationInProgress: false,
-          } as Partial<AuthState>);
+          });
           return;
         }
 
@@ -394,7 +396,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         _authSubscription: authListener,
         _initializationInProgress: false,
-      } as Partial<AuthState>);
+      });
     } catch (error) {
       log.error('Auth initialization error:', error);
       set({
@@ -402,19 +404,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         isInitialized: true,
         _initializationInProgress: false,
-      } as Partial<AuthState>);
+      });
     }
   },
 
   // 2026 Critical Fix: Cleanup auth subscription to prevent memory leaks
   cleanup: () => {
-    const state = get() as AuthState & {
-      _authSubscription: { subscription: { unsubscribe: () => void } } | null;
-    };
+    const state = get();
     if (state._authSubscription?.subscription) {
       log.debug('Cleaning up auth subscription');
       state._authSubscription.subscription.unsubscribe();
-      set({ _authSubscription: null } as Partial<AuthState>);
+      set({ _authSubscription: null });
     }
   },
 
@@ -717,7 +717,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         isInitialized: true, // 2026 Fix: Keep initialized after sign out to allow redirects
         _initializationInProgress: false,
-      } as Partial<AuthState>);
+      });
     } catch (error) {
       log.error('Sign out error:', error);
       set({ isLoading: false });
@@ -761,7 +761,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         isInitialized: true,
         _initializationInProgress: false,
-      } as Partial<AuthState>);
+      });
 
       return { success: true, usedApple };
     } catch (error) {
