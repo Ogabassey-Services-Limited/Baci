@@ -519,24 +519,6 @@ export async function POST(request: NextRequest) {
 
       if (variantsError) {
         console.error('Error creating variants:', variantsError);
-        // Rollback product creation
-        const { error: rollbackError } = await supabase
-          .from('products')
-          .delete()
-          .eq('id', product.id);
-        if (rollbackError) {
-          console.error(
-            `Failed to rollback product ${product.id} after variant creation error:`,
-            rollbackError
-          );
-        }
-        return NextResponse.json(
-          {
-            error: 'Failed to create product variants',
-            details: variantsError.message,
-          },
-          { status: 500 }
-        );
       }
     }
 
