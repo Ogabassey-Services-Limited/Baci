@@ -12,7 +12,7 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Product } from '../types';
 import { getProductUrl } from '@/lib/seo-utils';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -63,11 +63,8 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
     setIsImageLoaded(false);
   }, []);
 
-  const shortDescription = useMemo(() => {
-    const raw = product.description || '';
-    const stripped = stripHtmlTags(raw);
-    return stripped.replace(/What is the .*? Price in Nigeria\??/i, '').trim();
-  }, [product.description]);
+  const stripped = stripHtmlTags(product.description);
+  const shortDescription = stripped.replace(/What is the .*? Price in Nigeria\??/i, '').trim();
 
   const handlePrevColor = (e: React.MouseEvent) => {
     e.preventDefault();
