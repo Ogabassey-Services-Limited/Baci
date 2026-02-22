@@ -46,7 +46,6 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 import { Input } from '@/components/ui/input';
-import { env } from '@/env';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import { AnimatedWrapper, type AnimationType } from './animated-wrapper';
@@ -2752,11 +2751,7 @@ export const builderConfig: Config<
                         loading="lazy"
                         allowFullScreen
                         referrerPolicy="no-referrer-when-downgrade"
-                        src={
-                          env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-                            ? `https://www.google.com/maps/embed/v1/place?key=${env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(mapAddress)}`
-                            : `https://maps.google.com/maps?q=${encodeURIComponent(mapAddress)}&output=embed`
-                        }
+                        src={`https://maps.google.com/maps?q=${encodeURIComponent(mapAddress)}&output=embed`}
                       />
                     </div>
                   )}
