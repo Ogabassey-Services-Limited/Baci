@@ -16,11 +16,8 @@ import {
   generateSlug,
 } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
+import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
 import { createProductSchema, formatZodErrors } from '@/schemas/products';
-
-// Explicit column selection to prevent over-fetching (Warden)
-const PRODUCT_COLUMNS =
-  'id, merchant_id, name, description, status, is_active, price, manage_stock, stock_quantity, min_order_quantity, images, image_small, image_large, image_hint, brand, gtin, mpn, google_product_category, has_variants, category, color, sku, slug, compare_at_price, cost_price, low_stock_threshold, weight_value, weight_unit, dimensions, taxable, tax_code, condition, condition_detail, meta_title, meta_description, keywords, canonical_url, schema_markup, created_at, updated_at';
 
 /**
  * Extract denormalized variant attributes for fast UI rendering
@@ -87,13 +84,10 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     // Build query
-    // PERFORMANCE: Select only essential variant fields instead of wildcard
+    // PERFORMANCE: Select only essential fields instead of wildcard (Warden philosophy)
     let query = supabase
       .from('products')
-      .select(
-        `${PRODUCT_COLUMNS}, variants:product_variants(id, product_id, merchant_id, attributes, price_override, stock_quantity, sku, primary_image, images)`,
-        { count: 'exact' }
-      )
+      .select(PRODUCT_WITH_VARIANTS_QUERY, { count: 'exact' })
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 

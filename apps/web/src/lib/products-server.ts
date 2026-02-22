@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
 import type { Product } from '@/lib/products';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 
@@ -71,7 +72,7 @@ export async function getProducts(
   // Build query
   let query = supabase
     .from('products')
-    .select('*, variants:product_variants(*)', { count: 'exact' })
+    .select(PRODUCT_WITH_VARIANTS_QUERY, { count: 'exact' })
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
