@@ -18,6 +18,7 @@ import {
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
+import { resolveLatestPublishedPageConfig } from '@/lib/page-config-resolution';
 import { supabase } from '@/lib/supabase';
 import { ProductRowSchema } from '@/lib/validation';
 import type { PageConfig } from '@/types/blocks';
@@ -250,11 +251,12 @@ export function usePageConfig(slug: string = 'home') {
         async () =>
           await supabase
             .from('page_configs')
-            .select('published_config')
+            .select('published_config, updated_at')
             .eq('merchant_id', merchantId)
             .eq('page_slug', slug)
             .eq('is_published', true)
-            .maybeSingle(),
+            .order('updated_at', { ascending: false })
+            .limit(5),
         {
           maxRetries: 3,
           onRetry: (attempt, err) => {
@@ -264,11 +266,15 @@ export function usePageConfig(slug: string = 'home') {
       );
 
       if (error) throw error;
-      // 2026 Critical Fix: Access published_config with null safety
-      // The select('published_config') returns { published_config: unknown } | null
-      return (data?.published_config ?? null) as PageConfig | null;
+      return resolveLatestPublishedPageConfig(
+        (data ?? []) as Array<{
+          published_config: unknown;
+          updated_at?: string | null;
+        }>
+      ) as PageConfig | null;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnMount: 'always',
     enabled: !!merchantId,
   });
 }
