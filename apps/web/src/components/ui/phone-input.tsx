@@ -118,6 +118,8 @@ const CountrySelect = ({
     onChange(country);
   };
 
+  const selectedCountry = options.find((option) => option.value === value);
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -128,6 +130,11 @@ const CountrySelect = ({
             'flex gap-1 rounded-none px-3 h-10 bg-transparent text-gray-900 hover:bg-gray-100 border-r border-gray-200'
           )}
           disabled={disabled}
+          aria-label={
+            selectedCountry
+              ? `Change country: ${selectedCountry.label}`
+              : 'Select country'
+          }
         >
           <FlagComponent country={value} countryName={value} />
           <ChevronsUpDown
@@ -145,6 +152,7 @@ const CountrySelect = ({
               <CommandInput
                 className="text-[var(--store-background-text,#111)] placeholder:text-[color-mix(in_srgb,var(--store-background-text,#111)_60%,transparent)]"
                 placeholder="Search country..."
+                aria-label="Search country"
               />
               <CommandEmpty className="text-[color-mix(in_srgb,var(--store-background-text,#111)_70%,transparent)]">
                 No country found.
@@ -152,30 +160,38 @@ const CountrySelect = ({
               <CommandGroup>
                 {options
                   .filter((x) => x.value)
-                  .map((option) => (
-                    <CommandItem
-                      className="gap-2 text-[var(--store-background-text,#111)] data-[selected=true]:bg-[var(--store-primary,#ef4444)] data-[selected=true]:text-[var(--store-primary-text,#fff)]"
-                      key={option.value}
-                      onSelect={() => handleSelect(option.value)}
-                    >
-                      <FlagComponent
-                        country={option.value}
-                        countryName={option.label}
-                      />
-                      <span className="flex-1 text-sm">{option.label}</span>
-                      {option.value && (
-                        <span className="text-[color-mix(in_srgb,var(--store-background-text,#111)_55%,transparent)] text-sm">
-                          {`+${RPNInput.getCountryCallingCode(option.value)}`}
-                        </span>
-                      )}
-                      <Check
-                        className={cn(
-                          'ml-auto h-4 w-4',
-                          option.value === value ? 'opacity-100' : 'opacity-0'
+                  .map((option) => {
+                    const isCurrentSelection = option.value === value;
+
+                    return (
+                      <CommandItem
+                        className="gap-2 text-[var(--store-background-text,#111)] data-[selected=true]:bg-[var(--store-primary,#ef4444)] data-[selected=true]:text-[var(--store-primary-text,#fff)]"
+                        key={option.value}
+                        onSelect={() => handleSelect(option.value)}
+                      >
+                        <FlagComponent
+                          country={option.value}
+                          countryName={option.label}
+                        />
+                        <span className="flex-1 text-sm">{option.label}</span>
+                        {option.value && (
+                          <span className="text-[color-mix(in_srgb,var(--store-background-text,#111)_55%,transparent)] text-sm">
+                            {`+${RPNInput.getCountryCallingCode(option.value)}`}
+                          </span>
                         )}
-                      />
-                    </CommandItem>
-                  ))}
+                        <Check
+                          className={cn(
+                            'ml-auto h-4 w-4',
+                            isCurrentSelection ? 'opacity-100' : 'opacity-0'
+                          )}
+                          aria-hidden="true"
+                        />
+                        {isCurrentSelection ? (
+                          <span className="sr-only">Currently selected</span>
+                        ) : null}
+                      </CommandItem>
+                    );
+                  })}
               </CommandGroup>
             </ScrollArea>
           </CommandList>
