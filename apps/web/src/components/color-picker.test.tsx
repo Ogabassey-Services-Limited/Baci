@@ -12,7 +12,7 @@ describe('ColorPicker', () => {
     const onChange = vi.fn();
     render(<ColorPicker color="#FFFFFF" onChange={onChange} />);
 
-    const input = screen.getByRole('textbox', { name: 'Hex Color' });
+    const input = screen.getByLabelText('Hex Color');
 
     // Initial state
     expect(input.getAttribute('aria-invalid')).toBe('false');
@@ -20,20 +20,9 @@ describe('ColorPicker', () => {
     // Type invalid hex
     fireEvent.change(input, { target: { value: 'invalid' } });
     expect(input.getAttribute('aria-invalid')).toBe('true');
-    expect(onChange).not.toHaveBeenCalled();
-  });
+    expect(onChange).not.toHaveBeenCalled(); // Should not trigger change for invalid color
 
-  it('clears invalid state when entering valid hex code', () => {
-    const onChange = vi.fn();
-    render(<ColorPicker color="#FFFFFF" onChange={onChange} />);
-
-    const input = screen.getByRole('textbox', { name: 'Hex Color' });
-
-    // First set invalid
-    fireEvent.change(input, { target: { value: 'invalid' } });
-    expect(input.getAttribute('aria-invalid')).toBe('true');
-
-    // Then set valid
+    // Type valid hex
     fireEvent.change(input, { target: { value: '#000000' } });
     expect(input.getAttribute('aria-invalid')).toBe('false');
     expect(onChange).toHaveBeenCalledWith('#000000');
