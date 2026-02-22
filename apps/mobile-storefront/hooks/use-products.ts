@@ -18,7 +18,7 @@ import {
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
-import { resolveLatestPublishedPageConfig } from '@/lib/page-config-resolution';
+import { type PublishedPageConfigRow, resolveLatestPublishedPageConfig } from '@/lib/page-config-resolution';
 import { supabase } from '@/lib/supabase';
 import { ProductRowSchema } from '@/lib/validation';
 import type { PageConfig } from '@/types/blocks';
@@ -267,11 +267,8 @@ export function usePageConfig(slug: string = 'home') {
 
       if (error) throw error;
       return resolveLatestPublishedPageConfig(
-        (data ?? []) as Array<{
-          published_config: unknown;
-          updated_at?: string | null;
-        }>
-      ) as PageConfig | null;
+        (data ?? []) as PublishedPageConfigRow[]
+      );
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnMount: 'always',

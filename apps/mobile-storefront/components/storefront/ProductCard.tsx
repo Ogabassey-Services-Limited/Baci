@@ -234,6 +234,9 @@ export function ProductCard({
     recyclingKey: product.id,
     allowDownscaling: true,
     onError: () => {
+      if (__DEV__) {
+        console.warn('[ProductCard] Image load failed for product:', product.id, product.image);
+      }
       // On first failure, switch to a local placeholder (no second network fallback).
       setHasImageError(true);
     },

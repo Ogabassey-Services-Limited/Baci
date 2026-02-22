@@ -16,6 +16,18 @@ describe('bugfix: product-card image fallback', () => {
     expect(source).toBeNull();
   });
 
+  it('returns null when image url is null', () => {
+    expect(getProductImageSource(null, false)).toBeNull();
+  });
+
+  it('returns null when image url is undefined', () => {
+    expect(getProductImageSource(undefined, false)).toBeNull();
+  });
+
+  it('returns null when image url is empty string', () => {
+    expect(getProductImageSource('', false)).toBeNull();
+  });
+
   it('returns a normalized uri when image url is valid and no error happened', () => {
     const source = getProductImageSource(' https://example.com/p.jpg ', false);
 

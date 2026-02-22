@@ -60,7 +60,7 @@ export function resolveLatestPublishedPageConfigWithMeta(
   );
 
   for (const row of sortedRows) {
-    if (!isValidPageConfig(row?.published_config)) continue;
+    if (!isValidPageConfig(row.published_config)) continue;
 
     return {
       config: row.published_config,
