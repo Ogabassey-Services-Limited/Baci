@@ -3,6 +3,7 @@
 import { colord } from 'colord';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 
@@ -23,6 +24,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
 
   // Separate state for hex input to allow typing partial values
   const [hexInput, setHexInput] = useState(parsedColor.toHex());
+  const [isHexValid, setIsHexValid] = useState(true);
   const hexInputRef = useRef(parsedColor.toHex());
 
   // Track if we're currently dragging - using state so it's available during render
@@ -49,6 +51,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
       const newHex = newParsedColor.toHex();
       if (hexInputRef.current !== newHex) {
         setHexInput(newHex);
+        setIsHexValid(true);
         hexInputRef.current = newHex;
       }
     }
@@ -67,6 +70,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
     const newHex = colord({ h, s, l }).toHex();
     lastPropColorRef.current = newHex;
     setHexInput(newHex);
+    setIsHexValid(true);
     hexInputRef.current = newHex;
     onChange(newHex);
   };
@@ -280,12 +284,15 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
         <Input
           id="hex-input"
           value={hexInput}
+          aria-invalid={!isHexValid}
           onChange={(e) => {
             const newHex = e.target.value;
             setHexInput(newHex);
             hexInputRef.current = newHex;
             const parsed = colord(newHex);
-            if (parsed.isValid()) {
+            const isValid = parsed.isValid();
+            setIsHexValid(isValid);
+            if (isValid) {
               const newHsl = parsed.toHsl();
               setInternalHue(newHsl.h);
               setInternalSaturation(newHsl.s);
@@ -294,7 +301,11 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
               onChange(parsed.toHex());
             }
           }}
-          className="font-mono"
+          className={cn(
+            'font-mono transition-colors',
+            !isHexValid &&
+              'border-destructive focus-visible:ring-destructive text-destructive'
+          )}
         />
       </div>
     </div>
