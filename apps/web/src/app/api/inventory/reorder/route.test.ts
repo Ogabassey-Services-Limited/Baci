@@ -58,9 +58,10 @@ const createMockSupabase = () => ({
       if (authUser === undefined) {
         return Promise.reject(new Error('Unexpected error'));
       }
+      const data = { user: authUser };
       return Promise.resolve({
-        data: { user: authUser },
-        error: authUser ? null : { message: 'Not authenticated' },
+        data,
+        error: data.user ? null : { message: 'Not authenticated' },
       });
     }),
   },
