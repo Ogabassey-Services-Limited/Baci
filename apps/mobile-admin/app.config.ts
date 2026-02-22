@@ -7,7 +7,7 @@ import type { ConfigContext, ExpoConfig } from 'expo/config';
  */
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Baci',
+  name: 'Baci - The Ecommerce Builder',
   slug: 'baci',
   owner: 'ogabassey-services-limited',
   version: '1.2.0',
@@ -26,6 +26,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.baci',
     buildNumber: '9',
+    associatedDomains: ['applinks:usebaci.com', 'applinks:www.usebaci.com'],
     infoPlist: {
       NSCameraUsageDescription:
         'Allow the app to scan barcodes for inventory management and product lookup.',
@@ -50,6 +51,36 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.RECORD_AUDIO',
     ],
     googleServicesFile: './google-services.json',
+    intentFilters: [
+      {
+        action: 'VIEW',
+        data: [
+          {
+            scheme: 'baciadmin',
+          },
+        ],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [
+          { scheme: 'https', host: 'usebaci.com', pathPrefix: '/dashboard' },
+          { scheme: 'https', host: 'usebaci.com', pathPrefix: '/admin' },
+          { scheme: 'https', host: 'usebaci.com', pathPrefix: '/store' },
+          { scheme: 'https', host: 'usebaci.com', pathPrefix: '/orders' },
+          {
+            scheme: 'https',
+            host: 'www.usebaci.com',
+            pathPrefix: '/dashboard',
+          },
+          { scheme: 'https', host: 'www.usebaci.com', pathPrefix: '/admin' },
+          { scheme: 'https', host: 'www.usebaci.com', pathPrefix: '/store' },
+          { scheme: 'https', host: 'www.usebaci.com', pathPrefix: '/orders' },
+        ],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
   },
   plugins: [
     'expo-router',

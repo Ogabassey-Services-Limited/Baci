@@ -10,6 +10,15 @@
           "/category/*",
           "/"
         ]
+      },
+      {
+        "appID": "6QLNK7TXM3.com.ogabassey.baci",
+        "paths": [
+          "/dashboard/*",
+          "/admin/*",
+          "/store/*",
+          "/orders/*"
+        ]
       }
     ]
   }
