@@ -41,6 +41,16 @@ export async function RootDynamicHead() {
     generateSoftwareApplicationSchema(PLATFORM_PRICING);
 
   // Mobile app schemas for app indexing and rich search results
+  const adminInstallUrls = [
+    MOBILE_APPS.admin.appStoreUrl,
+    MOBILE_APPS.admin.playStoreUrl,
+  ].filter(Boolean);
+
+  const storefrontInstallUrls = [
+    MOBILE_APPS.storefront.appStoreUrl,
+    MOBILE_APPS.storefront.playStoreUrl,
+  ].filter(Boolean);
+
   const mobileAppSchemas = [
     {
       '@context': 'https://schema.org',
@@ -51,11 +61,9 @@ export async function RootDynamicHead() {
       description:
         'AI-powered e-commerce builder for African merchants. Create your online store, manage inventory, accept payments, and sell on WhatsApp.',
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-      ...(MOBILE_APPS.admin.appStoreUrl
-        ? { installUrl: MOBILE_APPS.admin.appStoreUrl }
-        : {}),
+      ...(adminInstallUrls.length > 0 ? { installUrl: adminInstallUrls } : {}),
     },
-    ...(MOBILE_APPS.storefront.playStoreUrl
+    ...(storefrontInstallUrls.length > 0
       ? [
           {
             '@context': 'https://schema.org',
@@ -66,7 +74,7 @@ export async function RootDynamicHead() {
             description:
               'Shop top African brands with fast delivery and flexible payment options including bank transfer, cards, and USSD.',
             offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-            installUrl: MOBILE_APPS.storefront.playStoreUrl,
+            installUrl: storefrontInstallUrls,
           },
         ]
       : []),

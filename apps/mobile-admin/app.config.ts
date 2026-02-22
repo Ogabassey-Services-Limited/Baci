@@ -68,16 +68,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         action: 'VIEW',
         autoVerify: true,
         data: [
-          {
-            scheme: 'https',
-            host: 'usebaci.com',
-            pathPrefix: '/dashboard',
-          },
+          { scheme: 'https', host: 'usebaci.com', pathPrefix: '/dashboard' },
+          { scheme: 'https', host: 'usebaci.com', pathPrefix: '/admin' },
+          { scheme: 'https', host: 'usebaci.com', pathPrefix: '/store' },
+          { scheme: 'https', host: 'usebaci.com', pathPrefix: '/orders' },
           {
             scheme: 'https',
             host: 'www.usebaci.com',
             pathPrefix: '/dashboard',
           },
+          { scheme: 'https', host: 'www.usebaci.com', pathPrefix: '/admin' },
+          { scheme: 'https', host: 'www.usebaci.com', pathPrefix: '/store' },
+          { scheme: 'https', host: 'www.usebaci.com', pathPrefix: '/orders' },
         ],
         category: ['BROWSABLE', 'DEFAULT'],
       },
