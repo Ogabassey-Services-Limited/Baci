@@ -4,7 +4,7 @@ import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 // Migrated from temp-source/components/ProductCard.tsx
 import Link from 'next/link';
 import Image from 'next/image';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 import { stripHtmlTags } from '@/lib/sanitize-core';
@@ -37,7 +37,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || '';
 
-  const strippedDescription = stripHtmlTags(product.description);
+  const strippedDescription = useMemo(() => {
+    return stripHtmlTags(product.description || '');
+  }, [product.description]);
 
   const isLiked = isSaved(product.id);
   const isComparing = isInCompare(product.id);
