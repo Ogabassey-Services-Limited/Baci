@@ -85,58 +85,57 @@ export default function PayoutSettingsScreen() {
     enabled: !!user?.id,
   });
 
-  const verifyAccount = async () => {
-    if (!accountnumber || accountnumber.length !== 10) {
+  // Debounced account verification — logic inlined to avoid unstable function reference
+  const bankCode = selectedBank?.code;
+  useEffect(() => {
+    if (!accountnumber || accountnumber.length !== 10 || !bankCode) {
       setVerifiedName(null);
       return;
     }
 
-    if (!selectedBank) return;
+    const timeout = setTimeout(() => {
+      setIsVerifying(true);
+      setVerifyError(null);
 
-    setIsVerifying(true);
-    setVerifyError(null);
-
-    if (!session?.access_token) {
-      setVerifyError('Authentication error');
-      setIsVerifying(false);
-      return;
-    }
-
-    resolveAccount.mutate(
-      {
-        account_number: accountnumber,
-        bank_code: selectedBank.code,
-      },
-      {
-        onSuccess: (data) => {
-          setVerifiedName(data.account_name);
-          setVerifyError(null);
-        },
-        onError: (error) => {
-          console.error('Resolution error:', error);
-          // Fallback for test account - Restricted to DEV
-          if (__DEV__ && accountnumber === '0000000000') {
-            setVerifiedName('Test Account');
-            setVerifyError(null);
-            return;
-          }
-
-          setVerifyError(
-            (error as Error).message || 'Network error checking account'
-          );
-          setVerifiedName(null);
-        },
-        onSettled: () => {
-          setIsVerifying(false);
-        },
+      if (!session?.access_token) {
+        setVerifyError('Authentication error');
+        setIsVerifying(false);
+        return;
       }
-    );
-  };
 
-  useEffect(() => {
-    const timeout = setTimeout(verifyAccount, 500); // Debounce
+      resolveAccount.mutate(
+        {
+          account_number: accountnumber,
+          bank_code: bankCode,
+        },
+        {
+          onSuccess: (data) => {
+            setVerifiedName(data.account_name);
+            setVerifyError(null);
+          },
+          onError: (error) => {
+            console.error('Resolution error:', error);
+            // Fallback for test account - Restricted to DEV
+            if (__DEV__ && accountnumber === '0000000000') {
+              setVerifiedName('Test Account');
+              setVerifyError(null);
+              return;
+            }
+
+            setVerifyError(
+              (error as Error).message || 'Network error checking account'
+            );
+            setVerifiedName(null);
+          },
+          onSettled: () => {
+            setIsVerifying(false);
+          },
+        }
+      );
+    }, 500); // Debounce
+
     return () => clearTimeout(timeout);
-  }, [verifyAccount]);
+  }, [accountnumber, bankCode, session?.access_token, resolveAccount]);
 
   // Initialize state
   useEffect(() => {
