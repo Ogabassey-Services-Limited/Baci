@@ -7,7 +7,7 @@ import {
   useEffect,
   useState,
 } from 'react';
-import { useCartSafe } from '@/hooks/use-cart';
+import { clearCartStorage, useCartSafe } from '@/hooks/use-cart';
 
 export interface CustomerUser {
   id: string;
@@ -199,11 +199,11 @@ export function CustomerAuthProvider({
       setUser(null);
       setCustomer(null);
       setOtpState(null);
-      // Clear cart on logout to prevent cart data leakage between users.
-      // clearCart() resets state to [], and the persist useEffect writes it to localStorage.
+      // Clear cart on logout to prevent cart data leakage between users
       if (cartContext) {
         cartContext.clearCart();
       }
+      clearCartStorage(merchantSlug);
     }
   };
 

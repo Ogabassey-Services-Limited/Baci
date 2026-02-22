@@ -783,12 +783,5 @@ export const useCart = (): CartContextType => {
  * Useful for components that may be rendered outside cart context
  */
 export const useCartSafe = (): CartContextType | null => {
-  const context = useContext(CartContext);
-  if (context === undefined && process.env.NODE_ENV === 'development') {
-    console.warn(
-      'useCartSafe: Called outside of CartProvider. This is allowed but returns null. ' +
-        'Ensure CartProvider is an ancestor if cart functionality is expected.'
-    );
-  }
-  return context ?? null;
+  return useContext(CartContext) ?? null;
 };
