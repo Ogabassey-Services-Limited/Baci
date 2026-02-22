@@ -41,6 +41,7 @@ export function ReceiptPreviewModal({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onClose}
+      accessibilityViewIsModal={true}
     >
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Header */}
@@ -57,6 +58,7 @@ export function ReceiptPreviewModal({
           <View style={styles.headerLeft}>
             <Pressable
               onPress={onClose}
+              accessible={true}
               style={[
                 styles.headerBtn,
                 { backgroundColor: colors.backgroundLight },
@@ -113,8 +115,10 @@ export function ReceiptPreviewModal({
               { backgroundColor: isPaid ? '#059669' : colors.primary },
             ]}
             accessibilityRole="button"
-            accessibilityLabel="Share receipt as PDF"
-            accessibilityHint="Opens the share sheet to send or save the receipt"
+            accessibilityLabel={
+              isPaid ? 'Share receipt as PDF' : 'Share invoice as PDF'
+            }
+            accessibilityHint={`Opens the share sheet to send or save the ${isPaid ? 'receipt' : 'invoice'}`}
           >
             <Ionicons name="share-outline" size={20} color="#FFF" />
             <Text style={styles.shareBtnText}>Share as PDF</Text>
