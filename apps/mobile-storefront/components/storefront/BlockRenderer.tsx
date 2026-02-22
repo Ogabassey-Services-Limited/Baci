@@ -13,6 +13,7 @@ import type {
 } from '@/types/blocks';
 import { FilterBar } from './FilterBar';
 import { Hero, type HeroSlide } from './Hero';
+import { getFallbackHeroSlides, resolveHeroSlides } from './hero-slide-utils';
 import { ProductCard } from './ProductCard';
 import { UtilityPanel } from './UtilityPanel';
 
@@ -232,37 +233,50 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
     return 'Airtime';
   })();
 
+  const merchantSlides = Array.isArray(merchant?.hero_slides)
+    ? (merchant.hero_slides as Record<string, string>[])
+    : null;
+
+  const renderHeroBlock = (
+    blockId: string,
+    blockSlides: Record<string, string>[] | null,
+    autoplayDelay?: number
+  ) => {
+    const slides = resolveHeroSlides(blockSlides, merchantSlides);
+    const safeSlides: HeroSlide[] =
+      slides.length > 0
+        ? slides
+        : getFallbackHeroSlides(merchant?.business_name);
+
+    return (
+      <Hero key={blockId} slides={safeSlides} autoplayDelay={autoplayDelay} />
+    );
+  };
+
   return (
     <View>
-      {(blocks || []).map((block) => {
+      {(blocks || []).map((block, index) => {
         switch (block.type) {
           case 'HeroCarousel': {
-            if (isMerchantLoading) {
+            const blockSlides = Array.isArray(
+              (block as HeroCarouselBlock).props.slides
+            )
+              ? ((block as HeroCarouselBlock).props.slides as Record<
+                  string,
+                  string
+                >[])
+              : null;
+            const hasLocalSlides = blockSlides && blockSlides.length > 0;
+
+            if (isMerchantLoading && !hasLocalSlides) {
               return <HeroSkeleton key={block.props.id} />;
             }
 
             const heroBlock = block as HeroCarouselBlock;
-            const mobileSlides = merchant?.hero_slides;
-
-            const slides =
-              mobileSlides && mobileSlides.length > 0
-                ? mobileSlides.map((s: Record<string, string>) => ({
-                    title: s.headline || s.title || '',
-                    subtitle: s.description || s.subtitle || '',
-                    image: s.imageUrl || s.image || '',
-                    ctaText: s.cta || s.ctaText || 'Shop Now',
-                    ctaLink: s.link || s.ctaLink || '/category/all',
-                  }))
-                : null;
-
-            if (!slides || slides.length === 0) return null;
-
-            return (
-              <Hero
-                key={block.props.id}
-                slides={slides as HeroSlide[]}
-                autoplayDelay={heroBlock.props.autoplayDelay}
-              />
+            return renderHeroBlock(
+              block.props.id,
+              blockSlides,
+              heroBlock.props.autoplayDelay
             );
           }
           case 'CategoryRail':
@@ -287,8 +301,35 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                 variant={template.cardVariant}
               />
             );
-          default:
+          default: {
+            const maybeHeroBlock = block as Block & {
+              type: string;
+              props: {
+                id?: string;
+                slides?: unknown;
+                autoplayDelay?: unknown;
+              };
+            };
+
+            // Some web templates publish hero blocks with custom names
+            // (e.g. OgabasseyHero). Support them if they expose slides.
+            // Use word-boundary match to avoid false positives (e.g. "HeroicBanner").
+            const maybeSlides = Array.isArray(maybeHeroBlock.props?.slides)
+              ? (maybeHeroBlock.props.slides as Record<string, string>[])
+              : null;
+
+            if (/hero$/i.test(maybeHeroBlock.type) && maybeSlides) {
+              const id =
+                maybeHeroBlock.props.id || `hero-fallback-${String(index)}`;
+              const autoplayDelay =
+                typeof maybeHeroBlock.props.autoplayDelay === 'number'
+                  ? maybeHeroBlock.props.autoplayDelay
+                  : undefined;
+              return renderHeroBlock(id, maybeSlides, autoplayDelay);
+            }
+
             return null;
+          }
         }
       })}
     </View>
