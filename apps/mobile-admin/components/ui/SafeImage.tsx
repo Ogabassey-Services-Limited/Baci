@@ -10,8 +10,9 @@
  * to a placeholder or cached image instead of crashing the app.
  */
 
+import { useTheme } from '@/hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -25,7 +26,6 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SvgUri, SvgXml } from 'react-native-svg';
-import { useTheme } from '@/hooks/useTheme';
 
 // Default blurhash for smooth loading placeholder
 // (Kept for interface compatibility even if not used by native Image)
@@ -137,33 +137,37 @@ function SafeImage({
   }, [isSvg, uri]);
 
   // Handle image load errors gracefully
-  const handleError = (e: NativeSyntheticEvent<ImageErrorEventData>) => {
-    // Prevent infinite error loops
-    if (errorCount >= 2) return;
+  const handleError = useCallback(
+    (e: NativeSyntheticEvent<ImageErrorEventData>) => {
+      // Prevent infinite error loops
+      if (errorCount >= 2) return;
 
-    setErrorCount((prev) => prev + 1);
-    setHasError(true);
+      setErrorCount((prev) => prev + 1);
+      setHasError(true);
 
-    const errorMessage = e?.nativeEvent?.error || 'Unknown image loading error';
+      const errorMessage =
+        e?.nativeEvent?.error || 'Unknown image loading error';
 
-    // Log for debugging in development
-    if (__DEV__) {
-      console.warn(
-        '[SafeImage] Image load failed:',
-        errorMessage,
-        '\nSource:',
-        source
-      );
-    }
+      // Log for debugging in development
+      if (__DEV__) {
+        console.warn(
+          '[SafeImage] Image load failed:',
+          errorMessage,
+          '\nSource:',
+          source
+        );
+      }
 
-    // Call optional error callback
-    if (onLoadError) {
-      onLoadError(new Error(errorMessage));
-    }
-  };
+      // Call optional error callback
+      if (onLoadError) {
+        onLoadError(new Error(errorMessage));
+      }
+    },
+    [errorCount, onLoadError, source]
+  );
 
   // Reset error state when source changes
-  const handleLoadStart = () => {
+  const handleLoadStart = useCallback(() => {
     if (hasError) {
       setHasError(false);
       setErrorCount(0);
@@ -171,7 +175,7 @@ function SafeImage({
     if (propsOnLoadStart) {
       propsOnLoadStart();
     }
-  };
+  }, [hasError, propsOnLoadStart]);
 
   // If we have a custom fallback component, use it
   if (hasError && fallbackComponent) {
@@ -203,13 +207,7 @@ function SafeImage({
   if (isSvg && !hasError) {
     if (isLoadingXml) {
       return (
-        <View
-          style={[
-            style,
-            styles.loadingContainer,
-            { backgroundColor: colors.inputBg },
-          ]}
-        >
+        <View style={[style, styles.loadingContainer, { backgroundColor: colors.inputBg }]}>
           <ActivityIndicator size="small" color={colors.textMuted} />
         </View>
       );
