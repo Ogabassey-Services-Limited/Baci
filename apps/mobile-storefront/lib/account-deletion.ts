@@ -97,9 +97,10 @@ export function getDeleteAccountErrorMessage(error: unknown): string {
     normalized.includes('delete_current_storefront_account') ||
     normalized.includes('failed to delete account') ||
     normalized.includes('account email not found') ||
-    normalized.includes('constraint') ||
-    normalized.includes('relation') ||
-    normalized.includes('column') ||
+    normalized.includes('foreign key constraint') ||
+    normalized.includes('violates constraint') ||
+    normalized.includes('relation "') ||
+    normalized.includes('column "') ||
     normalized.includes('permission denied') ||
     normalized.includes('syntax error')
   ) {
