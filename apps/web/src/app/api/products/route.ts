@@ -5,6 +5,7 @@ import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
 import type { Product } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
@@ -16,7 +17,6 @@ import {
   generateSlug,
 } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
-import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
 import { createProductSchema, formatZodErrors } from '@/schemas/products';
 
 /**
@@ -180,18 +180,16 @@ export async function GET(request: NextRequest) {
           has_variants: p.has_variants || false,
           variants:
             p.variants?.map((v: Record<string, unknown>) => ({
-              id: v.id as string,
-              product_id: v.product_id as string,
-              merchant_id: v.merchant_id as string,
+              id: String(v.id),
+              product_id: String(v.product_id),
+              merchant_id: String(v.merchant_id),
               attributes: v.attributes as Record<string, string>,
-              price_override:
-                v.price_override != null
-                  ? Number.parseFloat(v.price_override as string)
-                  : undefined,
-              stock_quantity: v.stock_quantity as number,
-              sku: v.sku as string | undefined,
-              primary_image: v.primary_image as string | undefined,
-              images: v.images as string[] | undefined,
+              price_override: Number(v.price_override) || undefined,
+              cost_price: Number(v.cost_price) || undefined,
+              stock_quantity: Number(v.stock_quantity),
+              sku: String(v.sku || ''),
+              primary_image: String(v.primary_image || ''),
+              images: (v.images as string[]) || [],
             })) || [],
           category: p.category || 'General',
           color: p.color,
