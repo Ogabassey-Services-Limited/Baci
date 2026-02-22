@@ -20,6 +20,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { createClient } from '@/lib/supabase/client';
+import type { StorefrontOrder, StorefrontOrderItem } from '@/types/storefront-order';
 
 // Hook to extract store slug from pathname
 function useStoreSlug() {
@@ -34,10 +35,10 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
   const params = useParams(); // Get ID from URL
   const { customer: _customer, isAuthenticated: _isAuthenticated } = useCustomerAuth();
   const storeSlug = useStoreSlug();
-  const getUrl = (path: string) => storeSlug ? `/${storeSlug}${path}` : path;
+  const getUrl = (path: string): string => storeSlug ? `/${storeSlug}${path}` : path;
   const router = useRouter();
 
-  const [order, setOrder] = useState<any | null>(null);
+  const [order, setOrder] = useState<StorefrontOrder | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Realtime subscription channel ref for cleanup
@@ -95,16 +96,15 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
           // Update the order state with new data from realtime
           const newData = payload.new as Record<string, unknown>;
           if (newData) {
-            setOrder((prevOrder: any) => {
+            setOrder((prevOrder) => {
               if (!prevOrder) return prevOrder;
               return {
                 ...prevOrder,
-                status: newData.status ?? prevOrder.status,
-                shipping_status: newData.shipping_status ?? prevOrder.shipping_status,
-                payment_status: newData.payment_status ?? prevOrder.payment_status,
-                tracking_number: newData.tracking_number ?? prevOrder.tracking_number,
-                tracking_url: newData.tracking_url ?? prevOrder.tracking_url,
-                updated_at: newData.updated_at ?? prevOrder.updated_at,
+                shipping_status: (newData.shipping_status as string) ?? prevOrder.shipping_status,
+                payment_status: (newData.payment_status as string) ?? prevOrder.payment_status,
+                tracking_number: (newData.tracking_number as string) ?? prevOrder.tracking_number,
+                tracking_url: (newData.tracking_url as string) ?? prevOrder.tracking_url,
+                updated_at: (newData.updated_at as string) ?? prevOrder.updated_at,
               };
             });
           }
@@ -129,7 +129,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
     // Implementation for re-ordering would go here
     // For now, redirect to product page of first item or cart
     if (order?.items?.[0]) {
-      router.push(getUrl(`/product/${order.items[0].product_id}`) as any);
+      router.push(getUrl(`/product/${order.items[0].product_id}`));
     }
   };
 
@@ -178,6 +178,22 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
     );
   };
 
+  const formatAddress = (address: string | Record<string, unknown> | null) => {
+    if (!address) return 'No address provided';
+    if (typeof address === 'string') return address;
+
+    // Attempt to format object address safely
+    const addr = address as { address_line1?: string; city?: string; state?: string; country?: string };
+    const parts = [
+      addr.address_line1,
+      addr.city,
+      addr.state,
+      addr.country
+    ].filter(Boolean);
+
+    return parts.length > 0 ? parts.join(', ') : 'Address details unavailable';
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center pt-20">
@@ -206,7 +222,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
         {/* Breadcrumb / Back */}
         <div className="flex items-center gap-4 mb-6">
           <Link
-            href={getUrl('/account/orders') as any}
+            href={getUrl('/account/orders')}
             className="p-2 hover:bg-white rounded-full transition-colors text-gray-500 hover:text-gray-900 border border-transparent hover:border-gray-200"
           >
             <ChevronLeft size={20} />
@@ -259,23 +275,23 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                 </h2>
               </div>
               <div className="p-4 space-y-4">
-                {order.items?.map((item: any) => (
+                {order.items?.map((item: StorefrontOrderItem) => (
                   <div
                     key={item.id}
                     className="flex gap-4 items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0"
                   >
                     <Link
-                      href={`/product/${item.product_id}` as any}
+                      href={getUrl(`/product/${item.product_id}`)}
                       className="w-20 h-20 bg-gray-50 rounded-xl p-2 border border-gray-100 flex-shrink-0 block"
                     >
                       <img
-                        src={item.product_image || item.image || '/placeholder.png'}
+                        src={item.product_image || item.image || (item.product_images && item.product_images[0]) || '/placeholder.png'}
                         alt={item.product_name || item.name}
                         className="w-full h-full object-contain mix-blend-multiply"
                       />
                     </Link>
                     <div className="flex-1 min-w-0">
-                      <Link href={`/product/${item.product_id}` as any}>
+                      <Link href={getUrl(`/product/${item.product_id}`)}>
                         <h3 className="font-bold text-gray-900 text-sm mb-1 hover:text-red-600 transition-colors">
                           {item.product_name || item.name}
                         </h3>
@@ -328,7 +344,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                   {order.shipping_provider || 'Standard Delivery'}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {order.shipping_address || 'No address provided'}
+                  {formatAddress(order.shipping_address)}
                 </p>
               </div>
               <div className="border-t border-gray-50 pt-4">
@@ -336,7 +352,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                   <CreditCard size={14} /> Payment Method
                 </h4>
                 <div className="mt-2 text-sm font-bold text-gray-900">
-                  <PaymentDisplay provider={order.payment_provider || order.paymentMethod} />
+                  <PaymentDisplay provider={order.payment_provider || order.payment_method || undefined} />
                 </div>
               </div>
             </div>
