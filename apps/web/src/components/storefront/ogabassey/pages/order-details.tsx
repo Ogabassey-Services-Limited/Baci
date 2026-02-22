@@ -12,6 +12,7 @@ import {
   Truck,
   XCircle,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import type React from 'react';
@@ -20,7 +21,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { createClient } from '@/lib/supabase/client';
-import type { StorefrontOrder, StorefrontOrderItem } from '@/types/storefront-order';
+import type { StorefrontOrder } from '@/types/storefront-order';
 
 // Hook to extract store slug from pathname
 function useStoreSlug() {
@@ -277,7 +278,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                 </h2>
               </div>
               <div className="p-4 space-y-4">
-                {order.items?.map((item: StorefrontOrderItem) => (
+                {order.items?.map((item) => (
                   <div
                     key={item.id}
                     className="flex gap-4 items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0"
@@ -286,9 +287,11 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                       href={getUrl(`/product/${item.product_id}`)}
                       className="w-20 h-20 bg-gray-50 rounded-xl p-2 border border-gray-100 flex-shrink-0 block"
                     >
-                      <img
+                      <Image
                         src={item.product_image || item.image || (item.product_images && item.product_images[0]) || '/placeholder.png'}
-                        alt={item.product_name || item.name}
+                        alt={item.product_name || item.name || ''}
+                        width={80}
+                        height={80}
                         className="w-full h-full object-contain mix-blend-multiply"
                       />
                     </Link>
