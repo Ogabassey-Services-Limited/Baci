@@ -62,6 +62,19 @@ export const MerchantSchema = z.object({
       })
     )
     .nullable(),
+  mobile_hero_slides: z
+    .array(
+      z.object({
+        id: z.string(),
+        imageUrl: z.string(),
+        headline: z.string().optional(),
+        description: z.string().optional(),
+        cta: z.string().optional(),
+        link: z.string().optional(),
+      })
+    )
+    .nullable()
+    .optional(),
   brand_colors: z
     .object({
       primary: z.string(),

@@ -233,16 +233,12 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
     return 'Airtime';
   })();
 
-  const merchantSlides = Array.isArray(merchant?.mobile_hero_slides)
+  const mobileSlides = Array.isArray(merchant?.mobile_hero_slides)
     ? (merchant.mobile_hero_slides as Record<string, string>[])
     : null;
 
-  const renderHeroBlock = (
-    blockId: string,
-    blockSlides: Record<string, string>[] | null,
-    autoplayDelay?: number
-  ) => {
-    const slides = resolveHeroSlides(blockSlides, merchantSlides);
+  const renderHeroBlock = (blockId: string, autoplayDelay?: number) => {
+    const slides = resolveHeroSlides(null, mobileSlides, true);
     const safeSlides: HeroSlide[] =
       slides.length > 0
         ? slides
@@ -258,26 +254,15 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
       {(blocks || []).map((block, index) => {
         switch (block.type) {
           case 'HeroCarousel': {
-            const blockSlides = Array.isArray(
-              (block as HeroCarouselBlock).props.slides
-            )
-              ? ((block as HeroCarouselBlock).props.slides as Record<
-                  string,
-                  string
-                >[])
-              : null;
-            const hasLocalSlides = blockSlides && blockSlides.length > 0;
+            const hasMobileSlides =
+              Array.isArray(mobileSlides) && mobileSlides.length > 0;
 
-            if (isMerchantLoading && !hasLocalSlides) {
+            if (isMerchantLoading && !hasMobileSlides) {
               return <HeroSkeleton key={block.props.id} />;
             }
 
             const heroBlock = block as HeroCarouselBlock;
-            return renderHeroBlock(
-              block.props.id,
-              blockSlides,
-              heroBlock.props.autoplayDelay
-            );
+            return renderHeroBlock(block.props.id, heroBlock.props.autoplayDelay);
           }
           case 'CategoryRail':
             return (
@@ -311,21 +296,16 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
               };
             };
 
-            // Some web templates publish hero blocks with custom names
-            // (e.g. OgabasseyHero). Support them if they expose slides.
-            // Use word-boundary match to avoid false positives (e.g. "HeroicBanner").
-            const maybeSlides = Array.isArray(maybeHeroBlock.props?.slides)
-              ? (maybeHeroBlock.props.slides as Record<string, string>[])
-              : null;
-
-            if (/hero$/i.test(maybeHeroBlock.type) && maybeSlides) {
+            // Some templates publish custom hero block names (e.g. OgabasseyHero).
+            // For mobile, keep the block position but always render mobile-managed slides.
+            if (/hero$/i.test(maybeHeroBlock.type)) {
               const id =
                 maybeHeroBlock.props.id || `hero-fallback-${String(index)}`;
               const autoplayDelay =
                 typeof maybeHeroBlock.props.autoplayDelay === 'number'
                   ? maybeHeroBlock.props.autoplayDelay
                   : undefined;
-              return renderHeroBlock(id, maybeSlides, autoplayDelay);
+              return renderHeroBlock(id, autoplayDelay);
             }
 
             return null;

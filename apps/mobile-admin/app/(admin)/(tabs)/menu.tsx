@@ -76,6 +76,13 @@ export default function MenuScreen() {
           onPress: () => router.push('/store-settings'),
         },
         {
+          id: 'carousel-settings',
+          icon: 'images-outline',
+          label: 'Homepage Carousel',
+          description: 'Edit homepage hero slides',
+          onPress: () => router.push('/carousel-settings'),
+        },
+        {
           id: 'social-media',
           icon: 'share-social-outline',
           label: 'Social Media',
