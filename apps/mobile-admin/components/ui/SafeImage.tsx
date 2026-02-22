@@ -10,6 +10,7 @@
  * to a placeholder or cached image instead of crashing the app.
  */
 
+import { useTheme } from '@/hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -24,7 +25,6 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
-
 import { SvgUri, SvgXml } from 'react-native-svg';
 
 // Default blurhash for smooth loading placeholder
@@ -53,7 +53,7 @@ export interface SafeImageProps extends Omit<ImageProps, 'onError'> {
    */
   fallbackIconSize?: number;
   /**
-   * Fallback icon color (default: #9CA3AF - gray-400)
+   * Fallback icon color (default: theme.colors.textMuted)
    */
   fallbackIconColor?: string;
   /**
@@ -78,9 +78,10 @@ function SafeImage({
   showFallbackIcon = true,
   fallbackStyle,
   fallbackIconSize = 32,
-  fallbackIconColor = '#9CA3AF',
+  fallbackIconColor,
   ...rest
 }: SafeImageProps) {
+  const { colors } = useTheme();
   const [hasError, setHasError] = useState(false);
   const [errorCount, setErrorCount] = useState(0);
   const [xml, setXml] = useState<string | null>(null);
@@ -183,10 +184,12 @@ function SafeImage({
 
   // If error and showFallbackIcon, render placeholder view
   if (hasError && showFallbackIcon) {
+    const iconColor = fallbackIconColor ?? colors.textMuted;
     return (
       <View
         style={[
           styles.fallbackContainer,
+          { backgroundColor: colors.inputBg },
           style as StyleProp<ViewStyle>,
           fallbackStyle,
         ]}
@@ -194,7 +197,7 @@ function SafeImage({
         <Ionicons
           name="image-outline"
           size={fallbackIconSize}
-          color={fallbackIconColor}
+          color={iconColor}
         />
       </View>
     );
@@ -204,21 +207,28 @@ function SafeImage({
   if (isSvg && !hasError) {
     if (isLoadingXml) {
       return (
-        <View style={[style, styles.loadingContainer]}>
-          <ActivityIndicator size="small" color="#9CA3AF" />
+        <View style={[style, styles.loadingContainer, { backgroundColor: colors.inputBg }]}>
+          <ActivityIndicator size="small" color={colors.textMuted} />
         </View>
       );
     }
 
     const flattenedStyle = StyleSheet.flatten(style);
-    const svgWidth = typeof flattenedStyle?.width === 'number' ? flattenedStyle.width : 48;
-    const svgHeight = typeof flattenedStyle?.height === 'number' ? flattenedStyle.height : 48;
+    const svgWidth =
+      typeof flattenedStyle?.width === 'number' ? flattenedStyle.width : 48;
+    const svgHeight =
+      typeof flattenedStyle?.height === 'number' ? flattenedStyle.height : 48;
 
     if (uri?.startsWith('data:image/svg+xml')) {
       // Data URI - use SvgXml with direct mapping
       return (
         <View style={[style, styles.svgWrapper]}>
-          <SvgUri uri={uri} width={svgWidth} height={svgHeight} onError={() => setHasError(true)} />
+          <SvgUri
+            uri={uri}
+            width={svgWidth}
+            height={svgHeight}
+            onError={() => setHasError(true)}
+          />
         </View>
       );
     }
@@ -266,14 +276,12 @@ export function useSafeImageProps(blurhash?: string) {
 
 const styles = StyleSheet.create({
   fallbackContainer: {
-    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
   },
   svgWrapper: {
     justifyContent: 'center',
