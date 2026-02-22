@@ -51,12 +51,23 @@ export async function RootDynamicHead() {
     MOBILE_APPS.storefront.playStoreUrl,
   ].filter(Boolean);
 
+  function deriveOS(appStoreUrl: string, playStoreUrl: string): string {
+    const platforms = [
+      ...(appStoreUrl ? ['iOS'] : []),
+      ...(playStoreUrl ? ['Android'] : []),
+    ];
+    return platforms.join(', ') || 'iOS, Android';
+  }
+
   const mobileAppSchemas = [
     {
       '@context': 'https://schema.org',
       '@type': 'MobileApplication',
       name: MOBILE_APPS.admin.name,
-      operatingSystem: 'iOS, Android',
+      operatingSystem: deriveOS(
+        MOBILE_APPS.admin.appStoreUrl,
+        MOBILE_APPS.admin.playStoreUrl
+      ),
       applicationCategory: 'BusinessApplication',
       description:
         'AI-powered e-commerce builder for African merchants. Create your online store, manage inventory, accept payments, and sell on WhatsApp.',
@@ -69,7 +80,10 @@ export async function RootDynamicHead() {
             '@context': 'https://schema.org',
             '@type': 'MobileApplication',
             name: MOBILE_APPS.storefront.name,
-            operatingSystem: 'iOS, Android',
+            operatingSystem: deriveOS(
+              MOBILE_APPS.storefront.appStoreUrl,
+              MOBILE_APPS.storefront.playStoreUrl
+            ),
             applicationCategory: 'ShoppingApplication',
             description:
               'Shop top African brands with fast delivery and flexible payment options including bank transfer, cards, and USSD.',

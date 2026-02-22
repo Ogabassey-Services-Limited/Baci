@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockMobileApps = vi.hoisted(() => ({
   admin: {
@@ -66,6 +66,17 @@ function getScriptContents(
 }
 
 describe('RootDynamicHead', () => {
+  afterEach(() => {
+    // Reset to defaults after each test to prevent cross-test pollution
+    mockMobileApps.admin.appStoreUrl =
+      'https://apps.apple.com/app/id6757810806';
+    mockMobileApps.admin.playStoreUrl =
+      'https://play.google.com/store/apps/details?id=com.ogabassey.baci';
+    mockMobileApps.storefront.appStoreUrl = '';
+    mockMobileApps.storefront.playStoreUrl =
+      'https://play.google.com/store/apps/details?id=com.ogabassey.store';
+  });
+
   it('is an async server component that returns JSX', async () => {
     const result = await RootDynamicHead();
     expect(result).toBeDefined();
@@ -92,6 +103,7 @@ describe('RootDynamicHead', () => {
     );
 
     expect(adminSchema).toBeDefined();
+    expect(adminSchema?.operatingSystem).toBe('iOS, Android');
     expect(adminSchema?.installUrl).toEqual([
       mockMobileApps.admin.appStoreUrl,
       mockMobileApps.admin.playStoreUrl,
@@ -109,20 +121,19 @@ describe('RootDynamicHead', () => {
 
     expect(storefrontSchema).toBeDefined();
     expect(storefrontSchema?.applicationCategory).toBe('ShoppingApplication');
-    // Only Play Store URL since appStoreUrl is empty
+    // Only Android since appStoreUrl is empty
+    expect(storefrontSchema?.operatingSystem).toBe('Android');
     expect(storefrontSchema?.installUrl).toEqual([
       mockMobileApps.storefront.playStoreUrl,
     ]);
   });
 
   it('omits storefront schema when no store URLs exist', async () => {
-    const originalPlayStore = mockMobileApps.storefront.playStoreUrl;
     mockMobileApps.storefront.playStoreUrl = '';
 
     const result = await RootDynamicHead();
     const schemas = getScriptContents(result);
 
-    // Should only have 3 base + 1 admin = 4 schemas
     expect(schemas.length).toBe(4);
     const storefrontSchema = schemas.find(
       (s) =>
@@ -130,13 +141,9 @@ describe('RootDynamicHead', () => {
         s.name === mockMobileApps.storefront.name
     );
     expect(storefrontSchema).toBeUndefined();
-
-    mockMobileApps.storefront.playStoreUrl = originalPlayStore;
   });
 
   it('omits installUrl from admin schema when no store URLs exist', async () => {
-    const origApp = mockMobileApps.admin.appStoreUrl;
-    const origPlay = mockMobileApps.admin.playStoreUrl;
     mockMobileApps.admin.appStoreUrl = '';
     mockMobileApps.admin.playStoreUrl = '';
 
@@ -150,8 +157,5 @@ describe('RootDynamicHead', () => {
 
     expect(adminSchema).toBeDefined();
     expect(adminSchema?.installUrl).toBeUndefined();
-
-    mockMobileApps.admin.appStoreUrl = origApp;
-    mockMobileApps.admin.playStoreUrl = origPlay;
   });
 });

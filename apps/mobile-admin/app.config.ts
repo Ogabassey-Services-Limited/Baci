@@ -56,7 +56,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     intentFilters: [
       {
         action: 'VIEW',
-        autoVerify: true,
         data: [
           {
             scheme: 'baciadmin',
