@@ -12,6 +12,11 @@ import type { Session, User } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { Alert } from 'react-native';
 import { create } from 'zustand';
+import {
+  type DeleteAccountResult,
+  getDeleteAccountErrorMessage,
+  hasAppleProvider,
+} from '../lib/account-deletion';
 import { splitFullName } from '../lib/auth-helpers';
 import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
@@ -59,6 +64,7 @@ interface AuthState {
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signInWithApple: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<DeleteAccountResult>;
   refreshSession: () => Promise<void>;
   updateProfile: (
     data: Partial<Customer>
@@ -715,6 +721,53 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       log.error('Sign out error:', error);
       set({ isLoading: false });
+    }
+  },
+
+  // Delete current customer account for storefront app review compliance.
+  deleteAccount: async () => {
+    const user = get().user;
+    if (!user) {
+      return {
+        success: false,
+        error: 'You must be signed in to delete your account.',
+      };
+    }
+
+    const usedApple = hasAppleProvider(user);
+
+    try {
+      set({ isLoading: true, error: null });
+
+      const { error } = await supabase.rpc('delete_current_storefront_account');
+
+      if (error) {
+        const message = getDeleteAccountErrorMessage(error);
+        set({ error: message, isLoading: false });
+        return { success: false, error: message, usedApple };
+      }
+
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        log.warn('Sign-out after account deletion failed:', signOutError);
+      }
+
+      useCartStore.getState().clearCart();
+      set({
+        user: null,
+        session: null,
+        customer: null,
+        isLoading: false,
+        isInitialized: true,
+        _initializationInProgress: false,
+      } as Partial<AuthState>);
+
+      return { success: true, usedApple };
+    } catch (error) {
+      const message = getDeleteAccountErrorMessage(error);
+      set({ error: message, isLoading: false });
+      return { success: false, error: message, usedApple };
     }
   },
 
