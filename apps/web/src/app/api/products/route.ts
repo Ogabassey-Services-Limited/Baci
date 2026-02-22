@@ -18,6 +18,10 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createProductSchema, formatZodErrors } from '@/schemas/products';
 
+// Explicit column selection to prevent over-fetching (Warden)
+const PRODUCT_COLUMNS =
+  'id, merchant_id, name, description, status, is_active, price, manage_stock, stock_quantity, min_order_quantity, images, image_small, image_large, image_hint, brand, gtin, mpn, google_product_category, has_variants, category, color, sku, slug, compare_at_price, cost_price, low_stock_threshold, weight_value, weight_unit, dimensions, taxable, tax_code, condition, condition_detail, meta_title, meta_description, keywords, canonical_url, schema_markup, created_at, updated_at';
+
 /**
  * Extract denormalized variant attributes for fast UI rendering
  * Called when saving products with variants
@@ -87,7 +91,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('products')
       .select(
-        `*, variants:product_variants(id, product_id, merchant_id, attributes, price_override, stock_quantity, sku, primary_image, images)`,
+        `${PRODUCT_COLUMNS}, variants:product_variants(id, product_id, merchant_id, attributes, price_override, stock_quantity, sku, primary_image, images)`,
         { count: 'exact' }
       )
       .eq('merchant_id', merchantId)
@@ -182,15 +186,18 @@ export async function GET(request: NextRequest) {
           has_variants: p.has_variants || false,
           variants:
             p.variants?.map((v: Record<string, unknown>) => ({
-              id: v.id,
-              product_id: v.product_id,
-              merchant_id: v.merchant_id,
-              attributes: v.attributes,
-              price_override: v.price_override,
-              stock_quantity: v.stock_quantity,
-              sku: v.sku,
-              primary_image: v.primary_image,
-              images: v.images,
+              id: v.id as string,
+              product_id: v.product_id as string,
+              merchant_id: v.merchant_id as string,
+              attributes: v.attributes as Record<string, string>,
+              price_override:
+                v.price_override != null
+                  ? Number.parseFloat(v.price_override as string)
+                  : undefined,
+              stock_quantity: v.stock_quantity as number,
+              sku: v.sku as string | undefined,
+              primary_image: v.primary_image as string | undefined,
+              images: v.images as string[] | undefined,
             })) || [],
           category: p.category || 'General',
           color: p.color,
@@ -277,7 +284,7 @@ export async function GET(request: NextRequest) {
         // Fallback: Use separate COUNT query for out-of-stock count
         const oosResult = await supabase
           .from('products')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .eq('merchant_id', merchantId)
           .eq('stock_quantity', 0);
 
@@ -520,6 +527,24 @@ export async function POST(request: NextRequest) {
 
       if (variantsError) {
         console.error('Error creating variants:', variantsError);
+        // Rollback product creation
+        const { error: rollbackError } = await supabase
+          .from('products')
+          .delete()
+          .eq('id', product.id);
+        if (rollbackError) {
+          console.error(
+            `Failed to rollback product ${product.id} after variant creation error:`,
+            rollbackError
+          );
+        }
+        return NextResponse.json(
+          {
+            error: 'Failed to create product variants',
+            details: variantsError.message,
+          },
+          { status: 500 }
+        );
       }
     }
 
