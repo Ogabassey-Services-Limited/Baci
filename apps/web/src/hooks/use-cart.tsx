@@ -292,7 +292,6 @@ export const CartProvider = ({
   const upsellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 2026 Critical Fix: Track validation state to prevent infinite loops
-  const isValidatingRef = useRef(false);
   const lastValidatedCartHashRef = useRef<string>('');
 
   // Hydrate from localStorage
@@ -316,24 +315,19 @@ export const CartProvider = ({
       .join('|');
 
     // Skip if already validating or cart hasn't meaningfully changed
-    if (
-      isValidatingRef.current ||
-      cartHash === lastValidatedCartHashRef.current
-    ) {
+    if (cartHash === lastValidatedCartHashRef.current) {
       return;
     }
 
+    const controller = new AbortController();
+
     const validateCart = async () => {
       // 2026 Critical Fix: Set validation lock
-      isValidatingRef.current = true;
       lastValidatedCartHashRef.current = cartHash;
 
       // Limit batch size to prevent massive payloads
       const BATCH_SIZE = 50;
       const limitedCart = cart.slice(0, BATCH_SIZE);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
       try {
         const cartItems = limitedCart.map((item) => ({
@@ -369,6 +363,9 @@ export const CartProvider = ({
         const hasPriceChanges = priceChanges?.length > 0;
 
         if (hasInvalidProducts || hasPriceChanges) {
+          // Check if aborted before applying state
+          if (controller.signal.aborted) return;
+
           setCart((prev) => {
             let updated = prev;
 
@@ -417,26 +414,22 @@ export const CartProvider = ({
         }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
-          logger.warn({ message: 'Cart validation timed out' });
+          // Expected on cleanup/cancel
         } else {
           logger.error({
             message: 'Cart validation error',
             error: error as Error,
           });
         }
-      } finally {
-        clearTimeout(timeoutId);
-        // 2026 Critical Fix: Release validation lock after a delay
-        // to prevent rapid re-validation
-        setTimeout(() => {
-          isValidatingRef.current = false;
-        }, 2000);
       }
     };
 
     // Run validation after a short delay to not block initial render
     const timer = setTimeout(validateCart, 500);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [isHydrated, cart]);
 
   // Persist to localStorage

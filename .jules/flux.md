@@ -7,3 +7,7 @@
 1. Always expose `clear()` methods in global stores/contexts.
 2. In `logout` flows, systematically call `clear()` on all persistent stores.
 3. Ensure `clear()` logic respects initialization props (e.g., `initialMerchantSlug`) to prevent context loss.
+
+## 2026-02-15 - Cart Validation Race Condition
+**Learning:** Manual "locking" via `useRef` to prevent concurrent API calls (e.g., `isValidatingRef`) can cause stale data if it blocks subsequent state updates during the lock period.
+**Action:** Use `AbortController` in `useEffect` cleanup to cancel stale requests and allow new ones to proceed immediately, ensuring the UI always reflects the latest state.
