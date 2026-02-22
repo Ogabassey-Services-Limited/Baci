@@ -92,6 +92,7 @@ jobs:
           GH_REF_TYPE: ${{ github.ref_type }}
           GH_RUN_NUMBER: ${{ github.run_number }}
           INPUT_VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_CODE_BASE: ${{ env.VERSION_CODE_BASE }}
         run: |
           if [ "$GH_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_VERSION_CODE" ]; then
             VERSION_CODE="$INPUT_VERSION_CODE"
