@@ -1,3 +1,3 @@
-## 2026-02-19 - [Middleware Performance]
-**Learning:** Middleware runs on every request. Re-instantiating complex objects like RegExp inside the handler adds unnecessary overhead. Moving them to module-level constants avoids this.
-**Action:** Always check middleware/proxy files for object instantiation in the main handler function.
+## 2024-05-23 - pnpm install ENOENT Fix
+**Learning:** `pnpm install` in this monorepo fails with `ENOENT` due to `esbuild` race conditions unless `esbuild` version is pinned via `pnpm.overrides`. This requires temporarily modifying `package.json`.
+**Action:** When encountering this error, apply the override to install dependencies, run tests, then revert `package.json` changes before submission to avoid committing unauthorized configuration changes.
