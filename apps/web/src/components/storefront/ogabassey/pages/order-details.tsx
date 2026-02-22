@@ -222,8 +222,9 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 w-full flex-1 flex flex-col">
         {/* Breadcrumb / Back */}
         <div className="flex items-center gap-4 mb-6">
+          {/* biome-ignore lint/suspicious/noExplicitAny: Dynamic route handling for multi-tenant storefronts */}
           <Link
-            href={getUrl('/account/orders')}
+            href={getUrl('/account/orders') as any}
             className="p-2 hover:bg-white rounded-full transition-colors text-gray-500 hover:text-gray-900 border border-transparent hover:border-gray-200"
           >
             <ChevronLeft size={20} />
