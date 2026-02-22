@@ -22,6 +22,7 @@ import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { createClient } from '@/lib/supabase/client';
 import type { StorefrontOrder } from '@/types/storefront-order';
+import type { PaymentStatus, ShippingStatus } from '@baci/shared/types';
 
 // Hook to extract store slug from pathname
 function useStoreSlug() {
@@ -101,8 +102,8 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
               if (!prevOrder) return prevOrder;
               return {
                 ...prevOrder,
-                shipping_status: (newData.shipping_status as string) ?? prevOrder.shipping_status,
-                payment_status: (newData.payment_status as string) ?? prevOrder.payment_status,
+                shipping_status: (newData.shipping_status as ShippingStatus) ?? prevOrder.shipping_status,
+                payment_status: (newData.payment_status as PaymentStatus) ?? prevOrder.payment_status,
                 tracking_number: (newData.tracking_number as string) ?? prevOrder.tracking_number,
                 tracking_url: (newData.tracking_url as string) ?? prevOrder.tracking_url,
                 updated_at: (newData.updated_at as string) ?? prevOrder.updated_at,
@@ -255,9 +256,9 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
               <div className="relative pt-4 pb-2">
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${(order.shipping_status === 'Delivered') ? 'bg-green-500 w-full' :
-                      (order.shipping_status === 'Shipped') ? 'bg-blue-500 w-2/3' :
-                        (order.shipping_status === 'Processing') ? 'bg-amber-500 w-1/3' : 'bg-gray-300 w-1/12'
+                    className={`h-full rounded-full transition-all duration-500 ${(order.shipping_status === 'delivered') ? 'bg-green-500 w-full' :
+                      (order.shipping_status === 'shipped') ? 'bg-blue-500 w-2/3' :
+                        (order.shipping_status === 'processing') ? 'bg-amber-500 w-1/3' : 'bg-gray-300 w-1/12'
                       }`}
                   />
                 </div>
