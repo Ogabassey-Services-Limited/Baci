@@ -407,3 +407,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
 export function getProductById(id: string): Product | undefined {
   return products.find((p) => p.id === id);
 }
+
+// Explicit column selection for products to prevent data exposure
+export const ADMIN_PRODUCT_COLUMNS =
+  'id, name, description, status, is_active, price, manage_stock, stock_quantity, min_order_quantity, images, image_small, image_large, image_hint, brand, gtin, mpn, google_product_category, has_variants, category, color, sku, slug, compare_at_price, cost_price, low_stock_threshold, weight_value, weight_unit, dimensions, taxable, tax_code, condition, condition_detail, meta_title, meta_description, keywords, canonical_url, schema_markup, created_at, updated_at, fulfillment_details';
