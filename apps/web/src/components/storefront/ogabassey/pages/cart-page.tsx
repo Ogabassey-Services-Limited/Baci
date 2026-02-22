@@ -42,6 +42,27 @@ import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
 import { CheckoutIdentityModal } from '../components/CheckoutIdentityModal';
 
+const PLACEHOLDER_IMAGE = '/placeholder.png';
+
+function CartItemImage({ src, alt }: { src: string | null | undefined; alt: string }) {
+  const [imgSrc, setImgSrc] = useState(src || PLACEHOLDER_IMAGE);
+
+  return (
+    <Image
+      src={imgSrc}
+      alt={alt}
+      fill
+      sizes="(max-width: 768px) 80px, 112px"
+      className="object-contain mix-blend-multiply"
+      onError={() => {
+        if (imgSrc !== PLACEHOLDER_IMAGE) {
+          setImgSrc(PLACEHOLDER_IMAGE);
+        }
+      }}
+    />
+  );
+}
+
 interface NegotiationState {
   isOpen: boolean;
   type: 'single' | 'total';
@@ -220,18 +241,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                         className="w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 flex-shrink-0 flex items-center justify-center"
                       >
                         <div className="relative w-full h-full">
-                          <Image
-                            src={item.image || '/placeholder.png'}
-                            alt={item.name}
-                            fill
-                            sizes="(max-width: 768px) 80px, 112px"
-                            className="object-contain mix-blend-multiply"
-                            onError={(e) => {
-                              const target = e.currentTarget as HTMLImageElement;
-                              target.onerror = null; // Prevent infinite loop
-                              target.src = '/placeholder.png';
-                            }}
-                          />
+                          <CartItemImage src={item.image} alt={item.name} />
                         </div>
                       </Link>
 
