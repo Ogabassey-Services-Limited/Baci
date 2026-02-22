@@ -6,6 +6,8 @@ pre-commit:
       run: pnpm turbo lint
     knip:
       run: pnpm knip || true
+    check-podfile-lock:
+      run: sh ci_scripts/check-podfile-lock.sh
 
 pre-push:
   parallel: true
