@@ -1,6 +1,6 @@
 import type { HeroSlide } from './Hero';
 
-type RawHeroSlide = Record<string, string | undefined>;
+export type RawHeroSlide = Record<string, string | undefined>;
 
 const DEFAULT_CTA_TEXT = 'Shop Now';
 const DEFAULT_CTA_LINK = '/category/all';

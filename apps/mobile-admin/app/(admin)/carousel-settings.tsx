@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -8,10 +8,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import SlideCard from '@/components/store-settings/SlideCard';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
   useHeroCarouselSettings,
@@ -42,10 +42,16 @@ export default function CarouselSettingsScreen() {
   } = useHeroCarouselSettings();
 
   const [draftSlides, setDraftSlides] = useState<HeroCarouselSlide[]>([]);
+  const isDraftInitialized = useRef(false);
 
   useEffect(() => {
+    if (isLoading || isDraftInitialized.current) {
+      return;
+    }
+
     setDraftSlides(slides);
-  }, [slides]);
+    isDraftInitialized.current = true;
+  }, [isLoading, slides]);
 
   const updateSlide = (
     index: number,
@@ -64,16 +70,14 @@ export default function CarouselSettingsScreen() {
   };
 
   const addSlide = () => {
+    if (isSaving) return;
     setDraftSlides((prev) => [...prev, createEmptySlide(prev.length + 1)]);
   };
 
   const handleSave = async () => {
     try {
       const nonEmptySlides = draftSlides.filter(
-        (slide) =>
-          slide.headline.trim().length > 0 ||
-          slide.description.trim().length > 0 ||
-          slide.imageUrl.trim().length > 0
+        (slide) => slide.imageUrl.trim().length > 0
       );
 
       await saveSlides(nonEmptySlides);
@@ -153,68 +157,26 @@ export default function CarouselSettingsScreen() {
           </View>
 
           {draftSlides.map((slide, index) => (
-            <View
-              key={slide.id || `${index}-${slide.headline}`}
-              style={[styles.slideCard, { backgroundColor: colors.card }, shadows.sm]}
-            >
-              <View style={styles.slideHeader}>
-                <Text style={[styles.slideTitle, { color: colors.text }]}>Slide {index + 1}</Text>
-                <Pressable onPress={() => removeSlide(index)}>
-                  <Ionicons name="trash-outline" size={20} color={colors.error} />
-                </Pressable>
-              </View>
-
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Headline</Text>
-              <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                value={slide.headline}
-                onChangeText={(value) => updateSlide(index, 'headline', value)}
-                placeholder="e.g. Laptops & Computing"
-                placeholderTextColor={colors.textMuted}
-              />
-
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Description</Text>
-              <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                value={slide.description}
-                onChangeText={(value) => updateSlide(index, 'description', value)}
-                placeholder="e.g. Work machines and gaming rigs"
-                placeholderTextColor={colors.textMuted}
-              />
-
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Image URL</Text>
-              <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                value={slide.imageUrl}
-                onChangeText={(value) => updateSlide(index, 'imageUrl', value)}
-                placeholder="https://..."
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="none"
-              />
-
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Button Text</Text>
-              <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                value={slide.cta}
-                onChangeText={(value) => updateSlide(index, 'cta', value)}
-                placeholder="Shop Now"
-                placeholderTextColor={colors.textMuted}
-              />
-
-              <Text style={[styles.label, { color: colors.textSecondary }]}>Button Link</Text>
-              <TextInput
-                style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                value={slide.link}
-                onChangeText={(value) => updateSlide(index, 'link', value)}
-                placeholder="/category/all"
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="none"
+            <View key={slide.id || `${index}-${slide.headline}`} style={shadows.sm}>
+              <SlideCard
+                slide={slide}
+                index={index}
+                colors={colors}
+                onChange={updateSlide}
+                onRemove={removeSlide}
               />
             </View>
           ))}
 
           <Pressable
-            style={[styles.addButton, { borderColor: colors.primary }]}
+            disabled={isSaving}
+            style={[
+              styles.addButton,
+              {
+                borderColor: colors.primary,
+                opacity: isSaving ? 0.5 : 1,
+              },
+            ]}
             onPress={addSlide}
           >
             <Ionicons name="add" color={colors.primary} size={18} />
@@ -262,32 +224,6 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   infoText: {
-    fontSize: TYPOGRAPHY.size.sm,
-  },
-  slideCard: {
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    gap: SPACING.xs,
-  },
-  slideHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.xs,
-  },
-  slideTitle: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  label: {
-    fontSize: TYPOGRAPHY.size.xs,
-    marginTop: SPACING.xs,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
     fontSize: TYPOGRAPHY.size.sm,
   },
   addButton: {

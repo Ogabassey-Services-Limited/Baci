@@ -224,12 +224,7 @@ export function upsertHeroSlidesIntoPageConfig(
 export function normalizeHeroSlidesForStorage(
   input: unknown
 ): HeroCarouselSlide[] {
-  return normalizeSlides(input).map((slide, index) => ({
-    ...slide,
-    id: slide.id || `slide-${index + 1}`,
-    link: slide.link || DEFAULT_LINK,
-    cta: slide.cta || DEFAULT_CTA,
-  }));
+  return normalizeSlides(input).map((slide) => ({ ...slide }));
 }
 
 export function areHeroSlidesEquivalent(

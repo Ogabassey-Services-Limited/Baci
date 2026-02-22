@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -51,7 +52,7 @@ async function resolveMerchantContext(request: Request) {
   };
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const context = await resolveMerchantContext(request);
     if ('error' in context) return context.error;
@@ -96,8 +97,16 @@ export async function GET(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
+    const csrf = await checkCsrfProtection(request);
+    if (!csrf.valid) {
+      return (
+        csrf.response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const context = await resolveMerchantContext(request);
     if ('error' in context) return context.error;
 
@@ -139,8 +148,17 @@ export async function PUT(request: Request) {
       .eq('id', merchantId);
 
     if (merchantUpdateError) {
+      logger.error({
+        message: 'Failed to persist merchant mobile hero slides',
+        merchantId,
+        error:
+          merchantUpdateError instanceof Error
+            ? merchantUpdateError
+            : new Error(String(merchantUpdateError)),
+      });
+
       return NextResponse.json(
-        { error: merchantUpdateError.message },
+        { error: 'Failed to update merchant hero slides' },
         { status: 500 }
       );
     }

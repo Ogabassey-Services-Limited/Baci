@@ -6,6 +6,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { hasHeroSlidesInPageConfig } from '@/lib/hero-carousel-config';
+import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -170,7 +171,7 @@ export async function GET() {
       .eq('merchant_id', validMerchant.id)
       .eq('status', 'active');
 
-    const { data: pageConfigs } = await supabase
+    const { data: pageConfigs, error: pageConfigsError } = await supabase
       .from('page_configs')
       .select('published_config, updated_at')
       .eq('merchant_id', validMerchant.id)
@@ -178,6 +179,20 @@ export async function GET() {
       .eq('is_published', true)
       .order('updated_at', { ascending: false })
       .limit(5);
+
+    if (pageConfigsError) {
+      logger.error({
+        message:
+          'Readiness check failed while loading published home page config',
+        merchantId: validMerchant.id,
+        error:
+          pageConfigsError instanceof Error
+            ? pageConfigsError
+            : new Error(String(pageConfigsError)),
+      });
+
+      throw new Error('Failed to load published home page config');
+    }
 
     const latestPublishedConfig = pageConfigs?.[0]?.published_config ?? null;
     const hasPublishedHeroSlides = hasHeroSlidesInPageConfig(

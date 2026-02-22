@@ -7,6 +7,12 @@ import {
 } from './hero-carousel-config';
 
 describe('hero-carousel-config', () => {
+  it('returns an empty array for nullish or empty page config values', () => {
+    expect(extractHeroSlidesFromPageConfig(null)).toEqual([]);
+    expect(extractHeroSlidesFromPageConfig(undefined)).toEqual([]);
+    expect(extractHeroSlidesFromPageConfig({})).toEqual([]);
+  });
+
   it('extracts slides from HeroCarousel builder blocks', () => {
     const config = {
       content: [
@@ -104,6 +110,18 @@ describe('hero-carousel-config', () => {
     expect(hasHeroSlidesInPageConfig(updated)).toBe(true);
   });
 
+  it('creates a safe hero block when upserting into a null config', () => {
+    const updated = upsertHeroSlidesIntoPageConfig(null, []);
+    const updatedContent = Array.isArray(updated.content)
+      ? updated.content
+      : [];
+
+    expect(updatedContent[0]).toMatchObject({
+      type: 'HeroCarousel',
+      props: { slides: [] },
+    });
+  });
+
   it('replaces slides on an existing hero block without touching other blocks', () => {
     const originalConfig = {
       content: [
@@ -194,5 +212,23 @@ describe('hero-carousel-config', () => {
 
     expect(areHeroSlidesEquivalent(a, b)).toBe(true);
     expect(areHeroSlidesEquivalent(a, c)).toBe(false);
+  });
+
+  it('returns false when slide array lengths differ', () => {
+    expect(
+      areHeroSlidesEquivalent(
+        [],
+        [
+          {
+            id: 'slide-1',
+            imageUrl: 'https://cdn.example.com/slide.png',
+            headline: 'Headline',
+            description: 'Description',
+            cta: 'Shop Now',
+            link: '/category/all',
+          },
+        ]
+      )
+    ).toBe(false);
   });
 });

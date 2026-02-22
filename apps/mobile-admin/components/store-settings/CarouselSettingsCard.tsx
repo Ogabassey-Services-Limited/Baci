@@ -25,6 +25,9 @@ export function CarouselSettingsCard({
     <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
       <Text style={[styles.label, { color: colors.textSecondary }]}>Homepage Carousel</Text>
       <Pressable
+        accessibilityHint="Opens carousel management"
+        accessibilityLabel={`Manage mobile carousel, ${slideCount} slide${slideCount === 1 ? '' : 's'}`}
+        accessibilityRole="button"
         onPress={onPress}
         style={({ pressed }) => [
           styles.row,
@@ -52,7 +55,8 @@ export function CarouselSettingsCard({
 const styles = StyleSheet.create({
   card: {
     borderRadius: RADIUS.lg,
-    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+    padding: SPACING.lg,
     gap: SPACING.sm,
   },
   label: {

@@ -153,7 +153,7 @@ export default function HomeScreen() {
       !content.some((b: Block) => b.type === 'CategoryRail')
     ) {
       const heroIndex = content.findIndex(
-        (b: Block) => b.type === 'HeroCarousel'
+        (b: Block) => /hero/i.test(String(b.type))
       );
       const injected: Block = {
         type: 'CategoryRail' as const,

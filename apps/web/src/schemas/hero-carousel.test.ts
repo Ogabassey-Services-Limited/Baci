@@ -79,6 +79,22 @@ describe('heroCarouselSlideSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects link exceeding 2048 characters', () => {
+    const result = heroCarouselSlideSchema.safeParse({
+      link: `https://example.com/${'x'.repeat(2048)}`,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects link with only whitespace', () => {
+    const result = heroCarouselSlideSchema.safeParse({
+      link: '   ',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('rejects id exceeding 100 characters', () => {
     const result = heroCarouselSlideSchema.safeParse({
       id: 'x'.repeat(101),
