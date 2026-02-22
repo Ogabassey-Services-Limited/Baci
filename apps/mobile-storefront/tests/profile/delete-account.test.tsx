@@ -212,10 +212,39 @@ describe('DeleteAccountScreen', () => {
 
     await waitFor(() => {
       expect(canOpenUrlSpy).toHaveBeenCalledWith(
-        'https://support.apple.com/en-us/HT210426'
+        'https://support.apple.com/en-us/102571'
       );
       expect(openUrlSpy).toHaveBeenCalledWith(
-        'https://support.apple.com/en-us/HT210426'
+        'https://support.apple.com/en-us/102571'
+      );
+      expect(mockToastError).toHaveBeenCalledWith(
+        'Unable to open Apple support link on this device.'
+      );
+    });
+  });
+
+  it('shows an error toast when Apple revoke URL cannot be opened on device', async () => {
+    mockUseRequireAuth.mockReturnValue({
+      isLoading: false,
+      redirectTo: null,
+      user: {
+        app_metadata: { provider: 'apple', providers: ['apple'] },
+        identities: [],
+      },
+    });
+
+    const canOpenUrlSpy = jest
+      .spyOn(Linking, 'canOpenURL')
+      .mockResolvedValue(false);
+
+    render(<DeleteAccountScreen />);
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Open Apple revoke guide' })
+    );
+
+    await waitFor(() => {
+      expect(canOpenUrlSpy).toHaveBeenCalledWith(
+        'https://support.apple.com/en-us/102571'
       );
       expect(mockToastError).toHaveBeenCalledWith(
         'Unable to open Apple support link on this device.'

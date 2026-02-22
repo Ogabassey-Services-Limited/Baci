@@ -250,7 +250,7 @@ export default function AccountScreen() {
           route: '/modal',
           color: palette.gray[500],
         },
-        ...(safeCustomer
+        ...(session
           ? [
               {
                 id: 'delete-account',

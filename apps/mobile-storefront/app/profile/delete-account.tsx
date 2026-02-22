@@ -19,7 +19,7 @@ import { hasAppleProvider } from '@/lib/account-deletion';
 import { useAuthStore } from '@/stores/auth-store';
 import { styles } from './delete-account.styles';
 
-const APPLE_REVOKE_GUIDE_URL = 'https://support.apple.com/en-us/HT210426';
+const APPLE_REVOKE_GUIDE_URL = 'https://support.apple.com/en-us/102571';
 
 export default function DeleteAccountScreen() {
   const colorScheme = useColorScheme();
@@ -34,13 +34,13 @@ export default function DeleteAccountScreen() {
   const signedInWithApple = hasAppleProvider(user);
 
   const openAppleRevokeGuide = async () => {
-    const canOpen = await Linking.canOpenURL(APPLE_REVOKE_GUIDE_URL);
-    if (!canOpen) {
-      toast.error('Unable to open Apple support link on this device.');
-      return;
-    }
-
     try {
+      const canOpen = await Linking.canOpenURL(APPLE_REVOKE_GUIDE_URL);
+      if (!canOpen) {
+        toast.error('Unable to open Apple support link on this device.');
+        return;
+      }
+
       await Linking.openURL(APPLE_REVOKE_GUIDE_URL);
     } catch {
       toast.error('Unable to open Apple support link on this device.');
@@ -57,10 +57,18 @@ export default function DeleteAccountScreen() {
         return;
       }
 
+      setIsConfirmed(false);
+
       Alert.alert(
         'Account deleted',
         'Your account has been permanently deleted from this app.',
         [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Something went wrong. Please try again.'
       );
     } finally {
       setIsDeleting(false);
