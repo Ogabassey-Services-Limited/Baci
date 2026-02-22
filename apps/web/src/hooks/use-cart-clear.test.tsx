@@ -59,8 +59,7 @@ describe('useCart - clearCart', () => {
       result.current.clearCart();
     });
 
-    // Expectation: merchantSlug should still be 'test-merchant'
-    // This currently fails because clearCart sets it to null
+    // merchantSlug is preserved when clearCart is called with an initialMerchantSlug
     expect(result.current.merchantSlug).toBe('test-merchant');
   });
 });
