@@ -27,7 +27,8 @@ const localStorageMock = (() => {
 
 Object.defineProperty(window, 'localStorage', { value: localStorageMock });
 
-global.fetch = vi.fn();
+const fetchMock = vi.fn();
+vi.stubGlobal('fetch', fetchMock);
 
 describe('useCart - Race Condition', () => {
   beforeEach(() => {
@@ -65,16 +66,16 @@ describe('useCart - Race Condition', () => {
       JSON.stringify([{ ...mockProduct1, cartItemId: 'p1' }])
     );
 
-    let resolveFirstValidation: (value: any) => void = () => {
+    let resolveFirstValidation: (value: unknown) => void = () => {
       // noop
     };
-    (global.fetch as any).mockImplementationOnce(() => {
+    fetchMock.mockImplementationOnce(() => {
       return new Promise((resolve) => {
         resolveFirstValidation = resolve;
       });
     });
     // Second validation mock
-    (global.fetch as any).mockImplementationOnce(() => {
+    fetchMock.mockImplementationOnce(() => {
       return Promise.resolve({
         ok: true,
         json: async () => ({ invalidProductIds: [], priceChanges: [] }),
@@ -99,7 +100,7 @@ describe('useCart - Race Condition', () => {
     });
 
     // First validation should be in flight
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     // 2. Modify cart WHILE validation is running
     await act(() => {
@@ -125,6 +126,6 @@ describe('useCart - Race Condition', () => {
     });
 
     // Expect a second validation call for the updated cart
-    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   }, 10000);
 });

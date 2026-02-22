@@ -329,6 +329,9 @@ export const CartProvider = ({
       const BATCH_SIZE = 50;
       const limitedCart = cart.slice(0, BATCH_SIZE);
 
+      // 10s network timeout to prevent hanging on slow networks
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       try {
         const cartItems = limitedCart.map((item) => ({
           id: item.id,
@@ -414,13 +417,15 @@ export const CartProvider = ({
         }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
-          // Expected on cleanup/cancel
+          // Expected on cleanup/cancel or 10s network timeout
         } else {
           logger.error({
             message: 'Cart validation error',
             error: error as Error,
           });
         }
+      } finally {
+        clearTimeout(timeoutId);
       }
     };
 
