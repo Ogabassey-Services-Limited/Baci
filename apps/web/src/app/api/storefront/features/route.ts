@@ -74,8 +74,8 @@ export interface StorefrontFeatures {
   autoBlogEnabled: boolean;
 }
 
-// Database row shape for merchant_feature_settings (public columns only)
-export interface MerchantFeatureSettingsRow {
+// Internal interface for database row to satisfy TypeScript
+interface MerchantFeatureSettingsRow {
   loyalty_enabled: boolean;
   reviews_enabled: boolean;
   wishlist_enabled: boolean;
@@ -167,9 +167,8 @@ const DEFAULT_FEATURES: StorefrontFeatures = {
   autoBlogEnabled: false,
 };
 
-// Explicitly select columns to prevent over-fetching sensitive data.
-// Exported as an array so tests can import the canonical list.
-export const SETTINGS_COLUMNS_LIST = [
+// Explicitly select columns to prevent over-fetching sensitive data
+const SETTINGS_COLUMNS = [
   'loyalty_enabled',
   'reviews_enabled',
   'wishlist_enabled',
@@ -210,9 +209,7 @@ export const SETTINGS_COLUMNS_LIST = [
   'vtu_loyalty_reward_enabled',
   'blog_enabled',
   'auto_blog_enabled',
-] as const;
-
-const SETTINGS_COLUMNS = SETTINGS_COLUMNS_LIST.join(', ');
+].join(', ');
 
 export async function GET(request: NextRequest) {
   try {
@@ -237,9 +234,9 @@ export async function GET(request: NextRequest) {
         .from('merchants')
         .select('id')
         .eq('slug', slug)
-        .maybeSingle();
+        .single();
 
-      if (merchantError) {
+      if (merchantError && merchantError.code !== 'PGRST116') {
         console.error('Error fetching merchant by slug:', merchantError);
         return NextResponse.json(
           { error: 'Failed to fetch store' },
@@ -253,29 +250,19 @@ export async function GET(request: NextRequest) {
       resolvedMerchantId = merchant.id;
     }
 
-    // Guard: resolvedMerchantId must be non-null before querying
-    if (!resolvedMerchantId) {
-      return NextResponse.json(
-        { error: 'Could not determine merchant' },
-        { status: 400 }
-      );
-    }
-
-    // Get feature settings -- maybeSingle because the row may not exist yet
+    // Get feature settings
     const { data, error: settingsError } = await supabase
       .from('merchant_feature_settings')
       .select(SETTINGS_COLUMNS)
       .eq('merchant_id', resolvedMerchantId)
-      .maybeSingle();
+      .single();
 
-    if (settingsError) {
+    if (settingsError && settingsError.code !== 'PGRST116') {
       console.error('Error fetching feature settings:', settingsError);
     }
 
-    // Type the data: Supabase dynamic select returns a Record-like shape;
-    // we narrow to MerchantFeatureSettingsRow for field access.
-    const settings: MerchantFeatureSettingsRow | null =
-      data as MerchantFeatureSettingsRow | null;
+    // Cast data to known type since dynamic select string breaks inference
+    const settings = data as unknown as MerchantFeatureSettingsRow | null;
 
     // If no settings, return defaults
     if (!settings) {
