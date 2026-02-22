@@ -132,13 +132,13 @@ export default function HomeScreen() {
   ];
 
   const blocks = (() => {
+    if (isConfigLoading && !pageConfig) return [];
+
     let content: Block[] = pageConfig?.content || defaultBlocks;
 
     // Ensure home always has a hero slot; some templates use custom hero block names
     // and some published configs may omit hero entirely.
-    const hasHeroBlock = content.some((b: Block) =>
-      /hero/i.test(String(b.type))
-    );
+    const hasHeroBlock = content.some((b: Block) => b.type === 'HeroCarousel');
     if (!hasHeroBlock) {
       const injectedHero: Block = {
         type: 'HeroCarousel',
@@ -153,7 +153,7 @@ export default function HomeScreen() {
       !content.some((b: Block) => b.type === 'CategoryRail')
     ) {
       const heroIndex = content.findIndex(
-        (b: Block) => /hero/i.test(String(b.type))
+        (b: Block) => b.type === 'HeroCarousel'
       );
       const injected: Block = {
         type: 'CategoryRail' as const,
@@ -169,7 +169,6 @@ export default function HomeScreen() {
       content = newContent;
     }
 
-    if (isConfigLoading && !pageConfig) return [];
     return content;
   })();
 
@@ -214,10 +213,7 @@ export default function HomeScreen() {
       )}
 
       <View
-        style={[
-          styles.headerOverlay,
-          { zIndex: searchVisible ? 10000 : 100 },
-        ]}
+        style={[styles.headerOverlay, { zIndex: searchVisible ? 10000 : 100 }]}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
         <Header

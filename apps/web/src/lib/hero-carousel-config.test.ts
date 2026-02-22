@@ -11,6 +11,7 @@ describe('hero-carousel-config', () => {
     expect(extractHeroSlidesFromPageConfig(null)).toEqual([]);
     expect(extractHeroSlidesFromPageConfig(undefined)).toEqual([]);
     expect(extractHeroSlidesFromPageConfig({})).toEqual([]);
+    expect(extractHeroSlidesFromPageConfig({ content: [] })).toEqual([]);
   });
 
   it('extracts slides from HeroCarousel builder blocks', () => {
@@ -38,7 +39,7 @@ describe('hero-carousel-config', () => {
 
     expect(slides).toEqual([
       {
-        id: 'slide-1',
+        id: expect.stringMatching(/^slide-/),
         imageUrl: 'https://cdn.example.com/hero-1.png',
         headline: 'Latest Smartphones',
         description: 'Discover flagship devices',
@@ -120,6 +121,30 @@ describe('hero-carousel-config', () => {
       type: 'HeroCarousel',
       props: { slides: [] },
     });
+  });
+
+  it('creates a valid page config with HeroCarousel block from null config and real slides', () => {
+    const slides = [
+      {
+        id: 'slide-1',
+        imageUrl: 'https://cdn.example.com/promo.png',
+        headline: 'Flash Sale',
+        description: 'Limited time offer',
+        cta: 'Shop Now',
+        link: '/category/flash-sale',
+      },
+    ];
+
+    const updated = upsertHeroSlidesIntoPageConfig(null, slides);
+    const updatedContent = Array.isArray(updated.content)
+      ? updated.content
+      : [];
+
+    expect(updatedContent).toHaveLength(1);
+    expect(updatedContent[0]).toMatchObject({
+      type: 'HeroCarousel',
+    });
+    expect(hasHeroSlidesInPageConfig(updated)).toBe(true);
   });
 
   it('replaces slides on an existing hero block without touching other blocks', () => {

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { ThemeColors } from '@/constants/theme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { HeroCarouselSlide } from '@/hooks/useHeroCarouselSettings';
 
 interface SlideCardProps {
@@ -30,7 +30,7 @@ export default function SlideCard({
           Slide {index + 1}
         </Text>
         <Pressable
-          accessibilityLabel={`Delete slide ${index + 1}`}
+          accessibilityLabel={`Remove slide ${index + 1}`}
           accessibilityRole="button"
           onPress={() => onRemove(index)}
         >
@@ -38,9 +38,15 @@ export default function SlideCard({
         </Pressable>
       </View>
 
-      <Text style={[styles.label, { color: colors.textSecondary }]}>Headline</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>
+        Headline
+      </Text>
       <TextInput
-        style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+        accessibilityLabel={`Slide ${index + 1} Headline`}
+        style={[
+          styles.input,
+          { borderColor: colors.border, color: colors.text },
+        ]}
         value={slide.headline}
         onChangeText={(value) => onChange(index, 'headline', value)}
         placeholder="e.g. Laptops & Computing"
@@ -51,16 +57,26 @@ export default function SlideCard({
         Description
       </Text>
       <TextInput
-        style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+        accessibilityLabel={`Slide ${index + 1} Description`}
+        style={[
+          styles.input,
+          { borderColor: colors.border, color: colors.text },
+        ]}
         value={slide.description}
         onChangeText={(value) => onChange(index, 'description', value)}
         placeholder="e.g. Work machines and gaming rigs"
         placeholderTextColor={colors.textMuted}
       />
 
-      <Text style={[styles.label, { color: colors.textSecondary }]}>Image URL</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>
+        Image URL
+      </Text>
       <TextInput
-        style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+        accessibilityLabel={`Slide ${index + 1} Image URL`}
+        style={[
+          styles.input,
+          { borderColor: colors.border, color: colors.text },
+        ]}
         value={slide.imageUrl}
         onChangeText={(value) => onChange(index, 'imageUrl', value)}
         placeholder="https://..."
@@ -72,7 +88,11 @@ export default function SlideCard({
         Button Text
       </Text>
       <TextInput
-        style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+        accessibilityLabel={`Slide ${index + 1} Button Text`}
+        style={[
+          styles.input,
+          { borderColor: colors.border, color: colors.text },
+        ]}
         value={slide.cta}
         onChangeText={(value) => onChange(index, 'cta', value)}
         placeholder="Shop Now"
@@ -83,7 +103,11 @@ export default function SlideCard({
         Button Link
       </Text>
       <TextInput
-        style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+        accessibilityLabel={`Slide ${index + 1} Button Link`}
+        style={[
+          styles.input,
+          { borderColor: colors.border, color: colors.text },
+        ]}
         value={slide.link}
         onChangeText={(value) => onChange(index, 'link', value)}
         placeholder="/category/all"

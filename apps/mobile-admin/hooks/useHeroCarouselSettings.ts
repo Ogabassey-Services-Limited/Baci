@@ -1,14 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { HeroCarouselSlide } from '@baci/shared';
 import { apiClient } from '@/lib/api-client';
 
-export interface HeroCarouselSlide {
-  id: string;
-  imageUrl: string;
-  headline: string;
-  description: string;
-  cta: string;
-  link: string;
-}
+export type { HeroCarouselSlide } from '@baci/shared';
 
 interface HeroCarouselResponse {
   slides: HeroCarouselSlide[];

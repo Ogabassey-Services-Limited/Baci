@@ -80,6 +80,17 @@ describe('normalizeHeroSlides', () => {
       },
     ]);
   });
+
+  it('returns empty array for null, undefined, and non-array inputs', () => {
+    expect(normalizeHeroSlides(null)).toEqual([]);
+    expect(normalizeHeroSlides(undefined)).toEqual([]);
+    expect(
+      normalizeHeroSlides({} as unknown as Record<string, string>[])
+    ).toEqual([]);
+    expect(
+      normalizeHeroSlides('bad-input' as unknown as Record<string, string>[])
+    ).toEqual([]);
+  });
 });
 
 describe('resolveHeroSlides', () => {
@@ -114,12 +125,15 @@ describe('resolveHeroSlides', () => {
   });
 
   it('falls back to merchant slides when block slides are empty', () => {
-    const resolved = resolveHeroSlides([], [
-      {
-        headline: 'Merchant Slide',
-        imageUrl: 'https://cdn.example.com/merchant-hero.jpg',
-      },
-    ]);
+    const resolved = resolveHeroSlides(
+      [],
+      [
+        {
+          headline: 'Merchant Slide',
+          imageUrl: 'https://cdn.example.com/merchant-hero.jpg',
+        },
+      ]
+    );
 
     expect(resolved).toEqual([
       {
@@ -162,19 +176,56 @@ describe('resolveHeroSlides', () => {
       },
     ]);
   });
+
+  it('returns empty array when both sources are invalid', () => {
+    expect(
+      resolveHeroSlides(
+        'bad-block' as unknown as Record<string, string>[],
+        { bad: 'merchant' } as unknown as Record<string, string>[]
+      )
+    ).toEqual([]);
+  });
+
+  it('returns empty array when both sources are null', () => {
+    expect(resolveHeroSlides(null, null)).toEqual([]);
+  });
 });
 
 describe('getFallbackHeroSlides', () => {
   it('uses merchant name when provided', () => {
-    const slides = getFallbackHeroSlides('Ogabassey');
+    const slides = getFallbackHeroSlides('TrendyShop');
 
-    expect(slides[0]?.title).toBe('Welcome to Ogabassey');
+    expect(slides[0]?.title).toBe('Welcome to TrendyShop');
     expect(slides[0]?.ctaLink).toBe('/category/all');
   });
 
   it('uses generic title when merchant name is missing', () => {
     const slides = getFallbackHeroSlides('   ');
 
-    expect(slides[0]?.title).toBe('Welcome to Ogabassey');
+    expect(slides[0]).toEqual({
+      title: 'Welcome to Our Store',
+      subtitle: 'Discover top deals and new arrivals',
+      image: '',
+      ctaText: 'Shop Now',
+      ctaLink: '/category/all',
+    });
+  });
+
+  it('uses generic fallback for undefined and empty store names', () => {
+    expect(getFallbackHeroSlides()[0]).toEqual({
+      title: 'Welcome to Our Store',
+      subtitle: 'Discover top deals and new arrivals',
+      image: '',
+      ctaText: 'Shop Now',
+      ctaLink: '/category/all',
+    });
+
+    expect(getFallbackHeroSlides('')[0]).toEqual({
+      title: 'Welcome to Our Store',
+      subtitle: 'Discover top deals and new arrivals',
+      image: '',
+      ctaText: 'Shop Now',
+      ctaLink: '/category/all',
+    });
   });
 });

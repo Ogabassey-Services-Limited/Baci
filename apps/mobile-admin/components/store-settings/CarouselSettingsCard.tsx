@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
-  type ThemeColors,
-  getShadows,
+  type getShadows,
   RADIUS,
   SPACING,
+  type ThemeColors,
   TYPOGRAPHY,
 } from '@/constants/theme';
 
@@ -23,9 +23,11 @@ export function CarouselSettingsCard({
 }: CarouselSettingsCardProps) {
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>Homepage Carousel</Text>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>
+        Homepage Carousel
+      </Text>
       <Pressable
-        accessibilityHint="Opens carousel management"
+        accessibilityHint={`Opens mobile carousel management, showing ${slideCount} slide${slideCount === 1 ? '' : 's'}`}
         accessibilityLabel={`Manage mobile carousel, ${slideCount} slide${slideCount === 1 ? '' : 's'}`}
         accessibilityRole="button"
         onPress={onPress}
@@ -38,12 +40,22 @@ export function CarouselSettingsCard({
         ]}
       >
         <View style={styles.rowLeft}>
-          <View style={[styles.iconWrap, { backgroundColor: `${colors.primary}20` }]}>
+          <View
+            style={[
+              styles.iconWrap,
+              { backgroundColor: `${colors.primary}20` },
+            ]}
+          >
             <Ionicons name="images-outline" size={18} color={colors.primary} />
           </View>
           <View style={styles.textWrap}>
-            <Text style={[styles.title, { color: colors.text }]}>Manage mobile carousel</Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Currently {slideCount} mobile slide{slideCount === 1 ? '' : 's'} configured</Text>
+            <Text style={[styles.title, { color: colors.text }]}>
+              Manage mobile carousel
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Currently {slideCount} mobile slide{slideCount === 1 ? '' : 's'}{' '}
+              configured
+            </Text>
           </View>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
@@ -81,7 +93,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: RADIUS.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -94,6 +106,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
     marginTop: 2,
   },
 });

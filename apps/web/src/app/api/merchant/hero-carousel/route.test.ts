@@ -46,6 +46,14 @@ function makeRequest(method: 'GET' | 'PUT', body?: Record<string, unknown>) {
   });
 }
 
+function makeRawRequest(method: 'PUT', rawBody: string) {
+  return new NextRequest('http://localhost:3000/api/merchant/hero-carousel', {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: rawBody,
+  });
+}
+
 async function getRouteHandlers() {
   const route = await import('./route');
   return {
@@ -72,37 +80,43 @@ async function callPut(request: NextRequest): Promise<Response> {
   return response;
 }
 
-let selectQueue: Array<{ data: unknown; error: unknown }> = [];
-let updateResult: { error: unknown } = { error: null };
+// --- Mock Supabase ---
+
+let selectResult: { data: unknown; error: unknown } = {
+  data: null,
+  error: null,
+};
+let updateResult: { data: unknown; error: unknown } = {
+  data: null,
+  error: null,
+};
 
 function createMockSupabase() {
   return {
     from: vi.fn(() => ({
       select: vi.fn(() => ({
         eq: vi.fn(() => ({
-          single: vi.fn(() => {
-            const nextResult = selectQueue.shift();
-            return (
-              nextResult ?? {
-                data: null,
-                error: { message: 'Missing mocked select result' },
-              }
-            );
-          }),
+          single: vi.fn(() => selectResult),
         })),
       })),
       update: vi.fn(() => ({
-        eq: vi.fn(async () => updateResult),
+        eq: vi.fn(() => ({
+          select: vi.fn(() => ({
+            maybeSingle: vi.fn(() => updateResult),
+          })),
+        })),
       })),
     })),
   };
 }
 
+// --- GET tests ---
+
 describe('GET /api/merchant/hero-carousel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    selectQueue = [];
-    updateResult = { error: null };
+    selectResult = { data: null, error: null };
+    updateResult = { data: null, error: null };
 
     const supabase = createMockSupabase();
     mockGetAuthenticatedUser.mockResolvedValue({
@@ -152,13 +166,13 @@ describe('GET /api/merchant/hero-carousel', () => {
   });
 
   it('returns normalized slides with source and drift flag', async () => {
-    selectQueue.push({
+    selectResult = {
       data: {
         id: 'merchant-1',
         mobile_hero_slides: [{ headline: 'raw' }],
       },
       error: null,
-    });
+    };
     mockNormalizeHeroSlidesForStorage.mockReturnValue([
       {
         id: 'slide-1',
@@ -194,10 +208,10 @@ describe('GET /api/merchant/hero-carousel', () => {
   });
 
   it('returns 404 when merchant row is missing', async () => {
-    selectQueue.push({
+    selectResult = {
       data: null,
       error: { message: 'not found' },
-    });
+    };
 
     const response = await callGet(makeRequest('GET'));
     const payload = await response.json();
@@ -218,11 +232,13 @@ describe('GET /api/merchant/hero-carousel', () => {
   });
 });
 
+// --- PUT tests ---
+
 describe('PUT /api/merchant/hero-carousel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    selectQueue = [];
-    updateResult = { error: null };
+    selectResult = { data: null, error: null };
+    updateResult = { data: { id: 'merchant-1' }, error: null };
 
     const supabase = createMockSupabase();
     mockGetAuthenticatedUser.mockResolvedValue({
@@ -256,6 +272,24 @@ describe('PUT /api/merchant/hero-carousel', () => {
     expect(response.status).toBe(403);
   });
 
+  it('returns 401 when unauthenticated', async () => {
+    mockGetAuthenticatedUser.mockResolvedValue(null);
+
+    const response = await callPut(makeRequest('PUT', { slides: [] }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(payload.error).toBe('Unauthorized');
+  });
+
+  it('returns 400 on invalid JSON body', async () => {
+    const response = await callPut(makeRawRequest('PUT', '{not valid json'));
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toBe('Invalid JSON body');
+  });
+
   it('returns 400 on invalid payload', async () => {
     const response = await callPut(
       makeRequest('PUT', { slides: 'not-an-array' })
@@ -277,7 +311,7 @@ describe('PUT /api/merchant/hero-carousel', () => {
   });
 
   it('updates merchant mobile slides successfully', async () => {
-    selectQueue.push({ data: { id: 'merchant-1' }, error: null });
+    updateResult = { data: { id: 'merchant-1' }, error: null };
 
     const response = await callPut(
       makeRequest('PUT', {
@@ -301,11 +335,8 @@ describe('PUT /api/merchant/hero-carousel', () => {
     });
   });
 
-  it('returns 404 when merchant row is missing on update', async () => {
-    selectQueue.push({
-      data: null,
-      error: { message: 'not found' },
-    });
+  it('returns 404 when no merchant row was updated', async () => {
+    updateResult = { data: null, error: null };
 
     const response = await callPut(makeRequest('PUT', { slides: [] }));
     const payload = await response.json();
@@ -315,14 +346,24 @@ describe('PUT /api/merchant/hero-carousel', () => {
   });
 
   it('returns generic 500 and logs on merchant update error', async () => {
-    selectQueue.push({ data: { id: 'merchant-1' }, error: null });
-    updateResult = { error: { message: 'db exploded' } };
+    updateResult = { data: null, error: { message: 'db exploded' } };
 
     const response = await callPut(makeRequest('PUT', { slides: [] }));
     const payload = await response.json();
 
     expect(response.status).toBe(500);
-    expect(payload.error).toBe('Failed to update merchant hero slides');
+    expect(payload.error).toBe('Failed to update carousel settings');
+    expect(mockLoggerError).toHaveBeenCalled();
+  });
+
+  it('returns 500 and logs on unexpected errors', async () => {
+    mockGetAuthenticatedUser.mockRejectedValue(new Error('unexpected'));
+
+    const response = await callPut(makeRequest('PUT', { slides: [] }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(payload.error).toBe('Failed to update hero carousel settings');
     expect(mockLoggerError).toHaveBeenCalled();
   });
 });

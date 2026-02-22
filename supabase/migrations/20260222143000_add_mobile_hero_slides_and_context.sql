@@ -77,4 +77,5 @@ BEGIN
 END;
 $$;
 
+REVOKE EXECUTE ON FUNCTION public.get_user_merchant_context() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_user_merchant_context() TO authenticated;

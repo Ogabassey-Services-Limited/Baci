@@ -1,18 +1,18 @@
+import {
+  HERO_CAROUSEL_FIELD_CANDIDATES,
+  type HeroCarouselSlide,
+} from '@baci/shared';
+
 interface LooseRecord {
   [key: string]: unknown;
 }
 
-export interface HeroCarouselSlide {
-  id: string;
-  imageUrl: string;
-  headline: string;
-  description: string;
-  cta: string;
-  link: string;
-}
+export type { HeroCarouselSlide } from '@baci/shared';
 
 const DEFAULT_LINK = '/category/all';
 const DEFAULT_CTA = 'Shop Now';
+const HERO_BLOCK_TYPE_REGEX = /\bhero/i;
+const HERO_FALLBACK_TYPE_REGEX = /(hero|carousel|slider)/i;
 
 function asRecord(value: unknown): LooseRecord | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -37,6 +37,10 @@ function pickFirstString(values: unknown[]): string | null {
   return null;
 }
 
+function pickFromRecord(record: LooseRecord, candidates: readonly string[]) {
+  return pickFirstString(candidates.map((field) => record[field]));
+}
+
 function normalizeSlideValue(
   slide: unknown,
   index: number
@@ -45,43 +49,22 @@ function normalizeSlideValue(
   if (!record) return null;
 
   const headline =
-    pickFirstString([
-      record.headline,
-      record.title,
-      record.heading,
-      record.headline_text,
-    ]) ?? '';
+    pickFromRecord(record, HERO_CAROUSEL_FIELD_CANDIDATES.headline) ?? '';
 
   const description =
-    pickFirstString([
-      record.description,
-      record.subtitle,
-      record.subheading,
-      record.sub_title,
-    ]) ?? '';
+    pickFromRecord(record, HERO_CAROUSEL_FIELD_CANDIDATES.description) ?? '';
 
   const imageUrl =
-    pickFirstString([
-      record.imageUrl,
-      record.image,
-      record.image_url,
-      record.image_uri,
-    ]) ?? '';
+    pickFromRecord(record, HERO_CAROUSEL_FIELD_CANDIDATES.image) ?? '';
 
   const cta =
-    pickFirstString([record.cta, record.ctaText, record.cta_text]) ??
-    DEFAULT_CTA;
+    pickFromRecord(record, HERO_CAROUSEL_FIELD_CANDIDATES.cta) ?? DEFAULT_CTA;
 
   const link =
-    pickFirstString([
-      record.link,
-      record.url,
-      record.ctaLink,
-      record.cta_link,
-    ]) ?? DEFAULT_LINK;
+    pickFromRecord(record, HERO_CAROUSEL_FIELD_CANDIDATES.link) ?? DEFAULT_LINK;
 
   const id =
-    pickFirstString([record.id, record.slideId, record.key]) ??
+    pickFromRecord(record, HERO_CAROUSEL_FIELD_CANDIDATES.id) ??
     `slide-${index + 1}`;
 
   if (!headline && !description && !imageUrl) return null;
@@ -111,6 +94,7 @@ function findHeroBlockWithSlides(content: unknown[]): {
   let firstBlockWithSlides: {
     index: number;
     slides: HeroCarouselSlide[];
+    blockType: string;
   } | null = null;
 
   for (let index = 0; index < content.length; index++) {
@@ -124,16 +108,29 @@ function findHeroBlockWithSlides(content: unknown[]): {
     if (slides.length === 0) continue;
 
     const blockType = pickString(block.type) ?? '';
-    if (/hero/i.test(blockType)) {
+    if (HERO_BLOCK_TYPE_REGEX.test(blockType)) {
       return { index, slides };
     }
 
-    if (!firstBlockWithSlides) {
-      firstBlockWithSlides = { index, slides };
+    if (!firstBlockWithSlides && HERO_FALLBACK_TYPE_REGEX.test(blockType)) {
+      firstBlockWithSlides = { index, slides, blockType };
     }
   }
 
-  return firstBlockWithSlides;
+  if (firstBlockWithSlides) {
+    if (!HERO_BLOCK_TYPE_REGEX.test(firstBlockWithSlides.blockType)) {
+      console.warn(
+        `[hero-carousel-config] Using fallback hero-like block at index ${firstBlockWithSlides.index} with type "${firstBlockWithSlides.blockType}".`
+      );
+    }
+
+    return {
+      index: firstBlockWithSlides.index,
+      slides: firstBlockWithSlides.slides,
+    };
+  }
+
+  return null;
 }
 
 function findHeroBlockIndex(content: unknown[]): number {
@@ -142,7 +139,7 @@ function findHeroBlockIndex(content: unknown[]): number {
     if (!block) continue;
 
     const blockType = pickString(block.type) ?? '';
-    if (/hero/i.test(blockType)) {
+    if (HERO_BLOCK_TYPE_REGEX.test(blockType)) {
       return index;
     }
   }
@@ -221,12 +218,23 @@ export function upsertHeroSlidesIntoPageConfig(
   };
 }
 
+/**
+ * Normalize raw slide data into clean {@link HeroCarouselSlide} objects ready
+ * for database storage. Delegates to {@link normalizeSlideValue} internally,
+ * which already applies default values for `id`, `cta`, and `link`.
+ * The shallow copy (spread) ensures callers receive detached objects.
+ */
 export function normalizeHeroSlidesForStorage(
   input: unknown
 ): HeroCarouselSlide[] {
   return normalizeSlides(input).map((slide) => ({ ...slide }));
 }
 
+/**
+ * Compare two HeroCarouselSlide arrays for content drift.
+ * This intentionally ignores `id` because it checks content equivalence only,
+ * using `imageUrl`, `headline`, `description`, `cta`, and `link`.
+ */
 export function areHeroSlidesEquivalent(
   first: HeroCarouselSlide[],
   second: HeroCarouselSlide[]

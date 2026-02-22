@@ -14,10 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import SlideCard from '@/components/store-settings/SlideCard';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
-  useHeroCarouselSettings,
   type HeroCarouselSlide,
+  useHeroCarouselSettings,
 } from '@/hooks/useHeroCarouselSettings';
 import { useTheme } from '@/hooks/useTheme';
+
+const MAX_SLIDES = 12;
 
 function createEmptySlide(index: number): HeroCarouselSlide {
   return {
@@ -33,13 +35,8 @@ function createEmptySlide(index: number): HeroCarouselSlide {
 export default function CarouselSettingsScreen() {
   const router = useRouter();
   const { colors, shadows } = useTheme();
-  const {
-    slides,
-    isLoading,
-    error,
-    saveSlides,
-    isSaving,
-  } = useHeroCarouselSettings();
+  const { slides, isLoading, error, saveSlides, isSaving } =
+    useHeroCarouselSettings();
 
   const [draftSlides, setDraftSlides] = useState<HeroCarouselSlide[]>([]);
   const isDraftInitialized = useRef(false);
@@ -66,11 +63,15 @@ export default function CarouselSettingsScreen() {
   };
 
   const removeSlide = (index: number) => {
-    setDraftSlides((prev) => prev.filter((_, slideIndex) => slideIndex !== index));
+    setDraftSlides((prev) =>
+      prev.filter((_, slideIndex) => slideIndex !== index)
+    );
   };
 
+  const isAtSlideLimit = draftSlides.length >= MAX_SLIDES;
+
   const addSlide = () => {
-    if (isSaving) return;
+    if (isSaving || isAtSlideLimit) return;
     setDraftSlides((prev) => [...prev, createEmptySlide(prev.length + 1)]);
   };
 
@@ -100,10 +101,14 @@ export default function CarouselSettingsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
         <View style={styles.centeredState}>
           <ActivityIndicator color={colors.primary} size="large" />
-          <Text style={[styles.stateText, { color: colors.textSecondary }]}>Loading carousel settings...</Text>
+          <Text style={[styles.stateText, { color: colors.textSecondary }]}>
+            Loading carousel settings...
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -111,11 +116,21 @@ export default function CarouselSettingsScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
         <View style={styles.centeredState}>
-          <Ionicons name="alert-circle-outline" color={colors.error} size={28} />
-          <Text style={[styles.stateTitle, { color: colors.text }]}>Failed to load carousel</Text>
-          <Text style={[styles.stateText, { color: colors.textSecondary }]}>Please try again from Store Settings.</Text>
+          <Ionicons
+            name="alert-circle-outline"
+            color={colors.error}
+            size={28}
+          />
+          <Text style={[styles.stateTitle, { color: colors.text }]}>
+            Failed to load carousel
+          </Text>
+          <Text style={[styles.stateText, { color: colors.textSecondary }]}>
+            Please try again from Store Settings.
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -135,7 +150,11 @@ export default function CarouselSettingsScreen() {
               {isSaving ? (
                 <ActivityIndicator color={colors.primary} size="small" />
               ) : (
-                <Text style={[styles.headerSaveText, { color: colors.primary }]}>Save</Text>
+                <Text
+                  style={[styles.headerSaveText, { color: colors.primary }]}
+                >
+                  Save
+                </Text>
               )}
             </Pressable>
           ),
@@ -149,15 +168,27 @@ export default function CarouselSettingsScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
         >
-          <View style={[styles.infoCard, { backgroundColor: colors.card }, shadows.sm]}>
-            <Text style={[styles.infoTitle, { color: colors.text }]}>Mobile storefront only</Text>
+          <View
+            style={[
+              styles.infoCard,
+              { backgroundColor: colors.card },
+              shadows.sm,
+            ]}
+          >
+            <Text style={[styles.infoTitle, { color: colors.text }]}>
+              Mobile storefront only
+            </Text>
             <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-              These slides are used by the mobile storefront app. Web carousel settings remain in the web dashboard.
+              These slides are used by the mobile storefront app. Web carousel
+              settings remain in the web dashboard.
             </Text>
           </View>
 
           {draftSlides.map((slide, index) => (
-            <View key={slide.id || `${index}-${slide.headline}`} style={shadows.sm}>
+            <View
+              key={slide.id || `${index}-${slide.headline}`}
+              style={shadows.sm}
+            >
               <SlideCard
                 slide={slide}
                 index={index}
@@ -169,18 +200,21 @@ export default function CarouselSettingsScreen() {
           ))}
 
           <Pressable
-            disabled={isSaving}
+            accessibilityLabel="Add new slide"
+            disabled={isSaving || isAtSlideLimit}
             style={[
               styles.addButton,
               {
                 borderColor: colors.primary,
-                opacity: isSaving ? 0.5 : 1,
+                opacity: isSaving || isAtSlideLimit ? 0.5 : 1,
               },
             ]}
             onPress={addSlide}
           >
             <Ionicons name="add" color={colors.primary} size={18} />
-            <Text style={[styles.addButtonText, { color: colors.primary }]}>Add Slide</Text>
+            <Text style={[styles.addButtonText, { color: colors.primary }]}>
+              {isAtSlideLimit ? `Limit reached (${MAX_SLIDES})` : 'Add Slide'}
+            </Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>

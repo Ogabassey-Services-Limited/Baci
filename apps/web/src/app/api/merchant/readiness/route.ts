@@ -178,7 +178,7 @@ export async function GET() {
       .eq('page_slug', 'home')
       .eq('is_published', true)
       .order('updated_at', { ascending: false })
-      .limit(5);
+      .limit(1);
 
     if (pageConfigsError) {
       logger.error({

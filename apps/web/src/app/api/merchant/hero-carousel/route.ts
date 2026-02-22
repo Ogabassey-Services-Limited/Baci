@@ -114,7 +114,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
     const parsedBody = heroCarouselUpdateRequestSchema.safeParse(body);
 
     if (!parsedBody.success) {
@@ -129,23 +135,13 @@ export async function PUT(request: NextRequest) {
       parsedBody.data.slides
     );
 
-    const { data: merchant, error: merchantError } = await context.supabase
-      .from('merchants')
-      .select('id')
-      .eq('id', merchantId)
-      .single();
-
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    const { error: merchantUpdateError } = await context.supabase
-      .from('merchants')
-      .update({ mobile_hero_slides: normalizedSlides })
-      .eq('id', merchantId);
+    const { data: updatedMerchant, error: merchantUpdateError } =
+      await context.supabase
+        .from('merchants')
+        .update({ mobile_hero_slides: normalizedSlides })
+        .eq('id', merchantId)
+        .select('id')
+        .maybeSingle();
 
     if (merchantUpdateError) {
       logger.error({
@@ -158,8 +154,15 @@ export async function PUT(request: NextRequest) {
       });
 
       return NextResponse.json(
-        { error: 'Failed to update merchant hero slides' },
+        { error: 'Failed to update carousel settings' },
         { status: 500 }
+      );
+    }
+
+    if (!updatedMerchant) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
       );
     }
 

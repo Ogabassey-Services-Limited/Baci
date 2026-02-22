@@ -1,3 +1,4 @@
+import { HERO_CAROUSEL_FIELD_CANDIDATES } from '@baci/shared';
 import type { HeroSlide } from './Hero';
 
 export type RawHeroSlide = Record<string, string | undefined>;
@@ -14,52 +15,37 @@ function pickFirstNonEmpty(values: Array<string | undefined>): string | null {
   return null;
 }
 
+function pickFromSlide(slide: RawHeroSlide, candidates: readonly string[]) {
+  return pickFirstNonEmpty(candidates.map((field) => slide[field]));
+}
+
 export function normalizeHeroSlides(
   rawSlides: RawHeroSlide[] | null | undefined
-) {
-  if (!rawSlides || rawSlides.length === 0) return [];
+): HeroSlide[] {
+  if (!Array.isArray(rawSlides) || rawSlides.length === 0) return [];
 
   return rawSlides
     .map((slide) => {
       const title =
-        pickFirstNonEmpty([
-          slide.headline,
-          slide.title,
-          slide.heading,
-          slide.headline_text,
-        ]) || '';
+        pickFromSlide(slide, HERO_CAROUSEL_FIELD_CANDIDATES.headline) || '';
       const subtitle =
-        pickFirstNonEmpty([
-          slide.description,
-          slide.subtitle,
-          slide.subheading,
-          slide.sub_title,
-        ]) || '';
+        pickFromSlide(slide, HERO_CAROUSEL_FIELD_CANDIDATES.description) || '';
       const image =
-        pickFirstNonEmpty([
-          slide.imageUrl,
-          slide.image_url,
-          slide.image,
-          slide.image_uri,
-        ]) || '';
+        pickFromSlide(slide, HERO_CAROUSEL_FIELD_CANDIDATES.image) || '';
       const ctaText =
-        pickFirstNonEmpty([slide.cta, slide.ctaText, slide.cta_text]) ||
+        pickFromSlide(slide, HERO_CAROUSEL_FIELD_CANDIDATES.cta) ||
         DEFAULT_CTA_TEXT;
-      const ctaLink =
-        pickFirstNonEmpty([
-          slide.link,
-          slide.url,
-          slide.ctaLink,
-          slide.cta_link,
-        ]) ||
-        DEFAULT_CTA_LINK;
+      const ctaLink = (pickFromSlide(
+        slide,
+        HERO_CAROUSEL_FIELD_CANDIDATES.link
+      ) || DEFAULT_CTA_LINK) as HeroSlide['ctaLink'];
 
       return {
         title,
         subtitle,
         image,
         ctaText,
-        ctaLink: ctaLink as HeroSlide['ctaLink'],
+        ctaLink,
       } satisfies HeroSlide;
     })
     .filter(
@@ -94,7 +80,7 @@ export function getFallbackHeroSlides(storeName?: string): HeroSlide[] {
   const title =
     storeName && storeName.trim().length > 0
       ? `Welcome to ${storeName.trim()}`
-      : 'Welcome to Ogabassey';
+      : 'Welcome to Our Store';
 
   return [
     {
@@ -102,7 +88,7 @@ export function getFallbackHeroSlides(storeName?: string): HeroSlide[] {
       subtitle: 'Discover top deals and new arrivals',
       image: '',
       ctaText: 'Shop Now',
-      ctaLink: '/category/all',
+      ctaLink: '/category/all' as HeroSlide['ctaLink'],
     },
   ];
 }

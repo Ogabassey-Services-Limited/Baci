@@ -110,6 +110,56 @@ describe('heroCarouselSlideSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('accepts an empty string for imageUrl', () => {
+    const result = heroCarouselSlideSchema.safeParse({ imageUrl: '' });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.imageUrl).toBe('');
+  });
+
+  it('rejects a non-URL non-empty imageUrl', () => {
+    const result = heroCarouselSlideSchema.safeParse({
+      imageUrl: 'not-a-url',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts a valid absolute URL for imageUrl', () => {
+    const result = heroCarouselSlideSchema.safeParse({
+      imageUrl: 'https://cdn.example.com/hero.jpg',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.imageUrl).toBe('https://cdn.example.com/hero.jpg');
+  });
+
+  it('accepts a relative path starting with / for link', () => {
+    const result = heroCarouselSlideSchema.safeParse({
+      link: '/category/summer',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.link).toBe('/category/summer');
+  });
+
+  it('accepts a full URL for link', () => {
+    const result = heroCarouselSlideSchema.safeParse({
+      link: 'https://example.com/shop',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.link).toBe('https://example.com/shop');
+  });
+
+  it('rejects a link that is neither a relative path nor a valid URL', () => {
+    const result = heroCarouselSlideSchema.safeParse({
+      link: 'not-a-url-or-path',
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('heroCarouselUpdateRequestSchema', () => {
