@@ -32,8 +32,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         'Allow the app to scan barcodes for inventory management and product lookup.',
       NSPhotoLibraryUsageDescription:
         'Allow the app to access photos for product images.',
-      NSUserTrackingUsageDescription:
-        'Your data will be used to deliver personalized insights and improve your business management experience.',
       ITSAppUsesNonExemptEncryption: false,
     },
     googleServicesFile: './GoogleService-Info.plist',

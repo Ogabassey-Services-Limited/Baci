@@ -21,12 +21,16 @@ const mockMobileApps = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('next/headers', () => ({
-  headers: vi.fn(() =>
+const mockHeaders = vi.hoisted(() =>
+  vi.fn(() =>
     Promise.resolve({
       get: vi.fn(() => 'test-nonce'),
     })
-  ),
+  )
+);
+
+vi.mock('next/headers', () => ({
+  headers: mockHeaders,
 }));
 vi.mock('@/config/platform', () => ({
   PLATFORM_CONFIG: {
@@ -75,6 +79,11 @@ describe('RootDynamicHead', () => {
     mockMobileApps.storefront.appStoreUrl = '';
     mockMobileApps.storefront.playStoreUrl =
       'https://play.google.com/store/apps/details?id=com.ogabassey.store';
+    mockHeaders.mockImplementation(() =>
+      Promise.resolve({
+        get: vi.fn(() => 'test-nonce'),
+      })
+    );
   });
 
   it('is an async server component that returns JSX', async () => {
@@ -143,7 +152,7 @@ describe('RootDynamicHead', () => {
     expect(storefrontSchema).toBeUndefined();
   });
 
-  it('omits installUrl from admin schema when no store URLs exist', async () => {
+  it('omits installUrl and operatingSystem from admin schema when no store URLs exist', async () => {
     mockMobileApps.admin.appStoreUrl = '';
     mockMobileApps.admin.playStoreUrl = '';
 
@@ -157,5 +166,14 @@ describe('RootDynamicHead', () => {
 
     expect(adminSchema).toBeDefined();
     expect(adminSchema?.installUrl).toBeUndefined();
+    expect(adminSchema?.operatingSystem).toBeUndefined();
+  });
+
+  it('propagates errors when headers() throws', async () => {
+    mockHeaders.mockImplementation(() => {
+      throw new Error('headers unavailable');
+    });
+
+    await expect(RootDynamicHead()).rejects.toThrow('headers unavailable');
   });
 });

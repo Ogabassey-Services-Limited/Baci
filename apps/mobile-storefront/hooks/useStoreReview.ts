@@ -2,8 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as StoreReview from 'expo-store-review';
 import { useEffect } from 'react';
 
-const REVIEW_STORAGE_KEY = 'store_review_state';
-const REVIEW_COOLDOWN_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+export const REVIEW_STORAGE_KEY = 'store_review_state';
+export const REVIEW_COOLDOWN_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
 interface ReviewState {
   lastPromptedAt: number | null;

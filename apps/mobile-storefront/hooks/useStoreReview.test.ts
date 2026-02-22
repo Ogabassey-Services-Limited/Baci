@@ -13,16 +13,18 @@ jest.mock('expo-store-review', () => ({
   requestReview: jest.fn(),
 }));
 
-import { promptReviewAfterDelivery, useTrackAppOpen } from './useStoreReview';
+import {
+  promptReviewAfterDelivery,
+  REVIEW_COOLDOWN_MS,
+  REVIEW_STORAGE_KEY,
+  useTrackAppOpen,
+} from './useStoreReview';
 
 const mockGetItem = AsyncStorage.getItem as jest.Mock;
 const mockSetItem = AsyncStorage.setItem as jest.Mock;
 const mockRemoveItem = AsyncStorage.removeItem as jest.Mock;
 const mockIsAvailable = StoreReview.isAvailableAsync as jest.Mock;
 const mockRequestReview = StoreReview.requestReview as jest.Mock;
-
-const STORAGE_KEY = 'store_review_state';
-const COOLDOWN_MS = 90 * 24 * 60 * 60 * 1000;
 
 function makeState(overrides: Record<string, unknown> = {}) {
   return JSON.stringify({
@@ -33,6 +35,8 @@ function makeState(overrides: Record<string, unknown> = {}) {
   });
 }
 
+let consoleSpy: jest.SpyInstance | undefined;
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetItem.mockResolvedValue(null);
@@ -42,16 +46,21 @@ beforeEach(() => {
   mockRequestReview.mockResolvedValue(undefined);
 });
 
+afterEach(() => {
+  consoleSpy?.mockRestore();
+  consoleSpy = undefined;
+});
+
 describe('useTrackAppOpen', () => {
   it('increments appOpens from zero and persists state', async () => {
     renderHook(() => useTrackAppOpen());
 
     await waitFor(() => {
-      expect(mockGetItem).toHaveBeenCalledWith(STORAGE_KEY);
+      expect(mockGetItem).toHaveBeenCalledWith(REVIEW_STORAGE_KEY);
     });
     await waitFor(() => {
       expect(mockSetItem).toHaveBeenCalledWith(
-        STORAGE_KEY,
+        REVIEW_STORAGE_KEY,
         expect.stringContaining('"appOpens":1')
       );
     });
@@ -64,14 +73,14 @@ describe('useTrackAppOpen', () => {
 
     await waitFor(() => {
       expect(mockSetItem).toHaveBeenCalledWith(
-        STORAGE_KEY,
+        REVIEW_STORAGE_KEY,
         expect.stringContaining('"appOpens":6')
       );
     });
   });
 
   it('handles AsyncStorage errors gracefully', async () => {
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    consoleSpy = jest.spyOn(console, 'error').mockImplementation();
     mockGetItem.mockRejectedValue(new Error('storage failure'));
 
     renderHook(() => useTrackAppOpen());
@@ -82,7 +91,6 @@ describe('useTrackAppOpen', () => {
         expect.any(Error)
       );
     });
-    consoleSpy.mockRestore();
   });
 });
 
@@ -92,7 +100,7 @@ describe('getReviewState defensive parsing', () => {
 
     await promptReviewAfterDelivery();
 
-    expect(mockRemoveItem).toHaveBeenCalledWith(STORAGE_KEY);
+    expect(mockRemoveItem).toHaveBeenCalledWith(REVIEW_STORAGE_KEY);
     expect(mockSetItem).toHaveBeenCalled();
   });
 
@@ -101,7 +109,11 @@ describe('getReviewState defensive parsing', () => {
 
     await promptReviewAfterDelivery();
 
-    expect(mockRemoveItem).toHaveBeenCalledWith(STORAGE_KEY);
+    expect(mockRemoveItem).toHaveBeenCalledWith(REVIEW_STORAGE_KEY);
+    expect(mockSetItem).toHaveBeenCalled();
+    const savedState = JSON.parse(mockSetItem.mock.calls.at(-1)?.[1] ?? '{}');
+    expect(savedState.completedOrders).toBe(1);
+    expect(savedState.appOpens).toBe(0);
   });
 });
 
@@ -165,7 +177,7 @@ describe('promptReviewAfterDelivery', () => {
   });
 
   it('allows review after cooldown expires', async () => {
-    const oldTimestamp = Date.now() - COOLDOWN_MS - 1000;
+    const oldTimestamp = Date.now() - REVIEW_COOLDOWN_MS - 1000;
     mockGetItem.mockResolvedValue(
       makeState({ completedOrders: 0, lastPromptedAt: oldTimestamp })
     );
@@ -175,9 +187,8 @@ describe('promptReviewAfterDelivery', () => {
     expect(mockRequestReview).toHaveBeenCalled();
   });
 
-  it('handles errors gracefully', async () => {
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-    mockIsAvailable.mockResolvedValue(true);
+  it('handles getItem errors gracefully', async () => {
+    consoleSpy = jest.spyOn(console, 'error').mockImplementation();
     mockGetItem.mockRejectedValue(new Error('storage error'));
 
     await promptReviewAfterDelivery();
@@ -187,6 +198,18 @@ describe('promptReviewAfterDelivery', () => {
       expect.any(Error)
     );
     expect(mockRequestReview).not.toHaveBeenCalled();
-    consoleSpy.mockRestore();
+  });
+
+  it('handles setItem errors gracefully', async () => {
+    consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    mockGetItem.mockResolvedValue(makeState({ completedOrders: 0 }));
+    mockSetItem.mockRejectedValue(new Error('write error'));
+
+    await promptReviewAfterDelivery();
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[useStoreReview] Failed to prompt review:',
+      expect.any(Error)
+    );
   });
 });
