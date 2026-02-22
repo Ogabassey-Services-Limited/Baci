@@ -40,6 +40,7 @@ describe('heroCarouselSlideSchema', () => {
 
   it('trims whitespace from strings', () => {
     const result = heroCarouselSlideSchema.parse({
+      id: 'test-id',
       headline: '  Padded Title  ',
       cta: '  Click Me  ',
     });
@@ -113,7 +114,10 @@ describe('heroCarouselSlideSchema', () => {
   });
 
   it('accepts an empty string for imageUrl', () => {
-    const result = heroCarouselSlideSchema.safeParse({ imageUrl: '' });
+    const result = heroCarouselSlideSchema.safeParse({
+      id: 'test-id',
+      imageUrl: '',
+    });
 
     expect(result.success).toBe(true);
     expect(result.data?.imageUrl).toBe('');
@@ -129,6 +133,7 @@ describe('heroCarouselSlideSchema', () => {
 
   it('accepts a valid absolute URL for imageUrl', () => {
     const result = heroCarouselSlideSchema.safeParse({
+      id: 'test-id',
       imageUrl: 'https://cdn.example.com/hero.jpg',
     });
 
@@ -138,6 +143,7 @@ describe('heroCarouselSlideSchema', () => {
 
   it('accepts a relative path starting with / for link', () => {
     const result = heroCarouselSlideSchema.safeParse({
+      id: 'test-id',
       link: '/category/summer',
     });
 
@@ -147,6 +153,7 @@ describe('heroCarouselSlideSchema', () => {
 
   it('accepts a full URL for link', () => {
     const result = heroCarouselSlideSchema.safeParse({
+      id: 'test-id',
       link: 'https://example.com/shop',
     });
 
@@ -166,7 +173,10 @@ describe('heroCarouselSlideSchema', () => {
 describe('heroCarouselUpdateRequestSchema', () => {
   it('parses a valid request with slides', () => {
     const result = heroCarouselUpdateRequestSchema.parse({
-      slides: [{ headline: 'Slide 1' }, { headline: 'Slide 2' }],
+      slides: [
+        { id: 'slide-1', headline: 'Slide 1' },
+        { id: 'slide-2', headline: 'Slide 2' },
+      ],
     });
 
     expect(result.slides).toHaveLength(2);
@@ -180,6 +190,7 @@ describe('heroCarouselUpdateRequestSchema', () => {
 
   it('rejects more than 12 slides', () => {
     const slides = Array.from({ length: 13 }, (_, i) => ({
+      id: `slide-${i}`,
       headline: `Slide ${i}`,
     }));
 
@@ -190,6 +201,7 @@ describe('heroCarouselUpdateRequestSchema', () => {
 
   it('accepts exactly 12 slides', () => {
     const slides = Array.from({ length: 12 }, (_, i) => ({
+      id: `slide-${i}`,
       headline: `Slide ${i}`,
     }));
 
