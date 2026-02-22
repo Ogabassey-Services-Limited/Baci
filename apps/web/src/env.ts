@@ -59,6 +59,9 @@ const clientSchema = z.object({
   NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: z.string().optional(),
   KORAPAY_PUBLIC_KEY: z.string().optional(), // Ideally should be NEXT_PUBLIC_ but keeping legacy name for compatibility
   CREDIT_DIRECT_PUBLIC_KEY: z.string().optional(),
+
+  // Google Maps Embed API
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
 });
 
 // Helper to format validation errors
@@ -92,6 +95,8 @@ const getEnv = () => {
       process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
     KORAPAY_PUBLIC_KEY: process.env.KORAPAY_PUBLIC_KEY,
     CREDIT_DIRECT_PUBLIC_KEY: process.env.CREDIT_DIRECT_PUBLIC_KEY,
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:
+      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
   };
 
   const serverEnv = isServer
