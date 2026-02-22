@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       version_code:
-        description: "Play Store version code (must be higher than current production)"
-        required: true
+        description: "Version code override (leave empty for auto)"
+        required: false
         type: string
 
 concurrency:
@@ -22,6 +22,9 @@ env:
   JAVA_VERSION: "17"
   NODE_VERSION: "22"
   WORKING_DIR: apps/mobile-storefront
+  # Offset added to github.run_number to produce unique version codes.
+  # Bump this if you ever hit a "version code already used" error.
+  VERSION_CODE_BASE: "0"
 
 jobs:
   build-and-deploy:
@@ -88,14 +91,16 @@ jobs:
           GH_REF_NAME: ${{ github.ref_name }}
           GH_RUN_NUMBER: ${{ github.run_number }}
           VERSION_CODE_INPUT: ${{ inputs.version_code }}
+          VERSION_CODE_BASE: ${{ env.VERSION_CODE_BASE }}
         run: |
-          if [ "$GH_EVENT_NAME" = "workflow_dispatch" ]; then
+          if [ "$GH_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$VERSION_CODE_INPUT" ]; then
             VERSION_CODE="$VERSION_CODE_INPUT"
           elif [ "$GH_REF_TYPE" = "tag" ]; then
             VERSION_CODE="${GH_REF_NAME#v}"
             VERSION_CODE="${VERSION_CODE%-storefront}"
           else
-            VERSION_CODE="$GH_RUN_NUMBER"
+            # Auto-bump: run_number + base offset to avoid version code collisions.
+            VERSION_CODE=$(( GH_RUN_NUMBER + VERSION_CODE_BASE ))
           fi
 
           if ! [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
