@@ -29,6 +29,23 @@ describe('account-deletion helpers', () => {
       expect(result).toBe(true);
     });
 
+    it('returns true when app_metadata.provider is apple (singular)', () => {
+      const result = hasAppleProvider({
+        app_metadata: { provider: 'apple', providers: [] },
+        identities: [],
+      });
+
+      expect(result).toBe(true);
+    });
+
+    it('returns false when user is null', () => {
+      expect(hasAppleProvider(null)).toBe(false);
+    });
+
+    it('returns false when user is undefined', () => {
+      expect(hasAppleProvider(undefined)).toBe(false);
+    });
+
     it('returns false when Apple provider is not present', () => {
       const result = hasAppleProvider({
         app_metadata: { providers: ['email', 'google'] },
@@ -83,6 +100,22 @@ describe('account-deletion helpers', () => {
 
     it('returns fallback for unknown error shapes', () => {
       const message = getDeleteAccountErrorMessage({ unexpected: true });
+
+      expect(message).toBe(
+        'Unable to delete your account right now. Please try again.'
+      );
+    });
+
+    it('handles string error input directly', () => {
+      const message = getDeleteAccountErrorMessage('Unauthorized: JWT expired');
+
+      expect(message).toBe(
+        'Your session expired. Please sign in again and retry account deletion.'
+      );
+    });
+
+    it('returns fallback for null error input', () => {
+      const message = getDeleteAccountErrorMessage(null);
 
       expect(message).toBe(
         'Unable to delete your account right now. Please try again.'

@@ -27,8 +27,9 @@ jest.mock('@/components/useColorScheme', () => ({
 
 jest.mock('@/stores/auth-store', () => ({
   useAuthStore: jest.fn(
-    (selector: (state: { deleteAccount: typeof mockDeleteAccount }) => unknown) =>
-      selector({ deleteAccount: mockDeleteAccount })
+    (
+      selector: (state: { deleteAccount: typeof mockDeleteAccount }) => unknown
+    ) => selector({ deleteAccount: mockDeleteAccount })
   ),
 }));
 
@@ -54,7 +55,7 @@ jest.mock('expo-router', () => ({
   }),
 }));
 
-import DeleteAccountScreen from './delete-account';
+import DeleteAccountScreen from '@/app/profile/delete-account';
 
 describe('DeleteAccountScreen', () => {
   beforeEach(() => {
@@ -84,10 +85,14 @@ describe('DeleteAccountScreen', () => {
   it('requires confirmation before enabling delete button', () => {
     render(<DeleteAccountScreen />);
 
-    const button = screen.getByTestId('delete-account-button');
+    const button = screen.getByRole('button', { name: 'Delete account' });
     expect(button).toBeDisabled();
 
-    fireEvent.press(screen.getByTestId('delete-account-confirm'));
+    fireEvent.press(
+      screen.getByRole('checkbox', {
+        name: 'I understand this action is permanent',
+      })
+    );
     expect(button).not.toBeDisabled();
   });
 
@@ -99,11 +104,16 @@ describe('DeleteAccountScreen', () => {
     mockDeleteAccount.mockResolvedValue({ success: true, usedApple: false });
 
     render(<DeleteAccountScreen />);
-    fireEvent.press(screen.getByTestId('delete-account-confirm'));
-    fireEvent.press(screen.getByTestId('delete-account-button'));
+    fireEvent.press(
+      screen.getByRole('checkbox', {
+        name: 'I understand this action is permanent',
+      })
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Delete account' }));
 
-    const promptButtons = alertSpy.mock.calls[0]?.[2] ?? [];
-    const destructive = promptButtons.find(
+    // First alert: confirmation prompt
+    const confirmButtons = alertSpy.mock.calls[0]?.[2] ?? [];
+    const destructive = confirmButtons.find(
       (button) => button?.style === 'destructive'
     );
 
@@ -112,7 +122,50 @@ describe('DeleteAccountScreen', () => {
     });
 
     expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+
+    // Second alert: success message — router.replace is inside the OK callback
+    const successButtons = alertSpy.mock.calls[1]?.[2] ?? [];
+    const okButton = successButtons.find((button) => button?.text === 'OK');
+    okButton?.onPress?.();
+
     expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)');
+
+    alertSpy.mockRestore();
+  });
+
+  it('shows error toast when deletion fails', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+
+    mockDeleteAccount.mockResolvedValue({
+      success: false,
+      error: 'Unable to delete your account right now.',
+      usedApple: false,
+    });
+
+    render(<DeleteAccountScreen />);
+    fireEvent.press(
+      screen.getByRole('checkbox', {
+        name: 'I understand this action is permanent',
+      })
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Delete account' }));
+
+    const confirmButtons = alertSpy.mock.calls[0]?.[2] ?? [];
+    const destructive = confirmButtons.find(
+      (button) => button?.style === 'destructive'
+    );
+
+    await act(async () => {
+      await destructive?.onPress?.();
+    });
+
+    expect(mockDeleteAccount).toHaveBeenCalledTimes(1);
+    expect(mockToastError).toHaveBeenCalledWith(
+      'Unable to delete your account right now.'
+    );
+    expect(mockRouterReplace).not.toHaveBeenCalled();
 
     alertSpy.mockRestore();
   });
@@ -130,7 +183,9 @@ describe('DeleteAccountScreen', () => {
     render(<DeleteAccountScreen />);
 
     expect(screen.getByText('Signed in with Apple?')).toBeTruthy();
-    expect(screen.getByText('Open Apple revoke guide')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Open Apple revoke guide' })
+    ).toBeTruthy();
   });
 
   it('shows an error toast if opening Apple revoke link fails', async () => {
@@ -151,7 +206,9 @@ describe('DeleteAccountScreen', () => {
       .mockRejectedValue(new Error('open failed'));
 
     render(<DeleteAccountScreen />);
-    fireEvent.press(screen.getByText('Open Apple revoke guide'));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Open Apple revoke guide' })
+    );
 
     await waitFor(() => {
       expect(canOpenUrlSpy).toHaveBeenCalledWith(

@@ -113,6 +113,36 @@ describe('AuthStore deleteAccount', () => {
     expect(mockClearCart).not.toHaveBeenCalled();
   });
 
+  it('returns usedApple true for Apple provider users', async () => {
+    const appleUser = {
+      ...baseUser,
+      app_metadata: { provider: 'apple', providers: ['apple'] },
+    } as unknown as User;
+
+    useAuthStore.setState({ user: appleUser });
+
+    mockRpc.mockResolvedValue({ error: null });
+    mockSignOut.mockResolvedValue({ error: null });
+
+    const result = await useAuthStore.getState().deleteAccount();
+
+    expect(result).toEqual({ success: true, usedApple: true });
+  });
+
+  it('still succeeds when signOut rejects after deletion', async () => {
+    mockRpc.mockResolvedValue({ error: null });
+    mockSignOut.mockRejectedValue(new Error('signOut failed'));
+
+    const result = await useAuthStore.getState().deleteAccount();
+
+    expect(result).toEqual({ success: true, usedApple: false });
+    expect(mockClearCart).toHaveBeenCalledTimes(1);
+
+    const state = useAuthStore.getState();
+    expect(state.user).toBeNull();
+    expect(state.session).toBeNull();
+  });
+
   it('returns auth-required failure when no signed-in user exists', async () => {
     useAuthStore.setState({
       user: null,
