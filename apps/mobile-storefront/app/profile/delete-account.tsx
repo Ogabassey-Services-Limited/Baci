@@ -40,7 +40,11 @@ export default function DeleteAccountScreen() {
       return;
     }
 
-    await Linking.openURL(APPLE_REVOKE_GUIDE_URL);
+    try {
+      await Linking.openURL(APPLE_REVOKE_GUIDE_URL);
+    } catch {
+      toast.error('Unable to open Apple support link on this device.');
+    }
   };
 
   const runDeleteAccount = async () => {

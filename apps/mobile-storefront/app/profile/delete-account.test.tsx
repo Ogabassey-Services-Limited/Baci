@@ -1,5 +1,11 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
+import { Alert, Linking } from 'react-native';
 
 const mockDeleteAccount = jest.fn();
 const mockRouterReplace = jest.fn();
@@ -52,6 +58,7 @@ import DeleteAccountScreen from './delete-account';
 
 describe('DeleteAccountScreen', () => {
   beforeEach(() => {
+    jest.restoreAllMocks();
     mockDeleteAccount.mockReset();
     mockRouterReplace.mockReset();
     mockToastSuccess.mockReset();
@@ -124,5 +131,38 @@ describe('DeleteAccountScreen', () => {
 
     expect(screen.getByText('Signed in with Apple?')).toBeTruthy();
     expect(screen.getByText('Open Apple revoke guide')).toBeTruthy();
+  });
+
+  it('shows an error toast if opening Apple revoke link fails', async () => {
+    mockUseRequireAuth.mockReturnValue({
+      isLoading: false,
+      redirectTo: null,
+      user: {
+        app_metadata: { provider: 'apple', providers: ['apple'] },
+        identities: [],
+      },
+    });
+
+    const canOpenUrlSpy = jest
+      .spyOn(Linking, 'canOpenURL')
+      .mockResolvedValue(true);
+    const openUrlSpy = jest
+      .spyOn(Linking, 'openURL')
+      .mockRejectedValue(new Error('open failed'));
+
+    render(<DeleteAccountScreen />);
+    fireEvent.press(screen.getByText('Open Apple revoke guide'));
+
+    await waitFor(() => {
+      expect(canOpenUrlSpy).toHaveBeenCalledWith(
+        'https://support.apple.com/en-us/HT210426'
+      );
+      expect(openUrlSpy).toHaveBeenCalledWith(
+        'https://support.apple.com/en-us/HT210426'
+      );
+      expect(mockToastError).toHaveBeenCalledWith(
+        'Unable to open Apple support link on this device.'
+      );
+    });
   });
 });
