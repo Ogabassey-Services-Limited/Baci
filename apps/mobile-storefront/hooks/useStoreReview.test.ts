@@ -118,13 +118,17 @@ describe('getReviewState defensive parsing', () => {
 });
 
 describe('promptReviewAfterDelivery', () => {
-  it('does nothing when StoreReview is unavailable', async () => {
+  it('does not prompt when StoreReview is unavailable', async () => {
     mockIsAvailable.mockResolvedValue(false);
+    mockGetItem.mockResolvedValue(makeState({ completedOrders: 0 }));
 
     await promptReviewAfterDelivery();
 
-    expect(mockSetItem).not.toHaveBeenCalled();
     expect(mockRequestReview).not.toHaveBeenCalled();
+    // Counter should still be persisted
+    expect(mockSetItem).toHaveBeenCalled();
+    const savedState = JSON.parse(mockSetItem.mock.calls.at(-1)?.[1] ?? '{}');
+    expect(savedState.completedOrders).toBe(1);
   });
 
   it('triggers review on 1st completed order', async () => {
@@ -211,5 +215,18 @@ describe('promptReviewAfterDelivery', () => {
       '[useStoreReview] Failed to prompt review:',
       expect.any(Error)
     );
+    expect(mockRequestReview).not.toHaveBeenCalled();
+  });
+
+  it('still increments completedOrders when StoreReview is unavailable', async () => {
+    mockIsAvailable.mockResolvedValue(false);
+    mockGetItem.mockResolvedValue(makeState({ completedOrders: 4 }));
+
+    await promptReviewAfterDelivery();
+
+    expect(mockRequestReview).not.toHaveBeenCalled();
+    expect(mockSetItem).toHaveBeenCalled();
+    const savedState = JSON.parse(mockSetItem.mock.calls.at(-1)?.[1] ?? '{}');
+    expect(savedState.completedOrders).toBe(5);
   });
 });

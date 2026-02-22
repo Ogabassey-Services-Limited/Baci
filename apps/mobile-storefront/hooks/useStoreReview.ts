@@ -80,16 +80,16 @@ export function useTrackAppOpen(): void {
 export async function promptReviewAfterDelivery(): Promise<void> {
   return withStorageLock(async () => {
     try {
-      const isAvailable = await StoreReview.isAvailableAsync();
-      if (!isAvailable) return;
-
       const state = await getReviewState();
       state.completedOrders += 1;
 
+      const isAvailable = await StoreReview.isAvailableAsync();
+
       const shouldPrompt =
-        state.completedOrders === 1 ||
-        state.completedOrders === 3 ||
-        state.completedOrders % 10 === 0;
+        isAvailable &&
+        (state.completedOrders === 1 ||
+          state.completedOrders === 3 ||
+          state.completedOrders % 10 === 0);
 
       if (!shouldPrompt) {
         await setReviewState(state);

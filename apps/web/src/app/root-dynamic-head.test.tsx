@@ -137,6 +137,22 @@ describe('RootDynamicHead', () => {
     ]);
   });
 
+  it('shows iOS only when admin has only appStoreUrl', async () => {
+    mockMobileApps.admin.playStoreUrl = '';
+
+    const result = await RootDynamicHead();
+    const schemas = getScriptContents(result);
+    const adminSchema = schemas.find(
+      (s) =>
+        s['@type'] === 'MobileApplication' &&
+        s.name === mockMobileApps.admin.name
+    );
+
+    expect(adminSchema).toBeDefined();
+    expect(adminSchema?.operatingSystem).toBe('iOS');
+    expect(adminSchema?.installUrl).toEqual([mockMobileApps.admin.appStoreUrl]);
+  });
+
   it('omits storefront schema when no store URLs exist', async () => {
     mockMobileApps.storefront.playStoreUrl = '';
 

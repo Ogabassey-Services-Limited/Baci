@@ -87,7 +87,7 @@ export async function RootDynamicHead() {
             '@context': 'https://schema.org',
             '@type': 'MobileApplication',
             name: MOBILE_APPS.storefront.name,
-            ...(storefrontOS ? { operatingSystem: storefrontOS } : {}),
+            operatingSystem: storefrontOS,
             applicationCategory: 'ShoppingApplication',
             description:
               'Shop top African brands with fast delivery and flexible payment options including bank transfer, cards, and USSD.',
