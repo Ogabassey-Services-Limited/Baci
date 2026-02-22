@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { vi } from 'vitest';
 import { PhoneInput } from './phone-input';
@@ -30,10 +31,13 @@ vi.mock('react-phone-number-input', () => {
       { className, countrySelectComponent: CountrySelectComponent, value },
       ref
     ) => {
-      const options: MockCountryOption[] = [
-        { label: 'United States', value: 'US' },
-        { label: 'Nigeria', value: 'NG' },
-      ];
+      const options: MockCountryOption[] =
+        value === 'EMPTY_OPTIONS'
+          ? []
+          : [
+              { label: 'United States', value: 'US' },
+              { label: 'Nigeria', value: 'NG' },
+            ];
 
       const selectedCountryValue = value?.startsWith('+1') ? 'US' : 'ZZ';
 
@@ -54,7 +58,6 @@ vi.mock('react-phone-number-input', () => {
   MockPhoneNumberInput.displayName = 'MockPhoneNumberInput';
 
   return {
-    __esModule: true,
     default: MockPhoneNumberInput,
     getCountryCallingCode: (country: string) => {
       if (country === 'US') return '1';
@@ -110,11 +113,62 @@ describe('PhoneInput', () => {
   });
 
   it('renders the country search input with an explicit aria-label', async () => {
+    const user = userEvent.setup();
+
     render(<PhoneInput value="+14155552671" onChange={() => undefined} />);
 
-    fireEvent.click(
+    await user.click(
       screen.getByRole('button', { name: 'Change country: United States' })
     );
+
+    expect(await screen.findByLabelText('Search country')).toBeInTheDocument();
+  });
+
+  it('shows fallback country label and empty state when there are no options', async () => {
+    const user = userEvent.setup();
+
+    render(<PhoneInput value="EMPTY_OPTIONS" onChange={() => undefined} />);
+
+    const trigger = screen.getByRole('button', { name: 'Select country' });
+    expect(trigger).toBeInTheDocument();
+
+    await user.click(trigger);
+
+    expect(await screen.findByText('No country found.')).toBeInTheDocument();
+  });
+
+  it('announces currently selected option with screen-reader text', async () => {
+    const user = userEvent.setup();
+
+    render(<PhoneInput value="+14155552671" onChange={() => undefined} />);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Change country: United States' })
+    );
+
+    expect(await screen.findByText('Currently selected')).toBeInTheDocument();
+  });
+
+  it('opens country picker when pressing Enter on the trigger', async () => {
+    const user = userEvent.setup();
+
+    render(<PhoneInput onChange={() => undefined} />);
+
+    const trigger = screen.getByRole('button', { name: 'Select country' });
+    trigger.focus();
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByLabelText('Search country')).toBeInTheDocument();
+  });
+
+  it('opens country picker when pressing Space on the trigger', async () => {
+    const user = userEvent.setup();
+
+    render(<PhoneInput onChange={() => undefined} />);
+
+    const trigger = screen.getByRole('button', { name: 'Select country' });
+    trigger.focus();
+    await user.keyboard(' ');
 
     expect(await screen.findByLabelText('Search country')).toBeInTheDocument();
   });

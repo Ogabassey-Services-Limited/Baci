@@ -168,7 +168,6 @@ const CountrySelect = ({
                         className="gap-2 text-[var(--store-background-text,#111)] data-[selected=true]:bg-[var(--store-primary,#ef4444)] data-[selected=true]:text-[var(--store-primary-text,#fff)]"
                         key={option.value}
                         onSelect={() => handleSelect(option.value)}
-                        aria-current={isCurrentSelection ? 'true' : undefined}
                       >
                         <FlagComponent
                           country={option.value}
@@ -188,9 +187,7 @@ const CountrySelect = ({
                           aria-hidden="true"
                         />
                         {isCurrentSelection ? (
-                          <span className="sr-only">
-                            Currently selected: {option.label}
-                          </span>
+                          <span className="sr-only">Currently selected</span>
                         ) : null}
                       </CommandItem>
                     );
