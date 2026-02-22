@@ -103,7 +103,7 @@ describe('AuthStore deleteAccount', () => {
 
     expect(result).toEqual({
       success: false,
-      error: 'rpc failed',
+      error: 'Unable to delete your account right now. Please try again.',
       usedApple: false,
     });
 

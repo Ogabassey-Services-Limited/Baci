@@ -50,12 +50,35 @@ describe('account-deletion helpers', () => {
       );
     });
 
-    it('returns original message for non-auth errors', () => {
+    it('returns network guidance for timeout/network errors', () => {
       const message = getDeleteAccountErrorMessage({
-        message: 'Deletion failed due to database timeout',
+        message: 'Network timeout while deleting account',
       });
 
-      expect(message).toBe('Deletion failed due to database timeout');
+      expect(message).toBe(
+        "We couldn't reach the server. Check your connection and try again."
+      );
+    });
+
+    it('hides internal database errors behind a safe support message', () => {
+      const message = getDeleteAccountErrorMessage({
+        message:
+          'update or delete on table "customers" violates foreign key constraint',
+      });
+
+      expect(message).toBe(
+        'Account deletion is temporarily unavailable. Please contact support.'
+      );
+    });
+
+    it('returns fallback for other unknown backend errors', () => {
+      const message = getDeleteAccountErrorMessage({
+        message: 'Something unexpected happened',
+      });
+
+      expect(message).toBe(
+        'Unable to delete your account right now. Please try again.'
+      );
     });
 
     it('returns fallback for unknown error shapes', () => {
