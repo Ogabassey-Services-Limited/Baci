@@ -5,6 +5,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { hasHeroSlidesInPageConfig } from '@/lib/hero-carousel-config';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -169,6 +170,23 @@ export async function GET() {
       .eq('merchant_id', validMerchant.id)
       .eq('status', 'active');
 
+    const { data: pageConfigs } = await supabase
+      .from('page_configs')
+      .select('published_config, updated_at')
+      .eq('merchant_id', validMerchant.id)
+      .eq('page_slug', 'home')
+      .eq('is_published', true)
+      .order('updated_at', { ascending: false })
+      .limit(5);
+
+    const latestPublishedConfig = pageConfigs?.[0]?.published_config ?? null;
+    const hasPublishedHeroSlides = hasHeroSlidesInPageConfig(
+      latestPublishedConfig
+    );
+    const hasLegacyMerchantHeroSlides =
+      Array.isArray(validMerchant.hero_slides) &&
+      validMerchant.hero_slides.length > 0;
+
     // Build checklist items
     const items: SetupItem[] = [
       // === REQUIRED ITEMS ===
@@ -270,9 +288,7 @@ export async function GET() {
         id: 'hero_carousel',
         label: 'Set up hero carousel',
         description: 'Add eye-catching banners to your homepage',
-        completed:
-          Array.isArray(validMerchant.hero_slides) &&
-          validMerchant.hero_slides.length > 0,
+        completed: hasPublishedHeroSlides || hasLegacyMerchantHeroSlides,
         href: '/dashboard/settings',
         priority: 'recommended',
         category: 'marketing',
