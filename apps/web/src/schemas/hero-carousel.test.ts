@@ -26,9 +26,10 @@ describe('heroCarouselSlideSchema', () => {
   });
 
   it('applies defaults for omitted optional fields', () => {
-    const result = heroCarouselSlideSchema.parse({});
+    const result = heroCarouselSlideSchema.parse({ id: 'test-id' });
 
     expect(result).toEqual({
+      id: 'test-id',
       imageUrl: '',
       headline: '',
       description: '',

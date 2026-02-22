@@ -315,7 +315,7 @@ describe('PUT /api/merchant/hero-carousel', () => {
 
     const response = await callPut(
       makeRequest('PUT', {
-        slides: [{ headline: 'Fresh' }],
+        slides: [{ id: 'slide-1', headline: 'Fresh' }],
       })
     );
     const payload = await response.json();
@@ -325,6 +325,7 @@ describe('PUT /api/merchant/hero-carousel', () => {
       success: true,
       slides: [
         {
+          id: 'slide-1',
           imageUrl: '',
           headline: 'Fresh',
           description: '',

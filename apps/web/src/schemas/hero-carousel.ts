@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const heroCarouselSlideSchema = z.object({
-  id: z.string().trim().min(1).max(100).optional(),
+  id: z.string().trim().min(1).max(100),
   imageUrl: z
     .union([z.literal(''), z.string().trim().url().max(2048)])
     .optional()

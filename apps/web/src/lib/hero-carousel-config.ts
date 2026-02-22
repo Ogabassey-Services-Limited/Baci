@@ -9,6 +9,8 @@ interface LooseRecord {
 
 export type { HeroCarouselSlide } from '@baci/shared';
 
+import { logger } from '@/lib/logger';
+
 const DEFAULT_LINK = '/category/all';
 const DEFAULT_CTA = 'Shop Now';
 const HERO_BLOCK_TYPE_REGEX = /\bhero/i;
@@ -119,9 +121,9 @@ function findHeroBlockWithSlides(content: unknown[]): {
 
   if (firstBlockWithSlides) {
     if (!HERO_BLOCK_TYPE_REGEX.test(firstBlockWithSlides.blockType)) {
-      console.warn(
-        `[hero-carousel-config] Using fallback hero-like block at index ${firstBlockWithSlides.index} with type "${firstBlockWithSlides.blockType}".`
-      );
+      logger.warn({
+        message: `[hero-carousel-config] Using fallback hero-like block at index ${firstBlockWithSlides.index} with type "${firstBlockWithSlides.blockType}".`,
+      });
     }
 
     return {

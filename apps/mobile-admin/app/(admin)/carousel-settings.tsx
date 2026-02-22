@@ -21,9 +21,9 @@ import { useTheme } from '@/hooks/useTheme';
 
 const MAX_SLIDES = 12;
 
-function createEmptySlide(index: number): HeroCarouselSlide {
+function createEmptySlide(): HeroCarouselSlide {
   return {
-    id: `slide-${Date.now()}-${index}`,
+    id: crypto.randomUUID(),
     imageUrl: '',
     headline: '',
     description: '',
@@ -72,7 +72,7 @@ export default function CarouselSettingsScreen() {
 
   const addSlide = () => {
     if (isSaving || isAtSlideLimit) return;
-    setDraftSlides((prev) => [...prev, createEmptySlide(prev.length + 1)]);
+    setDraftSlides((prev) => [...prev, createEmptySlide()]);
   };
 
   const handleSave = async () => {

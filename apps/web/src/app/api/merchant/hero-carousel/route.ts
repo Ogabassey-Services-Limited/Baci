@@ -99,6 +99,9 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const context = await resolveMerchantContext(request);
+    if ('error' in context) return context.error;
+
     const csrf = await checkCsrfProtection(request);
     if (!csrf.valid) {
       return (
@@ -106,9 +109,6 @@ export async function PUT(request: NextRequest) {
         NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
       );
     }
-
-    const context = await resolveMerchantContext(request);
-    if ('error' in context) return context.error;
 
     if (!canEditCarousel(context.access)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
