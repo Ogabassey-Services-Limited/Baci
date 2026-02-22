@@ -98,7 +98,6 @@ export function getDeleteAccountErrorMessage(error: unknown): string {
     normalized.includes('failed to delete account') ||
     normalized.includes('account email not found') ||
     normalized.includes('foreign key constraint') ||
-    normalized.includes('violates constraint') ||
     normalized.includes('relation "') ||
     normalized.includes('column "') ||
     normalized.includes('permission denied') ||

@@ -19,7 +19,7 @@ import { hasAppleProvider } from '@/lib/account-deletion';
 import { useAuthStore } from '@/stores/auth-store';
 import { styles } from './delete-account.styles';
 
-const APPLE_REVOKE_GUIDE_URL = 'https://support.apple.com/en-us/HT210426';
+const APPLE_REVOKE_GUIDE_URL = 'https://support.apple.com/en-us/102571';
 
 export default function DeleteAccountScreen() {
   const colorScheme = useColorScheme();
@@ -57,10 +57,19 @@ export default function DeleteAccountScreen() {
         return;
       }
 
+      // Clear confirmation to prevent a second press while the success alert is open
+      setIsConfirmed(false);
+
       Alert.alert(
         'Account deleted',
         'Your account has been permanently deleted from this app.',
         [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Something went wrong. Please try again.'
       );
     } finally {
       setIsDeleting(false);
@@ -189,7 +198,6 @@ export default function DeleteAccountScreen() {
           ) : null}
 
           <Pressable
-            testID="delete-account-confirm"
             onPress={() => setIsConfirmed((current) => !current)}
             style={[
               styles.checkboxRow,
@@ -221,7 +229,6 @@ export default function DeleteAccountScreen() {
           ]}
         >
           <Pressable
-            testID="delete-account-button"
             onPress={confirmDelete}
             disabled={!isConfirmed || isDeleting}
             style={[

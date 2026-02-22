@@ -178,8 +178,9 @@ export default async function StorefrontDeleteAccountPage({
           </h3>
           <ul className="list-disc list-inside text-gray-600 space-y-2">
             <li>
-              Historical order and transaction records required for legal, tax,
-              fraud, dispute, and audit obligations
+              Historical order and transaction records are retained as long as
+              required by applicable law, typically up to 7 years, for legal,
+              tax, fraud, dispute, and audit obligations
             </li>
           </ul>
         </div>

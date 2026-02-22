@@ -26,4 +26,4 @@
 
 ## Sign in with Apple
 
-- If the account used Sign in with Apple, the app shows guidance with a link to [Apple's revoke-access instructions](https://support.apple.com/en-us/HT210426).
+- If the account used Sign in with Apple, the app shows guidance with a link to [Apple's revoke-access instructions](https://support.apple.com/en-us/102571).
