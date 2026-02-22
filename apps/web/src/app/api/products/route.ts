@@ -190,7 +190,10 @@ export async function GET(request: NextRequest) {
               product_id: v.product_id as string,
               merchant_id: v.merchant_id as string,
               attributes: v.attributes as Record<string, string>,
-              price_override: v.price_override as number | undefined,
+              price_override:
+                v.price_override != null
+                  ? Number.parseFloat(v.price_override as string)
+                  : undefined,
               stock_quantity: v.stock_quantity as number,
               sku: v.sku as string | undefined,
               primary_image: v.primary_image as string | undefined,
@@ -281,7 +284,7 @@ export async function GET(request: NextRequest) {
         // Fallback: Use separate COUNT query for out-of-stock count
         const oosResult = await supabase
           .from('products')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .eq('merchant_id', merchantId)
           .eq('stock_quantity', 0);
 
@@ -525,7 +528,16 @@ export async function POST(request: NextRequest) {
       if (variantsError) {
         console.error('Error creating variants:', variantsError);
         // Rollback product creation
-        await supabase.from('products').delete().eq('id', product.id);
+        const { error: rollbackError } = await supabase
+          .from('products')
+          .delete()
+          .eq('id', product.id);
+        if (rollbackError) {
+          console.error(
+            `Failed to rollback product ${product.id} after variant creation error:`,
+            rollbackError
+          );
+        }
         return NextResponse.json(
           {
             error: 'Failed to create product variants',
