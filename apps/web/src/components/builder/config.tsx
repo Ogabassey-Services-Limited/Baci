@@ -2751,7 +2751,7 @@ export const builderConfig: Config<
                         loading="lazy"
                         allowFullScreen
                         referrerPolicy="no-referrer-when-downgrade"
-                        src={`https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${encodeURIComponent(mapAddress)}`}
+                        src={`https://maps.google.com/maps?q=${encodeURIComponent(mapAddress)}&output=embed`}
                       />
                     </div>
                   )}
