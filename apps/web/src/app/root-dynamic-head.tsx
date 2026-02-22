@@ -1,5 +1,9 @@
 import { headers } from 'next/headers';
-import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
+import {
+  MOBILE_APPS,
+  PLATFORM_CONFIG,
+  PLATFORM_PRICING,
+} from '@/config/platform';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateOrganizationSchema,
@@ -36,6 +40,38 @@ export async function RootDynamicHead() {
   const softwareApplicationSchema =
     generateSoftwareApplicationSchema(PLATFORM_PRICING);
 
+  // Mobile app schemas for app indexing and rich search results
+  const mobileAppSchemas = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'MobileApplication',
+      name: MOBILE_APPS.admin.name,
+      operatingSystem: 'iOS, Android',
+      applicationCategory: 'BusinessApplication',
+      description:
+        'AI-powered e-commerce builder for African merchants. Create your online store, manage inventory, accept payments, and sell on WhatsApp.',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      ...(MOBILE_APPS.admin.appStoreUrl
+        ? { installUrl: MOBILE_APPS.admin.appStoreUrl }
+        : {}),
+    },
+    ...(MOBILE_APPS.storefront.playStoreUrl
+      ? [
+          {
+            '@context': 'https://schema.org',
+            '@type': 'MobileApplication',
+            name: MOBILE_APPS.storefront.name,
+            operatingSystem: 'iOS, Android',
+            applicationCategory: 'ShoppingApplication',
+            description:
+              'Shop top African brands with fast delivery and flexible payment options including bank transfer, cards, and USSD.',
+            offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+            installUrl: MOBILE_APPS.storefront.playStoreUrl,
+          },
+        ]
+      : []),
+  ];
+
   return (
     <>
       <script
@@ -63,6 +99,18 @@ export async function RootDynamicHead() {
           __html: safeJsonLdStringify(softwareApplicationSchema),
         }}
       />
+      {mobileAppSchemas.map((schema) => (
+        <script
+          key={schema.name}
+          type="application/ld+json"
+          nonce={nonce}
+          suppressHydrationWarning
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD structured data
+          dangerouslySetInnerHTML={{
+            __html: safeJsonLdStringify(schema),
+          }}
+        />
+      ))}
     </>
   );
 }

@@ -28,7 +28,7 @@ if (rawAndroidVersionCode !== undefined) {
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Ogabassey',
+  name: 'Ogabassey - Easybuy Gadgets',
   slug: 'ogabassey-store',
   owner: 'ogabassey',
   version: '1.0.0',

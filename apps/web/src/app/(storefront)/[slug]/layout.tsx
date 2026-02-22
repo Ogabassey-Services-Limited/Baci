@@ -7,6 +7,7 @@ import { OgabasseyLayout } from '@/components/storefront/ogabassey/layout';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { PageViewTracker } from '@/components/storefront/page-view-tracker';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
+import { MOBILE_APPS } from '@/config/platform';
 import { CartProvider } from '@/hooks/use-cart';
 import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
@@ -151,6 +152,14 @@ export async function generateMetadata({
       description,
       images: merchant.logo_url ? [merchant.logo_url] : [],
     },
+    // Apple Smart App Banner — prompts iOS Safari users to open/install the app
+    ...(MOBILE_APPS.storefront.iosAppId
+      ? {
+          other: {
+            'apple-itunes-app': `app-id=${MOBILE_APPS.storefront.iosAppId}`,
+          },
+        }
+      : {}),
     // Disable platform manifest for merchant stores to prevent Baci branding leakage
     manifest: null,
   };

@@ -14,6 +14,32 @@ export const PLATFORM_CONFIG = {
   currency: 'NGN', // Platform base currency (Nigerian Naira)
 };
 
+/**
+ * Mobile app identifiers for ASO/SEO integration.
+ * Used for Apple Smart App Banners, Schema.org MobileApplication, and deep linking.
+ */
+export const MOBILE_APPS = {
+  admin: {
+    name: 'Baci - The Ecommerce Builder',
+    iosAppId: '6757810806',
+    iosBundleId: 'com.ogabassey.baci',
+    androidPackage: 'com.ogabassey.baci',
+    playStoreUrl:
+      'https://play.google.com/store/apps/details?id=com.ogabassey.baci',
+    appStoreUrl: 'https://apps.apple.com/app/id6757810806',
+  },
+  storefront: {
+    name: 'Ogabassey - Easybuy Gadgets',
+    // TODO: Add App Store ID once storefront iOS app is published
+    iosAppId: '',
+    iosBundleId: 'com.ogabassey.store',
+    androidPackage: 'com.ogabassey.store',
+    playStoreUrl:
+      'https://play.google.com/store/apps/details?id=com.ogabassey.store',
+    appStoreUrl: '',
+  },
+} as const;
+
 export const PLATFORM_PRICING: SoftwareApplicationData = {
   name: PLATFORM_CONFIG.name,
   applicationCategory: 'BusinessApplication',
