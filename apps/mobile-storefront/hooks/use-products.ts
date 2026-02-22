@@ -15,7 +15,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { resolveLatestPublishedPageConfig } from '@/hooks/page-config-resolution';
+import { resolveLatestPublishedPageConfigWithMeta } from '@/hooks/page-config-resolution';
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
@@ -109,11 +109,12 @@ interface Merchant {
   id: string;
   slug: string;
   business_name: string;
+  updated_at?: string | null;
   social_media: Record<string, string>;
   email?: string;
   phone?: string;
   business_address?: string;
-  hero_slides?: Record<string, string>[];
+  mobile_hero_slides?: Record<string, string>[];
 }
 
 /**
@@ -131,7 +132,7 @@ export function useMerchant() {
           await supabase
             .from('merchants')
             .select(
-              'id, slug, business_name, social_media, email, phone, business_address, hero_slides'
+              'id, slug, business_name, updated_at, social_media, email, phone, business_address, mobile_hero_slides'
             )
             .eq('slug', MERCHANT_SLUG)
             .single(),
@@ -266,14 +267,20 @@ export function usePageConfig(slug: string = 'home') {
       );
 
       if (error) throw error;
-      return resolveLatestPublishedPageConfig(
+      return resolveLatestPublishedPageConfigWithMeta(
         (data ?? []) as Array<{
           published_config: unknown;
           updated_at?: string | null;
         }>
-      ) as PageConfig | null;
+      ) as
+        | {
+            config: PageConfig;
+            updatedAt: string | null;
+          }
+        | null;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnMount: 'always',
     enabled: !!merchantId,
   });
 }

@@ -3,7 +3,6 @@
  * Supports 'parallax', 'carousel', and 'standard' variants
  */
 
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type Href, router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -18,6 +17,7 @@ import Animated, {
   useAnimatedScrollHandler,
   useSharedValue,
 } from 'react-native-reanimated';
+import { SafeImage } from '@/components/ui/SafeImage';
 import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
@@ -89,7 +89,7 @@ const EliteSlide = ({
           </View>
 
           <View style={styles.eliteImageColumn}>
-            <Image
+            <SafeImage
               source={{ uri: item.image }}
               style={styles.eliteProductImage}
               contentFit="contain"
@@ -111,7 +111,7 @@ const FashionSlide = ({
   screenWidth: number;
 }) => (
   <View style={[styles.slide, { width: screenWidth, height: CAROUSEL_HEIGHT }]}>
-    <Image
+    <SafeImage
       source={{ uri: item.image }}
       style={StyleSheet.absoluteFill}
       contentFit="cover"
@@ -149,7 +149,7 @@ const StandardSlide = ({
       { width: screenWidth, height: STANDARD_HEIGHT, padding: SPACING.md },
     ]}
   >
-    <Image
+    <SafeImage
       source={{ uri: item.image }}
       style={[StyleSheet.absoluteFill, { borderRadius: RADIUS.xl }]}
       contentFit="cover"

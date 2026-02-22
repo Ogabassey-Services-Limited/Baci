@@ -233,8 +233,8 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
     return 'Airtime';
   })();
 
-  const merchantSlides = Array.isArray(merchant?.hero_slides)
-    ? (merchant.hero_slides as Record<string, string>[])
+  const merchantSlides = Array.isArray(merchant?.mobile_hero_slides)
+    ? (merchant.mobile_hero_slides as Record<string, string>[])
     : null;
 
   const renderHeroBlock = (

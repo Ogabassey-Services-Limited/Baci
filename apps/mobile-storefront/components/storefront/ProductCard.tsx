@@ -32,6 +32,7 @@ import { supabase } from '@/lib/supabase';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import { formatPrice, type Product } from '@/types/product';
+import { getProductImageSource } from './product-card-image-state';
 
 /**
  * Safely sanitize product descriptions for display as plain text.
@@ -218,8 +219,7 @@ export function ProductCard({
   // Calculate discount percentage for potential use in badges/promotions
 
   // 2026 Best Practice: Track image load failures for fallback rendering
-  const [imageError, setImageError] = useState(false);
-  const [fallbackError, setFallbackError] = useState(false);
+  const [hasImageError, setHasImageError] = useState(false);
 
   // Common image props for all variants
   // 2026 Best Practice: iOS 26 CoreGraphics has stricter image format requirements
@@ -234,24 +234,17 @@ export function ProductCard({
     recyclingKey: product.id,
     allowDownscaling: true,
     onError: () => {
-      // Silently handle image decode failures (iOS 26 24-bpp bug)
-      if (!imageError) {
-        setImageError(true);
-      } else if (!fallbackError) {
-        // Fallback URL also failed; stop trying remote URLs
-        setFallbackError(true);
-      }
+      // On first failure, switch to a local placeholder (no second network fallback).
+      setHasImageError(true);
     },
   };
 
-  // Fallback to blurhash placeholder if image fails to load
-  // If the fallback URL also fails, skip the Image entirely (render a local placeholder)
-  const imageSource =
-    imageError && !fallbackError
-      ? {
-          uri: `https://placehold.co/400x400/1a1a1a/ffffff?text=${encodeURIComponent(product.name?.charAt(0) || 'P')}`,
-        }
-      : { uri: product.image };
+  useEffect(() => {
+    // Reset image error state when the card is recycled for a different image URL.
+    setHasImageError(false);
+  }, [product.image]);
+
+  const imageSource = getProductImageSource(product.image, hasImageError);
 
   // --- RENDER: Editorial Variant (Fashion) ---
   if (variant === 'editorial') {
@@ -268,7 +261,7 @@ export function ProductCard({
         accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
         accessibilityRole="button"
       >
-        {fallbackError ? (
+        {!imageSource ? (
           <View style={[styles.editorialImage, styles.imagePlaceholder]}>
             <Ionicons name="image-outline" size={40} color="#9CA3AF" />
           </View>
@@ -306,7 +299,7 @@ export function ProductCard({
         accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
         accessibilityRole="button"
       >
-        {fallbackError ? (
+        {!imageSource ? (
           <View style={[styles.listImage, styles.imagePlaceholder]}>
             <Ionicons name="image-outline" size={32} color="#9CA3AF" />
           </View>
@@ -449,7 +442,7 @@ export function ProductCard({
           </View>
         )}
 
-        {fallbackError ? (
+        {!imageSource ? (
           <View style={[styles.gridImage, styles.imagePlaceholder]}>
             <Ionicons name="image-outline" size={40} color="#9CA3AF" />
           </View>

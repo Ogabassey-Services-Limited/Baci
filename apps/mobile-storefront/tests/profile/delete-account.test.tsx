@@ -170,6 +170,36 @@ describe('DeleteAccountScreen', () => {
     alertSpy.mockRestore();
   });
 
+  it('shows error toast when deleteAccount throws unexpectedly', async () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+
+    mockDeleteAccount.mockRejectedValue(new Error('Unexpected crash'));
+
+    render(<DeleteAccountScreen />);
+    fireEvent.press(
+      screen.getByRole('checkbox', {
+        name: 'I understand this action is permanent',
+      })
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Delete account' }));
+
+    const confirmButtons = alertSpy.mock.calls[0]?.[2] ?? [];
+    const destructive = confirmButtons.find(
+      (button) => button?.style === 'destructive'
+    );
+
+    await act(async () => {
+      await destructive?.onPress?.();
+    });
+
+    expect(mockToastError).toHaveBeenCalledWith('Unexpected crash');
+    expect(mockRouterReplace).not.toHaveBeenCalled();
+
+    alertSpy.mockRestore();
+  });
+
   it('shows Apple revoke guidance when user has Apple provider', () => {
     mockUseRequireAuth.mockReturnValue({
       isLoading: false,
@@ -212,10 +242,10 @@ describe('DeleteAccountScreen', () => {
 
     await waitFor(() => {
       expect(canOpenUrlSpy).toHaveBeenCalledWith(
-        'https://support.apple.com/en-us/HT210426'
+        'https://support.apple.com/en-us/102571'
       );
       expect(openUrlSpy).toHaveBeenCalledWith(
-        'https://support.apple.com/en-us/HT210426'
+        'https://support.apple.com/en-us/102571'
       );
       expect(mockToastError).toHaveBeenCalledWith(
         'Unable to open Apple support link on this device.'
