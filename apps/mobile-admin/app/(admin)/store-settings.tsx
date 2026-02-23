@@ -97,8 +97,8 @@ export default function StoreSettingsScreen() {
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-        defaultCurrencyForCountry ||
-        COUNTRIES[0].currency
+          defaultCurrencyForCountry ||
+          COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');

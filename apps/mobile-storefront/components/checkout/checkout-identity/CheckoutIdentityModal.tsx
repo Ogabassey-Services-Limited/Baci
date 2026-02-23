@@ -135,10 +135,7 @@ export function CheckoutIdentityModal({
 
           {/* Header */}
           <View style={styles.header}>
-            <Text
-              style={styles.headerTitle}
-              accessibilityRole="header"
-            >
+            <Text style={styles.headerTitle} accessibilityRole="header">
               Checkout
             </Text>
             <Pressable

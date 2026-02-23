@@ -20,6 +20,7 @@ import {
   extractClickIdsFromUrl,
   generateClickIdCookies,
 } from '@/lib/ad-tracking-cookies';
+import { checkCsrfProtection, ensureCsrfTokenMiddleware } from '@/lib/csrf';
 import { getCustomDomainForSlug } from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { updateSession } from '@/lib/supabase/middleware';
@@ -343,6 +344,13 @@ export async function proxy(request: NextRequest) {
       );
     }
 
+    // ==== CSRF PROTECTION ====
+    // Check CSRF token for state-changing requests
+    const csrfResult = await checkCsrfProtection(request);
+    if (!csrfResult.valid) {
+      return csrfResult.response as NextResponse;
+    }
+
     // ==== INPUT VALIDATION (Mutation Requests) ====
     // Enforce Content-Type and body size limits at the edge
     const method = request.method;
@@ -496,7 +504,7 @@ export async function proxy(request: NextRequest) {
         routeType,
         isLocal,
         nonce, // Pass the pre-generated nonce
-        undefined,
+        modifiedRequest,
         hostname
       );
     }
@@ -510,7 +518,7 @@ export async function proxy(request: NextRequest) {
         routeType,
         isLocal,
         nonce,
-        undefined,
+        modifiedRequest,
         hostname
       );
     }
@@ -828,6 +836,12 @@ function applySecurityHeaders(
   // Capture ad click IDs from URL params (if request provided)
   if (request && routeType === 'storefront') {
     captureAdClickIds(request, response);
+  }
+
+  // ==== CSRF TOKEN INITIALIZATION ====
+  // Ensure every visitor gets a CSRF token (for subsequent state-changing requests)
+  if (request) {
+    ensureCsrfTokenMiddleware(request, response);
   }
 
   // Apply Content Security Policy

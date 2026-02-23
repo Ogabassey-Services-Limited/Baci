@@ -64,7 +64,11 @@ function findTagEnd(input: string, start: number): number {
   return -1;
 }
 
-function parseTag(input: string, tagStart: number, tagEnd: number): ParsedTag | null {
+function parseTag(
+  input: string,
+  tagStart: number,
+  tagEnd: number
+): ParsedTag | null {
   let i = tagStart + 1;
   i = skipWhitespace(input, i);
 
@@ -413,7 +417,11 @@ export function sanitizeSvg(svg: string): string {
     }
 
     if (DANGEROUS_TAGS.has(parsed.name)) {
-      if (!parsed.isClosing && DANGEROUS_PAIR_TAGS.has(parsed.name) && !parsed.isSelfClosing) {
+      if (
+        !parsed.isClosing &&
+        DANGEROUS_PAIR_TAGS.has(parsed.name) &&
+        !parsed.isSelfClosing
+      ) {
         i = findDangerousCloseEnd(svg, tagEnd + 1, parsed.name);
       } else {
         i = tagEnd + 1;
