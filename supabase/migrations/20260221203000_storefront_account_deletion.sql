@@ -1,0 +1,1 @@
+-- Superseded by 20260222104500_fix_storefront_account_deletion_referral_fk.sql
