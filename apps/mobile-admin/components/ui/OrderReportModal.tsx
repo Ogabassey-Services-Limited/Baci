@@ -1,6 +1,6 @@
 import type { Order } from '@baci/shared';
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -54,21 +54,19 @@ export default function OrderReportModal({
   const screenHeight = Dimensions.get('window').height;
 
   // Calculate stats
-  const stats = useMemo(() => {
-    const totalOrders = orders.length;
-    const totalRevenue = orders.reduce(
-      (sum, o) => sum + (Number(o.total) || 0),
-      0
-    );
-    const pendingCount = orders.filter(
-      (o) => o.shipping_status === 'pending'
-    ).length;
-    const completedCount = orders.filter(
-      (o) => o.shipping_status === 'delivered'
-    ).length;
+  const totalOrders = orders.length;
+  const totalRevenue = orders.reduce(
+    (sum, o) => sum + (Number(o.total) || 0),
+    0
+  );
+  const pendingCount = orders.filter(
+    (o) => o.shipping_status === 'pending'
+  ).length;
+  const completedCount = orders.filter(
+    (o) => o.shipping_status === 'delivered'
+  ).length;
 
-    return { totalOrders, totalRevenue, pendingCount, completedCount };
-  }, [orders]);
+  const stats = { totalOrders, totalRevenue, pendingCount, completedCount };
 
   const handleExport = async () => {
     setIsExporting(true);
