@@ -42,6 +42,7 @@ exclude = [
   "commondatastorage\\.googleapis\\.com/gtv-videos-bucket",
   
   # APIs (Restricted/Dynamic)
+  "api\\.coingecko\\.com",
   "api\\.pwnedpasswords\\.com",
   "api\\.supabase\\.com",
   "firebase\\.google\\.com/docs/genkit",
