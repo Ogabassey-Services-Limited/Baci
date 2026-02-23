@@ -5,7 +5,6 @@ import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
-import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
 import type { Product } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
@@ -84,10 +83,13 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     // Build query
-    // PERFORMANCE: Select only essential fields instead of wildcard (Warden philosophy)
+    // PERFORMANCE: Select only essential variant fields instead of wildcard
     let query = supabase
       .from('products')
-      .select(PRODUCT_WITH_VARIANTS_QUERY, { count: 'exact' })
+      .select(
+        `*, variants:product_variants(id, product_id, merchant_id, attributes, price_override, stock_quantity, sku, primary_image, images)`,
+        { count: 'exact' }
+      )
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
@@ -180,16 +182,15 @@ export async function GET(request: NextRequest) {
           has_variants: p.has_variants || false,
           variants:
             p.variants?.map((v: Record<string, unknown>) => ({
-              id: String(v.id),
-              product_id: String(v.product_id),
-              merchant_id: String(v.merchant_id),
-              attributes: v.attributes as Record<string, string>,
-              price_override: Number(v.price_override) || undefined,
-              cost_price: Number(v.cost_price) || undefined,
-              stock_quantity: Number(v.stock_quantity),
-              sku: String(v.sku || ''),
-              primary_image: String(v.primary_image || ''),
-              images: (v.images as string[]) || [],
+              id: v.id,
+              product_id: v.product_id,
+              merchant_id: v.merchant_id,
+              attributes: v.attributes,
+              price_override: v.price_override,
+              stock_quantity: v.stock_quantity,
+              sku: v.sku,
+              primary_image: v.primary_image,
+              images: v.images,
             })) || [],
           category: p.category || 'General',
           color: p.color,
@@ -276,7 +277,7 @@ export async function GET(request: NextRequest) {
         // Fallback: Use separate COUNT query for out-of-stock count
         const oosResult = await supabase
           .from('products')
-          .select('id', { count: 'exact', head: true })
+          .select('*', { count: 'exact', head: true })
           .eq('merchant_id', merchantId)
           .eq('stock_quantity', 0);
 

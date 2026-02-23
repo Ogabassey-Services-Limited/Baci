@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
 import type { Product } from '@/lib/products';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 
@@ -72,7 +71,7 @@ export async function getProducts(
   // Build query
   let query = supabase
     .from('products')
-    .select(PRODUCT_WITH_VARIANTS_QUERY, { count: 'exact' })
+    .select('*, variants:product_variants(*)', { count: 'exact' })
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
@@ -157,16 +156,15 @@ export async function getProducts(
         has_variants: p.has_variants || false,
         variants:
           p.variants?.map((v: Record<string, unknown>) => ({
-            id: String(v.id),
-            product_id: String(v.product_id),
-            merchant_id: String(v.merchant_id),
-            attributes: v.attributes as Record<string, string>,
-            price_override: Number(v.price_override) || undefined,
-            cost_price: Number(v.cost_price) || undefined,
-            stock_quantity: Number(v.stock_quantity),
-            sku: String(v.sku || ''),
-            primary_image: String(v.primary_image || ''),
-            images: (v.images as string[]) || [],
+            id: v.id,
+            product_id: v.product_id,
+            merchant_id: v.merchant_id,
+            attributes: v.attributes,
+            price_override: v.price_override,
+            stock_quantity: v.stock_quantity,
+            sku: v.sku,
+            primary_image: v.primary_image,
+            images: v.images,
           })) || [],
         category: p.category || 'General',
         color: p.color,

@@ -54,8 +54,8 @@ export interface StorefrontOrder {
    */
   shipping_address: string | Record<string, unknown> | null;
   shipping_provider?: string;
-  payment_status: PaymentStatus;
-  shipping_status: ShippingStatus;
+  payment_status: PaymentStatus | string;
+  shipping_status: ShippingStatus | string;
   payment_method: string | null;
   payment_provider?: string;
   merchant_id: string;

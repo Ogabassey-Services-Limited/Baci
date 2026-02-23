@@ -12,7 +12,6 @@ import {
   Truck,
   XCircle,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import type React from 'react';
@@ -21,8 +20,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { createClient } from '@/lib/supabase/client';
-import type { StorefrontOrder } from '@/types/storefront-order';
-import type { PaymentStatus, ShippingStatus } from '@baci/shared/types';
+import type { StorefrontOrder, StorefrontOrderItem } from '@/types/storefront-order';
 
 // Hook to extract store slug from pathname
 function useStoreSlug() {
@@ -102,8 +100,8 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
               if (!prevOrder) return prevOrder;
               return {
                 ...prevOrder,
-                shipping_status: (newData.shipping_status as ShippingStatus) ?? prevOrder.shipping_status,
-                payment_status: (newData.payment_status as PaymentStatus) ?? prevOrder.payment_status,
+                shipping_status: (newData.shipping_status as string) ?? prevOrder.shipping_status,
+                payment_status: (newData.payment_status as string) ?? prevOrder.payment_status,
                 tracking_number: (newData.tracking_number as string) ?? prevOrder.tracking_number,
                 tracking_url: (newData.tracking_url as string) ?? prevOrder.tracking_url,
                 updated_at: (newData.updated_at as string) ?? prevOrder.updated_at,
@@ -132,7 +130,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
     // For now, redirect to product page of first item or cart
     if (order?.items?.[0]) {
       // biome-ignore lint/suspicious/noExplicitAny: Dynamic route handling for multi-tenant storefronts
-      router.push(getUrl(`/product/${order.items[0].product_id}`) as string & {});
+      router.push(getUrl(`/product/${order.items[0].product_id}`) as any);
     }
   };
 
@@ -226,7 +224,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
         <div className="flex items-center gap-4 mb-6">
           {/* biome-ignore lint/suspicious/noExplicitAny: Dynamic route handling for multi-tenant storefronts */}
           <Link
-            href={getUrl('/account/orders') as string & {}}
+            href={getUrl('/account/orders') as any}
             className="p-2 hover:bg-white rounded-full transition-colors text-gray-500 hover:text-gray-900 border border-transparent hover:border-gray-200"
           >
             <ChevronLeft size={20} />
@@ -256,9 +254,9 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
               <div className="relative pt-4 pb-2">
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${(order.shipping_status === 'delivered') ? 'bg-green-500 w-full' :
-                      (order.shipping_status === 'shipped') ? 'bg-blue-500 w-2/3' :
-                        (order.shipping_status === 'processing') ? 'bg-amber-500 w-1/3' : 'bg-gray-300 w-1/12'
+                    className={`h-full rounded-full transition-all duration-500 ${(order.shipping_status === 'Delivered') ? 'bg-green-500 w-full' :
+                      (order.shipping_status === 'Shipped') ? 'bg-blue-500 w-2/3' :
+                        (order.shipping_status === 'Processing') ? 'bg-amber-500 w-1/3' : 'bg-gray-300 w-1/12'
                       }`}
                   />
                 </div>
@@ -279,25 +277,23 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                 </h2>
               </div>
               <div className="p-4 space-y-4">
-                {order.items?.map((item) => (
+                {order.items?.map((item: StorefrontOrderItem) => (
                   <div
                     key={item.id}
                     className="flex gap-4 items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0"
                   >
                     <Link
-                      href={getUrl(`/product/${item.product_id}`) as string & {}}
+                      href={getUrl(`/product/${item.product_id}`)}
                       className="w-20 h-20 bg-gray-50 rounded-xl p-2 border border-gray-100 flex-shrink-0 block"
                     >
-                      <Image
+                      <img
                         src={item.product_image || item.image || (item.product_images && item.product_images[0]) || '/placeholder.png'}
-                        alt={item.product_name || item.name || ''}
-                        width={80}
-                        height={80}
+                        alt={item.product_name || item.name}
                         className="w-full h-full object-contain mix-blend-multiply"
                       />
                     </Link>
                     <div className="flex-1 min-w-0">
-                      <Link href={getUrl(`/product/${item.product_id}`) as string & {}}>
+                      <Link href={getUrl(`/product/${item.product_id}`)}>
                         <h3 className="font-bold text-gray-900 text-sm mb-1 hover:text-red-600 transition-colors">
                           {item.product_name || item.name}
                         </h3>

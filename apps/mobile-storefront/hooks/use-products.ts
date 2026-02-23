@@ -18,7 +18,6 @@ import {
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
-import { type PublishedPageConfigRow, resolveLatestPublishedPageConfig } from '@/lib/page-config-resolution';
 import { supabase } from '@/lib/supabase';
 import { ProductRowSchema } from '@/lib/validation';
 import type { PageConfig } from '@/types/blocks';
@@ -113,7 +112,7 @@ interface Merchant {
   email?: string;
   phone?: string;
   business_address?: string;
-  mobile_hero_slides?: Record<string, string>[];
+  hero_slides?: Record<string, string>[];
 }
 
 /**
@@ -131,7 +130,7 @@ export function useMerchant() {
           await supabase
             .from('merchants')
             .select(
-              'id, slug, business_name, social_media, email, phone, business_address, mobile_hero_slides'
+              'id, slug, business_name, social_media, email, phone, business_address, hero_slides'
             )
             .eq('slug', MERCHANT_SLUG)
             .single(),
@@ -251,12 +250,11 @@ export function usePageConfig(slug: string = 'home') {
         async () =>
           await supabase
             .from('page_configs')
-            .select('published_config, updated_at')
+            .select('published_config')
             .eq('merchant_id', merchantId)
             .eq('page_slug', slug)
             .eq('is_published', true)
-            .order('updated_at', { ascending: false })
-            .limit(5),
+            .maybeSingle(),
         {
           maxRetries: 3,
           onRetry: (attempt, err) => {
@@ -266,12 +264,11 @@ export function usePageConfig(slug: string = 'home') {
       );
 
       if (error) throw error;
-      return resolveLatestPublishedPageConfig(
-        (data ?? []) as PublishedPageConfigRow[]
-      );
+      // 2026 Critical Fix: Access published_config with null safety
+      // The select('published_config') returns { published_config: unknown } | null
+      return (data?.published_config ?? null) as PageConfig | null;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnMount: 'always',
     enabled: !!merchantId,
   });
 }
