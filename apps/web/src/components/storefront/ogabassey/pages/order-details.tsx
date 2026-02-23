@@ -133,7 +133,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
 
   const handleBuyAgain = () => {
     if (order?.items?.[0]) {
-      router.push(getUrl(`/product/${order.items[0].product_id}`));
+      router.push(getUrl(`/product/${order.items[0].product_id}`) as any);
     }
   };
 
@@ -155,7 +155,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
           title="Order Not Found"
           description="We couldn't find the order you are looking for."
           actionLabel="Back to Orders"
-          actionLink={getUrl('/account/orders')}
+          actionLink={getUrl('/account/orders') as any}
           variant="generic"
         />
       </div>
@@ -168,7 +168,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
         {/* Breadcrumb / Back */}
         <div className="flex items-center gap-4 mb-6">
           <Link
-            href={getUrl('/account/orders')}
+            href={getUrl('/account/orders') as any}
             className="p-2 hover:bg-white rounded-full transition-colors text-gray-500 hover:text-gray-900 border border-transparent hover:border-gray-200"
           >
             <ChevronLeft size={20} />
