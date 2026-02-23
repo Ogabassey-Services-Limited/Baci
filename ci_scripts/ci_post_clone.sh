@@ -164,7 +164,8 @@ required_cocoapods_version="$(sed -n 's/^COCOAPODS: *//p' Podfile.lock 2>/dev/nu
 
 # Build a version-pinned pod command using the RubyGems _VERSION_ specifier so
 # the exact CocoaPods gem is invoked even if a different version is pre-installed.
-# shellcheck disable=SC2086 — intentional word-splitting: "pod _1.16.2_" must expand to two words.
+# Intentional word-splitting: "pod _1.16.2_" must expand to two words.
+# SC2086 is suppressed at each $pod_cmd invocation site below.
 if [ -n "$required_cocoapods_version" ]; then
   pod_cmd="pod _${required_cocoapods_version}_"
 else
