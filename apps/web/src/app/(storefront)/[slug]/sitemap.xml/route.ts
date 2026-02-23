@@ -113,7 +113,7 @@ function extractImageUrls(
 
 // ── Data fetchers ──
 
-async function fetchProducts(merchantId: string): Promise<ProductRow[]> {
+async function fetchProducts(merchantId: string): Promise<ProductRow[] | null> {
   const { data, error } = (await _getSupabase()
     .from('products')
     .select(
@@ -130,12 +130,14 @@ async function fetchProducts(merchantId: string): Promise<ProductRow[]> {
       merchantId,
       error.message
     );
-    return [];
+    return null;
   }
   return data ?? [];
 }
 
-async function fetchCategories(merchantId: string): Promise<CategoryRow[]> {
+async function fetchCategories(
+  merchantId: string
+): Promise<CategoryRow[] | null> {
   const { data, error } = await _getSupabase()
     .from('categories')
     .select('slug, updated_at')
@@ -146,12 +148,14 @@ async function fetchCategories(merchantId: string): Promise<CategoryRow[]> {
       merchantId,
       error.message
     );
-    return [];
+    return null;
   }
   return (data as CategoryRow[] | null) ?? [];
 }
 
-async function fetchBlogPosts(merchantId: string): Promise<BlogPostRow[]> {
+async function fetchBlogPosts(
+  merchantId: string
+): Promise<BlogPostRow[] | null> {
   const { data, error } = await _getSupabase()
     .from('blog_posts')
     .select('slug, published_at, updated_at, featured_image_url')
@@ -163,7 +167,7 @@ async function fetchBlogPosts(merchantId: string): Promise<BlogPostRow[]> {
       merchantId,
       error.message
     );
-    return [];
+    return null;
   }
   return (data as BlogPostRow[] | null) ?? [];
 }
@@ -193,6 +197,11 @@ export async function GET(): Promise<NextResponse> {
       fetchBlogPosts(merchant.id),
     ]);
 
+    // If all queries failed, return 503 so crawlers retry later
+    if (products === null && categories === null && blogPosts === null) {
+      return new NextResponse('Service Unavailable', { status: 503 });
+    }
+
     const entries: string[] = [];
 
     // Stable timestamp for static pages — changes only when the merchant record updates
@@ -208,48 +217,71 @@ export async function GET(): Promise<NextResponse> {
         priority: 1.0,
       })
     );
-    entries.push(
-      buildUrlEntry(`${storeUrl}/faq`, {
-        lastmod: merchantLastmod,
-        changefreq: 'monthly',
-        priority: 0.5,
-      })
-    );
 
-    // ── Category pages ──
-    for (const cat of categories) {
+    // Known storefront pages — include if merchant has content for them
+    const staticPages: Array<{ path: string; priority: number }> = [
+      { path: 'faq', priority: 0.5 },
+    ];
+    if (merchant.pages) {
+      if (merchant.pages.about)
+        staticPages.push({ path: 'about', priority: 0.5 });
+      if (merchant.pages.contact)
+        staticPages.push({ path: 'contact', priority: 0.5 });
+      if (merchant.pages.terms)
+        staticPages.push({ path: 'terms', priority: 0.3 });
+      if (merchant.pages.privacy)
+        staticPages.push({ path: 'privacy', priority: 0.3 });
+    }
+    for (const page of staticPages) {
       entries.push(
-        buildUrlEntry(`${storeUrl}/${cat.slug}`, {
-          lastmod: cat.updated_at ? new Date(cat.updated_at) : merchantLastmod,
-          changefreq: 'daily',
-          priority: 0.7,
+        buildUrlEntry(`${storeUrl}/${page.path}`, {
+          lastmod: merchantLastmod,
+          changefreq: 'monthly',
+          priority: page.priority,
         })
       );
     }
 
+    // ── Category pages ──
+    if (categories) {
+      for (const cat of categories) {
+        entries.push(
+          buildUrlEntry(`${storeUrl}/${cat.slug}`, {
+            lastmod: cat.updated_at
+              ? new Date(cat.updated_at)
+              : merchantLastmod,
+            changefreq: 'daily',
+            priority: 0.7,
+          })
+        );
+      }
+    }
+
     // ── Product pages ──
-    for (const product of products) {
-      const productSlug = product.slug || product.id;
-      const catSlug =
-        product.categories?.slug ||
-        (product.category ? generateSlug(product.category) : null);
-      const url = catSlug
-        ? `${storeUrl}/${catSlug}/${productSlug}`
-        : `${storeUrl}/products/${productSlug}`;
+    if (products) {
+      for (const product of products) {
+        const productSlug = product.slug || product.id;
+        const catSlug =
+          product.categories?.slug ||
+          (product.category ? generateSlug(product.category) : null);
+        const url = catSlug
+          ? `${storeUrl}/${catSlug}/${productSlug}`
+          : `${storeUrl}/products/${productSlug}`;
 
-      const images = extractImageUrls(product.images);
-      const opts: UrlEntryOptions = {
-        changefreq: 'weekly',
-        priority: 0.8,
-      };
-      if (product.updated_at) opts.lastmod = new Date(product.updated_at);
-      if (images.length > 0) opts.images = images;
+        const images = extractImageUrls(product.images);
+        const opts: UrlEntryOptions = {
+          changefreq: 'weekly',
+          priority: 0.8,
+        };
+        if (product.updated_at) opts.lastmod = new Date(product.updated_at);
+        if (images.length > 0) opts.images = images;
 
-      entries.push(buildUrlEntry(url, opts));
+        entries.push(buildUrlEntry(url, opts));
+      }
     }
 
     // ── Blog pages ──
-    if (blogPosts.length > 0) {
+    if (blogPosts && blogPosts.length > 0) {
       entries.push(
         buildUrlEntry(`${storeUrl}/blog`, {
           lastmod: merchantLastmod,
@@ -259,12 +291,14 @@ export async function GET(): Promise<NextResponse> {
       );
       for (const post of blogPosts) {
         const opts: UrlEntryOptions = {
-          lastmod: post.updated_at
-            ? new Date(post.updated_at)
-            : new Date(post.published_at ?? Date.now()),
           changefreq: 'monthly',
           priority: 0.6,
         };
+        if (post.updated_at) {
+          opts.lastmod = new Date(post.updated_at);
+        } else if (post.published_at) {
+          opts.lastmod = new Date(post.published_at);
+        }
         if (post.featured_image_url?.startsWith('http')) {
           opts.images = [post.featured_image_url];
         }

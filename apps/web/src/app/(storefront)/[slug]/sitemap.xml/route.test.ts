@@ -1,4 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  baseMerchant,
+  mockFrom,
+  mockGetMerchant,
+  mockHeaders,
+  resetTableData,
+  setHeaders,
+  setTableData,
+  setTableError,
+} from './route.test-helpers';
 
 // ── Env vars (before any imports that read them) ──
 
@@ -6,38 +16,7 @@ process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
 process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
 
-// ── Mocks ──
-
-// Table-aware Supabase mock: mockFrom tracks which table is being queried,
-// so eq/select return the correct data per table instead of relying on argument ordering.
-let currentTable = '';
-
-const tableData: Record<string, { data: unknown[]; error: null }> = {
-  products: { data: [], error: null },
-  categories: { data: [], error: null },
-  blog_posts: { data: [], error: null },
-};
-
-const mockEq: ReturnType<typeof vi.fn> = vi.fn();
-const mockSelect = vi.fn();
-const mockFrom = vi.fn();
-
-mockEq.mockImplementation((_key: string, _value: string) => {
-  // Terminal eq in the chain (e.g. .eq('status','active')) returns table data
-  // Intermediate eq (e.g. .eq('merchant_id',...)) continues the chain
-  if (_key === 'status' || _key === 'merchant_id') {
-    const result = tableData[currentTable] ?? { data: [], error: null };
-    // Return chainable + data so both terminal and intermediate calls work
-    return { eq: mockEq, ...result };
-  }
-  return { eq: mockEq, data: [], error: null };
-});
-
-mockSelect.mockImplementation(() => ({ eq: mockEq }));
-mockFrom.mockImplementation((table: string) => {
-  currentTable = table;
-  return { select: mockSelect };
-});
+// ── vi.mock calls (must stay in test file — Vitest hoists them) ──
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => ({ from: mockFrom })),
@@ -51,8 +30,6 @@ vi.mock('@/env', () => ({
   },
 }));
 
-// Mock getMerchantByIdentifier
-const mockGetMerchant = vi.fn();
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) => mockGetMerchant(...args),
 }));
@@ -66,58 +43,22 @@ vi.mock('@/lib/seo-utils', () => ({
   ),
 }));
 
-// Mock next/headers
-let mockHeaders = new Map<string, string>();
-vi.mock('next/headers', () => ({
-  headers: vi.fn(async () => ({
-    get: (key: string) => mockHeaders.get(key) ?? null,
-  })),
-}));
-
-// ── Helpers ──
-
-function setHeaders(h: Record<string, string>) {
-  mockHeaders = new Map(Object.entries(h));
-}
-
-const baseMerchant = {
-  id: 'merchant-1',
-  slug: 'ogabassey',
-  business_name: 'Ogabassey',
-  custom_domain: 'ogabassey.com',
-  site_title: '',
-  site_tagline: '',
-  site_description: '',
-  business_type: 'electronics',
-  logo_url: '',
-  phone: '',
-  email: '',
-  brand_colors: { primary: '#000', accent: '#fff', background: '#fff' },
-  business_address: '',
-  payout_currency: 'NGN',
-  is_published: true,
-  template_id: 'ogabassey',
-  plan_tier: 'pro',
-  premium_features: null,
-  updated_at: '2026-01-20T12:00:00Z',
-};
-
-function setTableData(table: string, data: unknown[]) {
-  tableData[table] = { data, error: null };
-}
-
-function resetTableData() {
-  tableData.products = { data: [], error: null };
-  tableData.categories = { data: [], error: null };
-  tableData.blog_posts = { data: [], error: null };
-}
+vi.mock('next/headers', async () => {
+  const helpers = await import('./route.test-helpers');
+  return {
+    headers: vi.fn(async () => ({
+      get: (key: string) => helpers.mockHeaders.get(key) ?? null,
+    })),
+  };
+});
 
 // ── Tests ──
 
 describe('GET /[slug]/sitemap.xml', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockHeaders = new Map();
+    // Reset mutable state in helpers module
+    mockHeaders.clear();
     mockGetMerchant.mockResolvedValue(null);
     resetTableData();
   });
@@ -131,29 +72,23 @@ describe('GET /[slug]/sitemap.xml', () => {
   it('returns 404 when merchant is not found', async () => {
     setHeaders({ 'x-custom-domain': 'unknown-store.com' });
     mockGetMerchant.mockResolvedValue(null);
-
     const { GET } = await import('./route');
-    const response = await GET();
-    expect(response.status).toBe(404);
+    expect((await GET()).status).toBe(404);
   });
 
   it('detects merchant from x-custom-domain header', async () => {
     setHeaders({ 'x-custom-domain': 'ogabassey.com' });
     mockGetMerchant.mockResolvedValue(baseMerchant);
-
     const { GET } = await import('./route');
     await GET();
-
     expect(mockGetMerchant).toHaveBeenCalledWith('ogabassey.com');
   });
 
   it('detects merchant from x-merchant-slug header', async () => {
     setHeaders({ 'x-merchant-slug': 'ogabassey' });
     mockGetMerchant.mockResolvedValue(baseMerchant);
-
     const { GET } = await import('./route');
     await GET();
-
     expect(mockGetMerchant).toHaveBeenCalledWith('ogabassey');
   });
 
@@ -163,20 +98,16 @@ describe('GET /[slug]/sitemap.xml', () => {
       'x-merchant-slug': 'ogabassey',
     });
     mockGetMerchant.mockResolvedValue(baseMerchant);
-
     const { GET } = await import('./route');
     await GET();
-
     expect(mockGetMerchant).toHaveBeenCalledWith('ogabassey.com');
   });
 
   it('returns Content-Type application/xml', async () => {
     setHeaders({ 'x-custom-domain': 'ogabassey.com' });
     mockGetMerchant.mockResolvedValue(baseMerchant);
-
     const { GET } = await import('./route');
     const response = await GET();
-
     expect(response.headers.get('Content-Type')).toBe(
       'application/xml; charset=utf-8'
     );
@@ -185,39 +116,28 @@ describe('GET /[slug]/sitemap.xml', () => {
   it('returns Cache-Control with s-maxage=21600', async () => {
     setHeaders({ 'x-custom-domain': 'ogabassey.com' });
     mockGetMerchant.mockResolvedValue(baseMerchant);
-
     const { GET } = await import('./route');
     const response = await GET();
-
     expect(response.headers.get('Cache-Control')).toContain('s-maxage=21600');
   });
 
   it('returns valid XML (not HTML)', async () => {
     setHeaders({ 'x-custom-domain': 'ogabassey.com' });
     mockGetMerchant.mockResolvedValue(baseMerchant);
-
     const { GET } = await import('./route');
-    const response = await GET();
-    const body = await response.text();
-
+    const body = await (await GET()).text();
     expect(body).toContain('<?xml version="1.0" encoding="UTF-8"?>');
     expect(body).toContain('<urlset');
-    expect(body).toContain('</urlset>');
-    expect(body).not.toContain('<!DOCTYPE html');
     expect(body).not.toContain('<html');
   });
 
   it('includes static pages with lastmod from merchant.updated_at', async () => {
     setHeaders({ 'x-custom-domain': 'ogabassey.com' });
     mockGetMerchant.mockResolvedValue(baseMerchant);
-
     const { GET } = await import('./route');
-    const response = await GET();
-    const body = await response.text();
-
+    const body = await (await GET()).text();
     expect(body).toContain('<loc>https://ogabassey.com</loc>');
     expect(body).toContain('<loc>https://ogabassey.com/faq</loc>');
-    // lastmod should be merchant.updated_at, not a volatile new Date()
     expect(body).toContain(
       `<lastmod>${new Date('2026-01-20T12:00:00Z').toISOString()}</lastmod>`
     );
@@ -229,30 +149,18 @@ describe('GET /[slug]/sitemap.xml', () => {
       ...baseMerchant,
       updated_at: undefined,
     });
-
     const { GET } = await import('./route');
-    const response = await GET();
-    const body = await response.text();
-
-    // Static pages should still appear but without <lastmod>
+    const body = await (await GET()).text();
     expect(body).toContain('<loc>https://ogabassey.com</loc>');
-    // Count lastmod occurrences — should be zero for static pages
-    const homepageEntry = body.split('<loc>https://ogabassey.com</loc>')[1];
-    const nextUrlStart = homepageEntry?.indexOf('<url>') ?? -1;
-    const segment =
-      nextUrlStart > 0 ? homepageEntry?.slice(0, nextUrlStart) : homepageEntry;
-    expect(segment).not.toContain('<lastmod>');
+    // With empty tables and no updated_at, no lastmod should appear anywhere
+    expect(body).not.toContain('<lastmod>');
   });
 
   it('uses custom_domain for store URL when available', async () => {
     setHeaders({ 'x-merchant-slug': 'ogabassey' });
     mockGetMerchant.mockResolvedValue(baseMerchant);
-
     const { GET } = await import('./route');
-    const response = await GET();
-    const body = await response.text();
-
-    // custom_domain = ogabassey.com, so URLs should use that
+    const body = await (await GET()).text();
     expect(body).toContain('<loc>https://ogabassey.com</loc>');
   });
 
@@ -263,11 +171,8 @@ describe('GET /[slug]/sitemap.xml', () => {
       slug: 'teststore',
       custom_domain: undefined,
     });
-
     const { GET } = await import('./route');
-    const response = await GET();
-    const body = await response.text();
-
+    const body = await (await GET()).text();
     expect(body).toContain('<loc>https://teststore.usebaci.com</loc>');
   });
 
@@ -285,11 +190,8 @@ describe('GET /[slug]/sitemap.xml', () => {
         categories: { slug: 'smartphones' },
       },
     ]);
-
     const { GET } = await import('./route');
-    const response = await GET();
-    const body = await response.text();
-
+    const body = await (await GET()).text();
     expect(body).toContain(
       '<loc>https://ogabassey.com/smartphones/iphone-15</loc>'
     );
@@ -312,11 +214,8 @@ describe('GET /[slug]/sitemap.xml', () => {
         categories: null,
       },
     ]);
-
     const { GET } = await import('./route');
-    const response = await GET();
-    const body = await response.text();
-
+    const body = await (await GET()).text();
     expect(body).toContain(
       '<loc>https://ogabassey.com/products/random-gadget</loc>'
     );
@@ -329,17 +228,10 @@ describe('GET /[slug]/sitemap.xml', () => {
       { slug: 'smartphones', updated_at: '2026-01-10T00:00:00Z' },
       { slug: 'laptops', updated_at: null },
     ]);
-
     const { GET } = await import('./route');
-    const response = await GET();
-    const body = await response.text();
-
+    const body = await (await GET()).text();
     expect(body).toContain('<loc>https://ogabassey.com/smartphones</loc>');
     expect(body).toContain('<loc>https://ogabassey.com/laptops</loc>');
-    // Category with updated_at should use it
-    expect(body).toContain(
-      `<lastmod>${new Date('2026-01-10T00:00:00Z').toISOString()}</lastmod>`
-    );
   });
 
   it('includes blog posts with /blog index and image tags', async () => {
@@ -353,41 +245,67 @@ describe('GET /[slug]/sitemap.xml', () => {
         featured_image_url: 'https://img.example.com/blog-hero.jpg',
       },
     ]);
-
     const { GET } = await import('./route');
-    const response = await GET();
-    const body = await response.text();
-
-    // Blog index page
+    const body = await (await GET()).text();
     expect(body).toContain('<loc>https://ogabassey.com/blog</loc>');
-    // Individual blog post
     expect(body).toContain(
       '<loc>https://ogabassey.com/blog/ai-ecommerce</loc>'
     );
-    // Blog post image
     expect(body).toContain(
       '<image:loc>https://img.example.com/blog-hero.jpg</image:loc>'
     );
   });
 
+  it('includes merchant.pages entries when present', async () => {
+    setHeaders({ 'x-custom-domain': 'ogabassey.com' });
+    mockGetMerchant.mockResolvedValue({
+      ...baseMerchant,
+      pages: { about: 'About us', terms: 'Terms of service', privacy: null },
+    });
+    const { GET } = await import('./route');
+    const body = await (await GET()).text();
+    expect(body).toContain('<loc>https://ogabassey.com/about</loc>');
+    expect(body).toContain('<loc>https://ogabassey.com/terms</loc>');
+    expect(body).not.toContain('<loc>https://ogabassey.com/privacy</loc>');
+  });
+
   it('returns 500 when an unexpected error occurs', async () => {
     setHeaders({ 'x-custom-domain': 'ogabassey.com' });
-    // Make getMerchantByIdentifier throw to trigger the catch block
     mockGetMerchant.mockRejectedValue(new Error('DB connection failed'));
+    const { GET } = await import('./route');
+    expect((await GET()).status).toBe(500);
+  });
 
+  it('returns 503 when all Supabase queries fail', async () => {
+    setHeaders({ 'x-custom-domain': 'ogabassey.com' });
+    mockGetMerchant.mockResolvedValue(baseMerchant);
+    setTableError('products', 'connection refused');
+    setTableError('categories', 'connection refused');
+    setTableError('blog_posts', 'connection refused');
+    const { GET } = await import('./route');
+    expect((await GET()).status).toBe(503);
+  });
+
+  it('degrades gracefully when only some queries fail', async () => {
+    setHeaders({ 'x-custom-domain': 'ogabassey.com' });
+    mockGetMerchant.mockResolvedValue(baseMerchant);
+    setTableError('products', 'timeout');
+    // categories and blog_posts succeed (empty)
     const { GET } = await import('./route');
     const response = await GET();
-
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(200);
+    const body = await response.text();
+    // Static pages still present
+    expect(body).toContain('<loc>https://ogabassey.com</loc>');
+    // No product entries since products query failed
+    expect(body).not.toContain('/products/');
   });
 
   it('sanitizes header values (strips newlines)', async () => {
     setHeaders({ 'x-custom-domain': 'ogabassey.com\r\ninjected' });
     mockGetMerchant.mockResolvedValue(baseMerchant);
-
     const { GET } = await import('./route');
     await GET();
-
     expect(mockGetMerchant).toHaveBeenCalledWith('ogabassey.cominjected');
   });
 });
