@@ -161,13 +161,24 @@ cd "$ios_dir"
 # causing false-positive "changes to podfile" errors. Podfile.lock in VCS
 # still ensures deterministic installs.
 required_cocoapods_version="$(sed -n 's/^COCOAPODS: *//p' Podfile.lock 2>/dev/null || true)"
+
+# Build a version-pinned pod command using the RubyGems _VERSION_ specifier so
+# the exact CocoaPods gem is invoked even if a different version is pre-installed.
+# shellcheck disable=SC2086 — intentional word-splitting: "pod _1.16.2_" must expand to two words.
+if [ -n "$required_cocoapods_version" ]; then
+  pod_cmd="pod _${required_cocoapods_version}_"
+else
+  pod_cmd="pod"
+fi
+
 if [ -n "$required_cocoapods_version" ]; then
   current_cocoapods_version="$(pod --version 2>/dev/null || true)"
   if [ "$current_cocoapods_version" != "$required_cocoapods_version" ]; then
     echo "info: Podfile.lock requires CocoaPods $required_cocoapods_version (current: ${current_cocoapods_version:-none})"
     echo "info: Installing CocoaPods $required_cocoapods_version via gem"
     gem install cocoapods -v "$required_cocoapods_version" --no-document
-    echo "info: CocoaPods $(pod _"${required_cocoapods_version}"_ --version) now active"
+    # shellcheck disable=SC2086
+    echo "info: CocoaPods $($pod_cmd --version) now active"
   else
     echo "info: CocoaPods $current_cocoapods_version matches Podfile.lock"
   fi
@@ -184,18 +195,12 @@ if [ -d "$trunk_repo" ]; then
   rm -rf "$trunk_repo"
 fi
 
-# Use RubyGems version-pinned invocation when a specific version was extracted,
-# otherwise fall back to bare pod.
-if [ -n "$required_cocoapods_version" ]; then
-  pod_cmd="pod _${required_cocoapods_version}_"
-else
-  pod_cmd="pod"
-fi
-
 if [ "${CI_POD_ALLOW_REPO_UPDATE:-0}" = "1" ]; then
   echo "info: Running pod install with repo updates enabled."
+  # shellcheck disable=SC2086
   $pod_cmd install --repo-update
 else
+  # shellcheck disable=SC2086
   $pod_cmd install --no-repo-update
 fi
 
