@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -85,7 +85,7 @@ export default function PayoutSettingsScreen() {
     enabled: !!user?.id,
   });
 
-  const verifyAccount = async () => {
+  const verifyAccount = useCallback(async () => {
     if (!accountnumber || accountnumber.length !== 10) {
       setVerifiedName(null);
       return;
@@ -131,7 +131,7 @@ export default function PayoutSettingsScreen() {
         },
       }
     );
-  };
+  }, [accountnumber, selectedBank, resolveAccount, session]);
 
   useEffect(() => {
     const timeout = setTimeout(verifyAccount, 500); // Debounce

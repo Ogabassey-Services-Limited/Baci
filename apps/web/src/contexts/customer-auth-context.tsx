@@ -7,7 +7,7 @@ import {
   useEffect,
   useState,
 } from 'react';
-import { clearCartStorage, useCartSafe } from '@/hooks/use-cart';
+import { clearCartStorage } from '@/hooks/use-cart';
 
 export interface CustomerUser {
   id: string;
@@ -87,8 +87,6 @@ export function CustomerAuthProvider({
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [otpState, setOtpState] = useState<OtpState | null>(null);
-
-  const cartContext = useCartSafe();
 
   const isAuthenticated = !!user && !!customer;
 
@@ -200,9 +198,6 @@ export function CustomerAuthProvider({
       setCustomer(null);
       setOtpState(null);
       // Clear cart on logout to prevent cart data leakage between users
-      if (cartContext) {
-        cartContext.clearCart();
-      }
       clearCartStorage(merchantSlug);
     }
   };

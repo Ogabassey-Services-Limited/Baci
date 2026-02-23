@@ -250,18 +250,6 @@ export default function AccountScreen() {
           route: '/modal',
           color: palette.gray[500],
         },
-        ...(session
-          ? [
-              {
-                id: 'delete-account',
-                icon: 'trash-outline',
-                label: 'Delete Account',
-                subLabel: 'Permanently remove your account',
-                route: '/profile/delete-account',
-                color: colors.error,
-              },
-            ]
-          : []),
       ],
       visible: true,
     },

@@ -21,7 +21,7 @@ export async function generateMetadata({
 
   return {
     title: `Delete Account | ${merchant.business_name}`,
-    description: `Request deletion of your ${merchant.business_name} account.`,
+    description: `Request deletion of your ${merchant.business_name} account and associated data.`,
     robots: {
       index: true,
       follow: true,
@@ -57,7 +57,7 @@ export default async function StorefrontDeleteAccountPage({
     '@type': 'WebPage',
     name: `Delete Account | ${merchant.business_name}`,
     url: `${baseUrl}/delete-account`,
-    description: `Request deletion of your ${merchant.business_name} account.`,
+    description: `Request request deletion of your ${merchant.business_name} account.`,
     isPartOf: {
       '@type': 'WebSite',
       name: merchant.business_name,
@@ -96,13 +96,15 @@ export default async function StorefrontDeleteAccountPage({
               1
             </div>
             <div>
-              <h3 className="font-medium text-gray-900">Open the Mobile App</h3>
+              <h3 className="font-medium text-gray-900">
+                Log into Your Account
+              </h3>
               <p className="text-gray-600 mt-1">
-                Open the{' '}
+                Visit{' '}
                 <Link href="/" className="text-primary underline font-medium">
                   {merchant.business_name}
                 </Link>{' '}
-                storefront app and sign in.
+                and sign in to your account.
               </p>
             </div>
           </div>
@@ -112,9 +114,11 @@ export default async function StorefrontDeleteAccountPage({
               2
             </div>
             <div>
-              <h3 className="font-medium text-gray-900">Go to Account Tab</h3>
+              <h3 className="font-medium text-gray-900">
+                Navigate to Account Settings
+              </h3>
               <p className="text-gray-600 mt-1">
-                Tap <strong>Account</strong> in the bottom navigation.
+                Go to <strong>My Account</strong> → <strong>Settings</strong>.
               </p>
             </div>
           </div>
@@ -128,7 +132,7 @@ export default async function StorefrontDeleteAccountPage({
                 Request Account Deletion
               </h3>
               <p className="text-gray-600 mt-1">
-                Select <strong>Delete Account</strong> and confirm the deletion.
+                Find the "Delete Account" option and confirm your request.
               </p>
             </div>
           </div>
@@ -142,7 +146,7 @@ export default async function StorefrontDeleteAccountPage({
                 Alternative: Email Us
               </h3>
               <p className="text-gray-600 mt-1">
-                If you cannot access the app, email us at{' '}
+                If you cannot access your account, email us at{' '}
                 <a
                   href={`mailto:${merchant.email}`}
                   className="text-primary underline"
@@ -167,19 +171,27 @@ export default async function StorefrontDeleteAccountPage({
             Immediately Deleted:
           </h3>
           <ul className="list-disc list-inside text-gray-600 space-y-2 mb-6">
-            <li>Sign-in access for your account</li>
-            <li>Storefront customer profile linked to your account</li>
-            <li>Wishlist items linked to your account email</li>
-            <li>Storefront push notification tokens for your account</li>
+            <li>Your profile information (name, email, phone number)</li>
+            <li>Saved addresses</li>
+            <li>Wishlist items</li>
+            <li>Shopping cart contents</li>
           </ul>
 
           <h3 className="font-medium text-gray-900 mb-3">
-            Retained for Legal/Business Purposes:
+            Retained for Legal/Business Purposes (90 days):
+          </h3>
+          <ul className="list-disc list-inside text-gray-600 space-y-2 mb-6">
+            <li>Order history (for refunds, disputes, and warranty claims)</li>
+            <li>Transaction records (legal/tax compliance)</li>
+          </ul>
+
+          <h3 className="font-medium text-gray-900 mb-3">
+            Permanently Retained (Anonymized):
           </h3>
           <ul className="list-disc list-inside text-gray-600 space-y-2">
             <li>
-              Historical order and transaction records required for legal, tax,
-              fraud, dispute, and audit obligations
+              Aggregated analytics data (e.g., total orders, no personal
+              identifiers)
             </li>
           </ul>
         </div>

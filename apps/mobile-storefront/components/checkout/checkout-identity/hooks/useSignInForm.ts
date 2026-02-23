@@ -16,7 +16,10 @@ import { useForm } from 'react-hook-form';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 import type { SignInFormData, UseSignInFormReturn } from '../types';
-import { getUserFriendlyError, SOCIAL_ERROR_MESSAGES } from '../utils';
+import {
+  getUserFriendlyError,
+  SOCIAL_ERROR_MESSAGES,
+} from '../utils';
 import { signInSchema } from '../utils/validation';
 import { useHapticFeedback } from './useHapticFeedback';
 
@@ -34,9 +37,7 @@ interface UseSignInFormOptions {
  * - Error handling and user feedback
  * - Haptic feedback
  */
-export function useSignInForm({
-  onSuccess,
-}: UseSignInFormOptions): UseSignInFormReturn {
+export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFormReturn {
   const { triggerHaptic } = useHapticFeedback();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -138,10 +139,7 @@ export function useSignInForm({
       if (result.success) {
         onSuccess();
         router.push('/checkout');
-      } else if (
-        result.error &&
-        result.error !== SOCIAL_ERROR_MESSAGES.cancelled
-      ) {
+      } else if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
         setError(result.error);
         triggerHaptic('error');
       }
@@ -167,10 +165,7 @@ export function useSignInForm({
       if (result.success) {
         onSuccess();
         router.push('/checkout');
-      } else if (
-        result.error &&
-        result.error !== SOCIAL_ERROR_MESSAGES.cancelled
-      ) {
+      } else if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
         setError(result.error);
         triggerHaptic('error');
       }

@@ -10,9 +10,8 @@
  * to a placeholder or cached image instead of crashing the app.
  */
 
-import { useTheme } from '@/hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -25,6 +24,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
+
 import { SvgUri, SvgXml } from 'react-native-svg';
 
 // Default blurhash for smooth loading placeholder
@@ -53,7 +53,7 @@ export interface SafeImageProps extends Omit<ImageProps, 'onError'> {
    */
   fallbackIconSize?: number;
   /**
-   * Fallback icon color (default: theme.colors.textMuted)
+   * Fallback icon color (default: #9CA3AF - gray-400)
    */
   fallbackIconColor?: string;
   /**
@@ -78,10 +78,9 @@ function SafeImage({
   showFallbackIcon = true,
   fallbackStyle,
   fallbackIconSize = 32,
-  fallbackIconColor,
+  fallbackIconColor = '#9CA3AF',
   ...rest
 }: SafeImageProps) {
-  const { colors } = useTheme();
   const [hasError, setHasError] = useState(false);
   const [errorCount, setErrorCount] = useState(0);
   const [xml, setXml] = useState<string | null>(null);
@@ -137,33 +136,37 @@ function SafeImage({
   }, [isSvg, uri]);
 
   // Handle image load errors gracefully
-  const handleError = (e: NativeSyntheticEvent<ImageErrorEventData>) => {
-    // Prevent infinite error loops
-    if (errorCount >= 2) return;
+  const handleError = useCallback(
+    (e: NativeSyntheticEvent<ImageErrorEventData>) => {
+      // Prevent infinite error loops
+      if (errorCount >= 2) return;
 
-    setErrorCount((prev) => prev + 1);
-    setHasError(true);
+      setErrorCount((prev) => prev + 1);
+      setHasError(true);
 
-    const errorMessage = e?.nativeEvent?.error || 'Unknown image loading error';
+      const errorMessage =
+        e?.nativeEvent?.error || 'Unknown image loading error';
 
-    // Log for debugging in development
-    if (__DEV__) {
-      console.warn(
-        '[SafeImage] Image load failed:',
-        errorMessage,
-        '\nSource:',
-        source
-      );
-    }
+      // Log for debugging in development
+      if (__DEV__) {
+        console.warn(
+          '[SafeImage] Image load failed:',
+          errorMessage,
+          '\nSource:',
+          source
+        );
+      }
 
-    // Call optional error callback
-    if (onLoadError) {
-      onLoadError(new Error(errorMessage));
-    }
-  };
+      // Call optional error callback
+      if (onLoadError) {
+        onLoadError(new Error(errorMessage));
+      }
+    },
+    [errorCount, onLoadError, source]
+  );
 
   // Reset error state when source changes
-  const handleLoadStart = () => {
+  const handleLoadStart = useCallback(() => {
     if (hasError) {
       setHasError(false);
       setErrorCount(0);
@@ -171,7 +174,7 @@ function SafeImage({
     if (propsOnLoadStart) {
       propsOnLoadStart();
     }
-  };
+  }, [hasError, propsOnLoadStart]);
 
   // If we have a custom fallback component, use it
   if (hasError && fallbackComponent) {
@@ -180,12 +183,10 @@ function SafeImage({
 
   // If error and showFallbackIcon, render placeholder view
   if (hasError && showFallbackIcon) {
-    const iconColor = fallbackIconColor ?? colors.textMuted;
     return (
       <View
         style={[
           styles.fallbackContainer,
-          { backgroundColor: colors.inputBg },
           style as StyleProp<ViewStyle>,
           fallbackStyle,
         ]}
@@ -193,7 +194,7 @@ function SafeImage({
         <Ionicons
           name="image-outline"
           size={fallbackIconSize}
-          color={iconColor}
+          color={fallbackIconColor}
         />
       </View>
     );
@@ -203,28 +204,21 @@ function SafeImage({
   if (isSvg && !hasError) {
     if (isLoadingXml) {
       return (
-        <View style={[style, styles.loadingContainer, { backgroundColor: colors.inputBg }]}>
-          <ActivityIndicator size="small" color={colors.textMuted} />
+        <View style={[style, styles.loadingContainer]}>
+          <ActivityIndicator size="small" color="#9CA3AF" />
         </View>
       );
     }
 
     const flattenedStyle = StyleSheet.flatten(style);
-    const svgWidth =
-      typeof flattenedStyle?.width === 'number' ? flattenedStyle.width : 48;
-    const svgHeight =
-      typeof flattenedStyle?.height === 'number' ? flattenedStyle.height : 48;
+    const svgWidth = typeof flattenedStyle?.width === 'number' ? flattenedStyle.width : 48;
+    const svgHeight = typeof flattenedStyle?.height === 'number' ? flattenedStyle.height : 48;
 
     if (uri?.startsWith('data:image/svg+xml')) {
       // Data URI - use SvgXml with direct mapping
       return (
         <View style={[style, styles.svgWrapper]}>
-          <SvgUri
-            uri={uri}
-            width={svgWidth}
-            height={svgHeight}
-            onError={() => setHasError(true)}
-          />
+          <SvgUri uri={uri} width={svgWidth} height={svgHeight} onError={() => setHasError(true)} />
         </View>
       );
     }
@@ -272,12 +266,14 @@ export function useSafeImageProps(blurhash?: string) {
 
 const styles = StyleSheet.create({
   fallbackContainer: {
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F9FAFB',
   },
   svgWrapper: {
     justifyContent: 'center',
