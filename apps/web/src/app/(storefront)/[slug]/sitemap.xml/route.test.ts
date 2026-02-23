@@ -119,6 +119,9 @@ describe('GET /[slug]/sitemap.xml', () => {
     const { GET } = await import('./route');
     const response = await GET();
     expect(response.headers.get('Cache-Control')).toContain('s-maxage=21600');
+    expect(response.headers.get('Vary')).toBe(
+      'x-custom-domain, x-merchant-slug'
+    );
   });
 
   it('returns valid XML (not HTML)', async () => {

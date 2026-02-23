@@ -327,6 +327,7 @@ export async function GET(): Promise<NextResponse> {
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
         'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=86400',
+        Vary: 'x-custom-domain, x-merchant-slug',
       },
     });
   } catch (err) {
