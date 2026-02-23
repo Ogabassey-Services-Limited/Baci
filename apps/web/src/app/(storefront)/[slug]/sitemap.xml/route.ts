@@ -196,7 +196,10 @@ export async function GET(): Promise<NextResponse> {
 
     // If all queries failed, return 503 so crawlers retry later
     if (products === null && categories === null && blogPosts === null) {
-      return new NextResponse('Service Unavailable', { status: 503 });
+      return new NextResponse('Service Unavailable', {
+        status: 503,
+        headers: { 'Retry-After': '600' },
+      });
     }
 
     const entries: string[] = [];

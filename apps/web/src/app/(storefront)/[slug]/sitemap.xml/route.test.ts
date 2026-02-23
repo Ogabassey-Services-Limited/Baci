@@ -345,7 +345,9 @@ describe('GET /[slug]/sitemap.xml', () => {
     setTableError('categories', 'connection refused');
     setTableError('blog_posts', 'connection refused');
     const { GET } = await import('./route');
-    expect((await GET()).status).toBe(503);
+    const res = await GET();
+    expect(res.status).toBe(503);
+    expect(res.headers.get('Retry-After')).toBe('600');
   });
 
   it('degrades gracefully when only some queries fail', async () => {
