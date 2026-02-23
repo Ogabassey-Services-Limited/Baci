@@ -31,8 +31,12 @@ export async function getSignedUploadUrl(input: {
   const supabase = createClient(cookieStore);
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
 
+  if (authError) {
+    return { error: 'Authentication failed' };
+  }
   if (!user) {
     return { error: 'Unauthorized' };
   }
@@ -54,7 +58,7 @@ export async function getSignedUploadUrl(input: {
   }
 
   // Generate secure filename from validated MIME type
-  const extension = MIME_TO_EXT[parsed.data.contentType] || 'jpg';
+  const extension = MIME_TO_EXT[parsed.data.contentType];
   const filename = `${nanoid(12)}.${extension}`;
   const filePath = `${access.merchantId}/blog/${filename}`;
 

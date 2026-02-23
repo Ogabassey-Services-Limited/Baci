@@ -48,7 +48,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 // Import after mocks are set up
-const { getSignedUploadUrl } = await import('./blog-upload');
+const { getSignedUploadUrl } = await import('@/actions/blog-upload');
 
 const validInput = {
   filename: 'photo.jpg',

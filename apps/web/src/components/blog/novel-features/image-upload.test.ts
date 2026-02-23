@@ -29,7 +29,7 @@ vi.mock('novel', () => ({
 }));
 
 // Import triggers module-level createImageUpload call
-await import('./image-upload');
+await import('@/components/blog/novel-features/image-upload');
 
 // Non-nullable reference assigned in beforeEach
 let config: {
@@ -57,17 +57,14 @@ describe('image-upload', () => {
       return new File([buffer], 'test', { type });
     }
 
-    it('accepts valid image types', () => {
-      const validTypes = [
-        'image/jpeg',
-        'image/png',
-        'image/gif',
-        'image/webp',
-        'image/avif',
-      ];
-      for (const type of validTypes) {
-        expect(config.validateFn(createMockFile(type, 1024))).toBe(true);
-      }
+    it.each([
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/avif',
+    ])('accepts %s', (type) => {
+      expect(config.validateFn(createMockFile(type, 1024))).toBe(true);
     });
 
     it('rejects non-image file types', () => {
@@ -101,6 +98,20 @@ describe('image-upload', () => {
   });
 
   describe('onUpload', () => {
+    // Shared MockImage class for preload simulation
+    class MockImage {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      private _src = '';
+      get src() {
+        return this._src;
+      }
+      set src(val: string) {
+        this._src = val;
+        queueMicrotask(() => this.onload?.());
+      }
+    }
+
     it('shows uploading toast and calls uploadBlogImage', async () => {
       const file = new File(['data'], 'test.jpg', { type: 'image/jpeg' });
 
@@ -109,21 +120,7 @@ describe('image-upload', () => {
         path: 'merchant/blog/image.jpg',
       });
 
-      // Mock Image for preloading
       const origImage = globalThis.Image;
-      class MockImage {
-        onload: (() => void) | null = null;
-        onerror: (() => void) | null = null;
-        private _src = '';
-        get src() {
-          return this._src;
-        }
-        set src(val: string) {
-          this._src = val;
-          // Simulate image load
-          queueMicrotask(() => this.onload?.());
-        }
-      }
       globalThis.Image = MockImage as unknown as typeof globalThis.Image;
 
       try {
@@ -134,6 +131,28 @@ describe('image-upload', () => {
         );
         expect(mockUploadBlogImage).toHaveBeenCalledWith(file);
         expect(resultUrl).toBe('https://example.com/image.jpg');
+      } finally {
+        globalThis.Image = origImage;
+      }
+    });
+
+    it('shows error toast and rejects when upload fails', async () => {
+      const file = new File(['data'], 'test.jpg', { type: 'image/jpeg' });
+
+      mockUploadBlogImage.mockRejectedValue(new Error('Upload failed'));
+
+      const origImage = globalThis.Image;
+      globalThis.Image = MockImage as unknown as typeof globalThis.Image;
+
+      try {
+        await expect(config.onUpload(file)).rejects.toThrow('Upload failed');
+
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            title: 'Error uploading image',
+            variant: 'destructive',
+          })
+        );
       } finally {
         globalThis.Image = origImage;
       }
