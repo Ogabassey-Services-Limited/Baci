@@ -14,15 +14,24 @@ const onUpload = (file: File) => {
     duration: 2000,
   });
 
-  return uploadBlogImage(file).then((result) => {
-    // Preload the image before resolving
-    return new Promise<string>((resolve) => {
-      const image = new Image();
-      image.src = result.url;
-      image.onload = () => resolve(result.url);
-      image.onerror = () => resolve(result.url);
+  return uploadBlogImage(file)
+    .then((result) => {
+      // Preload the image before resolving
+      return new Promise<string>((resolve) => {
+        const image = new Image();
+        image.src = result.url;
+        image.onload = () => resolve(result.url);
+        image.onerror = () => resolve(result.url);
+      });
+    })
+    .catch((error: Error) => {
+      toast({
+        title: 'Error uploading image',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return Promise.reject(error);
     });
-  });
 };
 
 export const uploadFn = createImageUpload({

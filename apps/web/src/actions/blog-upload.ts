@@ -4,21 +4,15 @@ import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { getUserAccess, hasPermission } from '@/lib/api-auth';
 import { createClient } from '@/lib/supabase/server';
-import {
-  ALLOWED_IMAGE_TYPES,
-  MAX_BLOG_IMAGE_SIZE,
-  MAX_BLOG_IMAGE_SIZE_LABEL,
-  MIME_TO_EXT,
-  signedUrlRequestSchema,
-} from '@/schemas/blog-upload';
+import { MIME_TO_EXT, signedUrlRequestSchema } from '@/schemas/blog-upload';
 
-interface SignedUploadUrlResult {
+export interface SignedUploadUrlResult {
   token: string;
   path: string;
   publicUrl: string;
 }
 
-interface ActionError {
+export interface ActionError {
   error: string;
 }
 
@@ -52,27 +46,11 @@ export async function getSignedUploadUrl(input: {
     return { error: 'Permission denied' };
   }
 
-  // Validate input
+  // Validate input (schema enforces contentType enum + fileSize max)
   const parsed = signedUrlRequestSchema.safeParse(input);
   if (!parsed.success) {
     const firstError = parsed.error.issues[0];
     return { error: firstError?.message || 'Invalid input' };
-  }
-
-  // Validate MIME type is in our allowlist
-  if (
-    !ALLOWED_IMAGE_TYPES.includes(
-      parsed.data.contentType as (typeof ALLOWED_IMAGE_TYPES)[number]
-    )
-  ) {
-    return { error: 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP, AVIF' };
-  }
-
-  // Validate file size
-  if (parsed.data.fileSize > MAX_BLOG_IMAGE_SIZE) {
-    return {
-      error: `File exceeds maximum size of ${MAX_BLOG_IMAGE_SIZE_LABEL}`,
-    };
   }
 
   // Generate secure filename from validated MIME type

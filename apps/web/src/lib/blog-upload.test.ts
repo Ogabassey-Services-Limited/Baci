@@ -18,7 +18,7 @@ vi.mock('@/lib/supabase/client', () => ({
   })),
 }));
 
-const { uploadBlogImage } = await import('./blog-upload');
+const { uploadBlogImage } = await import('@/lib/blog-upload');
 
 function createMockFile(name: string, size: number, type: string): File {
   const buffer = new ArrayBuffer(size);
@@ -110,18 +110,15 @@ describe('uploadBlogImage', () => {
     );
   });
 
-  it('accepts all allowed image types', async () => {
-    const types = [
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-      'image/avif',
-    ];
-    for (const type of types) {
-      const file = createMockFile('test', 1024, type);
-      const result = await uploadBlogImage(file);
-      expect(result.url).toBeDefined();
-    }
+  it.each([
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/avif',
+  ])('accepts %s', async (type) => {
+    const file = createMockFile('test', 1024, type);
+    const result = await uploadBlogImage(file);
+    expect(result.url).toBeDefined();
   });
 });

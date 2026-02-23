@@ -126,15 +126,17 @@ describe('image-upload', () => {
       }
       globalThis.Image = MockImage as unknown as typeof globalThis.Image;
 
-      const resultUrl = await config.onUpload(file);
+      try {
+        const resultUrl = await config.onUpload(file);
 
-      expect(mockToast).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Uploading image...' })
-      );
-      expect(mockUploadBlogImage).toHaveBeenCalledWith(file);
-      expect(resultUrl).toBe('https://example.com/image.jpg');
-
-      globalThis.Image = origImage;
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({ title: 'Uploading image...' })
+        );
+        expect(mockUploadBlogImage).toHaveBeenCalledWith(file);
+        expect(resultUrl).toBe('https://example.com/image.jpg');
+      } finally {
+        globalThis.Image = origImage;
+      }
     });
   });
 });

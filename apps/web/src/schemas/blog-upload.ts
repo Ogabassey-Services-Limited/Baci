@@ -16,13 +16,14 @@ export const ALLOWED_IMAGE_TYPES = [
 ] as const;
 
 /** Map validated MIME type to file extension (don't trust filenames) */
-export const MIME_TO_EXT: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/gif': 'gif',
-  'image/webp': 'webp',
-  'image/avif': 'avif',
-};
+export const MIME_TO_EXT: Record<(typeof ALLOWED_IMAGE_TYPES)[number], string> =
+  {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/avif': 'avif',
+  };
 
 /** Allowed file extensions for UI display */
 export const ALLOWED_IMAGE_EXTENSIONS = [

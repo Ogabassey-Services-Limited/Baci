@@ -14,7 +14,9 @@ const mockGetUserAccess = vi.fn();
 const mockCreateSignedUploadUrl = vi.fn();
 const mockGetPublicUrl = vi.fn();
 
-// Inline hasPermission logic to avoid async import in mock factory
+// Inline hasPermission logic to avoid async import in mock factory.
+// This mirrors the real hasPermission in @/lib/api-auth — if the real
+// implementation changes, this mock must be updated to match.
 vi.mock('@/lib/api-auth', () => ({
   getUserAccess: (...args: unknown[]) => mockGetUserAccess(...args),
   hasPermission: (

@@ -11,11 +11,7 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import {
-  ALLOWED_IMAGE_TYPES,
-  MAX_BLOG_IMAGE_SIZE_LABEL,
-  MIME_TO_EXT,
-} from '@/schemas/blog-upload';
+import { ALLOWED_IMAGE_TYPES, MIME_TO_EXT } from '@/schemas/blog-upload';
 
 const deleteBodySchema = z.object({
   path: z.string().min(1, 'No path provided'),
@@ -24,6 +20,7 @@ const deleteBodySchema = z.object({
 // Legacy route: Keep 4MB limit for Vercel serverless body limit (4.5MB cap).
 // New uploads should use the signed URL flow via the Server Action which supports 10MB.
 const MAX_FILE_SIZE = 4 * 1024 * 1024;
+const MAX_FILE_SIZE_LABEL = '4MB';
 
 export async function POST(request: NextRequest) {
   try {
@@ -146,14 +143,15 @@ export async function POST(request: NextRequest) {
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         {
-          error: `File too large. Maximum size is ${MAX_BLOG_IMAGE_SIZE_LABEL} (use the new upload flow for larger files)`,
+          error: `File too large. Maximum size is ${MAX_FILE_SIZE_LABEL}`,
         },
         { status: 400 }
       );
     }
 
     // Map validated MIME type to extension (don't trust filename)
-    const extension = MIME_TO_EXT[file.type] || 'jpg';
+    const validatedType = file.type as (typeof ALLOWED_IMAGE_TYPES)[number];
+    const extension = MIME_TO_EXT[validatedType];
     const filename = `${nanoid(12)}.${extension}`;
 
     // Path: merchant_id/blog/filename (merchant ID first for storage policy)
