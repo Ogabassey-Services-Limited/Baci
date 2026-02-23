@@ -24,6 +24,15 @@ export const tableData: Record<
 
 // ── Mock functions (shared between test file and vi.mock factories) ──
 
+//
+// Simulates the Supabase query chain: from(table).select(...).eq(...).eq(...)
+// mockFrom tracks which table is being queried via currentTable, so mockEq
+// can return the correct per-table data from tableData.
+//
+// mockEq handles 'merchant_id' and 'status' — the two .eq() filters used by
+// fetchProducts, fetchCategories, and fetchBlogPosts in route.ts. Both keys
+// return tableData[currentTable]. If new .eq() keys are added to the queries,
+// extend the condition below to return table data for those keys too.
 export const mockEq: ReturnType<typeof vi.fn> = vi.fn();
 export const mockSelect = vi.fn();
 export const mockFrom = vi.fn();

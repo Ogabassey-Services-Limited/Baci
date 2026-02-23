@@ -114,16 +114,13 @@ function extractImageUrls(
 // ── Data fetchers ──
 
 async function fetchProducts(merchantId: string): Promise<ProductRow[] | null> {
-  const { data, error } = (await _getSupabase()
+  const { data, error } = await _getSupabase()
     .from('products')
     .select(
       'id, slug, category, images, updated_at, category_id, categories:category_id(slug)'
     )
     .eq('merchant_id', merchantId)
-    .eq('status', 'active')) as {
-    data: ProductRow[] | null;
-    error: { message: string } | null;
-  };
+    .eq('status', 'active');
   if (error) {
     console.error(
       '[sitemap] Failed to fetch products for %s: %s',
@@ -132,7 +129,7 @@ async function fetchProducts(merchantId: string): Promise<ProductRow[] | null> {
     );
     return null;
   }
-  return data ?? [];
+  return (data as unknown as ProductRow[] | null) ?? [];
 }
 
 async function fetchCategories(

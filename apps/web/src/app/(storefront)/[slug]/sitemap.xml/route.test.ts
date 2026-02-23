@@ -359,4 +359,49 @@ describe('GET /[slug]/sitemap.xml', () => {
     await GET();
     expect(mockGetMerchant).toHaveBeenCalledWith('ogabassey.cominjected');
   });
+
+  it('sanitizes header values (strips tabs)', async () => {
+    setHeaders({ 'x-custom-domain': 'ogabassey.com\tinjected' });
+    mockGetMerchant.mockResolvedValue(baseMerchant);
+    const { GET } = await import('./route');
+    await GET();
+    expect(mockGetMerchant).toHaveBeenCalledWith('ogabassey.cominjected');
+  });
+
+  it('sanitizes header values (truncates to 100 chars)', async () => {
+    const longDomain = `${'a'.repeat(95)}.com`;
+    // longDomain is 99 chars, fits within 100-char limit
+    setHeaders({ 'x-custom-domain': longDomain });
+    mockGetMerchant.mockResolvedValue(null);
+    const { GET } = await import('./route');
+    await GET();
+    expect(mockGetMerchant).toHaveBeenCalledWith(longDomain);
+
+    // Now test actual truncation: 105 chars -> sliced to 100
+    const overlong = 'a'.repeat(105);
+    setHeaders({ 'x-custom-domain': overlong });
+    await GET();
+    expect(mockGetMerchant).toHaveBeenCalledWith('a'.repeat(100));
+  });
+
+  it('handles object-shaped images in product entries', async () => {
+    setHeaders({ 'x-custom-domain': 'ogabassey.com' });
+    mockGetMerchant.mockResolvedValue(baseMerchant);
+    setTableData('products', [
+      {
+        id: 'p4',
+        slug: 'smart-watch',
+        category: null,
+        images: [{ url: 'https://img.example.com/watch.jpg' }],
+        updated_at: null,
+        category_id: null,
+        categories: null,
+      },
+    ]);
+    const { GET } = await import('./route');
+    const body = await (await GET()).text();
+    expect(body).toContain(
+      '<image:loc>https://img.example.com/watch.jpg</image:loc>'
+    );
+  });
 });
