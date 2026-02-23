@@ -137,10 +137,40 @@ describe('GET /[slug]/sitemap.xml', () => {
     const { GET } = await import('./route');
     const body = await (await GET()).text();
     expect(body).toContain('<loc>https://ogabassey.com</loc>');
-    expect(body).toContain('<loc>https://ogabassey.com/faq</loc>');
     expect(body).toContain(
       `<lastmod>${new Date('2026-01-20T12:00:00Z').toISOString()}</lastmod>`
     );
+  });
+
+  it('includes /faq only when merchant has FAQ content', async () => {
+    setHeaders({ 'x-custom-domain': 'ogabassey.com' });
+    // baseMerchant has no faq_items and no pages.faq — should omit /faq
+    mockGetMerchant.mockResolvedValue(baseMerchant);
+    const { GET } = await import('./route');
+    const body = await (await GET()).text();
+    expect(body).not.toContain('<loc>https://ogabassey.com/faq</loc>');
+  });
+
+  it('includes /faq when merchant has faq_items', async () => {
+    setHeaders({ 'x-custom-domain': 'ogabassey.com' });
+    mockGetMerchant.mockResolvedValue({
+      ...baseMerchant,
+      faq_items: [{ question: 'Q1', answer: 'A1' }],
+    });
+    const { GET } = await import('./route');
+    const body = await (await GET()).text();
+    expect(body).toContain('<loc>https://ogabassey.com/faq</loc>');
+  });
+
+  it('includes /faq when merchant has pages.faq', async () => {
+    setHeaders({ 'x-custom-domain': 'ogabassey.com' });
+    mockGetMerchant.mockResolvedValue({
+      ...baseMerchant,
+      pages: { faq: '<h2>Q1</h2><p>A1</p>' },
+    });
+    const { GET } = await import('./route');
+    const body = await (await GET()).text();
+    expect(body).toContain('<loc>https://ogabassey.com/faq</loc>');
   });
 
   it('omits lastmod when merchant has no updated_at', async () => {
@@ -197,6 +227,27 @@ describe('GET /[slug]/sitemap.xml', () => {
     );
     expect(body).toContain(
       '<image:loc>https://img.example.com/iphone.jpg</image:loc>'
+    );
+  });
+
+  it('uses generateSlug on category text when categories join is null', async () => {
+    setHeaders({ 'x-custom-domain': 'ogabassey.com' });
+    mockGetMerchant.mockResolvedValue(baseMerchant);
+    setTableData('products', [
+      {
+        id: 'p3',
+        slug: 'galaxy-buds',
+        category: 'Audio Equipment',
+        images: null,
+        updated_at: null,
+        category_id: null,
+        categories: null,
+      },
+    ]);
+    const { GET } = await import('./route');
+    const body = await (await GET()).text();
+    expect(body).toContain(
+      '<loc>https://ogabassey.com/audio-equipment/galaxy-buds</loc>'
     );
   });
 

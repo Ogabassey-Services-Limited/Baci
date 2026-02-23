@@ -218,10 +218,18 @@ export async function GET(): Promise<NextResponse> {
       })
     );
 
-    // Known storefront pages — include if merchant has content for them
-    const staticPages: Array<{ path: string; priority: number }> = [
-      { path: 'faq', priority: 0.5 },
-    ];
+    // Known storefront pages — include only if merchant has content
+    // (must match the notFound() conditions in each page component)
+    const staticPages: Array<{ path: string; priority: number }> = [];
+    // FAQ: faq/page.tsx calls notFound() when both faq_items and pages.faq are empty
+    if (
+      (merchant.faq_items &&
+        Array.isArray(merchant.faq_items) &&
+        merchant.faq_items.length > 0) ||
+      merchant.pages?.faq
+    ) {
+      staticPages.push({ path: 'faq', priority: 0.5 });
+    }
     if (merchant.pages) {
       if (merchant.pages.about)
         staticPages.push({ path: 'about', priority: 0.5 });

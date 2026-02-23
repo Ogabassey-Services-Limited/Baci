@@ -46,10 +46,13 @@ export const mockGetMerchant = vi.fn();
 
 // ── Mock headers state ──
 
-export let mockHeaders = new Map<string, string>();
+export const mockHeaders = new Map<string, string>();
 
 export function setHeaders(h: Record<string, string>) {
-  mockHeaders = new Map(Object.entries(h));
+  mockHeaders.clear();
+  for (const [key, value] of Object.entries(h)) {
+    mockHeaders.set(key, value);
+  }
 }
 
 // ── Merchant fixture ──
