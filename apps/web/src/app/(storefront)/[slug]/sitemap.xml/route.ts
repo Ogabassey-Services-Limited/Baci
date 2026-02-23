@@ -24,7 +24,11 @@ import {
   type UrlEntryOptions,
 } from '@/lib/sitemap-xml';
 
-// ── Supabase anon client (lazy singleton — validates env at first use, not module load) ──
+// ── Supabase anon client ──
+// Uses direct anon client (not the server factory from @/lib/supabase/server) because:
+// 1. This route serves public data (products, categories, blog posts) — no auth needed
+// 2. The server factory requires cookie context via @supabase/ssr which adds per-request overhead
+// 3. Matches the pattern in api/feed/google-merchant/route.ts for public XML feeds
 
 let _supabase: SupabaseClient | null = null;
 function _getSupabase(): SupabaseClient {
@@ -87,7 +91,8 @@ function buildStoreUrl(merchant: CachedMerchant): string {
   if (merchant.custom_domain) {
     return `https://${merchant.custom_domain}`;
   }
-  const rootDomain = env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+  // Schema defaults NEXT_PUBLIC_ROOT_DOMAIN to 'usebaci.com' in env.ts
+  const rootDomain = env.NEXT_PUBLIC_ROOT_DOMAIN;
   return `https://${merchant.slug}.${rootDomain}`;
 }
 
@@ -109,143 +114,172 @@ function extractImageUrls(
 // ── Data fetchers ──
 
 async function fetchProducts(merchantId: string): Promise<ProductRow[]> {
-  const { data } = (await _getSupabase()
+  const { data, error } = (await _getSupabase()
     .from('products')
     .select(
       'id, slug, category, images, updated_at, category_id, categories:category_id(slug)'
     )
     .eq('merchant_id', merchantId)
-    .eq('status', 'active')) as { data: ProductRow[] | null };
+    .eq('status', 'active')) as {
+    data: ProductRow[] | null;
+    error: { message: string } | null;
+  };
+  if (error) {
+    console.error(
+      `[sitemap] Failed to fetch products for ${merchantId}:`,
+      error.message
+    );
+    return [];
+  }
   return data ?? [];
 }
 
 async function fetchCategories(merchantId: string): Promise<CategoryRow[]> {
-  const { data } = await _getSupabase()
+  const { data, error } = await _getSupabase()
     .from('categories')
     .select('slug, updated_at')
     .eq('merchant_id', merchantId);
+  if (error) {
+    console.error(
+      `[sitemap] Failed to fetch categories for ${merchantId}:`,
+      error.message
+    );
+    return [];
+  }
   return (data as CategoryRow[] | null) ?? [];
 }
 
 async function fetchBlogPosts(merchantId: string): Promise<BlogPostRow[]> {
-  const { data } = await _getSupabase()
+  const { data, error } = await _getSupabase()
     .from('blog_posts')
     .select('slug, published_at, updated_at, featured_image_url')
     .eq('merchant_id', merchantId)
     .eq('status', 'published');
+  if (error) {
+    console.error(
+      `[sitemap] Failed to fetch blog posts for ${merchantId}:`,
+      error.message
+    );
+    return [];
+  }
   return (data as BlogPostRow[] | null) ?? [];
 }
 
 // ── Route handler ──
 
 export async function GET(): Promise<NextResponse> {
-  const headersList = await headers();
-  const identifier = resolveIdentifierFromHeaders(headersList);
+  try {
+    const headersList = await headers();
+    const identifier = resolveIdentifierFromHeaders(headersList);
 
-  if (!identifier) {
-    return new NextResponse('Not Found', { status: 404 });
-  }
+    if (!identifier) {
+      return new NextResponse('Not Found', { status: 404 });
+    }
 
-  const merchant = await getMerchantByIdentifier(identifier);
-  if (!merchant) {
-    return new NextResponse('Not Found', { status: 404 });
-  }
+    const merchant = await getMerchantByIdentifier(identifier);
+    if (!merchant) {
+      return new NextResponse('Not Found', { status: 404 });
+    }
 
-  const storeUrl = buildStoreUrl(merchant);
+    const storeUrl = buildStoreUrl(merchant);
 
-  // Fetch all sitemap data in parallel
-  const [products, categories, blogPosts] = await Promise.all([
-    fetchProducts(merchant.id),
-    fetchCategories(merchant.id),
-    fetchBlogPosts(merchant.id),
-  ]);
+    // Fetch all sitemap data in parallel
+    const [products, categories, blogPosts] = await Promise.all([
+      fetchProducts(merchant.id),
+      fetchCategories(merchant.id),
+      fetchBlogPosts(merchant.id),
+    ]);
 
-  const entries: string[] = [];
+    const entries: string[] = [];
 
-  // Stable timestamp for static pages — changes only when the merchant record updates
-  const merchantLastmod = merchant.updated_at
-    ? new Date(merchant.updated_at)
-    : undefined;
+    // Stable timestamp for static pages — changes only when the merchant record updates
+    const merchantLastmod = merchant.updated_at
+      ? new Date(merchant.updated_at)
+      : undefined;
 
-  // ── Static pages ──
-  entries.push(
-    buildUrlEntry(storeUrl, {
-      lastmod: merchantLastmod,
-      changefreq: 'daily',
-      priority: 1.0,
-    })
-  );
-  entries.push(
-    buildUrlEntry(`${storeUrl}/faq`, {
-      lastmod: merchantLastmod,
-      changefreq: 'monthly',
-      priority: 0.5,
-    })
-  );
-
-  // ── Category pages ──
-  for (const cat of categories) {
+    // ── Static pages ──
     entries.push(
-      buildUrlEntry(`${storeUrl}/${cat.slug}`, {
-        lastmod: cat.updated_at ? new Date(cat.updated_at) : merchantLastmod,
-        changefreq: 'daily',
-        priority: 0.7,
-      })
-    );
-  }
-
-  // ── Product pages ──
-  for (const product of products) {
-    const productSlug = product.slug || product.id;
-    const catSlug =
-      product.categories?.slug ||
-      (product.category ? generateSlug(product.category) : null);
-    const url = catSlug
-      ? `${storeUrl}/${catSlug}/${productSlug}`
-      : `${storeUrl}/products/${productSlug}`;
-
-    const images = extractImageUrls(product.images);
-    const opts: UrlEntryOptions = {
-      changefreq: 'weekly',
-      priority: 0.8,
-    };
-    if (product.updated_at) opts.lastmod = new Date(product.updated_at);
-    if (images.length > 0) opts.images = images;
-
-    entries.push(buildUrlEntry(url, opts));
-  }
-
-  // ── Blog pages ──
-  if (blogPosts.length > 0) {
-    entries.push(
-      buildUrlEntry(`${storeUrl}/blog`, {
+      buildUrlEntry(storeUrl, {
         lastmod: merchantLastmod,
         changefreq: 'daily',
-        priority: 0.7,
+        priority: 1.0,
       })
     );
-    for (const post of blogPosts) {
-      const opts: UrlEntryOptions = {
-        lastmod: post.updated_at
-          ? new Date(post.updated_at)
-          : new Date(post.published_at ?? Date.now()),
+    entries.push(
+      buildUrlEntry(`${storeUrl}/faq`, {
+        lastmod: merchantLastmod,
         changefreq: 'monthly',
-        priority: 0.6,
-      };
-      if (post.featured_image_url?.startsWith('http')) {
-        opts.images = [post.featured_image_url];
-      }
-      entries.push(buildUrlEntry(`${storeUrl}/blog/${post.slug}`, opts));
+        priority: 0.5,
+      })
+    );
+
+    // ── Category pages ──
+    for (const cat of categories) {
+      entries.push(
+        buildUrlEntry(`${storeUrl}/${cat.slug}`, {
+          lastmod: cat.updated_at ? new Date(cat.updated_at) : merchantLastmod,
+          changefreq: 'daily',
+          priority: 0.7,
+        })
+      );
     }
+
+    // ── Product pages ──
+    for (const product of products) {
+      const productSlug = product.slug || product.id;
+      const catSlug =
+        product.categories?.slug ||
+        (product.category ? generateSlug(product.category) : null);
+      const url = catSlug
+        ? `${storeUrl}/${catSlug}/${productSlug}`
+        : `${storeUrl}/products/${productSlug}`;
+
+      const images = extractImageUrls(product.images);
+      const opts: UrlEntryOptions = {
+        changefreq: 'weekly',
+        priority: 0.8,
+      };
+      if (product.updated_at) opts.lastmod = new Date(product.updated_at);
+      if (images.length > 0) opts.images = images;
+
+      entries.push(buildUrlEntry(url, opts));
+    }
+
+    // ── Blog pages ──
+    if (blogPosts.length > 0) {
+      entries.push(
+        buildUrlEntry(`${storeUrl}/blog`, {
+          lastmod: merchantLastmod,
+          changefreq: 'daily',
+          priority: 0.7,
+        })
+      );
+      for (const post of blogPosts) {
+        const opts: UrlEntryOptions = {
+          lastmod: post.updated_at
+            ? new Date(post.updated_at)
+            : new Date(post.published_at ?? Date.now()),
+          changefreq: 'monthly',
+          priority: 0.6,
+        };
+        if (post.featured_image_url?.startsWith('http')) {
+          opts.images = [post.featured_image_url];
+        }
+        entries.push(buildUrlEntry(`${storeUrl}/blog/${post.slug}`, opts));
+      }
+    }
+
+    const xml = buildUrlsetXml(entries);
+
+    return new NextResponse(xml, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/xml; charset=utf-8',
+        'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=86400',
+      },
+    });
+  } catch (err) {
+    console.error('[sitemap] Unexpected error:', err);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
-
-  const xml = buildUrlsetXml(entries);
-
-  return new NextResponse(xml, {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/xml; charset=utf-8',
-      'Cache-Control': 'public, s-maxage=21600, stale-while-revalidate=86400',
-    },
-  });
 }
