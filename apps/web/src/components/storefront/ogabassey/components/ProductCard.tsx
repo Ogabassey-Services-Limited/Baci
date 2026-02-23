@@ -4,9 +4,10 @@ import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 // Migrated from temp-source/components/ProductCard.tsx
 import Link from 'next/link';
 import Image from 'next/image';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
+import { stripHtmlTags } from '@/lib/sanitize-core';
 import { getProductUrl } from '@/lib/seo-utils';
 import { useV2Comparison } from '../providers/v2-comparison-context';
 import { useV2Saved } from '../providers/v2-saved-context';
@@ -16,22 +17,6 @@ const PLACEHOLDER_IMAGE = 'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Im
 
 // Note: The getProductImage helper was removed because product data is now
 // normalized upstream via normalizeProduct(), ensuring product.image is always set.
-
-/**
- * Safely strips HTML tags from a string using iterative approach
- * to prevent bypass via nested tags like <<script>script>
- */
-function stripHtml(html: string): string {
-  if (!html) return '';
-  let result = html;
-  let prev = '';
-  // Iterate until no more tags are found (handles nested/malformed tags)
-  while (result !== prev) {
-    prev = result;
-    result = result.replace(/<[^>]*>/g, '');
-  }
-  return result;
-}
 
 interface ProductCardProps {
   product: Product;
@@ -51,6 +36,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const [showPlusOne, setShowPlusOne] = useState(false);
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || '';
+
+  const strippedDescription = useMemo(() => {
+    return stripHtmlTags(product.description || '');
+  }, [product.description]);
 
   const isLiked = isSaved(product.id);
   const isComparing = isInCompare(product.id);
@@ -238,7 +227,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Description - truncated */}
           <p className="text-gray-500 text-xs mb-3 line-clamp-2 leading-relaxed hidden md:block">
-            {stripHtml(product.description || '').substring(0, 100) || 'No description available.'}
+            {strippedDescription.substring(0, 100) || 'No description available.'}
           </p>
 
           {/* Price */}
@@ -335,7 +324,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         <p className="text-gray-500 text-sm mb-3 line-clamp-3">
-          {stripHtml(product.description || '').substring(0, 150) || 'No description available.'}
+          {strippedDescription.substring(0, 150) || 'No description available.'}
         </p>
 
         <div className="mt-auto flex items-center justify-between">
