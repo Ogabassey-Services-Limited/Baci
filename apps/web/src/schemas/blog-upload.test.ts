@@ -6,7 +6,7 @@ import {
   MAX_BLOG_IMAGE_SIZE_LABEL,
   MIME_TO_EXT,
   signedUrlRequestSchema,
-} from './blog-upload';
+} from '@/schemas/blog-upload';
 
 describe('blog-upload constants', () => {
   it('MAX_BLOG_IMAGE_SIZE is 10MB', () => {

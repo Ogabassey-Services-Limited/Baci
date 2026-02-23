@@ -67,7 +67,7 @@ const mockAccess = {
 describe('getSignedUploadUrl', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetUser.mockResolvedValue({ data: { user: mockUser } });
+    mockGetUser.mockResolvedValue({ data: { user: mockUser }, error: null });
     mockGetUserAccess.mockResolvedValue(mockAccess);
     mockCreateSignedUploadUrl.mockResolvedValue({
       data: { token: 'signed-token-abc' },
@@ -148,10 +148,9 @@ describe('getSignedUploadUrl', () => {
       fileSize: 11 * 1024 * 1024,
     });
 
-    expect(result).toHaveProperty('error');
-    expect((result as { error: string }).error).toContain(
-      'exceeds maximum size'
-    );
+    expect(result).toEqual({
+      error: 'File exceeds maximum size of 10MB',
+    });
   });
 
   it('returns error when createSignedUploadUrl fails', async () => {
