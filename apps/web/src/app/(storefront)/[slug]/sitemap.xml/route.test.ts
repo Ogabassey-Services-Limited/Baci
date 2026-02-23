@@ -325,11 +325,17 @@ describe('GET /[slug]/sitemap.xml', () => {
     setHeaders({ 'x-custom-domain': 'ogabassey.com' });
     mockGetMerchant.mockResolvedValue({
       ...baseMerchant,
-      pages: { about: 'About us', terms: 'Terms of service', privacy: null },
+      pages: {
+        about: 'About us',
+        contact: 'Contact us',
+        terms: 'Terms of service',
+        privacy: null,
+      },
     });
     const { GET } = await import('./route');
     const body = await (await GET()).text();
     expect(body).toContain('<loc>https://ogabassey.com/about</loc>');
+    expect(body).toContain('<loc>https://ogabassey.com/contact</loc>');
     expect(body).toContain('<loc>https://ogabassey.com/terms</loc>');
     expect(body).not.toContain('<loc>https://ogabassey.com/privacy</loc>');
   });
