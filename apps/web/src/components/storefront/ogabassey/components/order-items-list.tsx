@@ -25,7 +25,7 @@ export function OrderItemsList({ items, getUrl }: OrderItemsListProps) {
             className="flex gap-4 items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0"
           >
             <Link
-              href={getUrl(`/product/${item.product_id}`) as string & {}}
+              href={getUrl(`/product/${item.product_id}`) as any}
               className="w-20 h-20 bg-gray-50 rounded-xl p-2 border border-gray-100 flex-shrink-0 block"
             >
               <Image
@@ -42,7 +42,7 @@ export function OrderItemsList({ items, getUrl }: OrderItemsListProps) {
               />
             </Link>
             <div className="flex-1 min-w-0">
-              <Link href={getUrl(`/product/${item.product_id}`) as string & {}}>
+              <Link href={getUrl(`/product/${item.product_id}`) as any}>
                 <h3 className="font-bold text-gray-900 text-sm mb-1 hover:text-red-600 transition-colors">
                   {item.product_name || item.name}
                 </h3>
