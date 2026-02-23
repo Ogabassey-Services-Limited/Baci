@@ -124,6 +124,10 @@ export default function AdminLayout() {
           name="store-settings"
           options={{ title: 'Store Settings' }}
         />
+        <Stack.Screen
+          name="carousel-settings"
+          options={{ title: 'Homepage Carousel' }}
+        />
         <Stack.Screen name="tax" options={{ title: 'Tax Settings' }} />
         <Stack.Screen
           name="analytics-config"

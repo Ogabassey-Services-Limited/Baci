@@ -5,6 +5,8 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { hasHeroSlidesInPageConfig } from '@/lib/hero-carousel-config';
+import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -169,6 +171,37 @@ export async function GET() {
       .eq('merchant_id', validMerchant.id)
       .eq('status', 'active');
 
+    const { data: pageConfigs, error: pageConfigsError } = await supabase
+      .from('page_configs')
+      .select('published_config, updated_at')
+      .eq('merchant_id', validMerchant.id)
+      .eq('page_slug', 'home')
+      .eq('is_published', true)
+      .order('updated_at', { ascending: false })
+      .limit(1);
+
+    if (pageConfigsError) {
+      logger.error({
+        message:
+          'Readiness check failed while loading published home page config',
+        merchantId: validMerchant.id,
+        error:
+          pageConfigsError instanceof Error
+            ? pageConfigsError
+            : new Error(String(pageConfigsError)),
+      });
+
+      throw new Error('Failed to load published home page config');
+    }
+
+    const latestPublishedConfig = pageConfigs?.[0]?.published_config ?? null;
+    const hasPublishedHeroSlides = hasHeroSlidesInPageConfig(
+      latestPublishedConfig
+    );
+    const hasLegacyMerchantHeroSlides =
+      Array.isArray(validMerchant.hero_slides) &&
+      validMerchant.hero_slides.length > 0;
+
     // Build checklist items
     const items: SetupItem[] = [
       // === REQUIRED ITEMS ===
@@ -270,9 +303,7 @@ export async function GET() {
         id: 'hero_carousel',
         label: 'Set up hero carousel',
         description: 'Add eye-catching banners to your homepage',
-        completed:
-          Array.isArray(validMerchant.hero_slides) &&
-          validMerchant.hero_slides.length > 0,
+        completed: hasPublishedHeroSlides || hasLegacyMerchantHeroSlides,
         href: '/dashboard/settings',
         priority: 'recommended',
         category: 'marketing',

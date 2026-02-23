@@ -112,7 +112,7 @@ interface Merchant {
   email?: string;
   phone?: string;
   business_address?: string;
-  hero_slides?: Record<string, string>[];
+  mobile_hero_slides?: Record<string, string>[];
 }
 
 /**
@@ -130,7 +130,7 @@ export function useMerchant() {
           await supabase
             .from('merchants')
             .select(
-              'id, slug, business_name, social_media, email, phone, business_address, hero_slides'
+              'id, slug, business_name, social_media, email, phone, business_address, mobile_hero_slides'
             )
             .eq('slug', MERCHANT_SLUG)
             .single(),
