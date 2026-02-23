@@ -11,9 +11,7 @@ import {
   COMPACT_OPTIONS,
   type CurrencyConfig,
   formatCurrencyWithConfig as formatCurrencyWithConfigUtil,
-  getCurrencyCode as getCurrencyCodeUtil,
   getCurrencyConfig,
-  getCurrencySymbol as getCurrencySymbolUtil,
 } from '@/lib/currency';
 import { useMerchantSafe } from './use-merchant';
 
@@ -64,15 +62,11 @@ export function useCurrency(): UseCurrencyReturn {
   const formatCurrencyCompact = (amount: number) =>
     formatCurrencyWithConfigUtil(amount, config, COMPACT_OPTIONS);
 
-  const currencySymbol = getCurrencySymbolUtil(countryCode);
-
-  const currencyCode = getCurrencyCodeUtil(countryCode);
-
   return {
     formatCurrency,
     formatCurrencyCompact,
-    currencySymbol,
-    currencyCode,
+    currencySymbol: config.symbol,
+    currencyCode: config.code,
     config,
     countryCode,
   };
@@ -99,15 +93,11 @@ export function useCurrencyWithCountry(
   const formatCurrencyCompact = (amount: number) =>
     formatCurrencyWithConfigUtil(amount, config, COMPACT_OPTIONS);
 
-  const currencySymbol = getCurrencySymbolUtil(countryCode);
-
-  const currencyCodeValue = getCurrencyCodeUtil(countryCode);
-
   return {
     formatCurrency,
     formatCurrencyCompact,
-    currencySymbol,
-    currencyCode: currencyCodeValue,
+    currencySymbol: config.symbol,
+    currencyCode: config.code,
     config,
     countryCode: countryCode ?? null,
   };

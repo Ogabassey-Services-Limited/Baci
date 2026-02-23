@@ -45,6 +45,42 @@ const STAGGER_CLASSES = [
   'stagger-8',
 ];
 
+interface PriceRange {
+  label: string;
+  min: number;
+  max: number;
+}
+
+/** Shared helper to apply category/brand/price filters and status filter */
+function applyFilters(
+  items: Product[],
+  selectedCategory: string,
+  filterType: 'category' | 'brand' | 'price',
+  priceRanges: PriceRange[]
+): Product[] {
+  let filtered = items;
+
+  if (selectedCategory !== 'All') {
+    if (filterType === 'category') {
+      filtered = filtered.filter((p) => p.category === selectedCategory);
+    } else if (filterType === 'brand') {
+      filtered = filtered.filter((p) => p.brand === selectedCategory);
+    } else if (filterType === 'price') {
+      const range = priceRanges.find((r) => r.label === selectedCategory);
+      if (range) {
+        filtered = filtered.filter((p) => {
+          const price = p.price || 0;
+          if (range.max === Number.POSITIVE_INFINITY) return price > range.min;
+          if (range.min === 0) return price < range.max;
+          return price >= range.min && price <= range.max;
+        });
+      }
+    }
+  }
+
+  return filtered.filter((p) => p.status === 'active');
+}
+
 export function StorefrontProductGrid({
   title = 'Shop By',
   columns = 4,
@@ -57,13 +93,10 @@ export function StorefrontProductGrid({
   const { toast } = useToast();
   const storefrontContext = useStorefrontSafe();
 
-  // Optimization: Cart items map for O(1) lookup in render loop
+  // Cart items map for O(1) lookup in render loop
   // Preserves existing behavior: if multiple items have same ID (legacy), use the first one found
   const cartItemsMap = (() => {
     const map = new Map();
-    // Loop through cart to populate map. If duplicates exist, we keep the first one
-    // to match .find() behavior which returns the first match.
-    // However, Map.set overwrites, so we need to check if it exists first.
     for (const item of cart) {
       if (!map.has(item.id)) {
         map.set(item.id, item);
@@ -213,27 +246,27 @@ export function StorefrontProductGrid({
         products.map((p) => p.category).filter((c): c is string => !!c)
       );
       return Array.from(cats);
-    } else if (filterType === 'brand') {
+    }
+    if (filterType === 'brand') {
       const brands = new Set(
         products.map((p) => p.brand).filter((b): b is string => !!b)
       );
       return Array.from(brands);
-    } else if (filterType === 'price') {
+    }
+    if (filterType === 'price') {
       return priceRanges.map((r) => r.label);
     }
     return [];
   })();
 
-  const fuse = (() => {
-    if (products.length > 0) {
-      return new Fuse(products, {
-        keys: ['name', 'description', 'brand'],
-        includeScore: true,
-        threshold: 0.4,
-      });
-    }
-    return null;
-  })();
+  const fuse =
+    products.length > 0
+      ? new Fuse(products, {
+          keys: ['name', 'description', 'brand'],
+          includeScore: true,
+          threshold: 0.4,
+        })
+      : null;
 
   const categories = (() => {
     const cats = new Set(
@@ -241,8 +274,9 @@ export function StorefrontProductGrid({
     );
     const availableCategories = Array.from(cats);
 
+    const navigationCategories = merchantContext?.navigationCategories;
     const priorityList =
-      merchantContext?.navigationCategories
+      navigationCategories
         ?.map((c) => c.name?.toLowerCase().trim())
         .filter((n): n is string => !!n) || [];
 
@@ -261,58 +295,25 @@ export function StorefrontProductGrid({
       debouncedSearchQuery &&
       serverSearchResults.length > 0
     ) {
-      let filtered = serverSearchResults;
-
-      // Apply category/brand/price filters
-      if (selectedCategory !== 'All') {
-        if (filterType === 'category') {
-          filtered = filtered.filter((p) => p.category === selectedCategory);
-        } else if (filterType === 'brand') {
-          filtered = filtered.filter((p) => p.brand === selectedCategory);
-        } else if (filterType === 'price') {
-          const range = priceRanges.find((r) => r.label === selectedCategory);
-          if (range) {
-            filtered = filtered.filter((p) => {
-              const price = p.price || 0;
-              if (range.max === Number.POSITIVE_INFINITY)
-                return price > range.min;
-              if (range.min === 0) return price < range.max;
-              return price >= range.min && price <= range.max;
-            });
-          }
-        }
-      }
-
-      return filtered.slice(0, limit);
+      return applyFilters(
+        serverSearchResults,
+        selectedCategory,
+        filterType,
+        priceRanges
+      ).slice(0, limit);
     }
 
     // Fall back to client-side search
-    let filtered = products;
+    let items = products;
 
     if (debouncedSearchQuery && fuse) {
-      filtered = fuse.search(debouncedSearchQuery).map((result) => result.item);
+      items = fuse.search(debouncedSearchQuery).map((result) => result.item);
     }
 
-    if (selectedCategory !== 'All') {
-      if (filterType === 'category') {
-        filtered = filtered.filter((p) => p.category === selectedCategory);
-      } else if (filterType === 'brand') {
-        filtered = filtered.filter((p) => p.brand === selectedCategory);
-      } else if (filterType === 'price') {
-        const range = priceRanges.find((r) => r.label === selectedCategory);
-        if (range) {
-          filtered = filtered.filter((p) => {
-            const price = p.price || 0;
-            if (range.max === Number.POSITIVE_INFINITY)
-              return price > range.min;
-            if (range.min === 0) return price < range.max;
-            return price >= range.min && price <= range.max;
-          });
-        }
-      }
-    }
-
-    return filtered.filter((p) => p.status === 'active').slice(0, limit);
+    return applyFilters(items, selectedCategory, filterType, priceRanges).slice(
+      0,
+      limit
+    );
   })();
 
   const handleAddToCart = (product: Product) => {
