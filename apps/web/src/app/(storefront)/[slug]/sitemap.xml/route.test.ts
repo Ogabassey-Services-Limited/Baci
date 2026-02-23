@@ -307,6 +307,17 @@ describe('GET /[slug]/sitemap.xml', () => {
     );
   });
 
+  it('includes /about when merchant has about_page data', async () => {
+    setHeaders({ 'x-custom-domain': 'ogabassey.com' });
+    mockGetMerchant.mockResolvedValue({
+      ...baseMerchant,
+      about_page: { story: 'Our story...', mission: null },
+    });
+    const { GET } = await import('./route');
+    const body = await (await GET()).text();
+    expect(body).toContain('<loc>https://ogabassey.com/about</loc>');
+  });
+
   it('includes merchant.pages entries when present', async () => {
     setHeaders({ 'x-custom-domain': 'ogabassey.com' });
     mockGetMerchant.mockResolvedValue({
@@ -368,18 +379,20 @@ describe('GET /[slug]/sitemap.xml', () => {
     expect(mockGetMerchant).toHaveBeenCalledWith('ogabassey.cominjected');
   });
 
-  it('sanitizes header values (truncates to 100 chars)', async () => {
+  it('passes through header values under 100 chars', async () => {
     const longDomain = `${'a'.repeat(95)}.com`;
-    // longDomain is 99 chars, fits within 100-char limit
     setHeaders({ 'x-custom-domain': longDomain });
     mockGetMerchant.mockResolvedValue(null);
     const { GET } = await import('./route');
     await GET();
     expect(mockGetMerchant).toHaveBeenCalledWith(longDomain);
+  });
 
-    // Now test actual truncation: 105 chars -> sliced to 100
+  it('truncates header values to 100 chars', async () => {
     const overlong = 'a'.repeat(105);
     setHeaders({ 'x-custom-domain': overlong });
+    mockGetMerchant.mockResolvedValue(null);
+    const { GET } = await import('./route');
     await GET();
     expect(mockGetMerchant).toHaveBeenCalledWith('a'.repeat(100));
   });

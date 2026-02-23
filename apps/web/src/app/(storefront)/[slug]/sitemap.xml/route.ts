@@ -227,9 +227,15 @@ export async function GET(): Promise<NextResponse> {
     ) {
       staticPages.push({ path: 'faq', priority: 0.5 });
     }
+    // About: about/page.tsx calls notFound() when about_page has no story/mission AND pages.about is empty
+    if (
+      merchant.about_page?.story ||
+      merchant.about_page?.mission ||
+      merchant.pages?.about
+    ) {
+      staticPages.push({ path: 'about', priority: 0.5 });
+    }
     if (merchant.pages) {
-      if (merchant.pages.about)
-        staticPages.push({ path: 'about', priority: 0.5 });
       if (merchant.pages.contact)
         staticPages.push({ path: 'contact', priority: 0.5 });
       if (merchant.pages.terms)

@@ -10,7 +10,7 @@ import { vi } from 'vitest';
 // ── Table-aware Supabase mock state ──
 
 /** Tracks which Supabase table is being queried by mockFrom. */
-export let currentTable = '';
+let currentTable = '';
 
 /** Per-table query results. Set `error` to simulate Supabase failures. */
 export const tableData: Record<
