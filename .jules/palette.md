@@ -13,6 +13,11 @@
 **Learning:** `framer-motion` hooks like `useReducedMotion` may return complex objects (MotionValue) instead of simple booleans depending on the version, which can lead to always-true conditionals if not handled correctly.
 **Action:** Prefer native `window.matchMedia` hooks for simple boolean checks to avoid dependency quirks and ensure reliable accessibility compliance.
 
+## 2026-02-23 - Accessible Validation Feedback
+
+**Learning:** `ColorPicker` previously swallowed invalid input silently, leaving users (especially keyboard/screen reader users) confused why the color didn't change. Adding `aria-invalid` and visual cues provides immediate, necessary feedback without blocking interaction.
+**Action:** When implementing controlled inputs that parse complex values (like hex codes), always pair the parsing logic with an explicit validation state and `aria-invalid` attribute to communicate failure modes clearly.
+
 ## 2026-02-27 - React Native Accessibility Hints
 
 **Learning:** React Native's `accessibilityHint` provides critical context for screen reader users that `accessibilityLabel` alone might miss, especially for icon-only buttons like "Close" or "Share" in modals.
