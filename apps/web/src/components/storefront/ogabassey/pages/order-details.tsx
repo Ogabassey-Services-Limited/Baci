@@ -20,6 +20,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { createClient } from '@/lib/supabase/client';
+import type { StorefrontOrder, StorefrontOrderItem } from '@/types/storefront-order';
 
 // Hook to extract store slug from pathname
 function useStoreSlug() {
@@ -37,7 +38,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
   const getUrl = (path: string) => storeSlug ? `/${storeSlug}${path}` : path;
   const router = useRouter();
 
-  const [order, setOrder] = useState<any | null>(null);
+  const [order, setOrder] = useState<StorefrontOrder | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Realtime subscription channel ref for cleanup
@@ -93,9 +94,9 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
           console.log('[Realtime] Order updated:', payload);
 
           // Update the order state with new data from realtime
-          const newData = payload.new as Record<string, unknown>;
+          const newData = payload.new as Partial<StorefrontOrder>;
           if (newData) {
-            setOrder((prevOrder: any) => {
+            setOrder((prevOrder) => {
               if (!prevOrder) return prevOrder;
               return {
                 ...prevOrder,
@@ -105,7 +106,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                 tracking_number: newData.tracking_number ?? prevOrder.tracking_number,
                 tracking_url: newData.tracking_url ?? prevOrder.tracking_url,
                 updated_at: newData.updated_at ?? prevOrder.updated_at,
-              };
+              } as StorefrontOrder;
             });
           }
         }
@@ -129,6 +130,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
     // Implementation for re-ordering would go here
     // For now, redirect to product page of first item or cart
     if (order?.items?.[0]) {
+      // biome-ignore lint/suspicious/noExplicitAny: dynamic route
       router.push(getUrl(`/product/${order.items[0].product_id}`) as any);
     }
   };
@@ -259,22 +261,24 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                 </h2>
               </div>
               <div className="p-4 space-y-4">
-                {order.items?.map((item: any) => (
+                {order.items?.map((item) => (
                   <div
                     key={item.id}
                     className="flex gap-4 items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0"
                   >
                     <Link
+                      // biome-ignore lint/suspicious/noExplicitAny: dynamic route
                       href={`/product/${item.product_id}` as any}
                       className="w-20 h-20 bg-gray-50 rounded-xl p-2 border border-gray-100 flex-shrink-0 block"
                     >
                       <img
-                        src={item.product_image || item.image || '/placeholder.png'}
+                        src={item.product_image || item.image || item.product_images?.[0] || '/placeholder.png'}
                         alt={item.product_name || item.name}
                         className="w-full h-full object-contain mix-blend-multiply"
                       />
                     </Link>
                     <div className="flex-1 min-w-0">
+                      {/* biome-ignore lint/suspicious/noExplicitAny: dynamic route */}
                       <Link href={`/product/${item.product_id}` as any}>
                         <h3 className="font-bold text-gray-900 text-sm mb-1 hover:text-red-600 transition-colors">
                           {item.product_name || item.name}
@@ -309,7 +313,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-gray-500">
                   <span>Delivery</span>
-                  <span>{order.shipping_cost ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.shipping_cost) : <span className="text-green-600">Free</span>}</span>
+                  <span>{(order.shipping_cost ?? order.shipping_fee) ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.shipping_cost ?? order.shipping_fee ?? 0) : <span className="text-green-600">Free</span>}</span>
                 </div>
                 <div className="border-t border-dashed border-gray-200 pt-3 flex justify-between font-bold text-lg text-gray-900">
                   <span>Total</span>
@@ -328,7 +332,11 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                   {order.shipping_provider || 'Standard Delivery'}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {order.shipping_address || 'No address provided'}
+                  {typeof order.shipping_address === 'string'
+                    ? order.shipping_address
+                    : (order.shipping_address && typeof order.shipping_address === 'object' && 'address_line1' in order.shipping_address)
+                      ? `${(order.shipping_address as any).address_line1}, ${(order.shipping_address as any).city}`
+                      : 'No address provided'}
                 </p>
               </div>
               <div className="border-t border-gray-50 pt-4">
@@ -336,7 +344,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                   <CreditCard size={14} /> Payment Method
                 </h4>
                 <div className="mt-2 text-sm font-bold text-gray-900">
-                  <PaymentDisplay provider={order.payment_provider || order.paymentMethod} />
+                  <PaymentDisplay provider={order.payment_method || order.payment_provider || order.paymentMethod} />
                 </div>
               </div>
             </div>
