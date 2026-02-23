@@ -1,14 +1,23 @@
 import { z } from 'zod';
-import { sanitizeText } from '@/lib/sanitize-core';
 
-export const reorderSuggestionActionSchema = z.object({
-  suggestionId: z
-    .string()
-    .uuid()
-    .transform((val) => sanitizeText(val, 50)),
-  action: z.enum(['accept', 'reject', 'ordered']),
-  orderedQuantity: z.number().int().min(1).optional(),
-});
+export const reorderSuggestionActionSchema = z
+  .object({
+    suggestionId: z.string().uuid(),
+    action: z.enum(['accept', 'reject', 'ordered']),
+    orderedQuantity: z.number().int().min(1).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.action === 'ordered' &&
+      (data.orderedQuantity === undefined || data.orderedQuantity === null)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'orderedQuantity is required when action is "ordered"',
+        path: ['orderedQuantity'],
+      });
+    }
+  });
 
 export type ReorderSuggestionActionInput = z.infer<
   typeof reorderSuggestionActionSchema
