@@ -167,10 +167,12 @@ if [ -n "$required_cocoapods_version" ]; then
     echo "info: Podfile.lock requires CocoaPods $required_cocoapods_version (current: ${current_cocoapods_version:-none})"
     echo "info: Installing CocoaPods $required_cocoapods_version via gem"
     gem install cocoapods -v "$required_cocoapods_version" --no-document
-    echo "info: CocoaPods $(pod --version) now active"
+    echo "info: CocoaPods $(pod _"${required_cocoapods_version}"_ --version) now active"
   else
     echo "info: CocoaPods $current_cocoapods_version matches Podfile.lock"
   fi
+else
+  echo "warning: Could not extract CocoaPods version from Podfile.lock (missing or malformed). Using system default: $(pod --version 2>/dev/null || echo 'none')." >&2
 fi
 
 # Xcode Cloud images may ship with a stale or partial CocoaPods trunk repo that
@@ -182,11 +184,19 @@ if [ -d "$trunk_repo" ]; then
   rm -rf "$trunk_repo"
 fi
 
+# Use RubyGems version-pinned invocation when a specific version was extracted,
+# otherwise fall back to bare pod.
+if [ -n "$required_cocoapods_version" ]; then
+  pod_cmd="pod _${required_cocoapods_version}_"
+else
+  pod_cmd="pod"
+fi
+
 if [ "${CI_POD_ALLOW_REPO_UPDATE:-0}" = "1" ]; then
   echo "info: Running pod install with repo updates enabled."
-  pod install --repo-update
+  $pod_cmd install --repo-update
 else
-  pod install --no-repo-update
+  $pod_cmd install --no-repo-update
 fi
 
 echo "info: CocoaPods installation finished for '$app_dir'"
