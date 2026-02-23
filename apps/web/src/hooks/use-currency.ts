@@ -7,14 +7,11 @@
  * providing a consistent currency display across all storefront pages.
  */
 
-import { useCallback, useMemo } from 'react';
 import {
   COMPACT_OPTIONS,
   type CurrencyConfig,
   formatCurrencyWithConfig as formatCurrencyWithConfigUtil,
-  getCurrencyCode as getCurrencyCodeUtil,
   getCurrencyConfig,
-  getCurrencySymbol as getCurrencySymbolUtil,
 } from '@/lib/currency';
 import { useMerchantSafe } from './use-merchant';
 
@@ -57,36 +54,19 @@ export function useCurrency(): UseCurrencyReturn {
   const merchantContext = useMerchantSafe();
   const countryCode = merchantContext?.merchant?.country ?? null;
 
-  // Memoize config to prevent object recreation on every render
-  const config = useMemo(() => getCurrencyConfig(countryCode), [countryCode]);
+  const config = getCurrencyConfig(countryCode);
 
-  // Memoize formatter functions to keep them stable across renders
-  const formatCurrency = useCallback(
-    (amount: number) => formatCurrencyWithConfigUtil(amount, config),
-    [config]
-  );
+  const formatCurrency = (amount: number) =>
+    formatCurrencyWithConfigUtil(amount, config);
 
-  const formatCurrencyCompact = useCallback(
-    (amount: number) =>
-      formatCurrencyWithConfigUtil(amount, config, COMPACT_OPTIONS),
-    [config]
-  );
-
-  const currencySymbol = useMemo(
-    () => getCurrencySymbolUtil(countryCode),
-    [countryCode]
-  );
-
-  const currencyCode = useMemo(
-    () => getCurrencyCodeUtil(countryCode),
-    [countryCode]
-  );
+  const formatCurrencyCompact = (amount: number) =>
+    formatCurrencyWithConfigUtil(amount, config, COMPACT_OPTIONS);
 
   return {
     formatCurrency,
     formatCurrencyCompact,
-    currencySymbol,
-    currencyCode,
+    currencySymbol: config.symbol,
+    currencyCode: config.code,
     config,
     countryCode,
   };
@@ -105,34 +85,19 @@ export function useCurrency(): UseCurrencyReturn {
 export function useCurrencyWithCountry(
   countryCode: string | null | undefined
 ): UseCurrencyReturn {
-  const config = useMemo(() => getCurrencyConfig(countryCode), [countryCode]);
+  const config = getCurrencyConfig(countryCode);
 
-  const formatCurrency = useCallback(
-    (amount: number) => formatCurrencyWithConfigUtil(amount, config),
-    [config]
-  );
+  const formatCurrency = (amount: number) =>
+    formatCurrencyWithConfigUtil(amount, config);
 
-  const formatCurrencyCompact = useCallback(
-    (amount: number) =>
-      formatCurrencyWithConfigUtil(amount, config, COMPACT_OPTIONS),
-    [config]
-  );
-
-  const currencySymbol = useMemo(
-    () => getCurrencySymbolUtil(countryCode),
-    [countryCode]
-  );
-
-  const currencyCodeValue = useMemo(
-    () => getCurrencyCodeUtil(countryCode),
-    [countryCode]
-  );
+  const formatCurrencyCompact = (amount: number) =>
+    formatCurrencyWithConfigUtil(amount, config, COMPACT_OPTIONS);
 
   return {
     formatCurrency,
     formatCurrencyCompact,
-    currencySymbol,
-    currencyCode: currencyCodeValue,
+    currencySymbol: config.symbol,
+    currencyCode: config.code,
     config,
     countryCode: countryCode ?? null,
   };
