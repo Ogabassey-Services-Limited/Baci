@@ -130,11 +130,8 @@ exclude = [
   "^https?://([a-z0-9-]+\\.)?firebase\\.google\\.com",
   # Flaky external URLs that may timeout
   "^https?://vitest\\.dev",
-  "gdpr\\.eu",
   # Test fixture URLs (Upstash mock endpoints)
   "upstash\\.io",
   # Google Storage assets (403 Forbidden due to access restrictions)
-  "commondatastorage\\.googleapis\\.com",
-  # Flaky external spec links
-  "rssboard\\.org"
+  "commondatastorage\\.googleapis\\.com"
 ]

@@ -12,11 +12,6 @@ import type { Session, User } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { Alert } from 'react-native';
 import { create } from 'zustand';
-import {
-  type DeleteAccountResult,
-  getDeleteAccountErrorMessage,
-  hasAppleProvider,
-} from '../lib/account-deletion';
 import { splitFullName } from '../lib/auth-helpers';
 import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
@@ -47,10 +42,6 @@ interface AuthState {
   isInitialized: boolean;
   error: string | null;
 
-  // Internal state (not part of the public API but needed to avoid type casts)
-  _authSubscription: { subscription: { unsubscribe: () => void } } | null;
-  _initializationInProgress: boolean;
-
   // Actions
   initialize: () => Promise<void>;
   cleanup: () => void; // 2026 Critical Fix: Cleanup auth subscription
@@ -68,7 +59,6 @@ interface AuthState {
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signInWithApple: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
-  deleteAccount: () => Promise<DeleteAccountResult>;
   refreshSession: () => Promise<void>;
   updateProfile: (
     data: Partial<Customer>
@@ -86,20 +76,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isInitialized: false,
   error: null,
   // Internal: store auth subscription for cleanup (2026 Best Practice)
-  _authSubscription: null,
+  _authSubscription: null as {
+    subscription: { unsubscribe: () => void };
+  } | null,
   // 2026 Critical Fix: Prevent multiple concurrent initialize calls
-  _initializationInProgress: false,
+  _initializationInProgress: false as boolean,
 
   // Initialize auth state
   initialize: async () => {
     // 2026 Critical Fix: Prevent race conditions from multiple initialize() calls
-    const state = get();
+    const state = get() as AuthState & { _initializationInProgress: boolean };
     if (state._initializationInProgress || state.isInitialized) {
       log.debug('Initialize already in progress or completed, skipping');
       return;
     }
 
-    set({ _initializationInProgress: true });
+    set({ _initializationInProgress: true } as Partial<AuthState>);
 
     try {
       set({ isLoading: true, error: null });
@@ -127,7 +119,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isLoading: false,
           isInitialized: true,
           _initializationInProgress: false,
-        });
+        } as Partial<AuthState>);
         return;
       }
 
@@ -156,7 +148,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             isLoading: false,
             isInitialized: true,
             _initializationInProgress: false,
-          });
+          } as Partial<AuthState>);
           return;
         }
       }
@@ -172,7 +164,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             isLoading: false,
             isInitialized: true,
             _initializationInProgress: false,
-          });
+          } as Partial<AuthState>);
           return;
         }
 
@@ -396,7 +388,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         _authSubscription: authListener,
         _initializationInProgress: false,
-      });
+      } as Partial<AuthState>);
     } catch (error) {
       log.error('Auth initialization error:', error);
       set({
@@ -404,17 +396,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         isInitialized: true,
         _initializationInProgress: false,
-      });
+      } as Partial<AuthState>);
     }
   },
 
   // 2026 Critical Fix: Cleanup auth subscription to prevent memory leaks
   cleanup: () => {
-    const state = get();
+    const state = get() as AuthState & {
+      _authSubscription: { subscription: { unsubscribe: () => void } } | null;
+    };
     if (state._authSubscription?.subscription) {
       log.debug('Cleaning up auth subscription');
       state._authSubscription.subscription.unsubscribe();
-      set({ _authSubscription: null });
+      set({ _authSubscription: null } as Partial<AuthState>);
     }
   },
 
@@ -717,57 +711,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isLoading: false,
         isInitialized: true, // 2026 Fix: Keep initialized after sign out to allow redirects
         _initializationInProgress: false,
-      });
+      } as Partial<AuthState>);
     } catch (error) {
       log.error('Sign out error:', error);
       set({ isLoading: false });
-    }
-  },
-
-  // Delete current customer account for storefront app review compliance.
-  deleteAccount: async () => {
-    const user = get().user;
-    if (!user) {
-      return {
-        success: false,
-        error: 'You must be signed in to delete your account.',
-      };
-    }
-
-    const usedApple = hasAppleProvider(user);
-
-    try {
-      set({ isLoading: true, error: null });
-
-      const { error } = await supabase.rpc('delete_current_storefront_account');
-
-      if (error) {
-        const message = getDeleteAccountErrorMessage(error);
-        set({ error: message, isLoading: false });
-        return { success: false, error: message, usedApple };
-      }
-
-      try {
-        await supabase.auth.signOut();
-      } catch (signOutError) {
-        log.warn('Sign-out after account deletion failed:', signOutError);
-      }
-
-      useCartStore.getState().clearCart();
-      set({
-        user: null,
-        session: null,
-        customer: null,
-        isLoading: false,
-        isInitialized: true,
-        _initializationInProgress: false,
-      });
-
-      return { success: true, usedApple };
-    } catch (error) {
-      const message = getDeleteAccountErrorMessage(error);
-      set({ error: message, isLoading: false });
-      return { success: false, error: message, usedApple };
     }
   },
 

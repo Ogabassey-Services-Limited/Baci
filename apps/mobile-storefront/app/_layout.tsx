@@ -377,13 +377,6 @@ function RootLayoutNav() {
                 }}
               />
               <Stack.Screen
-                name="profile/delete-account"
-                options={{
-                  title: 'Delete Account',
-                  animation: 'slide_from_right',
-                }}
-              />
-              <Stack.Screen
                 name="faq/index"
                 options={{
                   title: 'Help & Support',

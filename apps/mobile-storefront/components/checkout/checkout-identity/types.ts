@@ -98,10 +98,4 @@ export interface UseSignInFormReturn {
 /**
  * Haptic feedback types
  */
-export type HapticType =
-  | 'light'
-  | 'medium'
-  | 'heavy'
-  | 'success'
-  | 'warning'
-  | 'error';
+export type HapticType = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error';

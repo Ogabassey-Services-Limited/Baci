@@ -69,46 +69,6 @@ export async function getCsrfToken(): Promise<string | null> {
 }
 
 /**
- * Middleware helper to ensure CSRF token exists in cookies
- * If missing, generates a new token and sets it on the response
- */
-export function ensureCsrfTokenMiddleware(
-  request: NextRequest,
-  response: NextResponse
-): void {
-  // Check if token exists in request cookies
-  let hasToken = false;
-  for (const name of CSRF_TOKEN_NAMES) {
-    if (request.cookies.has(name)) {
-      hasToken = true;
-      break;
-    }
-  }
-
-  if (!hasToken) {
-    const token = generateCsrfToken();
-    // Set token in regular cookie (accessible to JavaScript)
-    response.cookies.set(PRIMARY_CSRF_TOKEN_NAME, token, {
-      httpOnly: false,
-      secure: IS_PROD,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24, // 24 hours
-    });
-
-    if (IS_PROD) {
-      response.cookies.set(FALLBACK_CSRF_TOKEN_NAME, token, {
-        httpOnly: false,
-        secure: true,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 60 * 60 * 24, // 24 hours
-      });
-    }
-  }
-}
-
-/**
  * Constant-time string comparison to prevent timing attacks.
  * Uses Node's built-in timing-safe comparison when available.
  * Falls back to HMAC-based comparison for non-Node runtimes.

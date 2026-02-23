@@ -73,7 +73,11 @@ export function AnimatedSplash({
       <Animated.View
         style={[styles.logoContainer, { transform: [{ scale: logoScale }] }]}
       >
-        <Image source={iconImage} style={styles.logo} resizeMode="contain" />
+        <Image
+          source={iconImage}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </Animated.View>
 
       <Animated.View style={[styles.shimmerBar, { opacity: shimmerOpacity }]}>

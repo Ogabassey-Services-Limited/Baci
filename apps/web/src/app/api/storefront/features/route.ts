@@ -74,50 +74,6 @@ export interface StorefrontFeatures {
   autoBlogEnabled: boolean;
 }
 
-// Internal interface for database row to satisfy TypeScript
-interface MerchantFeatureSettingsRow {
-  loyalty_enabled: boolean;
-  reviews_enabled: boolean;
-  wishlist_enabled: boolean;
-  order_tracking_enabled: boolean;
-  discount_codes_enabled: boolean;
-  guest_checkout_enabled: boolean;
-  paystack_enabled: boolean;
-  korapay_enabled: boolean;
-  pay_on_delivery_enabled: boolean;
-  credit_direct_enabled: boolean;
-  credpal_enabled: boolean;
-  credit_direct_min_amount: number;
-  credit_direct_max_amount: number;
-  preferred_local_gateway: 'paystack' | 'korapay';
-  preferred_international_gateway: 'paystack' | 'korapay';
-  shipping_providers: string[];
-  free_shipping_threshold: number | null;
-  checkout_collect_phone: boolean;
-  checkout_require_account: boolean;
-  checkout_show_order_notes: boolean;
-  about_page_enabled: boolean;
-  contact_page_enabled: boolean;
-  faq_page_enabled: boolean;
-  privacy_page_enabled: boolean;
-  terms_page_enabled: boolean;
-  rewards_page_enabled: boolean;
-  show_recent_purchases: boolean;
-  show_stock_levels: boolean;
-  low_stock_threshold: number;
-  google_analytics_id: string | null;
-  facebook_pixel_id: string | null;
-  tiktok_pixel_id: string | null;
-  vtu_enabled: boolean;
-  vtu_airtime_enabled: boolean;
-  vtu_data_enabled: boolean;
-  vtu_checkout_addon_enabled: boolean;
-  vtu_checkout_addon_amounts: number[];
-  vtu_loyalty_reward_enabled: boolean;
-  blog_enabled: boolean;
-  auto_blog_enabled: boolean;
-}
-
 // Default public features
 const DEFAULT_FEATURES: StorefrontFeatures = {
   loyaltyEnabled: false,
@@ -167,50 +123,6 @@ const DEFAULT_FEATURES: StorefrontFeatures = {
   autoBlogEnabled: false,
 };
 
-// Explicitly select columns to prevent over-fetching sensitive data
-const SETTINGS_COLUMNS = [
-  'loyalty_enabled',
-  'reviews_enabled',
-  'wishlist_enabled',
-  'order_tracking_enabled',
-  'discount_codes_enabled',
-  'guest_checkout_enabled',
-  'paystack_enabled',
-  'korapay_enabled',
-  'pay_on_delivery_enabled',
-  'credit_direct_enabled',
-  'credpal_enabled',
-  'credit_direct_min_amount',
-  'credit_direct_max_amount',
-  'preferred_local_gateway',
-  'preferred_international_gateway',
-  'shipping_providers',
-  'free_shipping_threshold',
-  'checkout_collect_phone',
-  'checkout_require_account',
-  'checkout_show_order_notes',
-  'about_page_enabled',
-  'contact_page_enabled',
-  'faq_page_enabled',
-  'privacy_page_enabled',
-  'terms_page_enabled',
-  'rewards_page_enabled',
-  'show_recent_purchases',
-  'show_stock_levels',
-  'low_stock_threshold',
-  'google_analytics_id',
-  'facebook_pixel_id',
-  'tiktok_pixel_id',
-  'vtu_enabled',
-  'vtu_airtime_enabled',
-  'vtu_data_enabled',
-  'vtu_checkout_addon_enabled',
-  'vtu_checkout_addon_amounts',
-  'vtu_loyalty_reward_enabled',
-  'blog_enabled',
-  'auto_blog_enabled',
-].join(', ');
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -230,19 +142,11 @@ export async function GET(request: NextRequest) {
     // Get merchant ID from slug if needed
     let resolvedMerchantId = merchantId;
     if (!resolvedMerchantId && slug) {
-      const { data: merchant, error: merchantError } = await supabase
+      const { data: merchant } = await supabase
         .from('merchants')
         .select('id')
         .eq('slug', slug)
         .single();
-
-      if (merchantError && merchantError.code !== 'PGRST116') {
-        console.error('Error fetching merchant by slug:', merchantError);
-        return NextResponse.json(
-          { error: 'Failed to fetch store' },
-          { status: 500 }
-        );
-      }
 
       if (!merchant) {
         return NextResponse.json({ error: 'Store not found' }, { status: 404 });
@@ -251,18 +155,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Get feature settings
-    const { data, error: settingsError } = await supabase
+    const { data: settings } = await supabase
       .from('merchant_feature_settings')
-      .select(SETTINGS_COLUMNS)
+      .select('*')
       .eq('merchant_id', resolvedMerchantId)
       .single();
-
-    if (settingsError && settingsError.code !== 'PGRST116') {
-      console.error('Error fetching feature settings:', settingsError);
-    }
-
-    // Cast data to known type since dynamic select string breaks inference
-    const settings = data as unknown as MerchantFeatureSettingsRow | null;
 
     // If no settings, return defaults
     if (!settings) {
