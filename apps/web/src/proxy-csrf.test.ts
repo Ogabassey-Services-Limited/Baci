@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { proxy } from './proxy';
 import { updateSession } from '@/lib/supabase/middleware';
+import { proxy } from './proxy';
 
 // Mock dependencies
 vi.mock('@/lib/supabase/middleware', () => ({
