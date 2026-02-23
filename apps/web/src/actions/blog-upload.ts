@@ -22,7 +22,6 @@ export interface ActionError {
  * bypassing the server body size limit entirely.
  */
 export async function getSignedUploadUrl(input: {
-  filename: string;
   contentType: string;
   fileSize: number;
 }): Promise<SignedUploadUrlResult | ActionError> {

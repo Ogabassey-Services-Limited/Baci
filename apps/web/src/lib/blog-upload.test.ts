@@ -53,7 +53,6 @@ describe('uploadBlogImage', () => {
     await uploadBlogImage(file);
 
     expect(mockGetSignedUploadUrl).toHaveBeenCalledWith({
-      filename: 'test.png',
       contentType: 'image/png',
       fileSize: 2048,
     });

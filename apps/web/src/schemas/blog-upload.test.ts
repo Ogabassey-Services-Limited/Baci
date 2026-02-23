@@ -44,7 +44,6 @@ describe('blog-upload constants', () => {
 
 describe('signedUrlRequestSchema', () => {
   const validInput = {
-    filename: 'photo.jpg',
     contentType: 'image/jpeg' as const,
     fileSize: 1024,
   };
@@ -52,17 +51,6 @@ describe('signedUrlRequestSchema', () => {
   it('parses valid input', () => {
     const result = signedUrlRequestSchema.safeParse(validInput);
     expect(result.success).toBe(true);
-  });
-
-  it('rejects empty filename', () => {
-    const result = signedUrlRequestSchema.safeParse({
-      ...validInput,
-      filename: '',
-    });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0].message).toBe('Filename is required');
-    }
   });
 
   it('rejects invalid content type', () => {

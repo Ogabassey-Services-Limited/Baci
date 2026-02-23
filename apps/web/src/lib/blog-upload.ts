@@ -43,7 +43,6 @@ export async function uploadBlogImage(
 
   // Step 1: Get signed upload URL from server
   const result = await getSignedUploadUrl({
-    filename: file.name,
     contentType: file.type,
     fileSize: file.size,
   });

@@ -37,7 +37,6 @@ export const ALLOWED_IMAGE_EXTENSIONS = [
 
 /** Schema for signed URL request metadata */
 export const signedUrlRequestSchema = z.object({
-  filename: z.string().min(1, 'Filename is required'),
   contentType: z.enum(ALLOWED_IMAGE_TYPES, {
     errorMap: () => ({
       message: 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP, AVIF',

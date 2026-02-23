@@ -51,7 +51,6 @@ vi.mock('@/lib/supabase/server', () => ({
 const { getSignedUploadUrl } = await import('@/actions/blog-upload');
 
 const validInput = {
-  filename: 'photo.jpg',
   contentType: 'image/jpeg',
   fileSize: 1024,
 };
@@ -94,11 +93,22 @@ describe('getSignedUploadUrl', () => {
   });
 
   it('returns error when user is not authenticated', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null } });
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
     const result = await getSignedUploadUrl(validInput);
 
     expect(result).toEqual({ error: 'Unauthorized' });
+  });
+
+  it('returns error when getUser itself fails', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: 'Network error' },
+    });
+
+    const result = await getSignedUploadUrl(validInput);
+
+    expect(result).toEqual({ error: 'Authentication failed' });
   });
 
   it('returns error when merchant not found', async () => {
