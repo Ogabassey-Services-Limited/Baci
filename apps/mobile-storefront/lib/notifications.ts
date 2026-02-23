@@ -19,7 +19,7 @@ const loadNativeModules = async () => {
   try {
     const [dev, notif] = await Promise.all([
       import('expo-device'),
-      import('expo-notifications')
+      import('expo-notifications'),
     ]);
     Device = dev;
     Notifications = notif;
@@ -174,7 +174,9 @@ export async function registerPushTokenWithBackend(
         body: JSON.stringify({
           token,
           platform: Platform.OS as 'ios' | 'android',
-          device_name: (Device && Device.modelName) || `${Device?.brand || 'Unknown'} ${Device?.modelId || ''}`,
+          device_name:
+            (Device && Device.modelName) ||
+            `${Device?.brand || 'Unknown'} ${Device?.modelId || ''}`,
           merchant_id: merchantId,
         }),
       }
@@ -199,7 +201,7 @@ export async function registerPushTokenWithBackend(
 export function addNotificationResponseListener(
   callback: (response: any) => void
 ) {
-  if (!Notifications) return { remove: () => { } };
+  if (!Notifications) return { remove: () => {} };
   return Notifications.addNotificationResponseReceivedListener(callback);
 }
 
@@ -209,7 +211,7 @@ export function addNotificationResponseListener(
 export function addNotificationReceivedListener(
   callback: (notification: any) => void
 ) {
-  if (!Notifications) return { remove: () => { } };
+  if (!Notifications) return { remove: () => {} };
   return Notifications.addNotificationReceivedListener(callback);
 }
 

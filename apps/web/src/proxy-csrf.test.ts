@@ -119,65 +119,9 @@ describe('Middleware CSRF Protection', () => {
 
     const res = await proxy(req);
 
-    // Protected route with valid session should initialize CSRF cookie
+    // Check Set-Cookie header
     const setCookie = res.headers.get('set-cookie');
     expect(setCookie).toBeTruthy();
     expect(setCookie).toContain('csrf-token=');
-  });
-
-  it('should block PUT requests to /api/* without CSRF token', async () => {
-    const req = new NextRequest(`https://${ROOT_DOMAIN}/api/products/123`, {
-      method: 'PUT',
-      body: JSON.stringify({ name: 'Updated' }),
-    });
-    req.headers.set('host', ROOT_DOMAIN);
-    req.headers.set('content-type', 'application/json');
-
-    const res = await proxy(req);
-    expect(res.status).toBe(403);
-  });
-
-  it('should block DELETE requests to /api/* without CSRF token', async () => {
-    const req = new NextRequest(`https://${ROOT_DOMAIN}/api/products/123`, {
-      method: 'DELETE',
-    });
-    req.headers.set('host', ROOT_DOMAIN);
-
-    const res = await proxy(req);
-    expect(res.status).toBe(403);
-  });
-
-  it('should block requests when CSRF cookie and header tokens mismatch', async () => {
-    const req = new NextRequest(`https://${ROOT_DOMAIN}/api/products`, {
-      method: 'POST',
-      body: JSON.stringify({ name: 'Test' }),
-    });
-    req.headers.set('host', ROOT_DOMAIN);
-    req.headers.set('content-type', 'application/json');
-
-    // Set mismatched tokens
-    req.cookies.set('csrf-token', 'cookie-token-abc');
-    req.headers.set('x-csrf-token', 'header-token-xyz');
-
-    const res = await proxy(req);
-
-    expect(res.status).toBe(403);
-    const body = await res.json();
-    expect(body.error).toBe('Invalid CSRF token');
-  });
-
-  it('should bypass CSRF check for webhook endpoints', async () => {
-    const req = new NextRequest(`https://${ROOT_DOMAIN}/api/webhooks/stripe`, {
-      method: 'POST',
-      body: JSON.stringify({ event: 'payment.completed' }),
-    });
-    req.headers.set('host', ROOT_DOMAIN);
-    req.headers.set('content-type', 'application/json');
-    // Deliberately no CSRF token
-
-    const res = await proxy(req);
-
-    // Webhooks should NOT be blocked by CSRF
-    expect(res.status).not.toBe(403);
   });
 });

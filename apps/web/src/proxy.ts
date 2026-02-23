@@ -348,10 +348,7 @@ export async function proxy(request: NextRequest) {
     // Check CSRF token for state-changing requests
     const csrfResult = await checkCsrfProtection(request);
     if (!csrfResult.valid) {
-      return (
-        csrfResult.response ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
+      return csrfResult.response as NextResponse;
     }
 
     // ==== INPUT VALIDATION (Mutation Requests) ====
@@ -507,7 +504,7 @@ export async function proxy(request: NextRequest) {
         routeType,
         isLocal,
         nonce, // Pass the pre-generated nonce
-        request,
+        modifiedRequest,
         hostname
       );
     }
@@ -521,7 +518,7 @@ export async function proxy(request: NextRequest) {
         routeType,
         isLocal,
         nonce,
-        request,
+        modifiedRequest,
         hostname
       );
     }

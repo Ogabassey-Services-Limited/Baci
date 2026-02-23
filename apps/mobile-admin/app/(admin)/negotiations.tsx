@@ -88,7 +88,8 @@ export default function NegotiationsScreen() {
       fetchRequests();
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      const message = error instanceof Error ? error.message : `Failed to ${status} request`;
+      const message =
+        error instanceof Error ? error.message : `Failed to ${status} request`;
       Alert.alert('Error', message);
     } finally {
       setActionLoadingId(null);

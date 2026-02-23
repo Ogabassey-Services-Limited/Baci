@@ -227,12 +227,25 @@ export default function SocialMediaScreen() {
 
             {/* Snapchat */}
             <View style={styles.inputGroup}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
                 <Text style={[styles.label, { color: colors.textSecondary }]}>
                   Snapchat Handle
                 </Text>
-                <View style={{ backgroundColor: colors.primary, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
-                  <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>NEW</Text>
+                <View
+                  style={{
+                    backgroundColor: colors.primary,
+                    borderRadius: 4,
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                  }}
+                >
+                  <Text
+                    style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}
+                  >
+                    NEW
+                  </Text>
                 </View>
               </View>
               <View
@@ -356,7 +369,6 @@ export default function SocialMediaScreen() {
                 />
               </View>
             </View>
-
           </View>
         </ScrollView>
       </SafeAreaView>
