@@ -12,3 +12,8 @@
 
 **Learning:** `framer-motion` hooks like `useReducedMotion` may return complex objects (MotionValue) instead of simple booleans depending on the version, which can lead to always-true conditionals if not handled correctly.
 **Action:** Prefer native `window.matchMedia` hooks for simple boolean checks to avoid dependency quirks and ensure reliable accessibility compliance.
+
+## 2026-02-27 - React Native Accessibility Hints
+
+**Learning:** React Native's `accessibilityHint` provides critical context for screen reader users that `accessibilityLabel` alone might miss, especially for icon-only buttons like "Close" or "Share" in modals.
+**Action:** Always add `accessibilityHint` to primary actions in modals to clarify the result of the interaction (e.g., "Closes the modal", "Generates a PDF").
