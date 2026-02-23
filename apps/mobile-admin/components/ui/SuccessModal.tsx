@@ -2,6 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useTheme } from '@/hooks/useTheme';
+import { SPACING, RADIUS, TYPOGRAPHY } from '@/constants/theme';
+
+const WHITE = '#FFFFFF';
+const OVERLAY_COLOR = 'rgba(0, 0, 0, 0.6)';
 
 interface SuccessModalProps {
   visible: boolean;
@@ -18,7 +22,7 @@ export function SuccessModal({
   subMessage,
   onClose,
 }: SuccessModalProps) {
-  const { colors } = useTheme();
+  const { colors, shadows } = useTheme();
 
   return (
     <Modal
@@ -31,7 +35,7 @@ export function SuccessModal({
       <View style={styles.overlay}>
         <Animated.View
           entering={FadeInUp.springify().damping(15)}
-          style={[styles.container, { backgroundColor: colors.card }]}
+          style={[styles.container, { backgroundColor: colors.card }, shadows.lg]}
           accessible={true}
           accessibilityViewIsModal={true}
           accessibilityLabel={`${title} dialog. ${message}`}
@@ -111,29 +115,24 @@ export function SuccessModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: OVERLAY_COLOR,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: SPACING['2xl'],
   },
   container: {
     width: '100%',
     maxWidth: 340,
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: RADIUS['2xl'],
+    padding: SPACING['2xl'],
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 10,
   },
   iconContainer: {
     width: 80,
     height: 80,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: SPACING.xl,
     position: 'relative',
   },
   iconBg: {
@@ -151,40 +150,40 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 12,
+    fontSize: TYPOGRAPHY.size['3xl'],
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    marginBottom: SPACING.md,
     textAlign: 'center',
   },
   message: {
-    fontSize: 16,
+    fontSize: TYPOGRAPHY.size.lg,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
   subMessageContainer: {
     flexDirection: 'row',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 24,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING['2xl'],
     width: '100%',
     alignItems: 'flex-start',
-    gap: 8,
+    gap: SPACING.sm,
   },
   subMessage: {
-    fontSize: 13,
+    fontSize: TYPOGRAPHY.size.sm, // Using sm (12) for secondary text
     flex: 1,
     lineHeight: 18,
   },
   button: {
     width: '100%',
-    paddingVertical: 16,
-    borderRadius: 16,
+    paddingVertical: SPACING.lg,
+    borderRadius: RADIUS.lg,
     alignItems: 'center',
   },
   buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    color: WHITE,
+    fontSize: TYPOGRAPHY.size.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });
