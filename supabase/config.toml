@@ -1,2 +1,5 @@
 [functions.send-auth-email]
 verify_jwt = false
+
+[functions.validate-media-upload]
+verify_jwt = false
