@@ -22,10 +22,6 @@ export function useStoreReadiness() {
         .eq('merchant_id', merchant.id)
         .eq('status', 'active');
 
-      const hasMobileHeroSlides =
-        Array.isArray(merchant.mobile_hero_slides) &&
-        merchant.mobile_hero_slides.length > 0;
-
       const items: SetupItem[] = [
         // === REQUIRED ITEMS ===
         {
@@ -93,9 +89,12 @@ export function useStoreReadiness() {
         {
           id: 'hero_carousel',
           label: 'Set up hero carousel',
-          description: 'Add eye-catching banners to your mobile homepage',
-          completed: hasMobileHeroSlides,
-          href: '/carousel-settings',
+          description: 'Add eye-catching banners to your homepage',
+          // hero_slides might be explicitly typed or strictly array
+          completed:
+            Array.isArray(merchant.hero_slides) &&
+            merchant.hero_slides.length > 0,
+          href: '/customize',
           priority: 'recommended',
           category: 'marketing',
         },

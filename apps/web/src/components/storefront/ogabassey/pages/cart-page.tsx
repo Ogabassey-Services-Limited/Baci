@@ -30,7 +30,6 @@ const AppNegotiateIcon = ({ size = 24, className = "" }: { size?: number; classN
   </svg>
 );
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -41,27 +40,6 @@ import { AdUnit } from '../components/AdUnit';
 import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
 import { CheckoutIdentityModal } from '../components/CheckoutIdentityModal';
-
-const PLACEHOLDER_IMAGE = '/placeholder.png';
-
-function CartItemImage({ src, alt }: { src: string | null | undefined; alt: string }) {
-  const [imgSrc, setImgSrc] = useState(src || PLACEHOLDER_IMAGE);
-
-  return (
-    <Image
-      src={imgSrc}
-      alt={alt}
-      fill
-      sizes="(max-width: 768px) 80px, 112px"
-      className="object-contain mix-blend-multiply"
-      onError={() => {
-        if (imgSrc !== PLACEHOLDER_IMAGE) {
-          setImgSrc(PLACEHOLDER_IMAGE);
-        }
-      }}
-    />
-  );
-}
 
 interface NegotiationState {
   isOpen: boolean;
@@ -240,9 +218,15 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                         href={`/product/${item.id}` as any}
                         className="w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 flex-shrink-0 flex items-center justify-center"
                       >
-                        <div className="relative w-full h-full">
-                          <CartItemImage src={item.image} alt={item.name} />
-                        </div>
+                        <img
+                          src={item.image || '/placeholder.png'}
+                          alt={item.name}
+                          className="w-full h-full object-contain mix-blend-multiply"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null; // Prevent infinite loop
+                            e.currentTarget.src = '/placeholder.png';
+                          }}
+                        />
                       </Link>
 
                       {/* Content */}

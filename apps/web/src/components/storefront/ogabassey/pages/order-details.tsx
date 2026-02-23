@@ -1,43 +1,38 @@
 'use client';
 
-import {
-  CheckCircle2,
-  ChevronLeft,
-  Clock,
-  CreditCard,
-  Download,
-  MapPin,
-  Package,
-  ShoppingBag,
-  Truck,
-  XCircle,
-} from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import type React from 'react';
 import { useState, useEffect, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { EmptyState } from '../components/empty-state';
+import { OrderItemsList } from '../components/order-items-list';
+import { OrderSummarySidebar } from '../components/order-summary-sidebar';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
+import { useStoreSlug } from '@/hooks/use-store-slug';
+import { getStatusColor, getStatusIcon } from '@/lib/order-status-utils';
 import { createClient } from '@/lib/supabase/client';
+import type { StorefrontOrder } from '@/types/storefront-order';
+import type { PaymentStatus, ShippingStatus } from '@baci/shared/types';
 
-// Hook to extract store slug from pathname
-function useStoreSlug() {
-  const pathname = usePathname();
-  const pathSegments = pathname?.split('/').filter(Boolean) || [];
-  const knownRoutes = ['account', 'cart', 'checkout', 'products', 'wishlist', 'wallet', 'repairs', 'imei-check', 'pages', 'orders'];
-  const firstSegment = pathSegments[0] || '';
-  return knownRoutes.includes(firstSegment) ? '' : firstSegment;
-}
+/** Valid values for runtime checks on realtime payloads. */
+const VALID_SHIPPING_STATUSES: readonly string[] = [
+  'pending', 'processing', 'shipped', 'delivered', 'cancelled', 'returned',
+];
+const VALID_PAYMENT_STATUSES: readonly string[] = [
+  'paid', 'unpaid', 'pending', 'failed', 'refunded', 'partially_paid',
+  'bnpl_approved', 'bnpl_pending',
+];
 
 export const OgabasseyV2OrderDetails: React.FC = () => {
-  const params = useParams(); // Get ID from URL
+  const params = useParams();
   const { customer: _customer, isAuthenticated: _isAuthenticated } = useCustomerAuth();
   const storeSlug = useStoreSlug();
-  const getUrl = (path: string) => storeSlug ? `/${storeSlug}${path}` : path;
+  const getUrl = (path: string): string => storeSlug ? `/${storeSlug}${path}` : path;
   const router = useRouter();
 
-  const [order, setOrder] = useState<any | null>(null);
+  const [order, setOrder] = useState<StorefrontOrder | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Realtime subscription channel ref for cleanup
@@ -46,19 +41,21 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
   // Fetch Order
   useEffect(() => {
     const fetchOrder = async () => {
-      // If we don't have an ID yet, or not authenticated (though page might be public-ish for guest checkout tracking, usually requires auth for 'My Orders')
       const orderId = params?.id;
       if (!orderId) return;
 
       setLoading(true);
       try {
-        // Use the single order API endpoint
         const res = await fetch(`/api/storefront/orders/${orderId}`);
         if (!res.ok) {
           throw new Error('Order not found');
         }
-        const data = await res.json();
-        setOrder(data);
+        const data: unknown = await res.json();
+        if (data !== null && typeof data === 'object' && 'id' in data && 'items' in data) {
+          setOrder(data as StorefrontOrder);
+        } else {
+          throw new Error('Unexpected order response shape');
+        }
       } catch (err) {
         console.error('Failed to fetch order', err);
         setOrder(null);
@@ -78,7 +75,6 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
 
     const supabase = createClient();
 
-    // Create a unique channel for this order
     const channel = supabase
       .channel(`order-${orderId}`)
       .on(
@@ -90,33 +86,43 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
           filter: `id=eq.${orderId}`,
         },
         (payload) => {
-          console.log('[Realtime] Order updated:', payload);
-
-          // Update the order state with new data from realtime
           const newData = payload.new as Record<string, unknown>;
           if (newData) {
-            setOrder((prevOrder: any) => {
+            setOrder((prevOrder) => {
               if (!prevOrder) return prevOrder;
               return {
                 ...prevOrder,
-                status: newData.status ?? prevOrder.status,
-                shipping_status: newData.shipping_status ?? prevOrder.shipping_status,
-                payment_status: newData.payment_status ?? prevOrder.payment_status,
-                tracking_number: newData.tracking_number ?? prevOrder.tracking_number,
-                tracking_url: newData.tracking_url ?? prevOrder.tracking_url,
-                updated_at: newData.updated_at ?? prevOrder.updated_at,
+                shipping_status:
+                  typeof newData.shipping_status === 'string' &&
+                  VALID_SHIPPING_STATUSES.includes(newData.shipping_status)
+                    ? (newData.shipping_status as ShippingStatus)
+                    : prevOrder.shipping_status,
+                payment_status:
+                  typeof newData.payment_status === 'string' &&
+                  VALID_PAYMENT_STATUSES.includes(newData.payment_status)
+                    ? (newData.payment_status as PaymentStatus)
+                    : prevOrder.payment_status,
+                tracking_number:
+                  typeof newData.tracking_number === 'string'
+                    ? newData.tracking_number
+                    : prevOrder.tracking_number,
+                tracking_url:
+                  typeof newData.tracking_url === 'string'
+                    ? newData.tracking_url
+                    : prevOrder.tracking_url,
+                updated_at:
+                  typeof newData.updated_at === 'string'
+                    ? newData.updated_at
+                    : prevOrder.updated_at,
               };
             });
           }
         }
       )
-      .subscribe((status) => {
-        console.log('[Realtime] Subscription status:', status);
-      });
+      .subscribe();
 
     channelRef.current = channel;
 
-    // Cleanup: unsubscribe on unmount to prevent memory leaks
     return () => {
       if (channelRef.current) {
         channelRef.current.unsubscribe();
@@ -126,62 +132,18 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
   }, [params?.id]);
 
   const handleBuyAgain = () => {
-    // Implementation for re-ordering would go here
-    // For now, redirect to product page of first item or cart
     if (order?.items?.[0]) {
       router.push(getUrl(`/product/${order.items[0].product_id}`) as any);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    const s = status?.toLowerCase();
-    if (s === 'processing' || s === 'pending') return 'bg-blue-50 text-blue-600 border-blue-100';
-    if (s === 'delivered') return 'bg-green-50 text-green-600 border-green-100';
-    if (s === 'cancelled') return 'bg-red-50 text-red-600 border-red-100';
-    if (s === 'shipped') return 'bg-amber-50 text-amber-600 border-amber-100';
-    return 'bg-gray-50 text-gray-600 border-gray-100';
-  };
-
-  const getStatusIcon = (status: string) => {
-    const s = status?.toLowerCase();
-    if (s === 'processing' || s === 'pending') return <Clock size={16} />;
-    if (s === 'delivered') return <CheckCircle2 size={16} />;
-    if (s === 'cancelled') return <XCircle size={16} />;
-    if (s === 'shipped') return <Truck size={16} />;
-    return <Package size={16} />;
-  };
-
-  const PaymentDisplay = ({ provider }: { provider?: string }) => {
-    if (!provider) return <span>Not Specified</span>;
-    const p = provider.toLowerCase();
-
-    // Use styled badges instead of external images (CDN URLs were breaking)
-    // Color code by provider for visual distinction
-    let bgColor = 'bg-gray-100';
-    let textColor = 'text-gray-800';
-
-    if (p.includes('paystack')) {
-      bgColor = 'bg-blue-50';
-      textColor = 'text-blue-700';
-    } else if (p.includes('credpal') || p.includes('credit')) {
-      bgColor = 'bg-purple-50';
-      textColor = 'text-purple-700';
-    } else if (p.includes('kora')) {
-      bgColor = 'bg-green-50';
-      textColor = 'text-green-700';
-    }
-
-    return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-md text-sm font-medium ${bgColor} ${textColor}`}>
-        {provider}
-      </span>
-    );
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center pt-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+        <div
+          className="animate-spin rounded-full h-8 w-8 border-b-2"
+          style={{ borderColor: 'var(--store-primary, #dc2626)' }}
+        />
       </div>
     );
   }
@@ -193,7 +155,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
           title="Order Not Found"
           description="We couldn't find the order you are looking for."
           actionLabel="Back to Orders"
-          actionLink={getUrl('/account/orders')}
+          actionLink={getUrl('/account/orders') as any}
           variant="generic"
         />
       </div>
@@ -214,7 +176,8 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
           <div>
             <h1 className="text-xl font-bold text-gray-900">Order Details</h1>
             <p className="text-xs text-gray-500">
-              #{order.order_number || order.id?.slice(0, 8)} • {new Date(order.created_at || Date.now()).toLocaleDateString()}
+              #{order.order_number || order.id.slice(0, 8)} &bull;{' '}
+              {new Date(order.created_at || Date.now()).toLocaleDateString()}
             </p>
           </div>
         </div>
@@ -229,17 +192,23 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                 <span
                   className={`text-xs font-bold px-3 py-1 rounded-full border flex items-center gap-1.5 uppercase tracking-wide ${getStatusColor(order.shipping_status || 'Pending')}`}
                 >
-                  {getStatusIcon(order.shipping_status || 'Pending')} {order.shipping_status || 'Pending'}
+                  {getStatusIcon(order.shipping_status || 'Pending')}{' '}
+                  {order.shipping_status || 'Pending'}
                 </span>
               </div>
-              {/* Progress Bar (Visual only for now - Mapping status) */}
+              {/* Progress Bar */}
               <div className="relative pt-4 pb-2">
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${(order.shipping_status === 'Delivered') ? 'bg-green-500 w-full' :
-                      (order.shipping_status === 'Shipped') ? 'bg-blue-500 w-2/3' :
-                        (order.shipping_status === 'Processing') ? 'bg-amber-500 w-1/3' : 'bg-gray-300 w-1/12'
-                      }`}
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      order.shipping_status === 'delivered'
+                        ? 'bg-green-500 w-full'
+                        : order.shipping_status === 'shipped'
+                          ? 'bg-blue-500 w-2/3'
+                          : order.shipping_status === 'processing'
+                            ? 'bg-amber-500 w-1/3'
+                            : 'bg-gray-300 w-1/12'
+                    }`}
                   />
                 </div>
                 <div className="flex justify-between text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-wide">
@@ -251,113 +220,10 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
               </div>
             </div>
 
-            {/* Items List */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-gray-50 bg-gray-50/50 flex justify-between items-center">
-                <h2 className="font-bold text-gray-900 text-sm">
-                  Items ({order.items?.length || 0})
-                </h2>
-              </div>
-              <div className="p-4 space-y-4">
-                {order.items?.map((item: any) => (
-                  <div
-                    key={item.id}
-                    className="flex gap-4 items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0"
-                  >
-                    <Link
-                      href={`/product/${item.product_id}` as any}
-                      className="w-20 h-20 bg-gray-50 rounded-xl p-2 border border-gray-100 flex-shrink-0 block"
-                    >
-                      <img
-                        src={item.product_image || item.image || '/placeholder.png'}
-                        alt={item.product_name || item.name}
-                        className="w-full h-full object-contain mix-blend-multiply"
-                      />
-                    </Link>
-                    <div className="flex-1 min-w-0">
-                      <Link href={`/product/${item.product_id}` as any}>
-                        <h3 className="font-bold text-gray-900 text-sm mb-1 hover:text-red-600 transition-colors">
-                          {item.product_name || item.name}
-                        </h3>
-                      </Link>
-                      <p className="text-xs text-gray-500 mb-2">
-                        Qty: {item.quantity}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-gray-900">
-                          {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(item.price || 0)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <OrderItemsList items={order.items} getUrl={getUrl} />
           </div>
 
-          {/* Sidebar */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Order Summary */}
-            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-              <h3 className="font-bold text-gray-900 text-sm mb-4">
-                Order Summary
-              </h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between text-gray-500">
-                  <span>Subtotal</span>
-                  <span>{new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.subtotal || order.total || 0)}</span>
-                </div>
-                <div className="flex justify-between text-gray-500">
-                  <span>Delivery</span>
-                  <span>{order.shipping_cost ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.shipping_cost) : <span className="text-green-600">Free</span>}</span>
-                </div>
-                <div className="border-t border-dashed border-gray-200 pt-3 flex justify-between font-bold text-lg text-gray-900">
-                  <span>Total</span>
-                  <span>{new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.total || 0)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Delivery & Payment Info */}
-            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-6">
-              <div>
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <MapPin size={14} /> Delivery Details
-                </h4>
-                <p className="text-sm font-bold text-gray-900">
-                  {order.shipping_provider || 'Standard Delivery'}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {order.shipping_address || 'No address provided'}
-                </p>
-              </div>
-              <div className="border-t border-gray-50 pt-4">
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <CreditCard size={14} /> Payment Method
-                </h4>
-                <div className="mt-2 text-sm font-bold text-gray-900">
-                  <PaymentDisplay provider={order.payment_provider || order.paymentMethod} />
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="space-y-3">
-              <button
-                type="button"
-                className="w-full bg-white border border-gray-200 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 shadow-sm"
-              >
-                <Download size={18} /> Download Invoice
-              </button>
-              <button
-                type="button"
-                onClick={handleBuyAgain}
-                className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 shadow-lg active:scale-95"
-              >
-                <ShoppingBag size={18} /> Buy Again
-              </button>
-            </div>
-          </div>
+          <OrderSummarySidebar order={order} onBuyAgain={handleBuyAgain} />
         </div>
       </div>
     </div>

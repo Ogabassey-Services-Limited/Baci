@@ -12,12 +12,26 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import type React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Product } from '../types';
 import { getProductUrl } from '@/lib/seo-utils';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
-import { stripHtmlTags } from '@/lib/sanitize-core';
+
+/**
+ * Safely strips HTML tags from a string using iterative approach
+ * to prevent bypass via nested tags like <<script>script>
+ */
+function stripHtml(html: string): string {
+  if (!html) return '';
+  let result = html;
+  let prev = '';
+  while (result !== prev) {
+    prev = result;
+    result = result.replace(/<[^>]*>/g, '');
+  }
+  return result;
+}
 
 interface ProductGridItemProps {
   product: Product;
@@ -62,12 +76,6 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   useEffect(() => {
     setIsImageLoaded(false);
   }, []);
-
-  const shortDescription = useMemo(() => {
-    const raw = product.description || '';
-    const stripped = stripHtmlTags(raw);
-    return stripped.replace(/What is the .*? Price in Nigeria\??/i, '').trim();
-  }, [product.description]);
 
   const handlePrevColor = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -284,8 +292,8 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         <p
           className={`text-gray-400 text-[11px] mb-2 line-clamp-1 ${viewMode === 'list' ? 'block' : 'hidden md:block'}`}
         >
-          {shortDescription.slice(0, 60)}
-          {shortDescription.length > 60 ? '...' : ''}
+          {stripHtml(product.description || '').replace(/What is the .*? Price in Nigeria\??/i, '').trim().slice(0, 60)}
+          {stripHtml(product.description || '').replace(/What is the .*? Price in Nigeria\??/i, '').trim().length > 60 ? '...' : ''}
           <span className="text-primary font-medium ml-1">View specs →</span>
         </p>
 
