@@ -41,6 +41,8 @@ interface AuthState {
   isLoading: boolean;
   isInitialized: boolean;
   error: string | null;
+  // Internal: generation counter to invalidate stale initializations
+  _initGen: number;
 
   // Actions
   initialize: () => Promise<void>;
@@ -81,6 +83,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   } | null,
   // 2026 Critical Fix: Prevent multiple concurrent initialize calls
   _initializationInProgress: false as boolean,
+  _initGen: 0,
 
   // Initialize auth state
   initialize: async () => {
@@ -91,7 +94,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
-    set({ _initializationInProgress: true } as Partial<AuthState>);
+    const initGen = Date.now();
+    set({
+      _initializationInProgress: true,
+      _initGen: initGen,
+    } as Partial<AuthState>);
 
     try {
       set({ isLoading: true, error: null });
@@ -102,6 +109,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         .select('id')
         .eq('slug', MERCHANT_SLUG)
         .single();
+
+      if (get()._initGen !== initGen) return;
 
       // 2026 Best Practice: Validate merchant data
       const merchantValidation = MerchantRowSchema.safeParse(merchant);
@@ -131,6 +140,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: sessionError,
       } = await supabase.auth.getSession();
 
+      if (get()._initGen !== initGen) return;
+
       if (sessionError) {
         throw sessionError;
       }
@@ -138,6 +149,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // After getting session, validate JWT with server
       if (session) {
         const { error: userError } = await supabase.auth.getUser();
+
+        if (get()._initGen !== initGen) return;
+
         if (userError) {
           // Session is invalid/expired — clear and return in guest mode
           log.warn('Session JWT validation failed:', userError.message);
@@ -176,6 +190,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           .eq('email', session.user.email)
           .single();
 
+        if (get()._initGen !== initGen) return;
+
         // Create customer record if it doesn't exist (mirrors auth listener logic)
         // This covers the case where a user returns with an active session but
         // no customer record — the SIGNED_IN event won't fire for existing sessions.
@@ -194,6 +210,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             })
             .select('id, email, first_name, last_name, phone, loyalty_points')
             .single();
+
+          if (get()._initGen !== initGen) return;
 
           customerData = newCustomer;
         }
@@ -216,6 +234,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               .eq('merchant_id', merchantValidation.data.id)
               .select('id, email, first_name, last_name, phone, loyalty_points')
               .single();
+
+            if (get()._initGen !== initGen) return;
 
             if (updated) customerData = updated;
           }
@@ -385,11 +405,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       );
 
       // Store subscription reference for cleanup (2026 Critical Fix)
+      if (get()._initGen !== initGen) {
+        log.debug('Initialization cancelled/superseded, unsubscribing listener');
+        authListener.subscription.unsubscribe();
+        return;
+      }
+
       set({
         _authSubscription: authListener,
         _initializationInProgress: false,
       } as Partial<AuthState>);
     } catch (error) {
+      if (get()._initGen !== initGen) return;
+
       log.error('Auth initialization error:', error);
       set({
         error: error instanceof Error ? error.message : 'Failed to initialize',
@@ -402,6 +430,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   // 2026 Critical Fix: Cleanup auth subscription to prevent memory leaks
   cleanup: () => {
+    // Invalidate pending initializations
+    set({
+      _initGen: Date.now(),
+      _initializationInProgress: false,
+    } as Partial<AuthState>);
+
     const state = get() as AuthState & {
       _authSubscription: { subscription: { unsubscribe: () => void } } | null;
     };
