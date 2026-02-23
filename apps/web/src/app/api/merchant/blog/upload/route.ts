@@ -11,22 +11,19 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_BLOG_IMAGE_SIZE_LABEL,
+  MIME_TO_EXT,
+} from '@/schemas/blog-upload';
 
 const deleteBodySchema = z.object({
   path: z.string().min(1, 'No path provided'),
 });
 
-// Maximum file size: 5MB
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
-
-// Allowed image types
-const ALLOWED_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/avif',
-];
+// Legacy route: Keep 4MB limit for Vercel serverless body limit (4.5MB cap).
+// New uploads should use the signed URL flow via the Server Action which supports 10MB.
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
   try {
@@ -134,30 +131,29 @@ export async function POST(request: NextRequest) {
     const file = entry;
 
     // Validate file type
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (
+      !ALLOWED_IMAGE_TYPES.includes(
+        file.type as (typeof ALLOWED_IMAGE_TYPES)[number]
+      )
+    ) {
       return NextResponse.json(
         { error: 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP, AVIF' },
         { status: 400 }
       );
     }
 
-    // Validate file size
+    // Validate file size (legacy route has 4MB limit due to Vercel serverless body cap)
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: 'File too large. Maximum size is 5MB' },
+        {
+          error: `File too large. Maximum size is ${MAX_BLOG_IMAGE_SIZE_LABEL} (use the new upload flow for larger files)`,
+        },
         { status: 400 }
       );
     }
 
     // Map validated MIME type to extension (don't trust filename)
-    const mimeToExt: Record<string, string> = {
-      'image/jpeg': 'jpg',
-      'image/png': 'png',
-      'image/gif': 'gif',
-      'image/webp': 'webp',
-      'image/avif': 'avif',
-    };
-    const extension = mimeToExt[file.type] || 'jpg';
+    const extension = MIME_TO_EXT[file.type] || 'jpg';
     const filename = `${nanoid(12)}.${extension}`;
 
     // Path: merchant_id/blog/filename (merchant ID first for storage policy)
