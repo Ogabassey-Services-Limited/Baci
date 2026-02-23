@@ -155,19 +155,36 @@ echo "info: Wrote '$ios_dir/.xcode.env.local'"
 
 cd "$ios_dir"
 
-# Pin CocoaPods to the same version used to generate Podfile.lock so that
-# --deployment mode sees identical checksums and specs.
+# Pin CocoaPods to the same version used to generate Podfile.lock for
+# reproducibility. Note: --deployment is NOT used because dynamic podspecs
+# (e.g. react-native-webview) resolve differently during Expo autolinking,
+# causing false-positive "changes to podfile" errors. Podfile.lock in VCS
+# still ensures deterministic installs.
 required_cocoapods_version="$(sed -n 's/^COCOAPODS: *//p' Podfile.lock 2>/dev/null || true)"
+
+# Build a version-pinned pod command using the RubyGems _VERSION_ specifier so
+# the exact CocoaPods gem is invoked even if a different version is pre-installed.
+# Intentional word-splitting: "pod _1.16.2_" must expand to two words.
+# SC2086 is suppressed at each $pod_cmd invocation site below.
+if [ -n "$required_cocoapods_version" ]; then
+  pod_cmd="pod _${required_cocoapods_version}_"
+else
+  pod_cmd="pod"
+fi
+
 if [ -n "$required_cocoapods_version" ]; then
   current_cocoapods_version="$(pod --version 2>/dev/null || true)"
   if [ "$current_cocoapods_version" != "$required_cocoapods_version" ]; then
     echo "info: Podfile.lock requires CocoaPods $required_cocoapods_version (current: ${current_cocoapods_version:-none})"
     echo "info: Installing CocoaPods $required_cocoapods_version via gem"
     gem install cocoapods -v "$required_cocoapods_version" --no-document
-    echo "info: CocoaPods $(pod --version) now active"
+    # shellcheck disable=SC2086
+    echo "info: CocoaPods $($pod_cmd --version) now active"
   else
     echo "info: CocoaPods $current_cocoapods_version matches Podfile.lock"
   fi
+else
+  echo "warning: Could not extract CocoaPods version from Podfile.lock (missing or malformed). Using system default: $(pod --version 2>/dev/null || echo 'none')." >&2
 fi
 
 # Xcode Cloud images may ship with a stale or partial CocoaPods trunk repo that
@@ -181,9 +198,11 @@ fi
 
 if [ "${CI_POD_ALLOW_REPO_UPDATE:-0}" = "1" ]; then
   echo "info: Running pod install with repo updates enabled."
-  pod install --deployment --repo-update
+  # shellcheck disable=SC2086
+  $pod_cmd install --repo-update
 else
-  pod install --deployment --no-repo-update
+  # shellcheck disable=SC2086
+  $pod_cmd install --no-repo-update
 fi
 
 echo "info: CocoaPods installation finished for '$app_dir'"
