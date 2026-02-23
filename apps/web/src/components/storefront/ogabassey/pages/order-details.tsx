@@ -132,7 +132,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
     // For now, redirect to product page of first item or cart
     if (order?.items?.[0]) {
       // biome-ignore lint/suspicious/noExplicitAny: Dynamic route handling for multi-tenant storefronts
-      router.push(getUrl(`/product/${order.items[0].product_id}`) as any);
+      router.push(getUrl(`/product/${order.items[0].product_id}`) as string & {});
     }
   };
 
@@ -226,7 +226,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
         <div className="flex items-center gap-4 mb-6">
           {/* biome-ignore lint/suspicious/noExplicitAny: Dynamic route handling for multi-tenant storefronts */}
           <Link
-            href={getUrl('/account/orders') as any}
+            href={getUrl('/account/orders') as string & {}}
             className="p-2 hover:bg-white rounded-full transition-colors text-gray-500 hover:text-gray-900 border border-transparent hover:border-gray-200"
           >
             <ChevronLeft size={20} />
@@ -285,7 +285,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                     className="flex gap-4 items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0"
                   >
                     <Link
-                      href={getUrl(`/product/${item.product_id}`)}
+                      href={getUrl(`/product/${item.product_id}`) as string & {}}
                       className="w-20 h-20 bg-gray-50 rounded-xl p-2 border border-gray-100 flex-shrink-0 block"
                     >
                       <Image
@@ -297,7 +297,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                       />
                     </Link>
                     <div className="flex-1 min-w-0">
-                      <Link href={getUrl(`/product/${item.product_id}`)}>
+                      <Link href={getUrl(`/product/${item.product_id}`) as string & {}}>
                         <h3 className="font-bold text-gray-900 text-sm mb-1 hover:text-red-600 transition-colors">
                           {item.product_name || item.name}
                         </h3>
