@@ -155,8 +155,11 @@ echo "info: Wrote '$ios_dir/.xcode.env.local'"
 
 cd "$ios_dir"
 
-# Pin CocoaPods to the same version used to generate Podfile.lock so that
-# --deployment mode sees identical checksums and specs.
+# Pin CocoaPods to the same version used to generate Podfile.lock for
+# reproducibility. Note: --deployment is NOT used because dynamic podspecs
+# (e.g. react-native-webview) resolve differently during Expo autolinking,
+# causing false-positive "changes to podfile" errors. Podfile.lock in VCS
+# still ensures deterministic installs.
 required_cocoapods_version="$(sed -n 's/^COCOAPODS: *//p' Podfile.lock 2>/dev/null || true)"
 if [ -n "$required_cocoapods_version" ]; then
   current_cocoapods_version="$(pod --version 2>/dev/null || true)"
@@ -181,9 +184,9 @@ fi
 
 if [ "${CI_POD_ALLOW_REPO_UPDATE:-0}" = "1" ]; then
   echo "info: Running pod install with repo updates enabled."
-  pod install --deployment --repo-update
+  pod install --repo-update
 else
-  pod install --deployment --no-repo-update
+  pod install --no-repo-update
 fi
 
 echo "info: CocoaPods installation finished for '$app_dir'"
