@@ -67,7 +67,6 @@ exclude = [
   "openai\\.com",
   "npmjs\\.com",
   "paystack\\.com",
-  "business-api\\.tiktok\\.com",
   "places\\.googleapis\\.com/v1",
   "kuda-openapi\\.kuda\\.com",
   "creditdirect\\.ng",
