@@ -181,27 +181,53 @@ export function generateProductSchema(
   product: Product,
   merchantName: string = 'Baci Store',
   currency: string = 'USD',
-  country: string = 'NG' // Default to Nigeria
+  country: string = 'NG', // Default to Nigeria
+  merchantLogo?: string
 ): ProductSchemaMarkup & Record<string, unknown> {
   // Sanitize all user-controlled string values to prevent XSS in JSON-LD context
   const safeName = escapeHtml(product.name);
-  const safeDescription = escapeHtml(
-    product.meta_description || product.description
-  );
+
+  // Provide a smart fallback for description to prevent "Missing field description" errors
+  const rawDescription = product.meta_description || product.description;
+  const safeDescription = rawDescription
+    ? escapeHtml(rawDescription)
+    : `Buy ${safeName} from ${escapeHtml(merchantName)}. Best prices, fast delivery, and secure payments.`;
+
   const safeBrand = escapeHtml(product.brand || merchantName);
   const safeMerchantName = escapeHtml(merchantName);
-  const safeImages =
-    product.images?.map((img) => escapeHtml(img.url)) ||
-    (product.imageLarge ? [escapeHtml(product.imageLarge)] : []) ||
-    (product.image ? [escapeHtml(product.image)] : []); // Added fallback to product.image
+
+  // Extract images — handle both {url: string} objects and plain string entries defensively
+  let safeImages: string[] = [];
+  if (product.images && product.images.length > 0) {
+    safeImages = product.images
+      .map((img) => {
+        const raw = typeof img === 'string' ? img : img?.url;
+        return raw ? escapeHtml(raw) : '';
+      })
+      .filter(Boolean);
+  } else if (product.imageLarge) {
+    safeImages = [escapeHtml(product.imageLarge)];
+  } else if (product.image) {
+    safeImages = [escapeHtml(product.image)];
+  }
+
+  // Filter out any empty strings
+  safeImages = safeImages.filter((img) => img.trim() !== '');
+
+  // If no product images exist, use merchant logo as absolute fallback to satisfy Google Merchant requirements
+  const finalImages =
+    safeImages.length > 0
+      ? safeImages
+      : merchantLogo
+        ? [escapeHtml(merchantLogo)]
+        : undefined;
 
   const schema: ProductSchemaMarkup & Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: safeName,
     description: safeDescription,
-    image:
-      safeImages.length > 0 ? safeImages : [escapeHtml(product.image || '')], // Ensure at least one image
+    ...(finalImages && { image: finalImages }),
     brand: {
       '@type': 'Brand',
       name: safeBrand,
@@ -740,17 +766,22 @@ export function generateProductSchema(
         : safeName;
 
       // Variant images: use variant-specific images if available, fall back to parent images
-      const variantImages =
-        variant.images && variant.images.length > 0
-          ? variant.images.map((img) => escapeHtml(img))
-          : safeImages.length > 0
-            ? safeImages
-            : [escapeHtml(product.image || '')];
+      let variantImages: string[] | undefined;
+      if (variant.images && variant.images.length > 0) {
+        const filtered = variant.images
+          .map((img) => escapeHtml(img))
+          .filter((img) => img.trim() !== '');
+        if (filtered.length > 0) variantImages = filtered;
+      }
+
+      if (!variantImages) {
+        variantImages = finalImages;
+      }
 
       return {
         '@type': 'Product',
         name: variantName,
-        image: variantImages,
+        ...(variantImages && { image: variantImages }),
         sku: variant.sku ? escapeHtml(variant.sku) : variant.id,
         offers: {
           '@type': 'Offer',

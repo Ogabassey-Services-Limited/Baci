@@ -49,7 +49,6 @@ overrides:
   '@modelcontextprotocol/sdk>ajv': ^8.18.0
   expo-build-properties>ajv: ^8.18.0
   expo-dev-launcher>ajv: ^8.18.0
-  esbuild: ^0.25.0
 
 patchedDependencies:
   expo-clipboard@8.0.8:
