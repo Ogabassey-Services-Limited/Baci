@@ -215,11 +215,9 @@ export function RelatedProducts({
                         {p.name}
                       </h3>
                     </Link>
-                    {/* biome-ignore lint/suspicious/noExplicitAny: Product type lacks categories join */}
-                    {((p as any).categories?.name || p.category) && (
+                    {(p.categories?.name || p.category) && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {/* biome-ignore lint/suspicious/noExplicitAny: Product type lacks categories join */}
-                        {(p as any).categories?.name || p.category}
+                        {p.categories?.name || p.category}
                       </p>
                     )}
                     <div className="flex items-center justify-between mt-2">

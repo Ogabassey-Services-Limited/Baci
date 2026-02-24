@@ -57,15 +57,11 @@ export function BrandProducts({
 
   // Derive brand and category from current product
   const productBrand = product.brand;
-  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
-  const categoriesName = (product as any).categories?.name;
-  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
-  const categoryFallback = (product as any).category;
+  const categoriesName = product.categories?.name;
+  const categoryFallback = product.category;
   const productCategory = categoriesName || categoryFallback || '';
-  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
-  const categoriesSlug = (product as any).categories?.slug;
-  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
-  const categorySlugFallback = (product as any).category_slug;
+  const categoriesSlug = product.categories?.slug;
+  const categorySlugFallback = product.category_slug;
   const categorySlug =
     categoriesSlug || categorySlugFallback || productCategory.toLowerCase();
 
