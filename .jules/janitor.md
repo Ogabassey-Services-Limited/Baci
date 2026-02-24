@@ -1,7 +1,6 @@
 # Janitor's Journal
 
 ## 2026-02-12 - Mobile Admin Tooling Divergence
-
 **Learning:** `apps/mobile-admin` diverges significantly from the rest of the monorepo's tooling standards:
 1. It uses `expo lint` (ESLint) instead of the project-standard Biome.
 2. It lacks a `typecheck` script in `package.json`, causing `pnpm turbo typecheck` to skip it entirely.
