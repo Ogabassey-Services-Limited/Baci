@@ -142,7 +142,13 @@ export default function OrderReportModal({
                 Orders Report
               </Text>
             </View>
-            <Pressable onPress={onClose} hitSlop={10}>
+            <Pressable
+              onPress={onClose}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Close report"
+              accessibilityHint="Closes the report modal"
+            >
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </Pressable>
           </View>
@@ -188,6 +194,9 @@ export default function OrderReportModal({
                       gap: 4,
                       padding: 4,
                     }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Change date range"
+                    accessibilityHint="Opens date range preset menu"
                   >
                     <Text
                       style={{
@@ -229,6 +238,8 @@ export default function OrderReportModal({
                           setShowDropdown(false);
                           onPresetSelect?.(preset);
                         }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Select ${preset}`}
                       >
                         <Text
                           style={[styles.dropdownText, { color: colors.text }]}
@@ -243,6 +254,8 @@ export default function OrderReportModal({
                         setShowDropdown(false);
                         onDateSelect?.();
                       }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Select custom date range"
                     >
                       <Text
                         style={[
@@ -354,6 +367,9 @@ export default function OrderReportModal({
               ]}
               onPress={handleExport}
               disabled={isExporting || isExportingPDF}
+              accessibilityRole="button"
+              accessibilityLabel="Export as CSV"
+              accessibilityState={{ disabled: isExporting || isExportingPDF, busy: isExporting }}
             >
               {isExporting ? (
                 <ActivityIndicator color={colors.text} size="small" />
@@ -376,6 +392,9 @@ export default function OrderReportModal({
               ]}
               onPress={handleExportPDF}
               disabled={isExporting || isExportingPDF}
+              accessibilityRole="button"
+              accessibilityLabel="Download PDF Report"
+              accessibilityState={{ disabled: isExporting || isExportingPDF, busy: isExportingPDF }}
             >
               {isExportingPDF ? (
                 <ActivityIndicator color="#FFF" size="small" />
