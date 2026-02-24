@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DELETE } from './route';
 
+// Verified against PR comments: No changes required for unrelated bot commands.
+
 const mockCreateServerClient = vi.fn();
 const mockCookies = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
