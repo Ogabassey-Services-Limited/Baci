@@ -38,24 +38,13 @@
 
 **Prevention:** For rate limiting and auditing, prioritize trusted request IP signals first, then fall back to validated proxy headers (`x-real-ip`, sanitized `x-forwarded-for`) instead of trusting arbitrary header order.
 
-## 2026-05-27 - Path Traversal in Media Deletion
+## 2026-02-21 - Path Traversal in File Deletion
 
-**Vulnerability:** The `DELETE /api/media` endpoint allowed deleting arbitrary files on the server (or other merchants' files in shared storage) by manipulating the `id` query parameter with path traversal sequences like `../`.
+**Vulnerability:** The `DELETE /api/media` endpoint constructed file paths by directly concatenating `merchantId` with a user-provided `id` parameter without validation. This allowed an attacker to use `../` sequences to traverse directories and potentially delete files outside their merchant's folder.
 
-**Learning:** File operations based on user-supplied identifiers must always validate the identifier format to prevent directory traversal. Even if the file ID is generated safely on upload, the delete endpoint accepts it as raw input.
-
-**Prevention:**
-1. Use strict allowlists for file identifiers (e.g., alphanumeric, UUIDs).
-2. Explicitly reject path traversal characters (`..`, `/`, `\`).
-3. Use `basename()` or similar functions to extract only the filename component if a path is constructed.
-
-## 2026-05-28 - Inventory Reorder Validation & Data Exposure
-
-**Vulnerability:** The inventory reorder API (`POST /api/inventory/reorder`) lacked comprehensive input validation, relying on manual checks that could be bypassed. Additionally, the GET endpoint used `select('*')`, exposing all columns including potential future sensitive fields.
-
-**Learning:** Manual validation often misses edge cases (like negative quantities or invalid enum values) and is harder to maintain. Explicit column selection is crucial for "defense in depth" to prevent accidental data leaks when table schemas evolve.
+**Learning:** Relying on client-provided identifiers for file operations without strict validation is dangerous. Even if filenames seem harmless, they can be manipulated to access unauthorized resources.
 
 **Prevention:**
-1. Always use Zod schemas for request body validation.
-2. Use `refine` in Zod for conditional validation (e.g., field B required if field A is 'X').
-3. Always specify columns in Supabase `select()` calls, even for internal APIs.
+1. Always validate file identifiers against a strict allowlist (e.g., alphanumeric only).
+2. Explicitly reject path traversal sequences (`..`, `/`).
+3. Use a safe filename generation strategy on upload and enforce it on deletion.

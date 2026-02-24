@@ -241,11 +241,11 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'File ID required' }, { status: 400 });
   }
 
-  // Validate fileId to prevent path traversal
-  // fileId should only contain alphanumeric characters, dots, and hyphens
-  // It is generated as `${timestamp}-${randomStr}.${ext}`
+  // Validate file ID to prevent path traversal
+  // Only allow alphanumeric characters, dots, and hyphens
+  // Explicitly reject ".." to prevent directory traversal
   if (!/^[a-zA-Z0-9.-]+$/.test(fileId) || fileId.includes('..')) {
-    return NextResponse.json({ error: 'Invalid file ID' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid File ID' }, { status: 400 });
   }
 
   const cookieStore = await cookies();

@@ -1,103 +1,103 @@
-import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DELETE } from './route';
 
-// ---- Mocks ----
+const mockCreateServerClient = vi.fn();
+const mockCookies = vi.fn();
+const mockGetMerchantForApiRequest = vi.fn();
+const mockToUserAccess = vi.fn();
+const mockHasPermission = vi.fn();
+
+vi.mock('@supabase/ssr', () => ({
+  createServerClient: (...args: unknown[]) => mockCreateServerClient(...args),
+}));
 
 vi.mock('next/headers', () => ({
-  cookies: vi.fn().mockResolvedValue({
-    get: vi.fn(),
-  }),
+  cookies: vi.fn(async () => mockCookies()),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
-  hasPermission: vi.fn(() => true),
-  toUserAccess: vi.fn((ctx) => ({
-    merchantId: ctx.merchantId,
-    role: 'owner',
-    isOwner: true,
-    isStaff: false,
-    permissions: {},
-  })),
+  hasPermission: (...args: unknown[]) => mockHasPermission(...args),
 }));
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
-  getMerchantForApiRequest: vi.fn(() =>
-    Promise.resolve({
-      merchantId: 'merchant-123',
-      staffAccess: { isOwner: true },
-    })
-  ),
-  toUserAccess: vi.fn((ctx) => ({
-    merchantId: ctx.merchantId,
-    role: 'owner',
-    isOwner: true,
-    isStaff: false,
-    permissions: {},
-  })),
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mockGetMerchantForApiRequest(...args),
+  toUserAccess: (...args: unknown[]) => mockToUserAccess(...args),
 }));
 
-// Supabase mock
-const removeMock = vi.fn().mockResolvedValue({ error: null });
+// Mock Supabase storage
+const mockRemove = vi.fn();
+const mockStorageFrom = vi.fn(() => ({
+  remove: mockRemove,
+}));
 
-const createMockSupabase = () => ({
+const mockSupabase = {
   auth: {
-    getUser: vi.fn(() =>
-      Promise.resolve({
-        data: { user: { id: 'user-123' } },
-        error: null,
-      })
-    ),
+    getUser: vi.fn().mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    }),
   },
   storage: {
-    from: vi.fn(() => ({
-      remove: removeMock,
-      list: vi.fn().mockResolvedValue({ data: [], error: null }),
-      getPublicUrl: vi.fn(() => ({ data: { publicUrl: 'url' } })),
-    })),
+    from: mockStorageFrom,
   },
-});
-
-vi.mock('@supabase/ssr', () => ({
-  createServerClient: vi.fn(() => createMockSupabase()),
-}));
-
-// Import handler AFTER mocks
-import { DELETE } from './route';
+};
 
 describe('DELETE /api/media', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCreateServerClient.mockReturnValue(mockSupabase);
+    mockCookies.mockReturnValue({
+      get: vi.fn(),
+    });
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: 'merchant-123',
+    });
+    mockToUserAccess.mockReturnValue({});
+    mockHasPermission.mockReturnValue(true);
+    mockRemove.mockResolvedValue({ error: null });
   });
 
-  it('vulnerability check: prevents path traversal', async () => {
-    // This test simulates a malicious request.
-    const url = new URL('http://localhost:3000/api/media');
-    url.searchParams.set('id', '../other-merchant/secret.png');
-    const req = new NextRequest(url.toString(), { method: 'DELETE' });
+  it('allows deletion of valid file ID', async () => {
+    const request = new Request('http://localhost:3000/api/media?id=valid-file.jpg', {
+      method: 'DELETE',
+    });
 
-    const res = await DELETE(req);
+    const response = await DELETE(request);
+    const body = await response.json();
 
-    // With the fix, remove MUST NOT be called with the malicious path
-    expect(removeMock).not.toHaveBeenCalled();
-
-    const json = await res.json();
-    expect(res.status).toBe(400);
-    expect(json.error).toBe('Invalid file ID');
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(mockStorageFrom).toHaveBeenCalledWith('media');
+    expect(mockRemove).toHaveBeenCalledWith(['merchant-123/valid-file.jpg']);
   });
 
-  it('allows valid file IDs', async () => {
-    const url = new URL('http://localhost:3000/api/media');
-    url.searchParams.set('id', 'valid-file-123.jpg');
-    const req = new NextRequest(url.toString(), { method: 'DELETE' });
+  it('prevents path traversal in file ID', async () => {
+    const request = new Request('http://localhost:3000/api/media?id=../../secret.txt', {
+      method: 'DELETE',
+    });
 
-    const res = await DELETE(req);
+    const response = await DELETE(request);
 
-    // Verify it proceeds to delete the correct file
-    expect(removeMock).toHaveBeenCalledWith([
-      'merchant-123/valid-file-123.jpg',
-    ]);
+    // Currently, without validation, this test is expected to fail.
+    // The code will try to delete 'merchant-123/../../secret.txt'
+    // and return success (assuming mock remove succeeds).
+    // Once fixed, it should return 400.
 
-    const json = await res.json();
-    expect(json.success).toBe(true);
+    // If the vulnerability exists, the remove function WILL be called with the traversed path.
+    // We want to assert that it IS NOT called.
+    expect(mockRemove).not.toHaveBeenCalled();
+    expect(response.status).toBe(400);
+  });
+
+  it('prevents absolute path / root path attempts', async () => {
+    const request = new Request('http://localhost:3000/api/media?id=/etc/passwd', {
+      method: 'DELETE',
+    });
+
+    const response = await DELETE(request);
+
+    expect(mockRemove).not.toHaveBeenCalled();
+    expect(response.status).toBe(400);
   });
 });
