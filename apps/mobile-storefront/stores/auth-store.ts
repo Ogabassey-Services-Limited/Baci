@@ -273,6 +273,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // Listen for auth changes - store subscription for cleanup (2026 Best Practice)
+      const listenerGen = get()._initGen;
       const { data: authListener } = supabase.auth.onAuthStateChange(
         async (event, session) => {
           log.debug('Auth state changed:', event);
@@ -305,6 +306,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 .eq('email', session.user.email)
                 .single();
 
+              // Bail out if cleanup was called while awaiting
+              if (get()._initGen !== listenerGen) return;
+
               // Create customer if doesn't exist
               if (!customerData && session.user.email) {
                 // BUG-3-007: Validate full_name before splitting
@@ -324,6 +328,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     'id, email, first_name, last_name, phone, loyalty_points'
                   )
                   .single();
+
+                // Bail out if cleanup was called while awaiting
+                if (get()._initGen !== listenerGen) return;
 
                 customerData = newCustomer;
               } else if (customerData && session.user.user_metadata) {
@@ -348,6 +355,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     )
                     .single();
 
+                  // Bail out if cleanup was called while awaiting
+                  if (get()._initGen !== listenerGen) return;
+
                   if (updated) customerData = updated;
                 }
               }
@@ -368,6 +378,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                       authCustomerValidation.data.loyalty_points ?? undefined,
                   }
                 : null;
+
+              // Bail out if cleanup was called while processing
+              if (get()._initGen !== listenerGen) return;
 
               // 2026 Best Practice: Sync guest cart after login
               // The local cart persists through login - no server sync needed
