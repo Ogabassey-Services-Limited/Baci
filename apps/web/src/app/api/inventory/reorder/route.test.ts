@@ -17,11 +17,19 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
   ),
 }));
 
+// Mock Supabase Query Builder to be "Thenable" without triggering 'noThenProperty'
+// We define a class or object that implements the interface.
+// Biome rule documentation says: "Do not add then to an object."
+// We can use a Promise mock or just suppress the lint since it IS a thenable mock.
+// Given it's a test file, suppression is acceptable if refactoring is complex.
+// However, let's try to do it cleanly by casting to Promise-like.
+
 const queryBuilder = {
   select: vi.fn().mockReturnThis(),
   update: vi.fn().mockReturnThis(),
   eq: vi.fn().mockReturnThis(),
   order: vi.fn().mockResolvedValue({ data: [], error: null }),
+  // biome-ignore lint/suspicious/noThenProperty: Mocking a Thenable interface for Supabase
   then: (resolve: any) => resolve({ data: [], error: null }),
 };
 
@@ -75,10 +83,13 @@ describe('/api/inventory/reorder', () => {
         suggestionId: '123e4567-e89b-12d3-a456-426614174000',
         action: 'invalid_action',
       };
-      const req = new NextRequest('http://localhost:3000/api/inventory/reorder', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
+      const req = new NextRequest(
+        'http://localhost:3000/api/inventory/reorder',
+        {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }
+      );
 
       const res = await POST(req);
       const json = await res.json();
@@ -93,13 +104,16 @@ describe('/api/inventory/reorder', () => {
         action: 'ordered',
         // missing orderedQuantity
       };
-      const req = new NextRequest('http://localhost:3000/api/inventory/reorder', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
+      const req = new NextRequest(
+        'http://localhost:3000/api/inventory/reorder',
+        {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }
+      );
 
       const res = await POST(req);
-      const json = await res.json();
+      const _json = await res.json();
       expect(res.status).toBe(400);
     });
 
@@ -109,10 +123,13 @@ describe('/api/inventory/reorder', () => {
         action: 'ordered',
         orderedQuantity: -5,
       };
-      const req = new NextRequest('http://localhost:3000/api/inventory/reorder', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
+      const req = new NextRequest(
+        'http://localhost:3000/api/inventory/reorder',
+        {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }
+      );
 
       const res = await POST(req);
       expect(res.status).toBe(400);
@@ -123,10 +140,13 @@ describe('/api/inventory/reorder', () => {
         suggestionId: '123e4567-e89b-12d3-a456-426614174000',
         action: 'accept',
       };
-      const req = new NextRequest('http://localhost:3000/api/inventory/reorder', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
+      const req = new NextRequest(
+        'http://localhost:3000/api/inventory/reorder',
+        {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }
+      );
 
       const res = await POST(req);
       const json = await res.json();
@@ -134,9 +154,11 @@ describe('/api/inventory/reorder', () => {
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
 
-      expect(queryBuilder.update).toHaveBeenCalledWith(expect.objectContaining({
-        status: 'accepted'
-      }));
+      expect(queryBuilder.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'accepted',
+        })
+      );
     });
   });
 });
