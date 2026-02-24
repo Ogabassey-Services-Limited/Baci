@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import { HeroImage, ProductCardImage } from '@/components/optimized-image';
 import { asRoute } from '@/lib/routes';
 import type { TemplateBlogPageProps, BlogPostData } from '@/templates/registry';
 import { AdUnit } from './ad-unit';
@@ -104,10 +105,11 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
             className="group relative block mb-12 rounded-[2rem] overflow-hidden shadow-2xl h-[400px] md:h-[500px] transform transition-all hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)]"
           >
             <div className="absolute inset-0 bg-gray-900">
-              <img
+              <HeroImage
                 src={featuredPost.featured_image_url || '/placeholder.png'}
                 alt={featuredPost.title}
-                className="w-full h-full object-cover opacity-90 transition-transform duration-1000 group-hover:scale-105"
+                className="object-cover opacity-90 transition-transform duration-1000 group-hover:scale-105"
+                fill
               />
               <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/20 to-transparent" />
             </div>
@@ -209,10 +211,12 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
               >
                 <article className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col h-full hover:-translate-y-1">
                   <div className="h-64 overflow-hidden relative">
-                    <img
+                    <ProductCardImage
                       src={post.featured_image_url || '/placeholder.png'}
                       alt={post.title}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      className="object-cover transition-transform duration-700 group-hover:scale-110"
+                      fill
+                      category={post.category}
                     />
                     {post.category && (
                       <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-md px-3 py-1 rounded text-xs font-black uppercase tracking-wider text-gray-900 border border-gray-100 shadow-sm">
