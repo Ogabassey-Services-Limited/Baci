@@ -184,9 +184,12 @@ export async function GET(request: NextRequest) {
               product_id: v.product_id as string,
               merchant_id: v.merchant_id as string,
               attributes: v.attributes as Record<string, string>,
-              price_override: v.price_override as number | undefined,
-              cost_price: v.cost_price as number | undefined,
-              stock_quantity: v.stock_quantity as number,
+              price_override:
+                v.price_override == null ? undefined : Number(v.price_override),
+              cost_price:
+                v.cost_price == null ? undefined : Number(v.cost_price),
+              stock_quantity:
+                v.stock_quantity == null ? 0 : Number(v.stock_quantity),
               sku: v.sku as string | undefined,
               primary_image: v.primary_image as string | undefined,
               images: v.images as string[] | undefined,
