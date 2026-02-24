@@ -133,5 +133,7 @@ exclude = [
   # Test fixture URLs (Upstash mock endpoints)
   "upstash\\.io",
   # Google Storage assets (403 Forbidden due to access restrictions)
-  "commondatastorage\\.googleapis\\.com"
+  "commondatastorage\\.googleapis\\.com",
+  # CoinGecko API (Rate limited 429)
+  "api\\.coingecko\\.com"
 ]

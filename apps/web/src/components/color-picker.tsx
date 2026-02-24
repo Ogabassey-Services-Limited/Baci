@@ -23,6 +23,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
 
   // Separate state for hex input to allow typing partial values
   const [hexInput, setHexInput] = useState(parsedColor.toHex());
+  const [isHexValid, setIsHexValid] = useState(true);
   const hexInputRef = useRef(parsedColor.toHex());
 
   // Track if we're currently dragging - using state so it's available during render
@@ -45,6 +46,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
       setInternalSaturation(newHsl.s);
       setInternalLightness(newHsl.l);
       lastPropColorRef.current = color;
+      setIsHexValid(true);
       // Also update hex input if it wasn't the source of the change
       const newHex = newParsedColor.toHex();
       if (hexInputRef.current !== newHex) {
@@ -285,7 +287,10 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
             setHexInput(newHex);
             hexInputRef.current = newHex;
             const parsed = colord(newHex);
-            if (parsed.isValid()) {
+            const isValid = parsed.isValid();
+            setIsHexValid(isValid);
+
+            if (isValid) {
               const newHsl = parsed.toHsl();
               setInternalHue(newHsl.h);
               setInternalSaturation(newHsl.s);
@@ -294,7 +299,8 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
               onChange(parsed.toHex());
             }
           }}
-          className="font-mono"
+          aria-invalid={!isHexValid}
+          className={`font-mono ${!isHexValid ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
         />
       </div>
     </div>
