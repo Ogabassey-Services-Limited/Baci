@@ -48,3 +48,14 @@
 1. Use strict allowlists for file identifiers (e.g., alphanumeric, UUIDs).
 2. Explicitly reject path traversal characters (`..`, `/`, `\`).
 3. Use `basename()` or similar functions to extract only the filename component if a path is constructed.
+
+## 2026-05-28 - Inventory Reorder Validation & Data Exposure
+
+**Vulnerability:** The inventory reorder API (`POST /api/inventory/reorder`) lacked comprehensive input validation, relying on manual checks that could be bypassed. Additionally, the GET endpoint used `select('*')`, exposing all columns including potential future sensitive fields.
+
+**Learning:** Manual validation often misses edge cases (like negative quantities or invalid enum values) and is harder to maintain. Explicit column selection is crucial for "defense in depth" to prevent accidental data leaks when table schemas evolve.
+
+**Prevention:**
+1. Always use Zod schemas for request body validation.
+2. Use `refine` in Zod for conditional validation (e.g., field B required if field A is 'X').
+3. Always specify columns in Supabase `select()` calls, even for internal APIs.
