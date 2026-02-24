@@ -51,8 +51,12 @@ vi.mock('@/lib/seo-utils', () => ({
   generateSlug: vi.fn((str: string) =>
     str
       .toLowerCase()
+      .trim()
       .replace(/\s+/g, '-')
-      .replace(/[^\w-]/g, '')
+      .replace(/[^\w-]+/g, '')
+      .replace(/--+/g, '-')
+      .replace(/^-+/, '')
+      .replace(/-+$/, '')
   ),
 }));
 
@@ -85,6 +89,16 @@ describe('GET /[slug]/sitemap.xml', () => {
   it('returns 404 when merchant is not found', async () => {
     setHeaders({ 'x-custom-domain': 'unknown-store.com' });
     mockGetMerchant.mockResolvedValue(null);
+    const { GET } = await import('./route');
+    expect((await GET()).status).toBe(404);
+  });
+
+  it('returns 404 when merchant is not published', async () => {
+    setHeaders({ 'x-custom-domain': 'ogabassey.com' });
+    mockGetMerchant.mockResolvedValue({
+      ...baseMerchant,
+      is_published: false,
+    });
     const { GET } = await import('./route');
     expect((await GET()).status).toBe(404);
   });
@@ -321,6 +335,8 @@ describe('GET /[slug]/sitemap.xml', () => {
     expect(body).toContain(
       '<image:loc>https://img.example.com/blog-hero.jpg</image:loc>'
     );
+    // Prefers updated_at over published_at for lastmod
+    expect(body).toContain('<lastmod>2026-01-18');
   });
 
   it('includes /about when merchant has about_page data', async () => {

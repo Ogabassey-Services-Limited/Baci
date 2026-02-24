@@ -178,7 +178,7 @@ export async function GET(): Promise<NextResponse> {
     }
 
     const merchant = await getMerchantByIdentifier(identifier);
-    if (!merchant) {
+    if (!merchant || !merchant.is_published) {
       return new NextResponse('Not Found', { status: 404 });
     }
 
