@@ -146,7 +146,7 @@ export function DiscountItemSelector({
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <Pressable
             onPress={onClose}
             style={styles.closeBtn}
@@ -217,7 +217,10 @@ export function DiscountItemSelector({
                   {item.images && item.images.length > 0 && (
                     <SafeImage
                       source={{ uri: item.images[0] }}
-                      style={styles.itemImage}
+                      style={[
+                        styles.itemImage,
+                        { backgroundColor: colors.inputBg },
+                      ]}
                       contentFit="cover"
                       transition={200}
                     />
@@ -263,7 +266,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   closeBtn: { padding: SPACING.xs },
   saveBtn: { padding: SPACING.xs },
@@ -302,7 +304,6 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: RADIUS.sm,
     marginRight: SPACING.md,
-    backgroundColor: '#f0f0f0',
   },
   itemInfo: { flex: 1, marginRight: SPACING.md },
   itemName: {
