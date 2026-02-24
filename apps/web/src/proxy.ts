@@ -69,7 +69,6 @@ const MAIN_APP_ROUTES = [
   '/_next',
   '/favicon.ico',
   '/robots.txt',
-  '/sitemap.xml',
   '/manifest.webmanifest',
 ];
 
