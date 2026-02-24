@@ -101,12 +101,15 @@ $$;
 
 -- Scoped to blog paths only: {merchant_id}/blog/{filename}
 -- Uses a WHEN condition to avoid firing for product images, logos, etc.
+-- The regex enforces exactly 3 path segments: {non-slash}/{literal "blog"}/{non-slash}
+DROP TRIGGER IF EXISTS on_media_blog_upload ON storage.objects;
+
 CREATE TRIGGER on_media_blog_upload
   AFTER INSERT ON storage.objects
   FOR EACH ROW
   WHEN (
     NEW.bucket_id = 'media'
-    AND NEW.name LIKE '%/blog/%'
+    AND NEW.name ~ '^[^/]+/blog/[^/]+$'
   )
   EXECUTE FUNCTION public.handle_media_upload_validation();
 

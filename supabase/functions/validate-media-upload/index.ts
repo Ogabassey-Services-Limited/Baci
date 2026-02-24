@@ -141,7 +141,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Fetch only the first bytes using HTTP Range header
+    // Fetch only the first bytes using HTTP Range header.
+    // If the server ignores the Range header and returns 200 with the full file,
+    // we use a streaming reader to avoid buffering the entire object in memory.
     const response = await fetch(signedUrlData.signedUrl, {
       headers: { Range: `bytes=0-${MAGIC_BYTE_SAMPLE_SIZE - 1}` },
     });
@@ -156,7 +158,40 @@ Deno.serve(async (req) => {
       );
     }
 
-    const bytes = new Uint8Array(await response.arrayBuffer());
+    // Stream only the bytes we need, then cancel to stop the download.
+    // This prevents buffering a full 10MB file if Range is not honored.
+    let bytes: Uint8Array;
+    const reader = response.body?.getReader();
+    if (!reader) {
+      return new Response(
+        JSON.stringify({ message: 'No response body to read' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const chunks: Uint8Array[] = [];
+    let totalLength = 0;
+    try {
+      while (totalLength < MAGIC_BYTE_SAMPLE_SIZE) {
+        const { done, value } = await reader.read();
+        if (done || !value) break;
+        chunks.push(value);
+        totalLength += value.length;
+      }
+    } finally {
+      reader.cancel();
+    }
+
+    // Merge chunks into a single buffer, trimmed to MAGIC_BYTE_SAMPLE_SIZE
+    bytes = new Uint8Array(Math.min(totalLength, MAGIC_BYTE_SAMPLE_SIZE));
+    let offset = 0;
+    for (const chunk of chunks) {
+      const remaining = bytes.length - offset;
+      if (remaining <= 0) break;
+      const slice = chunk.subarray(0, remaining);
+      bytes.set(slice, offset);
+      offset += slice.length;
+    }
     const detectedMime = detectImageMime(bytes);
 
     if (detectedMime) {
