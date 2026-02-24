@@ -16,15 +16,6 @@ export interface StorefrontOrderItem {
   image?: string;
 }
 
-export interface StorefrontShippingAddress {
-  address_line1?: string;
-  address_line2?: string;
-  city?: string;
-  state?: string;
-  postal_code?: string;
-  country?: string;
-}
-
 export interface StorefrontOrder {
   id: string;
   order_number: string;
@@ -53,7 +44,7 @@ export interface StorefrontOrder {
   /**
    * Shipping address might be a formatted string or a structured object (JSONB).
    */
-  shipping_address?: string | StorefrontShippingAddress | null;
+  shipping_address?: string | Record<string, unknown> | null;
 
   /**
    * The payment method used (e.g. 'paystack', 'bank_transfer').

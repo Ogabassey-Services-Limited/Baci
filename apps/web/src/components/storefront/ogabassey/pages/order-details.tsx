@@ -12,7 +12,6 @@ import {
   Truck,
   XCircle,
 } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import type React from 'react';
@@ -21,7 +20,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { createClient } from '@/lib/supabase/client';
-import type { StorefrontOrder, StorefrontOrderItem, StorefrontShippingAddress } from '@/types/storefront-order';
+import type { StorefrontOrder, StorefrontOrderItem } from '@/types/storefront-order';
 
 // Hook to extract store slug from pathname
 function useStoreSlug() {
@@ -272,11 +271,9 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                       href={`/product/${item.product_id}` as any}
                       className="w-20 h-20 bg-gray-50 rounded-xl p-2 border border-gray-100 flex-shrink-0 block"
                     >
-                      <Image
+                      <img
                         src={item.product_image || item.image || item.product_images?.[0] || '/placeholder.png'}
-                        alt={item.product_name || item.name || 'Product'}
-                        width={80}
-                        height={80}
+                        alt={item.product_name || item.name}
                         className="w-full h-full object-contain mix-blend-multiply"
                       />
                     </Link>
@@ -316,7 +313,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-gray-500">
                   <span>Delivery</span>
-                  <span>{(order.shipping_cost ?? order.shipping_fee) ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.shipping_cost ?? order.shipping_fee ?? 0) : <span style={{ color: 'var(--store-primary, #16a34a)' }}>Free</span>}</span>
+                  <span>{(order.shipping_cost ?? order.shipping_fee) ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(order.shipping_cost ?? order.shipping_fee ?? 0) : <span className="text-green-600">Free</span>}</span>
                 </div>
                 <div className="border-t border-dashed border-gray-200 pt-3 flex justify-between font-bold text-lg text-gray-900">
                   <span>Total</span>
@@ -338,7 +335,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                   {typeof order.shipping_address === 'string'
                     ? order.shipping_address
                     : (order.shipping_address && typeof order.shipping_address === 'object' && 'address_line1' in order.shipping_address)
-                      ? `${(order.shipping_address as StorefrontShippingAddress).address_line1 ?? ''}, ${(order.shipping_address as StorefrontShippingAddress).city ?? ''}`
+                      ? `${(order.shipping_address as any).address_line1}, ${(order.shipping_address as any).city}`
                       : 'No address provided'}
                 </p>
               </div>
