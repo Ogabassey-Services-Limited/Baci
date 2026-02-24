@@ -196,11 +196,14 @@ export function generateProductSchema(
   const safeBrand = escapeHtml(product.brand || merchantName);
   const safeMerchantName = escapeHtml(merchantName);
 
-  // Extract images
+  // Extract images — handle both {url: string} objects and plain string entries defensively
   let safeImages: string[] = [];
   if (product.images && product.images.length > 0) {
     safeImages = product.images
-      .map((img) => escapeHtml(img.url))
+      .map((img) => {
+        const raw = typeof img === 'string' ? img : img?.url;
+        return raw ? escapeHtml(raw) : '';
+      })
       .filter(Boolean);
   } else if (product.imageLarge) {
     safeImages = [escapeHtml(product.imageLarge)];
