@@ -71,7 +71,14 @@ interface QuoteResponse {
   sessionId: string;
 }
 
-const ProductThumbnail = ({ item }: { item: any }) => {
+interface ThumbnailItem {
+  name?: string;
+  product_name?: string;
+  image?: string;
+  image_url?: string;
+}
+
+const ProductThumbnail = ({ item }: { item: ThumbnailItem }) => {
   const [src, setSrc] = useState(item.image || item.image_url || '/placeholder.png');
 
   return (
@@ -83,7 +90,7 @@ const ProductThumbnail = ({ item }: { item: any }) => {
           fill
           sizes="48px"
           className="object-contain mix-blend-multiply"
-          onError={() => setSrc('/placeholder.png')}
+          onError={() => { if (src !== '/placeholder.png') setSrc('/placeholder.png'); }}
         />
       </div>
     </div>

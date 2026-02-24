@@ -3,10 +3,19 @@ import { describe, expect, it, vi } from 'vitest';
 
 // Mock all heavy dependencies before importing the component
 vi.mock('next/image', () => ({
-  default: (props: any) => {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img {...props} />;
-  },
+  default: ({
+    fill,
+    priority,
+    quality,
+    placeholder,
+    blurDataURL,
+    unoptimized,
+    loader,
+    onLoadingComplete,
+    ...rest
+  }: React.ComponentProps<'img'> & Record<string, unknown>) => (
+    <img {...(rest as React.ImgHTMLAttributes<HTMLImageElement>)} />
+  ),
 }));
 
 vi.mock('next/navigation', () => ({
