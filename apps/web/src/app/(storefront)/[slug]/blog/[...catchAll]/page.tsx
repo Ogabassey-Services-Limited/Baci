@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { notFound, redirect } from 'next/navigation';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
@@ -25,6 +25,11 @@ export default async function BlogCatchAllPage({
   params: Promise<{ slug: string; catchAll: string[] }>;
 }) {
   const { slug, catchAll } = await params;
+
+  // 308 redirect legacy /blog/sitemap.xml → /sitemap.xml (blog entries merged into main sitemap)
+  if (catchAll.length === 1 && catchAll[0] === 'sitemap.xml') {
+    permanentRedirect('/sitemap.xml');
+  }
 
   // Filter out WordPress admin URLs and known spam
   // Spam patterns: shopdetail, zhHant (Chinese spam), product IDs, etc.
