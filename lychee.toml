@@ -134,5 +134,6 @@ exclude = [
   "upstash\\.io",
   # Google Storage assets (403 Forbidden due to access restrictions)
   "commondatastorage\\.googleapis\\.com",
-  "docs\\.mycover\\.ai"
+  # CoinGecko API (Rate limited 429)
+  "api\\.coingecko\\.com"
 ]
