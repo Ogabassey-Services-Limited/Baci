@@ -151,6 +151,11 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
         const info = await purchasesRef.getCustomerInfo();
         const offerings = await purchasesRef.getOfferings();
 
+        // FIX: Check if initialization was cancelled/cleaned up
+        if (!get().isInitializing) {
+          return;
+        }
+
         set({
           customerInfo: info,
           currentOffering: offerings.current,
@@ -162,6 +167,11 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
         });
 
         // Reactive Pattern: Automatically sync state on server confirmation
+        // Clean up any existing listener first to prevent leaks
+        if (typeof customerInfoListenerRemove === 'function') {
+          customerInfoListenerRemove();
+        }
+
         customerInfoListenerRemove = purchasesRef.addCustomerInfoUpdateListener(
           (newInfo: CustomerInfo) => {
             const proStatus = isProFromInfo(newInfo);
