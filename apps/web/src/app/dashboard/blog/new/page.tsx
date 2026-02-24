@@ -33,8 +33,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
+import { uploadBlogImage } from '@/lib/blog-upload';
 import { getClientCsrfToken } from '@/lib/csrf';
 import { asRoute } from '@/lib/routes';
+import {
+  ALLOWED_IMAGE_EXTENSIONS,
+  MAX_BLOG_IMAGE_SIZE,
+  MAX_BLOG_IMAGE_SIZE_LABEL,
+} from '@/schemas/blog-upload';
 import { getPreviewUrl } from '../actions';
 
 interface Product {
@@ -197,35 +203,16 @@ export default function NewBlogPostPage() {
 
   const [isUploading, setIsUploading] = useState(false);
 
-  // Handle featured image selection and upload
+  // Handle featured image selection and upload (signed URL flow)
   const handleFeaturedImageUpload = async (files: File[]) => {
     if (files.length === 0) return;
 
     setIsUploading(true);
     const file = files[0];
-    const formDataUpload = new FormData();
-    formDataUpload.append('file', file);
 
     try {
-      const csrfToken = getClientCsrfToken();
-      const headers: HeadersInit = {};
-      if (csrfToken) {
-        headers['x-csrf-token'] = csrfToken;
-      }
-
-      const response = await fetch('/api/merchant/blog/upload', {
-        method: 'POST',
-        headers,
-        body: formDataUpload,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to upload image');
-      }
-
-      const data = await response.json();
-      handleChange('featured_image_url', data.url);
+      const result = await uploadBlogImage(file);
+      handleChange('featured_image_url', result.url);
       toast({
         title: 'Success',
         description: 'Featured image uploaded successfully.',
@@ -243,30 +230,10 @@ export default function NewBlogPostPage() {
     }
   };
 
-  // Image upload handler for the editor
+  // Image upload handler for the editor (signed URL flow)
   const handleImageUpload = async (file: File): Promise<string> => {
-    const formDataUpload = new FormData();
-    formDataUpload.append('file', file);
-
-    const csrfToken = getClientCsrfToken();
-    const headers: HeadersInit = {};
-    if (csrfToken) {
-      headers['x-csrf-token'] = csrfToken;
-    }
-
-    const response = await fetch('/api/merchant/blog/upload', {
-      method: 'POST',
-      headers,
-      body: formDataUpload,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to upload image');
-    }
-
-    const data = await response.json();
-    return data.url;
+    const result = await uploadBlogImage(file);
+    return result.url;
   };
 
   const validateForm = (): string | null => {
@@ -622,13 +589,19 @@ export default function NewBlogPostPage() {
                     </div>
                   </div>
                 ) : (
-                  <FileUploader
-                    onFilesSelected={handleFeaturedImageUpload}
-                    maxFiles={1}
-                    maxSize={5 * 1024 * 1024}
-                    accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.webp'] }}
-                    className="max-w-md"
-                  />
+                  <>
+                    <FileUploader
+                      onFilesSelected={handleFeaturedImageUpload}
+                      maxFiles={1}
+                      maxSize={MAX_BLOG_IMAGE_SIZE}
+                      accept={{ 'image/*': ALLOWED_IMAGE_EXTENSIONS }}
+                      className="max-w-md"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Max {MAX_BLOG_IMAGE_SIZE_LABEL}. JPEG, PNG, GIF, WebP, or
+                      AVIF
+                    </p>
+                  </>
                 )}
                 {isUploading && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -812,8 +785,6 @@ export default function NewBlogPostPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* Draft Recovery Dialog */}
       <AlertDialog
         open={showRecoveryDialog}
         onOpenChange={setShowRecoveryDialog}

@@ -1,77 +1,59 @@
 import { createImageUpload } from 'novel';
 import { toast } from '@/hooks/use-toast';
-import { getClientCsrfToken } from '@/lib/csrf';
+import { uploadBlogImage } from '@/lib/blog-upload';
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_BLOG_IMAGE_SIZE,
+  MAX_BLOG_IMAGE_SIZE_LABEL,
+} from '@/schemas/blog-upload';
 
 const onUpload = (file: File) => {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  const csrfToken = getClientCsrfToken();
-  const headers: HeadersInit = {};
-  if (csrfToken) {
-    headers['x-csrf-token'] = csrfToken;
-  }
-
-  const promise = fetch('/api/merchant/blog/upload', {
-    method: 'POST',
-    headers,
-    body: formData,
+  toast({
+    title: 'Uploading image...',
+    description: 'Please wait while your image is being uploaded.',
+    duration: 2000,
   });
 
-  return new Promise((resolve, reject) => {
-    toast({
-      title: 'Uploading image...',
-      description: 'Please wait while your image is being uploaded.',
-      duration: 2000,
-    });
-
-    promise
-      .then(async (res) => {
-        if (res.status === 200) {
-          const { url } = (await res.json()) as { url: string };
-          // preload the image
-          const image = new Image();
-          image.src = url;
-          image.onload = () => {
-            resolve(url);
-          };
-          image.onerror = () => {
-            resolve(url);
-          };
-        } else if (res.status === 401) {
-          resolve(file);
-        } else {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(
-            data.error || 'Error uploading image. Please try again.'
-          );
-        }
-      })
-      .catch((error) => {
-        toast({
-          title: 'Error uploading image',
-          description: error.message,
-          variant: 'destructive',
-        });
-        reject(error);
+  return uploadBlogImage(file)
+    .then((result) => {
+      // Preload the image before resolving
+      return new Promise<string>((resolve) => {
+        const image = new Image();
+        image.src = result.url;
+        image.onload = () => resolve(result.url);
+        image.onerror = () => resolve(result.url);
       });
-  });
+    })
+    .catch((error: Error) => {
+      toast({
+        title: 'Error uploading image',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return Promise.reject(error);
+    });
 };
 
 export const uploadFn = createImageUpload({
   onUpload,
   validateFn: (file) => {
-    if (!file.type.includes('image/')) {
+    if (
+      !ALLOWED_IMAGE_TYPES.includes(
+        file.type as (typeof ALLOWED_IMAGE_TYPES)[number]
+      )
+    ) {
       toast({
         title: 'Error',
-        description: 'File type not supported.',
+        description:
+          'File type not supported. Use JPEG, PNG, GIF, WebP, or AVIF',
         variant: 'destructive',
       });
       return false;
-    } else if (file.size / 1024 / 1024 > 20) {
+    }
+    if (file.size > MAX_BLOG_IMAGE_SIZE) {
       toast({
         title: 'Error',
-        description: 'File size too big (max 20MB).',
+        description: `File size too big (max ${MAX_BLOG_IMAGE_SIZE_LABEL}).`,
         variant: 'destructive',
       });
       return false;
