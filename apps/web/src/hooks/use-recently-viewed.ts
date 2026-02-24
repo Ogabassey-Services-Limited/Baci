@@ -7,7 +7,7 @@
  * removing old entries and maintaining a configurable max size.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Product } from '@/lib/products';
 import { useMerchantSafe } from './use-merchant';
 
@@ -89,8 +89,11 @@ export function useRecentlyViewed(
   const [entries, setEntries] = useState<RecentlyViewedEntry[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  const storageKey = getStorageKey(merchantId);
-  const expirationMs = expirationDays * 24 * 60 * 60 * 1000;
+  const storageKey = useMemo(() => getStorageKey(merchantId), [merchantId]);
+  const expirationMs = useMemo(
+    () => expirationDays * 24 * 60 * 60 * 1000,
+    [expirationDays]
+  );
 
   // Load from localStorage on mount - this is the standard pattern for syncing external state
   useEffect(() => {
@@ -131,25 +134,28 @@ export function useRecentlyViewed(
     }
   }, [entries, storageKey, isInitialized]);
 
-  const addToRecentlyViewed = (productId: string) => {
-    setEntries((prev) => {
-      // Remove existing entry for this product (if any)
-      const filtered = prev.filter((entry) => entry.productId !== productId);
+  const addToRecentlyViewed = useCallback(
+    (productId: string) => {
+      setEntries((prev) => {
+        // Remove existing entry for this product (if any)
+        const filtered = prev.filter((entry) => entry.productId !== productId);
 
-      // Add new entry at the beginning
-      const newEntry: RecentlyViewedEntry = {
-        productId,
-        viewedAt: Date.now(),
-      };
+        // Add new entry at the beginning
+        const newEntry: RecentlyViewedEntry = {
+          productId,
+          viewedAt: Date.now(),
+        };
 
-      // Keep only maxItems
-      const updated = [newEntry, ...filtered].slice(0, maxItems);
+        // Keep only maxItems
+        const updated = [newEntry, ...filtered].slice(0, maxItems);
 
-      return updated;
-    });
-  };
+        return updated;
+      });
+    },
+    [maxItems]
+  );
 
-  const clearRecentlyViewed = () => {
+  const clearRecentlyViewed = useCallback(() => {
     setEntries([]);
     if (typeof window !== 'undefined') {
       try {
@@ -158,19 +164,23 @@ export function useRecentlyViewed(
         console.error('Failed to clear recently viewed products:', error);
       }
     }
-  };
+  }, [storageKey]);
 
-  const isRecentlyViewed = (productId: string) => {
-    return entries.some((entry) => entry.productId === productId);
-  };
+  const isRecentlyViewed = useCallback(
+    (productId: string) => {
+      return entries.some((entry) => entry.productId === productId);
+    },
+    [entries]
+  );
 
   // Compute IDs with exclusion filter
-  let recentlyViewedIds = entries.map((entry) => entry.productId);
-  if (excludeProductId) {
-    recentlyViewedIds = recentlyViewedIds.filter(
-      (id) => id !== excludeProductId
-    );
-  }
+  const recentlyViewedIds = useMemo(() => {
+    let ids = entries.map((entry) => entry.productId);
+    if (excludeProductId) {
+      ids = ids.filter((id) => id !== excludeProductId);
+    }
+    return ids;
+  }, [entries, excludeProductId]);
 
   return {
     recentlyViewedIds,
