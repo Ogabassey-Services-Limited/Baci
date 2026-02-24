@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
@@ -17,7 +17,7 @@ const iconImage = require('../assets/images/icon.png');
 type AnimatedSplashProps = {
   isReady: boolean;
   onAnimationEnd: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 };
 
 /**
