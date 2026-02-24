@@ -28,7 +28,7 @@ export default async function BlogCatchAllPage({
 
   // 308 redirect legacy /blog/sitemap.xml → /sitemap.xml (blog entries merged into main sitemap)
   if (catchAll.length === 1 && catchAll[0] === 'sitemap.xml') {
-    permanentRedirect(`/${slug}/sitemap.xml`);
+    permanentRedirect('/sitemap.xml');
   }
 
   // Filter out WordPress admin URLs and known spam
