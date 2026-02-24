@@ -321,7 +321,8 @@ export default async function ProductPage({ params }: PageProps) {
     product,
     merchant?.business_name || 'Baci Store',
     merchant?.payout_currency || 'USD',
-    merchant?.country || 'NG'
+    merchant?.country || 'NG',
+    merchant?.logo_url
   );
 
   // Add URL to the schema offers (sanitized to prevent XSS)

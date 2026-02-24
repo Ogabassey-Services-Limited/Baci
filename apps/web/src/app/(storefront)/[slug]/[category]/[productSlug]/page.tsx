@@ -818,7 +818,8 @@ export default async function CategoryProductPage({ params }: PageProps) {
     product,
     merchant?.business_name || 'Baci Store',
     merchant?.payout_currency || 'USD',
-    merchant?.country || 'NG'
+    merchant?.country || 'NG',
+    merchant?.logo_url
   );
 
   // Build proper URL for schema
