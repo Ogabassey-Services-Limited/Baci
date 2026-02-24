@@ -6,6 +6,8 @@
 exclude_path = [
   "apps/web/src/**/*.test.ts",
   "apps/web/src/**/*.test.tsx",
+  "apps/web/product_variants_report_OLD.md",
+  "apps/web/product_variants_report_NEW.md",
   "apps/web/scripts",
   "apps/web/supabase",
   "apps/web/mcp-server",
@@ -103,6 +105,9 @@ exclude = [
   "vendor-api(-staging)?\\.jumia\\.com",
   "vendorcenter\\.jumia\\.com\\.ng",
   
+  # Social Media (Bot Protection)
+  "tiktok\\.com",
+
   # CodeRabbit Feedback: Anchored New Exclusions
   "^https?://your-app\\.vercel\\.app",
   "^https?://(www\\.)?anthropic\\.com",
