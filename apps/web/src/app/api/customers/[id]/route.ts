@@ -6,6 +6,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
+import { formatZodErrors, updateCustomerSchema } from '@/schemas/customers';
 
 export async function GET(
   _request: Request,
@@ -36,7 +37,9 @@ export async function GET(
 
   const { data: customer, error } = await supabase
     .from('customers')
-    .select('*')
+    .select(
+      'id, merchant_id, full_name, email, phone, address, store_credit, total_orders, total_spent, created_at, updated_at'
+    )
     .eq('id', id)
     .eq('merchant_id', merchantId)
     .single();
@@ -57,7 +60,7 @@ export async function PATCH(
   const supabase = createClient(cookieStore);
 
   try {
-    const body = await request.json();
+    const rawBody = await request.json();
 
     const {
       data: { user },
@@ -81,12 +84,28 @@ export async function PATCH(
     }
     const merchantId = merchantContext.merchantId;
 
+    const parseResult = updateCustomerSchema.safeParse(rawBody);
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Validation failed',
+          details: formatZodErrors(parseResult.error),
+        },
+        { status: 400 }
+      );
+    }
+
+    const body = parseResult.data;
+
     const { data: customer, error } = await supabase
       .from('customers')
       .update(body)
       .eq('id', id)
       .eq('merchant_id', merchantId)
-      .select()
+      .select(
+        'id, merchant_id, full_name, email, phone, address, store_credit, total_orders, total_spent, created_at, updated_at'
+      )
       .single();
 
     if (error) {
