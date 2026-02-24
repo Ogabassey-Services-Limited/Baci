@@ -85,8 +85,13 @@ describe('DELETE /api/media', () => {
 
     const response = await DELETE(request);
 
-    // Validation rejects path traversal before reaching storage.
-    // Assert that the remove function was NOT called.
+    // Currently, without validation, this test is expected to fail.
+    // The code will try to delete 'merchant-123/../../secret.txt'
+    // and return success (assuming mock remove succeeds).
+    // Once fixed, it should return 400.
+
+    // If the vulnerability exists, the remove function WILL be called with the traversed path.
+    // We want to assert that it IS NOT called.
     expect(mockRemove).not.toHaveBeenCalled();
     expect(response.status).toBe(400);
   });

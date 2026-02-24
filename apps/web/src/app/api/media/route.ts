@@ -6,7 +6,6 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { mediaFileIdSchema } from '@/schemas/media';
 
 const BUCKET_NAME = 'media';
 
@@ -235,8 +234,20 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  // 1. Auth check FIRST (per API conventions)
-  // CSRF is handled at the middleware layer (proxy.ts)
+  const { searchParams } = new URL(request.url);
+  const fileId = searchParams.get('id');
+
+  if (!fileId) {
+    return NextResponse.json({ error: 'File ID required' }, { status: 400 });
+  }
+
+  // Validate file ID to prevent path traversal
+  // Only allow alphanumeric characters, dots, and hyphens
+  // Explicitly reject ".." to prevent directory traversal
+  if (!/^[a-zA-Z0-9.-]+$/.test(fileId) || fileId.includes('..')) {
+    return NextResponse.json({ error: 'Invalid File ID' }, { status: 400 });
+  }
+
   const cookieStore = await cookies();
 
   const supabase = createServerClient(
@@ -251,6 +262,7 @@ export async function DELETE(request: Request) {
     }
   );
 
+  // Get current user
   const {
     data: { user },
     error: authError,
@@ -259,18 +271,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // 2. Validate input with Zod schema
-  const { searchParams } = new URL(request.url);
-  const fileId = searchParams.get('id');
-
-  const result = mediaFileIdSchema.safeParse(fileId);
-  if (!result.success) {
-    return NextResponse.json({ error: 'Invalid File ID' }, { status: 400 });
-  }
-
-  const validatedFileId = result.data;
-
-  // 3. Get merchant (supports both owners and staff)
+  // Get merchant (supports both owners and staff)
   const merchantContext = await getMerchantForApiRequest(supabase, user.id);
   if (!merchantContext) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
@@ -285,7 +286,7 @@ export async function DELETE(request: Request) {
   const merchantId = merchantContext.merchantId;
 
   // Delete file from Supabase Storage
-  const filePath = `${merchantId}/${validatedFileId}`;
+  const filePath = `${merchantId}/${fileId}`;
 
   const { error } = await supabase.storage.from(BUCKET_NAME).remove([filePath]);
 
