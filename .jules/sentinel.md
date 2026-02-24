@@ -37,3 +37,14 @@
 **Learning:** `X-Forwarded-For` can be manipulated by clients. Security-sensitive logic should prefer trusted platform-provided IP data and conservative header parsing fallbacks.
 
 **Prevention:** For rate limiting and auditing, prioritize trusted request IP signals first, then fall back to validated proxy headers (`x-real-ip`, sanitized `x-forwarded-for`) instead of trusting arbitrary header order.
+
+## 2026-05-27 - Path Traversal in Media Deletion
+
+**Vulnerability:** The `DELETE /api/media` endpoint allowed deleting arbitrary files on the server (or other merchants' files in shared storage) by manipulating the `id` query parameter with path traversal sequences like `../`.
+
+**Learning:** File operations based on user-supplied identifiers must always validate the identifier format to prevent directory traversal. Even if the file ID is generated safely on upload, the delete endpoint accepts it as raw input.
+
+**Prevention:**
+1. Use strict allowlists for file identifiers (e.g., alphanumeric, UUIDs).
+2. Explicitly reject path traversal characters (`..`, `/`, `\`).
+3. Use `basename()` or similar functions to extract only the filename component if a path is constructed.
