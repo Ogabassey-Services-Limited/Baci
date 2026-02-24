@@ -26,6 +26,7 @@ import {
 } from 'react-native';
 
 import { SvgUri, SvgXml } from 'react-native-svg';
+import { useTheme } from '@/hooks/useTheme';
 
 // Default blurhash for smooth loading placeholder
 // (Kept for interface compatibility even if not used by native Image)
@@ -78,13 +79,17 @@ function SafeImage({
   showFallbackIcon = true,
   fallbackStyle,
   fallbackIconSize = 32,
-  fallbackIconColor = '#9CA3AF',
+  fallbackIconColor,
   ...rest
 }: SafeImageProps) {
+  const { colors } = useTheme();
   const [hasError, setHasError] = useState(false);
   const [errorCount, setErrorCount] = useState(0);
   const [xml, setXml] = useState<string | null>(null);
   const [isLoadingXml, setIsLoadingXml] = useState(false);
+
+  // Default fallbackIconColor if not provided
+  const iconColor = fallbackIconColor ?? colors.textSecondary;
 
   // SVG Detection Logic
   const uri =
@@ -187,6 +192,7 @@ function SafeImage({
       <View
         style={[
           styles.fallbackContainer,
+          { backgroundColor: colors.inputBg },
           style as StyleProp<ViewStyle>,
           fallbackStyle,
         ]}
@@ -194,7 +200,7 @@ function SafeImage({
         <Ionicons
           name="image-outline"
           size={fallbackIconSize}
-          color={fallbackIconColor}
+          color={iconColor}
         />
       </View>
     );
@@ -204,8 +210,8 @@ function SafeImage({
   if (isSvg && !hasError) {
     if (isLoadingXml) {
       return (
-        <View style={[style, styles.loadingContainer]}>
-          <ActivityIndicator size="small" color="#9CA3AF" />
+        <View style={[style, styles.loadingContainer, { backgroundColor: colors.background }]}>
+          <ActivityIndicator size="small" color={iconColor} />
         </View>
       );
     }
@@ -266,14 +272,12 @@ export function useSafeImageProps(blurhash?: string) {
 
 const styles = StyleSheet.create({
   fallbackContainer: {
-    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
   },
   svgWrapper: {
     justifyContent: 'center',
