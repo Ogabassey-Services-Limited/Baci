@@ -17,8 +17,3 @@
 
 **Learning:** `ColorPicker` previously swallowed invalid input silently, leaving users (especially keyboard/screen reader users) confused why the color didn't change. Adding `aria-invalid` and visual cues provides immediate, necessary feedback without blocking interaction.
 **Action:** When implementing controlled inputs that parse complex values (like hex codes), always pair the parsing logic with an explicit validation state and `aria-invalid` attribute to communicate failure modes clearly.
-
-## 2026-02-27 - React Native Accessibility Hints
-
-**Learning:** React Native's `accessibilityHint` provides critical context for screen reader users that `accessibilityLabel` alone might miss, especially for icon-only buttons like "Close" or "Share" in modals.
-**Action:** Always add `accessibilityHint` to primary actions in modals to clarify the result of the interaction (e.g., "Closes the modal", "Generates a PDF").

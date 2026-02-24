@@ -17,7 +17,6 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
-import Image from 'next/image';
 import { SmartQuoteLoader } from '../components/SmartQuoteLoader';
 import { PaystackLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, BankTransferLogo } from '../components/PaymentLogos';
 import { MobileOrderSummary } from '../components/MobileCheckoutComponents';
@@ -70,25 +69,6 @@ interface QuoteResponse {
   };
   sessionId: string;
 }
-
-const ProductThumbnail = ({ item }: { item: any }) => {
-  const [src, setSrc] = useState(item.image || item.image_url || '/placeholder.png');
-
-  return (
-    <div className="w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 flex-shrink-0">
-      <div className="relative w-full h-full">
-        <Image
-          src={src}
-          alt={item.name || item.product_name || 'Product'}
-          fill
-          sizes="48px"
-          className="object-contain mix-blend-multiply"
-          onError={() => setSrc('/placeholder.png')}
-        />
-      </div>
-    </div>
-  );
-};
 
 export const CheckoutPage: React.FC = () => {
   const { cart, cartTotal, clearCart, isHydrated } = useCart();
@@ -3034,7 +3014,17 @@ export const CheckoutPage: React.FC = () => {
               <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto pr-1">
                 {(cart.length > 0 ? cart : (resumedOrder?.items || [])).map((item: any) => (
                   <div key={item.cartItemId || item.id} className="flex gap-3">
-                    <ProductThumbnail item={item} />
+                    <div className="w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 flex-shrink-0">
+                      <img
+                        src={item.image || item.image_url || '/placeholder.png'}
+                        alt={item.name || item.product_name}
+                        className="w-full h-full object-contain mix-blend-multiply"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/placeholder.png';
+                        }}
+                      />
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-gray-900 line-clamp-1">
                         {item.name || item.product_name}
