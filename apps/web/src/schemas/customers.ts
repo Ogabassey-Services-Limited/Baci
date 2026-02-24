@@ -49,6 +49,29 @@ export const createCustomerSchema = z.object({
     .nullable(),
 });
 
+export const updateCustomerSchema = z.object({
+  full_name: z
+    .string()
+    .transform((val) => sanitizeText(val, 100))
+    .optional(),
+  email: z
+    .string()
+    .transform((val) => sanitizeEmail(val))
+    .pipe(z.union([z.literal(''), z.string().email()]))
+    .optional()
+    .nullable(),
+  phone: z
+    .string()
+    .transform((val) => sanitizePhone(val))
+    .optional()
+    .nullable(),
+  address: z
+    .string()
+    .transform((val) => sanitizeText(val, 500))
+    .optional()
+    .nullable(),
+});
+
 /**
  * Helper to format Zod errors for API responses
  */
