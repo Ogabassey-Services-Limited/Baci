@@ -11,7 +11,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -141,37 +141,34 @@ function SafeImage({
   }, [isSvg, uri]);
 
   // Handle image load errors gracefully
-  const handleError = useCallback(
-    (e: NativeSyntheticEvent<ImageErrorEventData>) => {
-      // Prevent infinite error loops
-      if (errorCount >= 2) return;
+  const handleError = (e: NativeSyntheticEvent<ImageErrorEventData>) => {
+    // Prevent infinite error loops
+    if (errorCount >= 2) return;
 
-      setErrorCount((prev) => prev + 1);
-      setHasError(true);
+    setErrorCount((prev) => prev + 1);
+    setHasError(true);
 
-      const errorMessage =
-        e?.nativeEvent?.error || 'Unknown image loading error';
+    const errorMessage =
+      e?.nativeEvent?.error || 'Unknown image loading error';
 
-      // Log for debugging in development
-      if (__DEV__) {
-        console.warn(
-          '[SafeImage] Image load failed:',
-          errorMessage,
-          '\nSource:',
-          source
-        );
-      }
+    // Log for debugging in development
+    if (__DEV__) {
+      console.warn(
+        '[SafeImage] Image load failed:',
+        errorMessage,
+        '\nSource:',
+        source
+      );
+    }
 
-      // Call optional error callback
-      if (onLoadError) {
-        onLoadError(new Error(errorMessage));
-      }
-    },
-    [errorCount, onLoadError, source]
-  );
+    // Call optional error callback
+    if (onLoadError) {
+      onLoadError(new Error(errorMessage));
+    }
+  };
 
   // Reset error state when source changes
-  const handleLoadStart = useCallback(() => {
+  const handleLoadStart = () => {
     if (hasError) {
       setHasError(false);
       setErrorCount(0);
@@ -179,7 +176,7 @@ function SafeImage({
     if (propsOnLoadStart) {
       propsOnLoadStart();
     }
-  }, [hasError, propsOnLoadStart]);
+  };
 
   // If we have a custom fallback component, use it
   if (hasError && fallbackComponent) {
