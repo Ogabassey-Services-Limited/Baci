@@ -2,18 +2,24 @@ name: Android Storefront Production Release
 
 on:
   push:
+    branches:
+      - main
+    paths:
+      - 'apps/mobile-storefront/**'
+      - 'packages/shared/**'
+      - 'pnpm-lock.yaml'
     tags:
       - "v*-storefront"
   workflow_dispatch:
     inputs:
       version_code:
         description: "Play Store version code (must be higher than current production)"
-        required: true
+        required: false
         type: string
 
 concurrency:
   group: android-storefront-release-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -22,6 +28,9 @@ env:
   JAVA_VERSION: "17"
   NODE_VERSION: "22"
   WORKING_DIR: apps/mobile-storefront
+  # Offset added to github.run_number to avoid collisions with
+  # version codes previously uploaded via EAS or earlier manual runs.
+  VERSION_CODE_BASE: '10'
 
 jobs:
   build-and-deploy:
@@ -86,17 +95,23 @@ jobs:
           GH_EVENT_NAME: ${{ github.event_name }}
           GH_REF_TYPE: ${{ github.ref_type }}
           GH_REF_NAME: ${{ github.ref_name }}
+          GH_RUN_NUMBER: ${{ github.run_number }}
           VERSION_CODE_INPUT: ${{ inputs.version_code }}
+          VERSION_CODE_BASE: ${{ env.VERSION_CODE_BASE }}
         run: |
           if [ "$GH_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$VERSION_CODE_INPUT" ]; then
             VERSION_CODE="$VERSION_CODE_INPUT"
           elif [ "$GH_REF_TYPE" = "tag" ]; then
             VERSION_CODE="${GH_REF_NAME#v}"
             VERSION_CODE="${VERSION_CODE%-storefront}"
+          else
+            # Auto-bump: run_number + base offset to avoid collisions with
+            # previously uploaded version codes (EAS builds, earlier CI runs).
+            VERSION_CODE=$(( GH_RUN_NUMBER + VERSION_CODE_BASE ))
           fi
 
           if ! [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer."
+            echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer (>=1)."
             exit 1
           fi
           if [ "$VERSION_CODE" -gt 2147483647 ]; then

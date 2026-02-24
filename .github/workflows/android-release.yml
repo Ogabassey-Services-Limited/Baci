@@ -2,8 +2,12 @@ name: Android Production Release
 
 on:
   push:
-    # Keep automated production releases tag-gated.
-    # Note: GitHub evaluates `paths` only for branch pushes, not tag pushes.
+    branches:
+      - main
+    paths:
+      - 'apps/mobile-admin/**'
+      - 'packages/shared/**'
+      - 'pnpm-lock.yaml'
     tags:
       - 'v*-admin'
   workflow_dispatch:
@@ -15,7 +19,7 @@ on:
 
 concurrency:
   group: android-release-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
