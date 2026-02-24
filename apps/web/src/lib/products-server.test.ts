@@ -31,6 +31,7 @@ function createMockQueryBuilder(result: MockQueryResult) {
   for (const method of ['select', 'eq', 'gt', 'or', 'order', 'range']) {
     builder[method] = vi.fn().mockReturnValue(builder);
   }
+  // biome-ignore lint/suspicious/noThenProperty: Mocking a thenable Supabase query builder
   builder.then = thenImpl;
 
   return builder as {
