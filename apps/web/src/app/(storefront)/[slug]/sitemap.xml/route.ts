@@ -122,11 +122,10 @@ async function fetchProducts(merchantId: string): Promise<ProductRow[] | null> {
     .eq('merchant_id', merchantId)
     .eq('status', 'active');
   if (error) {
-    console.error(
-      '[sitemap] Failed to fetch products for %s: %s',
+    console.error('[sitemap] Failed to fetch products', {
       merchantId,
-      error.message
-    );
+      error: error.message,
+    });
     return null;
   }
   return (data as unknown as ProductRow[] | null) ?? [];
@@ -140,11 +139,10 @@ async function fetchCategories(
     .select('slug, updated_at')
     .eq('merchant_id', merchantId);
   if (error) {
-    console.error(
-      '[sitemap] Failed to fetch categories for %s: %s',
+    console.error('[sitemap] Failed to fetch categories', {
       merchantId,
-      error.message
-    );
+      error: error.message,
+    });
     return null;
   }
   return (data as CategoryRow[] | null) ?? [];
@@ -159,11 +157,10 @@ async function fetchBlogPosts(
     .eq('merchant_id', merchantId)
     .eq('status', 'published');
   if (error) {
-    console.error(
-      '[sitemap] Failed to fetch blog posts for %s: %s',
+    console.error('[sitemap] Failed to fetch blog posts', {
       merchantId,
-      error.message
-    );
+      error: error.message,
+    });
     return null;
   }
   return (data as BlogPostRow[] | null) ?? [];
