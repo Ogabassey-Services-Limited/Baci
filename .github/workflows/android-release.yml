@@ -9,6 +9,7 @@ on:
       - 'packages/shared/**'
       - 'pnpm-lock.yaml'
     tags:
+      # Tag pushes bypass the paths filter above (GitHub Actions behaviour).
       - 'v*-admin'
   workflow_dispatch:
     inputs:
@@ -162,6 +163,7 @@ jobs:
           retention-days: 7
 
       - name: Upload to Google Play (full production rollout)
+        if: ${{ !cancelled() }}
         uses: r0adkll/upload-google-play@935ef9c68bb393a8e6116b1575626a7f5be3a7fb # v1.1.3
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
