@@ -161,9 +161,11 @@ export async function getProducts(
             product_id: v.product_id as string,
             merchant_id: v.merchant_id as string,
             attributes: v.attributes as Record<string, string>,
-            price_override: v.price_override as number | undefined,
-            cost_price: v.cost_price as number | undefined,
-            stock_quantity: v.stock_quantity as number,
+            price_override: v.price_override
+              ? Number(v.price_override)
+              : undefined,
+            cost_price: v.cost_price ? Number(v.cost_price) : undefined,
+            stock_quantity: Number(v.stock_quantity || 0),
             sku: v.sku as string | undefined,
             primary_image: v.primary_image as string | undefined,
             images: v.images as string[] | undefined,
