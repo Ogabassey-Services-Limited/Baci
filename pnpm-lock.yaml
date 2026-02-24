@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  esbuild: ^0.25.0
   sharp: ^0.34.5
   react: 19.1.0
   react-dom: 19.1.0
