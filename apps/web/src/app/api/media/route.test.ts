@@ -167,6 +167,29 @@ describe('DELETE /api/media', () => {
     expect(response.status).toBe(401);
     expect(body.error).toBe('Unauthorized');
     expect(mockRemove).not.toHaveBeenCalled();
+    // Auth runs before CSRF — CSRF should not be reached
+    expect(mockCheckCsrfProtection).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 with fail-closed CSRF when response is undefined', async () => {
+    mockCheckCsrfProtection.mockResolvedValue({
+      valid: false,
+      response: undefined,
+    });
+
+    const request = new NextRequest(
+      'http://localhost:3000/api/media?id=valid-file.jpg',
+      {
+        method: 'DELETE',
+      }
+    );
+
+    const response = await DELETE(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('Invalid CSRF token');
+    expect(mockRemove).not.toHaveBeenCalled();
   });
 
   it('returns 500 when storage removal fails', async () => {

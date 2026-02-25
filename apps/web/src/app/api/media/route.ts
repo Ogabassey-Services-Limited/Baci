@@ -96,20 +96,25 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // Check CSRF protection for file uploads
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid && response) return response;
-
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  // Get current user
+  // Auth check FIRST — per project contract, auth is always the first operation
   const {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // CSRF protection (fail-closed: always reject when valid === false)
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+    );
   }
 
   // Get merchant (supports both owners and staff)
@@ -217,13 +222,29 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  // Check CSRF protection for file deletion
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  // Auth check FIRST — per project contract, auth is always the first operation
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // CSRF protection (fail-closed: always reject when valid === false)
   const { valid, response } = await checkCsrfProtection(request);
-  if (!valid && response) return response;
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+    );
+  }
 
   const { searchParams } = new URL(request.url);
   const fileId = searchParams.get('id');
-
   if (!fileId) {
     return NextResponse.json({ error: 'File ID required' }, { status: 400 });
   }
@@ -233,18 +254,6 @@ export async function DELETE(request: NextRequest) {
   // Explicitly reject ".." to prevent directory traversal
   if (!/^[a-zA-Z0-9.-]+$/.test(fileId) || fileId.includes('..')) {
     return NextResponse.json({ error: 'Invalid File ID' }, { status: 400 });
-  }
-
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-
-  // Get current user
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   // Get merchant (supports both owners and staff)
