@@ -198,7 +198,10 @@ export default function HomeScreen() {
       )}
 
       <View
-        style={[styles.headerOverlay, { zIndex: searchVisible ? 10000 : 100 }]}
+        style={[
+          styles.headerOverlay,
+          { zIndex: searchVisible ? 10000 : 100 },
+        ]}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
         <Header

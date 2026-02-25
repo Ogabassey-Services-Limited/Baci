@@ -66,8 +66,7 @@ export function SearchDropdown({
   const [internalQuery, setInternalQuery] = useState('');
 
   // Use external query if provided, otherwise internal
-  const activeQuery =
-    externalQuery !== undefined ? externalQuery : internalQuery;
+  const activeQuery = externalQuery !== undefined ? externalQuery : internalQuery;
   const setQuery = onExternalQueryChange || setInternalQuery;
 
   const { recentSearches, saveSearch, clearHistory } = useSearchStorage();
@@ -213,6 +212,7 @@ export function SearchDropdown({
             />
           )}
         </ScrollView>
+
       </View>
     </View>
   );

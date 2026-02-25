@@ -42,11 +42,7 @@ export {
 } from './components';
 
 // Re-export hooks for potential reuse
-export {
-  useBottomSheetAnimation,
-  useHapticFeedback,
-  useSignInForm,
-} from './hooks';
+export { useBottomSheetAnimation, useHapticFeedback, useSignInForm } from './hooks';
 
 // Re-export types
 export type {
