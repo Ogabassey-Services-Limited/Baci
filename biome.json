@@ -294,17 +294,6 @@
           }
         }
       }
-    },
-    {
-      "includes": ["**/components/ui/tag-input.tsx"],
-      "linter": {
-        "rules": {
-          "a11y": {
-            "noRedundantRoles": "off",
-            "useSemanticElements": "off"
-          }
-        }
-      }
     }
   ]
 }
