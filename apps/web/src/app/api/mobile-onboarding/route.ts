@@ -5,6 +5,7 @@ import {
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { mobileOnboardingSchema } from '@/schemas/onboarding';
 import type { BrandColors } from '@/types';
@@ -24,7 +25,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error: `Validation failed: ${validationResult.error.issues.map((e) => e.message).join(', ')}`,
-          errors: validationResult.error.flatten(),
         },
         { status: 400 }
       );
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       try {
         brandColors = JSON.parse(brandColorsString);
       } catch {
-        console.error('Failed to parse brand colors for', email);
+        console.error('Failed to parse brand colors from request body');
       }
     }
 
@@ -208,6 +208,7 @@ export async function POST(req: NextRequest) {
           favicon_png_192_url: logoUrl,
           brand_colors: brandColors,
           slug,
+          template_id: 'puck',
         })
         .select('id, slug')
         .single();
@@ -258,6 +259,10 @@ export async function POST(req: NextRequest) {
     // that must NOT block the registration response. after() runs them after
     // the response is sent while keeping the function alive on Vercel.
     after(async () => {
+      // Use admin client for background writes — the scoped client's Bearer
+      // token may expire, and after() runs outside the original auth context.
+      const adminSupabase = createAdminClient();
+
       // Generate Template
       try {
         const { generateInitialTemplate } = await import(
@@ -272,12 +277,9 @@ export async function POST(req: NextRequest) {
           businessName,
           businessType: finalBusinessType,
           brandColors: safeBrandColors,
-          merchant: { id: merchantId, slug: merchantSlug } as unknown as Record<
-            string,
-            unknown
-          >,
+          merchant: { id: merchantId, slug: merchantSlug },
         });
-        const { error: pageConfigError } = await scopedSupabase
+        const { error: pageConfigError } = await adminSupabase
           .from('page_configs')
           .insert({
             merchant_id: merchantId,
@@ -319,7 +321,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      user: { id: user.id, email: user.email },
+      user: { id: user.id, email: user.email ?? email },
       merchant: { id: merchantId, slug: merchantSlug },
       message: 'Account created successfully',
     });
