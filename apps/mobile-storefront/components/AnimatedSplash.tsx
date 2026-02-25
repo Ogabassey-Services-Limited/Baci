@@ -31,6 +31,8 @@ export function AnimatedSplash({
   onAnimationEnd,
   children,
 }: AnimatedSplashProps) {
+  // SharedValue (not useRef) so the guard is accessible inside worklets
+  const hasExited = useSharedValue(0);
   const logoScale = useSharedValue(1);
   const shimmerOpacity = useSharedValue(0);
   const containerOpacity = useSharedValue(1);
@@ -59,7 +61,7 @@ export function AnimatedSplash({
 
   // Exit animation when app is ready
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || hasExited.value === 1) return;
 
     logoScale.value = withTiming(1.1, {
       duration: 300,
@@ -69,10 +71,13 @@ export function AnimatedSplash({
     containerOpacity.value = withDelay(
       100,
       withTiming(0, { duration: 400, easing: Easing.in(Easing.cubic) }, () => {
-        runOnJS(onAnimationEnd)();
+        if (hasExited.value === 0) {
+          hasExited.value = 1;
+          runOnJS(onAnimationEnd)();
+        }
       })
     );
-  }, [isReady, logoScale, containerOpacity, onAnimationEnd]);
+  }, [isReady, logoScale, containerOpacity, onAnimationEnd, hasExited]);
 
   const containerStyle = useAnimatedStyle(() => ({
     opacity: containerOpacity.value,
