@@ -8,18 +8,10 @@ import { createClient } from '@/lib/supabase/server';
  * Requirement: Apple App Review Guideline 5.1.1(v)
  */
 export async function POST(request: NextRequest) {
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid) {
-    return (
-      response ??
-      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-    );
-  }
-
+  // 1. Verify user authentication FIRST (project convention)
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  // 1. Verify user authentication
   const {
     data: { user },
     error: authError,
@@ -29,8 +21,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // 2. CSRF protection
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   try {
-    // 2. Delete the user from auth.users via secure RPC
+    // 3. Delete the user from auth.users via secure RPC
     // DB Cascades (updated via migration) will handle related data.
     const { error: deleteError } = await supabase.rpc('delete_current_user');
 

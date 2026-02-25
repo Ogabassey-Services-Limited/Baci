@@ -49,7 +49,7 @@
 2. Explicitly reject path traversal sequences (`..`, `/`).
 3. Use a safe filename generation strategy on upload and enforce it on deletion.
 
-## 2026-03-05 - Unprotected Account Deletion Endpoint
+## 2026-02-25 - Unprotected Account Deletion Endpoint
 
 **Vulnerability:** The critical account deletion endpoint (`POST /api/merchant/auth/account-deletion`) was unprotected against Cross-Site Request Forgery (CSRF). It relied solely on authentication cookies, allowing a malicious site to trick a logged-in merchant into deleting their account simply by visiting a page.
 
