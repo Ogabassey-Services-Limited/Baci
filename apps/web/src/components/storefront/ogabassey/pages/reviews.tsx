@@ -7,8 +7,6 @@ import { useState, useEffect } from 'react';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant';
-import type { StorefrontReview } from '@/types/storefront-review';
-import type { StorefrontOrder, StorefrontOrderItem } from '@/types/storefront-order';
 
 interface Product {
   id: string;
@@ -16,6 +14,8 @@ interface Product {
   image: string;
   price: string;
 }
+
+
 
 interface RatingModalProps {
   isOpen: boolean;
@@ -139,8 +139,8 @@ export const OgabasseyV2Reviews: React.FC = () => {
   const { customer, isAuthenticated } = useCustomerAuth();
   const { merchant } = useMerchantSafe() || {};
 
-  const [orders, setOrders] = useState<StorefrontOrder[]>([]);
-  const [reviews, setReviews] = useState<StorefrontReview[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch data
@@ -157,13 +157,13 @@ export const OgabasseyV2Reviews: React.FC = () => {
         const ordersRes = await fetch(
           `/api/storefront/orders?merchantSlug=${merchant.slug}`
         );
-        const ordersData = await ordersRes.json() as { orders: StorefrontOrder[] };
+        const ordersData = await ordersRes.json();
 
         // 2. Fetch User's History of Reviews
         const reviewsRes = await fetch(
           `/api/reviews?merchantId=${merchant.id}&customerEmail=${encodeURIComponent(customer.email)}`
         );
-        const reviewsData = await reviewsRes.json() as { reviews: StorefrontReview[] };
+        const reviewsData = await reviewsRes.json();
 
         if (ordersData.orders) setOrders(ordersData.orders);
         if (reviewsData.reviews) setReviews(reviewsData.reviews);
@@ -182,7 +182,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
   const pendingItems = orders
     .filter((o) => o.shipping_status === 'delivered' || o.status === 'Delivered') // Support both status fields
     .flatMap((order) =>
-      order.items.map((item) => ({
+      order.items.map((item: any) => ({
         ...item,
         orderDate: order.created_at,
         orderId: order.id,
@@ -197,7 +197,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
       return !reviews.some((r) => r.product_id === item.id || r.product_id === item.product_id);
     });
 
-  const handleOpenRate = (item: StorefrontOrderItem & { image: string }) => {
+  const handleOpenRate = (item: any) => {
     // Map item to Product interface expected by modal
     const productToRate: Product = {
       id: item.id || item.product_id, // fallback
@@ -227,12 +227,11 @@ export const OgabasseyV2Reviews: React.FC = () => {
       });
 
       if (res.ok) {
-        const data = await res.json() as { review: StorefrontReview };
+        const data = await res.json();
         // Optimistically update UI
-        const newReview: StorefrontReview = {
+        const newReview = {
           ...data.review,
           products: {
-            id: selectedProduct.id,
             name: selectedProduct.name,
             images: [selectedProduct.image],
           },
