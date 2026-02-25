@@ -9,11 +9,7 @@
 import { getBankNameFromCode } from './bank-codes';
 import { escapeHtml, escapeJsString } from './escape-html';
 import { sanitizeSvg } from './sanitize-svg';
-import type {
-  ReceiptMerchant,
-  ReceiptOptions,
-  ReceiptOrder,
-} from './types';
+import type { ReceiptMerchant, ReceiptOptions, ReceiptOrder } from './types';
 
 const CURRENCY_LOCALE_MAP: Record<string, string> = {
   NGN: 'en-NG',

@@ -107,7 +107,7 @@ export function ReviewsList({
             {renderStars(
               Math.round(
                 typeof stats.average_rating === 'number' &&
-                Number.isFinite(stats.average_rating)
+                  Number.isFinite(stats.average_rating)
                   ? stats.average_rating
                   : 0
               ),

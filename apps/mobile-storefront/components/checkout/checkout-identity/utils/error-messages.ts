@@ -18,7 +18,8 @@ export const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'User not found': 'No account found with this email address.',
   'Invalid email': 'Please enter a valid email address.',
   'Password is too short': 'Password must be at least 6 characters.',
-  'Email rate limit exceeded': 'Too many email requests. Please try again later.',
+  'Email rate limit exceeded':
+    'Too many email requests. Please try again later.',
 } as const;
 
 /**

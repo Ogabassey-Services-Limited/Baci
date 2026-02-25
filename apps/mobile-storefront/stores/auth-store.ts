@@ -406,7 +406,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Store subscription reference for cleanup (2026 Critical Fix)
       if (get()._initGen !== initGen) {
-        log.debug('Initialization cancelled/superseded, unsubscribing listener');
+        log.debug(
+          'Initialization cancelled/superseded, unsubscribing listener'
+        );
         authListener.subscription.unsubscribe();
         return;
       }
