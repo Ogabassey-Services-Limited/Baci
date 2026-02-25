@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "499767419832",
+    "project_id": "ogabassey-store",
+    "storage_bucket": "ogabassey-store.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:499767419832:android:00f5a4e17f8054d2f8a54d",
+        "android_client_info": {
+          "package_name": "com.ogabassey.store"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDjoAKzE6FZ__excNTA8XmXXA6SO013ALw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
