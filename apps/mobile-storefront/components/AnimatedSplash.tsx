@@ -22,8 +22,9 @@ type AnimatedSplashProps = {
 
 /**
  * Full-screen animated splash overlay using Reanimated (worklet-driven).
- * Wraps children so they render behind the overlay and are ready when it fades.
- * Uses pointerEvents="none" so the overlay never blocks touch on content below.
+ * Children render behind the overlay and are ready when it fades.
+ * Blocks touch (pointerEvents="auto") until isReady, then switches to
+ * pointerEvents="none" so the fadeout overlay doesn't intercept taps.
  */
 export function AnimatedSplash({
   isReady,
