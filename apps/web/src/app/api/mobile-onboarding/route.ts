@@ -3,42 +3,28 @@ import {
   type User,
 } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 import { mobileOnboardingSchema } from '@/schemas/onboarding';
 import type { BrandColors } from '@/types';
 
-// Import these dynamically in the function to avoid load-time issues,
-// but for the route handler we can keep it simple or stick to dynamic if needed.
-// Given the previous file used dynamic imports for these, we will too.
+// Allow up to 60s — template generation calls an AI model (Gemini)
+// and hero-image assignment can also be slow. The default 10s is not enough.
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
     // --- 1. Validation ---
-    console.log(
-      'Incoming mobile onboarding payload:',
-      JSON.stringify(body, null, 2)
-    );
-
-    // Adapting schema validation for JSON input instead of FormData
     const validationResult = await mobileOnboardingSchema.safeParseAsync(body);
 
     if (!validationResult.success) {
-      const errorDetail = JSON.stringify(
-        validationResult.error.flatten(),
-        null,
-        2
-      );
-      console.error('Validation failed for mobile onboarding:', errorDetail);
       return NextResponse.json(
         {
-          success: false,
-          message: `Validation failed: ${validationResult.error.issues.map((e) => e.message).join(', ')}`,
+          error: `Validation failed: ${validationResult.error.issues.map((e) => e.message).join(', ')}`,
           errors: validationResult.error.flatten(),
-          debugInfo: errorDetail, // Add more detail for mobile debugging
         },
         { status: 400 }
       );
@@ -67,8 +53,8 @@ export async function POST(req: NextRequest) {
     if (brandColorsString) {
       try {
         brandColors = JSON.parse(brandColorsString);
-      } catch (e) {
-        console.error('Failed to parse brand colors', e);
+      } catch {
+        console.error('Failed to parse brand colors for', email);
       }
     }
 
@@ -89,7 +75,7 @@ export async function POST(req: NextRequest) {
     if (!user) {
       if (!password) {
         return NextResponse.json(
-          { success: false, message: 'Password is required for new accounts.' },
+          { error: 'Password is required for new accounts.' },
           { status: 400 }
         );
       }
@@ -97,7 +83,7 @@ export async function POST(req: NextRequest) {
       const { data: signUpData, error: signUpError } =
         await supabase.auth.signUp({
           email,
-          password: password,
+          password,
           options: {
             data: {
               full_name: fullName,
@@ -108,23 +94,25 @@ export async function POST(req: NextRequest) {
       if (signUpError) {
         if (signUpError.message.includes('already registered')) {
           return NextResponse.json(
-            { success: false, message: 'User already exists. Please log in.' },
+            { error: 'User already exists. Please log in.' },
             { status: 409 }
           );
         }
         throw signUpError;
       }
 
-      if (signUpData.user) {
-        user = signUpData.user;
-      } else {
+      if (!signUpData.user) {
         return NextResponse.json(
-          { success: false, message: 'Signup failed. Please try again.' },
+          { error: 'Signup failed. Please try again.' },
           { status: 500 }
         );
       }
+      user = signUpData.user;
 
       if (signUpData.session?.access_token) {
+        // NOTE: We must construct a raw client here because the new user has
+        // no cookie session yet. We inject their access_token as a Bearer
+        // header so subsequent DB operations run under their RLS identity.
         scopedSupabase = createSupabaseClient(
           getSupabaseUrl(),
           getSupabaseAnonKey(),
@@ -144,10 +132,9 @@ export async function POST(req: NextRequest) {
       } else {
         return NextResponse.json(
           {
-            success: false,
-            message:
+            error:
               'Please confirm your email to finish onboarding and sign in again.',
-            requires_confirmation: true,
+            code: 'EMAIL_CONFIRMATION_REQUIRED',
           },
           { status: 403 }
         );
@@ -171,13 +158,22 @@ export async function POST(req: NextRequest) {
       'store';
 
     // Check for existing merchant
-    const { data: existingMerchant } = await scopedSupabase
+    const { data: existingMerchant, error: lookupError } = await scopedSupabase
       .from('merchants')
       .select('id, business_name')
       .eq('user_id', user.id)
       .maybeSingle();
 
-    let merchant: { id: string; slug?: string } | null = null;
+    if (lookupError) {
+      console.error('Merchant lookup failed:', lookupError);
+      return NextResponse.json(
+        { error: 'Failed to check existing account.' },
+        { status: 500 }
+      );
+    }
+
+    let merchantId: string;
+    let merchantSlug: string;
 
     if (existingMerchant) {
       // Update existing
@@ -191,13 +187,14 @@ export async function POST(req: NextRequest) {
           favicon_png_192_url: logoUrl,
           brand_colors: brandColors,
           slug,
-          template_id: 'puck', // Force Builder Engine for new merchants
+          template_id: 'puck',
         })
         .eq('id', existingMerchant.id)
-        .select()
+        .select('id, slug')
         .single();
       if (updateError) throw updateError;
-      merchant = updatedMerchant;
+      merchantId = updatedMerchant.id;
+      merchantSlug = updatedMerchant.slug;
     } else {
       // Create new
       const { data: newMerchant, error: createError } = await scopedSupabase
@@ -212,38 +209,38 @@ export async function POST(req: NextRequest) {
           brand_colors: brandColors,
           slug,
         })
-        .select()
+        .select('id, slug')
         .single();
       if (createError) throw createError;
-      merchant = newMerchant;
+      merchantId = newMerchant.id;
+      merchantSlug = newMerchant.slug;
     }
 
-    if (!merchant) throw new Error('Failed to create merchant');
-
     // Create Domain
-    // Check if domain exists first? Unique constraint should handle it, but allow failure if we are updating.
-    await scopedSupabase
-      .from('domains')
-      .insert({
-        merchant_id: merchant.id,
-        domain: `${merchant.slug}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'}`,
-        tld: `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'}`,
-        domain_type: 'subdomain',
-        status: 'active',
-        is_primary: true,
-      })
-      .then(({ error }) => {
-        if (error) console.log('Domain creation error (might exist):', error);
-      });
+    const { error: domainError } = await scopedSupabase.from('domains').insert({
+      merchant_id: merchantId,
+      domain: `${merchantSlug}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'}`,
+      tld: `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'}`,
+      domain_type: 'subdomain',
+      status: 'active',
+      is_primary: true,
+    });
+
+    if (domainError && !domainError.message.includes('duplicate')) {
+      console.error(
+        'Domain creation failed for merchant',
+        merchantId,
+        domainError
+      );
+    }
 
     // Upsert Staff Member (Profile Data)
-    // This ensures the "Profile" screen is populated
     const { error: staffError } = await scopedSupabase
       .from('staff_members')
       .upsert(
         {
           user_id: user.id,
-          merchant_id: merchant.id,
+          merchant_id: merchantId,
           name: fullName || null,
           phone: phone || null,
           email: user.email || email,
@@ -254,69 +251,83 @@ export async function POST(req: NextRequest) {
       );
     if (staffError) {
       console.error('Failed to create/update staff member profile', staffError);
-      // Don't fail the whole request, but log it
     }
 
-    // --- 4. Template & Assets ---
+    // --- 4. Template & Assets (deferred via after()) ---
+    // These are slow operations (AI model call for template + image assignment)
+    // that must NOT block the registration response. after() runs them after
+    // the response is sent while keeping the function alive on Vercel.
+    after(async () => {
+      // Generate Template
+      try {
+        const { generateInitialTemplate } = await import(
+          '@/lib/initial-template-generator'
+        );
+        const safeBrandColors = brandColors || {
+          primary: '#000000',
+          background: '#ffffff',
+          accent: '#F59E0B',
+        };
+        const config = await generateInitialTemplate({
+          businessName,
+          businessType: finalBusinessType,
+          brandColors: safeBrandColors,
+          merchant: { id: merchantId, slug: merchantSlug } as unknown as Record<
+            string,
+            unknown
+          >,
+        });
+        const { error: pageConfigError } = await scopedSupabase
+          .from('page_configs')
+          .insert({
+            merchant_id: merchantId,
+            page_slug: 'home',
+            page_name: 'Home',
+            draft_config: config,
+            published_config: config,
+            is_published: true,
+          });
+        if (pageConfigError) {
+          console.error(
+            'Failed to insert page config for merchant',
+            merchantId,
+            pageConfigError
+          );
+        }
+      } catch (e) {
+        console.error('Template generation failed for merchant', merchantId, e);
+      }
 
-    // Generate Template
-    try {
-      const { generateInitialTemplate } = await import(
-        '@/lib/initial-template-generator'
-      );
-      const safeBrandColors = brandColors || {
-        primary: '#000000',
-        background: '#ffffff',
-        accent: '#F59E0B',
-      };
-      const config = await generateInitialTemplate({
-        businessName,
-        businessType: finalBusinessType,
-        brandColors: safeBrandColors,
-        merchant: merchant as unknown as Record<string, unknown>,
-      });
-      await scopedSupabase.from('page_configs').insert({
-        merchant_id: merchant.id,
-        page_slug: 'home',
-        page_name: 'Home',
-        draft_config: config,
-        published_config: config,
-        is_published: true,
-      });
-    } catch (e) {
-      console.error('Template generation failed', e);
-    }
-
-    // Hero Images
-    try {
-      const { assignHeroImagesToMerchant } = await import(
-        '@/services/hero-image-generator'
-      );
-      await assignHeroImagesToMerchant(
-        merchant.id,
-        finalBusinessType.toLowerCase(),
-        false
-      );
-    } catch (e) {
-      console.error('Hero image assignment failed', e);
-    }
-
-    // Email
-    // TODO: Move welcome email to a webhook that listens for email_confirmed_at
-    // sendWelcomeEmail(email, businessName).catch(console.error);
+      // Hero Images
+      try {
+        const { assignHeroImagesToMerchant } = await import(
+          '@/services/hero-image-generator'
+        );
+        await assignHeroImagesToMerchant(
+          merchantId,
+          finalBusinessType.toLowerCase(),
+          false
+        );
+      } catch (e) {
+        console.error(
+          'Hero image assignment failed for merchant',
+          merchantId,
+          e
+        );
+      }
+    });
 
     return NextResponse.json({
       success: true,
-      user,
-      merchant,
+      user: { id: user.id, email: user.email },
+      merchant: { id: merchantId, slug: merchantSlug },
       message: 'Account created successfully',
     });
   } catch (error: unknown) {
     console.error('Mobile onboarding error:', error);
     return NextResponse.json(
       {
-        success: false,
-        message: (error as Error).message || 'Internal Server Error',
+        error: (error as Error).message || 'Internal Server Error',
       },
       { status: 500 }
     );

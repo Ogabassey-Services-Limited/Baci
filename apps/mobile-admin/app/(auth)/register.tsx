@@ -190,12 +190,22 @@ export default function RegisterScreen() {
             params: { email },
           });
         },
-        onError: (error: Error) => {
+        onError: (
+          error: Error & { isTimeout?: boolean; isOffline?: boolean }
+        ) => {
           console.error('Registration error:', error);
-          Alert.alert(
-            'Registration Failed',
-            error.message || 'Please try again later.'
-          );
+          const title = 'Registration Failed';
+          let message = error.message || 'Please try again later.';
+
+          if (error.isTimeout) {
+            message =
+              'The server is taking too long to respond. Please check your connection and try again.';
+          } else if (error.isOffline) {
+            message =
+              'Could not reach the server. Please check your internet connection and try again.';
+          }
+
+          Alert.alert(title, message);
         },
       }
     );
