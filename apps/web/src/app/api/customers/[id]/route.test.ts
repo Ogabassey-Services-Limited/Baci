@@ -71,22 +71,24 @@ const createMockSupabase = () => ({
       return {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn(() =>
-          Promise.resolve({
-            data: customerError ? null : customer,
+        single: vi.fn(() => {
+          const hasError = customerError != null;
+          return Promise.resolve({
+            data: hasError ? null : customer,
             error: customerError,
-          })
-        ),
+          });
+        }),
         update: vi.fn(() => ({
           eq: vi.fn(() => ({
             eq: vi.fn(() => ({
               select: vi.fn(() => ({
-                single: vi.fn(() =>
-                  Promise.resolve({
-                    data: updateError ? null : updateResult,
+                single: vi.fn(() => {
+                  const hasError = updateError != null;
+                  return Promise.resolve({
+                    data: hasError ? null : updateResult,
                     error: updateError,
-                  })
-                ),
+                  });
+                }),
               })),
             })),
           })),
