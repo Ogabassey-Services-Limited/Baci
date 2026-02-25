@@ -233,6 +233,10 @@ export async function POST(req: NextRequest) {
         merchantId,
         domainError
       );
+      return NextResponse.json(
+        { error: 'Failed to provision store domain. Please try again.' },
+        { status: 500 }
+      );
     }
 
     // Upsert Staff Member (Profile Data)
@@ -328,9 +332,7 @@ export async function POST(req: NextRequest) {
   } catch (error: unknown) {
     console.error('Mobile onboarding error:', error);
     return NextResponse.json(
-      {
-        error: (error as Error).message || 'Internal Server Error',
-      },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }
