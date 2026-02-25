@@ -488,7 +488,6 @@ export function StorefrontProductGrid({
                   onAddToCart={handleAddToCart}
                   onUpdateQuantity={updateQuantity}
                   onQuickView={openQuickView}
-                  priority={index < 4}
                 />
               );
             })}

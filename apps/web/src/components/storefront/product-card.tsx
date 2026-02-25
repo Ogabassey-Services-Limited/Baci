@@ -24,10 +24,6 @@ interface StorefrontProductCardProps {
   onAddToCart: (product: Product) => void;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onQuickView: (product: Product) => void;
-  /**
-   * Priority loading for LCP optimization (first 4 items)
-   */
-  priority?: boolean;
 }
 
 /**
@@ -41,7 +37,6 @@ export function StorefrontProductCard({
   onAddToCart,
   onUpdateQuantity,
   onQuickView,
-  priority,
 }: StorefrontProductCardProps) {
   const { formatCurrency } = useCurrency();
 
@@ -124,7 +119,6 @@ export function StorefrontProductCard({
             className="object-cover w-full h-auto aspect-video"
             category={productCategory}
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            priority={priority}
           />
 
           {/* Product Badges */}
