@@ -83,52 +83,87 @@ export async function GET(request: NextRequest) {
       100
     );
     const offset = Number.parseInt(searchParams.get('offset') || '0', 10) || 0;
+    const cursor = searchParams.get('cursor'); // ISO timestamp for keyset pagination
 
-    // Build query
-    let query = supabase
-      .from('notifications')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
+    // Specific columns matching Notification type (avoids fetching unused data)
+    const columns =
+      'id, template_id, title, message, notification_type, priority, target_type, target_merchant_ids, target_segment, channels, action_url, action_label, scheduled_for, expires_at, created_by, created_at, sent_at, is_system';
 
-    // Status filter
-    if (status === 'sent') {
-      query = query.not('sent_at', 'is', null);
-    } else if (status === 'scheduled') {
-      query = query.is('sent_at', null).not('scheduled_for', 'is', null);
-    } else if (status === 'draft') {
-      query = query.is('sent_at', null).is('scheduled_for', null);
-    }
+    // Shared filter conditions
+    const sanitizedSearch = search ? search.replace(/[%_\\]/g, '\\$&') : null;
 
-    // Type filter
-    if (type) {
-      query = query.eq('notification_type', type);
-    }
+    let notifications: Notification[];
+    let count: number | null = null;
+    let hasMore = false;
 
-    // Priority filter
-    if (priority) {
-      query = query.eq('priority', priority);
-    }
+    if (cursor) {
+      // Keyset pagination — O(1) regardless of page depth
+      let q = supabase
+        .from('notifications')
+        .select(columns)
+        .lt('created_at', cursor)
+        .order('created_at', { ascending: false })
+        .limit(limit + 1);
 
-    // Search filter
-    if (search) {
-      // Escape special characters for LIKE pattern
-      const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&');
-      query = query.or(
-        `title.ilike.%${sanitizedSearch}%,message.ilike.%${sanitizedSearch}%`
-      );
-    }
+      if (status === 'sent') q = q.not('sent_at', 'is', null);
+      else if (status === 'scheduled')
+        q = q.is('sent_at', null).not('scheduled_for', 'is', null);
+      else if (status === 'draft')
+        q = q.is('sent_at', null).is('scheduled_for', null);
+      if (type) q = q.eq('notification_type', type);
+      if (priority) q = q.eq('priority', priority);
+      if (sanitizedSearch)
+        q = q.or(
+          `title.ilike.%${sanitizedSearch}%,message.ilike.%${sanitizedSearch}%`
+        );
 
-    // Pagination
-    query = query.range(offset, offset + limit - 1);
+      const { data, error: qError } = await q;
+      if (qError) {
+        logger.error({
+          message: 'Error fetching notifications',
+          error: qError,
+        });
+        return NextResponse.json(
+          { error: 'Failed to fetch notifications' },
+          { status: 500 }
+        );
+      }
+      const rows = (data ?? []) as Notification[];
+      hasMore = rows.length > limit;
+      notifications = hasMore ? rows.slice(0, limit) : rows;
+    } else {
+      // Offset pagination (backward compatible)
+      let q = supabase
+        .from('notifications')
+        .select(columns, { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
 
-    const { data: notifications, error, count } = await query;
+      if (status === 'sent') q = q.not('sent_at', 'is', null);
+      else if (status === 'scheduled')
+        q = q.is('sent_at', null).not('scheduled_for', 'is', null);
+      else if (status === 'draft')
+        q = q.is('sent_at', null).is('scheduled_for', null);
+      if (type) q = q.eq('notification_type', type);
+      if (priority) q = q.eq('priority', priority);
+      if (sanitizedSearch)
+        q = q.or(
+          `title.ilike.%${sanitizedSearch}%,message.ilike.%${sanitizedSearch}%`
+        );
 
-    if (error) {
-      logger.error({ message: 'Error fetching notifications', error });
-      return NextResponse.json(
-        { error: 'Failed to fetch notifications' },
-        { status: 500 }
-      );
+      const { data, error: qError, count: totalCount } = await q;
+      if (qError) {
+        logger.error({
+          message: 'Error fetching notifications',
+          error: qError,
+        });
+        return NextResponse.json(
+          { error: 'Failed to fetch notifications' },
+          { status: 500 }
+        );
+      }
+      notifications = (data ?? []) as Notification[];
+      count = totalCount;
     }
 
     // Fetch stats for all notifications in a single batch query
@@ -195,6 +230,19 @@ export async function GET(request: NextRequest) {
         read_rate: 0,
       },
     }));
+
+    if (cursor) {
+      return NextResponse.json({
+        data: notificationsWithStats,
+        pagination: {
+          limit,
+          next_cursor: hasMore
+            ? notifications[notifications.length - 1].created_at
+            : null,
+          has_more: hasMore,
+        },
+      });
+    }
 
     return NextResponse.json({
       data: notificationsWithStats,

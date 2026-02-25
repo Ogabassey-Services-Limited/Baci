@@ -35,13 +35,16 @@ export async function GET(request: NextRequest) {
       Number.parseInt(searchParams.get('offset') || '0', 10) || 0,
       0
     );
+    const _cursor = searchParams.get('cursor'); // ISO timestamp for keyset pagination
     const slug = searchParams.get('slug');
 
     // If slug is provided, fetch single post
     if (slug) {
       const { data: post, error } = await supabase
         .from('blog_posts')
-        .select('*')
+        .select(
+          'id, merchant_id, title, slug, content, excerpt, featured_image_url, featured_image_alt, category, tags, keywords, author_name, author_title, author_image_url, author_bio, status, seo_title, seo_description, focus_keyword, reading_time_minutes, view_count, word_count, created_at, updated_at, published_at, is_ai_generated, ai_topic_id, is_platform_post'
+        )
         .eq('is_platform_post', true)
         .eq('status', 'published')
         .eq('slug', slug)
@@ -81,36 +84,71 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(post);
     }
 
-    // Build query for listing posts
+    // Build base query for listing posts
+    const listColumns =
+      'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, author_image_url, reading_time_minutes, published_at, view_count';
+
+    if (_cursor) {
+      // Keyset pagination — O(1) regardless of page depth
+      let cursorQuery = supabase
+        .from('blog_posts')
+        .select(listColumns)
+        .eq('is_platform_post', true)
+        .eq('status', 'published')
+        .lt('published_at', _cursor)
+        .order('published_at', { ascending: false })
+        .limit(limit + 1);
+
+      if (category) {
+        cursorQuery = cursorQuery.eq('category', category);
+      }
+      if (tag) {
+        cursorQuery = cursorQuery.contains('tags', [tag]);
+      }
+
+      const { data: posts, error } = await cursorQuery;
+
+      if (error) {
+        console.error('Error fetching blog posts:', error);
+        return NextResponse.json(
+          { error: 'Failed to fetch blog posts' },
+          { status: 500 }
+        );
+      }
+
+      const rows = posts ?? [];
+      const hasMore = rows.length > limit;
+      const items = hasMore ? rows.slice(0, limit) : rows;
+      const nextCursor = hasMore ? items[items.length - 1].published_at : null;
+
+      return NextResponse.json({
+        posts: items,
+        limit,
+        next_cursor: nextCursor,
+        hasMore,
+      });
+    }
+
+    // Offset pagination (backward compatible)
     let query = supabase
       .from('blog_posts')
-      .select(
-        'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, author_image_url, reading_time_minutes, published_at, view_count',
-        { count: 'exact' }
-      )
+      .select(listColumns, { count: 'exact' })
       .eq('is_platform_post', true)
-      .eq('status', 'published');
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
-    // Apply filters
     if (category) {
       query = query.eq('category', category);
     }
-
     if (tag) {
       query = query.contains('tags', [tag]);
     }
-
-    // Sort by published date
-    query = query.order('published_at', { ascending: false });
-
-    // Apply pagination
-    query = query.range(offset, offset + limit - 1);
 
     const { data: posts, error, count } = await query;
 
     if (error) {
       console.error('Error fetching blog posts:', error);
-      // Don't expose internal DB error messages to clients
       return NextResponse.json(
         { error: 'Failed to fetch blog posts' },
         { status: 500 }
