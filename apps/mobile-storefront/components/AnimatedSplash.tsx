@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   runOnJS,
   useAnimatedStyle,
@@ -63,6 +64,9 @@ export function AnimatedSplash({
   useEffect(() => {
     if (!isReady || hasExited.value === 1) return;
 
+    // Stop the infinite shimmer loop so the worklet is released cleanly
+    cancelAnimation(shimmerOpacity);
+
     logoScale.value = withTiming(1.1, {
       duration: 300,
       easing: Easing.in(Easing.cubic),
@@ -77,7 +81,14 @@ export function AnimatedSplash({
         }
       })
     );
-  }, [isReady, logoScale, containerOpacity, onAnimationEnd, hasExited]);
+  }, [
+    isReady,
+    logoScale,
+    containerOpacity,
+    onAnimationEnd,
+    hasExited,
+    shimmerOpacity,
+  ]);
 
   const containerStyle = useAnimatedStyle(() => ({
     opacity: containerOpacity.value,
