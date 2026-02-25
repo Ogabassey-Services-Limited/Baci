@@ -1,0 +1,78 @@
+ WARN  Unsupported engine: wanted: {"node":"24.x"} (current: {"node":"v22.22.0","pnpm":"10.28.0"})
+Scope: all 5 workspace projects
+Lockfile is up to date, resolution step is skipped
+Packages: +3211
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+   ╭──────────────────────────────────────────╮
+   │                                          │
+   │   Update available! 10.28.0 → 10.30.2.   │
+   │   Changelog: https://pnpm.io/v/10.30.2   │
+   │     To update, run: pnpm add -g pnpm     │
+   │                                          │
+   ╰──────────────────────────────────────────╯
+
+Progress: resolved 0, reused 0, downloaded 1, added 0
+Progress: resolved 0, reused 0, downloaded 24, added 4
+Progress: resolved 0, reused 0, downloaded 42, added 12
+Progress: resolved 0, reused 0, downloaded 52, added 16
+Progress: resolved 0, reused 0, downloaded 72, added 23
+Progress: resolved 0, reused 0, downloaded 116, added 48
+Progress: resolved 0, reused 0, downloaded 128, added 52
+Progress: resolved 0, reused 0, downloaded 129, added 52
+Progress: resolved 0, reused 0, downloaded 166, added 67
+Progress: resolved 0, reused 0, downloaded 201, added 87
+Progress: resolved 0, reused 0, downloaded 259, added 122
+Progress: resolved 0, reused 0, downloaded 331, added 195
+Progress: resolved 0, reused 0, downloaded 393, added 222
+Progress: resolved 0, reused 0, downloaded 482, added 324
+Progress: resolved 0, reused 0, downloaded 570, added 408
+Progress: resolved 0, reused 0, downloaded 643, added 456
+Progress: resolved 0, reused 0, downloaded 769, added 683
+Progress: resolved 0, reused 0, downloaded 895, added 888
+Progress: resolved 0, reused 0, downloaded 949, added 958
+Progress: resolved 0, reused 0, downloaded 1020, added 1080
+Progress: resolved 0, reused 0, downloaded 1085, added 1153
+Progress: resolved 0, reused 0, downloaded 1139, added 1193
+Progress: resolved 0, reused 0, downloaded 1203, added 1255
+Progress: resolved 0, reused 0, downloaded 1369, added 1508
+Progress: resolved 0, reused 0, downloaded 1527, added 1674
+Progress: resolved 0, reused 0, downloaded 1669, added 1823
+Progress: resolved 0, reused 0, downloaded 1751, added 1911
+Progress: resolved 0, reused 0, downloaded 1788, added 1936
+Progress: resolved 0, reused 0, downloaded 1958, added 2131
+Progress: resolved 0, reused 0, downloaded 2109, added 2303
+Progress: resolved 0, reused 0, downloaded 2225, added 2427
+Progress: resolved 0, reused 0, downloaded 2385, added 2593
+Progress: resolved 0, reused 0, downloaded 2511, added 2715
+Progress: resolved 0, reused 0, downloaded 2630, added 2844
+Progress: resolved 0, reused 0, downloaded 2762, added 2976
+Progress: resolved 0, reused 0, downloaded 2776, added 2984
+Progress: resolved 0, reused 0, downloaded 2787, added 2988
+Progress: resolved 0, reused 0, downloaded 2850, added 3020
+Progress: resolved 0, reused 0, downloaded 2918, added 3078
+Progress: resolved 0, reused 0, downloaded 2940, added 3211
+Progress: resolved 0, reused 0, downloaded 2940, added 3211, done
+
+. postinstall$ patch-package
+. postinstall: patch-package 8.0.1
+. postinstall: Applying patches...
+. postinstall: react-native-phone-number-input@2.1.0 ✔
+. postinstall: Unrecognized patch file in patches directory expo-clipboard@8.0.8.patch
+. postinstall: Unrecognized patch file in patches directory novel@1.0.2.patch
+. postinstall: Unrecognized patch file in patches directory react-native-svg.patch
+. postinstall: Unrecognized patch file in patches directory react-native-worklets.patch
+. postinstall: ---
+. postinstall: patch-package finished with 4 warning(s).
+. postinstall: Done
+╭ Warning ─────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│   Ignored build scripts: @firebase/util@1.13.0, @parcel/watcher@2.5.6,       │
+│   @scarf/scarf@1.4.0, core-js@3.48.0, esbuild@0.25.12, lefthook@2.1.0,       │
+│   protobufjs@7.5.4, puppeteer@24.37.2, sharp@0.34.5, unrs-resolver@1.11.1,   │
+│   vue-demi@0.14.10.                                                          │
+│   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+│   to run scripts.                                                            │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Done in 46.1s using pnpm v10.28.0
