@@ -7,9 +7,28 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
+function mapTransaction(tx: Record<string, unknown>) {
+  return {
+    id: tx.id,
+    type: tx.type,
+    amount: Number(tx.amount),
+    balanceAfter: Number(tx.balance_after),
+    status: tx.status,
+    description: tx.description,
+    sourceType: tx.source_type,
+    sourceId: tx.source_id,
+    transferReference: tx.transfer_reference,
+    transferStatus: tx.transfer_status,
+    createdAt: tx.created_at,
+  };
+}
+
 /**
  * GET /api/wallet/transactions
  * Get wallet transaction history
+ *
+ * Supports both offset-based (page/limit) and cursor-based (cursor/limit) pagination.
+ * Cursor pagination is preferred for sequential access — O(1) regardless of depth.
  */
 export async function GET(request: Request) {
   try {
@@ -23,6 +42,7 @@ export async function GET(request: Request) {
       100
     );
     const type = searchParams.get('type'); // credit, debit, withdrawal, payout
+    const _cursor = searchParams.get('cursor'); // ISO timestamp for keyset pagination
     const offset = (page - 1) * limit;
 
     // Auth check
@@ -50,19 +70,58 @@ export async function GET(request: Request) {
 
     const merchantId = merchantContext.merchantId;
 
-    // Build query
-    let query = supabase
+    // Specific columns only (avoids fetching unnecessary data)
+    const columns =
+      'id, type, amount, balance_after, status, description, source_type, source_id, transfer_reference, transfer_status, created_at';
+
+    if (_cursor) {
+      // Keyset pagination — O(1) regardless of page depth
+      let cursorQuery = supabase
+        .from('wallet_transactions')
+        .select(columns)
+        .eq('merchant_id', merchantId)
+        .lt('created_at', _cursor)
+        .order('created_at', { ascending: false })
+        .limit(limit + 1);
+
+      if (type) {
+        cursorQuery = cursorQuery.eq('type', type);
+      }
+
+      const { data: transactions, error } = await cursorQuery;
+
+      if (error) {
+        console.error('Failed to get transactions:', error);
+        return NextResponse.json(
+          { error: 'Failed to get transactions' },
+          { status: 500 }
+        );
+      }
+
+      const rows = transactions ?? [];
+      const hasMore = rows.length > limit;
+      const items = hasMore ? rows.slice(0, limit) : rows;
+      const nextCursor = hasMore ? items[items.length - 1].created_at : null;
+
+      return NextResponse.json({
+        transactions: items.map(mapTransaction),
+        pagination: { limit, next_cursor: nextCursor, has_more: hasMore },
+      });
+    }
+
+    // Offset pagination (backward compatible)
+    let offsetQuery = supabase
       .from('wallet_transactions')
-      .select('*', { count: 'exact' })
+      .select(columns, { count: 'exact' })
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (type) {
-      query = query.eq('type', type);
+      offsetQuery = offsetQuery.eq('type', type);
     }
 
-    const { data: transactions, error, count } = await query;
+    const { data: transactions, error, count } = await offsetQuery;
 
     if (error) {
       console.error('Failed to get transactions:', error);
@@ -73,19 +132,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
-      transactions: transactions.map((tx) => ({
-        id: tx.id,
-        type: tx.type,
-        amount: Number(tx.amount),
-        balanceAfter: Number(tx.balance_after),
-        status: tx.status,
-        description: tx.description,
-        sourceType: tx.source_type,
-        sourceId: tx.source_id,
-        transferReference: tx.transfer_reference,
-        transferStatus: tx.transfer_status,
-        createdAt: tx.created_at,
-      })),
+      transactions: (transactions ?? []).map(mapTransaction),
       pagination: {
         page,
         limit,

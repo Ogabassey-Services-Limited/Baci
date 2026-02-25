@@ -137,6 +137,14 @@ echo "info: Xcode Cloud bootstrap for '$app_dir'"
 echo "info: Repository root '$repo_root'"
 
 install_node_if_missing
+
+# Node 22+ deprecated bundled corepack; Node 25 removed it entirely.
+# Install it via npm if not already available.
+if ! command -v corepack >/dev/null 2>&1; then
+  echo "info: corepack not found — installing via npm"
+  npm install -g corepack
+fi
+
 assert_command corepack
 assert_command pod
 
