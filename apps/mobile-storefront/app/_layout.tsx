@@ -22,13 +22,14 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { enableScreens } from 'react-native-screens';
 
 enableScreens();
 
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { ConnectivityBanner } from '@/components/ConnectivityBanner';
 import { ChatWidget } from '@/components/chat/ChatWidget';
 import { ErrorFallback, GlobalErrorBoundary } from '@/components/ErrorBoundary';
@@ -103,6 +104,7 @@ export default function RootLayout() {
   const isInitialized = useAuthStore((state) => state.isInitialized);
   const { register: registerPushNotifications } = usePushNotifications();
   const initPromiseRef = useRef<Promise<void> | null>(null);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     if (!isInitialized) {
@@ -143,14 +145,37 @@ export default function RootLayout() {
     if (error) throw error;
   }, [error]);
 
+  // Safety timeout: force-dismiss splash if auth initialization hangs
+  useEffect(() => {
+    if (!showSplash) return;
+    const timeout = setTimeout(() => {
+      setShowSplash(false);
+    }, 8000);
+    return () => clearTimeout(timeout);
+  }, [showSplash]);
+
+  // Hide the native splash as soon as fonts load so the JS AnimatedSplash takes over
   useEffect(() => {
     if (loaded) {
-      SplashScreen.hideAsync();
+      SplashScreen.hideAsync().catch(() => {
+        // Ignore — splash may already be hidden (e.g. fast reload)
+      });
     }
   }, [loaded]);
 
   if (!loaded) {
     return null;
+  }
+
+  if (showSplash) {
+    return (
+      <AnimatedSplash
+        isReady={isInitialized}
+        onAnimationEnd={() => setShowSplash(false)}
+      >
+        <RootLayoutNav />
+      </AnimatedSplash>
+    );
   }
 
   return <RootLayoutNav />;
