@@ -1,0 +1,3 @@
+## 2026-02-11 - Theme Constraints in DomainEmptyState
+**Learning:** The mobile-admin theme (`LIGHT_COLORS`, `DARK_COLORS`) defines `text` color as dark in light mode and white in dark mode, but the `primary` color remains blue in both modes. This means using `colors.text` on a `primary` button creates a contrast violation in light mode (dark text on blue background). Therefore, hardcoding `#FFF` for text on primary buttons is necessary for accessibility until a `textOnPrimary` token is added to the theme.
+**Action:** Stick to `#FFF` for text on primary buttons, but advocate for adding `textOnPrimary` to the theme system in future refactors.
