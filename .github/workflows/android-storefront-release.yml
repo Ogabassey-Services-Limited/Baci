@@ -138,10 +138,10 @@ jobs:
       - name: Decode keystore
         working-directory: ${{ env.WORKING_DIR }}
         env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_STOREFRONT_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::ANDROID_KEYSTORE_BASE64 secret is empty or not set"
+            echo "::error::ANDROID_STOREFRONT_KEYSTORE_BASE64 secret is empty or not set"
             exit 1
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
@@ -159,9 +159,9 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }}/android
         env:
           ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/${{ env.WORKING_DIR }}/android/app/release.keystore
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_STOREFRONT_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_STOREFRONT_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_STOREFRONT_KEY_PASSWORD }}
         run: |
           GRADLE_ARGS="app:bundleRelease -x lint -x lintVitalAnalyzeRelease -x test --configure-on-demand --build-cache --no-daemon"
           # shellcheck disable=SC2086
