@@ -62,13 +62,7 @@ export function useBottomSheetAnimation({
         duration: closeSheetDuration,
       });
     }
-  }, [
-    isOpen,
-    translateDistance,
-    reducedMotion,
-    backdropOpacity,
-    translateY,
-  ]);
+  }, [isOpen, translateDistance, reducedMotion, backdropOpacity, translateY]);
 
   const animatedBackdropStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,

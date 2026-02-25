@@ -286,7 +286,7 @@ export async function calculateCommerce(
       if (error instanceof Error) throw error;
       throw new CommerceError(
         (error as { message?: string })?.message ||
-        'Commerce calculation failed',
+          'Commerce calculation failed',
         'COMMERCE_BRAIN_ERROR'
       );
     }

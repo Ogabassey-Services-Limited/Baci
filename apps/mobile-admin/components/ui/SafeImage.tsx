@@ -143,8 +143,7 @@ function SafeImage({
     setErrorCount((prev) => prev + 1);
     setHasError(true);
 
-    const errorMessage =
-      e?.nativeEvent?.error || 'Unknown image loading error';
+    const errorMessage = e?.nativeEvent?.error || 'Unknown image loading error';
 
     // Log for debugging in development
     if (__DEV__) {
@@ -208,14 +207,21 @@ function SafeImage({
     }
 
     const flattenedStyle = StyleSheet.flatten(style);
-    const svgWidth = typeof flattenedStyle?.width === 'number' ? flattenedStyle.width : 48;
-    const svgHeight = typeof flattenedStyle?.height === 'number' ? flattenedStyle.height : 48;
+    const svgWidth =
+      typeof flattenedStyle?.width === 'number' ? flattenedStyle.width : 48;
+    const svgHeight =
+      typeof flattenedStyle?.height === 'number' ? flattenedStyle.height : 48;
 
     if (uri?.startsWith('data:image/svg+xml')) {
       // Data URI - use SvgXml with direct mapping
       return (
         <View style={[style, styles.svgWrapper]}>
-          <SvgUri uri={uri} width={svgWidth} height={svgHeight} onError={() => setHasError(true)} />
+          <SvgUri
+            uri={uri}
+            width={svgWidth}
+            height={svgHeight}
+            onError={() => setHasError(true)}
+          />
         </View>
       );
     }

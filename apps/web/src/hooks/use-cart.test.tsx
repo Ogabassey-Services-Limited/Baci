@@ -99,7 +99,9 @@ describe('useCart', () => {
       await waitFor(
         () => {
           // Ghost product should be gone
-          const ghost = result.current.cart.find((i) => i.id === 'ghost-product');
+          const ghost = result.current.cart.find(
+            (i) => i.id === 'ghost-product'
+          );
           expect(ghost).toBeUndefined();
 
           // Price should be updated
@@ -109,7 +111,9 @@ describe('useCart', () => {
           expect(updated?.price).toBe(150);
 
           // Valid product should remain
-          const valid = result.current.cart.find((i) => i.id === 'valid-product');
+          const valid = result.current.cart.find(
+            (i) => i.id === 'valid-product'
+          );
           expect(valid).toBeDefined();
         },
         { timeout: 2000 }
@@ -181,20 +185,20 @@ describe('useCart', () => {
     });
 
     it('clears guest cart after merge', async () => {
-       // 1. Seed guest cart
-       const guestCart = [mockGuestProduct];
-       localStorageMock.setItem('baci-cart-guest', JSON.stringify(guestCart));
+      // 1. Seed guest cart
+      const guestCart = [mockGuestProduct];
+      localStorageMock.setItem('baci-cart-guest', JSON.stringify(guestCart));
 
-       // 2. Render User Cart
-       const wrapper = ({ children }: { children: React.ReactNode }) => (
-         <CartProvider userId="user-1">{children}</CartProvider>
-       );
+      // 2. Render User Cart
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <CartProvider userId="user-1">{children}</CartProvider>
+      );
 
-       const { result } = renderHook(() => useCart(), { wrapper });
-       await waitFor(() => expect(result.current.isHydrated).toBe(true));
+      const { result } = renderHook(() => useCart(), { wrapper });
+      await waitFor(() => expect(result.current.isHydrated).toBe(true));
 
-       // 3. Check if guest cart is cleared from storage
-       expect(localStorageMock.getItem('baci-cart-guest')).toBeNull();
+      // 3. Check if guest cart is cleared from storage
+      expect(localStorageMock.getItem('baci-cart-guest')).toBeNull();
     });
   });
 });

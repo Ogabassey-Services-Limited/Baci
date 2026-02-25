@@ -309,16 +309,20 @@ export const CartProvider = ({
         const mergedMap = new Map<string, CartItem>();
 
         // Add existing user items
-        hydratedCart.forEach((item) => mergedMap.set(item.cartItemId, item));
+        hydratedCart.forEach((item) => {
+          mergedMap.set(item.cartItemId, item);
+        });
 
         // Merge guest items
         guestCart.forEach((guestItem) => {
           if (mergedMap.has(guestItem.cartItemId)) {
-            const existing = mergedMap.get(guestItem.cartItemId)!;
-            mergedMap.set(guestItem.cartItemId, {
-              ...existing,
-              quantity: existing.quantity + guestItem.quantity,
-            });
+            const existing = mergedMap.get(guestItem.cartItemId);
+            if (existing) {
+              mergedMap.set(guestItem.cartItemId, {
+                ...existing,
+                quantity: existing.quantity + guestItem.quantity,
+              });
+            }
           } else {
             mergedMap.set(guestItem.cartItemId, guestItem);
           }
@@ -336,7 +340,6 @@ export const CartProvider = ({
     setMerchantSlugState(slugToUse);
     setUserId(initialUserId);
     setIsHydrated(true);
-    // biome-ignore lint/correctness/useExhaustiveDependencies: Only re-hydrate on user/merchant change
   }, [initialMerchantSlug, initialUserId]);
 
   // Background validation: Remove ghost products and update stale prices
