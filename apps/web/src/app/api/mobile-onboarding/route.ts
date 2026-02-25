@@ -333,7 +333,16 @@ export async function POST(req: NextRequest) {
       message: 'Account created successfully',
     });
   } catch (error: unknown) {
-    console.error('Mobile onboarding error:', error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const errName = error instanceof Error ? error.name : typeof error;
+    const errStack =
+      error instanceof Error
+        ? error.stack?.split('\n').slice(0, 3).join(' | ')
+        : undefined;
+    console.error(
+      'Mobile onboarding error:',
+      JSON.stringify({ name: errName, message: errMsg, stack: errStack })
+    );
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
