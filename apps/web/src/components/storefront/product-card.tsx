@@ -24,6 +24,7 @@ interface StorefrontProductCardProps {
   onAddToCart: (product: Product) => void;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onQuickView: (product: Product) => void;
+  priority?: boolean;
 }
 
 /**
@@ -37,6 +38,7 @@ export function StorefrontProductCard({
   onAddToCart,
   onUpdateQuantity,
   onQuickView,
+  priority = false,
 }: StorefrontProductCardProps) {
   const { formatCurrency } = useCurrency();
 
@@ -118,6 +120,7 @@ export function StorefrontProductCard({
             height={400}
             className="object-cover w-full h-auto aspect-video"
             category={productCategory}
+            priority={priority}
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />
 

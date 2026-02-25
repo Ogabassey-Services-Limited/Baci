@@ -144,14 +144,18 @@ export function ProductMainImage(
 }
 
 /** Product card images in grids - lazy load with blur */
-export function ProductCardImage(
-  props: Omit<OptimizedImageProps, 'fetchPriority' | 'loading' | 'layout'>
-) {
+export function ProductCardImage({
+  priority,
+  ...props
+}: Omit<OptimizedImageProps, 'fetchPriority' | 'loading' | 'layout'> & {
+  priority?: boolean;
+}) {
   return (
     <OptimizedImage
       {...props}
-      fetchPriority="low"
-      loading="lazy"
+      priority={priority}
+      fetchPriority={priority ? 'high' : 'low'}
+      loading={priority ? 'eager' : 'lazy'}
       layout="grid"
     />
   );
