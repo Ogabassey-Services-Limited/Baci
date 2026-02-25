@@ -105,16 +105,8 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
             <CameraView
               style={styles.camera}
               onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-              accessibilityLabel={
-                scanned
-                  ? 'Barcode captured. Scanner paused.'
-                  : 'Barcode scanner camera'
-              }
-              accessibilityHint={
-                scanned
-                  ? 'Please wait before scanning the next barcode'
-                  : 'Align barcode within the frame to scan'
-              }
+              accessibilityLabel="Camera view"
+              accessibilityHint="Align barcode within the frame to scan"
               barcodeScannerSettings={{
                 barcodeTypes: [
                   'qr',

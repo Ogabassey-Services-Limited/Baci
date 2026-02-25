@@ -6,3 +6,6 @@
 
 ## 2026-02-25 - Ignored External Bot Command
 **Note:** PR comments for `@coderabbitai` were ignored as they are for an external bot.
+
+## 2026-03-05 - Ignored External Bot Command
+**Note:** PR comments for `@coderabbitai` were ignored as they are for an external bot.
