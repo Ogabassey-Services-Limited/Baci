@@ -59,6 +59,16 @@ describe('TagInput', () => {
     expect(screen.getByText('tag2')).toBeInTheDocument();
   });
 
+  it('renders a semantic list for tags', () => {
+    render(<TagInputHarness initial={['tag1']} onChangeSpy={mockOnChange} />);
+    const list = screen.getByRole('list', { name: /selected tags/i });
+    expect(list).toBeInTheDocument();
+    expect(list.tagName).toBe('UL');
+    const listItems = screen.getAllByRole('listitem');
+    expect(listItems).toHaveLength(1);
+    expect(listItems[0]).toHaveTextContent('tag1');
+  });
+
   it('has an accessible add button', () => {
     render(<TagInputHarness onChangeSpy={mockOnChange} />);
     expect(
