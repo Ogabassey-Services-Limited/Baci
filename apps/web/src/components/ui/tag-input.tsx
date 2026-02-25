@@ -131,6 +131,7 @@ export function TagInput({
           className="flex flex-wrap gap-2"
           ref={tagListRef}
           aria-label="Selected tags"
+          role="list"
         >
           {value.map((tag, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
