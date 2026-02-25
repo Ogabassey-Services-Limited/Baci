@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme'; // Adjust import path if needed
 import { useRegistration } from '@/hooks/useRegistration';
+import type { NetworkError } from '@/lib/api-client';
 import {
   type PasswordValidationResult,
   validatePassword,
@@ -191,11 +192,20 @@ export default function RegisterScreen() {
           });
         },
         onError: (error: Error) => {
-          console.error('Registration error:', error);
-          Alert.alert(
-            'Registration Failed',
-            error.message || 'Please try again later.'
-          );
+          console.error('Registration error:', error.message);
+          const title = 'Registration Failed';
+          let message = error.message || 'Please try again later.';
+
+          const networkError = error as NetworkError;
+          if (networkError.isTimeout) {
+            message =
+              'The server is taking too long to respond. Please check your connection and try again.';
+          } else if (networkError.isOffline) {
+            message =
+              'Could not reach the server. Please check your internet connection and try again.';
+          }
+
+          Alert.alert(title, message);
         },
       }
     );

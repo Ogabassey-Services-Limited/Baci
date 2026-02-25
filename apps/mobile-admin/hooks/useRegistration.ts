@@ -37,18 +37,22 @@ interface CompleteProfilePayload {
 interface OnboardingResponse {
   success: boolean;
   message?: string;
-  merchantId?: string;
+  user?: { id: string; email: string };
+  merchant?: { id: string; slug: string };
 }
 
 export function useRegistration() {
   const queryClient = useQueryClient();
 
-  // Register Mutation
+  // Register Mutation — no auth needed (new user doesn't have a session yet)
+  // Increased timeout: server does auth + DB writes + deferred AI template generation
   const registerMutation = useMutation({
     mutationFn: (data: RegisterPayload): Promise<OnboardingResponse> =>
       apiClient<OnboardingResponse>(ONBOARDING_ENDPOINT, {
         method: 'POST',
         body: JSON.stringify(data),
+        requiresAuth: false,
+        timeout: 30_000,
       }),
     onSuccess: () => {
       // Invalidate auth/merchant queries if needed
