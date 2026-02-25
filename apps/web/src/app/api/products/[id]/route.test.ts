@@ -177,12 +177,17 @@ const createMockSupabase = () => ({
     if (table === 'product_variants') {
       return {
         select: vi.fn().mockReturnThis(),
-        eq: vi.fn(() =>
-          Promise.resolve({
-            data: variants,
-            error: null,
-          })
-        ),
+        eq: vi.fn().mockImplementation(function (this: any) {
+          // If variants are needed immediately (await .eq()), return promise
+          // But since we chain .eq().eq(), we need to return 'this' for the first calls
+          // and a thenable/promise for the final await.
+          // However, standard Supabase mock pattern is to return 'this' until await.
+          // The issue is likely that the previous mock returned a Promise immediately on .eq()
+          // which prevents chaining .eq().eq()
+          return this;
+        }),
+        // biome-ignore lint/suspicious/noThenProperty: Mocking a Thenable for await support
+        then: vi.fn((resolve) => resolve({ data: variants, error: null })),
         delete: vi.fn(() => ({
           eq: vi.fn().mockReturnThis(),
           not: vi.fn(() =>
