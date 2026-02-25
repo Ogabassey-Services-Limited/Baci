@@ -49,6 +49,16 @@
 2. Explicitly reject path traversal sequences (`..`, `/`).
 3. Use a safe filename generation strategy on upload and enforce it on deletion.
 
+## 2026-02-25 - Missing CSRF Protection in Media API
+
+**Vulnerability:** The `POST` and `DELETE` handlers in `/api/media/route.ts` lacked CSRF protection, allowing attackers to upload or delete files on behalf of authenticated merchants. Tests incorrectly assumed middleware handled this.
+
+**Learning:** Middleware (`proxy.ts`) does not automatically protect all API routes. Route handlers must explicitly invoke CSRF checks for state-changing operations.
+
+**Prevention:**
+1. Import and use `checkCsrfProtection` in all `POST`/`PUT`/`DELETE` API routes.
+2. Verify security assumptions by inspecting middleware code, not just trusting test comments.
+
 ## 2026-03-05 - Unprotected Account Deletion Endpoint
 
 **Vulnerability:** The critical account deletion endpoint (`POST /api/merchant/auth/account-deletion`) was unprotected against Cross-Site Request Forgery (CSRF). It relied solely on authentication cookies, allowing a malicious site to trick a logged-in merchant into deleting their account simply by visiting a page.
