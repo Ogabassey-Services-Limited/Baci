@@ -48,3 +48,14 @@
 1. Always validate file identifiers against a strict allowlist (e.g., alphanumeric only).
 2. Explicitly reject path traversal sequences (`..`, `/`).
 3. Use a safe filename generation strategy on upload and enforce it on deletion.
+
+## 2026-03-05 - Unprotected Account Deletion Endpoint
+
+**Vulnerability:** The critical account deletion endpoint (`POST /api/merchant/auth/account-deletion`) was unprotected against Cross-Site Request Forgery (CSRF). It relied solely on authentication cookies, allowing a malicious site to trick a logged-in merchant into deleting their account simply by visiting a page.
+
+**Learning:** Documentation or comments claiming global middleware protection (e.g., in `SECURITY.md`) can be misleading if the implementation is missing or decentralized. Trust code, not docs.
+
+**Prevention:**
+1. Explicitly verify `checkCsrfProtection` usage in all state-changing routes (`POST`, `PUT`, `DELETE`).
+2. Add regression tests that specifically attempt requests without CSRF tokens and expect 403.
+3. Consider enforcing CSRF checks centrally in middleware for `/api/*` routes to avoid human error in individual route handlers.
