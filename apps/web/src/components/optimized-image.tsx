@@ -1,7 +1,7 @@
 'use client';
 
 import Image, { type ImageProps } from 'next/image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   getFallbackImage,
   getProductBlurPlaceholder,
@@ -81,6 +81,12 @@ export function OptimizedImage({
   const [imgSrc, setImgSrc] = useState(src);
   const [hasError, setHasError] = useState(false);
 
+  // Update state when src prop changes to handle dynamic updates
+  useEffect(() => {
+    setImgSrc(src);
+    setHasError(false);
+  }, [src]);
+
   // If marked as LCP image, override to high priority and eager loading
   const finalPriority = isLCP ? true : priority;
   const finalLoading = isLCP ? 'eager' : loading;
@@ -144,14 +150,16 @@ export function ProductMainImage(
 }
 
 /** Product card images in grids - lazy load with blur */
-export function ProductCardImage(
-  props: Omit<OptimizedImageProps, 'fetchPriority' | 'loading' | 'layout'>
-) {
+export function ProductCardImage({
+  priority,
+  ...props
+}: Omit<OptimizedImageProps, 'fetchPriority' | 'loading' | 'layout'>) {
   return (
     <OptimizedImage
       {...props}
-      fetchPriority="low"
-      loading="lazy"
+      priority={priority}
+      fetchPriority={priority ? 'high' : 'low'}
+      loading={priority ? 'eager' : 'lazy'}
       layout="grid"
     />
   );
