@@ -20,10 +20,7 @@ import { styles } from '../styles';
  */
 function SocialDivider() {
   return (
-    <View
-      style={[styles.divider, { marginTop: 4, marginBottom: 8 }]}
-      accessibilityRole="none"
-    >
+    <View style={[styles.divider, { marginTop: 4, marginBottom: 8 }]} accessibilityRole="none">
       <View style={styles.dividerLine} />
       <Text style={styles.dividerText}>OR</Text>
       <View style={styles.dividerLine} />
@@ -45,10 +42,7 @@ export function SocialSignInButtons({
       <View style={{ gap: 8 }}>
         {/* Google Sign-In */}
         <TouchableOpacity
-          style={[
-            styles.socialButton,
-            isLoading && styles.socialButtonDisabled,
-          ]}
+          style={[styles.socialButton, isLoading && styles.socialButtonDisabled]}
           onPress={onGoogleSignIn}
           disabled={isLoading}
           activeOpacity={0.8}
@@ -64,10 +58,7 @@ export function SocialSignInButtons({
         {/* Apple Sign-In (iOS only) */}
         {Platform.OS === 'ios' && (
           <TouchableOpacity
-            style={[
-              styles.socialButton,
-              isLoading && styles.socialButtonDisabled,
-            ]}
+            style={[styles.socialButton, isLoading && styles.socialButtonDisabled]}
             onPress={onAppleSignIn}
             disabled={isLoading}
             activeOpacity={0.8}
