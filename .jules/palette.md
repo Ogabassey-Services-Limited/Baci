@@ -17,3 +17,8 @@
 
 **Learning:** `ColorPicker` previously swallowed invalid input silently, leaving users (especially keyboard/screen reader users) confused why the color didn't change. Adding `aria-invalid` and visual cues provides immediate, necessary feedback without blocking interaction.
 **Action:** When implementing controlled inputs that parse complex values (like hex codes), always pair the parsing logic with an explicit validation state and `aria-invalid` attribute to communicate failure modes clearly.
+
+## 2026-03-05 - Mobile Modal Accessibility Trap
+
+**Learning:** Full-screen modals in React Native (`apps/mobile-admin`) often lack focus trapping for screen readers, allowing VoiceOver users to accidentally interact with background content (e.g., behind the scanner overlay).
+**Action:** Always add `accessibilityViewIsModal={true}` (iOS) and `onRequestClose` (Android) to `Modal` components to ensure proper focus management and prevent navigation leaks.
