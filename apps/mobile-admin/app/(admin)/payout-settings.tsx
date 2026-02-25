@@ -86,7 +86,7 @@ export default function PayoutSettingsScreen() {
   });
 
   useEffect(() => {
-    const verifyAccount = () => {
+    const verifyAccount = async () => {
       if (!accountnumber || accountnumber.length !== 10) {
         setVerifiedName(null);
         return;
@@ -136,7 +136,7 @@ export default function PayoutSettingsScreen() {
 
     const timeout = setTimeout(verifyAccount, 500); // Debounce
     return () => clearTimeout(timeout);
-  }, [accountnumber, selectedBank, resolveAccount.mutate, session]);
+  }, [accountnumber, selectedBank, resolveAccount, session]);
 
   // Initialize state
   useEffect(() => {
