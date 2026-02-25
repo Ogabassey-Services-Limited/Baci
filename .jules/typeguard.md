@@ -3,3 +3,6 @@
 **Action:** When typing complex API responses (especially from Supabase JSONB columns), always handle both string and object variants using type guards or safe render functions. Verify component usage to ensure types match the actual data flow, even if the component is currently unused.
 
 **Note:** PR comments for `@coderabbitai` were ignored as they are for an external bot.
+
+## 2026-02-25 - Ignored External Bot Command
+**Note:** PR comments for `@coderabbitai` were ignored as they are for an external bot.
