@@ -1,16 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DELETE } from '@/app/api/media/route';
 
-const mockCreateClient = vi.fn();
+const mockCreateServerClient = vi.fn();
 const mockCookies = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockToUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
-const mockCheckCsrfProtection = vi.fn();
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: (...args: unknown[]) => mockCreateClient(...args),
+vi.mock('@supabase/ssr', () => ({
+  createServerClient: (...args: unknown[]) => mockCreateServerClient(...args),
 }));
 
 vi.mock('next/headers', () => ({
@@ -25,10 +23,6 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: (...args: unknown[]) =>
     mockGetMerchantForApiRequest(...args),
   toUserAccess: (...args: unknown[]) => mockToUserAccess(...args),
-}));
-
-vi.mock('@/lib/csrf', () => ({
-  checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
 }));
 
 // Mock Supabase storage
@@ -49,10 +43,16 @@ const mockSupabase = {
   },
 };
 
+// CSRF Protection Note:
+// CSRF token validation for DELETE (and all non-GET methods) is enforced at
+// the proxy middleware layer (proxy.ts), not within individual route handlers.
+// These unit tests invoke the handler directly, bypassing the middleware stack,
+// so CSRF is not testable at this level. Integration/E2E tests that go through
+// the full middleware pipeline cover CSRF enforcement.
 describe('DELETE /api/media', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCreateClient.mockReturnValue(mockSupabase);
+    mockCreateServerClient.mockReturnValue(mockSupabase);
     mockCookies.mockReturnValue({
       get: vi.fn(),
     });
@@ -61,15 +61,18 @@ describe('DELETE /api/media', () => {
     });
     mockToUserAccess.mockReturnValue({});
     mockHasPermission.mockReturnValue(true);
-    mockCheckCsrfProtection.mockResolvedValue({ valid: true });
     mockRemove.mockResolvedValue({ error: null });
   });
 
   it('allows deletion of valid file ID', async () => {
-    const request = new NextRequest(
+    const request = new Request(
       'http://localhost:3000/api/media?id=valid-file.jpg',
       {
         method: 'DELETE',
+        headers: {
+          Cookie: 'csrf_token=test-csrf-token',
+          'x-csrf-token': 'test-csrf-token',
+        },
       }
     );
 
@@ -78,37 +81,12 @@ describe('DELETE /api/media', () => {
 
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(mockCheckCsrfProtection).toHaveBeenCalledWith(request);
     expect(mockStorageFrom).toHaveBeenCalledWith('media');
     expect(mockRemove).toHaveBeenCalledWith(['merchant-123/valid-file.jpg']);
   });
 
-  it('rejects request with invalid CSRF token', async () => {
-    mockCheckCsrfProtection.mockResolvedValue({
-      valid: false,
-      response: NextResponse.json(
-        { error: 'Invalid CSRF token' },
-        { status: 403 }
-      ),
-    });
-
-    const request = new NextRequest(
-      'http://localhost:3000/api/media?id=valid-file.jpg',
-      {
-        method: 'DELETE',
-      }
-    );
-
-    const response = await DELETE(request);
-    const body = await response.json();
-
-    expect(response.status).toBe(403);
-    expect(body.error).toBe('Invalid CSRF token');
-    expect(mockRemove).not.toHaveBeenCalled();
-  });
-
   it('prevents path traversal in file ID', async () => {
-    const request = new NextRequest(
+    const request = new Request(
       'http://localhost:3000/api/media?id=../../secret.txt',
       {
         method: 'DELETE',
@@ -122,7 +100,7 @@ describe('DELETE /api/media', () => {
   });
 
   it('prevents absolute path / root path attempts', async () => {
-    const request = new NextRequest(
+    const request = new Request(
       'http://localhost:3000/api/media?id=/etc/passwd',
       {
         method: 'DELETE',
@@ -136,7 +114,7 @@ describe('DELETE /api/media', () => {
   });
 
   it('returns 400 when id query param is missing', async () => {
-    const request = new NextRequest('http://localhost:3000/api/media', {
+    const request = new Request('http://localhost:3000/api/media', {
       method: 'DELETE',
     });
 
@@ -154,7 +132,7 @@ describe('DELETE /api/media', () => {
       error: { message: 'Not authenticated' },
     });
 
-    const request = new NextRequest(
+    const request = new Request(
       'http://localhost:3000/api/media?id=valid-file.jpg',
       {
         method: 'DELETE',
@@ -174,7 +152,7 @@ describe('DELETE /api/media', () => {
       error: { message: 'Storage error' },
     });
 
-    const request = new NextRequest(
+    const request = new Request(
       'http://localhost:3000/api/media?id=valid-file.jpg',
       {
         method: 'DELETE',
@@ -186,5 +164,24 @@ describe('DELETE /api/media', () => {
 
     expect(response.status).toBe(500);
     expect(body.error).toBe('Storage error');
+  });
+
+  it('succeeds without CSRF headers because CSRF is enforced at proxy.ts, not the route handler', async () => {
+    // This test documents that the DELETE handler itself does not check CSRF
+    // tokens. CSRF protection is handled by proxy.ts middleware before the
+    // request reaches the route handler. When invoking the handler directly
+    // (as in unit tests), the absence of CSRF headers does not cause failure.
+    const request = new Request(
+      'http://localhost:3000/api/media?id=valid-file.jpg',
+      {
+        method: 'DELETE',
+      }
+    );
+
+    const response = await DELETE(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
   });
 });

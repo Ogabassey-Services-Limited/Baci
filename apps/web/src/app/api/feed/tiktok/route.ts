@@ -43,9 +43,7 @@ export async function GET(request: NextRequest) {
   // Get active products with all necessary fields
   const { data: products, error: productsError } = await supabase
     .from('products')
-    .select(
-      'id, name, description, slug, price, compare_at_price, images, brand, condition, gtin, mpn, category, google_product_category, stock, sku'
-    )
+    .select('*')
     .eq('merchant_id', merchant.id)
     .eq('status', 'active')
     .order('created_at', { ascending: false });

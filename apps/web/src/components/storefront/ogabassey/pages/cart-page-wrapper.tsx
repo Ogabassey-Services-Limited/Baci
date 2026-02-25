@@ -46,10 +46,10 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
         // Fetch products by ID
         const { data: products, error } = await supabase
           .from('products')
-          .select('id, name, price, compare_at_price, images, image_hint, slug, manage_stock, stock_quantity, sku, has_variants, brand, condition, description')
+          .select('*')
           .eq('merchant_id', merchantId)
           .in('id', ids)
-          .eq('status', 'active');
+          .eq('is_active', true);
 
         if (error) {
           console.error('Error fetching products:', error);
@@ -72,32 +72,11 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
 
         // Add each product to cart
         let addedCount = 0;
-        for (const p of products) {
+        for (const product of products) {
           // Check if already in cart
-          const existsInCart = cart.some(item => item.id === p.id);
+          const existsInCart = cart.some(item => item.id === product.id);
           if (!existsInCart) {
-            const imageUrl = (p.images as { url: string }[])?.[0]?.url || '';
-            addToCart({
-              id: p.id,
-              name: p.name,
-              description: p.description || '',
-              status: 'active',
-              price: p.price,
-              manage_stock: p.manage_stock ?? true,
-              stock: p.stock_quantity || 0,
-              image: imageUrl,
-              imageLarge: imageUrl,
-              imageHint: p.image_hint || '',
-              brand: p.brand || '',
-              gtin: '',
-              mpn: '',
-              slug: p.slug,
-              sku: p.sku,
-              has_variants: p.has_variants,
-              compare_at_price: p.compare_at_price,
-              condition: p.condition,
-              images: p.images as { url: string; alt: string; order: number }[],
-            }, 1);
+            addToCart(product, 1);
             addedCount++;
           }
         }
