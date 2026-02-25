@@ -27,10 +27,6 @@ vi.mock('@/hooks/use-toast', () => ({
 }));
 
 // ----- Mock: Supabase client (chainable query builder) -----
-const mockSingle = vi.fn();
-const mockEq = vi.fn();
-const mockIn = vi.fn();
-const mockSelect = vi.fn();
 const mockFrom = vi.fn();
 
 vi.mock('@/lib/supabase/client', () => ({
@@ -183,7 +179,7 @@ describe('CartPageWrapper', () => {
     // Make the last chained call return a pending promise
     stub.eq
       .mockReturnValueOnce(stub) // .eq('merchant_id', ...)
-      .mockReturnValueOnce(stub) // .eq('status', 'active') — but we override below
+      .mockReturnValueOnce(stub); // .eq('status', 'active') — but we override below
     stub.in.mockReturnValue({ ...stub, eq: vi.fn().mockReturnValue(pendingQuery) });
     mockFrom.mockReturnValue(stub);
 
