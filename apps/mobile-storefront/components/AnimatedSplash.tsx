@@ -68,15 +68,9 @@ export function AnimatedSplash({
 
     containerOpacity.value = withDelay(
       100,
-      withTiming(
-        0,
-        { duration: 400, easing: Easing.in(Easing.cubic) },
-        (finished) => {
-          if (finished) {
-            runOnJS(onAnimationEnd)();
-          }
-        }
-      )
+      withTiming(0, { duration: 400, easing: Easing.in(Easing.cubic) }, () => {
+        runOnJS(onAnimationEnd)();
+      })
     );
   }, [isReady, logoScale, containerOpacity, onAnimationEnd]);
 
