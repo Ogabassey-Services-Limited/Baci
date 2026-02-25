@@ -75,10 +75,14 @@ export async function GET(request: Request) {
         payment_provider,
         order_items (
           id,
+          product_id,
           name,
           quantity,
           price,
-          has_assurance
+          has_assurance,
+          products (
+            images
+          )
         )
       `)
       .eq('customer_id', customer.id)
@@ -96,7 +100,14 @@ export async function GET(request: Request) {
     // Transform to expected format
     const transformedOrders = orders.map((order) => ({
       ...order,
-      items: order.order_items || [],
+      items: (order.order_items || []).map((item) => {
+        // Handle joined product data safely without explicit any
+        const joinedItem = item as { products?: { images?: string[] } | null };
+        return {
+          ...item,
+          image: joinedItem.products?.images?.[0] || undefined,
+        };
+      }),
     }));
 
     return NextResponse.json({ orders: transformedOrders });
