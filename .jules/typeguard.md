@@ -16,3 +16,5 @@
 ## 2026-03-01 - Typeguard: Fixed `any` in Reviews and Storefront Order API
 **Learning:** The lack of generated Supabase types for joined queries (`products(images)`) led to widespread use of `any` and type assertions. By creating explicit interfaces (`StorefrontReview`) and updating the API to match the type contract (adding `product_id` and mapping `image`), we eliminated dozens of implicit `any` usages.
 **Action:** When dealing with Supabase joins without generated types, define a specific interface for the joined result or use `unknown` with a type assertion to avoid `any` lint errors while maintaining type safety at the boundary.
+
+**Note:** PR comment `@coderabbitai review` was ignored as it is for an external bot.
