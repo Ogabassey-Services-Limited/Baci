@@ -93,9 +93,9 @@ export function AnimatedSplash({
 
   return (
     <View style={styles.wrapper}>
-      {isReady && children}
+      {children}
       <Animated.View
-        pointerEvents="none"
+        pointerEvents={isReady ? 'none' : 'auto'}
         style={[styles.container, containerStyle]}
       >
         <Animated.View style={[styles.logoContainer, logoStyle]}>
