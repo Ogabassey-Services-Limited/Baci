@@ -4,7 +4,7 @@ import {
 } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { env, getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { mobileOnboardingSchema } from '@/schemas/onboarding';
@@ -220,14 +220,14 @@ export async function POST(req: NextRequest) {
     // Create Domain
     const { error: domainError } = await scopedSupabase.from('domains').insert({
       merchant_id: merchantId,
-      domain: `${merchantSlug}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'}`,
-      tld: `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'}`,
+      domain: `${merchantSlug}.${env.NEXT_PUBLIC_ROOT_DOMAIN}`,
+      tld: `.${env.NEXT_PUBLIC_ROOT_DOMAIN}`,
       domain_type: 'subdomain',
       status: 'active',
       is_primary: true,
     });
 
-    if (domainError && !domainError.message.includes('duplicate')) {
+    if (domainError && domainError.code !== '23505') {
       console.error(
         'Domain creation failed for merchant',
         merchantId,
