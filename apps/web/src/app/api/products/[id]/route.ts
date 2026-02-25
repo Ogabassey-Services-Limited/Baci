@@ -9,10 +9,6 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import {
-  PRODUCT_COLUMNS,
-  PRODUCT_VARIANT_COLUMNS,
-} from '@/lib/product-queries';
 import type { Product } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeText } from '@/lib/sanitize-core';
@@ -57,10 +53,9 @@ export async function GET(
     const merchantId = merchantContext.merchantId;
 
     // Try to find by ID first, then by slug
-    // WARDEN: Use explicit column selection instead of select('*')
     let query = supabase
       .from('products')
-      .select(PRODUCT_COLUMNS)
+      .select('*')
       .eq('merchant_id', merchantId);
 
     // Check if id is a UUID
@@ -84,12 +79,10 @@ export async function GET(
     // biome-ignore lint/suspicious/noExplicitAny: Legacy code using any
     let variants: any[] = [];
     if (product.has_variants) {
-      // WARDEN: Scoped query for variants
       const { data: v } = await supabase
         .from('product_variants')
-        .select(PRODUCT_VARIANT_COLUMNS)
-        .eq('product_id', product.id)
-        .eq('merchant_id', merchantId);
+        .select('*')
+        .eq('product_id', product.id);
       variants = v || [];
     }
 
@@ -425,8 +418,7 @@ export async function PUT(
       .from('products')
       .update(updates)
       .eq('id', id)
-      // WARDEN: Return only explicit columns
-      .select(PRODUCT_COLUMNS)
+      .select()
       .single();
 
     if (updateError) {
@@ -447,31 +439,14 @@ export async function PUT(
         .map((v: any) => v.id);
 
       // 2. Delete variants not in the list
-      // WARDEN: Add merchant_id scoping and error handling
       if (variantIdsToKeep.length > 0) {
-        const { error: deleteVariantsError } = await supabase
+        await supabase
           .from('product_variants')
           .delete()
           .eq('product_id', id)
-          .eq('merchant_id', merchantId)
           .not('id', 'in', `(${variantIdsToKeep.join(',')})`);
-
-        if (deleteVariantsError) {
-          console.error(
-            'Error deleting obsolete variants:',
-            deleteVariantsError
-          );
-        }
       } else {
-        const { error: deleteAllVariantsError } = await supabase
-          .from('product_variants')
-          .delete()
-          .eq('product_id', id)
-          .eq('merchant_id', merchantId);
-
-        if (deleteAllVariantsError) {
-          console.error('Error deleting all variants:', deleteAllVariantsError);
-        }
+        await supabase.from('product_variants').delete().eq('product_id', id);
       }
 
       // 3. Separate updates and inserts
@@ -510,19 +485,7 @@ export async function PUT(
           console.error('Error inserting variants:', insertVarError);
       }
     } else if (body.has_variants === false) {
-      // WARDEN: Scoped delete for variants
-      const { error: deleteVariantsError } = await supabase
-        .from('product_variants')
-        .delete()
-        .eq('product_id', id)
-        .eq('merchant_id', merchantId);
-
-      if (deleteVariantsError) {
-        console.error(
-          'Error deleting variants (has_variants=false):',
-          deleteVariantsError
-        );
-      }
+      await supabase.from('product_variants').delete().eq('product_id', id);
     }
 
     // Regenerate embedding if name or description changed

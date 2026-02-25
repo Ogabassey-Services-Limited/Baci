@@ -84,9 +84,7 @@ export async function GET(
     console.log('[API] Fetching products for merchant:', merchantId);
     const { data: products, error } = await supabase
       .from('products')
-      .select(
-        'id, name, description, price, compare_at_price, images, image_hint, category, brand, status, has_variants, slug, sku, manage_stock, stock_quantity, low_stock_threshold, condition'
-      )
+      .select('*')
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .order('created_at', { ascending: false });

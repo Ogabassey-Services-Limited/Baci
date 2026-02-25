@@ -297,46 +297,7 @@ export const CartProvider = ({
   // Hydrate from localStorage
   useEffect(() => {
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
-    let hydratedCart = getCartFromStorage(slugToUse, initialUserId);
-
-    // Merge guest cart into user cart on login
-    // If we are authenticated (have a userId) and there is a guest cart in storage,
-    // we assume it belongs to the current user (pre-login state) and merge it.
-    if (initialUserId) {
-      const guestCart = getCartFromStorage(slugToUse, null);
-      if (guestCart.length > 0) {
-        // Merge strategy: Combine quantities for duplicate items to prevent data loss
-        const mergedMap = new Map<string, CartItem>();
-
-        // Add existing user items
-        hydratedCart.forEach((item) => {
-          mergedMap.set(item.cartItemId, item);
-        });
-
-        // Merge guest items
-        guestCart.forEach((guestItem) => {
-          if (mergedMap.has(guestItem.cartItemId)) {
-            const existing = mergedMap.get(guestItem.cartItemId);
-            if (existing) {
-              mergedMap.set(guestItem.cartItemId, {
-                ...existing,
-                quantity: existing.quantity + guestItem.quantity,
-              });
-            }
-          } else {
-            mergedMap.set(guestItem.cartItemId, guestItem);
-          }
-        });
-
-        hydratedCart = Array.from(mergedMap.values());
-
-        // Clear guest cart to prevent duplicate merging in future sessions
-        // Safe to use clearCartStorage with null userId to target guest data
-        clearCartStorage(slugToUse, null);
-      }
-    }
-
-    setCart(hydratedCart);
+    setCart(getCartFromStorage(slugToUse, initialUserId));
     setMerchantSlugState(slugToUse);
     setUserId(initialUserId);
     setIsHydrated(true);

@@ -1,12 +1,11 @@
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
-import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { createClient } from '@/lib/supabase/server';
 
 const BUCKET_NAME = 'media';
 
@@ -30,9 +29,20 @@ const EXTENSION_TO_MIME: Record<string, string> = {
   svg: 'image/svg+xml',
 };
 
-export async function GET(_request: NextRequest) {
+export async function GET(_request: Request) {
   const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
 
   // Get current user
   const {
@@ -95,13 +105,20 @@ export async function GET(_request: NextRequest) {
   return NextResponse.json({ files: filesWithUrls });
 }
 
-export async function POST(request: NextRequest) {
-  // Check CSRF protection for file uploads
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid && response) return response;
-
+export async function POST(request: Request) {
   const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
 
   // Get current user
   const {
@@ -216,11 +233,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
-  // Check CSRF protection for file deletion
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid && response) return response;
-
+export async function DELETE(request: Request) {
   const { searchParams } = new URL(request.url);
   const fileId = searchParams.get('id');
 
@@ -236,7 +249,18 @@ export async function DELETE(request: NextRequest) {
   }
 
   const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
 
   // Get current user
   const {
