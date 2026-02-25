@@ -182,7 +182,7 @@ jobs:
           packageName: com.ogabassey.store
           releaseFiles: ${{ env.WORKING_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
           track: alpha
-          status: completed
+          status: draft
 
       - name: Clean up keystore
         if: always()
