@@ -7,7 +7,6 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { STAFF_COLUMNS } from '@/lib/staff-queries';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 
@@ -71,7 +70,7 @@ export async function GET() {
     // Get staff members
     const { data: staff, error: staffError } = await supabase
       .from('staff_members')
-      .select(STAFF_COLUMNS)
+      .select('*')
       .eq('merchant_id', merchantId)
       .neq('status', 'removed')
       .order('created_at', { ascending: false });
@@ -189,7 +188,7 @@ export async function POST(request: NextRequest) {
             user_id: null,
           })
           .eq('id', existing.id)
-          .select(STAFF_COLUMNS)
+          .select()
           .single();
 
         if (reactivateError) {
@@ -232,7 +231,7 @@ export async function POST(request: NextRequest) {
         invitation_token: invitationToken,
         invitation_expires_at: expiresAt.toISOString(),
       })
-      .select(STAFF_COLUMNS)
+      .select()
       .single();
 
     if (createError) {

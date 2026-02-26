@@ -10,7 +10,6 @@
 **Action:** When working in `apps/mobile-admin`, always run `expo lint` manually (or via `pnpm lint` in that dir) and `tsc --noEmit` locally to verify changes, as global turbo commands may give a false sense of security.
 
 ## 2026-03-04 - React Compiler & Exhaustive Deps
-
 **Learning:** Removing `useCallback` (per ADR-004) in `apps/mobile-admin` triggers `react-hooks/exhaustive-deps` warnings from `expo lint`. While React Compiler handles memoization, the linter (ESLint) is unaware and flags function identity changes as potential infinite loop risks in `useEffect`.
 **Action:** When removing `useCallback` for a function used in `useEffect`:
 1. Move the function definition INSIDE the `useEffect` if possible (this satisfies the linter and keeps dependencies clean).

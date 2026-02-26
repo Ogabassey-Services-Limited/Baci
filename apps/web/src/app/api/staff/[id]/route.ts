@@ -7,7 +7,6 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { STAFF_COLUMNS } from '@/lib/staff-queries';
 import { createClient } from '@/lib/supabase/server';
 
 interface RouteParams {
@@ -50,7 +49,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     // Get staff member
     const { data: staff, error } = await supabase
       .from('staff_members')
-      .select(STAFF_COLUMNS)
+      .select('*')
       .eq('id', id)
       .eq('merchant_id', merchantId)
       .single();
@@ -154,7 +153,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from('staff_members')
       .update(updateData)
       .eq('id', id)
-      .select(STAFF_COLUMNS)
+      .select()
       .single();
 
     if (error) {
