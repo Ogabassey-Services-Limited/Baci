@@ -9,10 +9,10 @@
  */
 
 import type { Session, User } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
 import { Alert } from 'react-native';
 import { create } from 'zustand';
 import { splitFullName } from '../lib/auth-helpers';
+import { CONFIG } from '../lib/config';
 import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema, MerchantRowSchema } from '../lib/validation';
@@ -21,7 +21,43 @@ import { useCartStore } from './cart-store';
 const log = createLogger('AuthStore');
 
 // Get merchant slug from app config
-const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';
+const MERCHANT_SLUG = CONFIG.MERCHANT_SLUG;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object');
+}
+
+function shouldInvalidateSessionOnGetUserError(error: unknown): boolean {
+  if (!isRecord(error)) return false;
+
+  const status =
+    typeof error.status === 'number' ? (error.status as number) : null;
+  const code = typeof error.code === 'string' ? error.code.toLowerCase() : '';
+  const message =
+    typeof error.message === 'string' ? error.message.toLowerCase() : '';
+
+  // Retryable/network auth errors should not force sign-out on mobile startup.
+  if (status !== null) {
+    if (status >= 500) return false;
+    if (status === 400 || status === 401 || status === 403) return true;
+  }
+
+  if (
+    code === 'bad_jwt' ||
+    code === 'invalid_jwt' ||
+    code === 'jwt_expired' ||
+    code === 'session_not_found'
+  ) {
+    return true;
+  }
+
+  return (
+    message.includes('jwt') ||
+    message.includes('session missing') ||
+    message.includes('invalid token') ||
+    message.includes('token expired')
+  );
+}
 
 export interface Customer {
   id: string;
@@ -115,28 +151,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // 2026 Best Practice: Validate merchant data
       const merchantValidation = MerchantRowSchema.safeParse(merchant);
 
+      let resolvedMerchantId: string | null = null;
       if (merchantError || !merchantValidation.success) {
         // BUG-3-011: Include Zod error details in log
         const errorDetails = merchantValidation.success
           ? 'Database error'
           : JSON.stringify(merchantValidation.error.flatten());
         log.warn(
-          `Store "${MERCHANT_SLUG}" not found in database. Running in guest mode. Details: ${errorDetails}`
+          `Store "${MERCHANT_SLUG}" not found in database. Continuing with limited auth mode. Details: ${errorDetails}`
         );
-        set({
-          merchantId: null,
-          isLoading: false,
-          isInitialized: true,
-          _initializationInProgress: false,
-        } as Partial<AuthState>);
-        return;
+        set({ merchantId: null });
+      } else {
+        resolvedMerchantId = merchantValidation.data.id;
+        set({ merchantId: resolvedMerchantId });
       }
-
-      set({ merchantId: merchantValidation.data.id });
 
       // Get current session
       const {
-        data: { session },
+        data: { session: initialSession },
         error: sessionError,
       } = await supabase.auth.getSession();
 
@@ -146,6 +178,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw sessionError;
       }
 
+      let session = initialSession;
+
       // After getting session, validate JWT with server
       if (session) {
         const { error: userError } = await supabase.auth.getUser();
@@ -153,26 +187,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (get()._initGen !== initGen) return;
 
         if (userError) {
-          // Session is invalid/expired — clear and return in guest mode
-          log.warn('Session JWT validation failed:', userError.message);
-          set({
-            user: null,
-            session: null,
-            customer: null,
-            isLoading: false,
-            isInitialized: true,
-            _initializationInProgress: false,
-          } as Partial<AuthState>);
-          return;
+          if (shouldInvalidateSessionOnGetUserError(userError)) {
+            // JWT invalid/expired — attempt refresh before giving up
+            log.warn(
+              'Session JWT validation failed, attempting refresh:',
+              userError.message
+            );
+            const {
+              data: { session: refreshedSession },
+              error: refreshError,
+            } = await supabase.auth.refreshSession();
+
+            if (get()._initGen !== initGen) return;
+
+            if (refreshError || !refreshedSession) {
+              // Refresh token also invalid — clear session
+              log.warn(
+                'Session refresh failed, entering guest mode:',
+                refreshError?.message ?? 'no session returned'
+              );
+              session = null;
+            } else {
+              log.info('Session refreshed successfully');
+              session = refreshedSession;
+            }
+          } else {
+            // Transient network/service error — keep local session and try to hydrate UI
+            log.warn(
+              'Session validation skipped due to transient auth error:',
+              userError.message
+            );
+          }
         }
       }
 
-      if (session?.user) {
+      if (session?.user && resolvedMerchantId) {
         // Fetch customer data for this merchant (by user_id for RLS compatibility)
         const { data: customerData, error: selectError } = await supabase
           .from('customers')
           .select('id, email, first_name, last_name, phone, loyalty_points')
-          .eq('merchant_id', merchantValidation.data.id)
+          .eq('merchant_id', resolvedMerchantId)
           .eq('user_id', session.user.id)
           .maybeSingle();
 
@@ -190,7 +244,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const { error: rpcError } = await supabase.rpc(
             'upsert_customer_on_auth',
             {
-              p_merchant_id: merchantValidation.data.id,
+              p_merchant_id: resolvedMerchantId,
               p_user_id: session.user.id,
               p_email: session.user.email,
               p_full_name: session.user.user_metadata?.full_name || null,
@@ -208,7 +262,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const { data: newCustomer, error: reSelectError } = await supabase
             .from('customers')
             .select('id, email, first_name, last_name, phone, loyalty_points')
-            .eq('merchant_id', merchantValidation.data.id)
+            .eq('merchant_id', resolvedMerchantId)
             .eq('user_id', session.user.id)
             .maybeSingle();
 
@@ -237,7 +291,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               .from('customers')
               .update(updates)
               .eq('id', resolvedCustomer.id)
-              .eq('merchant_id', merchantValidation.data.id)
+              .eq('merchant_id', resolvedMerchantId)
               .select('id, email, first_name, last_name, phone, loyalty_points')
               .single();
 
@@ -273,6 +327,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user: session.user,
           session,
           customer,
+          isLoading: false,
+          isInitialized: true,
+        });
+      } else if (session?.user) {
+        // Merchant lookup may be unavailable/offline; still preserve auth session.
+        set({
+          user: session.user,
+          session,
+          customer: null,
           isLoading: false,
           isInitialized: true,
         });
