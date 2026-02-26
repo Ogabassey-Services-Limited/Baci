@@ -101,6 +101,12 @@ export async function POST(req: NextRequest) {
             { status: 409 }
           );
         }
+        if (signUpError.message.includes('security purposes')) {
+          return NextResponse.json(
+            { error: 'Too many attempts. Please wait a minute and try again.' },
+            { status: 429 }
+          );
+        }
         throw signUpError;
       }
 
