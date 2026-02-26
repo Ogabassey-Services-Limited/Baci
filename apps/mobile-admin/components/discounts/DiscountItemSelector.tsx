@@ -6,13 +6,11 @@ import {
   Modal,
   Pressable,
   SafeAreaView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import SafeImage from '@/components/ui/SafeImage';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { sanitizeSearchQuery } from '@/lib/sanitize';
@@ -50,28 +48,34 @@ export function DiscountItemSelector({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (__DEV__) {
+      console.log(
+        '[DiscountItemSelector] useEffect triggered. Visible:',
+        visible,
+        'MerchantID:',
+        merchant?.id
+      );
+    }
+    if (!visible || !merchant?.id) return;
+
     const fetchItems = async () => {
       setLoading(true);
       try {
-        let query;
         const sanitizedSearch = sanitizeSearchQuery(search);
-        if (type === 'product') {
-          query = supabase
-            .from('products')
-            .select('id, name, description, images')
-            .eq('merchant_id', merchant?.id)
-            .ilike('name', `%${sanitizedSearch}%`)
-            .limit(50);
-        } else {
-          query = supabase
-            .from('categories')
-            .select('id, name, description')
-            .eq('merchant_id', merchant?.id)
-            .ilike('name', `%${sanitizedSearch}%`)
-            .limit(50);
-        }
-
-        const { data, error } = await query;
+        const { data, error } =
+          type === 'product'
+            ? await supabase
+                .from('products')
+                .select('id, name, description, images')
+                .eq('merchant_id', merchant.id)
+                .ilike('name', `%${sanitizedSearch}%`)
+                .limit(50)
+            : await supabase
+                .from('categories')
+                .select('id, name, description')
+                .eq('merchant_id', merchant.id)
+                .ilike('name', `%${sanitizedSearch}%`)
+                .limit(50);
 
         if (error) throw error;
         setItems(
@@ -89,17 +93,7 @@ export function DiscountItemSelector({
       }
     };
 
-    if (__DEV__) {
-      console.log(
-        '[DiscountItemSelector] useEffect triggered. Visible:',
-        visible,
-        'MerchantID:',
-        merchant?.id
-      );
-    }
-    if (visible && merchant?.id) {
-      fetchItems();
-    }
+    fetchItems();
   }, [visible, merchant?.id, search, type]);
 
   const toggleSelection = (id: string) => {
@@ -188,9 +182,7 @@ export function DiscountItemSelector({
               setSearch(text);
               // Debounce could be added here
             }}
-            onSubmitEditing={() => {
-              /* Search triggers via useEffect on search change */
-            }}
+            returnKeyType="search"
           />
         </View>
 

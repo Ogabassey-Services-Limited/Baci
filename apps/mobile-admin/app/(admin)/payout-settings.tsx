@@ -86,7 +86,7 @@ export default function PayoutSettingsScreen() {
   });
 
   useEffect(() => {
-    const verifyAccount = async () => {
+    const verifyAccount = () => {
       if (!accountnumber || accountnumber.length !== 10) {
         setVerifiedName(null);
         return;
