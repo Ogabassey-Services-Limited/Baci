@@ -182,33 +182,43 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return;
         }
 
-        // Fetch customer data for this merchant
+        // Fetch customer data for this merchant (by user_id for RLS compatibility)
         let { data: customerData } = await supabase
           .from('customers')
           .select('id, email, first_name, last_name, phone, loyalty_points')
           .eq('merchant_id', merchantValidation.data.id)
-          .eq('email', session.user.email)
+          .eq('user_id', session.user.id)
           .single();
 
         if (get()._initGen !== initGen) return;
 
-        // Create customer record if it doesn't exist (mirrors auth listener logic)
-        // This covers the case where a user returns with an active session but
-        // no customer record — the SIGNED_IN event won't fire for existing sessions.
+        // If no linked customer record found, use atomic SECURITY DEFINER RPC
+        // to find-or-create (handles guest→OAuth linking and new customer creation).
+        // This follows the web pattern at verify-code/route.ts.
         if (!customerData && session.user.email) {
-          const { firstName, lastName } = splitFullName(
-            session.user.user_metadata?.full_name
+          const { error: rpcError } = await supabase.rpc(
+            'upsert_customer_on_auth',
+            {
+              p_merchant_id: merchantValidation.data.id,
+              p_user_id: session.user.id,
+              p_email: session.user.email,
+              p_full_name: session.user.user_metadata?.full_name || null,
+              p_phone: null,
+            }
           );
 
+          if (get()._initGen !== initGen) return;
+
+          if (rpcError) {
+            log.error('Customer upsert RPC failed:', rpcError.message);
+          }
+
+          // Re-SELECT by user_id (now set by RPC, RLS passes)
           const { data: newCustomer } = await supabase
             .from('customers')
-            .insert({
-              merchant_id: merchantValidation.data.id,
-              email: session.user.email,
-              first_name: firstName,
-              last_name: lastName,
-            })
             .select('id, email, first_name, last_name, phone, loyalty_points')
+            .eq('merchant_id', merchantValidation.data.id)
+            .eq('user_id', session.user.id)
             .single();
 
           if (get()._initGen !== initGen) return;
@@ -295,39 +305,52 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 return;
               }
 
-              // Fetch or create customer record
+              // Fetch customer record by user_id (RLS-safe for linked accounts)
               let { data: customerData } = await supabase
                 .from('customers')
                 .select(
                   'id, email, first_name, last_name, phone, loyalty_points'
                 )
                 .eq('merchant_id', merchantId)
-                .eq('email', session.user.email)
+                .eq('user_id', session.user.id)
                 .single();
 
-              // Create customer if doesn't exist
+              // If no linked record, use atomic SECURITY DEFINER RPC to
+              // find-or-create (handles guest→OAuth linking + new customers)
               if (!customerData && session.user.email) {
-                // BUG-3-007: Validate full_name before splitting
-                const { firstName, lastName } = splitFullName(
-                  session.user.user_metadata?.full_name
+                const { error: rpcError } = await supabase.rpc(
+                  'upsert_customer_on_auth',
+                  {
+                    p_merchant_id: merchantId,
+                    p_user_id: session.user.id,
+                    p_email: session.user.email,
+                    p_full_name: session.user.user_metadata?.full_name || null,
+                    p_phone: null,
+                  }
                 );
 
+                if (rpcError) {
+                  log.error(
+                    'Auth listener: customer upsert RPC failed:',
+                    rpcError.message
+                  );
+                }
+
+                // Re-SELECT by user_id (now set by RPC, RLS passes)
                 const { data: newCustomer } = await supabase
                   .from('customers')
-                  .insert({
-                    merchant_id: merchantId,
-                    email: session.user.email,
-                    first_name: firstName,
-                    last_name: lastName,
-                  })
                   .select(
                     'id, email, first_name, last_name, phone, loyalty_points'
                   )
+                  .eq('merchant_id', merchantId)
+                  .eq('user_id', session.user.id)
                   .single();
 
                 customerData = newCustomer;
-              } else if (customerData && session.user.user_metadata) {
-                // Backfill missing profile fields from OAuth provider (e.g. Google name/avatar)
+              }
+
+              // Backfill missing profile fields from OAuth provider
+              if (customerData && session.user.user_metadata) {
                 const meta = session.user.user_metadata;
                 const { firstName, lastName } = splitFullName(meta.full_name);
                 const updates: Record<string, string> = {};
@@ -406,7 +429,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Store subscription reference for cleanup (2026 Critical Fix)
       if (get()._initGen !== initGen) {
-        log.debug('Initialization cancelled/superseded, unsubscribing listener');
+        log.debug(
+          'Initialization cancelled/superseded, unsubscribing listener'
+        );
         authListener.subscription.unsubscribe();
         return;
       }
@@ -695,11 +720,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (fullName && data.user && !data.user.user_metadata?.full_name) {
         log.info('Updating user metadata with Apple name');
         await supabase.auth.updateUser({
-          data: {
-            full_name: fullName,
-            // Apple doesn't provide avatar but we could set a placeholder
-          },
+          data: { full_name: fullName },
         });
+
+        // The auth listener already fired (from signInWithIdToken) before
+        // updateUser set the name. Directly call the RPC to ensure the
+        // customer record gets the Apple name.
+        const { merchantId } = get();
+        if (merchantId && data.user.email) {
+          const { error: rpcError } = await supabase.rpc(
+            'upsert_customer_on_auth',
+            {
+              p_merchant_id: merchantId,
+              p_user_id: data.user.id,
+              p_email: data.user.email,
+              p_full_name: fullName,
+            }
+          );
+          if (rpcError) {
+            log.error('Apple name upsert RPC failed:', rpcError.message);
+          }
+        }
       }
 
       set({ isLoading: false });
