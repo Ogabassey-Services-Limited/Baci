@@ -125,7 +125,13 @@ export default function RootLayout() {
     };
 
     if (!initPromiseRef.current) {
-      initPromiseRef.current = initializeApp();
+      initPromiseRef.current = initializeApp().catch((err) => {
+        // Ensure splash screen dismisses even if post-auth init (analytics,
+        // offline queue) throws. Auth-store already sets isInitialized on its
+        // own errors, but failures after that point were previously unhandled
+        // and could leave Android stuck on the splash screen.
+        console.error('App initialization error:', err);
+      });
     }
 
     return () => {
@@ -173,15 +179,19 @@ export default function RootLayout() {
         isReady={isInitialized}
         onAnimationEnd={() => setShowSplash(false)}
       >
-        <RootLayoutNav />
+        <RootLayoutNav persistenceEnabled={false} />
       </AnimatedSplash>
     );
   }
 
-  return <RootLayoutNav />;
+  return <RootLayoutNav persistenceEnabled />;
 }
 
-function RootLayoutNav() {
+function RootLayoutNav({
+  persistenceEnabled = true,
+}: {
+  persistenceEnabled?: boolean;
+}) {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme as 'light' | 'dark'];
   const enableConnectivityBanner = true;
@@ -194,7 +204,7 @@ function RootLayoutNav() {
   useAuthGuard();
 
   return (
-    <QueryProvider>
+    <QueryProvider persistenceEnabled={persistenceEnabled}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemeProvider
           value={

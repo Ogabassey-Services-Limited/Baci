@@ -23,6 +23,38 @@ const log = createLogger('AuthStore');
 // Get merchant slug from app config
 const MERCHANT_SLUG = CONFIG.MERCHANT_SLUG;
 
+/** Timeout (ms) for each Supabase query during initialization.
+ *  Android on poor cellular can stall indefinitely without a client-side limit. */
+const INIT_QUERY_TIMEOUT_MS = 10_000;
+
+/** Race a promise/thenable against a timeout. Rejects with a descriptive error
+ *  if the timeout fires first. Accepts Supabase query builders (thenables). */
+function _initTimeout<T>(
+  promiseOrThenable: PromiseLike<T>,
+  label: string
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  return Promise.race([
+    Promise.resolve(promiseOrThenable),
+    new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(
+          new Error(`Timeout: ${label} took longer than ${INIT_QUERY_TIMEOUT_MS}ms`)
+        );
+      }, INIT_QUERY_TIMEOUT_MS);
+    }),
+  ]).finally(() => {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
+  });
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object');
 }
@@ -140,11 +172,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: true, error: null });
 
       // First, get the merchant ID for this store
-      const { data: merchant, error: merchantError } = await supabase
-        .from('merchants')
-        .select('id')
-        .eq('slug', MERCHANT_SLUG)
-        .single();
+      const { data: merchant, error: merchantError } = await _initTimeout(
+        supabase
+          .from('merchants')
+          .select('id')
+          .eq('slug', MERCHANT_SLUG)
+          .single(),
+        'merchant lookup'
+      );
 
       if (get()._initGen !== initGen) return;
 
@@ -170,7 +205,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const {
         data: { session: initialSession },
         error: sessionError,
-      } = await supabase.auth.getSession();
+      } = await _initTimeout(supabase.auth.getSession(), 'getSession');
 
       if (get()._initGen !== initGen) return;
 
@@ -182,7 +217,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // After getting session, validate JWT with server
       if (session) {
-        const { error: userError } = await supabase.auth.getUser();
+        const { error: userError } = await _initTimeout(
+          supabase.auth.getUser(),
+          'getUser'
+        );
 
         if (get()._initGen !== initGen) return;
 
@@ -196,7 +234,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             const {
               data: { session: refreshedSession },
               error: refreshError,
-            } = await supabase.auth.refreshSession();
+            } = await _initTimeout(
+              supabase.auth.refreshSession(),
+              'refreshSession'
+            );
 
             if (get()._initGen !== initGen) return;
 
@@ -223,12 +264,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (session?.user && resolvedMerchantId) {
         // Fetch customer data for this merchant (by user_id for RLS compatibility)
-        const { data: customerData, error: selectError } = await supabase
-          .from('customers')
-          .select('id, email, first_name, last_name, phone, loyalty_points')
-          .eq('merchant_id', resolvedMerchantId)
-          .eq('user_id', session.user.id)
-          .maybeSingle();
+        const { data: customerData, error: selectError } = await _initTimeout(
+          supabase
+            .from('customers')
+            .select('id, email, first_name, last_name, phone, loyalty_points')
+            .eq('merchant_id', resolvedMerchantId)
+            .eq('user_id', session.user.id)
+            .maybeSingle(),
+          'customer fetch'
+        ).catch((error) => ({
+          data: null,
+          error: { message: getErrorMessage(error) },
+        }));
 
         if (get()._initGen !== initGen) return;
 
@@ -241,16 +288,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // This follows the web pattern at verify-code/route.ts.
         let resolvedCustomer = customerData;
         if (!resolvedCustomer && session.user.email) {
-          const { error: rpcError } = await supabase.rpc(
-            'upsert_customer_on_auth',
-            {
+          const { error: rpcError } = await _initTimeout(
+            supabase.rpc('upsert_customer_on_auth', {
               p_merchant_id: resolvedMerchantId,
               p_user_id: session.user.id,
               p_email: session.user.email,
               p_full_name: session.user.user_metadata?.full_name || null,
               p_phone: null,
-            }
-          );
+            }),
+            'customer upsert RPC'
+          ).catch((error) => ({
+            data: null,
+            error: { message: getErrorMessage(error) },
+          }));
 
           if (get()._initGen !== initGen) return;
 
@@ -259,12 +309,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
 
           // Re-SELECT by user_id (now set by RPC, RLS passes)
-          const { data: newCustomer, error: reSelectError } = await supabase
-            .from('customers')
-            .select('id, email, first_name, last_name, phone, loyalty_points')
-            .eq('merchant_id', resolvedMerchantId)
-            .eq('user_id', session.user.id)
-            .maybeSingle();
+          const { data: newCustomer, error: reSelectError } = await _initTimeout(
+            supabase
+              .from('customers')
+              .select('id, email, first_name, last_name, phone, loyalty_points')
+              .eq('merchant_id', resolvedMerchantId)
+              .eq('user_id', session.user.id)
+              .maybeSingle(),
+            'customer re-fetch'
+          ).catch((error) => ({
+            data: null,
+            error: { message: getErrorMessage(error) },
+          }));
 
           if (get()._initGen !== initGen) return;
 
@@ -287,13 +343,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             updates.last_name = lastName;
 
           if (Object.keys(updates).length > 0) {
-            const { data: updated, error: updateError } = await supabase
-              .from('customers')
-              .update(updates)
-              .eq('id', resolvedCustomer.id)
-              .eq('merchant_id', resolvedMerchantId)
-              .select('id, email, first_name, last_name, phone, loyalty_points')
-              .single();
+            const { data: updated, error: updateError } = await _initTimeout(
+              supabase
+                .from('customers')
+                .update(updates)
+                .eq('id', resolvedCustomer.id)
+                .eq('merchant_id', resolvedMerchantId)
+                .select(
+                  'id, email, first_name, last_name, phone, loyalty_points'
+                )
+                .single(),
+              'customer profile backfill update'
+            ).catch((error) => ({
+              data: null,
+              error: { message: getErrorMessage(error) },
+            }));
 
             if (get()._initGen !== initGen) return;
 
