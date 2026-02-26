@@ -29,6 +29,7 @@ jest.mock('../lib/supabase', () => ({
       getSession: jest.fn(),
       getUser: jest.fn(),
       refreshSession: jest.fn(),
+      signOut: jest.fn().mockResolvedValue({ error: null }),
       signInWithIdToken: jest.fn(),
       updateUser: jest.fn(),
       onAuthStateChange: jest.fn(),
@@ -495,6 +496,8 @@ describe('useAuthStore', () => {
       expect(state.session).toBeNull();
       expect(state.customer).toBeNull();
       expect(state.isInitialized).toBe(true);
+      // Persisted auth tokens should be cleared so next cold start doesn't retry
+      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
     });
 
     it('refreshes session when getUser fails with expired JWT but refresh token is valid', async () => {
@@ -576,7 +579,7 @@ describe('useAuthStore', () => {
 
           const hangingCustomersChain = makeChain({ data: null, error: null });
           hangingCustomersChain.maybeSingle.mockImplementation(
-            () => new Promise(() => {})
+            () => new Promise(() => void 0)
           );
           return hangingCustomersChain;
         });

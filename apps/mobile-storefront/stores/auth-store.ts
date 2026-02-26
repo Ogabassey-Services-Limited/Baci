@@ -181,6 +181,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 'Session refresh failed, entering guest mode:',
                 refreshError?.message ?? 'no session returned'
               );
+              // Clear persisted auth tokens so the next cold start doesn't
+              // attempt to resume this dead session.
+              await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
               session = null;
             } else {
               log.info('Session refreshed successfully');
