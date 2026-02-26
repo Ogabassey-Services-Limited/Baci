@@ -168,81 +168,95 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       if (session?.user) {
-        // M25 fix: Guard against undefined email before using in query
-        if (!session.user.email) {
-          log.warn('Session user has no email, skipping customer fetch');
-          set({
-            user: session.user,
-            session,
-            customer: null,
-            isLoading: false,
-            isInitialized: true,
-            _initializationInProgress: false,
-          } as Partial<AuthState>);
-          return;
-        }
-
-        // Fetch customer data for this merchant
-        let { data: customerData } = await supabase
+        // Fetch customer data for this merchant (by user_id for RLS compatibility)
+        const { data: customerData, error: selectError } = await supabase
           .from('customers')
           .select('id, email, first_name, last_name, phone, loyalty_points')
           .eq('merchant_id', merchantValidation.data.id)
-          .eq('email', session.user.email)
-          .single();
+          .eq('user_id', session.user.id)
+          .maybeSingle();
 
         if (get()._initGen !== initGen) return;
 
-        // Create customer record if it doesn't exist (mirrors auth listener logic)
-        // This covers the case where a user returns with an active session but
-        // no customer record — the SIGNED_IN event won't fire for existing sessions.
-        if (!customerData && session.user.email) {
-          const { firstName, lastName } = splitFullName(
-            session.user.user_metadata?.full_name
-          );
+        if (selectError) {
+          log.error('Customer fetch failed:', selectError.message);
+        }
 
-          const { data: newCustomer } = await supabase
-            .from('customers')
-            .insert({
-              merchant_id: merchantValidation.data.id,
-              email: session.user.email,
-              first_name: firstName,
-              last_name: lastName,
-            })
-            .select('id, email, first_name, last_name, phone, loyalty_points')
-            .single();
+        // If no linked customer record found, use atomic SECURITY DEFINER RPC
+        // to find-or-create (handles guest→OAuth linking and new customer creation).
+        // This follows the web pattern at verify-code/route.ts.
+        let resolvedCustomer = customerData;
+        if (!resolvedCustomer && session.user.email) {
+          const { error: rpcError } = await supabase.rpc(
+            'upsert_customer_on_auth',
+            {
+              p_merchant_id: merchantValidation.data.id,
+              p_user_id: session.user.id,
+              p_email: session.user.email,
+              p_full_name: session.user.user_metadata?.full_name || null,
+              p_phone: null,
+            }
+          );
 
           if (get()._initGen !== initGen) return;
 
-          customerData = newCustomer;
+          if (rpcError) {
+            log.error('Customer upsert RPC failed:', rpcError.message);
+          }
+
+          // Re-SELECT by user_id (now set by RPC, RLS passes)
+          const { data: newCustomer, error: reSelectError } = await supabase
+            .from('customers')
+            .select('id, email, first_name, last_name, phone, loyalty_points')
+            .eq('merchant_id', merchantValidation.data.id)
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+
+          if (get()._initGen !== initGen) return;
+
+          if (reSelectError) {
+            log.error('Customer re-fetch failed:', reSelectError.message);
+          }
+
+          resolvedCustomer = newCustomer;
         }
 
         // Backfill missing profile fields from OAuth provider on app init
-        if (customerData && session.user.user_metadata) {
+        if (resolvedCustomer && session.user.user_metadata) {
           const meta = session.user.user_metadata;
           const { firstName, lastName } = splitFullName(meta.full_name);
           const updates: Record<string, string> = {};
 
-          if (!customerData.first_name && firstName)
+          if (!resolvedCustomer.first_name && firstName)
             updates.first_name = firstName;
-          if (!customerData.last_name && lastName) updates.last_name = lastName;
+          if (!resolvedCustomer.last_name && lastName)
+            updates.last_name = lastName;
 
           if (Object.keys(updates).length > 0) {
-            const { data: updated } = await supabase
+            const { data: updated, error: updateError } = await supabase
               .from('customers')
               .update(updates)
-              .eq('id', customerData.id)
+              .eq('id', resolvedCustomer.id)
               .eq('merchant_id', merchantValidation.data.id)
               .select('id, email, first_name, last_name, phone, loyalty_points')
               .single();
 
             if (get()._initGen !== initGen) return;
 
-            if (updated) customerData = updated;
+            if (updateError) {
+              log.error(
+                'Customer backfill update failed:',
+                updateError.message
+              );
+            } else if (updated) {
+              resolvedCustomer = updated;
+            }
           }
         }
 
         // 2026 Best Practice: Validate customer data
-        const customerValidation = CustomerRowSchema.safeParse(customerData);
+        const customerValidation =
+          CustomerRowSchema.safeParse(resolvedCustomer);
         const customer = customerValidation.success
           ? {
               id: customerValidation.data.id,
@@ -285,76 +299,110 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               // Always set user + session immediately so login screen can dismiss
               set({ user: session.user, session });
 
-              // M25 fix: Guard against undefined email before using in query
-              if (!session.user.email || !merchantId) {
+              if (!merchantId) {
                 log.warn(
-                  'Auth listener: Skipping customer fetch —',
-                  !session.user.email ? 'no email' : 'no merchantId'
+                  'Auth listener: Skipping customer fetch — no merchantId'
                 );
                 set({ customer: null });
                 return;
               }
 
-              // Fetch or create customer record
-              let { data: customerData } = await supabase
+              // Fetch customer record by user_id (RLS-safe for linked accounts)
+              const { data: customerData, error: selectError } = await supabase
                 .from('customers')
                 .select(
                   'id, email, first_name, last_name, phone, loyalty_points'
                 )
                 .eq('merchant_id', merchantId)
-                .eq('email', session.user.email)
-                .single();
+                .eq('user_id', session.user.id)
+                .maybeSingle();
 
-              // Create customer if doesn't exist
-              if (!customerData && session.user.email) {
-                // BUG-3-007: Validate full_name before splitting
-                const { firstName, lastName } = splitFullName(
-                  session.user.user_metadata?.full_name
+              if (selectError) {
+                log.error(
+                  'Auth listener: customer fetch failed:',
+                  selectError.message
+                );
+              }
+
+              // If no linked record, use atomic SECURITY DEFINER RPC to
+              // find-or-create (handles guest→OAuth linking + new customers)
+              let resolvedCustomer = customerData;
+              if (!resolvedCustomer && session.user.email) {
+                const { error: rpcError } = await supabase.rpc(
+                  'upsert_customer_on_auth',
+                  {
+                    p_merchant_id: merchantId,
+                    p_user_id: session.user.id,
+                    p_email: session.user.email,
+                    p_full_name: session.user.user_metadata?.full_name || null,
+                    p_phone: null,
+                  }
                 );
 
-                const { data: newCustomer } = await supabase
-                  .from('customers')
-                  .insert({
-                    merchant_id: merchantId,
-                    email: session.user.email,
-                    first_name: firstName,
-                    last_name: lastName,
-                  })
-                  .select(
-                    'id, email, first_name, last_name, phone, loyalty_points'
-                  )
-                  .single();
+                if (rpcError) {
+                  log.error(
+                    'Auth listener: customer upsert RPC failed:',
+                    rpcError.message
+                  );
+                }
 
-                customerData = newCustomer;
-              } else if (customerData && session.user.user_metadata) {
-                // Backfill missing profile fields from OAuth provider (e.g. Google name/avatar)
+                // Re-SELECT by user_id (now set by RPC, RLS passes)
+                const { data: newCustomer, error: reSelectError } =
+                  await supabase
+                    .from('customers')
+                    .select(
+                      'id, email, first_name, last_name, phone, loyalty_points'
+                    )
+                    .eq('merchant_id', merchantId)
+                    .eq('user_id', session.user.id)
+                    .maybeSingle();
+
+                if (reSelectError) {
+                  log.error(
+                    'Auth listener: customer re-fetch failed:',
+                    reSelectError.message
+                  );
+                }
+
+                resolvedCustomer = newCustomer;
+              }
+
+              // Backfill missing profile fields from OAuth provider
+              if (resolvedCustomer && session.user.user_metadata) {
                 const meta = session.user.user_metadata;
                 const { firstName, lastName } = splitFullName(meta.full_name);
                 const updates: Record<string, string> = {};
 
-                if (!customerData.first_name && firstName)
+                if (!resolvedCustomer.first_name && firstName)
                   updates.first_name = firstName;
-                if (!customerData.last_name && lastName)
+                if (!resolvedCustomer.last_name && lastName)
                   updates.last_name = lastName;
 
                 if (Object.keys(updates).length > 0) {
-                  const { data: updated } = await supabase
+                  const { data: updated, error: updateError } = await supabase
                     .from('customers')
                     .update(updates)
-                    .eq('id', customerData.id)
+                    .eq('id', resolvedCustomer.id)
                     .eq('merchant_id', merchantId)
                     .select(
                       'id, email, first_name, last_name, phone, loyalty_points'
                     )
                     .single();
 
-                  if (updated) customerData = updated;
+                  if (updateError) {
+                    log.error(
+                      'Customer backfill update failed:',
+                      updateError.message
+                    );
+                  } else if (updated) {
+                    resolvedCustomer = updated;
+                  }
                 }
               }
 
               // 2026 Best Practice: Validate customer data from auth listener
               const authCustomerValidation =
-                CustomerRowSchema.safeParse(customerData);
+                CustomerRowSchema.safeParse(resolvedCustomer);
               const validatedCustomer = authCustomerValidation.success
                 ? {
                     id: authCustomerValidation.data.id,
@@ -406,7 +454,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Store subscription reference for cleanup (2026 Critical Fix)
       if (get()._initGen !== initGen) {
-        log.debug('Initialization cancelled/superseded, unsubscribing listener');
+        log.debug(
+          'Initialization cancelled/superseded, unsubscribing listener'
+        );
         authListener.subscription.unsubscribe();
         return;
       }
@@ -694,12 +744,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // If we got a name, and it's a new user (or metadata is empty), update it
       if (fullName && data.user && !data.user.user_metadata?.full_name) {
         log.info('Updating user metadata with Apple name');
-        await supabase.auth.updateUser({
-          data: {
-            full_name: fullName,
-            // Apple doesn't provide avatar but we could set a placeholder
-          },
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { full_name: fullName },
         });
+
+        if (updateError) {
+          log.warn('Failed to update user metadata:', updateError.message);
+        }
+
+        // The auth listener already fired (from signInWithIdToken) before
+        // updateUser set the name. Directly call the RPC to ensure the
+        // customer record gets the Apple name (uses credential directly,
+        // not metadata, so this runs regardless of updateUser result).
+        const { merchantId } = get();
+        if (merchantId && data.user.email) {
+          const { error: rpcError } = await supabase.rpc(
+            'upsert_customer_on_auth',
+            {
+              p_merchant_id: merchantId,
+              p_user_id: data.user.id,
+              p_email: data.user.email,
+              p_full_name: fullName,
+              p_phone: null,
+            }
+          );
+          if (rpcError) {
+            log.error('Apple name upsert RPC failed:', rpcError.message);
+          }
+        }
       }
 
       set({ isLoading: false });

@@ -218,7 +218,7 @@
     }
   },
   "javascript": {
-    "globals": ["Deno", "ColorThief", "__DEV__"],
+    "globals": ["Deno", "ColorThief", "__DEV__", "jest"],
     "formatter": {
       "quoteStyle": "single",
       "jsxQuoteStyle": "double",
