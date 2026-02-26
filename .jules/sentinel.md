@@ -70,14 +70,3 @@
 1. Explicitly verify `checkCsrfProtection` usage in all state-changing routes.
 2. Avoid relying on comments or documentation for security assurances; verify the implementation.
 3. Consider implementing a linter rule or a centralized mechanism (like middleware) to enforce CSRF checks if possible, rather than relying on manual calls in every route.
-
-## 2026-06-18 - Privilege Escalation in Staff API
-
-**Vulnerability:** The `/api/staff` endpoints (GET, POST, PATCH) used `select('*')` to fetch staff records, exposing the sensitive `invitation_token` column to any authenticated user with "view" permissions. This allowed lower-privileged staff members (e.g., customer service) to potentially access pending admin invitations and escalate their privileges by accepting them.
-
-**Learning:** `select('*')` is dangerous because it bypasses TypeScript interface definitions at runtime, exposing internal database columns that are not part of the public API contract. Type safety does not equal runtime data safety.
-
-**Prevention:**
-1. Define explicit column lists (e.g., `STAFF_COLUMNS`) in a central location (e.g., `lib/staff-queries.ts`).
-2. Always use `.select(COLUMNS)` instead of `.select('*')` or `.select()` in Supabase queries.
-3. Audit all API endpoints for `select('*')` usage, especially those returning user or auth-related data.

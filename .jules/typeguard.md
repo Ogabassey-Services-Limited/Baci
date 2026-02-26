@@ -16,9 +16,11 @@
 ## 2026-02-19 - Ignored External Bot Command
 **Note:** PR comments for `@coderabbitai` were ignored as they are for an external bot (ID: 3962758683).
 
-## 2026-02-25 - Reviews Page Strict Typing
-**Learning:** `StorefrontOrderItem` has an `id` field (order item ID) and a `product_id` field. The previous `any`-typed code in `reviews.tsx` was ambiguously accessing `item.id` for product matching, which would fail if `item` was an `OrderItem`. Strict typing forced the correct usage of `item.product_id` for matching against reviews.
-**Action:** Always prefer explicit interfaces for Supabase join results. When flattening nested structures (like `order.items`), create a local interface (e.g., `PendingReviewItem`) to clearly define the shape of the data being passed to callbacks.
+## 2026-03-04 - Ignored External Bot Command
+**Note:** PR comments for `@coderabbitai` were ignored as they are for an external bot (ID: 3968903347).
 
-## 2026-02-26 - Ignored External Bot Command
-**Note:** PR comments for `@coderabbitai` were ignored as they are for an external bot (ID: 3968918416).
+## 2026-03-04 - Ignored External Bot Command
+**Note:** PR comments for `@coderabbitai` were ignored as they are for an external bot (ID: 3969007863).
+
+## 2026-03-04 - Ignored External Bot Command
+**Note:** PR comments for `@coderabbitai` were ignored as they are for an external bot (ID: 3969234454).
