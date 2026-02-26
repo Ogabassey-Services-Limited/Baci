@@ -75,7 +75,7 @@ describe('DELETE /api/media', () => {
           'x-csrf-token': 'test-csrf-token',
         },
       }
-    );
+    ) as unknown as NextRequest;
 
     const response = await DELETE(request);
     const body = await response.json();
@@ -92,7 +92,7 @@ describe('DELETE /api/media', () => {
       {
         method: 'DELETE',
       }
-    );
+    ) as unknown as NextRequest;
 
     const response = await DELETE(request);
 
@@ -106,7 +106,7 @@ describe('DELETE /api/media', () => {
       {
         method: 'DELETE',
       }
-    );
+    ) as unknown as NextRequest;
 
     const response = await DELETE(request);
 
@@ -117,7 +117,7 @@ describe('DELETE /api/media', () => {
   it('returns 400 when id query param is missing', async () => {
     const request = new Request('http://localhost:3000/api/media', {
       method: 'DELETE',
-    });
+    }) as unknown as NextRequest;
 
     const response = await DELETE(request);
     const body = await response.json();
@@ -138,7 +138,7 @@ describe('DELETE /api/media', () => {
       {
         method: 'DELETE',
       }
-    );
+    ) as unknown as NextRequest;
 
     const response = await DELETE(request);
     const body = await response.json();
@@ -158,7 +158,7 @@ describe('DELETE /api/media', () => {
       {
         method: 'DELETE',
       }
-    );
+    ) as unknown as NextRequest;
 
     const response = await DELETE(request);
     const body = await response.json();
@@ -181,7 +181,7 @@ describe('DELETE /api/media', () => {
       {
         method: 'DELETE',
       }
-    ) as NextRequest;
+    ) as unknown as NextRequest;
 
     const response = await DELETE(request);
     const body = await response.json();
