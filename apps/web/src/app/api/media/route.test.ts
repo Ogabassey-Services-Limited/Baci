@@ -1,3 +1,4 @@
+import { type NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DELETE } from '@/app/api/media/route';
 
@@ -6,6 +7,7 @@ const mockCookies = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockToUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
+const mockCheckCsrfProtection = vi.fn();
 
 vi.mock('@supabase/ssr', () => ({
   createServerClient: (...args: unknown[]) => mockCreateServerClient(...args),
@@ -17,6 +19,10 @@ vi.mock('next/headers', () => ({
 
 vi.mock('@/lib/api-auth', () => ({
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
+}));
+
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
 }));
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
@@ -43,12 +49,6 @@ const mockSupabase = {
   },
 };
 
-// CSRF Protection Note:
-// CSRF token validation for DELETE (and all non-GET methods) is enforced at
-// the proxy middleware layer (proxy.ts), not within individual route handlers.
-// These unit tests invoke the handler directly, bypassing the middleware stack,
-// so CSRF is not testable at this level. Integration/E2E tests that go through
-// the full middleware pipeline cover CSRF enforcement.
 describe('DELETE /api/media', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -62,6 +62,7 @@ describe('DELETE /api/media', () => {
     mockToUserAccess.mockReturnValue({});
     mockHasPermission.mockReturnValue(true);
     mockRemove.mockResolvedValue({ error: null });
+    mockCheckCsrfProtection.mockResolvedValue({ valid: true });
   });
 
   it('allows deletion of valid file ID', async () => {
@@ -166,22 +167,27 @@ describe('DELETE /api/media', () => {
     expect(body.error).toBe('Storage error');
   });
 
-  it('succeeds without CSRF headers because CSRF is enforced at proxy.ts, not the route handler', async () => {
-    // This test documents that the DELETE handler itself does not check CSRF
-    // tokens. CSRF protection is handled by proxy.ts middleware before the
-    // request reaches the route handler. When invoking the handler directly
-    // (as in unit tests), the absence of CSRF headers does not cause failure.
+  it('returns 403 when CSRF token is invalid', async () => {
+    mockCheckCsrfProtection.mockResolvedValue({
+      valid: false,
+      response: NextResponse.json(
+        { error: 'Invalid CSRF token' },
+        { status: 403 }
+      ),
+    });
+
     const request = new Request(
       'http://localhost:3000/api/media?id=valid-file.jpg',
       {
         method: 'DELETE',
       }
-    );
+    ) as NextRequest;
 
     const response = await DELETE(request);
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.success).toBe(true);
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('Invalid CSRF token');
+    expect(mockRemove).not.toHaveBeenCalled();
   });
 });
