@@ -17,3 +17,8 @@
 
 **Learning:** `ColorPicker` previously swallowed invalid input silently, leaving users (especially keyboard/screen reader users) confused why the color didn't change. Adding `aria-invalid` and visual cues provides immediate, necessary feedback without blocking interaction.
 **Action:** When implementing controlled inputs that parse complex values (like hex codes), always pair the parsing logic with an explicit validation state and `aria-invalid` attribute to communicate failure modes clearly.
+
+## 2026-02-26 - Semantic List Structures for Tag Inputs
+
+**Learning:** `TagInput` components often use `div`s for containers, which screen readers announce as generic groups. Using `ul` and `li` provides immediate context about the number of items and their relationship, improving the experience for screen reader users without visual changes.
+**Action:** When displaying a collection of removable items (tags, filters, files), always use a semantic list structure (`ul` > `li`) with appropriate labels to enhance navigability and context.

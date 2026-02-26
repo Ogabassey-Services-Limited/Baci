@@ -26,7 +26,7 @@ export function TagInput({
   const [announcement, setAnnouncement] = useState('');
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const tagListRef = useRef<HTMLDivElement>(null);
+  const tagListRef = useRef<HTMLUListElement>(null);
   const lastRemovedIndexRef = useRef<number | null>(null);
 
   // Flash announcement pattern: ensures screen reader re-announces identical sequential messages
@@ -127,30 +127,37 @@ export function TagInput({
       </div>
 
       {value.length > 0 && (
-        <div className="flex flex-wrap gap-2" ref={tagListRef}>
+        <ul
+          className="flex flex-wrap gap-2"
+          ref={tagListRef}
+          aria-label="Selected tags"
+        >
           {value.map((tag, index) => (
-            <Badge
+            <li
               // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
               key={`${tag}-${index}`}
-              variant="secondary"
-              className="px-2 py-1 text-sm font-normal"
             >
-              {tag}
-              <button
-                type="button"
-                data-tag-remove={index}
-                className="ml-2 hover:bg-destructive/20 rounded-full p-0.5 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeTag(index);
-                }}
-                aria-label={`Remove ${tag}`}
+              <Badge
+                variant="secondary"
+                className="px-2 py-1 text-sm font-normal"
               >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
+                {tag}
+                <button
+                  type="button"
+                  data-tag-remove={index}
+                  className="ml-2 hover:bg-destructive/20 rounded-full p-0.5 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeTag(index);
+                  }}
+                  aria-label={`Remove ${tag}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
