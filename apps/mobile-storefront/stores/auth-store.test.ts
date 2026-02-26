@@ -554,6 +554,52 @@ describe('useAuthStore', () => {
   });
 
   // -------------------------------------------------------------------------
+  describe('initialize() — customer hydration timeouts', () => {
+    it('preserves user/session and completes init when customer fetch hangs', async () => {
+      jest.useFakeTimers();
+
+      try {
+        const sessionWithoutEmail = {
+          ...mockSession,
+          user: { ...mockUser, email: null },
+        };
+
+        resetSupabaseMocks({
+          session: sessionWithoutEmail,
+          getUser: { data: { user: sessionWithoutEmail.user }, error: null },
+        });
+
+        (supabase.from as jest.Mock).mockImplementation((table: string) => {
+          if (table === 'merchants') {
+            return makeChain({ data: mockMerchantRow, error: null });
+          }
+
+          const hangingCustomersChain = makeChain({ data: null, error: null });
+          hangingCustomersChain.maybeSingle.mockImplementation(
+            () => new Promise(() => {})
+          );
+          return hangingCustomersChain;
+        });
+
+        await act(async () => {
+          const initPromise = useAuthStore.getState().initialize();
+          await jest.advanceTimersByTimeAsync(10_001);
+          await initPromise;
+        });
+
+        const state = useAuthStore.getState();
+        expect(state.user?.id).toBe(USER_ID);
+        expect(state.session).toEqual(sessionWithoutEmail);
+        expect(state.customer).toBeNull();
+        expect(state.isInitialized).toBe(true);
+        expect(state.isLoading).toBe(false);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
+
+  // -------------------------------------------------------------------------
   describe('onAuthStateChange — SIGNED_IN', () => {
     /** Run initialize so the auth listener is registered, then return. */
     async function runInitialize() {
