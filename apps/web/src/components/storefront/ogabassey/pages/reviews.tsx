@@ -7,12 +7,20 @@ import { useState, useEffect } from 'react';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import type { StorefrontOrder, StorefrontOrderItem } from '@/types/storefront-order';
+import type { StorefrontReview } from '@/types/storefront-review';
 
 interface Product {
   id: string;
   name: string;
   image: string;
   price: string;
+}
+
+interface PendingReviewItem extends Omit<StorefrontOrderItem, 'image'> {
+  orderDate: string;
+  orderId: string;
+  image: string;
 }
 
 
@@ -139,8 +147,8 @@ export const OgabasseyV2Reviews: React.FC = () => {
   const { customer, isAuthenticated } = useCustomerAuth();
   const { merchant } = useMerchantSafe() || {};
 
-  const [orders, setOrders] = useState<any[]>([]);
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [orders, setOrders] = useState<StorefrontOrder[]>([]);
+  const [reviews, setReviews] = useState<StorefrontReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch data
@@ -179,10 +187,10 @@ export const OgabasseyV2Reviews: React.FC = () => {
 
   // Derive "Pending" items from Delivered orders
   // Flatten orders into items, filter only delivered, exclude items already reviewed
-  const pendingItems = orders
+  const pendingItems: PendingReviewItem[] = orders
     .filter((o) => o.shipping_status === 'delivered' || o.status === 'Delivered') // Support both status fields
     .flatMap((order) =>
-      order.items.map((item: any) => ({
+      order.items.map((item) => ({
         ...item,
         orderDate: order.created_at,
         orderId: order.id,
@@ -194,13 +202,13 @@ export const OgabasseyV2Reviews: React.FC = () => {
     .filter((item) => {
       // Check if this product has already been reviewed by the user
       // Note: This check is simple; robust systems might allow re-reviewing different instances
-      return !reviews.some((r) => r.product_id === item.id || r.product_id === item.product_id);
+      return !reviews.some((r) => r.product_id === item.product_id);
     });
 
-  const handleOpenRate = (item: any) => {
+  const handleOpenRate = (item: PendingReviewItem) => {
     // Map item to Product interface expected by modal
     const productToRate: Product = {
-      id: item.id || item.product_id, // fallback
+      id: item.product_id, // Use product_id for the review submission
       name: item.name,
       image: item.image,
       price: item.price?.toString() || '0',
