@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DELETE } from '@/app/api/media/route';
+import { DELETE, POST } from '@/app/api/media/route';
 
 const mockCreateServerClient = vi.fn();
 const mockCookies = vi.fn();
@@ -33,8 +33,12 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 
 // Mock Supabase storage
 const mockRemove = vi.fn();
+const mockUpload = vi.fn();
+const mockGetPublicUrl = vi.fn();
 const mockStorageFrom = vi.fn(() => ({
   remove: mockRemove,
+  upload: mockUpload,
+  getPublicUrl: mockGetPublicUrl,
 }));
 
 const mockSupabase = {
@@ -190,5 +194,90 @@ describe('DELETE /api/media', () => {
     expect(body.error).toBe('Invalid CSRF token');
     expect(mockCheckCsrfProtection).toHaveBeenCalled();
     expect(mockRemove).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/media', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCreateServerClient.mockReturnValue(mockSupabase);
+    mockCookies.mockReturnValue({
+      get: vi.fn(),
+    });
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: 'merchant-123',
+    });
+    mockToUserAccess.mockReturnValue({});
+    mockHasPermission.mockReturnValue(true);
+    mockCheckCsrfProtection.mockResolvedValue({ valid: true });
+  });
+
+  it('returns 403 when CSRF token is invalid', async () => {
+    mockCheckCsrfProtection.mockResolvedValue({
+      valid: false,
+      response: NextResponse.json(
+        { error: 'Invalid CSRF token' },
+        { status: 403 }
+      ),
+    });
+
+    const formData = new FormData();
+    formData.append(
+      'file',
+      new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+    );
+
+    const request = new Request('http://localhost:3000/api/media', {
+      method: 'POST',
+      body: formData,
+    }) as unknown as NextRequest;
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('Invalid CSRF token');
+    expect(mockCheckCsrfProtection).toHaveBeenCalled();
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when user is not authenticated', async () => {
+    mockSupabase.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: { message: 'Not authenticated' },
+    });
+
+    const formData = new FormData();
+    formData.append(
+      'file',
+      new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+    );
+
+    const request = new Request('http://localhost:3000/api/media', {
+      method: 'POST',
+      body: formData,
+    }) as unknown as NextRequest;
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body.error).toBe('Unauthorized');
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when permission is denied', async () => {
+    mockHasPermission.mockReturnValue(false);
+
+    const request = new Request('http://localhost:3000/api/media', {
+      method: 'POST',
+    }) as unknown as NextRequest;
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('Forbidden');
+    expect(mockUpload).not.toHaveBeenCalled();
   });
 });
