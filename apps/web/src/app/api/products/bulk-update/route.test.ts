@@ -63,7 +63,12 @@ let insertError: unknown = null;
 // Creates a query builder that supports chaining .eq() and resolves with { error }
 function createQueryBuilder(getError: () => unknown) {
   const builder = {
-    eq: vi.fn(() => Promise.resolve({ error: getError() })),
+    eq: vi.fn().mockReturnThis(),
+    // biome-ignore lint/suspicious/noThenProperty: Mocking a Thenable
+    then: (resolve: (value: any) => void, reject: (reason?: any) => void) => {
+      const error = getError();
+      return Promise.resolve({ error }).then(resolve, reject);
+    },
   };
   return builder;
 }
