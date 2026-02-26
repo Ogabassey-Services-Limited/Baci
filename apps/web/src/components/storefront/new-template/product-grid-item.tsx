@@ -11,6 +11,7 @@ import {
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { ProductCardImage } from '@/components/optimized-image';
 import type { Product } from './types';
 
 interface ProductGridItemProps {
@@ -103,10 +104,11 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           </div>
         )}
 
-        <img
+        <ProductCardImage
           src={currentImage}
           alt={product.name}
-          loading="lazy"
+          width={500}
+          height={500}
           onLoad={() => setIsImageLoaded(true)}
           className={`w-2/3 h-2/3 object-contain mix-blend-multiply transition-all duration-500 z-10 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
         />
