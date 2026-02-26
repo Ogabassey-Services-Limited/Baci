@@ -136,7 +136,7 @@ export default function PayoutSettingsScreen() {
 
     const timeout = setTimeout(verifyAccount, 500); // Debounce
     return () => clearTimeout(timeout);
-  }, [accountnumber, selectedBank, resolveAccount, session]);
+  }, [accountnumber, selectedBank, resolveAccount.mutate, session]);
 
   // Initialize state
   useEffect(() => {
