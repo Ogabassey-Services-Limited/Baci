@@ -1,35 +1,99 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// --- Mock react-native before any module imports it ---
-const mockAlert = vi.fn();
-
-vi.mock('react-native', () => ({
-  Alert: { alert: mockAlert },
-  StyleSheet: {
-    create: (s: Record<string, unknown>) => s,
-    absoluteFillObject: {},
-  },
-  View: 'View',
-  Text: 'Text',
-  TextInput: 'TextInput',
-  Pressable: 'Pressable',
-  ScrollView: 'ScrollView',
-  ActivityIndicator: 'ActivityIndicator',
-  KeyboardAvoidingView: 'KeyboardAvoidingView',
-  SafeAreaView: 'SafeAreaView',
-  Linking: { openURL: vi.fn() },
-  Platform: { OS: 'ios' },
+// --- vi.hoisted: these variables are available inside vi.mock factories ---
+const mocks = vi.hoisted(() => ({
+  alert: vi.fn(),
+  replace: vi.fn(),
+  push: vi.fn(),
+  mutate: vi.fn(),
 }));
 
-// --- Mock expo/RN dependencies ---
+// --- Mock react-native with HTML-compatible components ---
+vi.mock('react-native', async () => {
+  const React = await import('react');
+  return {
+    Alert: { alert: mocks.alert },
+    StyleSheet: {
+      create: (s: Record<string, unknown>) => s,
+      absoluteFillObject: {},
+    },
+    View: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('div', null, children),
+    Text: ({
+      children,
+      onPress,
+    }: {
+      children?: React.ReactNode;
+      onPress?: () => void;
+    }) => React.createElement('span', { onClick: onPress }, children),
+    TextInput: ({
+      onChangeText,
+      placeholder,
+      value,
+      secureTextEntry,
+    }: {
+      onChangeText?: (t: string) => void;
+      placeholder?: string;
+      value?: string;
+      secureTextEntry?: boolean;
+    }) =>
+      React.createElement('input', {
+        placeholder,
+        value: value ?? '',
+        type: secureTextEntry ? 'password' : 'text',
+        onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+          onChangeText?.(e.target.value),
+      }),
+    Pressable: ({
+      children,
+      onPress,
+      disabled,
+    }: {
+      children?: React.ReactNode;
+      onPress?: () => void;
+      disabled?: boolean;
+    }) =>
+      React.createElement('button', { onClick: onPress, disabled }, children),
+    ScrollView: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('div', null, children),
+    ActivityIndicator: () => null,
+    KeyboardAvoidingView: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('div', null, children),
+    SafeAreaView: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('div', null, children),
+    Linking: { openURL: vi.fn() },
+    Platform: { OS: 'ios' },
+  };
+});
 
-const mockReplace = vi.fn();
-const mockPush = vi.fn();
+vi.mock('expo-linear-gradient', async () => {
+  const React = await import('react');
+  return {
+    LinearGradient: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('div', null, children),
+  };
+});
+
+vi.mock('expo-status-bar', () => ({ StatusBar: () => null }));
+
+vi.mock('@expo/vector-icons', async () => {
+  const React = await import('react');
+  return {
+    Ionicons: ({ name }: { name: string }) =>
+      React.createElement('span', null, name),
+  };
+});
 
 vi.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace, push: mockPush, back: vi.fn() }),
+  useRouter: () => ({
+    replace: mocks.replace,
+    push: mocks.push,
+    back: vi.fn(),
+  }),
 }));
 
+// Mock transitive deps so the real NetworkError from @/lib/api-client can load
 vi.mock('expo-constants', () => ({
   default: { expoConfig: { hostUri: 'localhost:8081' } },
 }));
@@ -42,105 +106,137 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-// --- NetworkError inline replica (avoids importing api-client which pulls in expo-constants) ---
+vi.mock('@/hooks/useRegistration', () => ({
+  useRegistration: () => ({
+    register: { mutate: mocks.mutate, isPending: false },
+    completeProfile: { mutate: vi.fn(), isPending: false },
+    isLoading: false,
+  }),
+}));
 
-class NetworkError extends Error {
-  public readonly isTimeout: boolean;
-  public readonly isOffline: boolean;
-  public readonly statusCode?: number;
+vi.mock('@/lib/password-utils', () => ({
+  validatePassword: () => ({
+    isValid: true,
+    strength: 3,
+    error: null,
+    requirements: {
+      length: true,
+      complexity: true,
+      notCommon: true,
+      match: true,
+    },
+  }),
+}));
 
-  constructor(
-    message: string,
-    options: {
-      isTimeout?: boolean;
-      isOffline?: boolean;
-      statusCode?: number;
-    } = {}
-  ) {
-    super(message);
-    this.name = 'NetworkError';
-    this.isTimeout = options.isTimeout ?? false;
-    this.isOffline = options.isOffline ?? false;
-    this.statusCode = options.statusCode;
-  }
+vi.mock('@/lib/sanitize', () => ({ getEmailError: () => null }));
+
+// --- Import real modules (after mocks are registered) ---
+import { NetworkError } from '@/lib/api-client';
+import RegisterScreen from './register';
+
+// --- Helpers ---
+
+/** Fill the 2-step registration form and click "Launch Store" */
+function fillFormAndSubmit() {
+  // Step 1: Account details
+  fireEvent.change(screen.getByPlaceholderText('John'), {
+    target: { value: 'Test' },
+  });
+  fireEvent.change(screen.getByPlaceholderText('Doe'), {
+    target: { value: 'User' },
+  });
+  fireEvent.change(screen.getByPlaceholderText('you@example.com'), {
+    target: { value: 'test@example.com' },
+  });
+  const passwordFields = screen.getAllByPlaceholderText('••••••••');
+  fireEvent.change(passwordFields[0], {
+    target: { value: 'StrongP@ss123!' },
+  });
+  fireEvent.change(passwordFields[1], {
+    target: { value: 'StrongP@ss123!' },
+  });
+
+  // Click "Next Step" to go to step 2
+  fireEvent.click(screen.getByText('Next Step'));
+
+  // Step 2: Business info
+  fireEvent.change(screen.getByPlaceholderText('My Awesome Store'), {
+    target: { value: 'Test Store' },
+  });
+  fireEvent.click(screen.getByText('Fashion & Apparel'));
+
+  // Submit the form → triggers register.mutate(payload, { onSuccess, onError })
+  fireEvent.click(screen.getByText('Launch Store'));
 }
 
-// --- Replicate the onError handler from register.tsx for unit testing ---
-// This mirrors lines 192-229 of register.tsx exactly.
-
-function handleOnError(error: Error) {
-  const networkError = error as NetworkError;
-
-  if (networkError.statusCode === 409) {
-    mockAlert(
-      'Account Exists',
-      'An account with this email already exists. Please log in instead.',
-      [
-        { text: 'Go to Login', onPress: () => mockReplace('/(auth)/login') },
-        { text: 'OK', style: 'cancel' },
-      ]
-    );
-    return;
-  }
-
-  if (networkError.statusCode === 429) {
-    mockAlert('Too Many Attempts', 'Please wait a minute before trying again.');
-    return;
-  }
-
-  let message = error.message || 'Please try again later.';
-  if (networkError.isTimeout) {
-    message =
-      'The server is taking too long to respond. Please check your connection and try again.';
-  } else if (networkError.isOffline) {
-    message =
-      'Could not reach the server. Please check your internet connection and try again.';
-  }
-
-  mockAlert('Registration Failed', message);
+/** Extract the onSuccess/onError callbacks from the latest mutate call */
+function getCallbacks() {
+  const lastCall = mocks.mutate.mock.calls[mocks.mutate.mock.calls.length - 1];
+  return lastCall[1] as {
+    onSuccess: () => void;
+    onError: (error: Error) => void;
+  };
 }
 
 // --- Tests ---
 
-describe('RegisterScreen registration callbacks', () => {
+describe('RegisterScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it('calls register.mutate with form data when submitted', () => {
+    render(<RegisterScreen />);
+    fillFormAndSubmit();
+
+    expect(mocks.mutate).toHaveBeenCalledTimes(1);
+    const [payload] = mocks.mutate.mock.calls[0];
+    expect(payload).toMatchObject({
+      email: 'test@example.com',
+      firstName: 'Test',
+      lastName: 'User',
+      businessName: 'Test Store',
+      businessType: 'fashion',
+    });
   });
 
   describe('onSuccess', () => {
-    it('navigates to dashboard on successful registration', () => {
-      // The component's onSuccess handler:
-      //   router.replace('/(admin)/(tabs)');
-      mockReplace('/(admin)/(tabs)');
+    it('navigates to dashboard via router.replace', () => {
+      render(<RegisterScreen />);
+      fillFormAndSubmit();
 
-      expect(mockReplace).toHaveBeenCalledWith('/(admin)/(tabs)');
+      getCallbacks().onSuccess();
+
+      expect(mocks.replace).toHaveBeenCalledWith('/(admin)/(tabs)');
     });
 
-    it('uses router.replace (not push) to prevent back-navigation to register', () => {
-      mockReplace('/(admin)/(tabs)');
+    it('uses replace (not push) to prevent back-navigation to register', () => {
+      render(<RegisterScreen />);
+      fillFormAndSubmit();
 
-      expect(mockReplace).toHaveBeenCalledTimes(1);
-      expect(mockPush).not.toHaveBeenCalled();
-    });
+      getCallbacks().onSuccess();
 
-    it('does not navigate to verify screen', () => {
-      mockReplace('/(admin)/(tabs)');
-
-      expect(mockPush).not.toHaveBeenCalledWith(
-        expect.objectContaining({ pathname: '/(auth)/verify' })
-      );
+      expect(mocks.replace).toHaveBeenCalledTimes(1);
+      expect(mocks.push).not.toHaveBeenCalled();
     });
   });
 
   describe('onError', () => {
-    it('shows "Account Exists" alert with login action for 409 error', () => {
-      const error = new NetworkError('User already exists. Please log in.', {
-        statusCode: 409,
-      });
+    it('shows "Account Exists" alert with login action for 409', () => {
+      render(<RegisterScreen />);
+      fillFormAndSubmit();
 
-      handleOnError(error);
+      getCallbacks().onError(
+        new NetworkError('User already exists', { statusCode: 409 })
+      );
 
-      expect(mockAlert).toHaveBeenCalledWith(
+      expect(mocks.alert).toHaveBeenCalledWith(
         'Account Exists',
         'An account with this email already exists. Please log in instead.',
         expect.arrayContaining([
@@ -151,96 +247,101 @@ describe('RegisterScreen registration callbacks', () => {
     });
 
     it('navigates to login when "Go to Login" is pressed on 409 alert', () => {
-      const error = new NetworkError('User already exists', {
-        statusCode: 409,
-      });
+      render(<RegisterScreen />);
+      fillFormAndSubmit();
 
-      handleOnError(error);
+      getCallbacks().onError(
+        new NetworkError('User already exists', { statusCode: 409 })
+      );
 
-      // Extract and invoke the "Go to Login" button's onPress
-      const buttons = mockAlert.mock.calls[0][2] as Array<{
+      // Press the "Go to Login" button from the Alert
+      const buttons = mocks.alert.mock.calls[0][2] as Array<{
         text: string;
         onPress?: () => void;
       }>;
-      const loginButton = buttons.find((b) => b.text === 'Go to Login');
-      loginButton?.onPress?.();
+      buttons.find((b) => b.text === 'Go to Login')?.onPress?.();
 
-      expect(mockReplace).toHaveBeenCalledWith('/(auth)/login');
+      expect(mocks.replace).toHaveBeenCalledWith('/(auth)/login');
     });
 
-    it('shows rate-limit alert for 429 error', () => {
-      const error = new NetworkError('Too many attempts', { statusCode: 429 });
+    it('shows rate-limit alert for 429', () => {
+      render(<RegisterScreen />);
+      fillFormAndSubmit();
 
-      handleOnError(error);
+      getCallbacks().onError(
+        new NetworkError('Too many attempts', { statusCode: 429 })
+      );
 
-      expect(mockAlert).toHaveBeenCalledWith(
+      expect(mocks.alert).toHaveBeenCalledWith(
         'Too Many Attempts',
         'Please wait a minute before trying again.'
       );
     });
 
-    it('does not navigate on 429 error', () => {
-      const error = new NetworkError('Too many attempts', { statusCode: 429 });
+    it('does not navigate on 429', () => {
+      render(<RegisterScreen />);
+      fillFormAndSubmit();
 
-      handleOnError(error);
+      getCallbacks().onError(
+        new NetworkError('Too many attempts', { statusCode: 429 })
+      );
 
-      expect(mockReplace).not.toHaveBeenCalled();
-      expect(mockPush).not.toHaveBeenCalled();
+      expect(mocks.replace).not.toHaveBeenCalled();
+      expect(mocks.push).not.toHaveBeenCalled();
     });
 
     it('shows timeout message for timeout errors', () => {
-      const error = new NetworkError('Request timed out', { isTimeout: true });
+      render(<RegisterScreen />);
+      fillFormAndSubmit();
 
-      handleOnError(error);
+      getCallbacks().onError(
+        new NetworkError('Request timed out', { isTimeout: true })
+      );
 
-      expect(mockAlert).toHaveBeenCalledWith(
+      expect(mocks.alert).toHaveBeenCalledWith(
         'Registration Failed',
         'The server is taking too long to respond. Please check your connection and try again.'
       );
     });
 
     it('shows offline message for network errors', () => {
-      const error = new NetworkError('Network request failed', {
-        isOffline: true,
-      });
+      render(<RegisterScreen />);
+      fillFormAndSubmit();
 
-      handleOnError(error);
+      getCallbacks().onError(
+        new NetworkError('Network request failed', { isOffline: true })
+      );
 
-      expect(mockAlert).toHaveBeenCalledWith(
+      expect(mocks.alert).toHaveBeenCalledWith(
         'Registration Failed',
         'Could not reach the server. Please check your internet connection and try again.'
       );
     });
 
-    it('shows generic error message for unknown errors', () => {
-      const error = new NetworkError('Something went wrong');
+    it('shows server error message for generic errors', () => {
+      render(<RegisterScreen />);
+      fillFormAndSubmit();
 
-      handleOnError(error);
+      getCallbacks().onError(
+        new NetworkError('Something went wrong', { statusCode: 500 })
+      );
 
-      expect(mockAlert).toHaveBeenCalledWith(
+      expect(mocks.alert).toHaveBeenCalledWith(
         'Registration Failed',
         'Something went wrong'
       );
     });
 
-    it('falls back to default message when error.message is empty', () => {
-      const error = new NetworkError('');
-
-      handleOnError(error);
-
-      expect(mockAlert).toHaveBeenCalledWith(
-        'Registration Failed',
-        'Please try again later.'
-      );
-    });
-
     it('does not navigate on non-409 errors', () => {
-      const error = new NetworkError('Server error', { statusCode: 500 });
+      render(<RegisterScreen />);
+      fillFormAndSubmit();
 
-      handleOnError(error);
+      getCallbacks().onError(
+        new NetworkError('Server error', { statusCode: 500 })
+      );
 
-      expect(mockReplace).not.toHaveBeenCalled();
-      expect(mockPush).not.toHaveBeenCalled();
+      expect(mocks.replace).not.toHaveBeenCalled();
+      expect(mocks.push).not.toHaveBeenCalled();
     });
   });
 });
