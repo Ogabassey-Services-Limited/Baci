@@ -15,7 +15,8 @@
     "submit:ios": "eas submit --platform ios",
     "submit:android": "eas submit --platform android",
     "submit:all": "eas submit --platform all",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@baci/shared": "workspace:*",
@@ -85,12 +86,16 @@
     "@babel/plugin-transform-optional-chaining": "^7.28.6",
     "@babel/plugin-transform-shorthand-properties": "^7.27.1",
     "@babel/plugin-transform-template-literals": "^7.27.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "~19.2.13",
+    "@vitejs/plugin-react": "^5.1.4",
     "babel-plugin-react-compiler": "^1.0.0",
     "jsonwebtoken": "^9.0.3",
     "react-native-svg-transformer": "^1.5.3",
     "sharp": "^0.34.5",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "vitest": "^4.0.18"
   },
   "private": true
 }

@@ -185,18 +185,39 @@ export default function RegisterScreen() {
       },
       {
         onSuccess: () => {
-          // Navigate to OTP verification screen
-          router.push({
-            pathname: '/(auth)/verify',
-            params: { email },
-          });
+          // Navigate directly to dashboard — email confirmation is disabled,
+          // so signup returns a session immediately and the merchant is ready.
+          router.replace('/(admin)/(tabs)');
         },
         onError: (error: Error) => {
           console.error('Registration error:', error.message);
-          const title = 'Registration Failed';
-          let message = error.message || 'Please try again later.';
-
           const networkError = error as NetworkError;
+
+          // Handle specific server error codes
+          if (networkError.statusCode === 409) {
+            Alert.alert(
+              'Account Exists',
+              'An account with this email already exists. Please log in instead.',
+              [
+                {
+                  text: 'Go to Login',
+                  onPress: () => router.replace('/(auth)/login'),
+                },
+                { text: 'OK', style: 'cancel' },
+              ]
+            );
+            return;
+          }
+
+          if (networkError.statusCode === 429) {
+            Alert.alert(
+              'Too Many Attempts',
+              'Please wait a minute before trying again.'
+            );
+            return;
+          }
+
+          let message = error.message || 'Please try again later.';
           if (networkError.isTimeout) {
             message =
               'The server is taking too long to respond. Please check your connection and try again.';
@@ -205,7 +226,7 @@ export default function RegisterScreen() {
               'Could not reach the server. Please check your internet connection and try again.';
           }
 
-          Alert.alert(title, message);
+          Alert.alert('Registration Failed', message);
         },
       }
     );

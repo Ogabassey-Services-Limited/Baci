@@ -101,6 +101,15 @@ export async function POST(req: NextRequest) {
             { status: 409 }
           );
         }
+        if (
+          signUpError.status === 429 ||
+          signUpError.message.includes('security purposes')
+        ) {
+          return NextResponse.json(
+            { error: 'Too many attempts. Please wait a minute and try again.' },
+            { status: 429 }
+          );
+        }
         throw signUpError;
       }
 
@@ -333,7 +342,16 @@ export async function POST(req: NextRequest) {
       message: 'Account created successfully',
     });
   } catch (error: unknown) {
-    console.error('Mobile onboarding error:', error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const errName = error instanceof Error ? error.name : typeof error;
+    const errStack =
+      error instanceof Error
+        ? error.stack?.split('\n').slice(0, 3).join(' | ')
+        : undefined;
+    console.error(
+      'Mobile onboarding error:',
+      JSON.stringify({ name: errName, message: errMsg, stack: errStack })
+    );
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }
