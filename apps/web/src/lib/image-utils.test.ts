@@ -16,7 +16,11 @@ describe('isValidImageUrl', () => {
   });
 
   it('should return true for data URLs', () => {
-    expect(isValidImageUrl('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')).toBe(true);
+    expect(
+      isValidImageUrl(
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+      )
+    ).toBe(true);
   });
 
   it('should return false for invalid strings', () => {
