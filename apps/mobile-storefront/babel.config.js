@@ -35,5 +35,11 @@ module.exports = (api) => {
       ],
       'react-native-reanimated/plugin',
     ],
+    env: {
+      test: {
+        // Jest doesn't support native import() — transform to require()
+        plugins: ['@babel/plugin-transform-dynamic-import'],
+      },
+    },
   };
 };
