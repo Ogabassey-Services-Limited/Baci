@@ -1,4 +1,4 @@
-const path = require('path');
+const path = require('node:path');
 const { getDefaultConfig } = require('expo/metro-config');
 
 /**
@@ -27,6 +27,15 @@ config.resolver = {
   ...resolver,
   assetExts: resolver.assetExts.filter((ext) => ext !== 'svg'),
   sourceExts: [...resolver.sourceExts, 'svg'],
+  // Exclude test files and test-only Node packages from the bundle.
+  // vite/vitest use import.meta which Hermes doesn't support.
+  blockList: [
+    /.*\.test\.[tj]sx?$/,
+    /.*\.spec\.[tj]sx?$/,
+    /.*__tests__\/.*/,
+    /node_modules\/vite\//,
+    /node_modules\/vitest\//,
+  ],
   nodeModulesPaths: [
     path.resolve(projectRoot, 'node_modules'),
     path.resolve(workspaceRoot, 'node_modules'),
