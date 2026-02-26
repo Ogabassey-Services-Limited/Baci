@@ -45,7 +45,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.ogabassey.store',
+    bundleIdentifier: 'com.ogabassey.app',
     scheme: 'ogabassey', // Ensure scheme is explicitly set for iOS
     associatedDomains: [
       'applinks:ogabassey.com',
