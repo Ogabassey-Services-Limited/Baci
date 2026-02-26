@@ -12,10 +12,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { createContext, useContext, useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import { type NetworkState, useNetworkState } from '@/hooks/useNetworkState';
-import { useTheme } from '@/hooks/useTheme';
 
 interface NetworkContextValue extends NetworkState {
   refresh: () => Promise<void>;
@@ -38,13 +38,9 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
   const networkState = useNetworkState();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
-
-  // Contrast colors for banners
-  // Warning (Orange) needs dark text for readability
-  const warningTextColor = isDark ? colors.background : colors.text;
-  // Success (Green) needs light text for readability
-  const successTextColor = isDark ? colors.text : colors.card;
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const colors = isDark ? DARK_COLORS : LIGHT_COLORS;
 
   // Auto-invalidate queries when connection is restored
   useEffect(() => {
@@ -78,10 +74,10 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
           <Ionicons
             name="cloud-offline"
             size={16}
-            color={warningTextColor}
+            color="#000"
             style={styles.icon}
           />
-          <Text style={[styles.bannerText, { color: warningTextColor }]}>
+          <Text style={styles.bannerText}>
             No internet connection. Some features may be unavailable.
           </Text>
         </View>
@@ -100,10 +96,10 @@ export function NetworkProvider({ children }: NetworkProviderProps) {
           <Ionicons
             name="cloud-done"
             size={16}
-            color={successTextColor}
+            color="#fff"
             style={styles.icon}
           />
-          <Text style={[styles.bannerText, { color: successTextColor }]}>
+          <Text style={[styles.bannerText, { color: '#fff' }]}>
             Back online! Syncing data...
           </Text>
         </View>
@@ -158,5 +154,6 @@ const styles = StyleSheet.create({
   bannerText: {
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
+    color: '#000',
   },
 });
