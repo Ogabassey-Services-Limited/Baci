@@ -1,7 +1,7 @@
 'use client';
 
 import Image, { type ImageProps } from 'next/image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   getFallbackImage,
   getProductBlurPlaceholder,
@@ -80,6 +80,11 @@ export function OptimizedImage({
 }: OptimizedImageProps) {
   const [imgSrc, setImgSrc] = useState(src);
   const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setImgSrc(src);
+    setHasError(false);
+  }, [src]);
 
   // If marked as LCP image, override to high priority and eager loading
   const finalPriority = isLCP ? true : priority;

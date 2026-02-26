@@ -9,6 +9,7 @@ import {
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { ProductCardImage } from '@/components/optimized-image';
 import type { Product } from './types';
 
 interface ProductListItemProps {
@@ -95,10 +96,11 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
           </div>
         )}
 
-        <img
+        <ProductCardImage
           src={currentImage}
           alt={product.name}
-          loading="lazy"
+          width={300}
+          height={300}
           onLoad={() => setIsImageLoaded(true)}
           className={`w-3/4 h-3/4 object-contain md:group-hover:scale-110 transition-all duration-500 mix-blend-multiply z-10 ${isImageLoaded ? 'opacity-100' : 'opacity-0'}`}
         />
