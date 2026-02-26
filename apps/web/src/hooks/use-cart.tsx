@@ -303,6 +303,26 @@ export const CartProvider = ({
     setIsHydrated(true);
   }, [initialMerchantSlug, initialUserId]);
 
+  // Sync state across tabs/windows
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    const handleStorageChange = (e: StorageEvent) => {
+      const currentKey = getCartStorageKey(merchantSlug, userId);
+
+      if (e.key === currentKey) {
+        if (!e.newValue) {
+          setCart([]);
+        } else {
+          setCart(getCartFromStorage(merchantSlug, userId));
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [isHydrated, merchantSlug, userId]);
+
   // Background validation: Remove ghost products and update stale prices
   useEffect(() => {
     if (!isHydrated || cart.length === 0) return;
