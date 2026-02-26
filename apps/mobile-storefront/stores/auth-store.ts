@@ -735,6 +735,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               p_user_id: data.user.id,
               p_email: data.user.email,
               p_full_name: fullName,
+              p_phone: null,
             }
           );
           if (rpcError) {
