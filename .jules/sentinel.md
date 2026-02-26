@@ -59,3 +59,14 @@
 1. Explicitly verify `checkCsrfProtection` usage in all state-changing routes (`POST`, `PUT`, `DELETE`).
 2. Add regression tests that specifically attempt requests without CSRF tokens and expect 403.
 3. Consider enforcing CSRF checks centrally in middleware for `/api/*` routes to avoid human error in individual route handlers.
+
+## 2026-02-26 - Missing CSRF Protection in Media API
+
+**Vulnerability:** The `POST` and `DELETE` handlers in `/api/media` were missing CSRF protection checks (`checkCsrfProtection`). This exposed the media management functionality to Cross-Site Request Forgery attacks, potentially allowing attackers to upload or delete files on behalf of authenticated merchants.
+
+**Learning:** Comments in tests (`route.test.ts`) incorrectly claimed that CSRF protection was handled globally by middleware, leading to a false sense of security. The middleware (`proxy.ts`) does *not* enforce CSRF checks centrally. This reinforces the principle: "Trust code, not docs/comments".
+
+**Prevention:**
+1. Explicitly verify `checkCsrfProtection` usage in all state-changing routes.
+2. Avoid relying on comments or documentation for security assurances; verify the implementation.
+3. Consider implementing a linter rule or a centralized mechanism (like middleware) to enforce CSRF checks if possible, rather than relying on manual calls in every route.

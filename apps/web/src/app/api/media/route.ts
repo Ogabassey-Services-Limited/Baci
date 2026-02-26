@@ -1,7 +1,8 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -105,7 +106,13 @@ export async function GET(_request: Request) {
   return NextResponse.json({ files: filesWithUrls });
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  // CSRF Protection
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid && response) {
+    return response;
+  }
+
   const cookieStore = await cookies();
 
   const supabase = createServerClient(
@@ -233,7 +240,13 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
+  // CSRF Protection
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid && response) {
+    return response;
+  }
+
   const { searchParams } = new URL(request.url);
   const fileId = searchParams.get('id');
 
