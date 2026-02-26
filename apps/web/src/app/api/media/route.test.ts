@@ -188,6 +188,7 @@ describe('DELETE /api/media', () => {
 
     expect(response.status).toBe(403);
     expect(body.error).toBe('Invalid CSRF token');
+    expect(mockCheckCsrfProtection).toHaveBeenCalled();
     expect(mockRemove).not.toHaveBeenCalled();
   });
 });

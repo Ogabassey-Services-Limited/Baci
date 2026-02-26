@@ -60,7 +60,7 @@
 2. Add regression tests that specifically attempt requests without CSRF tokens and expect 403.
 3. Consider enforcing CSRF checks centrally in middleware for `/api/*` routes to avoid human error in individual route handlers.
 
-## 2026-03-08 - Missing CSRF Protection in Media API
+## 2026-02-26 - Missing CSRF Protection in Media API
 
 **Vulnerability:** The `POST` and `DELETE` handlers in `/api/media` were missing CSRF protection checks (`checkCsrfProtection`). This exposed the media management functionality to Cross-Site Request Forgery attacks, potentially allowing attackers to upload or delete files on behalf of authenticated merchants.
 
