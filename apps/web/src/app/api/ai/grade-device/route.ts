@@ -1,7 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAnonClient } from '@/lib/supabase/anon';
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(
@@ -81,7 +80,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Price Lookup (Supabase)
-    const supabase = createClient(await cookies());
+    // Public endpoint for mobile uploads: use anon client (no cookie session required).
+    const supabase = createAnonClient();
 
     // Fuzzy search for the model in products
     const { data: products } = await supabase

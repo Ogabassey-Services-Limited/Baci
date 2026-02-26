@@ -1,14 +1,17 @@
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { authenticateApiRequest } from '@/lib/api-auth';
 
 /**
  * Customer Orders API
  *
  * GET - Fetch orders for the authenticated customer
+ *
+ * Uses authenticateApiRequest to support both:
+ * - Mobile apps sending Bearer tokens in the Authorization header
+ * - Web browsers using cookie-based Supabase sessions
  */
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const merchantSlug = searchParams.get('merchantSlug');
@@ -20,18 +23,14 @@ export async function GET(request: Request) {
       );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Authenticate via Bearer token (mobile) or cookie session (web)
+    const auth = await authenticateApiRequest(request);
 
-    // Get current auth session
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    if (!auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const { user, supabase } = auth;
 
     // Get merchant
     const { data: merchant, error: merchantError } = await supabase

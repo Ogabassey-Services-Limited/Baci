@@ -10,7 +10,6 @@
  */
 
 import { customAlphabet } from 'nanoid';
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import {
@@ -39,7 +38,6 @@ import {
   initializeTransaction as initializePaystackPayment,
 } from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
 
 // =============================================================================
 // Types & Constants
@@ -807,9 +805,13 @@ export async function POST(request: NextRequest) {
       ? data.currency
       : 'NGN';
 
-    // Initialize Supabase client
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Use the admin client throughout this route.
+    // This endpoint is called by the mobile storefront which authenticates via
+    // Bearer token (not cookies), so the cookie-based server client cannot
+    // establish a session. The admin client bypasses RLS, which is safe here
+    // because every data operation is scoped by validated order/merchant IDs
+    // (enforced by the SECURITY DEFINER RPC below).
+    const supabase = createAdminClient();
 
     // Validate order context (order + email) before initiating payment
     const { data: snapshotRows, error: snapshotError } = await supabase.rpc(
@@ -861,15 +863,8 @@ export async function POST(request: NextRequest) {
 
     const merchantId = orderSnapshot.merchant_id;
 
-    // Use admin client for merchant config lookups.
-    // The cookie-based client may be anonymous (e.g. mobile app requests)
-    // and RLS on merchants table requires authenticated owner/staff access.
-    // This is safe because the order→merchant relationship is already
-    // validated above via the SECURITY DEFINER RPC.
-    const adminClient = createAdminClient();
-
     // Fetch merchant
-    const { data: merchant, error: merchantError } = await adminClient
+    const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id, business_name, slug, paystack_subaccount_code')
       .eq('id', merchantId)
@@ -884,7 +879,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch gateway settings
-    const { data: featureSettings } = await adminClient
+    const { data: featureSettings } = await supabase
       .from('merchant_feature_settings')
       .select(
         'paystack_enabled, korapay_enabled, preferred_local_gateway, preferred_international_gateway'

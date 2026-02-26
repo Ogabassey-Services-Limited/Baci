@@ -1,9 +1,16 @@
 /**
  * Shipping Quotes API
  * GET aggregated shipping quotes from all providers
+ *
+ * Uses the admin (service-role) client instead of the cookie-based SSR client
+ * because this route is called from the mobile storefront app, which sends a
+ * Bearer token in the Authorization header rather than Supabase session cookies.
+ * The cookie-based client always resolves to an unauthenticated session for
+ * mobile requests. To validate the caller's JWT we extract the raw token from
+ * the Authorization header and pass it to supabase.auth.getUser(token) explicitly,
+ * which works for both web (cookie) sessions and mobile Bearer tokens.
  */
 
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import { hasPermission } from '@/lib/api-auth';
@@ -13,7 +20,7 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { shippingService } from '@/lib/shipping';
 import type { QuoteRequest } from '@/lib/shipping/types';
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // =============================================================================
 // REQUEST VALIDATION
@@ -88,15 +95,28 @@ export async function POST(request: NextRequest) {
 
     const data = parseResult.data;
 
+    // Single admin client instance for the lifetime of this request.
+    // The service-role key bypasses RLS for quote storage. For auth we
+    // pass the raw JWT explicitly so it works for both web (cookie) and
+    // mobile (Authorization: Bearer <token>) callers.
+    const supabase = createAdminClient();
+
     // Get merchant info for sender details if not provided
     let senderInfo = data.sender;
 
     if (!senderInfo) {
-      const cookieStore = await cookies();
-      const supabase = createClient(cookieStore);
+      // Extract Bearer token from Authorization header (mobile) or fall back
+      // to cookie-less getUser which returns null for unauthenticated callers.
+      const authHeader = request.headers.get('authorization');
+      const token = authHeader?.startsWith('Bearer ')
+        ? authHeader.slice(7)
+        : undefined;
+
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = token
+        ? await supabase.auth.getUser(token)
+        : await supabase.auth.getUser();
 
       if (user) {
         // Resolve merchant context (supports both owners and staff)
@@ -171,11 +191,6 @@ export async function POST(request: NextRequest) {
     // Get quotes from all providers
     const response = await shippingService.getQuotes(quoteRequest);
 
-    // Store quotes in database for later retrieval during booking
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Store all quotes (for later reference during booking)
     // Store all quotes (for later reference during booking)
     await Promise.all(
       response.quotes.all.map((quote) =>
@@ -232,8 +247,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = createAdminClient();
 
     const { data: quotes, error } = await supabase
       .from('shipping_quotes')
