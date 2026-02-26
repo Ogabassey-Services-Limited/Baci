@@ -49,7 +49,7 @@ export function DiscountItemSelector({
   );
   const [loading, setLoading] = useState(false);
 
-  const fetchItems = React.useCallback(async () => {
+  const fetchItems = async () => {
     setLoading(true);
     try {
       let query;
@@ -86,7 +86,7 @@ export function DiscountItemSelector({
     } finally {
       setLoading(false);
     }
-  }, [merchant, search, type]);
+  };
 
   useEffect(() => {
     if (__DEV__) {
