@@ -137,6 +137,45 @@ describe('POST /api/mobile-onboarding', () => {
     expect(body.error).toBe('User already exists. Please log in.');
   });
 
+  it('returns 429 when signup hits rate limit', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    mockSignUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        message:
+          'For security purposes, you can only request this after 57 seconds.',
+        status: 429,
+      },
+    });
+
+    const res = await POST(makeRequest(validBody));
+    const body = await res.json();
+
+    expect(res.status).toBe(429);
+    expect(body.error).toBe(
+      'Too many attempts. Please wait a minute and try again.'
+    );
+  });
+
+  it('returns 429 when signup error has status 429 without message match', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    mockSignUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        message: 'Rate limit exceeded',
+        status: 429,
+      },
+    });
+
+    const res = await POST(makeRequest(validBody));
+    const body = await res.json();
+
+    expect(res.status).toBe(429);
+    expect(body.error).toBe(
+      'Too many attempts. Please wait a minute and try again.'
+    );
+  });
+
   it('returns 403 when email confirmation is required (no session token)', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     mockSignUp.mockResolvedValue({
