@@ -118,6 +118,7 @@ describe('POST /api/ai/grade-device', () => {
 
     expect(response.status).toBe(500);
     expect(data).toEqual({ error: 'Internal server error' });
+    expect(createAnonClient).not.toHaveBeenCalled();
   });
 
   it('returns 200 with basePrice 0 when Supabase product lookup finds no matches', async () => {
