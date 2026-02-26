@@ -242,6 +242,8 @@ describe('useAuthStore', () => {
     jest.clearAllMocks();
     mockUnsubscribe.mockReset();
     mockClearCart.mockReset();
+    // Reset the captured auth listener so no test leaks a stale callback
+    mockAuthListenerCb = async () => {};
     resetStore();
     resetSupabaseMocks();
   });

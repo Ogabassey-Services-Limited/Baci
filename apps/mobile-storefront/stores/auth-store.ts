@@ -233,7 +233,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             updates.last_name = lastName;
 
           if (Object.keys(updates).length > 0) {
-            const { data: updated } = await supabase
+            const { data: updated, error: updateError } = await supabase
               .from('customers')
               .update(updates)
               .eq('id', resolvedCustomer.id)
@@ -243,7 +243,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
             if (get()._initGen !== initGen) return;
 
-            if (updated) resolvedCustomer = updated;
+            if (updateError) {
+              log.error(
+                'Customer backfill update failed:',
+                updateError.message
+              );
+            } else if (updated) {
+              resolvedCustomer = updated;
+            }
           }
         }
 
@@ -372,7 +379,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                   updates.last_name = lastName;
 
                 if (Object.keys(updates).length > 0) {
-                  const { data: updated } = await supabase
+                  const { data: updated, error: updateError } = await supabase
                     .from('customers')
                     .update(updates)
                     .eq('id', resolvedCustomer.id)
@@ -382,7 +389,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                     )
                     .single();
 
-                  if (updated) resolvedCustomer = updated;
+                  if (updateError) {
+                    log.error(
+                      'Customer backfill update failed:',
+                      updateError.message
+                    );
+                  } else if (updated) {
+                    resolvedCustomer = updated;
+                  }
                 }
               }
 
