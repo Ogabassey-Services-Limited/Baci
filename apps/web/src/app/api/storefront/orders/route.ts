@@ -13,6 +13,15 @@ import { authenticateApiRequest } from '@/lib/api-auth';
 
 export async function GET(request: NextRequest) {
   try {
+    // Authenticate FIRST — before processing any user-controlled input
+    const auth = await authenticateApiRequest(request);
+
+    if (!auth.user || !auth.supabase) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { user, supabase } = auth;
+
     const { searchParams } = new URL(request.url);
     const merchantSlug = searchParams.get('merchantSlug');
 
@@ -22,15 +31,6 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    // Authenticate via Bearer token (mobile) or cookie session (web)
-    const auth = await authenticateApiRequest(request);
-
-    if (!auth.user || !auth.supabase) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { user, supabase } = auth;
 
     // Get merchant
     const { data: merchant, error: merchantError } = await supabase
