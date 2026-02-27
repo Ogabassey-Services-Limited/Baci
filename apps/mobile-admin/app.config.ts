@@ -14,7 +14,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   orientation: 'default',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
-  newArchEnabled: true,
   scheme: 'baciadmin',
   assetBundlePatterns: ['**/*'],
   splash: {
