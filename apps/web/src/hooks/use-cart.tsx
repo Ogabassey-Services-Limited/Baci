@@ -295,6 +295,7 @@ export const CartProvider = ({
   const lastValidatedCartHashRef = useRef<string>('');
 
   // Hydrate from localStorage
+  // biome-ignore lint/correctness/useExhaustiveDependencies: logic relies on controlled execution
   useEffect(() => {
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
 
@@ -362,7 +363,6 @@ export const CartProvider = ({
     setUserId(initialUserId);
     setIsHydrated(true);
     // userId and isHydrated are purposefully omitted to prevent re-running on internal state changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMerchantSlug, initialUserId]);
 
   // Background validation: Remove ghost products and update stale prices

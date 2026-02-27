@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/lib/products';
@@ -40,6 +40,26 @@ global.fetch = vi.fn().mockResolvedValue({
   json: async () => ({ invalidProductIds: [], priceChanges: [] }),
 });
 
+// Helper component to consume cart context
+const TestConsumer = ({
+  onStateChange,
+}: {
+  onStateChange: (state: any) => void;
+}) => {
+  const cartState = useCart();
+  onStateChange(cartState);
+  return null;
+};
+
+// Wrapper component to handle prop updates
+const Wrapper = ({
+  children,
+  userId,
+}: {
+  children: ReactNode;
+  userId: string | null;
+}) => <CartProvider userId={userId}>{children}</CartProvider>;
+
 describe('useCart - Merge Guest Cart on Login', () => {
   beforeEach(() => {
     localStorageMock.clear();
@@ -62,33 +82,29 @@ describe('useCart - Merge Guest Cart on Login', () => {
   } as unknown as Product;
 
   it('merges guest cart items into user cart upon login', async () => {
-    // 1. Render hook with initial userId = null (Guest)
-    const { result, rerender } = renderHook(
-      // biome-ignore lint/suspicious/noExplicitAny: internal testing hook
-      ({ userId }: { userId: string | null }) => useCart(),
-      {
-        initialProps: { userId: null as string | null },
-        wrapper: ({
-          children,
-          userId,
-        }: {
-          children: ReactNode;
-          userId?: string | null;
-        }) => <CartProvider userId={userId}>{children}</CartProvider>,
-      }
+    let currentState: any;
+    const handleStateChange = (state: any) => {
+      currentState = state;
+    };
+
+    // 1. Initial render as Guest (userId: null)
+    const { rerender } = render(
+      <Wrapper userId={null}>
+        <TestConsumer onStateChange={handleStateChange} />
+      </Wrapper>
     );
 
     // Wait for hydration
-    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+    await waitFor(() => expect(currentState.isHydrated).toBe(true));
 
     // 2. Add item as guest
-    await act(async () => {
-      result.current.addToCart(mockProduct, 2);
+    act(() => {
+      currentState.addToCart(mockProduct, 2);
     });
 
     // Verify item is in state
-    expect(result.current.cart).toHaveLength(1);
-    expect(result.current.cart[0].quantity).toBe(2);
+    expect(currentState.cart).toHaveLength(1);
+    expect(currentState.cart[0].quantity).toBe(2);
 
     // Verify item is in guest storage
     const guestCart = localStorageMock.getItem('baci-cart-guest');
@@ -98,8 +114,12 @@ describe('useCart - Merge Guest Cart on Login', () => {
     }
 
     // 3. Log in (change userId to 'user-1')
-    // We update the props passed to the hook, which flow into the wrapper
-    rerender({ userId: 'user-1' });
+    // We update the props by re-rendering the same component tree with new props
+    rerender(
+      <Wrapper userId="user-1">
+        <TestConsumer onStateChange={handleStateChange} />
+      </Wrapper>
+    );
 
     // Wait for effect to run (hydration/merge)
     // We check for user cart storage existence as a signal that merge happened
@@ -109,9 +129,12 @@ describe('useCart - Merge Guest Cart on Login', () => {
     });
 
     // 4. Verify item is preserved (merged)
-    expect(result.current.cart).toHaveLength(1);
-    expect(result.current.cart[0].id).toBe('prod-1');
-    expect(result.current.cart[0].quantity).toBe(2);
+    // Need to wait for state update to propagate
+    await waitFor(() => {
+      expect(currentState.cart).toHaveLength(1);
+      expect(currentState.cart[0].id).toBe('prod-1');
+      expect(currentState.cart[0].quantity).toBe(2);
+    });
 
     // Verify user storage has the item
     const userCart = localStorageMock.getItem('baci-cart-user-1');
