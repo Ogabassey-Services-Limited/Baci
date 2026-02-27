@@ -39,17 +39,15 @@ export function CopyButton({
     }
   }, [hasCopied]);
 
-  const copyToClipboard = async (
-    e: React.MouseEvent<HTMLButtonElement>
-  ) => {
-    e.preventDefault();
-    e.stopPropagation(); // Always stop propagation for copy actions
+  const copyToClipboard = React.useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      e.stopPropagation(); // Always stop propagation for copy actions
 
-    try {
       if (navigator.clipboard) {
-        await navigator.clipboard.writeText(value);
+        navigator.clipboard.writeText(value);
       } else {
-        // Fallback for older browsers
+        // Fallback
         const textArea = document.createElement('textarea');
         textArea.value = value;
         document.body.appendChild(textArea);
@@ -57,13 +55,12 @@ export function CopyButton({
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-      setHasCopied(true);
-    } catch {
-      // Clipboard write failed — do not show success state
-    }
 
-    onClick?.(e);
-  };
+      setHasCopied(true);
+      onClick?.(e);
+    },
+    [value, onClick]
+  );
 
   const Icon = hasCopied ? Check : Copy;
 
