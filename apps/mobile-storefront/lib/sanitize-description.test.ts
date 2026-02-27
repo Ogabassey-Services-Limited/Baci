@@ -1,91 +1,11 @@
 /**
- * Tests for the `sanitizeDescriptionPlainText` utility exported from ProductCard.tsx.
+ * Tests for the `sanitizeDescriptionPlainText` utility.
  *
- * ProductCard imports react-native-reanimated which requires a native runtime that
- * is unavailable in Jest. We mock the animation modules so the pure utility
- * function can be imported and tested in isolation.
+ * Now that the function lives in its own module with zero native dependencies,
+ * no module mocks are required.
  */
 
-// --- Module mocks (must be before any imports) ---
-
-jest.mock('react-native-worklets', () => ({}));
-
-jest.mock('react-native-reanimated', () => {
-  const Animated = {
-    createAnimatedComponent: (component: unknown) => component,
-    useAnimatedStyle: jest.fn(() => ({})),
-    useSharedValue: jest.fn((initial: unknown) => ({
-      value: initial,
-      get: jest.fn(() => initial),
-      set: jest.fn(),
-    })),
-    withSpring: jest.fn((value: unknown) => value),
-    withTiming: jest.fn((value: unknown) => value),
-  };
-  return {
-    __esModule: true,
-    default: Animated,
-    ...Animated,
-  };
-});
-
-jest.mock('@/lib/supabase', () => ({
-  supabase: {
-    channel: jest.fn(() => ({
-      on: jest.fn().mockReturnThis(),
-      subscribe: jest.fn(),
-      unsubscribe: jest.fn(),
-    })),
-  },
-}));
-
-jest.mock('@/stores/cart-store', () => ({
-  useCartStore: jest.fn(() => ({
-    items: [],
-    addItem: jest.fn(),
-  })),
-}));
-
-jest.mock('@/stores/saved-store', () => ({
-  useSavedStore: jest.fn(() => ({
-    items: [],
-    toggleSaved: jest.fn(),
-  })),
-}));
-
-jest.mock('@/hooks/use-haptics', () => ({
-  useHaptics: jest.fn(() => ({ light: jest.fn() })),
-}));
-
-jest.mock('@/components/useColorScheme', () => ({
-  useColorScheme: jest.fn(() => 'light'),
-}));
-
-jest.mock('@/constants/Colors', () => ({
-  default: {
-    light: { text: '#000', black: '#000' },
-    dark: { text: '#FFF', black: '#000' },
-  },
-  BRAND: { primary: '#000' },
-  RADIUS: { xl: 16, lg: 12, md: 8 },
-  SPRING_CONFIG: { snappy: {} },
-}));
-
-jest.mock('expo-image', () => ({ Image: 'Image' }));
-jest.mock('expo-router', () => ({
-  router: { push: jest.fn() },
-  useRouter: jest.fn(() => ({ push: jest.fn() })),
-}));
-jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Ionicons' }));
-jest.mock('@/types/product', () => ({
-  formatPrice: jest.fn((p: number) => `$${p}`),
-}));
-
-// --- Import after mocks ---
-
-import { sanitizeDescriptionPlainText } from './ProductCard';
-
-// ---------------------------------------------------------------------------
+import { sanitizeDescriptionPlainText } from './sanitize-description';
 
 describe('sanitizeDescriptionPlainText', () => {
   // -------------------------------------------------------------------------

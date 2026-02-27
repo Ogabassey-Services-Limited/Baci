@@ -28,24 +28,13 @@ import Animated, {
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPRING_CONFIG } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/use-haptics';
+import { sanitizeDescriptionPlainText } from '@/lib/sanitize-description';
 import { supabase } from '@/lib/supabase';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import { formatPrice, type Product } from '@/types/product';
 
-/**
- * Safely sanitize product descriptions for display as plain text.
- * Escapes angle brackets so HTML-like content cannot be interpreted as markup.
- */
-export function sanitizeDescriptionPlainText(input: string): string {
-  if (!input) return '';
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
+export { sanitizeDescriptionPlainText };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
