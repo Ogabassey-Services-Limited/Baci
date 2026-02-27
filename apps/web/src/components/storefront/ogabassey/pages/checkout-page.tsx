@@ -831,13 +831,6 @@ export const CheckoutPage: React.FC = () => {
     return `${start.toLocaleDateString('en-GB', options)} to ${end.toLocaleDateString('en-GB', options)}`;
   };
 
-  // DEBUG: Delivery Calculation
-  // console.log('DEBUG_DELIVERY', { deliveryMethod, selectedQuoteId, shippingQuotesCount: shippingQuotes.length });
-  // if (selectedQuoteId && shippingQuotes.length > 0) {
-  //    const quote = shippingQuotes.find(q => q.id === selectedQuoteId);
-  //    console.log('DEBUG_QUOTE_FOUND', quote);
-  // }
-
   const deliveryCost =
     deliveryMethod === 'pickup'
       ? 0
@@ -1161,7 +1154,6 @@ export const CheckoutPage: React.FC = () => {
               }
             }
           });
-          console.log('Account created and session initialized');
         } catch (authError) {
           // Log but don't block the order if signup fails (e.g. email exists)
           console.error('Silent signup background error:', authError);
@@ -1289,7 +1281,6 @@ export const CheckoutPage: React.FC = () => {
             quantity: item.quantity,
           })),
           onSuccess: (transactionId) => {
-            console.log('Credit Direct success:', transactionId);
             clearCheckoutSession();
             clearCart();
             router.push(asRoute(getHref(`/order-success?type=credit_direct&orderId=${order.id}&sessionId=${transactionId}`)));
@@ -1307,9 +1298,6 @@ export const CheckoutPage: React.FC = () => {
           onClose: () => {
             setIsProcessing(false);
             isOrderInFlightRef.current = false;
-          },
-          onPopup: (transactionId) => {
-            console.log('Credit Direct popup opened:', transactionId);
           },
         });
         // Don't proceed further - callbacks handle the flow
@@ -1339,7 +1327,6 @@ export const CheckoutPage: React.FC = () => {
           customerName: `${firstName} ${lastName}`.trim(),
           customerPhone,
           onSuccess: (data) => {
-            console.log('CredPal success:', data);
             clearCheckoutSession();
             clearCart();
             router.push(asRoute(getHref(`/order-success?type=credpal&orderId=${order.id}&credpalRef=${data.order_no}`)));
