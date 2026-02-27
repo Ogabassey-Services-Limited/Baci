@@ -84,17 +84,19 @@ function FlyToCartParticle({
   const targetY = height - (particleInsets.bottom + 30); // Tab bar center
 
   useEffect(() => {
-    progress.value = withTiming(1, {
-      duration: 800,
-      easing: Easing.bezier(0.2, 0.8, 0.2, 1),
-    });
+    progress.set(
+      withTiming(1, {
+        duration: 800,
+        easing: Easing.bezier(0.2, 0.8, 0.2, 1),
+      })
+    );
   }, [progress]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    const translateX = interpolate(progress.value, [0, 1], [startX, targetX]);
-    const translateY = interpolate(progress.value, [0, 1], [startY, targetY]);
-    const scale = interpolate(progress.value, [0, 0.5, 1], [1, 1.2, 0.2]);
-    const opacity = interpolate(progress.value, [0, 0.8, 1], [1, 1, 0]);
+    const translateX = interpolate(progress.get(), [0, 1], [startX, targetX]);
+    const translateY = interpolate(progress.get(), [0, 1], [startY, targetY]);
+    const scale = interpolate(progress.get(), [0, 0.5, 1], [1, 1.2, 0.2]);
+    const opacity = interpolate(progress.get(), [0, 0.8, 1], [1, 1, 0]);
 
     return {
       position: 'absolute',
@@ -317,20 +319,20 @@ export default function ProductDetailScreen() {
 
   const onScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
+      scrollY.set(event.contentOffset.y);
     },
   });
 
   // Animated styles for the parallax image
   const imageAnimatedStyle = useAnimatedStyle(() => {
     const scale = interpolate(
-      scrollY.value,
+      scrollY.get(),
       [-100, 0],
       [1.2, 1],
       Extrapolate.CLAMP
     );
     const translateY = interpolate(
-      scrollY.value,
+      scrollY.get(),
       [0, HEADER_HEIGHT],
       [0, -HEADER_HEIGHT * 0.2],
       Extrapolate.CLAMP
@@ -343,7 +345,7 @@ export default function ProductDetailScreen() {
   // Animated styles for the header background
   const headerAnimatedStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
-      scrollY.value,
+      scrollY.get(),
       [HEADER_HEIGHT * 0.5, HEADER_HEIGHT * 0.8],
       [0, 1],
       Extrapolate.CLAMP
@@ -356,7 +358,7 @@ export default function ProductDetailScreen() {
 
   const backButtonAnimatedStyle = useAnimatedStyle(() => {
     const backgroundColor =
-      scrollY.value > HEADER_HEIGHT * 0.7
+      scrollY.get() > HEADER_HEIGHT * 0.7
         ? withTiming('transparent')
         : withTiming('rgba(0,0,0,0.3)');
     return { backgroundColor };

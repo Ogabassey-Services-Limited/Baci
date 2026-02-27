@@ -77,7 +77,7 @@ export const PermissionModal: React.FC<PermissionModalProps> = ({
   const buttonScale = useSharedValue(1);
 
   const animatedButtonStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
+    transform: [{ scale: buttonScale.get() }],
   }));
 
   if (!visible) return null;
@@ -97,11 +97,11 @@ export const PermissionModal: React.FC<PermissionModalProps> = ({
   };
 
   const handlePressIn = () => {
-    buttonScale.value = withSpring(0.96, { damping: 15, stiffness: 300 });
+    buttonScale.set(withSpring(0.96, { damping: 15, stiffness: 300 }));
   };
 
   const handlePressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 12, stiffness: 200 });
+    buttonScale.set(withSpring(1, { damping: 12, stiffness: 200 }));
   };
 
   const accentGradient: readonly [string, string] = isDark

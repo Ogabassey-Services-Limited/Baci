@@ -49,18 +49,20 @@ function OrbitingParticle({
   const progress = useSharedValue(0);
 
   useEffect(() => {
-    progress.value = withDelay(
-      delay,
-      withRepeat(
-        withTiming(1, { duration: DURATION, easing: Easing.linear }),
-        -1,
-        false
+    progress.set(
+      withDelay(
+        delay,
+        withRepeat(
+          withTiming(1, { duration: DURATION, easing: Easing.linear }),
+          -1,
+          false
+        )
       )
     );
   }, [delay, progress]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    const angle = progress.value * 2 * Math.PI;
+    const angle = progress.get() * 2 * Math.PI;
     const x = Math.cos(angle) * rx;
     const y = Math.sin(angle) * ry;
     const scale = interpolate(Math.sin(angle), [-1, 1], [0.6, 1.2]);
@@ -124,15 +126,17 @@ export function BagLoader({ size = 48 }: BagLoaderProps) {
   const floatValue = useSharedValue(0);
 
   useEffect(() => {
-    floatValue.value = withRepeat(
-      withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
+    floatValue.set(
+      withRepeat(
+        withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        true
+      )
     );
   }, [floatValue]);
 
   const floatStyle = useAnimatedStyle(() => {
-    const translateY = interpolate(floatValue.value, [0, 1], [-4, 4]);
+    const translateY = interpolate(floatValue.get(), [0, 1], [-4, 4]);
     return {
       transform: [{ translateY }],
     };

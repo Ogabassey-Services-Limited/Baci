@@ -63,12 +63,12 @@ export function ImageZoomModal({
 
   // Reset transform values
   const resetTransform = () => {
-    scale.value = withSpring(1, SPRING_CONFIG.snappy);
-    translateX.value = withSpring(0, SPRING_CONFIG.snappy);
-    translateY.value = withSpring(0, SPRING_CONFIG.snappy);
-    savedScale.value = 1;
-    savedTranslateX.value = 0;
-    savedTranslateY.value = 0;
+    scale.set(withSpring(1, SPRING_CONFIG.snappy));
+    translateX.set(withSpring(0, SPRING_CONFIG.snappy));
+    translateY.set(withSpring(0, SPRING_CONFIG.snappy));
+    savedScale.set(1);
+    savedTranslateX.set(0);
+    savedTranslateY.set(0);
   };
 
   // Handle index change with JS callback
@@ -109,22 +109,22 @@ export function ImageZoomModal({
   // Pinch gesture for zoom
   const pinchGesture = Gesture.Pinch()
     .onStart(() => {
-      savedScale.value = scale.value;
+      savedScale.set(scale.get());
     })
     .onUpdate((event) => {
-      const newScale = savedScale.value * event.scale;
-      scale.value = Math.min(Math.max(newScale, MIN_SCALE * 0.5), MAX_SCALE);
-      focalX.value = event.focalX;
-      focalY.value = event.focalY;
+      const newScale = savedScale.get() * event.scale;
+      scale.set(Math.min(Math.max(newScale, MIN_SCALE * 0.5), MAX_SCALE));
+      focalX.set(event.focalX);
+      focalY.set(event.focalY);
     })
     .onEnd(() => {
       // Snap back if below minimum scale
-      if (scale.value < MIN_SCALE) {
-        scale.value = withSpring(MIN_SCALE, SPRING_CONFIG.snappy);
-        translateX.value = withSpring(0, SPRING_CONFIG.snappy);
-        translateY.value = withSpring(0, SPRING_CONFIG.snappy);
+      if (scale.get() < MIN_SCALE) {
+        scale.set(withSpring(MIN_SCALE, SPRING_CONFIG.snappy));
+        translateX.set(withSpring(0, SPRING_CONFIG.snappy));
+        translateY.set(withSpring(0, SPRING_CONFIG.snappy));
       }
-      savedScale.value = scale.value;
+      savedScale.set(scale.get());
     });
 
   // Pan gesture for moving zoomed image
@@ -132,73 +132,77 @@ export function ImageZoomModal({
     .minPointers(1)
     .maxPointers(2)
     .onStart(() => {
-      savedTranslateX.value = translateX.value;
-      savedTranslateY.value = translateY.value;
+      savedTranslateX.set(translateX.get());
+      savedTranslateY.set(translateY.get());
     })
     .onUpdate((event) => {
-      if (scale.value > 1) {
+      if (scale.get() > 1) {
         // Allow panning when zoomed
-        const newX = savedTranslateX.value + event.translationX;
-        const newY = savedTranslateY.value + event.translationY;
-        translateX.value = clampTranslation(newX, SCREEN_WIDTH, scale.value);
-        translateY.value = clampTranslation(newY, SCREEN_HEIGHT, scale.value);
+        const newX = savedTranslateX.get() + event.translationX;
+        const newY = savedTranslateY.get() + event.translationY;
+        translateX.set(clampTranslation(newX, SCREEN_WIDTH, scale.get()));
+        translateY.set(clampTranslation(newY, SCREEN_HEIGHT, scale.get()));
       } else {
         // When not zoomed, allow horizontal swipe for image navigation
-        translateX.value = event.translationX * 0.5;
+        translateX.set(event.translationX * 0.5);
       }
     })
     .onEnd((event) => {
-      if (scale.value <= 1) {
+      if (scale.get() <= 1) {
         // Handle swipe navigation
         const threshold = SCREEN_WIDTH * 0.25;
         const velocity = event.velocityX;
 
         if (
-          (translateX.value > threshold || velocity > 500) &&
+          (translateX.get() > threshold || velocity > 500) &&
           currentIndex > 0
         ) {
           runOnJS(goToPrevious)();
         } else if (
-          (translateX.value < -threshold || velocity < -500) &&
+          (translateX.get() < -threshold || velocity < -500) &&
           currentIndex < images.length - 1
         ) {
           runOnJS(goToNext)();
         }
 
         // Reset position
-        translateX.value = withSpring(0, SPRING_CONFIG.snappy);
-        translateY.value = withSpring(0, SPRING_CONFIG.snappy);
+        translateX.set(withSpring(0, SPRING_CONFIG.snappy));
+        translateY.set(withSpring(0, SPRING_CONFIG.snappy));
       } else {
         // Clamp final position when zoomed
-        translateX.value = withSpring(
-          clampTranslation(translateX.value, SCREEN_WIDTH, scale.value),
-          SPRING_CONFIG.snappy
+        translateX.set(
+          withSpring(
+            clampTranslation(translateX.get(), SCREEN_WIDTH, scale.get()),
+            SPRING_CONFIG.snappy
+          )
         );
-        translateY.value = withSpring(
-          clampTranslation(translateY.value, SCREEN_HEIGHT, scale.value),
-          SPRING_CONFIG.snappy
+        translateY.set(
+          withSpring(
+            clampTranslation(translateY.get(), SCREEN_HEIGHT, scale.get()),
+            SPRING_CONFIG.snappy
+          )
         );
       }
-      savedTranslateX.value = translateX.value;
-      savedTranslateY.value = translateY.value;
+      savedTranslateX.set(translateX.get());
+      savedTranslateY.set(translateY.get());
     });
 
   // Double tap gesture for zoom toggle
   const doubleTapGesture = Gesture.Tap()
     .numberOfTaps(2)
     .onEnd((event) => {
-      if (scale.value > 1) {
+      if (scale.get() > 1) {
         // Zoom out
-        scale.value = withSpring(1, SPRING_CONFIG.snappy);
-        translateX.value = withSpring(0, SPRING_CONFIG.snappy);
-        translateY.value = withSpring(0, SPRING_CONFIG.snappy);
-        savedScale.value = 1;
-        savedTranslateX.value = 0;
-        savedTranslateY.value = 0;
+        scale.set(withSpring(1, SPRING_CONFIG.snappy));
+        translateX.set(withSpring(0, SPRING_CONFIG.snappy));
+        translateY.set(withSpring(0, SPRING_CONFIG.snappy));
+        savedScale.set(1);
+        savedTranslateX.set(0);
+        savedTranslateY.set(0);
       } else {
         // Zoom in to tap location
         const targetScale = DOUBLE_TAP_SCALE;
-        scale.value = withSpring(targetScale, SPRING_CONFIG.snappy);
+        scale.set(withSpring(targetScale, SPRING_CONFIG.snappy));
 
         // Calculate offset to zoom into tap position
         const centerX = SCREEN_WIDTH / 2;
@@ -206,17 +210,21 @@ export function ImageZoomModal({
         const offsetX = (centerX - event.x) * (targetScale - 1);
         const offsetY = (centerY - event.y) * (targetScale - 1);
 
-        translateX.value = withSpring(
-          clampTranslation(offsetX, SCREEN_WIDTH, targetScale),
-          SPRING_CONFIG.snappy
+        translateX.set(
+          withSpring(
+            clampTranslation(offsetX, SCREEN_WIDTH, targetScale),
+            SPRING_CONFIG.snappy
+          )
         );
-        translateY.value = withSpring(
-          clampTranslation(offsetY, SCREEN_HEIGHT, targetScale),
-          SPRING_CONFIG.snappy
+        translateY.set(
+          withSpring(
+            clampTranslation(offsetY, SCREEN_HEIGHT, targetScale),
+            SPRING_CONFIG.snappy
+          )
         );
-        savedScale.value = targetScale;
-        savedTranslateX.value = translateX.value;
-        savedTranslateY.value = translateY.value;
+        savedScale.set(targetScale);
+        savedTranslateX.set(translateX.get());
+        savedTranslateY.set(translateY.get());
       }
     });
 
@@ -225,7 +233,7 @@ export function ImageZoomModal({
     .numberOfTaps(1)
     .onEnd(() => {
       // Only close if not zoomed
-      if (scale.value <= 1.1) {
+      if (scale.get() <= 1.1) {
         runOnJS(onClose)();
       }
     });
@@ -242,21 +250,21 @@ export function ImageZoomModal({
   // Animated style for the image
   const animatedImageStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
+      { translateX: translateX.get() },
+      { translateY: translateY.get() },
+      { scale: scale.get() },
     ],
   }));
 
   // Reset when modal opens/closes or index changes
   const handleModalOpen = () => {
     setCurrentIndex(initialIndex);
-    scale.value = 1;
-    translateX.value = 0;
-    translateY.value = 0;
-    savedScale.value = 1;
-    savedTranslateX.value = 0;
-    savedTranslateY.value = 0;
+    scale.set(1);
+    translateX.set(0);
+    translateY.set(0);
+    savedScale.set(1);
+    savedTranslateX.set(0);
+    savedTranslateY.set(0);
   };
 
   return (

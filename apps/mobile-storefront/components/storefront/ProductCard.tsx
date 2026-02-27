@@ -159,11 +159,11 @@ export function ProductCard({
   // Determine if we should show scarcity badge
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [{ scale: scale.get() }],
   }));
 
   const heartAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: heartScale.value }],
+    transform: [{ scale: heartScale.get() }],
   }));
 
   const handlePress = () => {
@@ -178,19 +178,21 @@ export function ProductCard({
   };
 
   const handleAnimateIn = () => {
-    scale.value = withSpring(0.96, SPRING_CONFIG.snappy);
+    scale.set(withSpring(0.96, SPRING_CONFIG.snappy));
     onPressIn?.();
   };
 
   const handleAnimateOut = () => {
-    scale.value = withSpring(1, SPRING_CONFIG.snappy);
+    scale.set(withSpring(1, SPRING_CONFIG.snappy));
   };
 
   const handleWishlistPress = () => {
     // Instant feedback - animate heart before callback
-    heartScale.value = withSpring(1.3, SPRING_CONFIG.snappy, () => {
-      heartScale.value = withSpring(1, SPRING_CONFIG.snappy);
-    });
+    heartScale.set(
+      withSpring(1.3, SPRING_CONFIG.snappy, () => {
+        heartScale.set(withSpring(1, SPRING_CONFIG.snappy));
+      })
+    );
 
     // Toggle in store
     toggleSaved(product);

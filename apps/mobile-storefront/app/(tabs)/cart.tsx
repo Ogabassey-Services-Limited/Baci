@@ -114,27 +114,29 @@ export default function CartScreen() {
   useEffect(() => {
     cancelAnimation(arrowTranslateX);
     if (!hasItems) {
-      arrowTranslateX.value = 0;
+      arrowTranslateX.set(0);
       return;
     }
 
-    arrowTranslateX.value = withRepeat(
-      withSequence(
-        withTiming(6, { duration: 800 }),
-        withTiming(0, { duration: 800 })
-      ),
-      -1,
-      true
+    arrowTranslateX.set(
+      withRepeat(
+        withSequence(
+          withTiming(6, { duration: 800 }),
+          withTiming(0, { duration: 800 })
+        ),
+        -1,
+        true
+      )
     );
 
     return () => {
       cancelAnimation(arrowTranslateX);
-      arrowTranslateX.value = 0;
+      arrowTranslateX.set(0);
     };
   }, [arrowTranslateX, hasItems]);
 
   const animatedArrowStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: arrowTranslateX.value }],
+    transform: [{ translateX: arrowTranslateX.get() }],
   }));
 
   const triggerHaptic = () => {

@@ -52,21 +52,27 @@ export function ConnectivityBanner() {
   useEffect(() => {
     const showBanner = (state: 'offline' | 'online') => {
       setBannerState(state);
-      translateY.value = withTiming(0, {
-        duration: 300,
-        easing: Easing.out(Easing.cubic),
-      });
-      opacity.value = withTiming(1, { duration: 200 });
+      translateY.set(
+        withTiming(0, {
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+        })
+      );
+      opacity.set(withTiming(1, { duration: 200 }));
     };
 
     const hideBanner = () => {
-      translateY.value = withTiming(100, {
-        duration: 300,
-        easing: Easing.in(Easing.cubic),
-      });
-      opacity.value = withTiming(0, { duration: 200 }, () => {
-        runOnJS(setBannerState)('hidden');
-      });
+      translateY.set(
+        withTiming(100, {
+          duration: 300,
+          easing: Easing.in(Easing.cubic),
+        })
+      );
+      opacity.set(
+        withTiming(0, { duration: 200 }, () => {
+          runOnJS(setBannerState)('hidden');
+        })
+      );
     };
 
     const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
@@ -119,8 +125,8 @@ export function ConnectivityBanner() {
   }, [translateY, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-    opacity: opacity.value,
+    transform: [{ translateY: translateY.get() }],
+    opacity: opacity.get(),
   }));
   const isOffline = bannerState === 'offline';
   const bannerColors = isOffline ? colors.offline : colors.online;

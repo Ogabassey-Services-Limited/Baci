@@ -9,14 +9,14 @@
  */
 
 import { useEffect } from 'react';
+import type { ViewStyle } from 'react-native';
 import {
+  type AnimatedStyle,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withTiming,
-  type AnimatedStyle,
 } from 'react-native-reanimated';
-import type { ViewStyle } from 'react-native';
 
 interface UseBottomSheetAnimationOptions {
   isOpen: boolean;
@@ -48,34 +48,36 @@ export function useBottomSheetAnimation({
     const closeSheetDuration = reducedMotion ? 0 : 200;
 
     if (isOpen) {
-      backdropOpacity.value = withTiming(1, {
-        duration: openBackdropDuration,
-      });
-      translateY.value = withTiming(0, {
-        duration: openSheetDuration,
-      });
+      backdropOpacity.set(
+        withTiming(1, {
+          duration: openBackdropDuration,
+        })
+      );
+      translateY.set(
+        withTiming(0, {
+          duration: openSheetDuration,
+        })
+      );
     } else {
-      backdropOpacity.value = withTiming(0, {
-        duration: closeBackdropDuration,
-      });
-      translateY.value = withTiming(translateDistance, {
-        duration: closeSheetDuration,
-      });
+      backdropOpacity.set(
+        withTiming(0, {
+          duration: closeBackdropDuration,
+        })
+      );
+      translateY.set(
+        withTiming(translateDistance, {
+          duration: closeSheetDuration,
+        })
+      );
     }
-  }, [
-    isOpen,
-    translateDistance,
-    reducedMotion,
-    backdropOpacity,
-    translateY,
-  ]);
+  }, [isOpen, translateDistance, reducedMotion, backdropOpacity, translateY]);
 
   const animatedBackdropStyle = useAnimatedStyle(() => ({
-    opacity: backdropOpacity.value,
+    opacity: backdropOpacity.get(),
   }));
 
   const animatedSheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateY: translateY.get() }],
   }));
 
   return {
