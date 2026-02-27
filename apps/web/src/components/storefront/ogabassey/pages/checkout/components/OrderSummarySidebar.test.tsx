@@ -634,7 +634,10 @@ describe('OrderSummarySidebar', () => {
 
       // Assert
       const images = screen.getAllByRole('img');
-      expect(images[0]).toHaveAttribute('src', '/placeholder.png');
+      expect(images[0]).toHaveAttribute(
+        'src',
+        'https://placehold.co/600x600/f4f4f5/a1a1aa?text=No+Image'
+      );
     });
 
     it('formats large numbers with commas correctly', () => {
