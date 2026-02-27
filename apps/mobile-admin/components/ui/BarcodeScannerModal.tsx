@@ -63,12 +63,10 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       transparent={false}
       visible={isVisible}
       onRequestClose={onClose}
+      accessibilityViewIsModal
     >
-      <View
-        style={[styles.container, { backgroundColor: colors.background }]}
-        accessibilityViewIsModal={true}
-      >
-        <View style={styles.header}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.header} accessibilityRole="header">
           <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
           <Pressable
             onPress={onClose}
@@ -108,6 +106,8 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
             <CameraView
               style={styles.camera}
               onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              accessibilityLabel="Barcode scanner camera"
+              accessibilityHint="Align barcode within the frame to scan"
               barcodeScannerSettings={{
                 barcodeTypes: [
                   'qr',
