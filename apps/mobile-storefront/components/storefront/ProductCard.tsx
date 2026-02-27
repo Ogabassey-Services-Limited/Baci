@@ -34,8 +34,6 @@ import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import { formatPrice, type Product } from '@/types/product';
 
-export { sanitizeDescriptionPlainText };
-
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 // Default Blurhash for product images (warm neutral)
