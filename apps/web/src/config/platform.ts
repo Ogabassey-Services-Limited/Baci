@@ -46,7 +46,7 @@ export const MOBILE_APPS = {
     iosBundleId: 'com.ogabassey.store',
     androidPackage: 'com.ogabassey.store',
     androidSha256Fingerprints: [
-      '7F:EA:BB:6C:3C:16:62:84:98:B7:AA:5C:6E:33:C0:1B:F8:40:09:B5:9B:DD:F4:5A:02:3B:AB:DD:3B:26:8F:A8',
+      '2A:30:FA:83:66:5D:C1:2B:77:BB:17:1B:48:EB:4F:12:03:33:DC:12:EC:A7:0A:6A:31:A9:D1:C7:38:6B:FC:96',
     ],
     playStoreUrl:
       'https://play.google.com/store/apps/details?id=com.ogabassey.store',
