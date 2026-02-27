@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { checkPasswordBreach } from '@/lib/password-breach';
 import { createClient } from '@/lib/supabase/server';
 import { signupSchema } from '@/schemas/auth';
 
@@ -35,6 +36,22 @@ export async function signupAction(
 
   const { email, password } = validatedFields.data;
   const _redirectTo = (formData.get('redirectTo') as string) || '/dashboard';
+
+  // 1.5 Check if password is breached
+  const { isBreached, count } = await checkPasswordBreach(password);
+
+  if (isBreached) {
+    return {
+      message: 'Security Alert',
+      errors: {
+        fieldErrors: {
+          password: [
+            `This password has appeared in ${count?.toLocaleString()} known data breaches. Please choose a different, more secure password.`,
+          ],
+        },
+      },
+    };
+  }
 
   // 2. Create Supabase client
   const cookieStore = await cookies();
