@@ -108,6 +108,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     'expo-build-properties',
     'expo-web-browser',
+    'expo-font',
+    'expo-sharing',
   ],
   web: {
     bundler: 'metro',
