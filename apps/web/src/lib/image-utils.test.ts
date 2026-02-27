@@ -28,9 +28,7 @@ describe('isValidImageUrl', () => {
     expect(isValidImageUrl('example.com/image.jpg')).toBe(false); // Missing protocol
     expect(isValidImageUrl('https://')).toBe(false); // Incomplete
     expect(isValidImageUrl('http://')).toBe(false); // Incomplete
-    // Note: new URL() is surprisingly permissive with spaces in some environments/versions,
-    // but we can test for clearly invalid protocols or incomplete URLs.
-    expect(isValidImageUrl('https://')).toBe(false); // Incomplete
+    expect(isValidImageUrl('//example.com/path')).toBe(false); // Protocol-relative URL
     // data:image/png is technically a valid URL structure (protocol:path), though not a useful image.
     // Since we rely on new URL() validation, we expect true.
     expect(isValidImageUrl('data:image/png')).toBe(true);
