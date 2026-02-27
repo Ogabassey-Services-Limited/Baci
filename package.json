@@ -76,14 +76,10 @@
       "langsmith": "^0.4.6",
       "@modelcontextprotocol/sdk>ajv": "^8.18.0",
       "expo-build-properties>ajv": "^8.18.0",
-      "expo-dev-launcher>ajv": "^8.18.0",
-      "esbuild": "^0.25.0"
+      "expo-dev-launcher>ajv": "^8.18.0"
     },
     "patchedDependencies": {
       "novel@1.0.2": "patches/novel@1.0.2.patch"
     }
-  },
-  "dependencies": {
-    "expo-haptics": "~55.0.8"
   }
 }
