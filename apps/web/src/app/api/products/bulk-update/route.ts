@@ -83,7 +83,9 @@ export async function POST(request: NextRequest) {
           });
 
           if (change.productId) {
-            matchQuery = matchQuery.eq('id', change.productId);
+            matchQuery = matchQuery
+              .eq('id', change.productId)
+              .eq('merchant_id', merchantId);
           } else if (change.details.sku) {
             matchQuery = matchQuery
               .eq('sku', change.details.sku)
@@ -158,7 +160,8 @@ export async function POST(request: NextRequest) {
             const { error } = await supabase
               .from('products')
               .update({ status: 'archived', is_active: false })
-              .eq('id', change.productId);
+              .eq('id', change.productId)
+              .eq('merchant_id', merchantId);
             if (error) throw error;
             results.removed++;
           }
