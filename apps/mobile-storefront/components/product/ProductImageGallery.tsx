@@ -96,20 +96,18 @@ export function ProductImageGallery({
           >
             {images.map((img, idx) => (
               <Pressable
-                key={img}
+                key={`${img}-${idx}`}
                 onPress={() => setSelectedImageIndex(idx)}
                 style={[
                   styles.thumbnail,
                   {
                     borderColor:
-                      selectedImageIndex === idx
-                        ? BRAND.primary
-                        : colors.border,
+                      safeIndex === idx ? BRAND.primary : colors.border,
                   },
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={`View image ${idx + 1} of ${images.length}`}
-                accessibilityState={{ selected: selectedImageIndex === idx }}
+                accessibilityState={{ selected: safeIndex === idx }}
                 accessibilityHint="Double tap to show this image in the main view"
               >
                 <Image
@@ -130,7 +128,7 @@ export function ProductImageGallery({
       <ImageZoomModal
         visible={showImageZoom}
         images={images}
-        initialIndex={selectedImageIndex}
+        initialIndex={safeIndex}
         onClose={() => setShowImageZoom(false)}
         onIndexChange={(index) => setSelectedImageIndex(index)}
       />

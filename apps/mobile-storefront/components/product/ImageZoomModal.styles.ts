@@ -3,21 +3,22 @@ import { RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 
 /**
  * Dimension-dependent styles for the zoom image container.
- * Called with current window dimensions so styles update on rotation.
+ * Returns plain objects (not StyleSheet.create) since these are
+ * recreated on dimension changes and don't benefit from static optimization.
  */
 export function createDynamicStyles(width: number, height: number) {
-  return StyleSheet.create({
+  return {
     imageContainer: {
       width,
       height,
-      justifyContent: 'center',
-      alignItems: 'center',
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
     },
     image: {
       width,
       height: height * 0.7,
     },
-  });
+  };
 }
 
 const styles = StyleSheet.create({
