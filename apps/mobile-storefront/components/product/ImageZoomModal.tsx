@@ -7,14 +7,20 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import { SPACING } from '@/constants/Colors';
 import { useImageZoom } from './hooks/useImageZoom';
-import styles from './ImageZoomModal.styles';
+import styles, { createDynamicStyles } from './ImageZoomModal.styles';
 
 interface ImageZoomModalProps {
   visible: boolean;
@@ -32,6 +38,8 @@ export function ImageZoomModal({
   onIndexChange,
 }: ImageZoomModalProps) {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const dynamicStyles = createDynamicStyles(width, height);
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
   const handleIndexChange = (index: number) => {
@@ -118,10 +126,12 @@ export function ImageZoomModal({
         {/* Zoomable Image */}
         <GestureDetector gesture={composedGesture}>
           <Animated.View style={styles.imageWrapper}>
-            <Animated.View style={[styles.imageContainer, animatedImageStyle]}>
+            <Animated.View
+              style={[dynamicStyles.imageContainer, animatedImageStyle]}
+            >
               <Image
                 source={{ uri: images[currentIndex] }}
-                style={styles.image}
+                style={dynamicStyles.image}
                 contentFit="contain"
                 transition={200}
                 placeholder={{ blurhash: BLURHASH_VARIANTS.default }}

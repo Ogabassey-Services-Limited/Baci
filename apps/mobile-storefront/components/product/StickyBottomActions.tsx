@@ -6,6 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import type { GestureResponderEvent } from 'react-native';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
@@ -18,9 +19,9 @@ export interface StickyBottomActionsProps {
   localQty: string;
   onLocalQtyChange: (text: string) => void;
   onLocalQtyBlur: () => void;
-  onDecrement: (event: unknown) => void;
-  onIncrement: (event: unknown) => void;
-  onAddToCart: (event: unknown) => void;
+  onDecrement: (event: GestureResponderEvent) => void;
+  onIncrement: (event: GestureResponderEvent) => void;
+  onAddToCart: (event: GestureResponderEvent) => void;
   colors: ColorsScheme;
   paddingBottom: number;
 }
@@ -85,6 +86,7 @@ export function StickyBottomActions({
                   onBlur={onLocalQtyBlur}
                   keyboardType="number-pad"
                   returnKeyType="done"
+                  accessibilityLabel="Quantity in cart"
                 />
               </View>
 
@@ -103,6 +105,8 @@ export function StickyBottomActions({
             <Pressable
               onPress={() => router.push('/(tabs)/cart')}
               style={styles.viewCartBtn}
+              accessibilityLabel="View Cart"
+              accessibilityRole="button"
             >
               <Ionicons name="cart-outline" size={20} color="#FFF" />
               <Text style={styles.viewCartText}>View Cart</Text>
@@ -113,6 +117,8 @@ export function StickyBottomActions({
             key="cart-empty"
             style={[styles.addToCartBtn, { backgroundColor: BRAND.primary }]}
             onPress={(e) => onAddToCart(e)}
+            accessibilityLabel="Add to Cart"
+            accessibilityRole="button"
           >
             <Ionicons
               name="cart-outline"

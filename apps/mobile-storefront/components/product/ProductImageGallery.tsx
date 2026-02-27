@@ -39,6 +39,17 @@ export function ProductImageGallery({
   colors,
   headerHeight,
 }: ProductImageGalleryProps) {
+  if (images.length === 0) {
+    return null;
+  }
+
+  // Derived index: clamp selectedImageIndex to the valid range on every render.
+  // Pure derivation from props — no state or effect needed.
+  const effectiveIndex = Math.min(
+    Math.max(0, selectedImageIndex),
+    images.length - 1
+  );
+
   return (
     <>
       {/* Main Image */}
@@ -51,7 +62,7 @@ export function ProductImageGallery({
       >
         <Animated.View style={[styles.parallaxWrapper, imageAnimatedStyle]}>
           <Image
-            source={{ uri: images[selectedImageIndex] }}
+            source={{ uri: images[effectiveIndex] }}
             style={styles.mainImage}
             contentFit="cover"
             transition={300}
@@ -87,20 +98,18 @@ export function ProductImageGallery({
           >
             {images.map((img, idx) => (
               <Pressable
-                key={idx}
+                key={`${img}-${idx}`}
                 onPress={() => setSelectedImageIndex(idx)}
                 style={[
                   styles.thumbnail,
                   {
                     borderColor:
-                      selectedImageIndex === idx
-                        ? BRAND.primary
-                        : colors.border,
+                      effectiveIndex === idx ? BRAND.primary : colors.border,
                   },
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={`View image ${idx + 1} of ${images.length}`}
-                accessibilityState={{ selected: selectedImageIndex === idx }}
+                accessibilityState={{ selected: effectiveIndex === idx }}
                 accessibilityHint="Double tap to show this image in the main view"
               >
                 <Image
@@ -121,7 +130,7 @@ export function ProductImageGallery({
       <ImageZoomModal
         visible={showImageZoom}
         images={images}
-        initialIndex={selectedImageIndex}
+        initialIndex={effectiveIndex}
         onClose={() => setShowImageZoom(false)}
         onIndexChange={(index) => setSelectedImageIndex(index)}
       />
