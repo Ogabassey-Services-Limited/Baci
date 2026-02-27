@@ -77,8 +77,11 @@ export function OrderSummarySidebar({
 
         {/* Items List */}
         <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto pr-1">
-          {displayItems.map((item: OrderItem) => (
-            <div key={item.cartItemId || item.id} className="flex gap-3">
+          {displayItems.map((item: OrderItem, index) => (
+            <div
+              key={item.cartItemId ?? item.id ?? `order-item-${index}`}
+              className="flex gap-3"
+            >
               <div className="w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 flex-shrink-0 relative">
                 <ThumbnailImage
                   src={item.image || item.image_url || '/placeholder.png'}
