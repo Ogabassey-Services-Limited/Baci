@@ -39,6 +39,15 @@ export function ProductImageGallery({
   colors,
   headerHeight,
 }: ProductImageGalleryProps) {
+  if (images.length === 0) {
+    return null;
+  }
+
+  const safeIndex = Math.min(
+    Math.max(0, selectedImageIndex),
+    images.length - 1
+  );
+
   return (
     <>
       {/* Main Image */}
@@ -51,7 +60,7 @@ export function ProductImageGallery({
       >
         <Animated.View style={[styles.parallaxWrapper, imageAnimatedStyle]}>
           <Image
-            source={{ uri: images[selectedImageIndex] }}
+            source={{ uri: images[safeIndex] }}
             style={styles.mainImage}
             contentFit="cover"
             transition={300}
@@ -87,7 +96,7 @@ export function ProductImageGallery({
           >
             {images.map((img, idx) => (
               <Pressable
-                key={idx}
+                key={img}
                 onPress={() => setSelectedImageIndex(idx)}
                 style={[
                   styles.thumbnail,

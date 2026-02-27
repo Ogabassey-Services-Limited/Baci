@@ -20,7 +20,7 @@
  */
 
 import { act, renderHook } from '@testing-library/react-native';
-import { useBottomSheetAnimation } from './useBottomSheetAnimation';
+import { useBottomSheetAnimation } from '@/components/checkout/checkout-identity/hooks/useBottomSheetAnimation';
 
 // ---------------------------------------------------------------------------
 // Self-contained react-native-reanimated mock (no native imports)
@@ -31,31 +31,43 @@ const mockReducedMotionEnabled = jest.fn(() => false);
 
 jest.mock('react-native-reanimated', () => {
   // We need useRef from React to persist shared values across rerenders.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { useRef } = require('react');
+  const { useRef } = jest.requireActual('react');
 
   function useSharedValue(init: number) {
-    // Persist the mutable box across renders, mirroring Reanimated's native ref.
-    const ref = useRef(null);
-    if (ref.current === null) {
-      ref.current = { value: init };
-    }
-    const box = ref.current;
+    // Persist both the mutable box AND the wrapper object across renders,
+    // mirroring Reanimated's native ref which returns the same object identity.
+    const boxRef = useRef(null as { value: number } | null);
+    const sharedRef = useRef(
+      null as {
+        value: number;
+        get: () => number;
+        set: (next: number | ((prev: number) => number)) => void;
+      } | null
+    );
 
-    return {
-      get value() {
-        return box.value;
-      },
-      set value(v: number) {
-        box.value = v;
-      },
-      get() {
-        return box.value;
-      },
-      set(next: number | ((prev: number) => number)) {
-        box.value = typeof next === 'function' ? next(box.value) : next;
-      },
-    };
+    if (boxRef.current === null) {
+      boxRef.current = { value: init };
+    }
+
+    if (sharedRef.current === null) {
+      const box = boxRef.current;
+      sharedRef.current = {
+        get value() {
+          return box.value;
+        },
+        set value(v: number) {
+          box.value = v;
+        },
+        get() {
+          return box.value;
+        },
+        set(next: number | ((prev: number) => number)) {
+          box.value = typeof next === 'function' ? next(box.value) : next;
+        },
+      };
+    }
+
+    return sharedRef.current;
   }
 
   function useAnimatedStyle(fn: () => Record<string, unknown>) {
@@ -85,14 +97,13 @@ jest.mock('react-native-reanimated', () => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper accessing mocked animated style
-function backdropOpacity(style: any) {
-  return style.opacity as number;
+function backdropOpacity(style: unknown) {
+  return (style as { opacity: number }).opacity;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper accessing mocked animated style
-function sheetTranslateY(style: any) {
-  return style.transform[0].translateY as number;
+function sheetTranslateY(style: unknown) {
+  return (style as { transform: Array<{ translateY: number }> }).transform[0]
+    .translateY;
 }
 
 // ---------------------------------------------------------------------------
