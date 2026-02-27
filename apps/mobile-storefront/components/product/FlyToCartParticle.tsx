@@ -8,7 +8,6 @@ import { useWindowDimensions } from 'react-native';
 import Animated, {
   Easing,
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -23,14 +22,9 @@ const TAB_COUNT = 4; // Total number of tabs
 export interface FlyToCartParticleProps {
   startX: number;
   startY: number;
-  onComplete?: () => void;
 }
 
-export function FlyToCartParticle({
-  startX,
-  startY,
-  onComplete,
-}: FlyToCartParticleProps) {
+export function FlyToCartParticle({ startX, startY }: FlyToCartParticleProps) {
   const progress = useSharedValue(0);
   const particleInsets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -39,20 +33,12 @@ export function FlyToCartParticle({
 
   useEffect(() => {
     progress.set(
-      withTiming(
-        1,
-        {
-          duration: 800,
-          easing: Easing.bezier(0.2, 0.8, 0.2, 1),
-        },
-        (finished) => {
-          if (finished && onComplete) {
-            runOnJS(onComplete)();
-          }
-        }
-      )
+      withTiming(1, {
+        duration: 800,
+        easing: Easing.bezier(0.2, 0.8, 0.2, 1),
+      })
     );
-  }, [progress, onComplete]);
+  }, [progress]);
 
   const animatedStyle = useAnimatedStyle(() => {
     const translateX = interpolate(progress.get(), [0, 1], [startX, targetX]);
@@ -78,12 +64,5 @@ export function FlyToCartParticle({
     };
   });
 
-  return (
-    <Animated.View
-      style={animatedStyle}
-      accessible={false}
-      importantForAccessibility="no-hide-descendants"
-      accessibilityElementsHidden
-    />
-  );
+  return <Animated.View style={animatedStyle} />;
 }

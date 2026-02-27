@@ -20,7 +20,7 @@
  */
 
 import { act, renderHook } from '@testing-library/react-native';
-import { useBottomSheetAnimation } from '@/components/checkout/checkout-identity/hooks/useBottomSheetAnimation';
+import { useBottomSheetAnimation } from './useBottomSheetAnimation';
 
 // ---------------------------------------------------------------------------
 // Self-contained react-native-reanimated mock (no native imports)
@@ -31,43 +31,31 @@ const mockReducedMotionEnabled = jest.fn(() => false);
 
 jest.mock('react-native-reanimated', () => {
   // We need useRef from React to persist shared values across rerenders.
-  const { useRef } = jest.requireActual('react');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { useRef } = require('react');
 
   function useSharedValue(init: number) {
-    // Persist both the mutable box AND the wrapper object across renders,
-    // mirroring Reanimated's native ref which returns the same object identity.
-    const boxRef = useRef(null as { value: number } | null);
-    const sharedRef = useRef(
-      null as {
-        value: number;
-        get: () => number;
-        set: (next: number | ((prev: number) => number)) => void;
-      } | null
-    );
-
-    if (boxRef.current === null) {
-      boxRef.current = { value: init };
+    // Persist the mutable box across renders, mirroring Reanimated's native ref.
+    const ref = useRef(null);
+    if (ref.current === null) {
+      ref.current = { value: init };
     }
+    const box = ref.current;
 
-    if (sharedRef.current === null) {
-      const box = boxRef.current;
-      sharedRef.current = {
-        get value() {
-          return box.value;
-        },
-        set value(v: number) {
-          box.value = v;
-        },
-        get() {
-          return box.value;
-        },
-        set(next: number | ((prev: number) => number)) {
-          box.value = typeof next === 'function' ? next(box.value) : next;
-        },
-      };
-    }
-
-    return sharedRef.current;
+    return {
+      get value() {
+        return box.value;
+      },
+      set value(v: number) {
+        box.value = v;
+      },
+      get() {
+        return box.value;
+      },
+      set(next: number | ((prev: number) => number)) {
+        box.value = typeof next === 'function' ? next(box.value) : next;
+      },
+    };
   }
 
   function useAnimatedStyle(fn: () => Record<string, unknown>) {
@@ -97,35 +85,14 @@ jest.mock('react-native-reanimated', () => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function backdropOpacity(style: unknown): number {
-  if (
-    typeof style !== 'object' ||
-    style === null ||
-    !('opacity' in style) ||
-    typeof (style as { opacity: unknown }).opacity !== 'number'
-  ) {
-    throw new Error(
-      `Expected style with numeric "opacity", got: ${JSON.stringify(style)}`
-    );
-  }
-  return (style as { opacity: number }).opacity;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper accessing mocked animated style
+function backdropOpacity(style: any) {
+  return style.opacity as number;
 }
 
-function sheetTranslateY(style: unknown): number {
-  if (
-    typeof style !== 'object' ||
-    style === null ||
-    !('transform' in style) ||
-    !Array.isArray((style as { transform: unknown }).transform) ||
-    typeof (style as { transform: Record<string, unknown>[] }).transform[0]
-      ?.translateY !== 'number'
-  ) {
-    throw new Error(
-      `Expected style with transform[0].translateY, got: ${JSON.stringify(style)}`
-    );
-  }
-  return (style as { transform: Array<{ translateY: number }> }).transform[0]
-    .translateY;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper accessing mocked animated style
+function sheetTranslateY(style: any) {
+  return style.transform[0].translateY as number;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,38 +144,33 @@ describe('useBottomSheetAnimation — return shape', () => {
 describe('useBottomSheetAnimation — closed state (isOpen = false)', () => {
   it('animatedBackdropStyle has opacity 0 when closed', () => {
     // Arrange & Act
-    const { result, rerender } = renderHook(() =>
+    const { result } = renderHook(() =>
       useBottomSheetAnimation({ isOpen: false })
     );
 
-    // Rerender so useAnimatedStyle captures the updated shared value from the effect.
-    act(() => {
-      rerender(undefined);
-    });
+    // Assert: withTiming resolves to 0 synchronously; effect runs, sets value
+    // to 0, then a rerender captures the updated style.
+    act(() => {});
 
     expect(backdropOpacity(result.current.animatedBackdropStyle)).toBe(0);
   });
 
   it('animatedSheetStyle has translateY equal to the default distance (500) when closed', () => {
-    const { result, rerender } = renderHook(() =>
+    const { result } = renderHook(() =>
       useBottomSheetAnimation({ isOpen: false })
     );
 
-    act(() => {
-      rerender(undefined);
-    });
+    act(() => {});
 
     expect(sheetTranslateY(result.current.animatedSheetStyle)).toBe(500);
   });
 
   it('animatedSheetStyle uses a custom translateDistance when closed', () => {
-    const { result, rerender } = renderHook(() =>
+    const { result } = renderHook(() =>
       useBottomSheetAnimation({ isOpen: false, translateDistance: 300 })
     );
 
-    act(() => {
-      rerender(undefined);
-    });
+    act(() => {});
 
     expect(sheetTranslateY(result.current.animatedSheetStyle)).toBe(300);
   });

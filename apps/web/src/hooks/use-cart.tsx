@@ -295,74 +295,12 @@ export const CartProvider = ({
   const lastValidatedCartHashRef = useRef<string>('');
 
   // Hydrate from localStorage
-  // biome-ignore lint/correctness/useExhaustiveDependencies: logic relies on controlled execution
   useEffect(() => {
     const slugToUse = initialMerchantSlug || getMerchantSlugFromStorage();
-
-    // Check if we are transitioning from guest to authenticated user (Login Flow)
-    // Condition: Previous userId was null (guest) AND new initialUserId is set (auth)
-    const isLoginTransition =
-      userId === null &&
-      initialUserId !== null &&
-      initialUserId !== undefined &&
-      isHydrated;
-
-    // Force run if we detect a transition, even if dependencies didn't change (rare edge case)
-    // This ensures that when userId prop changes, we evaluate this block before standard hydration
-    if (isLoginTransition) {
-      // 1. Read Guest Cart
-      const guestCart = getCartFromStorage(slugToUse, null);
-
-      // 2. Read existing User Cart
-      const userCart = getCartFromStorage(slugToUse, initialUserId);
-
-      if (guestCart.length > 0) {
-        // 3. Merge Strategy: Add guest items to user cart
-        const mergedCart = [...userCart];
-
-        guestCart.forEach((guestItem) => {
-          const existingItemIndex = mergedCart.findIndex(
-            (userItem) => userItem.cartItemId === guestItem.cartItemId
-          );
-
-          if (existingItemIndex >= 0) {
-            // Item exists in both: Sum quantities
-            mergedCart[existingItemIndex] = {
-              ...mergedCart[existingItemIndex],
-              quantity:
-                mergedCart[existingItemIndex].quantity + guestItem.quantity,
-            };
-          } else {
-            // New item from guest cart: Append
-            mergedCart.push(guestItem);
-          }
-        });
-
-        logger.info({
-          message: 'Merged guest cart into user cart',
-          guestItems: guestCart.length,
-          mergedItems: mergedCart.length,
-        });
-
-        // 4. Update State & Storage
-        setCart(mergedCart);
-        saveCartToStorage(mergedCart, slugToUse, initialUserId);
-
-        // 5. Clear Guest Cart to prevent future duplicate merges
-        clearCartStorage(slugToUse, null);
-      } else {
-        // No guest items to merge, just load user cart
-        setCart(userCart);
-      }
-    } else {
-      // Standard Hydration (Initial load or same user)
-      setCart(getCartFromStorage(slugToUse, initialUserId));
-    }
-
+    setCart(getCartFromStorage(slugToUse, initialUserId));
     setMerchantSlugState(slugToUse);
     setUserId(initialUserId);
     setIsHydrated(true);
-    // userId and isHydrated are purposefully omitted to prevent re-running on internal state changes
   }, [initialMerchantSlug, initialUserId]);
 
   // Background validation: Remove ghost products and update stale prices

@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import {
   type CheckoutItem,
@@ -8,34 +7,13 @@ import {
 } from '@/lib/agentic/checkout';
 import { createServiceClient } from '@/lib/supabase/service';
 
-/** Zod schema for checkout item validation at API boundary */
-const checkoutItemSchema = z.object({
-  id: z.string().uuid(),
-  quantity: z.number().int().positive(),
-});
-
-const checkoutItemsSchema = z.array(checkoutItemSchema).min(1);
-
-/** Session columns accessed by this route */
-const SESSION_COLUMNS =
-  'id, status, currency, items, fulfillment_option_id, fulfillment_address' as const;
-
-interface CheckoutSession {
-  id: string;
-  status: string;
-  currency: string;
-  items: unknown;
-  fulfillment_option_id: string | null;
-  fulfillment_address: Record<string, unknown> | null;
-}
-
 // Helper to get session from DB
 async function getSession(supabase: SupabaseClient, id: string) {
   const { data, error } = await supabase
     .from('checkout_sessions')
-    .select(SESSION_COLUMNS)
+    .select('*')
     .eq('id', id)
-    .single<CheckoutSession>();
+    .single();
   return { data, error };
 }
 
@@ -54,22 +32,20 @@ export async function GET(
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
   }
 
-  // Validate stored items before recalculating
-  const itemsResult = checkoutItemsSchema.safeParse(session.items);
-  if (!itemsResult.success) {
-    return NextResponse.json(
-      { error: 'Invalid session items', details: itemsResult.error.flatten() },
-      { status: 500 }
-    );
-  }
+  // Construct response from stored data
+  // NOTE: Should we re-calculate?
+  // Spec says: "GET /checkout_sessions/{id} ... returns full cart state".
+  // If we store the *calculated* totals in DB, we can just return them.
+  // But if products update, stored totals might be stale.
+  // Ideally, re-calculate on GET to be safe.
 
-  const items: CheckoutItem[] = itemsResult.data;
+  const items = session.items; // Raw items
   const fulfillmentOptionId = session.fulfillment_option_id;
   const currency = session.currency;
 
   const sessionCalc = await calculateCheckoutSession(
     supabase,
-    items,
+    items as CheckoutItem[],
     fulfillmentOptionId,
     currency
   );
@@ -81,7 +57,7 @@ export async function GET(
     line_items: sessionCalc.lineItems,
     totals: sessionCalc.totals,
     fulfillment_options: sessionCalc.fulfillmentOptions,
-    fulfillment_option_id: fulfillmentOptionId,
+    fulfillment_option_id: fulfillmentOptionId, // Selected
     fulfillment_address: session.fulfillment_address,
     messages: sessionCalc.messages,
     links: [
@@ -102,6 +78,7 @@ export async function POST(
   try {
     const body = await request.json();
     const { items, fulfillment_address, fulfillment_option_id } = body;
+    // Note: Spec allows updating items, address, or option.
 
     const supabase = createServiceClient();
     const { data: session, error } = await getSession(supabase, params.id);
@@ -110,28 +87,8 @@ export async function POST(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // Merge updates -- validate new items if provided
-    let newItems: CheckoutItem[];
-    if (items) {
-      const itemsResult = checkoutItemsSchema.safeParse(items);
-      if (!itemsResult.success) {
-        return NextResponse.json(
-          { error: 'Invalid items', details: itemsResult.error.flatten() },
-          { status: 400 }
-        );
-      }
-      newItems = itemsResult.data;
-    } else {
-      const storedResult = checkoutItemsSchema.safeParse(session.items);
-      if (!storedResult.success) {
-        return NextResponse.json(
-          { error: 'Invalid stored session items' },
-          { status: 500 }
-        );
-      }
-      newItems = storedResult.data;
-    }
-
+    // Merge updates
+    const newItems = items || session.items;
     const newAddress = fulfillment_address || session.fulfillment_address;
     const newOptionId =
       fulfillment_option_id !== undefined
@@ -141,19 +98,22 @@ export async function POST(
     // Recalculate
     const sessionCalc = await calculateCheckoutSession(
       supabase,
-      newItems,
+      newItems as CheckoutItem[],
       newOptionId,
       session.currency
     );
 
     // Determine status
+    // If we have address and option and items, are we ready?
     let newStatus = 'in_progress';
     if (newAddress && sessionCalc.lineItems.length > 0) {
+      // Simple logic: if address provided, we can populate taxes/shipping properly (mocked in checkout.ts).
+      // If we have a selected option (or default), we are ready.
       newStatus = 'ready_for_payment';
     }
 
     // Update DB
-    const { error: updateError } = await supabase
+    await supabase
       .from('checkout_sessions')
       .update({
         items: newItems,
@@ -166,13 +126,6 @@ export async function POST(
         updated_at: new Date().toISOString(),
       })
       .eq('id', params.id);
-
-    if (updateError) {
-      return NextResponse.json(
-        { error: 'Failed to update checkout session', code: 'UPDATE_FAILED' },
-        { status: 500 }
-      );
-    }
 
     return NextResponse.json({
       id: session.id,
@@ -189,12 +142,11 @@ export async function POST(
         { type: 'privacy_policy', url: 'https://ogabassey.com/privacy' },
       ],
     });
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : 'Unknown error occurred';
+    // biome-ignore lint/suspicious/noExplicitAny: Generic error handling
+  } catch (err: any) {
     console.error('Agentic Checkout Update Error:', err);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: message },
+      { error: 'Internal Server Error', details: err.message },
       { status: 500 }
     );
   }
