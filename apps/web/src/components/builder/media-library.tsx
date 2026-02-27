@@ -3,7 +3,6 @@
 import {
   AlertCircle,
   Check,
-  Copy,
   FolderOpen,
   Loader2,
   Search,
@@ -14,6 +13,7 @@ import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { CopyButton } from '@/components/ui/copy-button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
@@ -163,23 +163,6 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
       toast({
         title: 'Error',
         description: 'Failed to delete file',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // Copy URL to clipboard
-  const handleCopyUrl = async (url: string, fileName: string) => {
-    try {
-      await navigator.clipboard.writeText(url);
-      toast({
-        title: 'Copied',
-        description: `URL for ${fileName} copied to clipboard`,
-      });
-    } catch (_) {
-      toast({
-        title: 'Error',
-        description: 'Failed to copy URL',
         variant: 'destructive',
       });
     }
@@ -339,17 +322,12 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
 
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      className="h-8 w-8"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCopyUrl(file.url, file.name);
-                      }}
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
+                    <CopyButton
+                      value={file.url}
+                      className="h-8 w-8 bg-secondary text-secondary-foreground hover:bg-secondary/80 border-0"
+                      label="Copy URL"
+                      successLabel="Copied!"
+                    />
                     <Button
                       size="icon"
                       variant="destructive"
