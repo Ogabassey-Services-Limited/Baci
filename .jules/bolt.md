@@ -5,3 +5,7 @@
 ## 2026-02-19 - [LCP Optimization]
 **Learning:** Product grids often lazy-load all images by default, hurting LCP. The first few items (above the fold) should be eager loaded with high priority.
 **Action:** Pass a `priority` prop to product cards based on index (e.g., `priority={index < 4}`) to eager load the first row.
+
+## 2026-02-19 - [Thumbnail Image Optimization]
+**Learning:** Checkout pages often list many small product images. Using raw `<img>` tags prevents Next.js from optimizing these (lazy loading, responsive sizing).
+**Action:** Use `ThumbnailImage` (or `OptimizedImage` with `layout="thumbnail"`) for small lists to ensure lazy loading and proper dimensions, reducing initial page weight and CLS.

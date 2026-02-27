@@ -1,5 +1,6 @@
 'use client';
 
+import { ThumbnailImage } from '@/components/optimized-image';
 import { ChevronRight, Loader2, ShieldCheck } from 'lucide-react';
 import type { PaymentMethod, ResumedOrder } from '../types';
 
@@ -76,24 +77,21 @@ export function OrderSummarySidebar({
 
         {/* Items List */}
         <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto pr-1">
-          {displayItems.map((item: OrderItem) => (
+          {displayItems.map((item: OrderItem, index: number) => (
             <div
-              key={item.cartItemId || item.id}
+              key={item.cartItemId || item.id || `item-${index}`}
               className="flex gap-3"
             >
-              <div className="w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 flex-shrink-0">
-                <img
-                  src={
-                    item.image ||
-                    item.image_url ||
-                    '/placeholder.png'
+              <div className="w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 flex-shrink-0 relative">
+                <ThumbnailImage
+                  src={item.image || item.image_url || '/placeholder.png'}
+                  alt={
+                    item.name || item.product_name || 'Product thumbnail'
                   }
-                  alt={item.name || item.product_name}
+                  width={40}
+                  height={40}
                   className="w-full h-full object-contain mix-blend-multiply"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = '/placeholder.png';
-                  }}
+                  fallbackSrc="/placeholder.png"
                 />
               </div>
               <div className="flex-1 min-w-0">
