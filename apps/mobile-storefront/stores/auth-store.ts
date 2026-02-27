@@ -9,19 +9,23 @@
  */
 
 import type { Session, User } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
 import { Alert } from 'react-native';
 import { create } from 'zustand';
-import { splitFullName } from '../lib/auth-helpers';
+import { CONFIG } from '../lib/config';
 import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema, MerchantRowSchema } from '../lib/validation';
+import {
+  hydrateCustomer,
+  initTimeout,
+  shouldInvalidateSessionOnGetUserError,
+} from './auth-helpers';
 import { useCartStore } from './cart-store';
 
 const log = createLogger('AuthStore');
 
 // Get merchant slug from app config
-const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';
+const MERCHANT_SLUG = CONFIG.MERCHANT_SLUG;
 
 export interface Customer {
   id: string;
@@ -46,7 +50,7 @@ interface AuthState {
 
   // Actions
   initialize: () => Promise<void>;
-  cleanup: () => void; // 2026 Critical Fix: Cleanup auth subscription
+  cleanup: () => void;
   signInWithOtp: (
     email: string
   ) => Promise<{ success: boolean; error?: string }>;
@@ -104,41 +108,39 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: true, error: null });
 
       // First, get the merchant ID for this store
-      const { data: merchant, error: merchantError } = await supabase
-        .from('merchants')
-        .select('id')
-        .eq('slug', MERCHANT_SLUG)
-        .single();
+      const { data: merchant, error: merchantError } = await initTimeout(
+        supabase
+          .from('merchants')
+          .select('id')
+          .eq('slug', MERCHANT_SLUG)
+          .single(),
+        'merchant lookup'
+      );
 
       if (get()._initGen !== initGen) return;
 
       // 2026 Best Practice: Validate merchant data
       const merchantValidation = MerchantRowSchema.safeParse(merchant);
 
+      let resolvedMerchantId: string | null = null;
       if (merchantError || !merchantValidation.success) {
-        // BUG-3-011: Include Zod error details in log
         const errorDetails = merchantValidation.success
           ? 'Database error'
           : JSON.stringify(merchantValidation.error.flatten());
         log.warn(
-          `Store "${MERCHANT_SLUG}" not found in database. Running in guest mode. Details: ${errorDetails}`
+          `Store "${MERCHANT_SLUG}" not found in database. Continuing with limited auth mode. Details: ${errorDetails}`
         );
-        set({
-          merchantId: null,
-          isLoading: false,
-          isInitialized: true,
-          _initializationInProgress: false,
-        } as Partial<AuthState>);
-        return;
+        set({ merchantId: null });
+      } else {
+        resolvedMerchantId = merchantValidation.data.id;
+        set({ merchantId: resolvedMerchantId });
       }
-
-      set({ merchantId: merchantValidation.data.id });
 
       // Get current session
       const {
-        data: { session },
+        data: { session: initialSession },
         error: sessionError,
-      } = await supabase.auth.getSession();
+      } = await initTimeout(supabase.auth.getSession(), 'getSession');
 
       if (get()._initGen !== initGen) return;
 
@@ -146,133 +148,81 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw sessionError;
       }
 
+      let session = initialSession;
+
       // After getting session, validate JWT with server
       if (session) {
-        const { error: userError } = await supabase.auth.getUser();
+        const { error: userError } = await initTimeout(
+          supabase.auth.getUser(),
+          'getUser'
+        );
 
         if (get()._initGen !== initGen) return;
 
         if (userError) {
-          // Session is invalid/expired — clear and return in guest mode
-          log.warn('Session JWT validation failed:', userError.message);
-          set({
-            user: null,
-            session: null,
-            customer: null,
-            isLoading: false,
-            isInitialized: true,
-            _initializationInProgress: false,
-          } as Partial<AuthState>);
-          return;
-        }
-      }
-
-      if (session?.user) {
-        // Fetch customer data for this merchant (by user_id for RLS compatibility)
-        const { data: customerData, error: selectError } = await supabase
-          .from('customers')
-          .select('id, email, first_name, last_name, phone, loyalty_points')
-          .eq('merchant_id', merchantValidation.data.id)
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-
-        if (get()._initGen !== initGen) return;
-
-        if (selectError) {
-          log.error('Customer fetch failed:', selectError.message);
-        }
-
-        // If no linked customer record found, use atomic SECURITY DEFINER RPC
-        // to find-or-create (handles guest→OAuth linking and new customer creation).
-        // This follows the web pattern at verify-code/route.ts.
-        let resolvedCustomer = customerData;
-        if (!resolvedCustomer && session.user.email) {
-          const { error: rpcError } = await supabase.rpc(
-            'upsert_customer_on_auth',
-            {
-              p_merchant_id: merchantValidation.data.id,
-              p_user_id: session.user.id,
-              p_email: session.user.email,
-              p_full_name: session.user.user_metadata?.full_name || null,
-              p_phone: null,
-            }
-          );
-
-          if (get()._initGen !== initGen) return;
-
-          if (rpcError) {
-            log.error('Customer upsert RPC failed:', rpcError.message);
-          }
-
-          // Re-SELECT by user_id (now set by RPC, RLS passes)
-          const { data: newCustomer, error: reSelectError } = await supabase
-            .from('customers')
-            .select('id, email, first_name, last_name, phone, loyalty_points')
-            .eq('merchant_id', merchantValidation.data.id)
-            .eq('user_id', session.user.id)
-            .maybeSingle();
-
-          if (get()._initGen !== initGen) return;
-
-          if (reSelectError) {
-            log.error('Customer re-fetch failed:', reSelectError.message);
-          }
-
-          resolvedCustomer = newCustomer;
-        }
-
-        // Backfill missing profile fields from OAuth provider on app init
-        if (resolvedCustomer && session.user.user_metadata) {
-          const meta = session.user.user_metadata;
-          const { firstName, lastName } = splitFullName(meta.full_name);
-          const updates: Record<string, string> = {};
-
-          if (!resolvedCustomer.first_name && firstName)
-            updates.first_name = firstName;
-          if (!resolvedCustomer.last_name && lastName)
-            updates.last_name = lastName;
-
-          if (Object.keys(updates).length > 0) {
-            const { data: updated, error: updateError } = await supabase
-              .from('customers')
-              .update(updates)
-              .eq('id', resolvedCustomer.id)
-              .eq('merchant_id', merchantValidation.data.id)
-              .select('id, email, first_name, last_name, phone, loyalty_points')
-              .single();
+          if (shouldInvalidateSessionOnGetUserError(userError)) {
+            // JWT invalid/expired — attempt refresh before giving up
+            log.warn(
+              'Session JWT validation failed, attempting refresh:',
+              userError.message
+            );
+            const {
+              data: { session: refreshedSession },
+              error: refreshError,
+            } = await initTimeout(
+              supabase.auth.refreshSession(),
+              'refreshSession'
+            );
 
             if (get()._initGen !== initGen) return;
 
-            if (updateError) {
-              log.error(
-                'Customer backfill update failed:',
-                updateError.message
+            if (refreshError || !refreshedSession) {
+              log.warn(
+                'Session refresh failed, entering guest mode:',
+                refreshError?.message ?? 'no session returned'
               );
-            } else if (updated) {
-              resolvedCustomer = updated;
+              // Clear persisted auth tokens so the next cold start doesn't
+              // attempt to resume this dead session.
+              await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+              session = null;
+            } else {
+              log.info('Session refreshed successfully');
+              session = refreshedSession;
             }
+          } else {
+            // Transient network/service error — keep local session
+            log.warn(
+              'Session validation skipped due to transient auth error:',
+              userError.message
+            );
           }
         }
+      }
 
-        // 2026 Best Practice: Validate customer data
-        const customerValidation =
-          CustomerRowSchema.safeParse(resolvedCustomer);
-        const customer = customerValidation.success
-          ? {
-              id: customerValidation.data.id,
-              email: customerValidation.data.email,
-              first_name: customerValidation.data.first_name ?? undefined,
-              last_name: customerValidation.data.last_name ?? undefined,
-              phone: customerValidation.data.phone ?? undefined,
-              loyalty_points:
-                customerValidation.data.loyalty_points ?? undefined,
-            }
-          : null;
+      if (session?.user && resolvedMerchantId) {
+        const customer = await hydrateCustomer({
+          merchantId: resolvedMerchantId,
+          user: session.user,
+          useTimeout: true,
+          initGen,
+          getInitGen: () => get()._initGen,
+        });
+
+        if (get()._initGen !== initGen) return;
 
         set({
           user: session.user,
           session,
           customer,
+          isLoading: false,
+          isInitialized: true,
+        });
+      } else if (session?.user) {
+        // Merchant lookup may be unavailable/offline; still preserve auth session.
+        set({
+          user: session.user,
+          session,
+          customer: null,
           isLoading: false,
           isInitialized: true,
         });
@@ -286,14 +236,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         });
       }
 
-      // Listen for auth changes - store subscription for cleanup (2026 Best Practice)
+      // Listen for auth changes
       const { data: authListener } = supabase.auth.onAuthStateChange(
         async (event, session) => {
           log.debug('Auth state changed:', event);
           const { merchantId } = get();
 
-          // 2026 Critical Fix: Wrap async auth listener operations in try-catch
-          // to prevent unhandled promise rejections and race conditions
           try {
             if (event === 'SIGNED_IN' && session?.user) {
               // Always set user + session immediately so login screen can dismiss
@@ -307,133 +255,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 return;
               }
 
-              // Fetch customer record by user_id (RLS-safe for linked accounts)
-              const { data: customerData, error: selectError } = await supabase
-                .from('customers')
-                .select(
-                  'id, email, first_name, last_name, phone, loyalty_points'
-                )
-                .eq('merchant_id', merchantId)
-                .eq('user_id', session.user.id)
-                .maybeSingle();
-
-              if (selectError) {
-                log.error(
-                  'Auth listener: customer fetch failed:',
-                  selectError.message
-                );
-              }
-
-              // If no linked record, use atomic SECURITY DEFINER RPC to
-              // find-or-create (handles guest→OAuth linking + new customers)
-              let resolvedCustomer = customerData;
-              if (!resolvedCustomer && session.user.email) {
-                const { error: rpcError } = await supabase.rpc(
-                  'upsert_customer_on_auth',
-                  {
-                    p_merchant_id: merchantId,
-                    p_user_id: session.user.id,
-                    p_email: session.user.email,
-                    p_full_name: session.user.user_metadata?.full_name || null,
-                    p_phone: null,
-                  }
-                );
-
-                if (rpcError) {
-                  log.error(
-                    'Auth listener: customer upsert RPC failed:',
-                    rpcError.message
-                  );
-                }
-
-                // Re-SELECT by user_id (now set by RPC, RLS passes)
-                const { data: newCustomer, error: reSelectError } =
-                  await supabase
-                    .from('customers')
-                    .select(
-                      'id, email, first_name, last_name, phone, loyalty_points'
-                    )
-                    .eq('merchant_id', merchantId)
-                    .eq('user_id', session.user.id)
-                    .maybeSingle();
-
-                if (reSelectError) {
-                  log.error(
-                    'Auth listener: customer re-fetch failed:',
-                    reSelectError.message
-                  );
-                }
-
-                resolvedCustomer = newCustomer;
-              }
-
-              // Backfill missing profile fields from OAuth provider
-              if (resolvedCustomer && session.user.user_metadata) {
-                const meta = session.user.user_metadata;
-                const { firstName, lastName } = splitFullName(meta.full_name);
-                const updates: Record<string, string> = {};
-
-                if (!resolvedCustomer.first_name && firstName)
-                  updates.first_name = firstName;
-                if (!resolvedCustomer.last_name && lastName)
-                  updates.last_name = lastName;
-
-                if (Object.keys(updates).length > 0) {
-                  const { data: updated, error: updateError } = await supabase
-                    .from('customers')
-                    .update(updates)
-                    .eq('id', resolvedCustomer.id)
-                    .eq('merchant_id', merchantId)
-                    .select(
-                      'id, email, first_name, last_name, phone, loyalty_points'
-                    )
-                    .single();
-
-                  if (updateError) {
-                    log.error(
-                      'Customer backfill update failed:',
-                      updateError.message
-                    );
-                  } else if (updated) {
-                    resolvedCustomer = updated;
-                  }
-                }
-              }
-
-              // 2026 Best Practice: Validate customer data from auth listener
-              const authCustomerValidation =
-                CustomerRowSchema.safeParse(resolvedCustomer);
-              const validatedCustomer = authCustomerValidation.success
-                ? {
-                    id: authCustomerValidation.data.id,
-                    email: authCustomerValidation.data.email,
-                    first_name:
-                      authCustomerValidation.data.first_name ?? undefined,
-                    last_name:
-                      authCustomerValidation.data.last_name ?? undefined,
-                    phone: authCustomerValidation.data.phone ?? undefined,
-                    loyalty_points:
-                      authCustomerValidation.data.loyalty_points ?? undefined,
-                  }
-                : null;
+              const customer = await hydrateCustomer({
+                merchantId,
+                user: session.user,
+                useTimeout: true,
+              });
 
               // 2026 Best Practice: Sync guest cart after login
-              // The local cart persists through login - no server sync needed
-              // Items added as guest are automatically kept in the user's session
-              // This prevents cart data loss during authentication flow
               const guestCartItems = useCartStore.getState().items;
               if (guestCartItems.length > 0) {
                 log.info(
                   `Cart sync: ${guestCartItems.length} items preserved after login`
                 );
-                // Cart items remain in local storage, linked to this session
-                // Future enhancement: sync cart to server for cross-device access
               }
 
               set({
                 user: session.user,
                 session,
-                customer: validatedCustomer,
+                customer,
               });
             } else if (event === 'SIGNED_OUT') {
               set({
@@ -446,13 +285,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             }
           } catch (authListenerError) {
             log.error('Error in auth state change handler:', authListenerError);
-            // Don't crash the app - just log the error
-            // User can still retry operations manually
           }
         }
       );
 
-      // Store subscription reference for cleanup (2026 Critical Fix)
+      // Store subscription reference for cleanup
       if (get()._initGen !== initGen) {
         log.debug(
           'Initialization cancelled/superseded, unsubscribing listener'
@@ -480,14 +317,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   // 2026 Critical Fix: Cleanup auth subscription to prevent memory leaks
   cleanup: () => {
-    // Invalidate pending initializations
     set({
       _initGen: Date.now(),
       _initializationInProgress: false,
     } as Partial<AuthState>);
 
     const state = get() as AuthState & {
-      _authSubscription: { subscription: { unsubscribe: () => void } } | null;
+      _authSubscription: {
+        subscription: { unsubscribe: () => void };
+      } | null;
     };
     if (state._authSubscription?.subscription) {
       log.debug('Cleaning up auth subscription');
@@ -503,9 +341,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        options: {
-          shouldCreateUser: true, // Allow new customers to sign up
-        },
+        options: { shouldCreateUser: true },
       });
 
       if (error) {
@@ -539,7 +375,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: false, error: error.message };
       }
 
-      // Customer record will be created/fetched in the auth state change listener
       set({ isLoading: false });
       return { success: true };
     } catch (error) {
@@ -550,7 +385,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // BUG-3-001: Sign in with email/password (CRITICAL)
+  // Sign in with email/password
   signInWithPassword: async (email: string, password: string) => {
     try {
       set({ isLoading: true, error: null });
@@ -565,7 +400,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: false, error: error.message };
       }
 
-      // Customer record will be created/fetched in the auth state change listener
       set({ isLoading: false });
       return { success: true };
     } catch (error) {
@@ -578,9 +412,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // Sign in with Google OAuth (Implicit flow — official Supabase React Native pattern)
+  // Sign in with Google OAuth (Implicit flow)
   signInWithGoogle: async () => {
-    // 2026 Best Practice: Prevent multiple concurrent sign-in requests
     const state = get();
     if (state.isLoading && state.isInitialized) {
       log.warn('Sign-in already in progress, skipping');
@@ -594,21 +427,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { makeRedirectUri } = await import('expo-auth-session');
       const QueryParams = await import('expo-auth-session/build/QueryParams');
 
-      // makeRedirectUri handles dev/prod/Expo Go variations automatically
       const redirectUrl = makeRedirectUri();
-
       log.debug('Generated OAuth redirect URL:', redirectUrl);
 
-      // Implicit flow: Supabase returns tokens directly in the redirect URL
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
           skipBrowserRedirect: true,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
+          queryParams: { access_type: 'offline', prompt: 'consent' },
         },
       });
 
@@ -633,7 +460,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (result.type === 'success' && result.url) {
         log.info('WebBrowser returned success URL');
 
-        // Official Supabase pattern: extract tokens from redirect URL hash/params
         const { params, errorCode } = QueryParams.getQueryParams(result.url);
 
         if (errorCode) {
@@ -693,12 +519,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // BUG-3-010: Robust implementation of Apple Sign-In (2026 Best Practice)
+  // Sign in with Apple
   signInWithApple: async () => {
     try {
       set({ isLoading: true, error: null });
 
-      // Dynamically import to avoid crashes if package is not yet installed
       let AppleAuthentication;
       try {
         AppleAuthentication = await import('expo-apple-authentication');
@@ -708,7 +533,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         );
       }
 
-      // Check if Apple Authentication is available
       const isAvailable = await AppleAuthentication.isAvailableAsync();
       if (!isAvailable) {
         throw new Error('Apple Authentication is not available on this device');
@@ -725,8 +549,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error('Apple Sign-In failed: No identity token received');
       }
 
-      // 2026 Best Practice: Apple only returns name and email on the VERY FIRST sign-in.
-      // We must capture it here and ensure it's synced to the user metadata or customer record.
+      // Apple only returns name on the VERY FIRST sign-in
       const fullName = credential.fullName
         ? `${credential.fullName.givenName || ''} ${credential.fullName.familyName || ''}`.trim()
         : null;
@@ -741,7 +564,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: false, error: error.message };
       }
 
-      // If we got a name, and it's a new user (or metadata is empty), update it
+      // If we got a name, and it's a new user, update metadata + customer record
       if (fullName && data.user && !data.user.user_metadata?.full_name) {
         log.info('Updating user metadata with Apple name');
         const { error: updateError } = await supabase.auth.updateUser({
@@ -752,10 +575,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           log.warn('Failed to update user metadata:', updateError.message);
         }
 
-        // The auth listener already fired (from signInWithIdToken) before
-        // updateUser set the name. Directly call the RPC to ensure the
-        // customer record gets the Apple name (uses credential directly,
-        // not metadata, so this runs regardless of updateUser result).
         const { merchantId } = get();
         if (merchantId && data.user.email) {
           const { error: rpcError } = await supabase.rpc(
@@ -777,8 +596,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: false });
       return { success: true };
     } catch (error) {
-      // 2026 Best Practice: Handle Apple Sign-In cancellation gracefully
-      // When user dismisses the Apple prompt, signInAsync throws ERR_REQUEST_CANCELED
+      // Handle Apple Sign-In cancellation gracefully
       if (
         error instanceof Error &&
         'code' in error &&
@@ -800,22 +618,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     try {
       set({ isLoading: true });
-
-      // 2026 Best Practice: Do NOT call cleanup() here.
-      // The onAuthStateChange listener must survive sign-out so it can
-      // detect subsequent sign-ins (e.g., Google OAuth). The listener's
-      // SIGNED_OUT handler (line ~361) already clears user/session/customer.
-      // cleanup() is reserved for app unmount only (root layout teardown).
-
       await supabase.auth.signOut();
-      // Clear entire cart on logout to prevent cart data leakage between users.
       useCartStore.getState().clearCart();
       set({
         user: null,
         session: null,
         customer: null,
         isLoading: false,
-        isInitialized: true, // 2026 Fix: Keep initialized after sign out to allow redirects
+        isInitialized: true,
         _initializationInProgress: false,
       } as Partial<AuthState>);
     } catch (error) {
@@ -854,7 +664,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: false, error: 'Not logged in' };
       }
 
-      // BUG-3-006: Validate auth server-side before profile update
       const {
         data: { user: verifiedUser },
         error: authError,
@@ -868,7 +677,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         };
       }
 
-      // M3 fix: Filter out undefined values to prevent nulling-out existing data
       const updates = Object.fromEntries(
         Object.entries({
           first_name: data.first_name,
@@ -878,7 +686,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       );
 
       if (Object.keys(updates).length === 0) {
-        return { success: true }; // Nothing to update
+        return { success: true };
       }
 
       const { data: updated, error } = await supabase
@@ -893,7 +701,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { success: false, error: error.message };
       }
 
-      // BUG-3-013: Validate DB update response before storing
+      // Validate DB update response before storing
       const updateValidation = CustomerRowSchema.safeParse(updated);
       if (!updateValidation.success) {
         log.warn(

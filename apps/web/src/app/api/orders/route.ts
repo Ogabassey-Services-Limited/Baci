@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { hasPermission } from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -255,8 +255,11 @@ export async function GET(request: NextRequest) {
 // Zod validates input shape, while the SECURITY DEFINER RPC enforces merchant + item authorization server-side.
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Optional auth: supports web cookies and mobile Bearer tokens, but still
+    // allows guest checkout when authentication is absent.
+    const auth = await authenticateApiRequest(request);
+    const supabase = auth.supabase ?? createClient(await cookies());
+    const user = auth.user;
     const json = await request.json();
 
     // Capture IP and User Agent for enhanced ad tracking (improves Event Match Quality)
@@ -277,9 +280,6 @@ export async function POST(request: NextRequest) {
     }
 
     const body = parseResult.data;
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
 
     const {
       merchant_id,

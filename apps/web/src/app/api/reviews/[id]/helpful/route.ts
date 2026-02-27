@@ -1,6 +1,5 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createAnonClient } from '@/lib/supabase/anon';
 
 /**
  * Review Helpful Vote API
@@ -28,8 +27,8 @@ export async function POST(
       );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Public endpoint: use anon client so mobile callers do not depend on cookies.
+    const supabase = createAnonClient();
 
     // Check if review exists and is approved
     const { data: review, error: reviewError } = await supabase

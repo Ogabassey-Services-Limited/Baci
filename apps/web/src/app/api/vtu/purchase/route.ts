@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import {
   formatPhoneNumber,
@@ -10,8 +9,8 @@ import {
   purchaseData,
 } from '@/lib/kuda';
 import { purchaseBill } from '@/lib/kuda-bills';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateCommerce } from '@/lib/supabase/client';
-import { createClient } from '@/lib/supabase/server';
 import { COMMISSION_CATEGORY_MAP, purchaseSchema } from '@/schemas/vtu';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -23,6 +22,9 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 // POST /api/vtu/purchase - Purchase airtime, data, or bill payment
+// Uses admin client because this server-side route is called from both
+// web (with cookies) and mobile (with Bearer token). The cookie-based
+// client fails for mobile requests since they don't carry Supabase cookies.
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -72,8 +74,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = createAdminClient();
 
     // Get merchant
     const { data: merchant, error: merchantError } = await supabase

@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { POST } from './route';
 
 // Mock env
@@ -8,6 +9,11 @@ vi.mock('@/env', () => ({
   getSupabaseAnonKey: () => 'mock-key',
   getSupabaseServiceRoleKey: () => 'mock-service-key',
   getRootDomain: () => 'localhost:3000',
+}));
+
+vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: vi.fn(),
+  hasPermission: vi.fn(() => true),
 }));
 
 // Shared mock for chainable methods
@@ -52,6 +58,16 @@ const mockSupabase = {
   }),
 };
 
+function mockAuthUser(id: string) {
+  return {
+    id,
+    app_metadata: {},
+    user_metadata: {},
+    aud: 'authenticated',
+    created_at: '2026-01-01T00:00:00.000Z',
+  };
+}
+
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
 }));
@@ -95,6 +111,11 @@ vi.mock('@/lib/logger', () => ({
 describe('Order API Security', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
   });
 
   const validOrderPayload = {
@@ -126,10 +147,11 @@ describe('Order API Security', () => {
   };
 
   it('should prevent unauthenticated users from setting user_id', async () => {
-    // Mock unauthenticated user
-    mockSupabase.auth.getUser.mockResolvedValue({
-      data: { user: null },
-      error: null,
+    // Mock unauthenticated request (guest checkout)
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
     });
 
     const request = new NextRequest('http://localhost:3000/api/orders', {
@@ -151,10 +173,11 @@ describe('Order API Security', () => {
   it('should allow authenticated users to use their own user_id', async () => {
     const authUserId = '123e4567-e89b-12d3-a456-426614174002'; // Valid UUID
 
-    // Mock authenticated user
-    mockSupabase.auth.getUser.mockResolvedValue({
-      data: { user: { id: authUserId } },
+    // Mock authenticated request
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(authUserId),
       error: null,
+      supabase: mockSupabase as unknown as never,
     });
 
     const request = new NextRequest('http://localhost:3000/api/orders', {
@@ -180,10 +203,11 @@ describe('Order API Security', () => {
     const authUserId = '123e4567-e89b-12d3-a456-426614174002'; // Valid UUID
     const spoofUserId = '123e4567-e89b-12d3-a456-426614174003'; // Valid UUID
 
-    // Mock authenticated user
-    mockSupabase.auth.getUser.mockResolvedValue({
-      data: { user: { id: authUserId } },
+    // Mock authenticated request
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(authUserId),
       error: null,
+      supabase: mockSupabase as unknown as never,
     });
 
     const request = new NextRequest('http://localhost:3000/api/orders', {
@@ -203,5 +227,36 @@ describe('Order API Security', () => {
 
     // RPC should NOT be called
     expect(mockSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('should use mobile Bearer auth to bind p_user_id without relying on cookies', async () => {
+    const authUserId = '123e4567-e89b-12d3-a456-426614174004';
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(authUserId),
+      error: null,
+      supabase: mockSupabase as unknown as never,
+    });
+
+    const request = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer mobile-access-token',
+      },
+      body: JSON.stringify({
+        ...validOrderPayload,
+        user_id: authUserId,
+      }),
+    });
+
+    await POST(request);
+
+    expect(authenticateApiRequest).toHaveBeenCalledOnce();
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_user_id: authUserId,
+      })
+    );
   });
 });

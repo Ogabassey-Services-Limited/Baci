@@ -9,10 +9,6 @@ vi.mock('@/env', () => ({
   getRootDomain: () => 'localhost',
 }));
 
-vi.mock('next/headers', () => ({
-  cookies: vi.fn().mockResolvedValue({ get: vi.fn(), set: vi.fn() }),
-}));
-
 // Kuda mock functions
 const mockFormatPhoneNumber = vi.fn();
 const mockIsValidPhoneNumber = vi.fn();
@@ -122,8 +118,8 @@ function createMockSupabase() {
   return { from: mockFrom, rpc: mockRpc };
 }
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => createMockSupabase()),
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => createMockSupabase()),
 }));
 
 // ---- Helpers ----

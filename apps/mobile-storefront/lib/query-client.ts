@@ -1,33 +1,30 @@
 /**
- * React Query Client Configuration with AsyncStorage Persistence
+ * React Query Client Configuration with Async Persistence
  *
- * 2025 Best Practice: "Flash-Load" Pattern
+ * 2026 Best Practice: "Flash-Load" Pattern
  * - Data displayed from cache within 50ms on app start
  * - Background refresh happens after cached data is shown
  * - 24-hour cache retention for offline resilience
  *
- * Note: Using AsyncStorage for Expo Go compatibility.
- * For production builds, consider switching to MMKV for better performance.
+ * Reliability note (Android startup):
+ * - We intentionally use AsyncStorage (async) instead of MMKV (sync) here
+ *   for query persistence.
+ * - Some Android users reported startup hangs on the animated splash screen.
+ * - Sync storage hydration can block the JS thread during app bootstrap.
+ * - Cache restore/subscription is also deferred until after splash exit in
+ *   `QueryProvider` to keep startup work off the critical render path.
  */
 
-import { createMMKV } from 'react-native-mmkv';
-import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { QueryClient } from '@tanstack/react-query';
 
-// Initialize MMKV storage instance
-const storage = createMMKV();
-
 /**
- * MMKV-based Persister (High Performance)
- * MMKV is ~10x faster than AsyncStorage and works synchronously,
- * enabling the "Flash-Load" pattern.
+ * AsyncStorage-based Persister (startup-safe)
+ * Uses async storage to avoid synchronous JS-thread stalls during startup.
  */
-export const queryPersister = createSyncStoragePersister({
-  storage: {
-    getItem: (key) => storage.getString(key) ?? null,
-    setItem: (key, value) => storage.set(key, value),
-    removeItem: (key) => storage.remove(key),
-  },
+export const queryPersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
 });
 
 export const queryClient = new QueryClient({

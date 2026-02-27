@@ -28,6 +28,8 @@ jest.mock('../lib/supabase', () => ({
     auth: {
       getSession: jest.fn(),
       getUser: jest.fn(),
+      refreshSession: jest.fn(),
+      signOut: jest.fn().mockResolvedValue({ error: null }),
       signInWithIdToken: jest.fn(),
       updateUser: jest.fn(),
       onAuthStateChange: jest.fn(),
@@ -205,11 +207,16 @@ function resetSupabaseMocks({
   customerResult = { data: null, error: null },
   session = null,
   getUser = { data: { user: null }, error: null },
+  refreshSession = {
+    data: { session: null },
+    error: { message: 'Refresh token invalid' },
+  },
 }: {
   merchantResult?: { data: unknown; error: unknown };
   customerResult?: { data: unknown; error: unknown };
   session?: unknown;
   getUser?: { data: { user: unknown }; error: unknown };
+  refreshSession?: { data: { session: unknown }; error: unknown };
 } = {}) {
   (supabase.from as jest.Mock).mockImplementation((table: string) =>
     makeChain(table === 'merchants' ? merchantResult : customerResult)
@@ -220,6 +227,7 @@ function resetSupabaseMocks({
     error: null,
   });
   (supabase.auth.getUser as jest.Mock).mockResolvedValue(getUser);
+  (supabase.auth.refreshSession as jest.Mock).mockResolvedValue(refreshSession);
   (supabase.auth.signInWithIdToken as jest.Mock).mockResolvedValue({
     data: { user: null, session: null },
     error: null,
@@ -471,6 +479,10 @@ describe('useAuthStore', () => {
       resetSupabaseMocks({
         session: mockSession,
         getUser: { data: { user: null }, error: { message: 'JWT expired' } },
+        refreshSession: {
+          data: { session: null },
+          error: { message: 'Refresh token expired' },
+        },
       });
 
       // Act
@@ -484,6 +496,109 @@ describe('useAuthStore', () => {
       expect(state.session).toBeNull();
       expect(state.customer).toBeNull();
       expect(state.isInitialized).toBe(true);
+      // Persisted auth tokens should be cleared so next cold start doesn't retry
+      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    });
+
+    it('refreshes session when getUser fails with expired JWT but refresh token is valid', async () => {
+      // Arrange
+      const refreshedSession = {
+        ...mockSession,
+        access_token: 'refreshed-access-token',
+      };
+      resetSupabaseMocks({
+        session: mockSession,
+        getUser: {
+          data: { user: null },
+          error: { message: 'JWT expired', status: 401, code: 'bad_jwt' },
+        },
+        refreshSession: {
+          data: { session: refreshedSession },
+          error: null,
+        },
+        customerResult: { data: mockCustomerRow, error: null },
+      });
+
+      // Act
+      await act(async () => {
+        await useAuthStore.getState().initialize();
+      });
+
+      // Assert
+      const state = useAuthStore.getState();
+      expect(supabase.auth.refreshSession).toHaveBeenCalledTimes(1);
+      expect(state.user?.id).toBe(USER_ID);
+      expect(state.session).toEqual(refreshedSession);
+      expect(state.customer?.id).toBe(mockCustomerRow.id);
+      expect(state.isInitialized).toBe(true);
+    });
+
+    it('preserves the local session when getUser fails with a transient network error', async () => {
+      // Arrange
+      resetSupabaseMocks({
+        session: mockSession,
+        getUser: {
+          data: { user: null },
+          error: { message: 'Network request failed', status: 503 },
+        },
+      });
+
+      // Act
+      await act(async () => {
+        await useAuthStore.getState().initialize();
+      });
+
+      // Assert
+      const state = useAuthStore.getState();
+      expect(state.user?.id).toBe(USER_ID);
+      expect(state.session).toBe(mockSession);
+      expect(state.isInitialized).toBe(true);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  describe('initialize() — customer hydration timeouts', () => {
+    it('preserves user/session and completes init when customer fetch hangs', async () => {
+      jest.useFakeTimers();
+
+      try {
+        const sessionWithoutEmail = {
+          ...mockSession,
+          user: { ...mockUser, email: null },
+        };
+
+        resetSupabaseMocks({
+          session: sessionWithoutEmail,
+          getUser: { data: { user: sessionWithoutEmail.user }, error: null },
+        });
+
+        (supabase.from as jest.Mock).mockImplementation((table: string) => {
+          if (table === 'merchants') {
+            return makeChain({ data: mockMerchantRow, error: null });
+          }
+
+          const hangingCustomersChain = makeChain({ data: null, error: null });
+          hangingCustomersChain.maybeSingle.mockImplementation(
+            () => new Promise(() => void 0)
+          );
+          return hangingCustomersChain;
+        });
+
+        await act(async () => {
+          const initPromise = useAuthStore.getState().initialize();
+          await jest.advanceTimersByTimeAsync(10_001);
+          await initPromise;
+        });
+
+        const state = useAuthStore.getState();
+        expect(state.user?.id).toBe(USER_ID);
+        expect(state.session).toEqual(sessionWithoutEmail);
+        expect(state.customer).toBeNull();
+        expect(state.isInitialized).toBe(true);
+        expect(state.isLoading).toBe(false);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 
@@ -516,6 +631,26 @@ describe('useAuthStore', () => {
       expect(state.user?.id).toBe(USER_ID);
       expect(state.session).toBe(mockSession);
       expect(state.customer?.id).toBe('customer-uuid-1');
+    });
+
+    it('still updates user/session when merchant lookup failed during initialize', async () => {
+      // Arrange
+      resetSupabaseMocks({
+        merchantResult: { data: null, error: { message: 'Not found' } },
+      });
+      await runInitialize();
+
+      // Act
+      await act(async () => {
+        await mockAuthListenerCb('SIGNED_IN', mockSession);
+      });
+
+      // Assert
+      const state = useAuthStore.getState();
+      expect(state.merchantId).toBeNull();
+      expect(state.user?.id).toBe(USER_ID);
+      expect(state.session).toBe(mockSession);
+      expect(state.customer).toBeNull();
     });
 
     it('calls upsert_customer_on_auth RPC when no customer found on SIGNED_IN', async () => {

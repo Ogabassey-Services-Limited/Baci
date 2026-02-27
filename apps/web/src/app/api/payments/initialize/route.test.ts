@@ -10,13 +10,6 @@ vi.mock('@/env', () => ({
   getRootDomain: () => 'localhost',
 }));
 
-vi.mock('next/headers', () => ({
-  cookies: vi.fn().mockResolvedValue({
-    get: vi.fn(),
-    set: vi.fn(),
-  }),
-}));
-
 vi.mock('nanoid', () => ({
   customAlphabet: () => () => 'ABCD12345678',
 }));
@@ -138,12 +131,14 @@ function createMockAdminClient() {
   };
 }
 
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: () => createMockSupabase(),
-}));
-
+// Admin client is used for all Supabase operations (mobile Bearer-token compat).
+// The mock returns separate sub-clients so RPC calls (snapshot, transaction)
+// and table queries (merchants, feature_settings) can be controlled independently.
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: () => createMockAdminClient(),
+  createAdminClient: () => ({
+    ...createMockSupabase(),
+    ...createMockAdminClient(),
+  }),
 }));
 
 // ---- Import handler AFTER mocks ----
