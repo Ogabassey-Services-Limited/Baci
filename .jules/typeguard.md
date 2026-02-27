@@ -30,4 +30,7 @@
 **Action:** When working with Supabase joins (e.g., `product_variants` with `product:products(...)`), always define a specific interface that matches the query shape rather than relying on inferred types or `any`.
 
 ## 2026-03-04 - Ignored External Bot Command
+**Note:** PR comments for `@coderabbitai` were ignored as they are for an external bot (ID: 3974544508).
+
+## 2026-03-04 - Ignored External Bot Command
 **Note:** PR comments for `@coderabbitai` were ignored as they are for an external bot (ID: 3974582933).
