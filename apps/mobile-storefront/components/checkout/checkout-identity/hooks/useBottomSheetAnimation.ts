@@ -18,13 +18,13 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 
-interface UseBottomSheetAnimationOptions {
+export interface UseBottomSheetAnimationOptions {
   isOpen: boolean;
   /** Distance to translate when closed (default: 500) */
   translateDistance?: number;
 }
 
-interface UseBottomSheetAnimationReturn {
+export interface UseBottomSheetAnimationReturn {
   animatedBackdropStyle: AnimatedStyle<ViewStyle>;
   animatedSheetStyle: AnimatedStyle<ViewStyle>;
   /** Whether reduced motion is enabled */
