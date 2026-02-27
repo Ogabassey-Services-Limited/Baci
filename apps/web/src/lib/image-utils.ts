@@ -137,9 +137,15 @@ export function getResponsiveSizes(
 
 /**
  * Check if an image URL is valid and accessible
+ * Optimized to avoid expensive try-catch blocks for common cases
  */
 export function isValidImageUrl(url: string | null | undefined): boolean {
-  if (!url) return false;
+  if (!url || typeof url !== 'string') return false;
+
+  // Fast fail relative URLs (new URL('/foo') throws without base)
+  if (url.startsWith('/')) return false;
+
+  // Fallback for complex cases
   try {
     new URL(url);
     return true;
