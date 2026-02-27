@@ -97,11 +97,33 @@ jest.mock('react-native-reanimated', () => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function backdropOpacity(style: unknown) {
+function backdropOpacity(style: unknown): number {
+  if (
+    typeof style !== 'object' ||
+    style === null ||
+    !('opacity' in style) ||
+    typeof (style as { opacity: unknown }).opacity !== 'number'
+  ) {
+    throw new Error(
+      `Expected style with numeric "opacity", got: ${JSON.stringify(style)}`
+    );
+  }
   return (style as { opacity: number }).opacity;
 }
 
-function sheetTranslateY(style: unknown) {
+function sheetTranslateY(style: unknown): number {
+  if (
+    typeof style !== 'object' ||
+    style === null ||
+    !('transform' in style) ||
+    !Array.isArray((style as { transform: unknown }).transform) ||
+    typeof (style as { transform: Record<string, unknown>[] }).transform[0]
+      ?.translateY !== 'number'
+  ) {
+    throw new Error(
+      `Expected style with transform[0].translateY, got: ${JSON.stringify(style)}`
+    );
+  }
   return (style as { transform: Array<{ translateY: number }> }).transform[0]
     .translateY;
 }
@@ -155,33 +177,38 @@ describe('useBottomSheetAnimation — return shape', () => {
 describe('useBottomSheetAnimation — closed state (isOpen = false)', () => {
   it('animatedBackdropStyle has opacity 0 when closed', () => {
     // Arrange & Act
-    const { result } = renderHook(() =>
+    const { result, rerender } = renderHook(() =>
       useBottomSheetAnimation({ isOpen: false })
     );
 
-    // Assert: withTiming resolves to 0 synchronously; effect runs, sets value
-    // to 0, then a rerender captures the updated style.
-    act(() => {});
+    // Rerender so useAnimatedStyle captures the updated shared value from the effect.
+    act(() => {
+      rerender(undefined);
+    });
 
     expect(backdropOpacity(result.current.animatedBackdropStyle)).toBe(0);
   });
 
   it('animatedSheetStyle has translateY equal to the default distance (500) when closed', () => {
-    const { result } = renderHook(() =>
+    const { result, rerender } = renderHook(() =>
       useBottomSheetAnimation({ isOpen: false })
     );
 
-    act(() => {});
+    act(() => {
+      rerender(undefined);
+    });
 
     expect(sheetTranslateY(result.current.animatedSheetStyle)).toBe(500);
   });
 
   it('animatedSheetStyle uses a custom translateDistance when closed', () => {
-    const { result } = renderHook(() =>
+    const { result, rerender } = renderHook(() =>
       useBottomSheetAnimation({ isOpen: false, translateDistance: 300 })
     );
 
-    act(() => {});
+    act(() => {
+      rerender(undefined);
+    });
 
     expect(sheetTranslateY(result.current.animatedSheetStyle)).toBe(300);
   });
