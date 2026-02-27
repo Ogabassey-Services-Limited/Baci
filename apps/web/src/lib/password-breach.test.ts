@@ -1,5 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { checkPasswordBreach } from '@/lib/password-breach';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('checkPasswordBreach', () => {
   it('should detect a breached password', async () => {
@@ -8,11 +12,16 @@ describe('checkPasswordBreach', () => {
     // Prefix: 5BAA6
     // Suffix: 1E4C9B93F3F0682250B6CF8331B7EE68FD8
 
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      text: () =>
-        Promise.resolve('1E4C9B93F3F0682250B6CF8331B7EE68FD8:100\nOTHERHASH:5'),
-    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: () =>
+          Promise.resolve(
+            '1E4C9B93F3F0682250B6CF8331B7EE68FD8:100\nOTHERHASH:5'
+          ),
+      })
+    );
 
     const result = await checkPasswordBreach('password');
     expect(result.isBreached).toBe(true);
@@ -21,10 +30,13 @@ describe('checkPasswordBreach', () => {
 
   it('should detect a safe password', async () => {
     // Mock fetch to return no matching suffix
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      text: () => Promise.resolve('OTHERHASH:5\nANOTHERHASH:10'),
-    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('OTHERHASH:5\nANOTHERHASH:10'),
+      })
+    );
 
     const result = await checkPasswordBreach('safe-password-123');
     expect(result.isBreached).toBe(false);
@@ -32,7 +44,10 @@ describe('checkPasswordBreach', () => {
 
   it('should fail open (safe) when API fails', async () => {
     // Mock fetch failure
-    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new Error('Network error'))
+    );
 
     const result = await checkPasswordBreach('password');
     expect(result.isBreached).toBe(false);
