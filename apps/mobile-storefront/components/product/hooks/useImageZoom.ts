@@ -5,7 +5,7 @@
  */
 
 import type { ViewStyle } from 'react-native';
-import { useWindowDimensions } from 'react-native';
+import { Dimensions } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import {
   type AnimatedStyle,
@@ -16,6 +16,7 @@ import {
 } from 'react-native-reanimated';
 import { SPRING_CONFIG } from '@/constants/Colors';
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MIN_SCALE = 1;
 const MAX_SCALE = 4;
 const DOUBLE_TAP_SCALE = 2.5;
@@ -42,9 +43,6 @@ export function useImageZoom({
   currentIndex,
   totalImages,
 }: UseImageZoomParams): UseImageZoomReturn {
-  // Reactive dimensions — update on device rotation
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-
   // Animated shared values for zoom and pan
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -104,12 +102,8 @@ export function useImageZoom({
         scale.set(withSpring(MIN_SCALE, SPRING_CONFIG.snappy));
         translateX.set(withSpring(0, SPRING_CONFIG.snappy));
         translateY.set(withSpring(0, SPRING_CONFIG.snappy));
-        savedScale.set(MIN_SCALE);
-        savedTranslateX.set(0);
-        savedTranslateY.set(0);
-      } else {
-        savedScale.set(scale.get());
       }
+      savedScale.set(scale.get());
     });
 
   // Pan gesture for moving the zoomed image or swiping between images
@@ -125,8 +119,8 @@ export function useImageZoom({
         // Allow panning when zoomed in
         const newX = savedTranslateX.get() + event.translationX;
         const newY = savedTranslateY.get() + event.translationY;
-        translateX.set(clampTranslation(newX, screenWidth, scale.get()));
-        translateY.set(clampTranslation(newY, screenHeight, scale.get()));
+        translateX.set(clampTranslation(newX, SCREEN_WIDTH, scale.get()));
+        translateY.set(clampTranslation(newY, SCREEN_HEIGHT, scale.get()));
       } else {
         // When not zoomed, allow horizontal swipe for image navigation
         translateX.set(event.translationX * 0.5);
@@ -135,7 +129,7 @@ export function useImageZoom({
     .onEnd((event) => {
       if (scale.get() <= 1) {
         // Handle swipe navigation
-        const threshold = screenWidth * 0.25;
+        const threshold = SCREEN_WIDTH * 0.25;
         const velocity = event.velocityX;
 
         if (
@@ -153,26 +147,23 @@ export function useImageZoom({
         // Reset position after swipe attempt
         translateX.set(withSpring(0, SPRING_CONFIG.snappy));
         translateY.set(withSpring(0, SPRING_CONFIG.snappy));
-        savedTranslateX.set(0);
-        savedTranslateY.set(0);
       } else {
-        // Clamp final position when zoomed — compute target values first
-        const clampedX = clampTranslation(
-          translateX.get(),
-          screenWidth,
-          scale.get()
+        // Clamp final position when zoomed
+        translateX.set(
+          withSpring(
+            clampTranslation(translateX.get(), SCREEN_WIDTH, scale.get()),
+            SPRING_CONFIG.snappy
+          )
         );
-        const clampedY = clampTranslation(
-          translateY.get(),
-          screenHeight,
-          scale.get()
+        translateY.set(
+          withSpring(
+            clampTranslation(translateY.get(), SCREEN_HEIGHT, scale.get()),
+            SPRING_CONFIG.snappy
+          )
         );
-        translateX.set(withSpring(clampedX, SPRING_CONFIG.snappy));
-        translateY.set(withSpring(clampedY, SPRING_CONFIG.snappy));
-        // Store the clamped target values, not in-flight animation values
-        savedTranslateX.set(clampedX);
-        savedTranslateY.set(clampedY);
       }
+      savedTranslateX.set(translateX.get());
+      savedTranslateY.set(translateY.get());
     });
 
   // Double-tap gesture to toggle zoom level
@@ -193,20 +184,26 @@ export function useImageZoom({
         scale.set(withSpring(targetScale, SPRING_CONFIG.snappy));
 
         // Calculate offset so tap position becomes the new focal centre
-        const centerX = screenWidth / 2;
-        const centerY = screenHeight / 2;
+        const centerX = SCREEN_WIDTH / 2;
+        const centerY = SCREEN_HEIGHT / 2;
         const offsetX = (centerX - event.x) * (targetScale - 1);
         const offsetY = (centerY - event.y) * (targetScale - 1);
 
-        // Compute clamped target values before animating
-        const clampedX = clampTranslation(offsetX, screenWidth, targetScale);
-        const clampedY = clampTranslation(offsetY, screenHeight, targetScale);
-        translateX.set(withSpring(clampedX, SPRING_CONFIG.snappy));
-        translateY.set(withSpring(clampedY, SPRING_CONFIG.snappy));
+        translateX.set(
+          withSpring(
+            clampTranslation(offsetX, SCREEN_WIDTH, targetScale),
+            SPRING_CONFIG.snappy
+          )
+        );
+        translateY.set(
+          withSpring(
+            clampTranslation(offsetY, SCREEN_HEIGHT, targetScale),
+            SPRING_CONFIG.snappy
+          )
+        );
         savedScale.set(targetScale);
-        // Store the clamped target values, not in-flight animation values
-        savedTranslateX.set(clampedX);
-        savedTranslateY.set(clampedY);
+        savedTranslateX.set(translateX.get());
+        savedTranslateY.set(translateY.get());
       }
     });
 

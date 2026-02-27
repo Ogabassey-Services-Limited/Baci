@@ -62,10 +62,8 @@ let insertError: unknown = null;
 
 // Creates a query builder that supports chaining .eq() and resolves with { error }
 function createQueryBuilder(getError: () => unknown) {
-  const builder: any = {
-    eq: vi.fn(() => builder),
-    // biome-ignore lint/suspicious/noThenProperty: Needed for await support in tests
-    then: (resolve: any) => resolve({ error: getError() }),
+  const builder = {
+    eq: vi.fn(() => Promise.resolve({ error: getError() })),
   };
   return builder;
 }

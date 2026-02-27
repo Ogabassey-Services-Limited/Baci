@@ -1,11 +1,14 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
-import { calculateCheckoutSession } from '@/lib/agentic/checkout';
+import {
+  type CheckoutItem,
+  calculateCheckoutSession,
+} from '@/lib/agentic/checkout';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // Helper to get session from DB
-// biome-ignore lint/suspicious/noExplicitAny: Supabase client type complexity
-async function getSession(supabase: any, id: string) {
+async function getSession(supabase: SupabaseClient, id: string) {
   const { data, error } = await supabase
     .from('checkout_sessions')
     .select('*')
@@ -42,8 +45,7 @@ export async function GET(
 
   const sessionCalc = await calculateCheckoutSession(
     supabase,
-    // biome-ignore lint/suspicious/noExplicitAny: Items type mismatch
-    items as any[],
+    items as CheckoutItem[],
     fulfillmentOptionId,
     currency
   );
@@ -96,8 +98,7 @@ export async function POST(
     // Recalculate
     const sessionCalc = await calculateCheckoutSession(
       supabase,
-      // biome-ignore lint/suspicious/noExplicitAny: Items type mismatch
-      newItems as any[],
+      newItems as CheckoutItem[],
       newOptionId,
       session.currency
     );
