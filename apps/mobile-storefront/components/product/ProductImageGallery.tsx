@@ -59,6 +59,10 @@ export function ProductImageGallery({
     return null;
   }
 
+  // Render-time clamp: guards against a transient frame where the useEffect
+  // hasn't fired yet after an images array swap (e.g. color-image change).
+  const effectiveIndex = Math.min(Math.max(0, safeIndex), images.length - 1);
+
   return (
     <>
       {/* Main Image */}
@@ -71,7 +75,7 @@ export function ProductImageGallery({
       >
         <Animated.View style={[styles.parallaxWrapper, imageAnimatedStyle]}>
           <Image
-            source={{ uri: images[safeIndex] }}
+            source={{ uri: images[effectiveIndex] }}
             style={styles.mainImage}
             contentFit="cover"
             transition={300}
@@ -113,12 +117,12 @@ export function ProductImageGallery({
                   styles.thumbnail,
                   {
                     borderColor:
-                      safeIndex === idx ? BRAND.primary : colors.border,
+                      effectiveIndex === idx ? BRAND.primary : colors.border,
                   },
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={`View image ${idx + 1} of ${images.length}`}
-                accessibilityState={{ selected: safeIndex === idx }}
+                accessibilityState={{ selected: effectiveIndex === idx }}
                 accessibilityHint="Double tap to show this image in the main view"
               >
                 <Image
@@ -139,7 +143,7 @@ export function ProductImageGallery({
       <ImageZoomModal
         visible={showImageZoom}
         images={images}
-        initialIndex={safeIndex}
+        initialIndex={effectiveIndex}
         onClose={() => setShowImageZoom(false)}
         onIndexChange={(index) => setSelectedImageIndex(index)}
       />
