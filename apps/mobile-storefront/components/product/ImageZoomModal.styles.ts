@@ -1,6 +1,9 @@
 import { StyleSheet } from 'react-native';
 import { RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 
+/** Ratio of screen height used for the zoom image. */
+const IMAGE_HEIGHT_RATIO = 0.7;
+
 /**
  * Dimension-dependent styles for the zoom image container.
  * Returns plain objects (not StyleSheet.create) since these are
@@ -16,7 +19,7 @@ export function createDynamicStyles(width: number, height: number) {
     },
     image: {
       width,
-      height: height * 0.7,
+      height: height * IMAGE_HEIGHT_RATIO,
     },
   };
 }

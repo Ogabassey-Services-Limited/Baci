@@ -226,7 +226,7 @@ export default function ProductDetailScreen() {
 
   const triggerFlyToCart = (event: GestureResponderEvent) => {
     // Get position from event (pageX/pageY) or fallback to center
-    const { pageX, pageY } = event?.nativeEvent || {};
+    const { pageX, pageY } = event.nativeEvent;
     const id = ++particleIdRef.current;
 
     setFlyingParticles((prev) => [

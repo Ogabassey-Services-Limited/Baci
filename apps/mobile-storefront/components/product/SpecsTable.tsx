@@ -34,7 +34,9 @@ export function SpecsTable({ specifications, colors }: SpecsTableProps) {
             {key}
           </Text>
           <Text style={[styles.specValue, { color: colors.text }]}>
-            {String(val ?? '')}
+            {typeof val === 'object' && val !== null
+              ? JSON.stringify(val)
+              : String(val ?? '')}
           </Text>
         </View>
       ))}

@@ -33,11 +33,14 @@ export function PricingSection({
         <Text style={[styles.price, { color: BRAND.primary }]}>
           {formatPrice(effectivePrice)}
         </Text>
-        {effectiveComparePrice && effectiveComparePrice > effectivePrice && (
-          <Text style={[styles.comparePrice, { color: colors.textSecondary }]}>
-            {formatPrice(effectiveComparePrice)}
-          </Text>
-        )}
+        {effectiveComparePrice != null &&
+          effectiveComparePrice > effectivePrice && (
+            <Text
+              style={[styles.comparePrice, { color: colors.textSecondary }]}
+            >
+              {formatPrice(effectiveComparePrice)}
+            </Text>
+          )}
       </View>
 
       {/* Negotiated Price Badge */}

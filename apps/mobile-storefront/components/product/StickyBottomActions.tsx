@@ -117,6 +117,8 @@ export function StickyBottomActions({
             key="cart-empty"
             style={[styles.addToCartBtn, { backgroundColor: BRAND.primary }]}
             onPress={(e) => onAddToCart(e)}
+            accessibilityLabel="Add to Cart"
+            accessibilityRole="button"
           >
             <Ionicons
               name="cart-outline"
