@@ -10,6 +10,7 @@ import { Providers } from '@/contexts/providers';
 // Keep this list in sync with top-level route directories under src/app.
 // Regression test: src/app/root-dynamic-body.test.ts validates coverage.
 export const NON_STOREFRONT_TOP_LEVEL_SEGMENTS = new Set([
+  '.well-known',
   'about',
   'actions',
   'admin',
