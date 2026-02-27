@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Copy,
   DollarSign,
   Edit,
   Percent,
@@ -22,6 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { CopyButton } from '@/components/ui/copy-button';
 import {
   Dialog,
   DialogContent,
@@ -251,23 +251,6 @@ export function DiscountClient({
     });
   };
 
-  const copyCode = async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      toast({
-        title: 'Copied!',
-        description: `Code "${code}" copied to clipboard.`,
-      });
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
-      toast({
-        title: 'Failed to copy',
-        description: 'Could not copy code to clipboard.',
-        variant: 'destructive',
-      });
-    }
-  };
-
   const formatDiscount = (code: DiscountCode) => {
     if (code.discount_type === 'percentage') {
       return `${code.discount_value}% off`;
@@ -373,14 +356,12 @@ export function DiscountClient({
                         <code className="font-mono font-semibold">
                           {code.code}
                         </code>
-                        <Button
+                        <CopyButton
+                          value={code.code}
                           variant="ghost"
-                          size="icon"
                           className="h-6 w-6"
-                          onClick={() => copyCode(code.code)}
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
+                          label="Copy code"
+                        />
                       </div>
                       {code.description && (
                         <p className="text-sm text-muted-foreground">
