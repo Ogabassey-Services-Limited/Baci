@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  type GestureResponderEvent,
   Pressable,
   Share,
   StyleSheet,
@@ -57,8 +58,8 @@ export default function ProductDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  // L3 FIX: Use Dimensions.get for static sizing; safe for constants file usage
-  const HEADER_HEIGHT = Dimensions.get('window').width; // Square aspect ratio for main image
+  // Square aspect ratio for main image (portrait-locked app, safe to use static width)
+  const HEADER_HEIGHT = Dimensions.get('window').width;
 
   // 2026 Critical Fix: Validate slug parameter early
   const isValidSlug = Boolean(
@@ -223,8 +224,7 @@ export default function ProductDetailScreen() {
     };
   }, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const triggerFlyToCart = (event: any) => {
+  const triggerFlyToCart = (event: GestureResponderEvent) => {
     // Get position from event (pageX/pageY) or fallback to center
     const { pageX, pageY } = event?.nativeEvent || {};
     const id = ++particleIdRef.current;
@@ -426,8 +426,7 @@ export default function ProductDetailScreen() {
     effectiveComparePrice
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleAddToCart = (event?: any) => {
+  const handleAddToCart = (event?: GestureResponderEvent) => {
     haptics.success(); // Haptic feedback for add to cart
 
     if (event) triggerFlyToCart(event);
@@ -458,8 +457,10 @@ export default function ProductDetailScreen() {
     }, 2000);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleUpdateQuantity = (newQuantity: number, event?: any) => {
+  const handleUpdateQuantity = (
+    newQuantity: number,
+    event?: GestureResponderEvent
+  ) => {
     haptics.light();
 
     if (newQuantity > quantityInCart && event) {

@@ -1,7 +1,24 @@
-import { Dimensions, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+/**
+ * Dimension-dependent styles for the zoom image container.
+ * Called with current window dimensions so styles update on rotation.
+ */
+export function createDynamicStyles(width: number, height: number) {
+  return StyleSheet.create({
+    imageContainer: {
+      width,
+      height,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    image: {
+      width,
+      height: height * 0.7,
+    },
+  });
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -47,16 +64,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  imageContainer: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  image: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT * 0.7,
   },
   navButton: {
     position: 'absolute',

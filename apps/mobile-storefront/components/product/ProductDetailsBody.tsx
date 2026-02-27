@@ -97,7 +97,7 @@ export function ProductDetailsBody({
       <View style={styles.ratingRow}>
         <View style={styles.stars}>
           {[1, 2, 3, 4, 5].map((s) => {
-            const rating = reviewStats?.average_rating ?? product.rating ?? 4.5;
+            const rating = reviewStats?.average_rating ?? product.rating ?? 0;
             return (
               <Ionicons
                 key={s}
@@ -133,9 +133,16 @@ export function ProductDetailsBody({
       {/* Negotiated Price Badge */}
       {/* M11 FIX: Use != null instead of truthy check so price of 0 is handled */}
       {negotiatedPrice != null && (
-        <View style={styles.negotiatedBadge}>
-          <Ionicons name="pricetag" size={14} color="#10B981" />
-          <Text style={styles.negotiatedText}>Your negotiated price!</Text>
+        <View
+          style={[
+            styles.negotiatedBadge,
+            { backgroundColor: `${colors.success}20` },
+          ]}
+        >
+          <Ionicons name="pricetag" size={14} color={colors.success} />
+          <Text style={[styles.negotiatedText, { color: colors.success }]}>
+            Your negotiated price!
+          </Text>
         </View>
       )}
 
@@ -144,6 +151,8 @@ export function ProductDetailsBody({
         <Pressable
           style={[styles.makeOfferButton, { borderColor: BRAND.primary }]}
           onPress={onOpenNegotiation}
+          accessibilityRole="button"
+          accessibilityLabel="Make an offer on this product"
         >
           <Ionicons name="chatbubble-outline" size={16} color={BRAND.primary} />
           <Text style={[styles.makeOfferText, { color: BRAND.primary }]}>
@@ -276,7 +285,7 @@ export function ProductDetailsBody({
                     {key}
                   </Text>
                   <Text style={[styles.specValue, { color: colors.text }]}>
-                    {val as string}
+                    {String(val ?? '')}
                   </Text>
                 </View>
               ))}
@@ -371,7 +380,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#D1FAE5',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: RADIUS.md,
@@ -379,7 +387,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   negotiatedText: {
-    color: '#10B981',
     fontSize: 13,
     fontWeight: '600',
   },
