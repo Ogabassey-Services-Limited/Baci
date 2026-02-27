@@ -22,12 +22,8 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useRef, useState } from 'react';
-import { enableScreens } from 'react-native-screens';
-
-enableScreens();
-
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { ConnectivityBanner } from '@/components/ConnectivityBanner';
