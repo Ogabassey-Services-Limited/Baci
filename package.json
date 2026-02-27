@@ -20,13 +20,14 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.2",
     "@eslint/js": "^10.0.0",
+    "@unlighthouse/cli": "^0.17.4",
     "knip": "^5.83.1",
     "lefthook": "^2.1.0",
     "next": "^16.1.6",
     "patch-package": "^8.0.1",
-    "@unlighthouse/cli": "^0.17.4",
     "turbo": "^2.8.10",
     "typescript": "^5.9.3",
+    "vitest": "^4.0.18",
     "wait-on": "^9.0.4"
   },
   "pnpm": {
