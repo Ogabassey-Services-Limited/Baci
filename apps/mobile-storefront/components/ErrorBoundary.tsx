@@ -57,7 +57,7 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorType: 'network' | 'auth' | 'supabase' | 'general';
-  colorScheme: ColorSchemeName;
+  colorScheme: ColorSchemeName | null | undefined;
 }
 
 // 2026 Best Practice: Define explicit type for error content

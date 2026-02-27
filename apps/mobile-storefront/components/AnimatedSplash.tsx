@@ -40,46 +40,58 @@ export function AnimatedSplash({
 
   // Shimmer pulse: fade in then loop
   useEffect(() => {
-    shimmerOpacity.value = withDelay(
-      300,
-      withTiming(0.6, { duration: 400 }, () => {
-        shimmerOpacity.value = withRepeat(
-          withSequence(
-            withTiming(0.3, {
-              duration: 800,
-              easing: Easing.inOut(Easing.ease),
-            }),
-            withTiming(0.6, {
-              duration: 800,
-              easing: Easing.inOut(Easing.ease),
-            })
-          ),
-          -1
-        );
-      })
+    shimmerOpacity.set(
+      withDelay(
+        300,
+        withTiming(0.6, { duration: 400 }, () => {
+          shimmerOpacity.set(
+            withRepeat(
+              withSequence(
+                withTiming(0.3, {
+                  duration: 800,
+                  easing: Easing.inOut(Easing.ease),
+                }),
+                withTiming(0.6, {
+                  duration: 800,
+                  easing: Easing.inOut(Easing.ease),
+                })
+              ),
+              -1
+            )
+          );
+        })
+      )
     );
   }, [shimmerOpacity]);
 
   // Exit animation when app is ready
   useEffect(() => {
-    if (!isReady || hasExited.value === 1) return;
+    if (!isReady || hasExited.get() === 1) return;
 
     // Stop the infinite shimmer loop so the worklet is released cleanly
     cancelAnimation(shimmerOpacity);
 
-    logoScale.value = withTiming(1.1, {
-      duration: 300,
-      easing: Easing.in(Easing.cubic),
-    });
-
-    containerOpacity.value = withDelay(
-      100,
-      withTiming(0, { duration: 400, easing: Easing.in(Easing.cubic) }, () => {
-        if (hasExited.value === 0) {
-          hasExited.value = 1;
-          runOnJS(onAnimationEnd)();
-        }
+    logoScale.set(
+      withTiming(1.1, {
+        duration: 300,
+        easing: Easing.in(Easing.cubic),
       })
+    );
+
+    containerOpacity.set(
+      withDelay(
+        100,
+        withTiming(
+          0,
+          { duration: 400, easing: Easing.in(Easing.cubic) },
+          () => {
+            if (hasExited.get() === 0) {
+              hasExited.set(1);
+              runOnJS(onAnimationEnd)();
+            }
+          }
+        )
+      )
     );
   }, [
     isReady,
@@ -91,15 +103,15 @@ export function AnimatedSplash({
   ]);
 
   const containerStyle = useAnimatedStyle(() => ({
-    opacity: containerOpacity.value,
+    opacity: containerOpacity.get(),
   }));
 
   const logoStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: logoScale.value }],
+    transform: [{ scale: logoScale.get() }],
   }));
 
   const shimmerStyle = useAnimatedStyle(() => ({
-    opacity: shimmerOpacity.value,
+    opacity: shimmerOpacity.get(),
   }));
 
   return (

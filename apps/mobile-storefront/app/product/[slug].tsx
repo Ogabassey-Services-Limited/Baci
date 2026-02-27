@@ -7,8 +7,6 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -19,8 +17,6 @@ import {
   Share,
   StyleSheet,
   Text,
-  TextInput,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { createLogger } from '@/lib/logger';
@@ -28,12 +24,9 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('ProductDetail');
 
 import Animated, {
-  Easing,
   Extrapolate,
   FadeIn,
-  FadeInDown,
   interpolate,
-  LinearTransition,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
@@ -41,21 +34,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineEmptyState } from '@/components/OfflineNotice';
-import { ConditionSelector } from '@/components/product/ConditionSelector';
-import { ImageZoomModal } from '@/components/product/ImageZoomModal';
+import { FlyToCartParticle } from '@/components/product/FlyToCartParticle';
 import { NegotiationModal } from '@/components/product/NegotiationModal';
-import { ReviewsList } from '@/components/product/ReviewsList';
-import { VariantSelector } from '@/components/product/VariantSelector';
-import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
-import { HTMLRenderer } from '@/components/ui/HTMLRenderer';
+import { ProductDetailsBody } from '@/components/product/ProductDetailsBody';
+import { ProductImageGallery } from '@/components/product/ProductImageGallery';
+import { StickyBottomActions } from '@/components/product/StickyBottomActions';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, {
-  BRAND,
-  RADIUS,
-  SHADOWS,
-  SPACING,
-  TYPOGRAPHY,
-} from '@/constants/Colors';
+import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { useEffectivePrice } from '@/hooks/use-effective-price';
 import { useHaptics } from '@/hooks/use-haptics';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { useProduct } from '@/hooks/use-products';
@@ -63,59 +49,7 @@ import { markReviewHelpful, useReviews } from '@/hooks/use-reviews';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import type { ProductCondition } from '@/types/product';
-import { formatPrice, getDiscountPercentage } from '@/types/product';
-
-// Tab bar layout constants for fly-to-cart animation targeting
-const CART_TAB_INDEX = 2; // Cart is the 3rd tab (0-indexed)
-const TAB_COUNT = 4; // Total number of tabs
-
-// C4 FIX: Extracted FlyToCartParticle outside ProductDetailScreen to prevent re-creation on every render
-function FlyToCartParticle({
-  startX,
-  startY,
-}: {
-  startX: number;
-  startY: number;
-}) {
-  const progress = useSharedValue(0);
-  const particleInsets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
-  const targetX = (width / TAB_COUNT) * CART_TAB_INDEX + width / TAB_COUNT / 2; // Center of cart tab
-  const targetY = height - (particleInsets.bottom + 30); // Tab bar center
-
-  useEffect(() => {
-    progress.value = withTiming(1, {
-      duration: 800,
-      easing: Easing.bezier(0.2, 0.8, 0.2, 1),
-    });
-  }, [progress]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    const translateX = interpolate(progress.value, [0, 1], [startX, targetX]);
-    const translateY = interpolate(progress.value, [0, 1], [startY, targetY]);
-    const scale = interpolate(progress.value, [0, 0.5, 1], [1, 1.2, 0.2]);
-    const opacity = interpolate(progress.value, [0, 0.8, 1], [1, 1, 0]);
-
-    return {
-      position: 'absolute',
-      left: 0,
-      top: 0,
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: BRAND.primary,
-      zIndex: 9999,
-      transform: [
-        { translateX: translateX - 20 },
-        { translateY: translateY - 20 },
-        { scale },
-      ],
-      opacity,
-    };
-  });
-
-  return <Animated.View style={animatedStyle} />;
-}
+import { getDiscountPercentage } from '@/types/product';
 
 export default function ProductDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -123,9 +57,8 @@ export default function ProductDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  // L3 FIX: Use useWindowDimensions hook instead of module-level Dimensions.get
-  const { width: SCREEN_WIDTH } = useWindowDimensions();
-  const HEADER_HEIGHT = SCREEN_WIDTH; // Square aspect ratio for main image
+  // L3 FIX: Use Dimensions.get for static sizing; safe for constants file usage
+  const HEADER_HEIGHT = Dimensions.get('window').width; // Square aspect ratio for main image
 
   // 2026 Critical Fix: Validate slug parameter early
   const isValidSlug = Boolean(
@@ -317,20 +250,20 @@ export default function ProductDetailScreen() {
 
   const onScroll = useAnimatedScrollHandler({
     onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
+      scrollY.set(event.contentOffset.y);
     },
   });
 
   // Animated styles for the parallax image
   const imageAnimatedStyle = useAnimatedStyle(() => {
     const scale = interpolate(
-      scrollY.value,
+      scrollY.get(),
       [-100, 0],
       [1.2, 1],
       Extrapolate.CLAMP
     );
     const translateY = interpolate(
-      scrollY.value,
+      scrollY.get(),
       [0, HEADER_HEIGHT],
       [0, -HEADER_HEIGHT * 0.2],
       Extrapolate.CLAMP
@@ -343,7 +276,7 @@ export default function ProductDetailScreen() {
   // Animated styles for the header background
   const headerAnimatedStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
-      scrollY.value,
+      scrollY.get(),
       [HEADER_HEIGHT * 0.5, HEADER_HEIGHT * 0.8],
       [0, 1],
       Extrapolate.CLAMP
@@ -356,11 +289,30 @@ export default function ProductDetailScreen() {
 
   const backButtonAnimatedStyle = useAnimatedStyle(() => {
     const backgroundColor =
-      scrollY.value > HEADER_HEIGHT * 0.7
+      scrollY.get() > HEADER_HEIGHT * 0.7
         ? withTiming('transparent')
         : withTiming('rgba(0,0,0,0.3)');
     return { backgroundColor };
   });
+
+  // Effective price hooks — must run unconditionally before early returns
+  const { price: effectivePrice, comparePrice: effectiveComparePrice } =
+    useEffectivePrice(
+      product ?? null,
+      selectedVariant,
+      selectedStorage,
+      selectedCondition,
+      negotiatedPrice
+    );
+
+  // calculatedPrice is the price without negotiation, used in the NegotiationModal
+  const { price: calculatedPrice } = useEffectivePrice(
+    product ?? null,
+    selectedVariant,
+    selectedStorage,
+    selectedCondition,
+    null
+  );
 
   // 2026 Critical Fix: Handle invalid slug parameter
   if (!isValidSlug) {
@@ -468,59 +420,6 @@ export default function ProductDetailScreen() {
     rawImages.length > 0
       ? rawImages
       : ['https://placehold.co/400x400/f3f4f6/9ca3af?text=No+Image'];
-
-  // Calculate effective price based on selected condition, storage, and variant
-  const calculateEffectivePrice = () => {
-    let price = product.price;
-    let comparePrice = product.compare_at_price;
-
-    // Apply condition price if different condition selected
-    if (selectedCondition && product.offers) {
-      const offer = product.offers.find(
-        (o) => o.condition === selectedCondition
-      );
-      if (offer) {
-        price = offer.price;
-        comparePrice = offer.compare_at_price;
-      }
-    }
-
-    // Apply storage-based variant price modifier
-    if (selectedStorage && product.variants) {
-      const variant = product.variants.find(
-        (v) =>
-          v.attributes?.storage === selectedStorage ||
-          v.name?.includes(selectedStorage)
-      );
-      if (variant) {
-        if (variant.price_override !== undefined) {
-          price = variant.price_override;
-        } else if (variant.price_modifier !== undefined) {
-          price += variant.price_modifier;
-        }
-      }
-    }
-
-    // Apply variant price modifier if variant selected (fallback for legacy)
-    if (selectedVariant && product.variants) {
-      const variant = product.variants.find((v) => v.id === selectedVariant);
-      if (variant) {
-        if (variant.price_override !== undefined) {
-          price = variant.price_override;
-        } else if (variant.price_modifier !== undefined) {
-          price += variant.price_modifier;
-        }
-      }
-    }
-
-    return { price, comparePrice };
-  };
-
-  const { price: calculatedPrice, comparePrice: effectiveComparePrice } =
-    calculateEffectivePrice();
-
-  // M11 FIX: Use ?? instead of || so negotiatedPrice of 0 is not treated as falsy
-  const effectivePrice = negotiatedPrice ?? calculatedPrice;
 
   const discountPercentage = getDiscountPercentage(
     effectivePrice,
@@ -683,510 +582,63 @@ export default function ProductDetailScreen() {
         keyboardDismissMode="on-drag"
       >
         {/* Parallax Image Gallery */}
-        <Pressable
-          style={[styles.imageContainer, { height: HEADER_HEIGHT }]}
-          onPress={() => setShowImageZoom(true)}
-          accessibilityLabel="Tap to zoom product image"
-          accessibilityRole="button"
-          accessibilityHint="Opens full-screen image viewer with zoom"
-        >
-          <Animated.View style={[styles.parallaxWrapper, imageAnimatedStyle]}>
-            <Image
-              source={{ uri: images[selectedImageIndex] }}
-              style={styles.mainImage}
-              contentFit="cover"
-              transition={300}
-              placeholder={{ blurhash: BLURHASH_VARIANTS.default }}
-              cachePolicy="memory-disk"
-            />
-          </Animated.View>
-          <LinearGradient
-            colors={['rgba(0,0,0,0.3)', 'transparent', 'transparent']}
-            style={StyleSheet.absoluteFill}
-          />
-
-          {/* Badge */}
-          {discountPercentage && (
-            <View style={styles.discountBadge}>
-              <Text style={styles.discountText}>-{discountPercentage}%</Text>
-            </View>
-          )}
-
-          {/* Zoom Hint Icon */}
-          <View style={styles.zoomHint}>
-            <Ionicons name="expand-outline" size={20} color="#FFF" />
-          </View>
-        </Pressable>
+        <ProductImageGallery
+          images={images}
+          selectedImageIndex={selectedImageIndex}
+          setSelectedImageIndex={setSelectedImageIndex}
+          imageAnimatedStyle={imageAnimatedStyle}
+          showImageZoom={showImageZoom}
+          setShowImageZoom={setShowImageZoom}
+          discountPercentage={discountPercentage}
+          colors={colors}
+          headerHeight={HEADER_HEIGHT}
+        />
 
         {/* Product Details Content */}
-        <Animated.View
-          entering={FadeInDown.delay(200).duration(600)}
-          style={[
-            styles.detailsContainer,
-            { backgroundColor: colors.background },
-          ]}
-        >
-          {/* Thumbnails */}
-          {images.length > 1 && (
-            <View style={styles.thumbnailsWrapper}>
-              <Animated.ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.thumbnailsContainer}
-              >
-                {images.map((img, idx) => (
-                  <Pressable
-                    key={idx}
-                    onPress={() => setSelectedImageIndex(idx)}
-                    style={[
-                      styles.thumbnail,
-                      {
-                        borderColor:
-                          selectedImageIndex === idx
-                            ? BRAND.primary
-                            : colors.border,
-                      },
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`View image ${idx + 1} of ${images.length}`}
-                    accessibilityState={{
-                      selected: selectedImageIndex === idx,
-                    }}
-                    accessibilityHint="Double tap to show this image in the main view"
-                  >
-                    <Image
-                      source={{ uri: img }}
-                      style={styles.thumbnailImage}
-                      contentFit="cover"
-                      placeholder={{ blurhash: BLURHASH_VARIANTS.default }}
-                      transition={200}
-                      cachePolicy="memory-disk"
-                    />
-                  </Pressable>
-                ))}
-              </Animated.ScrollView>
-            </View>
-          )}
-
-          {/* Meta Info */}
-          <View style={styles.metaRow}>
-            {product.brand && (
-              <Text style={[styles.brandText, { color: colors.textSecondary }]}>
-                {product.brand}
-              </Text>
-            )}
-            {product.condition && (
-              <View
-                style={[
-                  styles.conditionBadge,
-                  {
-                    backgroundColor:
-                      product.condition === 'New'
-                        ? colors.success
-                        : colors.warning,
-                  },
-                ]}
-              >
-                <Text style={styles.conditionText}>{product.condition}</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Title & Rating */}
-          <Text style={[styles.title, { color: colors.text }]}>
-            {product.name}
-          </Text>
-
-          <View style={styles.ratingRow}>
-            <View style={styles.stars}>
-              {[1, 2, 3, 4, 5].map((s) => {
-                const rating =
-                  reviewStats?.average_rating ?? product.rating ?? 4.5;
-                return (
-                  <Ionicons
-                    key={s}
-                    name={s <= Math.round(rating) ? 'star' : 'star-outline'}
-                    size={14}
-                    color={
-                      s <= Math.round(rating) ? colors.rating : colors.border
-                    }
-                  />
-                );
-              })}
-            </View>
-            <Text style={[styles.ratingText, { color: colors.textSecondary }]}>
-              {typeof reviewStats?.average_rating === 'number' &&
-              Number.isFinite(reviewStats.average_rating)
-                ? `${reviewStats.average_rating.toFixed(1)} (${reviewStats.review_count ?? 0} reviews)`
-                : product.rating
-                  ? `${product.rating} (${product.review_count || 0} reviews)`
-                  : 'No reviews yet'}
-            </Text>
-          </View>
-
-          {/* Pricing */}
-          <View style={styles.priceRow}>
-            <Text style={[styles.price, { color: BRAND.primary }]}>
-              {formatPrice(effectivePrice)}
-            </Text>
-            {effectiveComparePrice &&
-              effectiveComparePrice > effectivePrice && (
-                <Text
-                  style={[styles.comparePrice, { color: colors.textSecondary }]}
-                >
-                  {formatPrice(effectiveComparePrice)}
-                </Text>
-              )}
-          </View>
-
-          {/* Negotiated Price Badge */}
-          {/* M11 FIX: Use != null instead of truthy check so price of 0 is handled */}
-          {negotiatedPrice != null && (
-            <View style={styles.negotiatedBadge}>
-              <Ionicons name="pricetag" size={14} color="#10B981" />
-              <Text style={styles.negotiatedText}>Your negotiated price!</Text>
-            </View>
-          )}
-
-          {/* Make an Offer Button */}
-          {negotiatedPrice == null && (
-            <Pressable
-              style={[styles.makeOfferButton, { borderColor: BRAND.primary }]}
-              onPress={() => setShowNegotiationModal(true)}
-            >
-              <Ionicons
-                name="chatbubble-outline"
-                size={16}
-                color={BRAND.primary}
-              />
-              <Text style={[styles.makeOfferText, { color: BRAND.primary }]}>
-                Make an Offer
-              </Text>
-            </Pressable>
-          )}
-
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-          {/* Condition Selector */}
-          {product.has_condition_offers && product.offers && (
-            <ConditionSelector
-              currentCondition={product.condition}
-              offers={product.offers}
-              selectedCondition={selectedCondition}
-              onSelect={setSelectedCondition}
-              basePrice={product.price}
-            />
-          )}
-
-          {/* Advanced Variant Selection */}
-          {(product.colors ||
-            product.color_images ||
-            product.variant_attributes?.storage ||
-            product.variants?.some((v) => v.attributes?.storage)) && (
-            <View style={styles.section}>
-              <VariantSelector
-                colors={product.colors}
-                colorImages={product.color_images}
-                storage={
-                  product.variant_attributes?.storage ||
-                  product.variants
-                    ?.map((v) => v.attributes?.storage)
-                    .filter((s): s is string => !!s)
-                }
-                variants={product.variants}
-                selectedColor={selectedColor}
-                selectedStorage={selectedStorage}
-                onSelectColor={(color, imgs) => {
-                  setSelectedColor(color);
-                  setColorImages(imgs?.length ? imgs : null);
-                  setSelectedImageIndex(0);
-                }}
-                onSelectStorage={setSelectedStorage}
-                basePrice={effectivePrice}
-              />
-            </View>
-          )}
-
-          {/* Legacy Variants (fallback for products without colors/storage) */}
-          {product.variants &&
-            product.variants.length > 0 &&
-            !product.colors &&
-            !product.color_images &&
-            !product.variants.some((v) => v.attributes?.storage) && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  Options
-                </Text>
-                <View style={styles.variantGrid}>
-                  {product.variants.map((v) => (
-                    <Pressable
-                      key={v.id}
-                      onPress={() => setSelectedVariant(v.id)}
-                      style={[
-                        styles.variantChip,
-                        {
-                          borderColor:
-                            selectedVariant === v.id
-                              ? BRAND.primary
-                              : colors.border,
-                        },
-                        selectedVariant === v.id && {
-                          backgroundColor: `${BRAND.primary}10`,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.variantLabel,
-                          {
-                            color:
-                              selectedVariant === v.id
-                                ? BRAND.primary
-                                : colors.text,
-                          },
-                        ]}
-                      >
-                        {v.name}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            )}
-
-          {/* Description */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Description
-            </Text>
-            {product.description ? (
-              <HTMLRenderer html={product.description} />
-            ) : (
-              <Text
-                style={[styles.description, { color: colors.textSecondary }]}
-              >
-                No description available for this product.
-              </Text>
-            )}
-          </View>
-
-          {/* Specs */}
-          {product.specifications &&
-            Object.keys(product.specifications).length > 0 && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  Specifications
-                </Text>
-                <View
-                  style={[styles.specsTable, { borderColor: colors.border }]}
-                >
-                  {Object.entries(product.specifications).map(
-                    ([key, val], i) => (
-                      <View
-                        key={key}
-                        style={[
-                          styles.specRow,
-                          i !== 0 && {
-                            borderTopWidth: 1,
-                            borderTopColor: colors.border,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.specKey,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          {key}
-                        </Text>
-                        <Text
-                          style={[styles.specValue, { color: colors.text }]}
-                        >
-                          {val as string}
-                        </Text>
-                      </View>
-                    )
-                  )}
-                </View>
-              </View>
-            )}
-
-          {/* Reviews Section */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Customer Reviews
-            </Text>
-            <ReviewsList
-              reviews={reviews}
-              stats={reviewStats}
-              isLoading={reviewsLoading}
-              hasMore={hasMoreReviews}
-              onLoadMore={loadMoreReviews}
-              onMarkHelpful={(reviewId) => {
-                // Mark review as helpful
-                markReviewHelpful(reviewId, product.id).catch((err) =>
-                  log.error('Failed to mark review helpful:', err)
-                );
-              }}
-            />
-          </View>
-        </Animated.View>
+        <ProductDetailsBody
+          product={product}
+          effectivePrice={effectivePrice}
+          effectiveComparePrice={effectiveComparePrice}
+          negotiatedPrice={negotiatedPrice}
+          selectedVariant={selectedVariant}
+          setSelectedVariant={setSelectedVariant}
+          selectedCondition={selectedCondition}
+          setSelectedCondition={setSelectedCondition}
+          selectedColor={selectedColor}
+          selectedStorage={selectedStorage}
+          onSelectColor={(color, imgs) => {
+            setSelectedColor(color);
+            setColorImages(imgs?.length ? imgs : null);
+            setSelectedImageIndex(0);
+          }}
+          onSelectStorage={setSelectedStorage}
+          onOpenNegotiation={() => setShowNegotiationModal(true)}
+          reviews={reviews}
+          reviewStats={reviewStats}
+          reviewsLoading={reviewsLoading}
+          hasMoreReviews={hasMoreReviews}
+          loadMoreReviews={loadMoreReviews}
+          onMarkHelpful={(reviewId) => {
+            markReviewHelpful(reviewId, product.id).catch((err) =>
+              log.error('Failed to mark review helpful:', err)
+            );
+          }}
+          colors={colors}
+        />
       </Animated.ScrollView>
 
       {/* Sticky Bottom Actions */}
-      <View
-        style={[
-          styles.bottomBar,
-          {
-            paddingBottom: insets.bottom + SPACING.md,
-            backgroundColor: colors.card,
-            borderTopColor: colors.border,
-          },
-        ]}
-      >
-        <Animated.View
-          layout={LinearTransition.springify().damping(18).stiffness(120)}
-          style={{ width: '100%' }}
-        >
-          {quantityInCart > 0 ? (
-            <View
-              key="cart-active"
-              style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 0 }}
-            >
-              {/* Quantity Controller */}
-              <View
-                style={{
-                  flex: 1.2,
-                  height: 56,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: '#FFF',
-                  borderRadius: 12,
-                  borderWidth: 2,
-                  borderColor: BRAND.primary,
-                }}
-              >
-                <Pressable
-                  onPress={(e) => handleUpdateQuantity(quantityInCart - 1, e)}
-                  style={{
-                    width: 50,
-                    height: '100%',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    borderRightWidth: 1,
-                    borderRightColor: '#FEE2E2',
-                  }}
-                  hitSlop={10}
-                  accessibilityLabel={
-                    quantityInCart === 1
-                      ? 'Remove from cart'
-                      : 'Decrease quantity'
-                  }
-                  accessibilityRole="button"
-                >
-                  <Ionicons
-                    name={quantityInCart === 1 ? 'trash-outline' : 'remove'}
-                    size={22}
-                    color={BRAND.primary}
-                  />
-                </Pressable>
-
-                <View
-                  style={{
-                    flex: 1,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontSize: 9,
-                      color: '#9CA3AF',
-                      fontWeight: '600',
-                      textTransform: 'uppercase',
-                      letterSpacing: 0.5,
-                      marginBottom: -2,
-                    }}
-                  >
-                    In Cart
-                  </Text>
-                  <TextInput
-                    style={{
-                      fontSize: 18,
-                      fontWeight: '800',
-                      color: '#111827',
-                      textAlign: 'center',
-                      minWidth: 40,
-                      padding: 0,
-                      margin: 0,
-                    }}
-                    value={localQty}
-                    onChangeText={handleLocalQtyChange}
-                    onBlur={handleLocalQtyBlur}
-                    keyboardType="number-pad"
-                    returnKeyType="done"
-                  />
-                </View>
-
-                <Pressable
-                  onPress={(e) => handleUpdateQuantity(quantityInCart + 1, e)}
-                  style={{
-                    width: 50,
-                    height: '100%',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    borderLeftWidth: 1,
-                    borderLeftColor: '#FEE2E2',
-                  }}
-                  hitSlop={10}
-                  accessibilityLabel="Increase quantity"
-                  accessibilityRole="button"
-                >
-                  <Ionicons name="add" size={22} color={BRAND.primary} />
-                </Pressable>
-              </View>
-
-              {/* View Cart Button */}
-              <Pressable
-                onPress={() => router.push('/(tabs)/cart')}
-                style={{
-                  flex: 1,
-                  height: 56,
-                  backgroundColor: BRAND.primary,
-                  borderRadius: 12,
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  gap: 8,
-                  ...SHADOWS.md,
-                }}
-              >
-                <Ionicons name="cart-outline" size={20} color="#FFF" />
-                <Text
-                  style={{ color: '#FFF', fontSize: 16, fontWeight: '800' }}
-                >
-                  View Cart
-                </Text>
-              </Pressable>
-            </View>
-          ) : (
-            <Pressable
-              key="cart-empty"
-              style={[styles.addToCartBtn, { backgroundColor: BRAND.primary }]}
-              onPress={(e) => handleAddToCart(e)}
-            >
-              <Ionicons
-                name="cart-outline"
-                size={22}
-                color="#FFF"
-                style={{ marginRight: 8 }}
-              />
-              <Text style={styles.addToCartBtnText}>Add to Cart</Text>
-            </Pressable>
-          )}
-        </Animated.View>
-      </View>
+      <StickyBottomActions
+        quantityInCart={quantityInCart}
+        localQty={localQty}
+        onLocalQtyChange={handleLocalQtyChange}
+        onLocalQtyBlur={handleLocalQtyBlur}
+        onDecrement={(e) => handleUpdateQuantity(quantityInCart - 1, e)}
+        onIncrement={(e) => handleUpdateQuantity(quantityInCart + 1, e)}
+        onAddToCart={(e) => handleAddToCart(e)}
+        colors={colors}
+        paddingBottom={insets.bottom + SPACING.md}
+      />
 
       {/* Fly to Cart Particles */}
       {flyingParticles.map((p) => (
@@ -1233,15 +685,6 @@ export default function ProductDetailScreen() {
           setNegotiatedPrice(price);
           setShowNegotiationModal(false);
         }}
-      />
-
-      {/* Image Zoom Modal */}
-      <ImageZoomModal
-        visible={showImageZoom}
-        images={images}
-        initialIndex={selectedImageIndex}
-        onClose={() => setShowImageZoom(false)}
-        onIndexChange={(index) => setSelectedImageIndex(index)}
       />
     </View>
   );
@@ -1328,219 +771,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  imageContainer: {
-    width: '100%',
-    backgroundColor: '#F3F4F6',
-    overflow: 'hidden',
-  },
-  parallaxWrapper: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  mainImage: {
-    width: '100%',
-    height: '100%',
-  },
-  discountBadge: {
-    position: 'absolute',
-    top: 110,
-    left: 16,
-    backgroundColor: BRAND.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: RADIUS.md,
-  },
-  discountText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  zoomHint: {
-    position: 'absolute',
-    bottom: 40,
-    right: 16,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  detailsContainer: {
-    borderTopLeftRadius: RADIUS['3xl'],
-    borderTopRightRadius: RADIUS['3xl'],
-    marginTop: -RADIUS['3xl'],
-    paddingTop: 24,
-    paddingHorizontal: 20,
-  },
-  thumbnailsWrapper: {
-    marginBottom: 24,
-  },
-  thumbnailsContainer: {
-    gap: 12,
-  },
-  thumbnail: {
-    width: 64,
-    height: 64,
-    borderRadius: RADIUS.lg,
-    borderWidth: 2,
-    overflow: 'hidden',
-  },
-  thumbnailImage: {
-    width: '100%',
-    height: '100%',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  brandText: {
-    fontSize: 14,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  conditionBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: RADIUS.sm,
-  },
-  conditionText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  title: {
-    fontSize: TYPOGRAPHY.size['2xl'],
-    fontWeight: '800',
-    lineHeight: 34,
-    marginBottom: 12,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 20,
-  },
-  stars: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  ratingText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 12,
-    marginBottom: 24,
-  },
-  price: {
-    fontSize: TYPOGRAPHY.size['3xl'],
-    fontWeight: '900',
-  },
-  comparePrice: {
-    fontSize: 18,
-    textDecorationLine: 'line-through',
-    opacity: 0.6,
-  },
-  divider: {
-    height: 1,
-    width: '100%',
-    marginBottom: 24,
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  variantGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  variantChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: RADIUS.md,
-    borderWidth: 1.5,
-  },
-  variantLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  description: {
-    fontSize: 15,
-    lineHeight: 24,
-  },
-  specsTable: {
-    borderWidth: 1,
-    borderRadius: RADIUS.lg,
-    overflow: 'hidden',
-  },
-  specRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 14,
-  },
-  specKey: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  specValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    maxWidth: '60%',
-    textAlign: 'right',
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    gap: 16,
-    borderTopWidth: 1,
-  },
-  quantityContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  qtyBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  qtyText: {
-    fontSize: 16,
-    fontWeight: '700',
-    minWidth: 20,
-    textAlign: 'center',
-  },
-  addToCartBtn: {
-    flex: 1,
-    height: 54,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...SHADOWS.md,
-  },
-  addToCartBtnText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '800',
-  },
   toast: {
     position: 'absolute',
     bottom: 110,
@@ -1552,40 +782,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    ...SHADOWS.lg,
   },
   toastText: {
     color: '#FFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  negotiatedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: RADIUS.md,
-    marginBottom: 16,
-    alignSelf: 'flex-start',
-  },
-  negotiatedText: {
-    color: '#10B981',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  makeOfferButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderWidth: 1.5,
-    borderRadius: RADIUS.lg,
-    marginBottom: 16,
-  },
-  makeOfferText: {
     fontSize: 14,
     fontWeight: '600',
   },

@@ -1,9 +1,0 @@
-diff --git a/app.plugin.js b/app.plugin.js
-new file mode 100644
-index 0000000000000000000000000000000000000000..f50a0a253b1c6119442f2b770f2b081b6eb77a8c
---- /dev/null
-+++ b/app.plugin.js
-@@ -0,0 +1,3 @@
-+module.exports = function withClipboard(config) {
-+    return config;
-+};

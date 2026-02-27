@@ -187,56 +187,58 @@ const palette = {
 // THEME COLORS (matching web app HSL structure)
 // ============================================
 
+const lightTheme = {
+  // Core
+  background: palette.white,
+  foreground: palette.gray[900],
+  card: palette.white,
+  cardForeground: palette.gray[900],
+
+  // Primary (red brand)
+  primary: palette.red[600],
+  primaryForeground: palette.white,
+
+  // Secondary (amber accent - matching web)
+  secondary: palette.amber[500],
+  secondaryForeground: palette.black,
+
+  // Accent
+  accent: palette.amber[500],
+  accentForeground: palette.black,
+
+  // Muted (subtle backgrounds)
+  muted: palette.gray[100],
+  mutedForeground: palette.gray[500],
+
+  // Borders & Input
+  border: palette.gray[200],
+  input: palette.gray[200],
+  ring: palette.red[600],
+
+  // Legacy compatibility - 2026 WCAG AA compliant values
+  text: palette.gray[900], // Improved: darker for better contrast (was gray[800])
+  textSecondary: palette.gray[600], // Improved: 4.5:1 contrast on white (was gray[500])
+  placeholder: palette.gray[500], // Improved: visible placeholder text (was gray[100])
+  tint: palette.red[600],
+  icon: palette.gray[600], // Improved: better visibility (was gray[400])
+  tabIconDefault: palette.gray[500], // Improved: better visibility (was gray[400])
+  tabIconSelected: palette.red[600],
+
+  // Semantic
+  price: palette.red[600],
+  rating: palette.amber[400],
+  success: palette.emerald[500],
+  warning: palette.amber[500],
+  error: palette.red[500],
+  destructive: palette.red[500],
+  destructiveForeground: palette.white,
+
+  white: palette.white,
+  black: palette.black,
+};
+
 export default {
-  light: {
-    // Core
-    background: palette.white,
-    foreground: palette.gray[900],
-    card: palette.white,
-    cardForeground: palette.gray[900],
-
-    // Primary (red brand)
-    primary: palette.red[600],
-    primaryForeground: palette.white,
-
-    // Secondary (amber accent - matching web)
-    secondary: palette.amber[500],
-    secondaryForeground: palette.black,
-
-    // Accent
-    accent: palette.amber[500],
-    accentForeground: palette.black,
-
-    // Muted (subtle backgrounds)
-    muted: palette.gray[100],
-    mutedForeground: palette.gray[500],
-
-    // Borders & Input
-    border: palette.gray[200],
-    input: palette.gray[200],
-    ring: palette.red[600],
-
-    // Legacy compatibility - 2026 WCAG AA compliant values
-    text: palette.gray[900], // Improved: darker for better contrast (was gray[800])
-    textSecondary: palette.gray[600], // Improved: 4.5:1 contrast on white (was gray[500])
-    placeholder: palette.gray[500], // Improved: visible placeholder text (was gray[100])
-    tint: palette.red[600],
-    icon: palette.gray[600], // Improved: better visibility (was gray[400])
-    tabIconDefault: palette.gray[500], // Improved: better visibility (was gray[400])
-    tabIconSelected: palette.red[600],
-
-    // Semantic
-    price: palette.red[600],
-    rating: palette.amber[400],
-    success: palette.emerald[500],
-    warning: palette.amber[500],
-    error: palette.red[500],
-    destructive: palette.red[500],
-    destructiveForeground: palette.white,
-
-    white: palette.white,
-    black: palette.black,
-  },
+  light: lightTheme,
   dark: {
     // Core - matching web dark theme structure
     background: palette.gray[950],
@@ -286,6 +288,8 @@ export default {
     white: palette.white,
     black: palette.black,
   },
+  // RN 0.83: useColorScheme() can return 'unspecified' — treat as light
+  unspecified: lightTheme,
 };
 
 // ============================================

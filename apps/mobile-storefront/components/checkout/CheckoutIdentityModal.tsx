@@ -11,7 +11,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -62,14 +62,14 @@ export function CheckoutIdentityModal({
     cancelAnimation(translateY);
 
     if (!isOpen) {
-      backdropOpacity.value = 0;
-      translateY.value = 500;
+      backdropOpacity.set(0);
+      translateY.set(500);
       return;
     }
 
-    backdropOpacity.value = withTiming(1, { duration: 200 });
+    backdropOpacity.set(withTiming(1, { duration: 200 }));
     // Smooth slide up without bouncing
-    translateY.value = withTiming(0, { duration: 300 });
+    translateY.set(withTiming(0, { duration: 300 }));
 
     return () => {
       cancelAnimation(backdropOpacity);
@@ -78,11 +78,11 @@ export function CheckoutIdentityModal({
   }, [backdropOpacity, isOpen, translateY]);
 
   const animatedBackdrop = useAnimatedStyle(() => ({
-    opacity: backdropOpacity.value,
+    opacity: backdropOpacity.get(),
   }));
 
   const animatedSheet = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateY: translateY.get() }],
   }));
 
   const triggerHaptic = () => {

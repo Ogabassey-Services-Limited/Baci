@@ -57,14 +57,16 @@ function Snowflake({
   const opacity = useSharedValue(0.4 + layer * 0.2);
 
   useEffect(() => {
-    translateY.value = withDelay(
-      delay,
-      withRepeat(
-        withTiming(screenHeight + 100, {
-          duration: duration,
-          easing: Easing.bezier(0.45, 0, 0.55, 1), // Smoother falling curve
-        }),
-        -1
+    translateY.set(
+      withDelay(
+        delay,
+        withRepeat(
+          withTiming(screenHeight + 100, {
+            duration: duration,
+            easing: Easing.bezier(0.45, 0, 0.55, 1), // Smoother falling curve
+          }),
+          -1
+        )
       )
     );
 
@@ -74,8 +76,8 @@ function Snowflake({
   }, [delay, duration, translateY, screenHeight]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }, { scale: scale }],
-    opacity: opacity.value,
+    transform: [{ translateY: translateY.get() }, { scale: scale }],
+    opacity: opacity.get(),
   }));
 
   return (

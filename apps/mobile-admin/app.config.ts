@@ -14,7 +14,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   orientation: 'default',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
-  newArchEnabled: true,
   scheme: 'baciadmin',
   assetBundlePatterns: ['**/*'],
   splash: {
@@ -109,6 +108,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     'expo-build-properties',
     'expo-web-browser',
+    'expo-font',
+    'expo-sharing',
   ],
   web: {
     bundler: 'metro',

@@ -83,17 +83,21 @@ export function DrawerMenu() {
 
   useEffect(() => {
     if (isOpen) {
-      translateX.value = withTiming(0, {
-        duration: ANIMATION_DURATION,
-        easing: Easing.out(Easing.cubic),
-      });
-      backdropOpacity.value = withTiming(1, { duration: ANIMATION_DURATION });
+      translateX.set(
+        withTiming(0, {
+          duration: ANIMATION_DURATION,
+          easing: Easing.out(Easing.cubic),
+        })
+      );
+      backdropOpacity.set(withTiming(1, { duration: ANIMATION_DURATION }));
     } else {
-      translateX.value = withTiming(-DRAWER_WIDTH, {
-        duration: ANIMATION_DURATION,
-        easing: Easing.in(Easing.cubic),
-      });
-      backdropOpacity.value = withTiming(0, { duration: ANIMATION_DURATION });
+      translateX.set(
+        withTiming(-DRAWER_WIDTH, {
+          duration: ANIMATION_DURATION,
+          easing: Easing.in(Easing.cubic),
+        })
+      );
+      backdropOpacity.set(withTiming(0, { duration: ANIMATION_DURATION }));
     }
   }, [isOpen, translateX, backdropOpacity]);
 
@@ -116,34 +120,32 @@ export function DrawerMenu() {
     .activeOffsetX(-10)
     .onUpdate((event) => {
       if (event.translationX < 0) {
-        translateX.value = Math.max(event.translationX, -DRAWER_WIDTH);
-        backdropOpacity.value = interpolate(
-          translateX.value,
-          [-DRAWER_WIDTH, 0],
-          [0, 1]
+        translateX.set(Math.max(event.translationX, -DRAWER_WIDTH));
+        backdropOpacity.set(
+          interpolate(translateX.get(), [-DRAWER_WIDTH, 0], [0, 1])
         );
       }
     })
     .onEnd((event) => {
       if (event.translationX < -80 || event.velocityX < -500) {
-        translateX.value = withTiming(-DRAWER_WIDTH, { duration: 200 });
-        backdropOpacity.value = withTiming(0, { duration: 200 });
+        translateX.set(withTiming(-DRAWER_WIDTH, { duration: 200 }));
+        backdropOpacity.set(withTiming(0, { duration: 200 }));
         runOnJS(closeDrawer)();
       } else {
-        translateX.value = withTiming(0, { duration: 200 });
-        backdropOpacity.value = withTiming(1, { duration: 200 });
+        translateX.set(withTiming(0, { duration: 200 }));
+        backdropOpacity.set(withTiming(1, { duration: 200 }));
       }
     });
 
   const drawerAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
+    transform: [{ translateX: translateX.get() }],
   }));
 
   // H4 fix: Use isOpen prop directly for pointerEvents since useDerivedValue
   // reads .value at render time (JS thread snapshot), not reactively during animation.
 
   const backdropAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: backdropOpacity.value,
+    opacity: backdropOpacity.get(),
   }));
 
   const handleNavigate = (path: string) => {
