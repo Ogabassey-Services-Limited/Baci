@@ -36,7 +36,9 @@ describe('CopyButton', () => {
       },
     });
 
-    render(<CopyButton value="test-value" label="Copy" successLabel="Copied!" />);
+    render(
+      <CopyButton value="test-value" label="Copy" successLabel="Copied!" />
+    );
 
     const button = screen.getByRole('button', { name: /Copy/i });
     fireEvent.click(button);
