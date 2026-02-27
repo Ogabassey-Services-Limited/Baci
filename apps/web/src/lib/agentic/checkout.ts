@@ -1,4 +1,5 @@
 // --- Interfaces based on Spec ---
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface GPTLineItem {
   id: string; // "line_item_123"
@@ -64,12 +65,36 @@ export interface GPTMessage {
   content: string;
 }
 
+export interface CheckoutItem {
+  id: string;
+  quantity: number;
+}
+
+interface AgenticProduct {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  weight_value?: number;
+  weight_unit?: string;
+}
+
+interface AgenticVariant {
+  id: string;
+  product_id: string;
+  price_override?: number;
+  stock_quantity: number;
+  attributes?: Record<string, string>;
+  product?: {
+    name: string;
+  };
+}
+
 // --- Helpers ---
 
 export async function calculateCheckoutSession(
-  // biome-ignore lint/suspicious/noExplicitAny: Supabase client
-  supabase: any,
-  items: { id: string; quantity: number }[],
+  supabase: SupabaseClient,
+  items: CheckoutItem[],
   fulfillmentOptionId?: string | null,
   _currency: string = 'NGN'
 ) {
@@ -86,7 +111,8 @@ export async function calculateCheckoutSession(
   const { data: products } = await supabase
     .from('products')
     .select('id, name, price, stock, weight_value, weight_unit')
-    .in('id', productIds);
+    .in('id', productIds)
+    .returns<AgenticProduct[]>();
 
   // Try fetching from variants
   const { data: variants } = await supabase
@@ -94,7 +120,8 @@ export async function calculateCheckoutSession(
     .select(
       'id, product_id, price_override, stock_quantity, attributes, product:products(name)'
     )
-    .in('id', productIds);
+    .in('id', productIds)
+    .returns<AgenticVariant[]>();
 
   const foundProducts = products || [];
   const foundVariants = variants || [];
@@ -106,10 +133,8 @@ export async function calculateCheckoutSession(
   let _shippingWeightTotal = 0; // In kg presumably
 
   for (const requestedItem of items) {
-    // biome-ignore lint/suspicious/noExplicitAny: Product type mismatch
-    const product = foundProducts.find((p: any) => p.id === requestedItem.id);
-    // biome-ignore lint/suspicious/noExplicitAny: Variant type mismatch
-    const variant = foundVariants.find((v: any) => v.id === requestedItem.id);
+    const product = foundProducts.find((p) => p.id === requestedItem.id);
+    const variant = foundVariants.find((v) => v.id === requestedItem.id);
 
     let price = 0;
     let title = '';
