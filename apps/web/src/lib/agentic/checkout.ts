@@ -107,21 +107,31 @@ export async function calculateCheckoutSession(
   // Or check SKU.
   const productIds = items.map((i) => i.id);
 
-  // Try fetching from products first (parents)
-  const { data: products } = await supabase
+  // Fetch products
+  const { data: products, error: productsError } = await supabase
     .from('products')
     .select('id, name, price, stock, weight_value, weight_unit')
     .in('id', productIds)
     .returns<AgenticProduct[]>();
 
-  // Try fetching from variants
-  const { data: variants } = await supabase
+  if (productsError) {
+    throw new Error(`Failed to fetch products: ${productsError.message}`);
+  }
+
+  // Fetch variants
+  const { data: variants, error: variantsError } = await supabase
     .from('product_variants')
     .select(
       'id, product_id, price_override, stock_quantity, attributes, product:products(name)'
     )
     .in('id', productIds)
     .returns<AgenticVariant[]>();
+
+  if (variantsError) {
+    throw new Error(
+      `Failed to fetch product variants: ${variantsError.message}`
+    );
+  }
 
   const foundProducts = products || [];
   const foundVariants = variants || [];
