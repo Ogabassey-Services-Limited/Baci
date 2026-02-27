@@ -6,7 +6,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
@@ -40,28 +39,16 @@ export function ProductImageGallery({
   colors,
   headerHeight,
 }: ProductImageGalleryProps) {
-  // Local safeIndex state synced with parent via useEffect.
-  // This prevents stale renders when the parent's selectedImageIndex
-  // falls outside the valid range (e.g. after color-image swap).
-  const [safeIndex, setSafeIndex] = useState(() =>
-    Math.min(Math.max(0, selectedImageIndex), images.length - 1)
-  );
-
-  useEffect(() => {
-    const clamped = Math.min(
-      Math.max(0, selectedImageIndex),
-      images.length - 1
-    );
-    setSafeIndex(clamped);
-  }, [selectedImageIndex, images.length]);
-
   if (images.length === 0) {
     return null;
   }
 
-  // Render-time clamp: guards against a transient frame where the useEffect
-  // hasn't fired yet after an images array swap (e.g. color-image change).
-  const effectiveIndex = Math.min(Math.max(0, safeIndex), images.length - 1);
+  // Derived index: clamp selectedImageIndex to the valid range on every render.
+  // Pure derivation from props — no state or effect needed.
+  const effectiveIndex = Math.min(
+    Math.max(0, selectedImageIndex),
+    images.length - 1
+  );
 
   return (
     <>

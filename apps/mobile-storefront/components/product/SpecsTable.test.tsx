@@ -8,6 +8,7 @@
  */
 
 import { render, screen } from '@testing-library/react-native';
+import { Text } from 'react-native';
 import { SpecsTable } from '@/components/product/SpecsTable';
 import Colors from '@/constants/Colors';
 
@@ -45,16 +46,29 @@ describe('SpecsTable — rendering', () => {
     expect(screen.getByText('195')).toBeTruthy();
   });
 
-  it('renders null/undefined values as empty strings', () => {
-    render(
+  it('renders null and undefined values as empty strings', () => {
+    const { UNSAFE_getAllByType } = render(
       <SpecsTable
-        specifications={{ 'Unknown Spec': null }}
+        specifications={{ 'Null Spec': null, 'Undefined Spec': undefined }}
         colors={mockColors}
       />
     );
 
-    expect(screen.getByText('Unknown Spec')).toBeTruthy();
-    // The value cell should exist but be empty — queried via parent
+    // Labels render
+    expect(screen.getByText('Null Spec')).toBeTruthy();
+    expect(screen.getByText('Undefined Spec')).toBeTruthy();
+
+    // Value cells: Text components that are children of spec rows.
+    // With String(null ?? '') and String(undefined ?? ''), both produce ''.
+    // We verify by checking that no extra non-empty text appears beyond the keys.
+    const allText = UNSAFE_getAllByType(Text).map(
+      (node: { props: { children: unknown } }) => {
+        const child = node.props.children;
+        return typeof child === 'string' ? child : '';
+      }
+    );
+    // Should contain the two keys and two empty strings (values)
+    expect(allText.filter((t: string) => t === '')).toHaveLength(2);
   });
 });
 
