@@ -3,6 +3,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import {
   type DeviceInsuranceDetails,
@@ -14,6 +15,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> } // Await params in newer Next.js
 ) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) return response;
+
     const { id } = await params;
 
     // Auth check (supports mobile Bearer token + web cookies)
