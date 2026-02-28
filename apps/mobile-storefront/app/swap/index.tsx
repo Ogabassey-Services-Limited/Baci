@@ -268,13 +268,13 @@ export default function SwapScreen() {
   const getGradeColor = (grade: string) => {
     switch (grade) {
       case 'Excellent':
-        return '#059669';
+        return colors.success;
       case 'Good':
-        return '#2563EB';
+        return colors.primary;
       case 'Fair':
-        return '#D97706';
+        return colors.warning;
       default:
-        return '#DC2626';
+        return colors.error;
     }
   };
 
@@ -317,21 +317,21 @@ export default function SwapScreen() {
         {/* Hero Card */}
         <View style={styles.heroCard}>
           <View style={styles.heroBadge}>
-            <Ionicons name="sparkles" size={12} color="#FFF" />
-            <Text style={styles.heroBadgeText}>Powered by Gemini AI</Text>
+            <Ionicons name="sparkles" size={12} color={colors.white} />
+            <Text style={[styles.heroBadgeText, { color: colors.white }]}>Powered by Gemini AI</Text>
           </View>
-          <Text style={styles.heroTitle}>
+          <Text style={[styles.heroTitle, { color: colors.white }]}>
             Get an Instant AI{'\n'}Valuation in Seconds
           </Text>
-          <Text style={styles.heroSubtitle}>
+          <Text style={[styles.heroSubtitle, { color: colors.white }]}>
             Upload a short video of your device. Our AI will analyze the
             condition and give you an instant trade-in offer.
           </Text>
           <Pressable
-            style={styles.heroButton}
+            style={[styles.heroButton, { backgroundColor: colors.white }]}
             onPress={() => setIsModalOpen(true)}
           >
-            <Text style={styles.heroButtonText}>Start AI Trade-in</Text>
+            <Text style={[styles.heroButtonText, { color: BRAND.primary }]}>Start AI Trade-in</Text>
             <Ionicons name="camera" size={18} color={BRAND.primary} />
           </Pressable>
         </View>
@@ -366,8 +366,8 @@ export default function SwapScreen() {
           </Text>
           {ELIGIBLE_DEVICES.map((device, index) => (
             <View key={index} style={styles.eligibleItem}>
-              <View style={styles.eligibleCheck}>
-                <Ionicons name="checkmark" size={14} color="#059669" />
+              <View style={[styles.eligibleCheck, { backgroundColor: colors.muted }]}>
+                <Ionicons name="checkmark" size={14} color={colors.success} />
               </View>
               <Text style={[styles.eligibleText, { color: colors.text }]}>
                 {device}
@@ -377,18 +377,18 @@ export default function SwapScreen() {
         </View>
 
         {/* Sustainability Section */}
-        <View style={styles.sustainabilityCard}>
-          <View style={styles.sustainabilityIcon}>
-            <Ionicons name="leaf" size={32} color="#059669" />
+        <View style={[styles.sustainabilityCard, { backgroundColor: colors.muted }]}>
+          <View style={[styles.sustainabilityIcon, { backgroundColor: colors.background }]}>
+            <Ionicons name="leaf" size={32} color={colors.success} />
           </View>
           <View style={styles.sustainabilityContent}>
             <View style={styles.sustainabilityHeader}>
-              <Ionicons name="sync" size={18} color="#059669" />
-              <Text style={styles.sustainabilityTitle}>
+              <Ionicons name="sync" size={18} color={colors.success} />
+              <Text style={[styles.sustainabilityTitle, { color: colors.success }]}>
                 Trade-in is Recycling
               </Text>
             </View>
-            <Text style={styles.sustainabilityText}>
+            <Text style={[styles.sustainabilityText, { color: colors.textSecondary }]}>
               By swapping your device, you keep e-waste out of landfills. We
               refurbish and re-home your old gadgets, extending their lifecycle.
               It's a win for your wallet and the planet.
@@ -428,7 +428,7 @@ export default function SwapScreen() {
                   <View
                     style={[styles.uploadArea, { borderColor: colors.border }]}
                   >
-                    <View style={styles.uploadIconContainer}>
+                    <View style={[styles.uploadIconContainer, { backgroundColor: colors.background }]}>
                       <Ionicons
                         name="videocam"
                         size={32}
@@ -450,18 +450,18 @@ export default function SwapScreen() {
 
                     {videoUri ? (
                       <View style={styles.videoSelected}>
-                        <View style={styles.videoSelectedBadge}>
+                        <View style={[styles.videoSelectedBadge, { backgroundColor: colors.muted }]}>
                           <Ionicons
                             name="checkmark"
                             size={14}
-                            color="#059669"
+                            color={colors.success}
                           />
-                          <Text style={styles.videoSelectedText}>
+                          <Text style={[styles.videoSelectedText, { color: colors.success }]}>
                             Video Selected
                           </Text>
                         </View>
                         <Pressable onPress={() => setVideoUri(null)}>
-                          <Text style={styles.removeVideoText}>Remove</Text>
+                          <Text style={[styles.removeVideoText, { color: colors.error }]}>Remove</Text>
                         </Pressable>
                       </View>
                     ) : (
@@ -473,8 +473,8 @@ export default function SwapScreen() {
                           ]}
                           onPress={pickVideo}
                         >
-                          <Ionicons name="folder" size={18} color="#FFF" />
-                          <Text style={styles.uploadButtonText}>
+                          <Ionicons name="folder" size={18} color={colors.white} />
+                          <Text style={[styles.uploadButtonText, { color: colors.white }]}>
                             Select Video
                           </Text>
                         </Pressable>
@@ -485,8 +485,8 @@ export default function SwapScreen() {
                           ]}
                           onPress={recordVideo}
                         >
-                          <Ionicons name="camera" size={18} color="#FFF" />
-                          <Text style={styles.uploadButtonText}>
+                          <Ionicons name="camera" size={18} color={colors.white} />
+                          <Text style={[styles.uploadButtonText, { color: colors.white }]}>
                             Record Now
                           </Text>
                         </Pressable>
@@ -495,8 +495,8 @@ export default function SwapScreen() {
                   </View>
 
                   {error && (
-                    <View style={styles.errorContainer}>
-                      <Text style={styles.errorText}>{error}</Text>
+                    <View style={[styles.errorContainer, { backgroundColor: colors.muted }]}>
+                      <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
                     </View>
                   )}
 
@@ -510,8 +510,8 @@ export default function SwapScreen() {
                     onPress={startAnalysis}
                     disabled={!videoUri || isAnalyzing}
                   >
-                    <Text style={styles.analyzeButtonText}>Analyze Device</Text>
-                    <Ionicons name="arrow-forward" size={20} color="#FFF" />
+                    <Text style={[styles.analyzeButtonText, { color: colors.white }]}>Analyze Device</Text>
+                    <Ionicons name="arrow-forward" size={20} color={colors.white} />
                   </Pressable>
                 </>
               )}
@@ -545,15 +545,15 @@ export default function SwapScreen() {
               {step === 'result' && result && (
                 <>
                   {/* Value Display */}
-                  <View style={styles.valueCard}>
-                    <Text style={styles.valueLabel}>
+                  <View style={[styles.valueCard, { backgroundColor: colors.muted }]}>
+                    <Text style={[styles.valueLabel, { color: colors.success }]}>
                       Estimated Trade-in Value
                     </Text>
-                    <Text style={styles.valueAmount}>
+                    <Text style={[styles.valueAmount, { color: colors.success }]}>
                       N{result.estimatedValue.toLocaleString()}
                     </Text>
                     {result.basePrice > 0 && (
-                      <Text style={styles.valueBase}>
+                      <Text style={[styles.valueBase, { color: colors.success }]}>
                         Based on market price: N
                         {result.basePrice.toLocaleString()}
                       </Text>
@@ -642,13 +642,13 @@ export default function SwapScreen() {
 
                   {/* Action Buttons */}
                   <Pressable
-                    style={styles.acceptButton}
+                    style={[styles.acceptButton, { backgroundColor: colors.success }]}
                     onPress={handleAcceptOffer}
                   >
-                    <Text style={styles.acceptButtonText}>
+                    <Text style={[styles.acceptButtonText, { color: colors.white }]}>
                       Accept Offer & Chat
                     </Text>
-                    <Ionicons name="checkmark" size={20} color="#FFF" />
+                    <Ionicons name="checkmark" size={20} color={colors.white} />
                   </Pressable>
 
                   <Pressable style={styles.retryButton} onPress={resetModal}>
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.2)', // maintained alpha for transparency over red
     alignSelf: 'flex-start',
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
@@ -716,26 +716,23 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   heroBadgeText: {
-    color: '#FFF',
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   heroTitle: {
-    color: '#FFF',
     fontSize: 26,
     fontWeight: '800',
     lineHeight: 32,
     marginBottom: SPACING.sm,
   },
   heroSubtitle: {
-    color: 'rgba(255,255,255,0.8)',
+    opacity: 0.8,
     fontSize: 13,
     lineHeight: 20,
     marginBottom: SPACING.lg,
   },
   heroButton: {
-    backgroundColor: '#FFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -744,7 +741,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
   },
   heroButtonText: {
-    color: BRAND.primary,
     fontSize: 15,
     fontWeight: '700',
   },
@@ -805,7 +801,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#DEF7EC',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -814,7 +809,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   sustainabilityCard: {
-    backgroundColor: '#ECFDF5',
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     flexDirection: 'row',
@@ -824,7 +818,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -840,12 +833,10 @@ const styles = StyleSheet.create({
   sustainabilityTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#065F46',
   },
   sustainabilityText: {
     fontSize: 12,
     lineHeight: 18,
-    color: '#047857',
   },
   // Modal Styles
   modalOverlay: {
@@ -889,7 +880,6 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.md,
@@ -917,7 +907,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   uploadButtonText: {
-    color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -929,29 +918,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#DEF7EC',
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderRadius: 20,
   },
   videoSelectedText: {
-    color: '#059669',
     fontSize: 13,
     fontWeight: '600',
   },
   removeVideoText: {
-    color: '#DC2626',
     fontSize: 12,
     textDecorationLine: 'underline',
   },
   errorContainer: {
-    backgroundColor: '#FEE2E2',
     padding: SPACING.sm,
     borderRadius: RADIUS.md,
     marginBottom: SPACING.md,
   },
   errorText: {
-    color: '#DC2626',
     fontSize: 13,
     textAlign: 'center',
   },
@@ -967,7 +951,6 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   analyzeButtonText: {
-    color: '#FFF',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -995,7 +978,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   valueCard: {
-    backgroundColor: '#ECFDF5',
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     alignItems: 'center',
@@ -1003,18 +985,15 @@ const styles = StyleSheet.create({
   },
   valueLabel: {
     fontSize: 13,
-    color: '#047857',
     fontWeight: '600',
     marginBottom: SPACING.xs,
   },
   valueAmount: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#059669',
   },
   valueBase: {
     fontSize: 11,
-    color: '#10B981',
     marginTop: SPACING.xs,
   },
   detailsGrid: {
@@ -1055,7 +1034,6 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
   },
   acceptButton: {
-    backgroundColor: '#059669',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1065,7 +1043,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   acceptButtonText: {
-    color: '#FFF',
     fontSize: 16,
     fontWeight: '700',
   },
