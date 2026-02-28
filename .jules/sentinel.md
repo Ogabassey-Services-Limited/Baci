@@ -70,3 +70,11 @@
 1. Explicitly verify `checkCsrfProtection` usage in all state-changing routes.
 2. Avoid relying on comments or documentation for security assurances; verify the implementation.
 3. Consider implementing a linter rule or a centralized mechanism (like middleware) to enforce CSRF checks if possible, rather than relying on manual calls in every route.
+
+## 2026-03-06 - Missing Merchant ID Scoping in Product Bulk Update
+
+**Vulnerability:** The product bulk update API endpoint (`POST /api/products/bulk-update`) allowed an attacker to update or archive products belonging to other merchants by providing a valid product ID. The queries correctly scoped by `merchant_id` when matching by SKU or Name, but missed the scope when matching by primary key (`id`).
+
+**Learning:** When performing bulk operations with multiple match strategies (ID, SKU, Name), it is easy to forget defense-in-depth scoping on the primary key branch, leading to IDOR (Insecure Direct Object Reference).
+
+**Prevention:** Always append `.eq('merchant_id', merchantId)` to every database mutation operation (update, delete, upsert), even if the query is already targeting a specific primary key ID. Every branch of conditional query building must independently enforce tenancy.

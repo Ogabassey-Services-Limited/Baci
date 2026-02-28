@@ -62,8 +62,9 @@ let insertError: unknown = null;
 
 // Creates a query builder that supports chaining .eq() and resolves with { error }
 function createQueryBuilder(getError: () => unknown) {
-  const builder = {
-    eq: vi.fn(() => Promise.resolve({ error: getError() })),
+  const builder: any = {
+    eq: vi.fn(() => builder),
+    then: vi.fn((resolve) => resolve({ error: getError() })),
   };
   return builder;
 }
