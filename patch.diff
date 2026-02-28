@@ -1,0 +1,75 @@
+--- apps/web/src/components/analytics/draggable-analytics-grid.tsx
++++ apps/web/src/components/analytics/draggable-analytics-grid.tsx
+@@ -485,6 +485,15 @@
+     });
+   };
+
++  const atRiskSegment = data?.segmentSummary?.segments?.find(
++    (s) => s.segment === 'At Risk'
++  );
++
++  const championsSegment = data?.segmentSummary?.segments?.find(
++    (s) => s.segment === 'Champions'
++  );
++
++
+   if (loading) {
+     return (
+       <div className="space-y-4">
+@@ -1808,15 +1817,9 @@
+                     </div>
+                     <div className="text-right">
+                       <div className="text-sm font-medium">
+-                        {data?.segmentSummary?.segments?.find(
+-                          (s) => s.segment === 'At Risk'
+-                        )?.avg_clv
+-                          ? formatCurrency(
+-                              data.segmentSummary.segments.find(
+-                                (s) => s.segment === 'At Risk'
+-                              )?.avg_clv || 0
+-                            )
+-                          : 'N/A'}
++                        {atRiskSegment?.avg_clv
++                          ? formatCurrency(atRiskSegment.avg_clv)
++                          : 'N/A'}
+                       </div>
+                       <div className="text-xs text-muted-foreground">
+                         avg. CLV
+@@ -1854,15 +1857,9 @@
+                     </div>
+                     <div className="p-3 rounded-lg bg-muted/30 text-center">
+                       <div className="text-lg font-bold">
+-                        {data?.segmentSummary?.segments?.find(
+-                          (s) => s.segment === 'Champions'
+-                        )?.avg_order_value
+-                          ? formatCurrency(
+-                              data.segmentSummary.segments.find(
+-                                (s) => s.segment === 'Champions'
+-                              )?.avg_order_value || 0
+-                            )
+-                          : 'N/A'}
++                        {championsSegment?.avg_order_value
++                          ? formatCurrency(championsSegment.avg_order_value)
++                          : 'N/A'}
+                       </div>
+                       <div className="text-xs text-muted-foreground">
+                         Avg Order
+@@ -1870,15 +1867,9 @@
+                     </div>
+                     <div className="p-3 rounded-lg bg-muted/30 text-center">
+                       <div className="text-lg font-bold">
+-                        {data?.segmentSummary?.segments?.find(
+-                          (s) => s.segment === 'Champions'
+-                        )?.avg_clv
+-                          ? formatCurrency(
+-                              data.segmentSummary.segments.find(
+-                                (s) => s.segment === 'Champions'
+-                              )?.avg_clv || 0
+-                            )
+-                          : 'N/A'}
++                        {championsSegment?.avg_clv
++                          ? formatCurrency(championsSegment.avg_clv)
++                          : 'N/A'}
+                       </div>
+                       <div className="text-xs text-muted-foreground">
+                         Avg CLV
