@@ -16,7 +16,7 @@ export async function POST(
 ) {
   try {
     const { valid, response } = await checkCsrfProtection(request);
-    if (!valid) return response;
+    if (!valid) return response as NextResponse;
 
     const { id } = await params;
 
