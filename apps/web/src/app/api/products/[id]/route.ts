@@ -418,6 +418,7 @@ export async function PUT(
       .from('products')
       .update(updates)
       .eq('id', id)
+      .eq('merchant_id', merchantId)
       .select()
       .single();
 
@@ -444,9 +445,14 @@ export async function PUT(
           .from('product_variants')
           .delete()
           .eq('product_id', id)
+          .eq('merchant_id', merchantId)
           .not('id', 'in', `(${variantIdsToKeep.join(',')})`);
       } else {
-        await supabase.from('product_variants').delete().eq('product_id', id);
+        await supabase
+          .from('product_variants')
+          .delete()
+          .eq('product_id', id)
+          .eq('merchant_id', merchantId);
       }
 
       // 3. Separate updates and inserts
@@ -485,7 +491,11 @@ export async function PUT(
           console.error('Error inserting variants:', insertVarError);
       }
     } else if (body.has_variants === false) {
-      await supabase.from('product_variants').delete().eq('product_id', id);
+      await supabase
+        .from('product_variants')
+        .delete()
+        .eq('product_id', id)
+        .eq('merchant_id', merchantId);
     }
 
     // Regenerate embedding if name or description changed
