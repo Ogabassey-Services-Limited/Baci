@@ -325,6 +325,7 @@ export function Header({
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
+                      aria-label="User account"
                       className="p-2 hover:bg-black/5 rounded-full transition-colors group hidden sm:block"
                     >
                       <User className="w-5 h-5 group-hover:scale-110 transition-transform" />
@@ -399,6 +400,7 @@ export function Header({
               <SheetTrigger asChild>
                 <button
                   type="button"
+                  aria-label="Shopping cart"
                   className="relative p-2 hover:bg-black/5 rounded-full transition-colors group"
                 >
                   <ShoppingBag className="w-5 h-5 group-hover:scale-110 transition-transform" />
@@ -414,6 +416,7 @@ export function Header({
             {showMenu && (
               <button
                 type="button"
+                aria-label="Toggle menu"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden p-2 hover:bg-black/5 rounded-full transition-colors"
               >
