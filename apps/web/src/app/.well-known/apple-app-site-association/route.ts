@@ -4,9 +4,8 @@ import { buildAASA, getAppConfigForDomain } from '@/lib/well-known';
 
 export const dynamic = 'force-dynamic';
 
-const ROOT_DOMAIN = (
-  process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
-).trim();
+const ROOT_DOMAIN =
+  process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim() || 'usebaci.com';
 
 /**
  * Apple Universal Links verification endpoint (AASA).
@@ -15,8 +14,7 @@ const ROOT_DOMAIN = (
  * Must return Content-Type: application/json.
  */
 export function GET(request: NextRequest): NextResponse {
-  const host = request.headers.get('host') || '';
-  const hostname = host.split(':')[0];
+  const hostname = request.nextUrl.hostname.toLowerCase();
 
   const config = getAppConfigForDomain(hostname, ROOT_DOMAIN);
   const aasa = buildAASA(config);

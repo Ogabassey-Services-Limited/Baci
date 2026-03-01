@@ -4,9 +4,8 @@ import { buildAssetLinks, getAppConfigForDomain } from '@/lib/well-known';
 
 export const dynamic = 'force-dynamic';
 
-const ROOT_DOMAIN = (
-  process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
-).trim();
+const ROOT_DOMAIN =
+  process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim() || 'usebaci.com';
 
 /**
  * Android App Links verification endpoint.
@@ -15,8 +14,7 @@ const ROOT_DOMAIN = (
  * Must NOT redirect — Android rejects 3xx responses.
  */
 export function GET(request: NextRequest): NextResponse {
-  const host = request.headers.get('host') || '';
-  const hostname = host.split(':')[0];
+  const hostname = request.nextUrl.hostname.toLowerCase();
 
   const config = getAppConfigForDomain(hostname, ROOT_DOMAIN);
   const statements = buildAssetLinks(config);

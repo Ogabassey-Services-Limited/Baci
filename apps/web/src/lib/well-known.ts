@@ -19,10 +19,13 @@ export function getAppConfigForDomain(
   rootDomain: string
 ): DomainAppConfig {
   const normalized = hostname.toLowerCase().replace(/^www\./, '');
-  const normalizedRoot = rootDomain.toLowerCase();
+  const normalizedRoot = rootDomain
+    .toLowerCase()
+    .trim()
+    .replace(/^www\./, '');
 
   // Root platform domain: associate admin app only
-  if (normalized === normalizedRoot || normalized === `www.${normalizedRoot}`) {
+  if (normalized === normalizedRoot) {
     return { includeStorefront: false, includeAdmin: true };
   }
 
