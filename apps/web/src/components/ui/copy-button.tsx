@@ -39,28 +39,25 @@ export function CopyButton({
     }
   }, [hasCopied]);
 
-  const copyToClipboard = React.useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      e.preventDefault();
-      e.stopPropagation(); // Always stop propagation for copy actions
+  const copyToClipboard = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation(); // Always stop propagation for copy actions
 
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(value);
-      } else {
-        // Fallback
-        const textArea = document.createElement('textarea');
-        textArea.value = value;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-      }
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(value);
+    } else {
+      // Fallback
+      const textArea = document.createElement('textarea');
+      textArea.value = value;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+    }
 
-      setHasCopied(true);
-      onClick?.(e);
-    },
-    [value, onClick]
-  );
+    setHasCopied(true);
+    onClick?.(e);
+  };
 
   const Icon = hasCopied ? Check : Copy;
 
