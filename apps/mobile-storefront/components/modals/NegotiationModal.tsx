@@ -25,6 +25,7 @@ import { BRAND, palette, SHADOWS } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
 import { formatPrice, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
+import { useShallow } from 'zustand/react/shallow';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 let ImagePicker: typeof import('expo-image-picker') | null = null;
@@ -52,8 +53,18 @@ type NegotiationStatus =
   | 'submitted';
 
 export const NegotiationModal: React.FC = () => {
+  // ⚡ Bolt: Performance optimization
+  // 💡 What: Implemented explicit selectors wrapped in `useShallow` from Zustand.
+  // 🎯 Why: Previously, subscribing to the entire UI store without a selector caused this modal to excessively re-render on any UI state change.
+  // 📊 Impact: Prevents unnecessary visual glitches and re-renders when other modals or sidebars update.
   const { isNegotiationModalOpen, negotiationContext, closeNegotiation } =
-    useUIStore();
+    useUIStore(
+      useShallow((s) => ({
+        isNegotiationModalOpen: s.isNegotiationModalOpen,
+        negotiationContext: s.negotiationContext,
+        closeNegotiation: s.closeNegotiation,
+      }))
+    );
   const [offer, setOffer] = useState('');
   const [status, setStatus] = useState<NegotiationStatus>('input');
   const [message, setMessage] = useState('');

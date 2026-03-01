@@ -3,6 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { useShallow } from 'zustand/react/shallow';
 
 type PermissionType = 'notifications' | 'tracking';
 
@@ -87,7 +88,20 @@ export const usePermissionStore = create<PermissionState>()(
  * Hook to manage permissions with Soft Ask logic
  */
 export const usePermissionBooster = () => {
-  const store = usePermissionStore();
+  // ⚡ Bolt: Performance optimization
+  // 💡 What: Subscribed explicitly via `useShallow` rather than the whole store.
+  // 🎯 Why: A whole-store listener triggers component re-renders regardless of which property changed. Using `useShallow` with exact properties stops cascade renders.
+  // 📊 Impact: Substantial re-render prevention in wrapper components that call `usePermissionBooster`.
+  const store = usePermissionStore(
+    useShallow((s) => ({
+      lastRequestTime: s.lastRequestTime,
+      denialCounts: s.denialCounts,
+      shouldShowModal: s.shouldShowModal,
+      markRequested: s.markRequested,
+      markDenied: s.markDenied,
+      reset: s.reset,
+    }))
+  );
 
   const requestPermission = async (
     type: PermissionType
