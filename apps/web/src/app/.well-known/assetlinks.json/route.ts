@@ -2,8 +2,6 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 import { buildAssetLinks, getAppConfigForDomain } from '@/lib/well-known';
 
-export const dynamic = 'force-dynamic';
-
 const ROOT_DOMAIN =
   process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim() || 'usebaci.com';
 
