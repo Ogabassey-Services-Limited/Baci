@@ -45,7 +45,7 @@ export async function GET(
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 404 });
+    return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
   }
 
   return NextResponse.json({ customer });
@@ -109,7 +109,10 @@ export async function PATCH(
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ customer });
@@ -155,7 +158,10 @@ export async function DELETE(
     .eq('merchant_id', merchantId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ success: true });

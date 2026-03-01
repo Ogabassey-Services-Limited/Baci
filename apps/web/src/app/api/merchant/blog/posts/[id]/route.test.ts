@@ -262,7 +262,7 @@ describe('GET /api/merchant/blog/posts/[id]', () => {
       const json = await res.json();
 
       expect(res.status).toBe(500);
-      expect(json.error).toBe('Database error');
+      expect(json.error).toBe('Internal server error');
     });
   });
 
@@ -749,7 +749,7 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
       const json = await res.json();
 
       expect(res.status).toBe(500);
-      expect(json.error).toBe('Update failed');
+      expect(json.error).toBe('Failed to update post');
     });
 
     it('returns 500 when unexpected error occurs', async () => {
@@ -922,7 +922,7 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
       const json = await res.json();
 
       expect(res.status).toBe(500);
-      expect(json.error).toBe('Delete failed');
+      expect(json.error).toBe('Failed to delete post');
     });
 
     it('returns 500 when unexpected error occurs', async () => {

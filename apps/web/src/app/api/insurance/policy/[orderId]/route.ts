@@ -50,7 +50,10 @@ export async function GET(
       },
     });
     // biome-ignore lint/suspicious/noExplicitAny: Error from catch block
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (_error: any) {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

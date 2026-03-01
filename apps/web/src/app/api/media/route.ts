@@ -214,7 +214,10 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Upload error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
     }
 
     // Get public URL
@@ -235,7 +238,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Upload error:', error);
-    const message = error instanceof Error ? error.message : 'Upload failed';
+    const message = 'Upload failed';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -305,7 +308,10 @@ export async function DELETE(request: NextRequest) {
 
   if (error) {
     console.error('Delete error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ success: true });

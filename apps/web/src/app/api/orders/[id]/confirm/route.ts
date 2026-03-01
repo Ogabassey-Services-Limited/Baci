@@ -111,6 +111,9 @@ export async function POST(
     // biome-ignore lint/suspicious/noExplicitAny: Error from catch block
   } catch (error: any) {
     logger.error({ message: 'Confirm Order API Error', error });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
