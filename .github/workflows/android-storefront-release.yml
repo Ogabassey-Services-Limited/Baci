@@ -29,9 +29,6 @@ env:
   JAVA_VERSION: "17"
   NODE_VERSION: "24"
   WORKING_DIR: apps/mobile-storefront
-  # Node 22+ enables experimental type stripping by default which breaks
-  # expo-modules-core when resolved from node_modules during prebuild.
-  NODE_OPTIONS: "--no-strip-types"
   # Offset added to github.run_number to avoid collisions with
   # version codes previously uploaded via EAS or earlier manual runs.
   VERSION_CODE_BASE: '10'
@@ -59,6 +56,11 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
+
+      # Node 22+ type stripping breaks expo-modules-core. Set NODE_OPTIONS
+      # here (not in global env) so the Actions runner's Node 20 is unaffected.
+      - name: Disable Node type stripping
+        run: echo "NODE_OPTIONS=--no-strip-types" >> "$GITHUB_ENV"
 
       - name: Get pnpm store directory
         id: pnpm-cache
