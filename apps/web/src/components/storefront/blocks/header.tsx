@@ -302,7 +302,12 @@ export function Header({
             )}
 
             {showSearch && (
-              <Button variant="ghost" size="icon" className="md:hidden">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden"
+                aria-label="Search"
+              >
                 <Search className="w-5 h-5" />
               </Button>
             )}
