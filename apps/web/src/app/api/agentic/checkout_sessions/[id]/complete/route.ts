@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { POST as createOrder } from '@/app/api/orders/route'; // Reuse existing logic
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
-import { calculateCheckoutSession } from '@/lib/agentic/checkout';
+import {
+  type CheckoutItem,
+  calculateCheckoutSession,
+  type GPTTotal,
+} from '@/lib/agentic/checkout';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -43,14 +47,12 @@ export async function POST(
     // 1. Recalculate final totals to ensure accuracy
     const sessionCalc = await calculateCheckoutSession(
       supabase,
-      // biome-ignore lint/suspicious/noExplicitAny: Supabase return type mismatch
-      session.items as any[],
+      session.items as unknown as CheckoutItem[],
       session.fulfillment_option_id,
       session.currency
     );
     const grandTotal = sessionCalc.totals.find(
-      // biome-ignore lint/suspicious/noExplicitAny: Implicit any in find callback
-      (t: any) => t.type === 'total'
+      (t: GPTTotal) => t.type === 'total'
     )?.amount;
 
     if (!grandTotal)
@@ -163,8 +165,8 @@ export async function POST(
     sendAgenticWebhook('order.created', {
       id: orderId,
       currency: session.currency,
-      // biome-ignore lint/suspicious/noExplicitAny: Implicit any in find callback
-      total: sessionCalc.totals.find((t: any) => t.type === 'total')?.amount,
+      total: sessionCalc.totals.find((t: GPTTotal) => t.type === 'total')
+        ?.amount,
       status: 'pending',
       ...buyer,
     }).catch((err) =>
@@ -197,8 +199,7 @@ export async function POST(
       messages: [],
       links: [],
     });
-    // biome-ignore lint/suspicious/noExplicitAny: Generic error handling
-  } catch (err: any) {
+  } catch (err: unknown) {
     logger.error({
       message: 'Agentic Checkout Complete Error',
       error: err,
