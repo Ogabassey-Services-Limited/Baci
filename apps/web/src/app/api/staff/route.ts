@@ -87,7 +87,7 @@ export async function GET() {
     // Get role permissions for reference
     const { data: rolePermissions } = await supabase
       .from('role_permissions')
-      .select('*');
+      .select('role, permissions');
 
     return NextResponse.json({
       staff: staff || [],
