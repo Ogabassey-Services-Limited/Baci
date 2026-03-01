@@ -50,7 +50,8 @@ export async function GET(
       },
     });
     // biome-ignore lint/suspicious/noExplicitAny: Error from catch block
-  } catch (_error: any) {
+  } catch (error: any) {
+    console.error('Insurance policy GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
