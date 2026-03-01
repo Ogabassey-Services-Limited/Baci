@@ -40,7 +40,9 @@ export async function POST(request: NextRequest) {
     // Get discount code
     const { data: discountCode, error } = await supabase
       .from('discount_codes')
-      .select('*')
+      .select(
+        'id, code, description, discount_type, discount_value, starts_at, expires_at, usage_limit, usage_count, usage_limit_per_customer, minimum_purchase_amount, applies_to, product_ids, category_ids, maximum_discount_amount'
+      )
       .eq('merchant_id', merchantId)
       .eq('code', code.toUpperCase())
       .eq('is_active', true)
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
     if (customerEmail) {
       const { count } = await supabase
         .from('discount_code_usage')
-        .select('*', { count: 'exact', head: true })
+        .select('discount_code_id', { count: 'exact', head: true })
         .eq('discount_code_id', discountCode.id)
         .eq('customer_email', customerEmail);
 
