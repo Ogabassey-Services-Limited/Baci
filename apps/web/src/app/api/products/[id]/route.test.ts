@@ -158,13 +158,15 @@ const createMockSupabase = () => ({
         ),
         update: vi.fn(() => ({
           eq: vi.fn(() => ({
-            select: vi.fn(() => ({
-              single: vi.fn(() =>
-                Promise.resolve({
-                  data: updateError ? null : updateResult,
-                  error: updateError,
-                })
-              ),
+            eq: vi.fn(() => ({
+              select: vi.fn(() => ({
+                single: vi.fn(() =>
+                  Promise.resolve({
+                    data: updateError ? null : updateResult,
+                    error: updateError,
+                  })
+                ),
+              })),
             })),
           })),
         })),
@@ -184,12 +186,15 @@ const createMockSupabase = () => ({
           })
         ),
         delete: vi.fn(() => ({
-          eq: vi.fn().mockReturnThis(),
-          not: vi.fn(() =>
-            Promise.resolve({
-              error: null,
-            })
-          ),
+          eq: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              not: vi.fn(() =>
+                Promise.resolve({
+                  error: null,
+                })
+              ),
+            })),
+          })),
         })),
         upsert: vi.fn(() =>
           Promise.resolve({
