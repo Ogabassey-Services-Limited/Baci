@@ -3,6 +3,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   generateOrderShippedEmail,
   generateOrderShippedText,
@@ -27,8 +28,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) return response as NextResponse;
+
     const { id } = await params;
-    console.log(`[OrderShipped] Starting for order ${id}`);
+    logger.info({ message: 'OrderShipped starting', orderId: id });
 
     // Optional body for tracking info
     let trackingNumber: string | undefined;
@@ -164,7 +168,7 @@ export async function POST(
       );
     }
 
-    console.log(`[OrderShipped] Email sent for order ${id}`);
+    logger.info({ message: 'OrderShipped email sent', orderId: id });
 
     return NextResponse.json({
       success: true,
@@ -173,7 +177,6 @@ export async function POST(
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Internal Error';
-    console.error('Error in shipped notification:', error);
     logger.error({ message: 'Error sending shipped email', error });
     return NextResponse.json({ error: message }, { status: 500 });
   }

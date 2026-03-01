@@ -4,6 +4,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { calculatePlatformFee, generatePaymentAccount } from '@/lib/paystack';
 
@@ -26,6 +27,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) return response as NextResponse;
+
     const { id: orderId } = await params;
 
     // 1. Auth check (supports mobile Bearer token + web cookies)
