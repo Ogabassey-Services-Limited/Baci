@@ -48,6 +48,7 @@ import { useProduct } from '@/hooks/use-products';
 import { markReviewHelpful, useReviews } from '@/hooks/use-reviews';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
+import { useShallow } from 'zustand/react/shallow';
 import type { ProductCondition } from '@/types/product';
 import { getDiscountPercentage } from '@/types/product';
 
@@ -75,7 +76,7 @@ export default function ProductDetailScreen() {
   const { product, isLoading, error, refetch } = useProduct(
     isValidSlug ? slug : ''
   );
-  const { items, addItem, updateQuantity, removeItem } = useCartStore();
+  const { items, addItem, updateQuantity, removeItem } = useCartStore(useShallow((s) => ({ items: s.items, addItem: s.addItem, updateQuantity: s.updateQuantity, removeItem: s.removeItem })));
   const toggleSaved = useSavedStore((state) => state.toggleSaved);
   const isSaved = useSavedStore((state) => state.isSaved);
   const savedToastState = useSavedStore((state) => state.toastState);

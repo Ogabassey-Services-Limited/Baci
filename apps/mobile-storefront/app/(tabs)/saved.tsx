@@ -13,11 +13,12 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { useSavedStore } from '@/stores/saved-store';
+import { useShallow } from 'zustand/react/shallow';
 
 export default function SavedTabScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { items, removeItem } = useSavedStore();
+  const { items, removeItem } = useSavedStore(useShallow((s) => ({ items: s.items, removeItem: s.removeItem })));
   const { isOnline, refresh } = useNetworkState();
 
   const handleProductPress = (slug: string) => {

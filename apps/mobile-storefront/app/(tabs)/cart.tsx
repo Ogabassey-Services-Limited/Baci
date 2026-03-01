@@ -30,6 +30,7 @@ import Animated, {
 } from 'react-native-reanimated';
 // useSafeAreaInsets kept for future use
 // import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { CheckoutIdentityModal } from '@/components/checkout/checkout-identity';
 import { SafeImage } from '@/components/ui/SafeImage';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -107,7 +108,7 @@ export default function CartScreen() {
   const clearCart = useCartStore((state) => state.clearCart);
   const toggleAssurance = useCartStore((state) => state.toggleAssurance);
 
-  const { session } = useAuthStore();
+  const { session } = useAuthStore(useShallow((s) => ({ session: s.session })));
   const openNegotiation = useUIStore((state) => state.openNegotiation);
   const hasItems = items.length > 0;
 

@@ -34,7 +34,10 @@ import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useAuthStore } from '@/stores/auth-store';
+
 import { useDrawerStore } from '@/stores/drawer-store';
+import { useShallow } from 'zustand/react/shallow';
+
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.85, 320);
@@ -68,8 +71,8 @@ const menuItems: MenuItem[] = [
 export function DrawerMenu() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
-  const { isOpen, closeDrawer } = useDrawerStore();
-  const { user, signOut } = useAuthStore();
+  const { isOpen, closeDrawer } = useDrawerStore(useShallow((s) => ({ isOpen: s.isOpen, closeDrawer: s.closeDrawer })));
+  const { user, signOut } = useAuthStore(useShallow((s) => ({ user: s.user, signOut: s.signOut })));
   const isAuthenticated = !!user;
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];

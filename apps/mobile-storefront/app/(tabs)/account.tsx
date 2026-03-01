@@ -32,12 +32,13 @@ import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { useMerchant } from '@/hooks/use-products';
 import { supabase } from '@/lib/supabase';
 import { type Customer, useAuthStore } from '@/stores/auth-store';
+import { useShallow } from 'zustand/react/shallow';
 
 export default function AccountScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  const { customer, session } = useAuthStore();
+  const { customer, session } = useAuthStore(useShallow((s) => ({ customer: s.customer, session: s.session })));
   const signOut = useAuthStore((state) => state.signOut);
   const { data: merchant } = useMerchant();
 
