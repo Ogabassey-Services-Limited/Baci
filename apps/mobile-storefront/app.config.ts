@@ -105,7 +105,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     'expo-secure-store',
-    'expo-clipboard',
     [
       'expo-notifications',
       {
@@ -156,6 +155,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   updates: {
     url: 'https://u.expo.dev/c6c1897b-cac8-49b0-85f9-3d277aecc379',
+    checkAutomatically: 'ON_ERROR_RECOVERY',
+    fallbackToCacheTimeout: 0,
   },
   runtimeVersion: {
     policy: 'appVersion',

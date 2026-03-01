@@ -27,8 +27,11 @@ permissions:
 
 env:
   JAVA_VERSION: '17'
-  NODE_VERSION: '22'
+  NODE_VERSION: '24'
   WORKING_DIR: apps/mobile-admin
+  # Node 22+ enables experimental type stripping by default which breaks
+  # expo-modules-core when resolved from node_modules during prebuild.
+  NODE_OPTIONS: '--no-experimental-strip-types'
   # Offset added to github.run_number to avoid collisions with
   # version codes previously uploaded via EAS (1-9) and earlier runs (10).
   VERSION_CODE_BASE: '10'
