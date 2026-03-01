@@ -404,6 +404,13 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // ==== RFC 8615: WELL-KNOWN PASSTHROUGH ====
+  // Let .well-known requests reach App Router route handlers unmodified.
+  // Apple/Android app link verifiers reject redirects and rewrites.
+  if (pathname.startsWith('/.well-known/')) {
+    return NextResponse.next();
+  }
+
   // ==== SEO: GLOBAL LOWERCASE REDIRECT ====
   // Force all paths to be lowercase to prevent duplicate content crawling
   // Skip: _next (assets), api (backend), static files
