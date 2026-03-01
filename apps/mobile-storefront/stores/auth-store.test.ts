@@ -16,6 +16,13 @@ import { act } from '@testing-library/react-native';
 // applied via mockImplementation() in beforeEach/per-test instead.
 // ---------------------------------------------------------------------------
 
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  setItem: jest.fn(),
+  getItem: jest.fn(),
+  removeItem: jest.fn(),
+  clear: jest.fn(),
+}));
+
 const mockUnsubscribe = jest.fn();
 // Holds the raw auth-state-change callback so tests can invoke it directly
 let mockAuthListenerCb: (event: string, session: unknown) => Promise<void>;
@@ -98,6 +105,20 @@ const mockClearCart = jest.fn();
 jest.mock('./cart-store', () => ({
   useCartStore: {
     getState: jest.fn(() => ({ items: [], clearCart: mockClearCart })),
+  },
+}));
+
+const mockClearSaved = jest.fn();
+jest.mock('./saved-store', () => ({
+  useSavedStore: {
+    getState: jest.fn(() => ({ clearSaved: mockClearSaved })),
+  },
+}));
+
+const mockClearComparison = jest.fn();
+jest.mock('./comparison-store', () => ({
+  useComparisonStore: {
+    getState: jest.fn(() => ({ clearComparison: mockClearComparison })),
   },
 }));
 
@@ -756,6 +777,9 @@ describe('useAuthStore', () => {
       expect(state.user).toBeNull();
       expect(state.session).toBeNull();
       expect(state.customer).toBeNull();
+      expect(mockClearCart).toHaveBeenCalled();
+      expect(mockClearSaved).toHaveBeenCalled();
+      expect(mockClearComparison).toHaveBeenCalled();
     });
   });
 
