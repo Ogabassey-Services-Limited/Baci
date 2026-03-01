@@ -53,7 +53,10 @@ export async function GET(request: Request) {
     .single();
 
   if (configError && configError.code !== 'PGRST116') {
-    return NextResponse.json({ error: configError.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 
   // Determine which config to load for editing
@@ -149,7 +152,10 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ success: true, data });
@@ -217,7 +223,10 @@ export async function PUT(request: Request) {
     .eq('id', currentConfig.id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ success: true });

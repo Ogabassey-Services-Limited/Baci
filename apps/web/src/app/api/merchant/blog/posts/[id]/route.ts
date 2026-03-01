@@ -53,7 +53,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'Post not found' }, { status: 404 });
       }
       console.error('Error fetching blog post:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json(post);
@@ -162,7 +165,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (updateError) {
       console.error('Error updating blog post:', updateError);
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to update post' },
+        { status: 500 }
+      );
     }
 
     // Regenerate embedding if content, title, or excerpt changed
@@ -244,7 +250,10 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     if (deleteError) {
       console.error('Error deleting blog post:', deleteError);
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to delete post' },
+        { status: 500 }
+      );
     }
 
     // Invalidate blog caches after deletion

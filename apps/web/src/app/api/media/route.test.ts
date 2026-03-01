@@ -168,7 +168,7 @@ describe('DELETE /api/media', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body.error).toBe('Storage error');
+    expect(body.error).toBe('Internal server error');
   });
 
   it('returns 403 when CSRF token is invalid', async () => {
