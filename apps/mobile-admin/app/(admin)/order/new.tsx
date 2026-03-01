@@ -600,7 +600,12 @@ export default function NewOrderScreen() {
               ]}
               onPress={() => setShowDatePicker((p) => !p)}
             >
-              <View style={styles.iconBox}>
+              <View
+                style={[
+                  styles.iconBox,
+                  { backgroundColor: colors.backgroundLight },
+                ]}
+              >
                 <Ionicons
                   name="calendar-outline"
                   size={20}
@@ -645,7 +650,12 @@ export default function NewOrderScreen() {
               style={styles.listRow}
               onPress={() => setShowCustomerModal(true)}
             >
-              <View style={styles.iconBox}>
+              <View
+                style={[
+                  styles.iconBox,
+                  { backgroundColor: colors.backgroundLight },
+                ]}
+              >
                 <Ionicons
                   name="person-outline"
                   size={20}
@@ -706,7 +716,12 @@ export default function NewOrderScreen() {
                 },
               ]}
             >
-              <View style={styles.iconBox}>
+              <View
+                style={[
+                  styles.iconBox,
+                  { backgroundColor: colors.backgroundLight },
+                ]}
+              >
                 <Ionicons
                   name="location-outline"
                   size={20}
@@ -1006,7 +1021,10 @@ export default function NewOrderScreen() {
                 orderItems.map((item) => (
                   <View
                     key={item.product_id || item.name}
-                    style={[styles.itemCard, { backgroundColor: colors.card }]}
+                    style={[
+                      styles.itemCard,
+                      { backgroundColor: colors.card, borderColor: colors.border },
+                    ]}
                   >
                     {/* Thumbnail Rendering */}
                     <View
@@ -1132,7 +1150,12 @@ export default function NewOrderScreen() {
             </View>
 
             {/* SECTION 4: Summary Calculations */}
-            <View style={styles.summaryContainer}>
+            <View
+              style={[
+                styles.summaryContainer,
+                { borderTopColor: colors.border },
+              ]}
+            >
               <View style={styles.summaryRow}>
                 <Text
                   style={[styles.summaryLabel, { color: colors.textSecondary }]}
@@ -1257,7 +1280,7 @@ export default function NewOrderScreen() {
                     marginTop: 4,
                     paddingTop: 12,
                     borderTopWidth: 1,
-                    borderTopColor: 'rgba(0,0,0,0.05)',
+                    borderTopColor: colors.border,
                   },
                 ]}
               >
@@ -2747,7 +2770,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.03)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2812,7 +2834,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
   },
   itemThumbnail: {
     width: 54,
@@ -2844,7 +2865,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.05)',
   },
   summaryRow: {
     flexDirection: 'row',
