@@ -72,6 +72,10 @@ function CategoryItem({
         onPress={onPress}
         style={[styles.circleItem]}
         activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityState={{ selected: isActive }}
+        accessibilityLabel={name}
+        accessibilityHint={`Tap to select ${name} services`}
       >
         <Animated.View
           style={[
