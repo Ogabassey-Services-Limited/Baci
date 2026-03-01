@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
+}));
+
 // Mock environment variables
 vi.mock('@/env', () => ({
   getSupabaseUrl: vi.fn(() => 'https://test.supabase.co'),

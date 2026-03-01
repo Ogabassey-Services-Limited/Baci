@@ -3,6 +3,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   generateOrderShippedEmail,
   generateOrderShippedText,
@@ -27,6 +28,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) return response as NextResponse;
+
     const { id } = await params;
     console.log(`[OrderShipped] Starting for order ${id}`);
 

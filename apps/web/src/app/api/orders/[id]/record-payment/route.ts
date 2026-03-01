@@ -3,6 +3,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -26,8 +27,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) return response as NextResponse;
+
+    const { id } = await params;
     logger.info({ message: 'RecordPayment starting', orderId: id });
 
     const body = await request.json();
@@ -390,7 +394,6 @@ export async function POST(
     logger.error({
       message: 'RecordPayment internal error',
       error,
-      orderId: id,
     });
     return NextResponse.json(
       { error: error.message || 'Internal Error' },
