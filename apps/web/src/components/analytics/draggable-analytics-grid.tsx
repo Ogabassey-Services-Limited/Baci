@@ -485,6 +485,14 @@ export function DraggableAnalyticsGrid({
     });
   };
 
+  const atRiskSegment = data?.segmentSummary?.segments?.find(
+    (s) => s.segment === 'At Risk'
+  );
+
+  const championsSegment = data?.segmentSummary?.segments?.find(
+    (s) => s.segment === 'Champions'
+  );
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -1808,14 +1816,8 @@ export function DraggableAnalyticsGrid({
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-medium">
-                        {data?.segmentSummary?.segments?.find(
-                          (s) => s.segment === 'At Risk'
-                        )?.avg_clv
-                          ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'At Risk'
-                              )?.avg_clv || 0
-                            )
+                        {atRiskSegment?.avg_clv
+                          ? formatCurrency(atRiskSegment.avg_clv)
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1854,14 +1856,8 @@ export function DraggableAnalyticsGrid({
                     </div>
                     <div className="p-3 rounded-lg bg-muted/30 text-center">
                       <div className="text-lg font-bold">
-                        {data?.segmentSummary?.segments?.find(
-                          (s) => s.segment === 'Champions'
-                        )?.avg_order_value
-                          ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'Champions'
-                              )?.avg_order_value || 0
-                            )
+                        {championsSegment?.avg_order_value
+                          ? formatCurrency(championsSegment.avg_order_value)
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1870,14 +1866,8 @@ export function DraggableAnalyticsGrid({
                     </div>
                     <div className="p-3 rounded-lg bg-muted/30 text-center">
                       <div className="text-lg font-bold">
-                        {data?.segmentSummary?.segments?.find(
-                          (s) => s.segment === 'Champions'
-                        )?.avg_clv
-                          ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'Champions'
-                              )?.avg_clv || 0
-                            )
+                        {championsSegment?.avg_clv
+                          ? formatCurrency(championsSegment.avg_clv)
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
