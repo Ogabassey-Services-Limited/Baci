@@ -21,6 +21,8 @@ import {
   shouldInvalidateSessionOnGetUserError,
 } from './auth-helpers';
 import { useCartStore } from './cart-store';
+import { useSavedStore } from './saved-store';
+import { useComparisonStore } from './comparison-store';
 
 const log = createLogger('AuthStore');
 
@@ -275,6 +277,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 customer,
               });
             } else if (event === 'SIGNED_OUT') {
+              // 2026 Critical Fix: Reset user stores to prevent data bleed on session expiry
+              useCartStore.getState().clearCart();
+              useSavedStore.getState().clearSaved();
+              useComparisonStore.getState().clearComparison();
               set({
                 user: null,
                 session: null,
@@ -620,6 +626,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: true });
       await supabase.auth.signOut();
       useCartStore.getState().clearCart();
+      useSavedStore.getState().clearSaved();
+      useComparisonStore.getState().clearComparison();
       set({
         user: null,
         session: null,
