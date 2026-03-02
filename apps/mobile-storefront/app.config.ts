@@ -38,8 +38,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: 'ogabassey',
   assetBundlePatterns: ['**/*'],
   splash: {
-    image: './assets/images/splash-icon.png',
-    resizeMode: 'contain',
     backgroundColor: '#000000',
   },
   ios: {
@@ -130,6 +128,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     './config/withFirebaseModularHeaders.js',
     './config/withObjCLinkerFlag.js',
+    './config/withNoSplashImage.js',
     'expo-localization',
     'expo-apple-authentication',
   ],
