@@ -1,8 +1,9 @@
 'use client';
 
-import { Copy, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { CopyButton } from '@/components/ui/copy-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -45,14 +46,6 @@ export function FeedUrlSection({
 }: FeedUrlSectionProps) {
   const { toast } = useToast();
   const [validating, setValidating] = useState(false);
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(feedUrl);
-    toast({
-      title: 'Copied!',
-      description: 'Feed URL copied to clipboard',
-    });
-  };
 
   const validateFeed = async () => {
     // Security: Validate URL before fetching to prevent SSRF
@@ -107,14 +100,18 @@ export function FeedUrlSection({
 
       <div className="flex gap-2">
         <Input id={id} value={feedUrl} readOnly className="font-mono text-sm" />
-        <Button variant="outline" size="icon" onClick={copyToClipboard}>
-          <Copy className="h-4 w-4" />
-        </Button>
+        <CopyButton
+          value={feedUrl}
+          label="Copy feed URL"
+          successLabel="Copied!"
+          variant="outline"
+        />
         <Button
           variant="outline"
           size="icon"
           onClick={validateFeed}
           disabled={validating}
+          aria-label="Validate feed URL"
         >
           <RefreshCw
             className={`h-4 w-4 ${validating ? 'motion-safe:animate-spin' : ''}`}
