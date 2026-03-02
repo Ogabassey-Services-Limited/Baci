@@ -28,12 +28,12 @@ import {
   SectionList,
   type SectionListData,
   type SectionListRenderItemInfo,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateRangePicker from '@/components/ui/DateRangePicker';
 import OrderReportModal from '@/components/ui/OrderReportModal';
@@ -697,10 +697,7 @@ export default function OrdersScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['top']}
     >
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.background}
-      />
+      <SystemBars style={isDark ? 'light' : 'dark'} />
 
       {/* Header */}
       <View style={styles.header}>

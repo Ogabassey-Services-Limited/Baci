@@ -12,11 +12,11 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import ReportSelectionModal from '@/components/analytics/ReportSelectionModal';
@@ -602,10 +602,7 @@ export default function AnalyticsScreen() {
           headerShown: false, // Hide default header as we're creating a custom one
         }}
       />
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.background}
-      />
+      <SystemBars style={isDark ? 'light' : 'dark'} />
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['top']}

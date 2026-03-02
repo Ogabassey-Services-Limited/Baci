@@ -76,7 +76,7 @@ vi.mock('expo-linear-gradient', async () => {
   };
 });
 
-vi.mock('expo-status-bar', () => ({ StatusBar: () => null }));
+vi.mock('react-native-edge-to-edge', () => ({ SystemBars: () => null }));
 
 vi.mock('@expo/vector-icons', async () => {
   const React = await import('react');

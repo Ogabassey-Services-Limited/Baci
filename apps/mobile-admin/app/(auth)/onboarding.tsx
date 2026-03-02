@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
@@ -14,6 +13,7 @@ import {
   View,
   type ViewToken,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   DARK_COLORS,
@@ -180,7 +180,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <SystemBars style="light" />
 
       {/* Premium Dark Background Gradient */}
       <LinearGradient

@@ -22,8 +22,8 @@ import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DARK_COLORS, LIGHT_COLORS } from '@/constants/theme';
 import { NetworkProvider } from '@/context/NetworkContext';
@@ -103,7 +103,7 @@ export default function RootLayout() {
     <QueryProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemeProvider value={isDark ? AdminDarkTheme : AdminLightTheme}>
-          <StatusBar style={isDark ? 'light' : 'dark'} />
+          <SystemBars style={isDark ? 'light' : 'dark'} />
           <NetworkProvider>
             <OnboardingProvider>
               <Slot />

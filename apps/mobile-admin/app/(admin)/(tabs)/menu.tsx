@@ -6,11 +6,11 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { APP_VERSION_LABEL } from '@/constants/app-info';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -371,10 +371,7 @@ export default function MenuScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       edges={['top']}
     >
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.background}
-      />
+      <SystemBars style={isDark ? 'light' : 'dark'} />
 
       {/* Header */}
       <View style={styles.header}>

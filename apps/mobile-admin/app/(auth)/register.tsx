@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme'; // Adjust import path if needed
 import { useRegistration } from '@/hooks/useRegistration';
 import type { NetworkError } from '@/lib/api-client';
@@ -234,7 +234,7 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <SystemBars style="light" />
       <LinearGradient
         colors={['#0D0D1A', '#1A1A2E']}
         style={StyleSheet.absoluteFillObject}

@@ -5,24 +5,26 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import SafeImage from '@/components/ui/SafeImage';
-// Supported Countries Configuration
+import { CountryPickerModal } from '@/components/ui/CountryPickerModal';
+import { LogoPicker } from '@/components/ui/LogoPicker';
+import {
+  StatusModal,
+  type StatusModalState,
+} from '@/components/ui/StatusModal';
 import { COUNTRIES } from '@/constants/countries';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCachedImageUri } from '@/hooks/useCachedImageUri';
@@ -30,7 +32,6 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { asUploadFile } from '@/types/upload';
 import { SubscriptionManagement } from '@/utils/SubscriptionManagement';
 
 export default function StoreSettingsScreen() {
@@ -40,23 +41,10 @@ export default function StoreSettingsScreen() {
   const { merchant, isLoading } = useMerchant();
   const { isPro } = useRevenueCat();
   const { uri: cachedLogoUri } = useCachedImageUri(merchant?.logo_url);
-  const [isUploading, setIsUploading] = useState(false);
   const [showCountryModal, setShowCountryModal] = useState(false);
-  const [countrySearch, setCountrySearch] = useState('');
-
-  const filteredCountries = COUNTRIES.filter(
-    (c) =>
-      c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-      c.code.toLowerCase().includes(countrySearch.toLowerCase())
-  );
 
   // Status Modal State
-  const [statusModal, setStatusModal] = useState<{
-    visible: boolean;
-    type: 'success' | 'error';
-    title: string;
-    message: string;
-  }>({
+  const [statusModal, setStatusModal] = useState<StatusModalState>({
     visible: false,
     type: 'success',
     title: '',
@@ -71,8 +59,6 @@ export default function StoreSettingsScreen() {
   const [country, setCountry] = useState(COUNTRIES[0].code);
   const [currency, setCurrency] = useState(COUNTRIES[0].currency);
 
-  // Social & Analytics State
-
   // URL State
   const [slug, setSlug] = useState('');
   const [isSlugEdited, setIsSlugEdited] = useState(false);
@@ -85,19 +71,16 @@ export default function StoreSettingsScreen() {
       setEmail(merchant.email || merchant.support_email || '');
       setAddress(merchant.business_address || '');
 
-      // Social Media
-
       const initialCountry = merchant.country || COUNTRIES[0].code;
       setCountry(initialCountry);
 
-      // Prioritize saved payout_currency, then fallback to country's default currency, then default DZD
       const defaultCurrencyForCountry = COUNTRIES.find(
         (c) => c.code === initialCountry || c.name === initialCountry
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-        defaultCurrencyForCountry ||
-        COUNTRIES[0].currency
+          defaultCurrencyForCountry ||
+          COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');
@@ -106,112 +89,11 @@ export default function StoreSettingsScreen() {
   }, [merchant]);
 
   const handleCountrySelect = (selected: (typeof COUNTRIES)[0]) => {
-    setCountry(selected.code); // SAVE CODE NOT NAME
+    setCountry(selected.code);
     setCurrency(selected.currency);
     setShowCountryModal(false);
   };
 
-  // ... (Handle Image Pick and Upload unchanged) ...
-  const handleImagePick = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets && result.assets[0]) {
-        const asset = result.assets[0];
-        await uploadLogo(asset.uri);
-      }
-    } catch (error) {
-      console.error('Pick image error:', error);
-      setStatusModal({
-        visible: true,
-        type: 'error',
-        title: 'Image Selection Failed',
-        message: 'Failed to select image from gallery',
-      });
-    }
-  };
-
-  const uploadLogo = async (uri: string) => {
-    if (!merchant?.id) return;
-    setIsUploading(true);
-
-    try {
-      // Create FormData for upload
-      const formData = new FormData();
-      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${merchant.id}/${fileName}`;
-
-      // Rigorous MIME type mapping for 2026 standards
-      let mimeType = 'image/jpeg';
-      if (fileExt === 'png') mimeType = 'image/png';
-      else if (fileExt === 'svg') mimeType = 'image/svg+xml';
-      else if (fileExt === 'webp') mimeType = 'image/webp';
-      else if (fileExt === 'gif') mimeType = 'image/gif';
-
-      // Append file using type-safe upload helper for React Native
-      formData.append(
-        'file',
-        asUploadFile({
-          uri,
-          name: fileName,
-          type: mimeType,
-        })
-      );
-
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('media')
-        .upload(filePath, formData, {
-          contentType: mimeType,
-          upsert: true,
-        });
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('media').getPublicUrl(filePath);
-
-      // Update merchant logo_url
-      const { error: updateError } = await supabase
-        .from('merchants')
-        .update({ logo_url: publicUrl })
-        .eq('id', merchant.id);
-
-      if (updateError) throw updateError;
-
-      // Invalidate queries
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      queryClient.invalidateQueries({ queryKey: ['merchant-settings'] });
-
-      setStatusModal({
-        visible: true,
-        type: 'success',
-        title: 'Logo Updated',
-        message: 'Your store logo has been updated successfully.',
-      });
-    } catch (error: unknown) {
-      const err = error as Error;
-      console.error('Upload error:', err);
-      setStatusModal({
-        visible: true,
-        type: 'error',
-        title: 'Upload Failed',
-        message: err.message || 'Failed to upload logo',
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  // Auto-generate slug from business name if not manually edited
   const handleBusinessNameChange = (text: string) => {
     setBusinessName(text);
     if (!isSlugEdited && !merchant?.slug) {
@@ -229,7 +111,11 @@ export default function StoreSettingsScreen() {
     setSlug(sanitized);
   };
 
-  // Save mutation
+  const invalidateMerchantQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['merchant'] });
+    queryClient.invalidateQueries({ queryKey: ['merchant-settings'] });
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!merchant?.id) throw new Error('No merchant found');
@@ -242,16 +128,15 @@ export default function StoreSettingsScreen() {
           support_email: email,
           business_address: address,
           country: country,
-          payout_currency: currency, // Use payout_currency to match schema
-          slug: slug, // Saving the slug
+          payout_currency: currency,
+          slug: slug,
         })
         .eq('id', merchant.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      queryClient.invalidateQueries({ queryKey: ['merchant-settings'] });
-      queryClient.invalidateQueries({ queryKey: ['store-readiness'] }); // Refresh checklist
+      invalidateMerchantQueries();
+      queryClient.invalidateQueries({ queryKey: ['store-readiness'] });
       setStatusModal({
         visible: true,
         type: 'success',
@@ -322,7 +207,7 @@ export default function StoreSettingsScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <SystemBars style={isDark ? 'light' : 'dark'} />
 
         <ScrollView
           style={styles.scrollView}
@@ -335,54 +220,13 @@ export default function StoreSettingsScreen() {
             <Text style={[styles.label, { color: colors.textSecondary }]}>
               Store Logo
             </Text>
-            <View style={styles.logoContainer}>
-              {cachedLogoUri ? (
-                <SafeImage
-                  source={{ uri: cachedLogoUri }}
-                  style={styles.logo}
-                  contentFit="contain"
-                />
-              ) : (
-                <View
-                  style={[
-                    styles.logoPlaceholder,
-                    { backgroundColor: colors.primary },
-                  ]}
-                >
-                  <Text style={styles.logoPlaceholderText}>
-                    {businessName.charAt(0).toUpperCase() || 'S'}
-                  </Text>
-                </View>
-              )}
-              <Pressable
-                style={[
-                  styles.changeLogoButton,
-                  { borderColor: colors.border },
-                ]}
-                onPress={handleImagePick}
-                disabled={isUploading}
-              >
-                {isUploading ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <>
-                    <Ionicons
-                      name="camera-outline"
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                    <Text
-                      style={[
-                        styles.changeLogoText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      Change
-                    </Text>
-                  </>
-                )}
-              </Pressable>
-            </View>
+            <LogoPicker
+              merchantId={merchant?.id}
+              cachedLogoUri={cachedLogoUri}
+              businessName={businessName}
+              onUploadSuccess={invalidateMerchantQueries}
+              onStatusChange={setStatusModal}
+            />
           </View>
 
           {/* Business Name */}
@@ -700,7 +544,6 @@ export default function StoreSettingsScreen() {
             )}
           </View>
 
-          {/* Store URL (Read-only) */}
           {/* Store URL (Editable) */}
           <View
             style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
@@ -746,171 +589,14 @@ export default function StoreSettingsScreen() {
           </View>
         </ScrollView>
 
-        {/* Country Picker Modal */}
-        <Modal
+        <CountryPickerModal
           visible={showCountryModal}
-          animationType="slide"
-          presentationStyle="pageSheet"
-          onRequestClose={() => setShowCountryModal(false)}
-        >
-          <View
-            style={[
-              styles.modalContainer,
-              { backgroundColor: colors.background },
-            ]}
-          >
-            <View
-              style={[styles.modalHeader, { borderBottomColor: colors.border }]}
-            >
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                Select Country
-              </Text>
-              <Pressable
-                onPress={() => setShowCountryModal(false)}
-                style={styles.closeButton}
-              >
-                <Ionicons name="close" size={24} color={colors.text} />
-              </Pressable>
-            </View>
+          selectedCountry={country}
+          onSelect={handleCountrySelect}
+          onClose={() => setShowCountryModal(false)}
+        />
 
-            {/* Search Bar */}
-            <View style={{ padding: SPACING.md, paddingBottom: 0 }}>
-              <View
-                style={[
-                  styles.searchContainer,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                <Ionicons
-                  name="search"
-                  size={20}
-                  color={colors.textSecondary}
-                  style={{ marginRight: 8 }}
-                />
-                <TextInput
-                  style={[styles.searchInput, { color: colors.text }]}
-                  placeholder="Search country..."
-                  placeholderTextColor={colors.textMuted}
-                  value={countrySearch}
-                  onChangeText={setCountrySearch}
-                  autoCorrect={false}
-                />
-                {countrySearch.length > 0 && (
-                  <Pressable onPress={() => setCountrySearch('')}>
-                    <Ionicons
-                      name="close-circle"
-                      size={18}
-                      color={colors.textMuted}
-                    />
-                  </Pressable>
-                )}
-              </View>
-            </View>
-
-            <ScrollView contentContainerStyle={{ padding: SPACING.md }}>
-              {filteredCountries.map((item) => (
-                <Pressable
-                  key={item.code}
-                  style={[
-                    styles.countryItem,
-                    {
-                      backgroundColor:
-                        country === item.code || country === item.name
-                          ? colors.primaryLight
-                          : colors.card,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  onPress={() => handleCountrySelect(item)}
-                >
-                  <View>
-                    <Text
-                      style={[
-                        styles.countryName,
-                        {
-                          color: colors.text,
-                          fontWeight:
-                            country === item.code || country === item.name
-                              ? 'bold'
-                              : 'normal',
-                        },
-                      ]}
-                    >
-                      {item.name}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.currencyText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {item.currency} ({item.currencySymbol})
-                    </Text>
-                  </View>
-                  {(country === item.code || country === item.name) && (
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={20}
-                      color={colors.primary}
-                    />
-                  )}
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        </Modal>
-
-        {/* Custom Status Modal */}
-        <Modal
-          visible={statusModal.visible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => handleCloseStatusModal()}
-        >
-          <View style={styles.statusModalOverlay}>
-            <View
-              style={[styles.statusModalCard, { backgroundColor: colors.card }]}
-            >
-              <View
-                style={[
-                  styles.iconContainer,
-                  {
-                    backgroundColor:
-                      statusModal.type === 'success' ? '#E8F5E9' : '#FFEBEE',
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={statusModal.type === 'success' ? 'checkmark' : 'alert'}
-                  size={32}
-                  color={statusModal.type === 'success' ? '#2E7D32' : '#C62828'}
-                />
-              </View>
-              <Text style={[styles.statusTitle, { color: colors.text }]}>
-                {statusModal.title}
-              </Text>
-              <Text
-                style={[styles.statusMessage, { color: colors.textSecondary }]}
-              >
-                {statusModal.message}
-              </Text>
-              <Pressable
-                style={[
-                  styles.statusButton,
-                  {
-                    backgroundColor:
-                      statusModal.type === 'success'
-                        ? colors.primary
-                        : '#C62828',
-                  },
-                ]}
-                onPress={handleCloseStatusModal}
-              >
-                <Text style={styles.statusButtonText}>Okay</Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
+        <StatusModal status={statusModal} onClose={handleCloseStatusModal} />
       </SafeAreaView>
     </>
   );
@@ -918,7 +604,11 @@ export default function StoreSettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   backButton: { padding: SPACING.sm, marginLeft: -SPACING.sm },
   saveButton: { padding: SPACING.sm },
   saveText: {
@@ -942,17 +632,11 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     marginBottom: SPACING.lg,
   },
-  cardTitle: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    marginBottom: SPACING.md,
-  },
   label: {
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     marginBottom: SPACING.sm,
   },
-
   input: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
@@ -961,9 +645,6 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     marginBottom: SPACING.lg,
   },
-  inputBg: {
-    backgroundColor: '#F0F0F0', // Example light background for input
-  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -971,47 +652,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: SPACING.lg,
   },
-  inputWithIcon: {
-    flex: 1,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 12,
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
   multilineInput: {
     minHeight: 80,
     textAlignVertical: 'top',
-  },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.lg,
-  },
-  logo: { width: 80, height: 80, borderRadius: RADIUS.lg },
-  logoPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: RADIUS.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoPlaceholderText: {
-    fontSize: 32,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    color: '#FFFFFF',
-  },
-  changeLogoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-  },
-  changeLogoText: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   readOnlyInput: {
     height: 48,
@@ -1028,121 +671,11 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
-  modalContainer: { flex: 1 },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: SPACING.md,
-    borderBottomWidth: 1,
-  },
-  modalTitle: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  closeButton: { position: 'absolute', right: SPACING.md, padding: SPACING.sm },
-  countryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: SPACING.lg,
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    marginBottom: SPACING.sm,
-  },
-  countryName: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  currencyText: { fontSize: TYPOGRAPHY.size.sm },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    height: 48,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    height: '100%',
-  },
-  // Status Modal Styles
-  statusModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.xl,
-  },
-  statusModalCard: {
-    width: '100%',
-    maxWidth: 320,
-    borderRadius: RADIUS['2xl'],
-    padding: SPACING['2xl'],
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
-  },
-  statusTitle: {
-    fontSize: TYPOGRAPHY.size.xl,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-  },
-  statusMessage: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    textAlign: 'center',
-    marginBottom: SPACING.xl,
-    lineHeight: 22,
-  },
-  statusButton: {
-    width: '100%',
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.xl,
-    alignItems: 'center',
-  },
-  statusButtonText: {
-    color: '#FFFFFF',
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 0,
-  },
-  navRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
-  navRowText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
   sublabel: {
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     marginBottom: SPACING.xs,
   },
-  // Subscription button styles
   subscriptionButton: {
     flexDirection: 'row',
     alignItems: 'center',

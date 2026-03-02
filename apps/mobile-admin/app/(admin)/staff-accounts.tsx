@@ -30,12 +30,12 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
@@ -323,7 +323,7 @@ export default function StaffAccountsScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <SystemBars style={isDark ? 'light' : 'dark'} />
 
         {/* Tabs */}
         <View style={[styles.tabContainer, { backgroundColor: colors.card }]}>

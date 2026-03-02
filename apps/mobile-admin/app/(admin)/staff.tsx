@@ -16,12 +16,12 @@ import {
   RefreshControl,
   ScrollView,
   Share,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import {
@@ -389,10 +389,7 @@ export default function StaffScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <StatusBar
-          barStyle={isDark ? 'light-content' : 'dark-content'}
-          backgroundColor={colors.background}
-        />
+        <SystemBars style={isDark ? 'light' : 'dark'} />
 
         {/* Stats Summary */}
         <View style={styles.summaryRow}>

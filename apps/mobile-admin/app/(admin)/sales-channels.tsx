@@ -4,8 +4,8 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
+import { Stack, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import {
@@ -13,11 +13,11 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
@@ -121,7 +121,7 @@ export default function SalesChannelsScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <SystemBars style={isDark ? 'light' : 'dark'} />
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}

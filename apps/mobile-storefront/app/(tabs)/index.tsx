@@ -2,7 +2,8 @@ import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { RefreshControl, StatusBar, StyleSheet, View } from 'react-native';
+import { RefreshControl, StyleSheet, View } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { BlockRenderer } from '@/components/storefront/BlockRenderer';
 import { Header } from '@/components/storefront/Header';
@@ -184,7 +185,7 @@ export default function HomeScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false, title: '' }} />
       <SnowEffect />
-      <StatusBar barStyle="light-content" />
+      <SystemBars style="light" />
 
       {/* Background Layer for Hero Overlap (Layer 1) */}
       {isElite && (
@@ -198,10 +199,7 @@ export default function HomeScreen() {
       )}
 
       <View
-        style={[
-          styles.headerOverlay,
-          { zIndex: searchVisible ? 10000 : 100 },
-        ]}
+        style={[styles.headerOverlay, { zIndex: searchVisible ? 10000 : 100 }]}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
         <Header

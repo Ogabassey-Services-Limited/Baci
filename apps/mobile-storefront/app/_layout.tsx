@@ -22,8 +22,8 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { ConnectivityBanner } from '@/components/ConnectivityBanner';
@@ -207,7 +207,7 @@ function RootLayoutNav({
             colorScheme === 'dark' ? OgabasseyDarkTheme : OgabasseyLightTheme
           }
         >
-          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+          <SystemBars style={colorScheme === 'dark' ? 'light' : 'dark'} />
           <GlobalErrorBoundary context="RootNavigation">
             <Stack
               screenOptions={{
