@@ -22,6 +22,22 @@ vi.mock('next/cache', () => ({
   revalidateTag: vi.fn(),
 }));
 
+vi.mock('@/lib/api-auth', () => ({
+  hasPermission: vi.fn().mockReturnValue(true),
+}));
+
+const merchantMock = { context: null as unknown };
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: vi.fn(() => Promise.resolve(merchantMock.context)),
+  toUserAccess: vi.fn().mockReturnValue({
+    merchantId: 'merchant-123',
+    role: 'owner',
+    isOwner: true,
+    isStaff: false,
+    permissions: { full_access: { all: true } },
+  }),
+}));
+
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: vi.fn(),
 }));
@@ -266,6 +282,17 @@ function resetMocks() {
     business_name: 'Test Store',
     country: 'NG',
   };
+  merchantMock.context = {
+    merchantId: MERCHANT_ID,
+    merchantSlug: 'test-store',
+    businessName: 'Test Store',
+    staffAccess: {
+      isStaff: false,
+      isOwner: true,
+      role: null,
+      permissions: { full_access: { all: true } },
+    },
+  };
   product = {
     id: PRODUCT_ID,
     name: 'Test Product',
@@ -305,7 +332,7 @@ describe('GET /api/products/[id]', () => {
 
   describe('merchant lookup', () => {
     it('returns 404 when merchant not found', async () => {
-      merchant = null;
+      merchantMock.context = null;
 
       const res = await GET(makeGetRequest(PRODUCT_ID), {
         params: Promise.resolve({ id: PRODUCT_ID }),

@@ -8,6 +8,11 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
   test: {
     environment: 'jsdom',
     globals: true,
@@ -17,7 +22,6 @@ export default defineConfig({
         __dirname,
         './src/app/onboarding/__mocks__/actions.ts'
       ),
-      '@': path.resolve(__dirname, './src'),
     },
   },
 });
