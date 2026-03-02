@@ -94,6 +94,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Android project via Expo prebuild
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          CI: "1"
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
+          EXPO_PUBLIC_API_URL: https://usebaci.com
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID: ${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}
+        run: pnpm exec expo prebuild --platform android --clean
+
       - name: Resolve version code
         id: version
         shell: bash
@@ -138,10 +152,14 @@ jobs:
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
 
-      - name: Ensure Hermes compiler is executable
+      - name: Configure release signing
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
-          chmod +x node_modules/react-native/sdks/hermesc/linux64-bin/hermesc 2>/dev/null || true
-          chmod +x node_modules/react-native/sdks/hermesc/osx-bin/hermesc 2>/dev/null || true
+          # Inject release signingConfig into the existing signingConfigs block
+          sed -i 's|signingConfigs {|signingConfigs {\n        release {\n            storeFile file("release.keystore")\n            storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")\n            keyAlias System.getenv("ANDROID_KEY_ALIAS")\n            keyPassword System.getenv("ANDROID_KEY_PASSWORD")\n        }|' android/app/build.gradle
+
+          # Switch release buildType from debug signing to release signing
+          sed -i 's|signingConfig signingConfigs.debug|signingConfig signingConfigs.release|' android/app/build.gradle
 
       - name: Build Android App Bundle
         working-directory: ${{ env.WORKING_DIR }}/android
