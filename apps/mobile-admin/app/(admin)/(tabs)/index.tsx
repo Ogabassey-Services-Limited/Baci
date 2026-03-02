@@ -19,6 +19,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import {
   BranchSwitcher,
   InsightCard,
@@ -232,8 +233,14 @@ export default function HomeScreen() {
 
   // Dashboard UI
 
-  const { setInsightDismissed, shouldShowInsight } = useSettingsStore();
-  const showInsight = shouldShowInsight();
+  // Zustand selector: subscribe to the derived boolean so the component
+  // re-renders when the underlying insightDismissedDate changes.
+  const { setInsightDismissed, showInsight } = useSettingsStore(
+    useShallow((s) => ({
+      setInsightDismissed: s.setInsightDismissed,
+      showInsight: s.shouldShowInsight(),
+    }))
+  );
 
   const handleDismissInsight = () => {
     setInsightDismissed(true);

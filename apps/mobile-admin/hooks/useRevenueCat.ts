@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { useRevenueCatStore } from '@/stores/revenueCatStore';
 
 export function useRevenueCat() {
+  // Selecting all 11/11 store properties with useShallow provides no
+  // performance benefit — revert to the bare hook.
   const store = useRevenueCatStore();
 
   useEffect(() => {

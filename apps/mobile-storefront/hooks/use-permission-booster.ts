@@ -87,6 +87,8 @@ export const usePermissionStore = create<PermissionState>()(
  * Hook to manage permissions with Soft Ask logic
  */
 export const usePermissionBooster = () => {
+  // Selecting all 6/6 store properties with useShallow provides no
+  // performance benefit — revert to the bare hook.
   const store = usePermissionStore();
 
   const requestPermission = async (
