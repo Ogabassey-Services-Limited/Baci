@@ -446,7 +446,7 @@ export default function CartScreen() {
                       <Text style={styles.originalPrice}>
                         {formatPrice(item.price * item.quantity)}
                       </Text>
-                      <Text style={styles.negotiatedPrice}>
+                      <Text style={[styles.negotiatedPrice, { color: colors.success }]}>
                         {formatPrice(itemTotal)}
                       </Text>
                     </>
@@ -822,10 +822,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   conditionTagTextNew: {
-    color: '#047857',
+    // color provided inline via colors.success
   },
   conditionTagTextUsed: {
-    color: '#B45309',
+    // color provided inline via colors.warning
   },
   colorTag: {
     flexDirection: 'row',
@@ -912,7 +912,7 @@ const styles = StyleSheet.create({
   negotiatedPrice: {
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
-    color: '#10B981',
+    // color provided inline via colors.success
   },
   currentPrice: {
     fontSize: 18,
@@ -1001,7 +1001,7 @@ const styles = StyleSheet.create({
   negotiatedBadgeText: {
     fontSize: 12,
     fontFamily: 'Inter_700Bold',
-    color: '#10B981',
+    // color provided inline via colors.success
   },
   checkoutStickyFooter: {
     position: 'absolute',
@@ -1062,6 +1062,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   checkoutBtnLabel: {
+    // Intentional white text on colored (primary) button background
     color: '#FFFFFF',
     fontSize: 15,
     fontFamily: 'Inter_700Bold',
@@ -1070,9 +1071,11 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
+    // Intentional translucent white dot separator on colored button
     backgroundColor: 'rgba(255,255,255,0.4)',
   },
   checkoutBtnPrice: {
+    // Intentional white text on colored (primary) button background
     color: '#FFFFFF',
     fontSize: 15,
     fontFamily: 'Inter_700Bold',
