@@ -5,6 +5,7 @@ import {
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { env, getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { checkPasswordBreach } from '@/lib/password-breach';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { mobileOnboardingSchema } from '@/schemas/onboarding';
@@ -79,6 +80,17 @@ export async function POST(req: NextRequest) {
       if (!password) {
         return NextResponse.json(
           { error: 'Password is required for new accounts.' },
+          { status: 400 }
+        );
+      }
+
+      const { isBreached, count } = await checkPasswordBreach(password);
+
+      if (isBreached) {
+        return NextResponse.json(
+          {
+            error: `This password has appeared in ${count?.toLocaleString()} known data breaches. Please choose a different, more secure password.`,
+          },
           { status: 400 }
         );
       }
