@@ -84,14 +84,22 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const { isBreached, count } = await checkPasswordBreach(password);
+      try {
+        const { isBreached, count } = await checkPasswordBreach(password);
 
-      if (isBreached) {
-        return NextResponse.json(
-          {
-            error: `This password has appeared in ${count?.toLocaleString()} known data breaches. Please choose a different, more secure password.`,
-          },
-          { status: 400 }
+        if (isBreached) {
+          return NextResponse.json(
+            {
+              error: `This password has appeared in ${(count ?? 1).toLocaleString()} known data breaches. Please choose a different, more secure password.`,
+            },
+            { status: 400 }
+          );
+        }
+      } catch (breachCheckError) {
+        // Fail-open: allow signup if breach check is unavailable
+        console.error(
+          'Password breach check failed, proceeding with signup:',
+          breachCheckError
         );
       }
 
