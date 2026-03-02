@@ -17,6 +17,13 @@ const mockAdminClient = { from: mockAdminFrom };
 // Track after() callbacks for manual execution in tests
 const afterCallbacks: Array<() => Promise<void>> = [];
 
+vi.mock('@/lib/password-breach', () => {
+  return {
+    checkPasswordBreach: vi
+      .fn()
+      .mockResolvedValue({ isBreached: false, count: 0 }),
+  };
+});
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
     getAll: () => [],
@@ -191,6 +198,78 @@ describe('POST /api/mobile-onboarding', () => {
 
     expect(res.status).toBe(403);
     expect(body.code).toBe('EMAIL_CONFIRMATION_REQUIRED');
+  });
+
+  it('returns 400 when password has been breached', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    const { checkPasswordBreach } = await import('@/lib/password-breach');
+    vi.mocked(checkPasswordBreach).mockResolvedValueOnce({
+      isBreached: true,
+      count: 5,
+    });
+
+    const res = await POST(makeRequest(validBody));
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toContain(
+      'This password has appeared in 5 known data breaches'
+    );
+    expect(mockSignUp).not.toHaveBeenCalled();
+  });
+
+  it('proceeds with signup when breach check throws (fail-open)', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    const { checkPasswordBreach } = await import('@/lib/password-breach');
+    vi.mocked(checkPasswordBreach).mockRejectedValueOnce(
+      new Error('HIBP API timeout')
+    );
+
+    mockSignUp.mockResolvedValue({
+      data: {
+        user: { id: 'user-1', email: 'test@example.com' },
+        session: { access_token: 'tok-123' },
+      },
+      error: null,
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          single: vi.fn().mockResolvedValue({
+            data: { id: 'merch-1', slug: 'test' },
+            error: null,
+          }),
+        };
+      }
+      if (table === 'domains') {
+        return {
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      if (table === 'staff_members') {
+        return {
+          upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      return {
+        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    });
+
+    const res = await POST(makeRequest(validBody));
+    const body = await res.json();
+
+    // Signup should succeed despite breach check failure
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(mockSignUp).toHaveBeenCalled();
   });
 
   // --- Merchant creation ---
