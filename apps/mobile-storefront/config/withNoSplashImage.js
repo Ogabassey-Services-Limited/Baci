@@ -15,8 +15,8 @@ const { withAndroidStyles } = require('@expo/config-plugins');
  * style item so the build succeeds without a splash image.
  */
 const withNoSplashImage = (config) => {
-  return withAndroidStyles(config, (config) => {
-    const styles = config.modResults;
+  return withAndroidStyles(config, (innerConfig) => {
+    const styles = innerConfig.modResults;
 
     // Find the splash screen theme style
     const splashTheme = styles.resources?.style?.find(
@@ -33,7 +33,7 @@ const withNoSplashImage = (config) => {
       );
     }
 
-    return config;
+    return innerConfig;
   });
 };
 
