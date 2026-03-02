@@ -138,6 +138,11 @@ jobs:
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
 
+      - name: Ensure Hermes compiler is executable
+        run: |
+          chmod +x node_modules/react-native/sdks/hermesc/linux64-bin/hermesc 2>/dev/null || true
+          chmod +x node_modules/react-native/sdks/hermesc/osx-bin/hermesc 2>/dev/null || true
+
       - name: Build Android App Bundle
         working-directory: ${{ env.WORKING_DIR }}/android
         env:
