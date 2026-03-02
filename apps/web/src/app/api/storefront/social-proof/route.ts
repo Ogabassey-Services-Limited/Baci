@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { socialProofStatsSchema } from '@/schemas/social-proof';
 
 /**
  * Social Proof API
@@ -12,63 +12,6 @@ import { createClient } from '@/lib/supabase/server';
  * - productId: string (required)
  * - merchantId: string (required)
  */
-
-const socialProofStatsSchema = z.object({
-  weekSales: z.number().nullable(),
-  dailySales: z.number().nullable(),
-  recentPurchases: z.array(
-    z.object({
-      city: z.string().nullable(),
-      created_at: z.string(),
-      product_name: z.string(),
-    })
-  ),
-});
-
-// Nigerian cities for anonymized display
-const NIGERIAN_CITIES = [
-  'Lagos',
-  'Abuja',
-  'Port Harcourt',
-  'Ibadan',
-  'Kano',
-  'Benin City',
-  'Enugu',
-  'Kaduna',
-  'Warri',
-  'Ilorin',
-  'Jos',
-  'Owerri',
-  'Calabar',
-  'Uyo',
-  'Abeokuta',
-  'Onitsha',
-  'Aba',
-  'Zaria',
-  'Maiduguri',
-  'Akure',
-];
-
-function _getRandomCity(): string {
-  return NIGERIAN_CITIES[Math.floor(Math.random() * NIGERIAN_CITIES.length)];
-}
-
-function _formatTimeAgo(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 60) {
-    return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
-  } else if (diffHours < 24) {
-    return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-  } else if (diffDays < 7) {
-    return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-  }
-  return 'recently';
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -113,7 +56,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       recentSales: Number(proofStats.dailySales) || 0,
       weekSales: Number(proofStats.weekSales) || 0,
-      recentPurchases: proofStats.recentPurchases || [],
+      recentPurchases: proofStats.recentPurchases,
       trending: (Number(proofStats.weekSales) || 0) >= 5,
     });
   } catch (error) {
