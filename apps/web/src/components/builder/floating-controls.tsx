@@ -100,6 +100,7 @@ export function FloatingControls() {
             // biome-ignore lint/suspicious/noExplicitAny: Puck dispatch types are internal
             dispatch({ type: 'setUi', ui: { selectedItem: null } } as any)
           }
+          aria-label="Close controls"
         >
           <X className="h-4 w-4" />
         </Button>
