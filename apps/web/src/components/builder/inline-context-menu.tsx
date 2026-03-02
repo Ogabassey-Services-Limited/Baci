@@ -106,6 +106,7 @@ export function InlineContextMenu({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                aria-label="Edit Properties"
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0 hover:bg-opacity-10 transition-all"
@@ -130,6 +131,7 @@ export function InlineContextMenu({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                aria-label="Duplicate"
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0 transition-all"
@@ -154,6 +156,7 @@ export function InlineContextMenu({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                aria-label="Move Up"
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0 transition-all disabled:opacity-30"
@@ -181,6 +184,7 @@ export function InlineContextMenu({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                aria-label="Move Down"
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0 transition-all disabled:opacity-30"
@@ -213,6 +217,7 @@ export function InlineContextMenu({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                aria-label="Delete"
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0 transition-all"
@@ -239,6 +244,7 @@ export function InlineContextMenu({
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
                   <Button
+                    aria-label="More Options"
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0 transition-all"
