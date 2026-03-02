@@ -51,37 +51,37 @@ export default function BlogPostDetailScreen() {
     'draft'
   );
 
-  const fetchPost = async () => {
-    if (!id || id === 'new') return;
-    try {
-      const { data, error } = await supabase
-        .from('blog_posts')
-        .select('title, excerpt, category, featured_image_url, status')
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      setTitle(data.title);
-      setExcerpt(data.excerpt || '');
-      setCategory(data.category || '');
-      setFeaturedImage(data.featured_image_url || '');
-      setStatus(data.status);
-    } catch (e) {
-      console.error(e);
-      Alert.alert('Error', 'Failed to load post');
-      router.back();
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchPost = async () => {
+      if (!id || id === 'new') return;
+      try {
+        const { data, error } = await supabase
+          .from('blog_posts')
+          .select('title, excerpt, category, featured_image_url, status')
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+        setTitle(data.title);
+        setExcerpt(data.excerpt || '');
+        setCategory(data.category || '');
+        setFeaturedImage(data.featured_image_url || '');
+        setStatus(data.status);
+      } catch (e) {
+        console.error(e);
+        Alert.alert('Error', 'Failed to load post');
+        router.back();
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     if (id && id !== 'new') {
       fetchPost();
     } else {
       setIsLoading(false);
     }
-  }, [id, fetchPost]);
+  }, [id]);
 
   // Show error screen for invalid route params (after all hooks)
   if (!validatedParams) {
