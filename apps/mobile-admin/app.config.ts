@@ -110,6 +110,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-web-browser',
     'expo-font',
     'expo-sharing',
+    'react-native-edge-to-edge',
   ],
   web: {
     bundler: 'metro',

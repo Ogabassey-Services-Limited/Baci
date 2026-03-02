@@ -131,6 +131,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     './config/withNoSplashImage.js',
     'expo-localization',
     'expo-apple-authentication',
+    'react-native-edge-to-edge',
   ],
   web: {
     bundler: 'metro',
