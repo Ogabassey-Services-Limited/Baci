@@ -86,7 +86,8 @@ export async function GET(
       const { data: v } = await supabase
         .from('product_variants')
         .select(PRODUCT_VARIANT_COLUMNS)
-        .eq('product_id', product.id);
+        .eq('product_id', product.id)
+        .eq('merchant_id', merchantId);
       variants = v || [];
     }
 
