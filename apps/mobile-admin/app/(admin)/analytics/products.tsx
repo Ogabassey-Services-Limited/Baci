@@ -5,14 +5,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import {
-  FlatList,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import {
@@ -94,7 +88,7 @@ export default function AnalyticsProductsScreen() {
           headerShadowVisible: false,
         }}
       />
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <SystemBars style={isDark ? 'light' : 'dark'} />
 
       <FlatList
         data={topProducts}

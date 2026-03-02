@@ -11,11 +11,11 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -88,7 +88,7 @@ export default function ExpenseDetailScreen() {
           headerShadowVisible: false,
         }}
       />
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <SystemBars style={isDark ? 'light' : 'dark'} />
 
       <ScrollView
         style={styles.scrollView}

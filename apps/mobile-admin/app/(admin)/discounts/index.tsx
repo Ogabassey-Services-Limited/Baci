@@ -11,11 +11,11 @@ import {
   Alert,
   FlatList,
   Pressable,
-  StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useDiscounts } from '@/hooks/useDiscounts';
@@ -154,7 +154,7 @@ export default function DiscountsScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <SystemBars style={isDark ? 'light' : 'dark'} />
 
         {isLoading ? (
           <View style={styles.loadingContainer}>

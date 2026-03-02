@@ -14,12 +14,12 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SafeImage from '@/components/ui/SafeImage';
 // Supported Countries Configuration
@@ -96,8 +96,8 @@ export default function StoreSettingsScreen() {
       )?.currency;
       setCurrency(
         merchant.payout_currency ||
-        defaultCurrencyForCountry ||
-        COUNTRIES[0].currency
+          defaultCurrencyForCountry ||
+          COUNTRIES[0].currency
       );
 
       setSlug(merchant.slug || '');
@@ -322,7 +322,7 @@ export default function StoreSettingsScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
       >
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <SystemBars style={isDark ? 'light' : 'dark'} />
 
         <ScrollView
           style={styles.scrollView}

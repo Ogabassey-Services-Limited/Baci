@@ -22,7 +22,6 @@ export default defineConfig({
         // Prevent vitest from parsing native packages (Flow/JSX in .js files)
         external: [
           /expo-linear-gradient/,
-          /expo-status-bar/,
           /@expo\/vector-icons/,
           /react-native$/,
           /react-native\//,

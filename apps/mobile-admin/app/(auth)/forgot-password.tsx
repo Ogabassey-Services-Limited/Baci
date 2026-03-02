@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { getEmailError } from '@/lib/sanitize';
@@ -62,7 +62,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <SystemBars style="light" />
       <LinearGradient
         colors={['#0D0D1A', '#1A1A2E']}
         style={StyleSheet.absoluteFillObject}

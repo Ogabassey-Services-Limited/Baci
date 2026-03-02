@@ -5,7 +5,6 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -16,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DomainEmptyState } from '@/components/domains/DomainEmptyState';
 import { DomainItemCard } from '@/components/domains/DomainItemCard';
@@ -96,7 +96,7 @@ export default function DomainsDashboard() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <SystemBars style={isDark ? 'light' : 'dark'} />
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['top']}
