@@ -149,6 +149,7 @@ export const CartSidebar: React.FC = () => {
               <button
                 onClick={() => setIsCartOpen(false)}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500 hover:text-red-600"
+                aria-label="Close cart"
               >
                 <X size={24} />
               </button>
@@ -222,6 +223,7 @@ export const CartSidebar: React.FC = () => {
                               <button
                                 onClick={() => removeFromCart(item.cartItemId)}
                                 className="text-gray-400 hover:text-red-600 p-1 -mt-1 -mr-1"
+                                aria-label="Remove item"
                               >
                                 <Trash2 size={16} />
                               </button>
@@ -275,6 +277,7 @@ export const CartSidebar: React.FC = () => {
                                   }
                                   className="p-1 px-2 hover:bg-gray-50 text-gray-500"
                                   disabled={item.quantity <= 1}
+                                  aria-label="Decrease quantity"
                                 >
                                   <Minus size={12} />
                                 </button>
@@ -289,6 +292,7 @@ export const CartSidebar: React.FC = () => {
                                     )
                                   }
                                   className="p-1 px-2 hover:bg-gray-50 text-gray-500"
+                                  aria-label="Increase quantity"
                                 >
                                   <Plus size={12} />
                                 </button>
