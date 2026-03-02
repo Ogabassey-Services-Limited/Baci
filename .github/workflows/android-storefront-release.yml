@@ -160,11 +160,6 @@ jobs:
           # Switch release buildType from debug signing to release signing
           sed -i 's|signingConfig signingConfigs.debug|signingConfig signingConfigs.release|' android/app/build.gradle
 
-      - name: Ensure Hermes compiler is executable
-        run: |
-          chmod +x node_modules/react-native/sdks/hermesc/linux64-bin/hermesc 2>/dev/null || true
-          chmod +x node_modules/react-native/sdks/hermesc/osx-bin/hermesc 2>/dev/null || true
-
       - name: Build Android App Bundle (storefront)
         working-directory: ${{ env.WORKING_DIR }}/android
         env:
