@@ -1,27 +1,68 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { authenticateApiRequest } from '@/lib/api-auth';
+import { loyaltyRedeemSchema } from '@/schemas/loyalty-redeem';
 
 // POST - Redeem a reward
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { merchant_id, customer_id, reward_id } = body;
+    // 1. Authenticate the customer FIRST
+    const auth = await authenticateApiRequest(request);
 
-    if (!merchant_id || !customer_id || !reward_id) {
+    if (!auth.user || !auth.supabase) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { user, supabase } = auth;
+
+    // 2. Validate request body with Zod
+    const body = await request.json();
+    const result = loyaltyRedeemSchema.safeParse(body);
+
+    if (!result.success) {
       return NextResponse.json(
-        { error: 'merchant_id, customer_id, and reward_id are required' },
+        { error: 'Invalid input', details: result.error.flatten() },
         { status: 400 }
       );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const { merchant_id, customer_id, reward_id } = result.data;
 
-    // Get the reward details
+    // 3. Verify the merchant exists
+    const { data: merchant, error: merchantError } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('id', merchant_id)
+      .single();
+
+    if (merchantError || !merchant) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    // 4. Verify the authenticated user owns this customer record
+    const { data: customer, error: customerError } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('id', customer_id)
+      .eq('merchant_id', merchant_id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (customerError || !customer) {
+      return NextResponse.json(
+        { error: 'Customer not found or unauthorized' },
+        { status: 403 }
+      );
+    }
+
+    // 5. Get the reward details
     const { data: reward, error: rewardError } = await supabase
       .from('loyalty_rewards')
-      .select('*')
+      .select(
+        'id, name, points_required, reward_type, discount_value, discount_type, min_tier, active'
+      )
       .eq('id', reward_id)
       .eq('merchant_id', merchant_id)
       .eq('active', true)
@@ -34,10 +75,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get customer's loyalty data
+    // 6. Get customer's loyalty data
     const { data: loyalty, error: loyaltyError } = await supabase
       .from('customer_loyalty')
-      .select('*')
+      .select('id, points_balance, tier')
       .eq('merchant_id', merchant_id)
       .eq('customer_id', customer_id)
       .single();
@@ -49,7 +90,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if customer has enough points
+    // 7. Check if customer has enough points
     if (loyalty.points_balance < reward.points_required) {
       return NextResponse.json(
         {
@@ -61,7 +102,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check tier restriction if applicable
+    // 8. Check tier restriction if applicable
     const tierOrder = ['bronze', 'silver', 'gold', 'platinum'];
     if (reward.min_tier) {
       const customerTierIndex = tierOrder.indexOf(loyalty.tier);
@@ -78,14 +119,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate redemption code
+    // 9. Generate redemption code
     const redemptionCode = `RDM-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
     // Calculate expiry date (30 days from now by default)
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
 
-    // Create redemption record
+    // 10. Create redemption record
     const { data: redemption, error: redemptionError } = await supabase
       .from('reward_redemptions')
       .insert({
@@ -97,7 +138,7 @@ export async function POST(request: NextRequest) {
         status: 'pending',
         expires_at: expiresAt.toISOString(),
       })
-      .select()
+      .select('id')
       .single();
 
     if (redemptionError) {
@@ -108,7 +149,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Deduct points from customer
+    // 11. Deduct points from customer
     const newBalance = loyalty.points_balance - reward.points_required;
     const { error: updateError } = await supabase
       .from('customer_loyalty')
@@ -133,7 +174,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Record points transaction
+    // 12. Record points transaction
     await supabase.from('points_transactions').insert({
       merchant_id,
       customer_id,
