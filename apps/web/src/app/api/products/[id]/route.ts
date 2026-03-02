@@ -9,6 +9,10 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import {
+  PRODUCT_COLUMNS,
+  PRODUCT_VARIANT_COLUMNS,
+} from '@/lib/product-queries';
 import type { Product } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeText } from '@/lib/sanitize-core';
@@ -55,7 +59,7 @@ export async function GET(
     // Try to find by ID first, then by slug
     let query = supabase
       .from('products')
-      .select('*')
+      .select(PRODUCT_COLUMNS)
       .eq('merchant_id', merchantId);
 
     // Check if id is a UUID
@@ -81,7 +85,7 @@ export async function GET(
     if (product.has_variants) {
       const { data: v } = await supabase
         .from('product_variants')
-        .select('*')
+        .select(PRODUCT_VARIANT_COLUMNS)
         .eq('product_id', product.id);
       variants = v || [];
     }
