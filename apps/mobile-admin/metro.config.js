@@ -6,6 +6,9 @@ const { getDefaultConfig } = require('expo/metro-config');
  *
  * Modified to explicitly handle resolution for pnpm monorepos
  * where some modules might not be correctly linked in sub-packages.
+ *
+ * CRITICAL: blockList prevents bundling of Node.js-only modules (vite, vitest, etc)
+ * which cause Hermes runtime errors with import.meta syntax.
  */
 
 const projectRoot = __dirname;
@@ -23,6 +26,8 @@ config.transformer = {
 
 config.watchFolders = [workspaceRoot];
 
+// Prevent Metro from bundling test files and Node.js-only modules.
+// This resolves Hermes errors with vite/vitest pulling in import.meta syntax.
 config.resolver = {
   ...resolver,
   assetExts: resolver.assetExts.filter((ext) => ext !== 'svg'),
@@ -60,6 +65,25 @@ config.resolver = {
   unstable_enableSymlinks: true,
   // 2026: Enable package exports as very new versions of native modules often require it
   unstable_enablePackageExports: true,
+  // Block test files and Node.js-only modules from being bundled by Metro.
+  // This prevents Hermes runtime errors when vite/vitest dependencies pull in
+  // modules that use import.meta syntax (which is Node.js-only).
+  blockList: [
+    // Test files should not be bundled
+    /\.test\.tsx?$/,
+    /\.spec\.tsx?$/,
+    /\/__tests__\//,
+    // Test configuration files
+    /vitest\.config\.ts$/,
+    /jest\.config\.js$/,
+    // Node.js-only modules that cause Hermes errors
+    // vite and vitest are dev-only and shouldn't be in the bundle anyway
+    /node_modules[\\/]vite[\\/]/,
+    /node_modules[\\/]vitest[\\/]/,
+    /node_modules[\\/]@vitejs[\\/]/,
+    // Other Node.js-only modules commonly pulled by build tools
+    /node_modules[\\/]esbuild[\\/]/,
+  ],
 };
 
 module.exports = config;

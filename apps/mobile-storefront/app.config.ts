@@ -128,6 +128,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     './config/withFirebaseModularHeaders.js',
     './config/withObjCLinkerFlag.js',
+    './config/withNoSplashImage.js',
     'expo-localization',
     'expo-apple-authentication',
   ],
