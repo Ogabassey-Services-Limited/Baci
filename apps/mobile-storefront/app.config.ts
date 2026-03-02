@@ -38,6 +38,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: 'ogabassey',
   assetBundlePatterns: ['**/*'],
   splash: {
+    image: './assets/images/splash-icon.png',
+    resizeMode: 'contain',
     backgroundColor: '#000000',
   },
   ios: {
