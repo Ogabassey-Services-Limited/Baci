@@ -1,3 +1,0 @@
-## 2025-02-28 - Hardcoded rgba borders in Mobile Admin
-**Learning:** Faint hardcoded border colors like `rgba(0,0,0,0.05)` and backgrounds like `rgba(0,0,0,0.03)` fail accessibility in dark mode as they don't adapt to the underlying dark background, making delineations invisible. Also, `StyleSheet.create` is static and cannot consume `useTheme()` tokens dynamically.
-**Action:** Remove static hardcoded colors from `StyleSheet.create` definitions. Apply dynamic `colors.*` tokens (like `colors.border` or `colors.backgroundLight`) via inline styles (e.g., `style={[styles.itemCard, { borderColor: colors.border }]}`) to ensure dynamic resolution across system themes.
