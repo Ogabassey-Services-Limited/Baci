@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -22,6 +27,21 @@ export async function PATCH(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'marketing', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
 
     const body = await request.json();
 
@@ -56,11 +76,12 @@ export async function PATCH(
       updateData.code = (updateData.code as string).toUpperCase();
     }
 
-    // Update discount code (RLS will ensure it belongs to the merchant)
+    // Update discount code (Scope to merchant ID for defense-in-depth)
     const { data: discountCode, error } = await supabase
       .from('discount_codes')
       .update(updateData)
       .eq('id', id)
+      .eq('merchant_id', merchantId)
       .select()
       .single();
 
@@ -105,11 +126,27 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Delete discount code (RLS will ensure it belongs to the merchant)
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'marketing', 'delete')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
+    // Delete discount code (Scope to merchant ID for defense-in-depth)
     const { error } = await supabase
       .from('discount_codes')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('merchant_id', merchantId);
 
     if (error) {
       throw error;
