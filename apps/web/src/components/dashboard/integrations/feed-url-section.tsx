@@ -105,12 +105,6 @@ export function FeedUrlSection({
           label="Copy feed URL"
           successLabel="Copied!"
           variant="outline"
-          onClick={() => {
-            toast({
-              title: 'Copied!',
-              description: 'Feed URL copied to clipboard',
-            });
-          }}
         />
         <Button
           variant="outline"
