@@ -17,6 +17,13 @@ const mockAdminClient = { from: mockAdminFrom };
 // Track after() callbacks for manual execution in tests
 const afterCallbacks: Array<() => Promise<void>> = [];
 
+vi.mock('@/lib/password-breach', () => {
+  return {
+    checkPasswordBreach: vi
+      .fn()
+      .mockResolvedValue({ isBreached: false, count: 0 }),
+  };
+});
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
     getAll: () => [],
@@ -193,6 +200,22 @@ describe('POST /api/mobile-onboarding', () => {
     expect(body.code).toBe('EMAIL_CONFIRMATION_REQUIRED');
   });
 
+  it('returns 400 when password has been breached', async () => {
+    const { checkPasswordBreach } = await import('@/lib/password-breach');
+    vi.mocked(checkPasswordBreach).mockResolvedValueOnce({
+      isBreached: true,
+      count: 5,
+    });
+
+    const res = await POST(makeRequest(validBody));
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toContain(
+      'This password has appeared in 5 known data breaches'
+    );
+    expect(mockSignUp).not.toHaveBeenCalled();
+  });
   // --- Merchant creation ---
 
   it('returns 500 when merchant lookup fails', async () => {
