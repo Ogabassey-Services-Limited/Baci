@@ -13,3 +13,7 @@
 ## 2026-02-28 - Optimize Staff Member Fetches
 **Learning:** Replaced `select('*')` with explicit column selections in `apps/web/src/app/api/staff/route.ts` and `apps/web/src/app/api/staff/[id]/route.ts` to reduce database load and network transfer payload, particularly avoiding fetching unnecessary sensitive columns like `invitation_token` when not needed.
 **Action:** Always select specific required columns instead of `*` when querying Supabase to minimize payload size and improve database performance.
+
+## 2026-03-01 - [API Performance - Supabase select]
+**Learning:** Replacing `select('*')` with explicitly listed columns for retrieving the entire entity or using `select('id', { count: 'exact', head: true })` instead of `select('*', { count: 'exact', head: true })` for count-only queries reduces database load and network payload significantly.
+**Action:** Always specify only the needed columns, or exactly the known columns, rather than `select('*')`, and ensure count queries fetch no actual columns (e.g., use `id`).

@@ -43,7 +43,9 @@ export async function GET() {
     // Get discount codes
     const { data: discountCodes, error } = await supabase
       .from('discount_codes')
-      .select('*')
+      .select(
+        'id, merchant_id, code, description, discount_type, discount_value, minimum_purchase_amount, maximum_discount_amount, usage_limit, usage_limit_per_customer, usage_count, starts_at, expires_at, is_active, applies_to, product_ids, category_ids, created_at, updated_at'
+      )
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 
