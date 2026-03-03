@@ -40,14 +40,12 @@ export function BnplLauncher() {
                 setErrorMessage(null);
 
                 const slug = merchantSlugParam || merchant?.slug || 'ogabassey';
-                console.log(
-                    `[BnplLauncher] Fetching order ${orderId} for merchant ${slug}`
-                );
+                if (process.env.NODE_ENV === 'development') {
+                    console.log(`[BnplLauncher] Fetching order ${orderId} for merchant ${slug}`);
+                }
                 const url = `/api/storefront/orders/${orderId}?merchant_slug=${slug}`;
-                console.log(`[BnplLauncher] URL: ${url}`);
 
                 const res = await fetch(url);
-                console.log(`[BnplLauncher] Response status: ${res.status}`);
 
                 if (!res.ok) {
                     const errorText = await res.text();
@@ -56,7 +54,6 @@ export function BnplLauncher() {
                 }
 
                 const order = await res.json();
-                console.log('[BnplLauncher] Order fetched successfully:', order.id);
 
                 if (!order.items || order.items.length === 0) {
                     throw new Error('Order has no items.');
@@ -88,11 +85,9 @@ export function BnplLauncher() {
                             })
                         ),
                         onSuccess: (ref) => {
-                            console.log('Credit Direct Success:', ref);
                             router.push(`/order-success?orderId=${order.id}&reference=${ref}`);
                         },
                         onClose: () => {
-                            console.log('Credit Direct Closed');
                             setStatus('error');
                             setErrorMessage('Payment cancelled. Please try again.');
                         },
