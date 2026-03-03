@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -11,6 +12,18 @@ import { createClient } from '@/lib/supabase/server';
  * - productId: string (required)
  * - merchantId: string (required)
  */
+
+const socialProofStatsSchema = z.object({
+  weekSales: z.number().nullable(),
+  dailySales: z.number().nullable(),
+  recentPurchases: z.array(
+    z.object({
+      city: z.string().nullable(),
+      created_at: z.string(),
+      product_name: z.string(),
+    })
+  ),
+});
 
 // Nigerian cities for anonymized display
 const NIGERIAN_CITIES = [
@@ -84,8 +97,18 @@ export async function GET(request: NextRequest) {
 
     if (statsError) throw statsError;
 
-    // biome-ignore lint/suspicious/noExplicitAny: Supabase RPC returns dynamic structure
-    const proofStats = stats as any;
+    const parsedStats = socialProofStatsSchema.safeParse(stats);
+    if (!parsedStats.success) {
+      console.error(
+        'Invalid stats structure returned from RPC:',
+        parsedStats.error
+      );
+      return NextResponse.json(
+        { error: 'Invalid data format from database' },
+        { status: 500 }
+      );
+    }
+    const proofStats = parsedStats.data;
 
     return NextResponse.json({
       recentSales: Number(proofStats.dailySales) || 0,
