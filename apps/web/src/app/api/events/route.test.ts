@@ -626,7 +626,7 @@ describe('POST /api/events', () => {
       // Assert
       expect(sendToAdPlatforms).toHaveBeenCalledWith(
         expect.objectContaining({
-          event_id: expect.stringMatching(/^evt_\d+_[a-z0-9]{6}$/),
+          event_id: expect.stringMatching(/^evt_\d+_[a-f0-9]{8}$/),
         })
       );
     });
