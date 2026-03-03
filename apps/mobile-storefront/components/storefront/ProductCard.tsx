@@ -271,8 +271,8 @@ export function ProductCard({
         accessibilityRole="button"
       >
         {fallbackError ? (
-          <View style={[styles.editorialImage, styles.imagePlaceholder]}>
-            <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+          <View style={[styles.editorialImage, styles.imagePlaceholder, { backgroundColor: colors.muted }]}>
+            <Ionicons name="image-outline" size={40} color={colors.icon} />
           </View>
         ) : (
           <Image
@@ -302,20 +302,20 @@ export function ProductCard({
         onPressOut={handleAnimateOut}
         style={[
           styles.listContainer,
-          { backgroundColor: '#FFF', borderColor: '#F3F4F6' },
+          { borderColor: colors.border },
           animatedStyle,
         ]}
         accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
         accessibilityRole="button"
       >
         {fallbackError ? (
-          <View style={[styles.listImage, styles.imagePlaceholder]}>
-            <Ionicons name="image-outline" size={32} color="#9CA3AF" />
+          <View style={[styles.listImage, styles.imagePlaceholder, { backgroundColor: colors.muted }]}>
+            <Ionicons name="image-outline" size={32} color={colors.icon} />
           </View>
         ) : (
           <Image
             source={imageSource}
-            style={styles.listImage}
+            style={[styles.listImage, { backgroundColor: colors.muted }]}
             {...imageProps}
           />
         )}
@@ -329,20 +329,20 @@ export function ProductCard({
                   s <= Math.floor(product.rating || 0) ? 'star' : 'star-outline'
                 }
                 size={10}
-                color="#F59E0B"
+                color={colors.rating}
               />
             ))}
           </View>
 
           <Text
-            style={[styles.listName, { color: '#111827' }]}
+            style={[styles.listName, { color: colors.text }]}
             numberOfLines={1}
           >
             {product.name}
           </Text>
 
           {product.description && (
-            <Text style={styles.listDescription} numberOfLines={2}>
+            <Text style={[styles.listDescription, { color: colors.textSecondary }]} numberOfLines={2}>
               {sanitizeDescriptionPlainText(
                 product.description || ''
               ).substring(0, 100)}
@@ -355,20 +355,20 @@ export function ProductCard({
             </Text>
             <Pressable
               onPress={handleAddToCart}
-              style={styles.listCartBtn}
+              style={[styles.listCartBtn, { backgroundColor: colors.text }]}
               hitSlop={8}
               accessibilityLabel={`Add ${product.name} to cart`}
               accessibilityRole="button"
             >
               <View style={{ position: 'relative' }}>
-                <Ionicons name="cart" size={16} color="#FFF" />
+                <Ionicons name="cart" size={16} color={colors.background} />
                 {cartItemCount > 0 && (
-                  <View style={styles.listBadge}>
-                    <Text style={styles.badgeTextMini}>{cartItemCount}</Text>
+                  <View style={[styles.listBadge, { borderColor: colors.border }]}>
+                    <Text style={[styles.badgeTextMini, { color: colors.background }]}>{cartItemCount}</Text>
                   </View>
                 )}
               </View>
-              <Text style={styles.listCartLabel}>Add</Text>
+              <Text style={[styles.listCartLabel, { color: colors.background }]}>Add</Text>
             </Pressable>
           </View>
         </View>
@@ -388,7 +388,7 @@ export function ProductCard({
           <Ionicons
             name={isSaved ? 'heart' : 'heart-outline'}
             size={18}
-            color={isSaved ? '#EF4444' : '#9CA3AF'}
+            color={isSaved ? colors.destructive : colors.icon}
           />
         </Pressable>
       </AnimatedPressable>
@@ -402,8 +402,6 @@ export function ProductCard({
         styles.gridContainer,
         {
           width: gridWidth,
-          backgroundColor: '#FFF',
-          borderColor: '#F3F4F6',
           shadowColor: colors.black,
         },
         animatedStyle,
@@ -415,7 +413,7 @@ export function ProductCard({
       accessibilityRole="button"
     >
       {/* Image Container */}
-      <View style={[styles.imageWrapper, { backgroundColor: '#F9FAFB' }]}>
+      <View style={[styles.imageWrapper, { backgroundColor: colors.muted }]}>
         {/* Wishlist - Top Right */}
         <Pressable
           onPress={handleWishlistPress}
@@ -428,11 +426,11 @@ export function ProductCard({
           }
           accessibilityRole="button"
         >
-          <Animated.View style={[heartAnimatedStyle, styles.wishlistBlur]}>
+          <Animated.View style={[heartAnimatedStyle, styles.wishlistBlur, { backgroundColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)' }]}>
             <Ionicons
               name={isSaved ? 'heart' : 'heart-outline'}
               size={18}
-              color={isSaved ? '#EF4444' : '#9CA3AF'}
+              color={isSaved ? colors.destructive : colors.icon}
             />
           </Animated.View>
         </Pressable>
@@ -443,17 +441,17 @@ export function ProductCard({
             style={[
               styles.badgeContainer,
               product.condition === 'New'
-                ? { backgroundColor: '#111827' }
-                : { backgroundColor: '#4F46E5' },
+                ? { backgroundColor: colors.text }
+                : { backgroundColor: colors.primary },
             ]}
           >
-            <Text style={styles.badgeText}>{product.condition}</Text>
+            <Text style={[styles.badgeText, { color: colors.background }]}>{product.condition}</Text>
           </View>
         )}
 
         {fallbackError ? (
-          <View style={[styles.gridImage, styles.imagePlaceholder]}>
-            <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+          <View style={[styles.gridImage, styles.imagePlaceholder, { backgroundColor: colors.muted }]}>
+            <Ionicons name="image-outline" size={40} color={colors.icon} />
           </View>
         ) : (
           <Image
@@ -466,14 +464,14 @@ export function ProductCard({
         {/* Floating Cart Button */}
         <Pressable
           onPress={handleAddToCart}
-          style={styles.floatingCartBtn}
+          style={[styles.floatingCartBtn, { borderColor: colors.border }]}
           accessibilityLabel={`Add ${product.name} to cart`}
           accessibilityRole="button"
         >
           <Ionicons name="cart" size={18} color={BRAND.primary} />
           {cartItemCount > 0 && (
-            <View style={styles.cartBadge}>
-              <Text style={styles.badgeTextMini}>{cartItemCount}</Text>
+            <View style={[styles.cartBadge, { borderColor: colors.card }]}>
+              <Text style={[styles.badgeTextMini, { color: colors.background }]}>{cartItemCount}</Text>
             </View>
           )}
         </Pressable>
@@ -490,23 +488,23 @@ export function ProductCard({
                 s <= Math.floor(product.rating || 0) ? 'star' : 'star-outline'
               }
               size={10}
-              color="#F59E0B"
+              color={colors.rating}
             />
           ))}
-          <Text style={styles.ratingTextMini}>({product.rating || 0})</Text>
+          <Text style={[styles.ratingTextMini, { color: colors.textSecondary }]}>({product.rating || 0})</Text>
         </View>
 
         {/* Title */}
-        <Text style={[styles.gridName, { color: '#111827' }]} numberOfLines={2}>
+        <Text style={[styles.gridName, { color: colors.text }]} numberOfLines={2}>
           {product.name}
         </Text>
 
         {/* Price Row */}
-        <View style={styles.priceRow}>
+        <View style={[styles.priceRow, { borderTopColor: colors.border }]}>
           <Text style={[styles.gridPrice, { color: BRAND.primary }]}>
             {formatPrice(product.price)}
           </Text>
-          <Text style={styles.detailsText}>Details</Text>
+          <Text style={[styles.detailsText, { color: colors.text }]}>Details</Text>
         </View>
       </View>
     </AnimatedPressable>
@@ -519,7 +517,6 @@ const styles = StyleSheet.create({
     padding: 8,
     marginBottom: 16,
     borderWidth: 1,
-    backgroundColor: '#FFF',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -535,7 +532,6 @@ const styles = StyleSheet.create({
   },
   gridImage: { width: '100%', height: '100%' },
   imagePlaceholder: {
-    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -549,7 +545,6 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   badgeText: {
-    color: '#FFF',
     fontSize: 9,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -569,7 +564,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -581,7 +575,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 20,
@@ -591,8 +584,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
+    },
   gridContent: { paddingHorizontal: 4 },
   gridName: {
     fontSize: 13,
@@ -607,14 +599,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
     paddingTop: 8,
   },
   gridPrice: { fontSize: 16, fontFamily: 'serif', fontWeight: 'bold' },
   detailsText: {
     fontSize: 11,
     fontFamily: 'serif',
-    color: '#111827',
     fontWeight: '600',
   },
   ratingRowMini: {
@@ -625,7 +615,6 @@ const styles = StyleSheet.create({
   },
   ratingTextMini: {
     fontSize: 10,
-    color: '#9CA3AF',
     marginLeft: 4,
     fontWeight: '600',
   },
@@ -645,8 +634,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: RADIUS.lg,
-    backgroundColor: '#F9FAFB',
-  },
+    },
   listContent: {
     flex: 1,
   },
@@ -658,7 +646,6 @@ const styles = StyleSheet.create({
   },
   listDescription: {
     fontSize: 12,
-    color: '#6B7280',
     marginBottom: 8,
     lineHeight: 16,
   },
@@ -675,14 +662,12 @@ const styles = StyleSheet.create({
   listCartBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     gap: 6,
   },
   listCartLabel: {
-    color: '#FFF',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -716,7 +701,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#FFF',
     paddingHorizontal: 2,
   },
   listBadge: {
@@ -730,10 +714,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#111827',
-  },
+    },
   badgeTextMini: {
-    color: '#FFF',
     fontSize: 8,
     fontWeight: '900',
     fontFamily: 'Inter_900Black',
