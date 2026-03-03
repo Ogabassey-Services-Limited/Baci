@@ -94,6 +94,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Fix Hermes compiler path
+        # RN 0.83+ ships hermesc in the hermes-compiler package, but
+        # Gradle still resolves it via react-native/sdks/hermesc/.
+        # Create a symlink so the build finds the binary.
+        run: |
+          HERMESC_SRC="$GITHUB_WORKSPACE/node_modules/hermes-compiler/hermesc"
+          HERMESC_DST="$GITHUB_WORKSPACE/node_modules/react-native/sdks/hermesc"
+          if [ -d "$HERMESC_SRC" ] && [ ! -e "$HERMESC_DST" ]; then
+            ln -s "$HERMESC_SRC" "$HERMESC_DST"
+            chmod +x "$HERMESC_DST/linux64-bin/hermesc" 2>/dev/null || true
+          fi
+
       - name: Resolve version code
         id: version
         shell: bash
@@ -139,6 +151,20 @@ jobs:
           EXPO_PUBLIC_API_URL: https://usebaci.com
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
         run: pnpm exec expo prebuild --platform android --clean
+
+      - name: Fix splash screen resource reference
+        # expo-splash-screen adds a windowSplashScreenAnimatedIcon style item
+        # referencing @drawable/splashscreen_logo, but without a splash image
+        # configured, the drawable is never created. The config plugin
+        # (withNoSplashImage.js) removes it from styles.xml, but if Expo
+        # regenerates it during prebuild, strip it here as a safety net.
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          STYLES="android/app/src/main/res/values/styles.xml"
+          if [ -f "$STYLES" ] && grep -q "splashscreen_logo" "$STYLES"; then
+            sed -i '/@drawable\/splashscreen_logo/d' "$STYLES"
+            echo "Removed splashscreen_logo reference from styles.xml"
+          fi
 
       - name: Decode keystore
         working-directory: ${{ env.WORKING_DIR }}

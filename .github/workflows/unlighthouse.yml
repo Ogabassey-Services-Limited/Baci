@@ -59,8 +59,10 @@ jobs:
         run: pnpm exec wait-on http://localhost:3000 --timeout 60000
 
       - name: Run Unlighthouse Audit
-        # Run audit against local server
-        run: pnpm exec unlighthouse-ci --site http://localhost:3000 --reporter json
+        # Run audit against local server.
+        # --no-sitemap prevents Unlighthouse from discovering https:// URLs
+        # from the sitemap (the local server only speaks HTTP).
+        run: pnpm exec unlighthouse-ci --site http://localhost:3000 --no-sitemap --reporter json
 
       - name: Upload Lighthouse Report
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

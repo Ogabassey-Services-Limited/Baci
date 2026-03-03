@@ -94,6 +94,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Fix Hermes compiler path
+        # RN 0.83+ ships hermesc in the hermes-compiler package, but
+        # Gradle still resolves it via react-native/sdks/hermesc/.
+        # Create a symlink so the build finds the binary.
+        run: |
+          HERMESC_SRC="$GITHUB_WORKSPACE/node_modules/hermes-compiler/hermesc"
+          HERMESC_DST="$GITHUB_WORKSPACE/node_modules/react-native/sdks/hermesc"
+          if [ -d "$HERMESC_SRC" ] && [ ! -e "$HERMESC_DST" ]; then
+            ln -s "$HERMESC_SRC" "$HERMESC_DST"
+            chmod +x "$HERMESC_DST/linux64-bin/hermesc" 2>/dev/null || true
+          fi
+
       - name: Generate Android project via Expo prebuild
         working-directory: ${{ env.WORKING_DIR }}
         env:
@@ -191,7 +203,7 @@ jobs:
           retention-days: 7
 
       - name: Upload to Google Play (full production rollout)
-        if: ${{ !cancelled() }}
+        if: success()
         uses: r0adkll/upload-google-play@935ef9c68bb393a8e6116b1575626a7f5be3a7fb # v1.1.3
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
