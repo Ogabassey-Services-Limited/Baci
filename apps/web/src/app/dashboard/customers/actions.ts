@@ -62,7 +62,9 @@ export async function getCustomers(
 
   let query = supabase
     .from('customers')
-    .select('*')
+    .select(
+      'id, first_name, last_name, email, phone, address, total_orders, total_spent, store_credit, created_at'
+    )
     .eq('merchant_id', authorizedMerchantId)
     .order('created_at', { ascending: false });
 
@@ -128,7 +130,9 @@ export async function getCustomer(
   // Fetch customer with merchant verification
   const { data: customer, error } = await supabase
     .from('customers')
-    .select('*')
+    .select(
+      'id, first_name, last_name, email, phone, address, total_orders, total_spent, store_credit, created_at'
+    )
     .eq('id', customerId)
     .eq('merchant_id', authorizedMerchantId)
     .single();
