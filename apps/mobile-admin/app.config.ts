@@ -1,6 +1,32 @@
 import 'dotenv/config';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
+const rawAndroidVersionCode = process.env.ANDROID_VERSION_CODE;
+const parsedAndroidVersionCode =
+  rawAndroidVersionCode === undefined
+    ? undefined
+    : Number(rawAndroidVersionCode);
+
+let _androidVersionCode: number | undefined;
+
+if (rawAndroidVersionCode !== undefined) {
+  if (!Number.isInteger(parsedAndroidVersionCode)) {
+    console.warn(
+      `[app.config] Ignoring ANDROID_VERSION_CODE="${rawAndroidVersionCode}" because it is not an integer.`
+    );
+  } else if ((parsedAndroidVersionCode as number) <= 0) {
+    console.warn(
+      `[app.config] Ignoring ANDROID_VERSION_CODE="${rawAndroidVersionCode}" because it must be greater than 0.`
+    );
+  } else if ((parsedAndroidVersionCode as number) > 2_100_000_000) {
+    console.warn(
+      `[app.config] Ignoring ANDROID_VERSION_CODE="${rawAndroidVersionCode}" because it exceeds 2100000000.`
+    );
+  } else {
+    _androidVersionCode = parsedAndroidVersionCode;
+  }
+}
+
 /**
  * Expo App Configuration
  * Using app.config.ts to properly inject environment variables
@@ -37,7 +63,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.ogabassey.baci',
-    versionCode: 9,
+    versionCode: _androidVersionCode ?? 9,
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',
       backgroundColor: '#f0bf58',

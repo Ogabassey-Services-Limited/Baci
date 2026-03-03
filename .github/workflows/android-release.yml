@@ -106,20 +106,6 @@ jobs:
             chmod +x "$HERMESC_DST/linux64-bin/hermesc" 2>/dev/null || true
           fi
 
-      - name: Generate Android project via Expo prebuild
-        working-directory: ${{ env.WORKING_DIR }}
-        env:
-          CI: "1"
-          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
-          EXPO_PUBLIC_API_URL: https://usebaci.com
-          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
-          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
-          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
-          EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID: ${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}
-        run: pnpm exec expo prebuild --platform android --clean
-
       - name: Resolve version code
         id: version
         shell: bash
@@ -145,13 +131,28 @@ jobs:
             echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer (>=1)."
             exit 1
           fi
-          if [ "$VERSION_CODE" -gt 2147483647 ]; then
-            echo "::error::Invalid version code '$VERSION_CODE'. Must be a positive integer <= 2147483647."
+          if [ "$VERSION_CODE" -gt 2100000000 ]; then
+            echo "::error::Invalid version code '$VERSION_CODE'. Must be a positive integer <= 2100000000."
             exit 1
           fi
 
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Android project via Expo prebuild
+        working-directory: ${{ env.WORKING_DIR }}
+        env:
+          CI: "1"
+          ANDROID_VERSION_CODE: ${{ env.VERSION_CODE }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_WEB_API_URL: https://usebaci.com
+          EXPO_PUBLIC_API_URL: https://usebaci.com
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID: ${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}
+        run: pnpm exec expo prebuild --platform android --clean
 
       - name: Decode keystore
         working-directory: ${{ env.WORKING_DIR }}
@@ -189,11 +190,7 @@ jobs:
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
           EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID: ${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}
           VERSION_CODE: ${{ env.VERSION_CODE }}
-        run: |
-          GRADLE_ARGS="app:bundleRelease -x lint -x test --configure-on-demand --build-cache --no-daemon"
-          GRADLE_ARGS="$GRADLE_ARGS -PversionCode=$VERSION_CODE"
-          # shellcheck disable=SC2086
-          ./gradlew $GRADLE_ARGS
+        run: ./gradlew app:bundleRelease -x lint -x test --configure-on-demand --build-cache --no-daemon
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
