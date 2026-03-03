@@ -17,6 +17,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { getEmailError } from '@/lib/sanitize';
@@ -106,7 +107,8 @@ if (__DEV__) {
 // Google Sign-In configuration moved to useEffect to prevent evaluation-time crashes
 
 export default function LoginScreen() {
-  const router = useRouter();
+  // 2026 Best Practice: Destructure for React Compiler stable refs
+  const { push, replace } = useRouter();
   const { colors } = useTheme();
   const { signIn } = useAuth();
   const { resetOnboarding } = useOnboarding();
@@ -262,6 +264,7 @@ export default function LoginScreen() {
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
     >
+      <SystemBars style="auto" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -278,7 +281,7 @@ export default function LoginScreen() {
 
           {/* Form */}
           <View style={styles.form}>
-            {error && (
+            {error ? (
               <View
                 style={[
                   styles.errorCard,
@@ -290,7 +293,7 @@ export default function LoginScreen() {
                   {error}
                 </Text>
               </View>
-            )}
+            ) : null}
 
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>
@@ -351,7 +354,7 @@ export default function LoginScreen() {
                   editable={!isAnyLoading}
                 />
                 <Pressable
-                  onPress={() => setShowPassword(!showPassword)}
+                  onPress={() => setShowPassword((prev) => !prev)}
                   style={styles.eyeButton}
                   accessibilityRole="button"
                   accessibilityLabel={
@@ -367,18 +370,12 @@ export default function LoginScreen() {
               </View>
             </View>
             <Pressable
-              onPress={() => router.push('/(auth)/forgot-password')}
-              style={{ alignSelf: 'flex-end', marginTop: 8 }}
+              onPress={() => push('/(auth)/forgot-password')}
+              style={styles.forgotPassword}
               accessibilityRole="link"
               accessibilityLabel="Forgot password? Reset your password"
             >
-              <Text
-                style={{
-                  color: BRAND.yellow,
-                  fontFamily: TYPOGRAPHY.fontFamily.medium,
-                  fontSize: TYPOGRAPHY.size.sm,
-                }}
-              >
+              <Text style={styles.forgotPasswordText}>
                 Forgot Password?
               </Text>
             </Pressable>
@@ -486,9 +483,27 @@ export default function LoginScreen() {
           </View>
 
           {/* Footer */}
-          <Text style={[styles.footer, { color: colors.textMuted }]}>
-            Use your merchant account credentials
-          </Text>
+          <View style={styles.signUpContainer}>
+            <Text style={[styles.signUpText, { color: colors.textMuted }]}>
+              Don&apos;t have an account?
+            </Text>
+            <Pressable
+              onPress={() => push('/(auth)/register')}
+              disabled={isAnyLoading}
+              accessibilityRole="link"
+              accessibilityLabel="Sign up for a new merchant account"
+              accessibilityState={{ disabled: isAnyLoading }}
+            >
+              <Text
+                style={[
+                  styles.signUpLink,
+                  isAnyLoading && styles.signUpLinkDisabled,
+                ]}
+              >
+                Sign Up
+              </Text>
+            </Pressable>
+          </View>
 
           {/* DEV: Reset Onboarding */}
           {__DEV__ && (
@@ -513,7 +528,7 @@ export default function LoginScreen() {
                   [
                     {
                       text: 'OK',
-                      onPress: () => router.replace('/(auth)/onboarding'),
+                      onPress: () => replace('/(auth)/onboarding'),
                     },
                   ]
                 );
@@ -564,6 +579,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: SPACING.md,
     borderRadius: RADIUS.md,
+    borderCurve: 'continuous',
     gap: SPACING.sm,
   },
   errorText: {
@@ -584,6 +600,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: RADIUS.md,
+    borderCurve: 'continuous',
     paddingHorizontal: SPACING.md,
   },
   inputIcon: {
@@ -601,6 +618,7 @@ const styles = StyleSheet.create({
   loginButton: {
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
+    borderCurve: 'continuous',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: SPACING.sm,
@@ -612,11 +630,33 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
-  footer: {
-    textAlign: 'center',
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginTop: SPACING.sm,
+  },
+  forgotPasswordText: {
+    color: BRAND.yellow,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
     fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  signUpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginTop: SPACING['3xl'],
+    gap: SPACING.xs,
+  },
+  signUpText: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+  },
+  signUpLink: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    color: BRAND.yellow,
+  },
+  signUpLinkDisabled: {
+    opacity: 0.5,
   },
   divider: {
     flexDirection: 'row',
@@ -643,6 +683,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
+    borderCurve: 'continuous',
     borderWidth: 1,
     gap: SPACING.sm,
   },

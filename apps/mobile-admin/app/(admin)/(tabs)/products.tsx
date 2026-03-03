@@ -132,11 +132,12 @@ function ProductItem({
           <Text style={[styles.price, { color: colors.text }]}>
             {formatPrice(item.price, currencySymbol)}
           </Text>
-          {item.compare_at_price && item.compare_at_price > item.price && (
+          {item.compare_at_price != null &&
+          item.compare_at_price > item.price ? (
             <Text style={[styles.comparePrice, { color: colors.textMuted }]}>
               {formatPrice(item.compare_at_price, currencySymbol)}
             </Text>
-          )}
+          ) : null}
         </View>
 
         <View style={styles.stockRow}>

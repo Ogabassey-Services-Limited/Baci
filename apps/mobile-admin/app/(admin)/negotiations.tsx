@@ -42,7 +42,9 @@ export default function NegotiationsScreen() {
     try {
       const { data, error } = await supabase
         .from('negotiation_requests')
-        .select('*')
+        .select(
+          'id, customer_id, type, status, offered_price, current_price, item_info, created_at, evidence_url'
+        )
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -145,7 +147,7 @@ export default function NegotiationsScreen() {
         </View>
       </View>
 
-      {item.evidence_url && (
+      {item.evidence_url ? (
         <Pressable
           style={styles.evidenceButton}
           onPress={() =>
@@ -162,7 +164,7 @@ export default function NegotiationsScreen() {
           />
           <Text style={styles.evidenceText}>Customer attached evidence</Text>
         </Pressable>
-      )}
+      ) : null}
 
       <View style={styles.actionRow}>
         <Pressable

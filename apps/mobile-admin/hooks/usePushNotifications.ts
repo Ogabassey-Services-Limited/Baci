@@ -8,6 +8,11 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import type {
+  EventSubscription,
+  Notification as ExpoNotification,
+  NotificationResponse as ExpoNotificationResponse,
+} from 'expo-notifications';
 
 // Dynamic imports for native modules to prevent evaluation-time crashes
 let Notifications: typeof import('expo-notifications') | null = null;
@@ -134,7 +139,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
     // Listener for notifications received while app is foregrounded
     notificationListener.current =
       Notifications.addNotificationReceivedListener(
-        (notification: Notification) => {
+        (notification: ExpoNotification) => {
           if (__DEV__) {
             console.log(
               '[Push] Notification received:',
@@ -148,7 +153,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
     // Listener for when user taps on a notification
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener(
-        (response: NotificationResponse) => {
+        (response: ExpoNotificationResponse) => {
           if (__DEV__) {
             console.log('[Push] Notification tapped');
           }

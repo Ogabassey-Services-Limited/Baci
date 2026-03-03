@@ -255,21 +255,21 @@ export default function MenuScreen() {
           >
             {item.label}
           </Text>
-          {item.badge && (
+          {item.badge ? (
             <View style={[styles.badge, { backgroundColor: colors.goldLight }]}>
               <Text style={[styles.badgeText, { color: colors.gold }]}>
                 {item.badge}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
-        {item.description && (
+        {item.description ? (
           <Text
             style={[styles.menuDescription, { color: colors.textSecondary }]}
           >
             {item.description}
           </Text>
-        )}
+        ) : null}
       </View>
 
       <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />

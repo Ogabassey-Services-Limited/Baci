@@ -520,7 +520,7 @@ export default function NewOrderScreen() {
                 state: sanitizedDeliveryState,
               } satisfies ShippingAddress),
         })
-        .select()
+        .select('id')
         .single();
 
       if (orderError) throw orderError;

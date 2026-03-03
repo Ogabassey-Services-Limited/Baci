@@ -42,7 +42,7 @@ export function StatCard({
       ]}
     >
       <View style={styles.header}>
-        {icon && (
+        {icon ? (
           <View
             style={[
               styles.iconContainer,
@@ -51,7 +51,7 @@ export function StatCard({
           >
             <Ionicons name={icon} size={16} color={finalIconColor} />
           </View>
-        )}
+        ) : null}
         <Text style={[styles.label, { color: colors.textSecondary }]}>
           {label}
         </Text>
@@ -67,7 +67,7 @@ export function StatCard({
         {value}
       </Text>
 
-      {trend && (
+      {trend ? (
         <View style={styles.trendContainer}>
           <Ionicons
             name={
@@ -102,7 +102,7 @@ export function StatCard({
             {trend.value}
           </Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

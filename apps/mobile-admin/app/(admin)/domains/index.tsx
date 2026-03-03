@@ -8,11 +8,11 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
@@ -28,10 +28,54 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
+type DomainStatus = Domain['status'];
+
+const VALID_DOMAIN_STATUSES: ReadonlySet<DomainStatus> = new Set([
+  'active',
+  'pending',
+  'failed',
+  'verifying',
+]);
+
+const normalizeDomain = (domain: {
+  id: string;
+  domain: string;
+  is_primary: boolean;
+  status: string;
+  domain_type: Domain['domain_type'];
+  created_at?: string | null;
+}): Domain => ({
+  id: domain.id,
+  domain: domain.domain,
+  is_primary: domain.is_primary,
+  status: VALID_DOMAIN_STATUSES.has(domain.status as DomainStatus)
+    ? (domain.status as DomainStatus)
+    : 'pending',
+  created_at: domain.created_at ?? new Date(0).toISOString(),
+  domain_type: domain.domain_type,
+});
+
+async function fetchMerchantDomains(merchantId: string): Promise<Domain[]> {
+  const { data, error } = await supabase
+    .from('domains')
+    .select('id, domain, is_primary, status, created_at, domain_type')
+    .eq('merchant_id', merchantId)
+    .order('is_primary', { ascending: false })
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []).map(normalizeDomain);
+}
+
 export default function DomainsDashboard() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant, primaryDomain: merchantPrimaryDomain } = useMerchant();
   const router = useRouter();
+  const primaryDomainId = merchantPrimaryDomain?.id;
+  const primaryDomainValue = merchantPrimaryDomain?.domain;
+  const primaryDomainType = merchantPrimaryDomain?.domain_type;
+  const primaryDomainIsPrimary = merchantPrimaryDomain?.is_primary;
+  const primaryDomainStatus = merchantPrimaryDomain?.status;
 
   const [domains, setDomains] = useState<Domain[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,51 +85,88 @@ export default function DomainsDashboard() {
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
   const [optionsVisible, setOptionsVisible] = useState(false);
 
-  // Sync merchant domains if we have them but local state is empty
   useEffect(() => {
-    if (merchantPrimaryDomain && domains.length === 0) {
-      setDomains([merchantPrimaryDomain as unknown as Domain]);
-      setLoading(false);
-    }
-  }, [merchantPrimaryDomain, domains.length]);
+    let isMounted = true;
 
-  const fetchDomains = async () => {
+    const loadDomains = async () => {
+      if (!merchant?.id) {
+        if (isMounted) {
+          const fallbackDomain =
+            primaryDomainId &&
+            primaryDomainValue &&
+            primaryDomainType &&
+            typeof primaryDomainIsPrimary === 'boolean' &&
+            primaryDomainStatus
+              ? normalizeDomain({
+                  id: primaryDomainId,
+                  domain: primaryDomainValue,
+                  is_primary: primaryDomainIsPrimary,
+                  status: primaryDomainStatus,
+                  domain_type: primaryDomainType,
+                })
+              : null;
+          setDomains(fallbackDomain ? [fallbackDomain] : []);
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const fetchedDomains = await fetchMerchantDomains(merchant.id);
+        if (!isMounted) return;
+        setDomains(fetchedDomains);
+      } catch (error) {
+        console.error('Error fetching domains:', error);
+        if (isMounted) {
+          Alert.alert('Error', 'Failed to load domains');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
+    };
+
+    void loadDomains();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    merchant?.id,
+    primaryDomainId,
+    primaryDomainValue,
+    primaryDomainType,
+    primaryDomainIsPrimary,
+    primaryDomainStatus,
+  ]);
+
+  const refreshDomains = async () => {
+    setRefreshing(true);
+
     if (!merchant?.id) {
-      if (!merchantPrimaryDomain) setLoading(false);
       setRefreshing(false);
       return;
     }
 
     try {
-      const { data, error } = await supabase
-        .from('domains')
-        .select('id, domain, is_primary, status, created_at, domain_type')
-        .eq('merchant_id', merchant.id)
-        .order('is_primary', { ascending: false })
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setDomains(data || []);
+      const fetchedDomains = await fetchMerchantDomains(merchant.id);
+      setDomains(fetchedDomains);
     } catch (error) {
       console.error('Error fetching domains:', error);
       Alert.alert('Error', 'Failed to load domains');
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchDomains();
-  }, [fetchDomains]);
-
   const onRefresh = () => {
-    setRefreshing(true);
-    fetchDomains();
+    void refreshDomains();
   };
 
   const { actionLoading, handleOptionAction } = useDomainActions({
-    onRefresh: fetchDomains,
+    onRefresh: refreshDomains,
   });
 
   const handleOpenOptions = (domain: Domain) => {
@@ -103,12 +184,12 @@ export default function DomainsDashboard() {
       >
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity
+          <Pressable
             onPress={() => router.back()}
             style={[styles.backButton, { backgroundColor: colors.card }]}
           >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
-          </TouchableOpacity>
+          </Pressable>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
             Domains
           </Text>
@@ -163,12 +244,12 @@ export default function DomainsDashboard() {
         </ScrollView>
 
         {/* Add FAB */}
-        <TouchableOpacity
+        <Pressable
           style={[styles.fab, { backgroundColor: colors.primary }, shadows.lg]}
           onPress={() => router.push('/domains/add')}
         >
           <Ionicons name="add" size={32} color="#FFF" />
-        </TouchableOpacity>
+        </Pressable>
       </SafeAreaView>
 
       <DomainOptionsSheet

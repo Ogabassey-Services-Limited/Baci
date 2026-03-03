@@ -289,11 +289,11 @@ function CreateBranchModal({
               placeholderTextColor={colors.textMuted}
               accessibilityLabel="Branch name input"
             />
-            {nameError && (
+            {nameError ? (
               <Text style={[styles.errorText, { color: colors.notification }]}>
                 {nameError}
               </Text>
-            )}
+            ) : null}
           </View>
 
           <View style={styles.inputGroup}>

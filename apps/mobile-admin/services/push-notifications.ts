@@ -85,6 +85,11 @@ export async function registerForPushNotifications(): Promise<string | null> {
     await loadNativeModules();
   }
 
+  if (!Notifications) {
+    console.warn('[Push] Notifications module not available');
+    return null;
+  }
+
   // Push notifications require a physical device
   if (!Device?.isDevice) {
     console.warn(

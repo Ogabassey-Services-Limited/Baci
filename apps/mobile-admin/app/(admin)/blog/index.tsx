@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { formatDistanceToNow } from 'date-fns';
 import { router, Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -33,6 +33,30 @@ interface AgentStatus {
   last_run_at: string | null;
 }
 
+async function fetchBlogPosts(merchantId: string): Promise<BlogPost[]> {
+  const { data, error } = await supabase
+    .from('blog_posts')
+    .select('id, title, status, created_at, featured_image_url')
+    .eq('merchant_id', merchantId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function fetchMerchantAgentStatus(
+  merchantId: string
+): Promise<AgentStatus | null> {
+  const { data, error } = await supabase
+    .from('merchant_agents')
+    .select('status, last_run_at')
+    .eq('merchant_id', merchantId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
 export default function BlogListScreen() {
   const { colors, isDark } = useTheme();
   const { merchant } = useMerchant();
@@ -44,59 +68,85 @@ export default function BlogListScreen() {
   // Agent Status
   const [agent, setAgent] = useState<AgentStatus | null>(null);
   const [agentLoading, setAgentLoading] = useState(true);
-
-  const fetchPosts = async () => {
-    if (!merchant?.id) {
-      setIsLoading(false);
-      setIsRefreshing(false);
-      return;
-    }
-    try {
-      // Fetch ALL posts once
-      const { data, error } = await supabase
-        .from('blog_posts')
-        .select('id, title, status, created_at, featured_image_url')
-        .eq('merchant_id', merchant.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setAllPosts(data || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  const fetchAgentStatus = async () => {
-    if (!merchant?.id) {
-      setAgentLoading(false);
-      return;
-    }
-    try {
-      const { data, error } = await supabase
-        .from('merchant_agents')
-        .select('status, last_run_at')
-        .eq('merchant_id', merchant.id)
-        .single();
-      if (!error && data) setAgent(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setAgentLoading(false);
-    }
-  };
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    fetchPosts();
-    fetchAgentStatus();
-  }, [fetchPosts, fetchAgentStatus]);
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadInitialData = async () => {
+      if (!merchant?.id) {
+        if (isMounted) {
+          setAllPosts([]);
+          setAgent(null);
+          setIsLoading(false);
+          setAgentLoading(false);
+        }
+        return;
+      }
+
+      if (isMounted) {
+        setIsLoading(true);
+        setAgentLoading(true);
+      }
+
+      try {
+        const [posts, agentStatus] = await Promise.all([
+          fetchBlogPosts(merchant.id),
+          fetchMerchantAgentStatus(merchant.id),
+        ]);
+        if (!isMounted) return;
+        setAllPosts(posts);
+        setAgent(agentStatus);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+          setAgentLoading(false);
+        }
+      }
+    };
+
+    void loadInitialData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [merchant?.id]);
 
   const onRefresh = () => {
+    if (!merchant?.id) {
+      setIsRefreshing(false);
+      return;
+    }
+
     setIsRefreshing(true);
-    fetchAgentStatus();
-    fetchPosts();
+
+    const refreshData = async () => {
+      try {
+        const [posts, agentStatus] = await Promise.all([
+          fetchBlogPosts(merchant.id),
+          fetchMerchantAgentStatus(merchant.id),
+        ]);
+        if (!isMountedRef.current) return;
+        setAllPosts(posts);
+        setAgent(agentStatus);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (isMountedRef.current) {
+          setIsRefreshing(false);
+        }
+      }
+    };
+
+    void refreshData();
   };
 
   // Optimistic Client-Side Filtering

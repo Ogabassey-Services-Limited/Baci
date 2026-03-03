@@ -40,7 +40,9 @@ export default function NotificationsScreen() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notification_preferences')
-        .select('*')
+        .select(
+          'merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end'
+        )
         .eq('merchant_id', merchant?.id)
         .maybeSingle();
 

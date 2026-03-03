@@ -18,6 +18,21 @@ export interface FailedOrder {
   attempt_count: number;
 }
 
+type FailedOrderPaymentStatus = FailedOrder['payment_status'];
+
+const VALID_PAYMENT_STATUSES: ReadonlySet<FailedOrderPaymentStatus> = new Set([
+  'bnpl_pending',
+  'failed',
+  'pending',
+  'expired',
+]);
+
+const toPaymentStatus = (status: string): FailedOrderPaymentStatus => {
+  return VALID_PAYMENT_STATUSES.has(status as FailedOrderPaymentStatus)
+    ? (status as FailedOrderPaymentStatus)
+    : 'failed';
+};
+
 /** Shape returned by the Supabase select on orders with joined transactions */
 interface FailedOrderRow {
   id: string;
@@ -100,7 +115,7 @@ export function useFailedOrders() {
             customer_email: order.customer_email,
             customer_phone: order.customer_phone,
             total: order.total,
-            payment_status: order.payment_status,
+            payment_status: toPaymentStatus(order.payment_status),
             payment_method: order.payment_method,
             created_at: order.created_at,
             gateway_response: order.transactions?.[0]?.gateway_response,

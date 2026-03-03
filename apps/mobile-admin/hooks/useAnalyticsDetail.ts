@@ -25,8 +25,8 @@ interface JoinedOrder {
 interface OrderItemWithJoins {
   quantity: number | null;
   price: number | null;
-  products: JoinedProduct;
-  orders: JoinedOrder;
+  products: JoinedProduct | JoinedProduct[] | null;
+  orders: JoinedOrder | JoinedOrder[] | null;
 }
 
 export type MetricType = 'revenue' | 'sales' | 'aov' | 'profits' | 'vat';
@@ -78,6 +78,15 @@ interface UseAnalyticsDetailOptions {
   granularity: Granularity;
   includeComparison?: boolean;
 }
+
+const getJoinedRecord = <T>(
+  value: T | T[] | null | undefined
+): T | null => {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+  return value ?? null;
+};
 
 export function useAnalyticsDetail({
   metric,
@@ -135,6 +144,9 @@ export function useAnalyticsDetail({
         );
       }
 
+      const typedOrderItems =
+        (orderItems as unknown as OrderItemWithJoins[] | null) ?? [];
+
       // Process data based on granularity
       const buckets = getBuckets(granularity);
       const data: TimeSeriesDataPoint[] = buckets.map((label) => ({
@@ -171,9 +183,11 @@ export function useAnalyticsDetail({
 
       // Calculate profits per bucket
       if (metric === 'profits' || metric === 'revenue') {
-        (orderItems as OrderItemWithJoins[])?.forEach((item) => {
-          const order = item.orders;
-          const product = item.products;
+        typedOrderItems.forEach((item) => {
+          const order = getJoinedRecord(item.orders);
+          const product = getJoinedRecord(item.products);
+          if (!order || !product) return;
+
           const date = new Date(order.created_at);
           const bucketIndex = getBucketIndex(date, granularity);
 
@@ -248,7 +262,7 @@ export function useAnalyticsDetail({
           .lte('created_at', prevEndDate.toISOString());
 
         // Fetch previous year order_items for profit calculation
-        let prevOrderItems: typeof orderItems = null;
+        let prevOrderItems: OrderItemWithJoins[] = [];
         if (metric === 'profits') {
           const { data } = await supabase
             .from('order_items')
@@ -262,12 +276,14 @@ export function useAnalyticsDetail({
             .eq('orders.payment_status', 'paid')
             .gte('orders.created_at', prevStartDate.toISOString())
             .lte('orders.created_at', prevEndDate.toISOString());
-          prevOrderItems = data;
+          prevOrderItems =
+            (data as unknown as OrderItemWithJoins[] | null) ?? [];
         }
 
         comparisonData = buckets.map((label) => ({
           label,
           value: 0,
+          secondaryValue: 0,
           count: 0,
         }));
 
@@ -300,16 +316,22 @@ export function useAnalyticsDetail({
 
         // Calculate profits for comparison period
         if (metric === 'profits' && comparisonData) {
-          (prevOrderItems as OrderItemWithJoins[] | null)?.forEach((item) => {
-            const order = item.orders;
-            const product = item.products;
+          const comparisonBuckets = comparisonData;
+
+          prevOrderItems.forEach((item) => {
+            const order = getJoinedRecord(item.orders);
+            const product = getJoinedRecord(item.products);
+            if (!order || !product) return;
+
             const date = new Date(order.created_at);
             const bucketIndex = getBucketIndex(date, granularity);
 
-            if (bucketIndex >= 0 && bucketIndex < comparisonData?.length) {
+            if (bucketIndex >= 0 && bucketIndex < comparisonBuckets.length) {
               const revenue = (item.price || 0) * (item.quantity || 1);
               const cost = (product.cost_price || 0) * (item.quantity || 1);
-              comparisonData[bucketIndex].value += revenue - cost;
+              comparisonBuckets[bucketIndex].value += revenue - cost;
+              comparisonBuckets[bucketIndex].secondaryValue =
+                (comparisonBuckets[bucketIndex].secondaryValue || 0) + revenue;
             }
           });
         }
