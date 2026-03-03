@@ -255,7 +255,7 @@ export async function getCachedMerchant(
     if (primaryDomain) {
       const result: CachedMerchant = {
         ...data,
-        feature_settings: data.feature_settings as
+        feature_settings: data.feature_settings as unknown as
           | MerchantFeatureSettings
           | undefined,
         custom_domain: primaryDomain.domain,
@@ -267,7 +267,7 @@ export async function getCachedMerchant(
   if (data) {
     const result: CachedMerchant = {
       ...data,
-      feature_settings: data.feature_settings as
+      feature_settings: data.feature_settings as unknown as
         | MerchantFeatureSettings
         | undefined,
     };
