@@ -92,7 +92,6 @@ export function ProductCard({
   const scale = useSharedValue(1);
   const heartScale = useSharedValue(1);
   const addItem = useCartStore((state) => state.addItem);
-  const cartItems = useCartStore((state) => state.items);
   const toggleSaved = useSavedStore((state) => state.toggleSaved);
 
   // 2026 Best Practice: Reactive selector for store state
@@ -107,10 +106,14 @@ export function ProductCard({
   // BUG-5-018 FIX: Add haptic feedback hook
   const haptics = useHaptics();
 
-  // 2026 Best Practice: Calculate counts from store to show in UI
-  const cartItemCount = cartItems
-    .filter((item) => item.product_id === product.id)
-    .reduce((total, item) => total + item.quantity, 0);
+  // 2026 Best Practice: Reactive selector for store state
+  // Only subscribe to this specific product's count to prevent O(n) re-renders
+  // when unrelated items are added to the cart
+  const cartItemCount = useCartStore((state) =>
+    state.items
+      .filter((item) => item.product_id === product.id)
+      .reduce((total, item) => total + item.quantity, 0)
+  );
 
   // Real-time stock tracking
   const [, setStockQuantity] = useState<number | undefined>(
