@@ -100,8 +100,8 @@ export function CheckoutIdentityModal({
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-full transition-colors"
+            aria-label="Close"
           >
-            <span className="sr-only">Close</span>
             <X size={20} />
           </button>
         </div>
@@ -228,6 +228,7 @@ export function CheckoutIdentityModal({
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs font-medium"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? 'Hide' : 'Show'}
                   </button>
