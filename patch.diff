@@ -1,0 +1,133 @@
+<<<<<<< SEARCH
+          <Pressable onPress={onClose} style={styles.closeButton}>
+            <Ionicons name="close" size={24} color={colors.text} />
+          </Pressable>
+=======
+          <Pressable
+            onPress={onClose}
+            style={styles.closeButton}
+            accessibilityRole="button"
+            accessibilityLabel="Close country picker"
+            accessibilityHint="Closes the country selection modal"
+          >
+            <Ionicons name="close" size={24} color={colors.text} />
+          </Pressable>
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder="Search country..."
+              placeholderTextColor={colors.textMuted}
+              value={search}
+              onChangeText={setSearch}
+              autoCorrect={false}
+            />
+            {search.length > 0 && (
+              <Pressable onPress={() => setSearch('')}>
+                <Ionicons
+                  name="close-circle"
+                  size={18}
+                  color={colors.textMuted}
+                />
+              </Pressable>
+            )}
+=======
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder="Search country..."
+              placeholderTextColor={colors.textMuted}
+              value={search}
+              onChangeText={setSearch}
+              autoCorrect={false}
+              keyboardType="default"
+              returnKeyType="search"
+              accessibilityLabel="Search countries"
+            />
+            {search.length > 0 && (
+              <Pressable
+                onPress={() => setSearch('')}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+                accessibilityHint="Clears the country search input"
+              >
+                <Ionicons
+                  name="close-circle"
+                  size={18}
+                  color={colors.textMuted}
+                />
+              </Pressable>
+            )}
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+          {filteredCountries.map((item) => (
+            <Pressable
+              key={item.code}
+              style={[
+                styles.countryItem,
+                {
+                  backgroundColor:
+                    selectedCountry === item.code ||
+                    selectedCountry === item.name
+                      ? colors.primaryLight
+                      : colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => onSelect(item)}
+            >
+              <View>
+                <Text
+=======
+          {filteredCountries.map((item) => {
+            const isSelected =
+              selectedCountry === item.code || selectedCountry === item.name;
+            return (
+              <Pressable
+                key={item.code}
+                style={[
+                  styles.countryItem,
+                  {
+                    backgroundColor: isSelected
+                      ? colors.primaryLight
+                      : colors.card,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={() => onSelect(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`Select ${item.name}`}
+                accessibilityState={{ selected: isSelected }}
+              >
+                <View>
+                  <Text
+                    style={[
+                      styles.countryName,
+                      {
+                        color: colors.text,
+                        fontWeight: isSelected ? 'bold' : 'normal',
+                      },
+                    ]}
+                  >
+                    {item.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.currencyText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {item.currency} ({item.currencySymbol})
+                  </Text>
+                </View>
+                {isSelected && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={colors.primary}
+                  />
+                )}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+>>>>>>> REPLACE
