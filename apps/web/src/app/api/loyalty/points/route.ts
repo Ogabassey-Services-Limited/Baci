@@ -161,9 +161,10 @@ export async function POST(request: NextRequest) {
           merchant_id: merchantId,
           points_balance: 0,
           lifetime_points: 0,
-          referral_code: Math.random()
-            .toString(36)
-            .substring(2, 10)
+          referral_code: crypto
+            .randomUUID()
+            .replace(/-/g, '')
+            .slice(0, 20)
             .toUpperCase(),
         })
         .select()

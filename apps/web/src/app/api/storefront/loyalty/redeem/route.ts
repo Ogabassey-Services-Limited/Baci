@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate redemption code
-    const redemptionCode = `RDM-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const redemptionCode = `RDM-${Date.now().toString(36).toUpperCase()}-${crypto.randomUUID().replace(/-/g, '').toUpperCase()}`;
 
     // Calculate expiry date (30 days from now by default)
     const expiresAt = new Date();
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         customer_id,
         reward_id,
         points_spent: reward.points_required,
-        redemption_code: redemptionCode,
+        discount_code: redemptionCode,
         status: 'pending',
         expires_at: expiresAt.toISOString(),
       })
