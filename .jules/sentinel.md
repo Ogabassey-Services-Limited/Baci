@@ -1,4 +1,3 @@
-# Sentinel
 
 ## 2025-03-02 - Replace weak random number generation with cryptographically secure alternatives
 **Vulnerability:** Found `Math.random` being used to generate identifier codes such as file names, redemption codes, referral codes and event identifiers. `Math.random` is NOT cryptographically secure, predictable, and should never be used for things that require collision resistance or an element of security.

@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
 
     // Generate unique filename with sanitized extension
     const timestamp = Date.now();
-    const randomStr = crypto.randomUUID().replace(/-/g, '');
+    const randomStr = crypto.randomUUID().split('-')[0];
     const fileName = `${timestamp}-${randomStr}.${ext}`;
     const filePath = `${merchantId}/${fileName}`;
 

@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
             event_type,
             event_id:
               event_id ||
-              `evt_${Date.now()}_${crypto.randomUUID().replace(/-/g, '')}`,
+              `evt_${Date.now()}_${crypto.randomUUID().split('-')[0]}`,
             user_data: user_data
               ? {
                   email: user_data.em,
