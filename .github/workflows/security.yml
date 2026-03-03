@@ -122,4 +122,7 @@ jobs:
         # Pin to full SHA for supply-chain security
         uses: trufflesecurity/trufflehog@7c0734f987ad0bb30ee8da210773b800ee2016d3 # v3.93.4
         with:
-          extra_args: --only-verified
+          # Supabase anon keys (NEXT_PUBLIC_*) are intentionally public and
+          # protected by RLS — exclude the SupabaseToken detector to avoid
+          # false-positive failures on every push.
+          extra_args: --only-verified --exclude-detectors SupabaseToken
