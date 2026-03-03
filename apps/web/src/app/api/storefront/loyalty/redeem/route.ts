@@ -116,7 +116,8 @@ export async function POST(request: NextRequest) {
         points_balance: newBalance,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', loyalty.id);
+      .eq('id', loyalty.id)
+      .eq('merchant_id', merchant_id);
 
     if (updateError) {
       console.error('Error updating points balance:', updateError);
@@ -124,7 +125,8 @@ export async function POST(request: NextRequest) {
       await supabase
         .from('reward_redemptions')
         .delete()
-        .eq('id', redemption.id);
+        .eq('id', redemption.id)
+        .eq('merchant_id', merchant_id);
       return NextResponse.json(
         { error: 'Failed to deduct points' },
         { status: 500 }
