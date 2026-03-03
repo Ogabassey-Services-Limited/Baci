@@ -283,11 +283,11 @@ export default function CartScreen() {
             Browse our products and add items to your cart
           </Text>
           <Pressable
-            style={[styles.shopButton, { backgroundColor: '#000' }]}
+            style={[styles.shopButton, { backgroundColor: colors.text }]}
             onPress={() => router.push('/')}
           >
-            <Text style={styles.shopButtonText}>Start Shopping</Text>
-            <Ionicons name="arrow-forward" size={18} color="#FFF" />
+            <Text style={[styles.shopButtonText, { color: colors.background }]}>Start Shopping</Text>
+            <Ionicons name="arrow-forward" size={18} color={colors.background} />
           </Pressable>
         </View>
       </View>
@@ -325,7 +325,7 @@ export default function CartScreen() {
             : 0;
 
           return (
-            <View key={item.id} style={styles.cartCard}>
+            <View key={item.id} style={[styles.cartCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {/* Top Row: Image & Info */}
               <View style={styles.cardTop}>
                 <Pressable
@@ -356,16 +356,16 @@ export default function CartScreen() {
                       style={[
                         styles.conditionTag,
                         item.condition?.toLowerCase() === 'new'
-                          ? styles.conditionTagNew
-                          : styles.conditionTagUsed,
+                          ? [styles.conditionTagNew, { backgroundColor: colors.background, borderColor: colors.success }]
+                          : [styles.conditionTagUsed, { backgroundColor: colors.background, borderColor: colors.warning }],
                       ]}
                     >
                       <Text
                         style={[
                           styles.conditionTagText,
                           item.condition?.toLowerCase() === 'new'
-                            ? styles.conditionTagTextNew
-                            : styles.conditionTagTextUsed,
+                            ? [styles.conditionTagTextNew, { color: colors.success }]
+                            : [styles.conditionTagTextUsed, { color: colors.warning }],
                         ]}
                       >
                         {item.condition || 'NEW'}
@@ -481,6 +481,7 @@ export default function CartScreen() {
                       style={[
                         styles.toggleKnob,
                         item.hasAssurance && styles.toggleKnobActive,
+                        { backgroundColor: colors.background }
                       ]}
                     />
                   </View>
@@ -505,9 +506,9 @@ export default function CartScreen() {
 
                 {/* Negotiate Button */}
                 {item.negotiationStatus === 'accepted' ? (
-                  <View style={styles.negotiatedBadge}>
-                    <Ionicons name="checkmark" size={12} color="#10B981" />
-                    <Text style={styles.negotiatedBadgeText}>Matched</Text>
+                  <View style={[styles.negotiatedBadge, { backgroundColor: colors.background, borderColor: colors.success }]}>
+                    <Ionicons name="checkmark" size={12} color={colors.success} />
+                    <Text style={[styles.negotiatedBadgeText, { color: colors.success }]}>Matched</Text>
                   </View>
                 ) : (
                   <Pressable
@@ -544,7 +545,7 @@ export default function CartScreen() {
       </ScrollView>
 
       {/* Red Sticky Checkout Footer - HIGH VISIBILITY VERSION */}
-      <View style={styles.checkoutStickyFooter}>
+      <View style={[styles.checkoutStickyFooter, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
         {/* Row 1: Hint Message (Now relative and centered) */}
         <View style={styles.bulkHint}>
           <Ionicons
@@ -602,10 +603,10 @@ export default function CartScreen() {
               style={[
                 StyleSheet.absoluteFill,
                 {
-                  backgroundColor: '#DC2626',
+                  backgroundColor: colors.primary,
                   borderRadius: RADIUS.xl,
                   borderWidth: 1.5,
-                  borderColor: '#991B1B',
+                  borderColor: colors.border,
                 },
               ]}
             />
@@ -618,7 +619,7 @@ export default function CartScreen() {
                 {formatPrice(grandTotal || 0)}
               </Text>
               <Animated.View style={animatedArrowStyle}>
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                <Ionicons name="arrow-forward" size={18} color={colors.background} />
               </Animated.View>
             </View>
           </Pressable>
@@ -649,11 +650,11 @@ export default function CartScreen() {
               setPendingNegotiateItem(null);
             }}
           />
-          <View style={styles.warningModal}>
+          <View style={[styles.warningModal, { backgroundColor: colors.card }]}>
             {/* Header */}
             <View style={styles.warningHeader}>
-              <View style={styles.warningIconCircle}>
-                <Ionicons name="cash-outline" size={24} color="#B45309" />
+              <View style={[styles.warningIconCircle, { backgroundColor: colors.background }]}>
+                <Ionicons name="cash-outline" size={24} color={colors.warning} />
               </View>
               <Text style={styles.warningTitle}>Choose Negotiation Mode</Text>
             </View>
@@ -689,6 +690,7 @@ export default function CartScreen() {
               <Pressable
                 style={({ pressed }) => [
                   styles.warningSecondaryButton,
+                  { backgroundColor: colors.muted, borderColor: colors.border },
                   pressed && styles.warningButtonPressed,
                 ]}
                 onPress={() => {
@@ -763,12 +765,10 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   cartCard: {
-    backgroundColor: '#FFF',
     borderRadius: RADIUS['2xl'],
     padding: SPACING.md,
     ...SHADOWS.sm,
     borderWidth: 1,
-    borderColor: palette.gray[100],
   },
   cardTop: {
     flexDirection: 'row',
@@ -812,12 +812,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   conditionTagNew: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
   },
   conditionTagUsed: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
   },
   conditionTagText: {
     fontSize: 9,
@@ -956,7 +952,6 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#FFF',
   },
   toggleKnobActive: {
     alignSelf: 'flex-end',
@@ -998,12 +993,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#ECFDF5',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: '#A7F3D0',
   },
   negotiatedBadgeText: {
     fontSize: 12,
@@ -1015,12 +1008,10 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFF',
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.sm,
     paddingBottom: Platform.OS === 'ios' ? 24 : 20, // Increased for safe area and spacing
     borderTopWidth: 1,
-    borderTopColor: palette.gray[100],
     ...SHADOWS.lg,
     zIndex: 1000,
   },
@@ -1299,7 +1290,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   warningModal: {
-    backgroundColor: '#FFF',
     borderRadius: 20,
     padding: 28,
     width: '100%',
@@ -1316,7 +1306,6 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: '#FEF3C7',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1350,7 +1339,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
   warningSecondaryButton: {
-    backgroundColor: '#F3F4F6',
     paddingVertical: 14,
     borderRadius: 16,
     flexDirection: 'row',
@@ -1358,7 +1346,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
   },
   warningSecondaryButtonText: {
     fontSize: 16,
