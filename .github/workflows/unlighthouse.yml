@@ -8,7 +8,7 @@ on:
 jobs:
   unlighthouse:
     name: SEO & Core Web Vitals Audit
-    runs-on: ubuntu-latest
+    runs-on: baci-vps
     timeout-minutes: 20
 
     permissions:
@@ -28,13 +28,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Restore Next.js Build Cache
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
-        with:
-          path: apps/web/.next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
-          restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
+      # VPS has persistent disk — Next.js build cache survives across runs.
 
       - name: Build Next.js App
         run: pnpm turbo build --filter=@baci/web
