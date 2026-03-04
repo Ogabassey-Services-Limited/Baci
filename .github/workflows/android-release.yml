@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 env:
-  JAVA_VERSION: '25'
+  JAVA_VERSION: '21'
   NODE_VERSION: '24'
   WORKING_DIR: apps/mobile-admin
   # Offset added to github.run_number to avoid collisions with
@@ -50,6 +50,12 @@ jobs:
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Java
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
 
       # Node 22+ type stripping breaks expo-modules-core.
       - name: Disable Node type stripping
@@ -120,6 +126,17 @@ jobs:
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
           EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID: ${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}
         run: pnpm exec expo prebuild --platform android --clean
+
+      - name: Pin Gradle wrapper to 8.x
+        # Gradle 9.0 removed JvmVendorSpec.IBM_SEMERU which React Native's
+        # Gradle plugin still references. Pin to 8.14.3 until RN catches up.
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          WRAPPER="android/gradle/wrapper/gradle-wrapper.properties"
+          if grep -q "gradle-9" "$WRAPPER" 2>/dev/null; then
+            sed -i 's|gradle-9[^-]*-bin.zip|gradle-8.14.3-bin.zip|' "$WRAPPER"
+            echo "Pinned Gradle wrapper to 8.14.3"
+          fi
 
       - name: Decode keystore
         working-directory: ${{ env.WORKING_DIR }}

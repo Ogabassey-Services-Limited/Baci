@@ -11,6 +11,10 @@
 import type { Session, User } from '@supabase/supabase-js';
 import { Alert } from 'react-native';
 import { create } from 'zustand';
+import {
+  type DeleteAccountResult,
+  getDeleteAccountErrorMessage,
+} from '../lib/account-deletion';
 import { CONFIG } from '../lib/config';
 import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
@@ -21,8 +25,8 @@ import {
   shouldInvalidateSessionOnGetUserError,
 } from './auth-helpers';
 import { useCartStore } from './cart-store';
-import { useSavedStore } from './saved-store';
 import { useComparisonStore } from './comparison-store';
+import { useSavedStore } from './saved-store';
 
 const log = createLogger('AuthStore');
 
@@ -67,6 +71,7 @@ interface AuthState {
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signInWithApple: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<DeleteAccountResult>;
   refreshSession: () => Promise<void>;
   updateProfile: (
     data: Partial<Customer>
@@ -639,6 +644,46 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       log.error('Sign out error:', error);
       set({ isLoading: false });
+    }
+  },
+
+  // Delete account (Apple Guideline 5.1.1(v) compliance)
+  deleteAccount: async () => {
+    try {
+      const { user } = get();
+      const usedApple =
+        user?.app_metadata?.providers?.includes('apple') ?? false;
+
+      const { error } = await supabase.rpc('delete_current_storefront_account');
+
+      if (error) {
+        const message = getDeleteAccountErrorMessage(error);
+        return { success: false, error: message };
+      }
+
+      // Sign out and clear local stores
+      await supabase.auth.signOut({ scope: 'local' }).catch((err) => {
+        log.warn('Local signOut failed after account deletion:', err);
+      });
+      useCartStore.getState().clearCart();
+      useSavedStore.getState().clearSaved();
+      useComparisonStore.getState().clearComparison();
+      set({
+        user: null,
+        session: null,
+        customer: null,
+        isLoading: false,
+        isInitialized: true,
+        _initializationInProgress: false,
+      } as Partial<AuthState>);
+
+      return { success: true, usedApple };
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Something went wrong. Please try again.';
+      return { success: false, error: message };
     }
   },
 
