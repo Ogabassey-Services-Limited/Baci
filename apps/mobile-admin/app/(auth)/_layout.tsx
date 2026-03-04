@@ -31,8 +31,7 @@ export default function AuthLayout() {
   const inAuthGroup = segments[0] === '(auth)';
   const authSegment = segments.at(1);
   const isVerifyScreen = inAuthGroup && authSegment === 'verify';
-  const isCompleteProfileScreen =
-    inAuthGroup && authSegment === 'complete-profile';
+  const isCompleteProfileScreen = inAuthGroup && authSegment === 'complete-profile';
 
   if (
     isAuthenticated &&
