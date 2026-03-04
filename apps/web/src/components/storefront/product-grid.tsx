@@ -207,16 +207,19 @@ export function StorefrontProductGrid({
     },
   ];
 
+  // Optimization: Single-pass iteration to avoid intermediate array allocations
   const filterOptions = (() => {
     if (filterType === 'category') {
-      const cats = new Set(
-        products.map((p) => p.category).filter((c): c is string => !!c)
-      );
+      const cats = new Set<string>();
+      for (const p of products) {
+        if (p.category) cats.add(p.category);
+      }
       return Array.from(cats);
     } else if (filterType === 'brand') {
-      const brands = new Set(
-        products.map((p) => p.brand).filter((b): b is string => !!b)
-      );
+      const brands = new Set<string>();
+      for (const p of products) {
+        if (p.brand) brands.add(p.brand);
+      }
       return Array.from(brands);
     } else if (filterType === 'price') {
       return priceRanges.map((r) => r.label);
@@ -236,15 +239,20 @@ export function StorefrontProductGrid({
   })();
 
   const categories = (() => {
-    const cats = new Set(
-      products.map((p) => p.category).filter((c): c is string => !!c)
-    );
+    // Optimization: Single-pass iteration
+    const cats = new Set<string>();
+    for (const p of products) {
+      if (p.category) cats.add(p.category);
+    }
     const availableCategories = Array.from(cats);
 
-    const priorityList =
-      merchantContext?.navigationCategories
-        ?.map((c) => c.name?.toLowerCase().trim())
-        .filter((n): n is string => !!n) || [];
+    const priorityList: string[] = [];
+    if (merchantContext?.navigationCategories) {
+      for (const c of merchantContext.navigationCategories) {
+        const name = c.name?.toLowerCase().trim();
+        if (name) priorityList.push(name);
+      }
+    }
 
     const sorted = sortCategories({
       categories: availableCategories,
