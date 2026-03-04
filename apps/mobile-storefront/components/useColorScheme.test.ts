@@ -1,0 +1,52 @@
+import { renderHook } from '@testing-library/react-native';
+import { useColorScheme as useRNColorScheme } from 'react-native';
+import { useSettingsStore } from '@/stores/settings-store';
+import { useColorScheme } from './useColorScheme';
+
+jest.mock('react-native', () => ({
+  useColorScheme: jest.fn(),
+}));
+
+const mockRNColorScheme = useRNColorScheme as jest.Mock;
+
+describe('useColorScheme', () => {
+  beforeEach(() => {
+    useSettingsStore.setState({ appearance: 'system' });
+    mockRNColorScheme.mockReturnValue('light');
+  });
+
+  it('returns light when system is light and appearance is system', () => {
+    mockRNColorScheme.mockReturnValue('light');
+    useSettingsStore.setState({ appearance: 'system' });
+    const { result } = renderHook(() => useColorScheme());
+    expect(result.current).toBe('light');
+  });
+
+  it('returns dark when system is dark and appearance is system', () => {
+    mockRNColorScheme.mockReturnValue('dark');
+    useSettingsStore.setState({ appearance: 'system' });
+    const { result } = renderHook(() => useColorScheme());
+    expect(result.current).toBe('dark');
+  });
+
+  it('returns light when system is null and appearance is system', () => {
+    mockRNColorScheme.mockReturnValue(null);
+    useSettingsStore.setState({ appearance: 'system' });
+    const { result } = renderHook(() => useColorScheme());
+    expect(result.current).toBe('light');
+  });
+
+  it('returns light when appearance is forced to light', () => {
+    mockRNColorScheme.mockReturnValue('dark');
+    useSettingsStore.setState({ appearance: 'light' });
+    const { result } = renderHook(() => useColorScheme());
+    expect(result.current).toBe('light');
+  });
+
+  it('returns dark when appearance is forced to dark', () => {
+    mockRNColorScheme.mockReturnValue('light');
+    useSettingsStore.setState({ appearance: 'dark' });
+    const { result } = renderHook(() => useColorScheme());
+    expect(result.current).toBe('dark');
+  });
+});
