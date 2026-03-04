@@ -7,6 +7,7 @@ import {
   type InvoiceLineItem,
   type TaxSubtotal,
 } from '@/lib/invoice-generator';
+import { ORDER_COLUMNS } from '@/lib/order-queries';
 import { createClient } from '@/lib/supabase/server';
 
 interface OrderItem {
@@ -80,7 +81,7 @@ export async function GET(
       .from('orders')
       .select(
         `
-        *,
+        ${ORDER_COLUMNS}, invoice_type_code, invoice_issue_date, tax_point_date, payment_due_date, buyer_reference, purchase_order_reference, tax_exclusive_amount, tax_inclusive_amount, invoice_note, firs_irn, firs_csid, firs_qr_code, payment_terms,
         merchants!inner (
           id,
           user_id,
@@ -105,8 +106,7 @@ export async function GET(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Verify user owns this merchant
-    const merchant = order.merchants as {
+    type MerchantData = {
       id: string;
       user_id: string;
       business_name: string;
@@ -121,6 +121,11 @@ export async function GET(
       logo_url: string | null;
     };
 
+    // Verify user owns this merchant
+    const merchant = Array.isArray(order.merchants)
+      ? (order.merchants[0] as MerchantData)
+      : (order.merchants as MerchantData);
+
     if (merchant.user_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -128,7 +133,9 @@ export async function GET(
     // Fetch order items
     const { data: orderItems, error: itemsError } = await supabase
       .from('order_items')
-      .select('*')
+      .select(
+        'id, line_id, name, item_description, quantity, price, unit_code, line_extension_amount, vat_category_code, vat_rate, vat_amount, sellers_item_id, product_id'
+      )
       .eq('order_id', orderId)
       .order('line_id', { ascending: true });
 
@@ -145,7 +152,9 @@ export async function GET(
     if (merchant.vat_registration_status === 'registered') {
       const { data: subtotals } = await supabase
         .from('order_tax_subtotals')
-        .select('*')
+        .select(
+          'vat_category_code, vat_rate, taxable_amount, tax_amount, exemption_reason'
+        )
         .eq('order_id', orderId);
 
       taxSubtotals = subtotals || [];
