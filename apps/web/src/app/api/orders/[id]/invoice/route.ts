@@ -1,5 +1,3 @@
-'use server';
-
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   generateInvoiceBlob,
@@ -121,17 +119,8 @@ export async function GET(
       logo_url: string | null;
     };
 
-    // Verify user owns this merchant
-    const merchant = Array.isArray(order.merchants)
-      ? (order.merchants[0] as MerchantData)
-      : (order.merchants as MerchantData);
-
-    if (!merchant) {
-      return NextResponse.json(
-        { error: 'Merchant data not found' },
-        { status: 404 }
-      );
-    }
+    // merchants!inner guarantees a single joined object
+    const merchant = order.merchants as unknown as MerchantData;
 
     if (merchant.user_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -157,12 +146,20 @@ export async function GET(
     // Fetch tax subtotals if VAT registered
     let taxSubtotals: TaxSubtotalRow[] = [];
     if (merchant.vat_registration_status === 'registered') {
-      const { data: subtotals } = await supabase
+      const { data: subtotals, error: taxError } = await supabase
         .from('order_tax_subtotals')
         .select(
           'vat_category_code, vat_rate, taxable_amount, tax_amount, exemption_reason'
         )
         .eq('order_id', orderId);
+
+      if (taxError) {
+        console.error(
+          'Error fetching order_tax_subtotals for order:',
+          orderId,
+          taxError
+        );
+      }
 
       taxSubtotals = subtotals || [];
     }
