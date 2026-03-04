@@ -59,6 +59,7 @@ import DeleteAccountScreen from '@/app/profile/delete-account';
 
 describe('DeleteAccountScreen', () => {
   beforeEach(() => {
+    jest.restoreAllMocks();
     jest.clearAllMocks();
     mockUseRequireAuth.mockReturnValue({
       isLoading: false,
