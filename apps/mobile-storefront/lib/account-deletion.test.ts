@@ -77,6 +77,26 @@ describe('account-deletion helpers', () => {
       );
     });
 
+    it('returns network guidance for fetch failed errors', () => {
+      const message = getDeleteAccountErrorMessage({
+        message: 'TypeError: fetch failed',
+      });
+
+      expect(message).toBe(
+        "We couldn't reach the server. Check your connection and try again."
+      );
+    });
+
+    it('returns network guidance for connection refused errors', () => {
+      const message = getDeleteAccountErrorMessage({
+        message: 'ECONNREFUSED 127.0.0.1:54321',
+      });
+
+      expect(message).toBe(
+        "We couldn't reach the server. Check your connection and try again."
+      );
+    });
+
     it('hides internal database errors behind a safe support message', () => {
       const message = getDeleteAccountErrorMessage({
         message:

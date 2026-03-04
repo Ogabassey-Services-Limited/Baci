@@ -88,7 +88,10 @@ export function getDeleteAccountErrorMessage(error: unknown): string {
   if (
     normalized.includes('network') ||
     normalized.includes('timeout') ||
-    normalized.includes('timed out')
+    normalized.includes('timed out') ||
+    normalized.includes('fetch failed') ||
+    normalized.includes('econnrefused') ||
+    normalized.includes('enetunreach')
   ) {
     return NETWORK_RETRY_MESSAGE;
   }

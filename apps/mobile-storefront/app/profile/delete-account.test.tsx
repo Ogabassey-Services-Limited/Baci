@@ -126,7 +126,9 @@ describe('DeleteAccountScreen', () => {
     // Second alert: success message — router.replace is inside the OK callback
     const successButtons = alertSpy.mock.calls[1]?.[2] ?? [];
     const okButton = successButtons.find((button) => button?.text === 'OK');
-    okButton?.onPress?.();
+    act(() => {
+      okButton?.onPress?.();
+    });
 
     expect(mockRouterReplace).toHaveBeenCalledWith('/(tabs)');
 

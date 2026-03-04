@@ -1,4 +1,4 @@
-import { useSettingsStore } from './settings-store';
+import { useSettingsStore } from '@/stores/settings-store';
 
 describe('settings-store', () => {
   beforeEach(() => {

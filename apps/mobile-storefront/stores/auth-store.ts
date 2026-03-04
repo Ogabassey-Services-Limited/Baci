@@ -662,7 +662,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // Sign out and clear local stores
-      await supabase.auth.signOut({ scope: 'local' });
+      await supabase.auth.signOut({ scope: 'local' }).catch((err) => {
+        log.warn('Local signOut failed after account deletion:', err);
+      });
       useCartStore.getState().clearCart();
       useSavedStore.getState().clearSaved();
       useComparisonStore.getState().clearComparison();

@@ -23,7 +23,7 @@ const APPLE_REVOKE_GUIDE_URL = 'https://support.apple.com/en-us/102571';
 
 export default function DeleteAccountScreen() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme];
   const router = useRouter();
   const { isLoading: isAuthLoading, redirectTo, user } = useRequireAuth();
   const deleteAccount = useAuthStore((state) => state.deleteAccount);

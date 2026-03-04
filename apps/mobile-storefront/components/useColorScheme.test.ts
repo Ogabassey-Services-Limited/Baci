@@ -15,6 +15,10 @@ describe('useColorScheme', () => {
     mockRNColorScheme.mockReturnValue('light');
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('returns light when system is light and appearance is system', () => {
     mockRNColorScheme.mockReturnValue('light');
     useSettingsStore.setState({ appearance: 'system' });

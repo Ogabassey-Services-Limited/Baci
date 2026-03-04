@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -56,10 +55,9 @@ export default function SettingsScreen() {
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
+  // expo-haptics supports both iOS and Android
   const haptic = () => {
-    if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   };
 
   const handleAppearanceChange = (mode: AppearanceMode) => {
@@ -69,10 +67,14 @@ export default function SettingsScreen() {
 
   const handleNotificationToggle = async (enabled: boolean) => {
     haptic();
-    if (enabled) {
-      await registerPush();
-    } else {
-      await unregisterPush();
+    try {
+      if (enabled) {
+        await registerPush();
+      } else {
+        await unregisterPush();
+      }
+    } catch {
+      toast.error('Failed to update notification settings. Please try again.');
     }
   };
 
@@ -133,7 +135,7 @@ export default function SettingsScreen() {
             <Text
               style={[styles.sectionTitle, { color: colors.textSecondary }]}
             >
-              <Text>APPEARANCE</Text>
+              APPEARANCE
             </Text>
             <View
               style={[
@@ -191,7 +193,7 @@ export default function SettingsScreen() {
             <Text
               style={[styles.sectionTitle, { color: colors.textSecondary }]}
             >
-              <Text>NOTIFICATIONS</Text>
+              NOTIFICATIONS
             </Text>
             <View
               style={[
@@ -248,7 +250,7 @@ export default function SettingsScreen() {
             <Text
               style={[styles.sectionTitle, { color: colors.textSecondary }]}
             >
-              <Text>ABOUT</Text>
+              ABOUT
             </Text>
             <View
               style={[
@@ -362,7 +364,7 @@ export default function SettingsScreen() {
             <Text
               style={[styles.sectionTitle, { color: colors.textSecondary }]}
             >
-              <Text>DATA</Text>
+              DATA
             </Text>
             <View
               style={[
@@ -454,8 +456,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm + SPACING.xs,
     borderRadius: RADIUS.xl,
   },
   segmentLabel: {
@@ -466,7 +468,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.md,
   },
   rowBorder: {
@@ -475,7 +477,7 @@ const styles = StyleSheet.create({
   rowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: SPACING.sm,
     flex: 1,
   },
   rowLabel: {
