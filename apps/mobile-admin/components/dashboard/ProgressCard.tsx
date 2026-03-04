@@ -43,11 +43,11 @@ export function ProgressCard({
       <View style={styles.content}>
         <View>
           <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-          {subtitle && (
+          {subtitle ? (
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               {subtitle}
             </Text>
-          )}
+          ) : null}
         </View>
 
         <View style={styles.progressContainer}>

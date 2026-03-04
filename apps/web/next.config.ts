@@ -11,9 +11,9 @@ const nextConfig: NextConfig = {
   // Reduces unnecessary re-renders without manual useMemo/useCallback
   reactCompiler: true,
 
-  // Enable source maps in production for better debugging and Lighthouse scores
-  // Note: Increases build size slightly but helps with error tracking
-  productionBrowserSourceMaps: true,
+  // Production source maps disabled to save ~1-2 min build time
+  // Re-enable if needed for debugging: productionBrowserSourceMaps: true,
+  productionBrowserSourceMaps: false,
 
   // Enable 'use cache' directive for Dynamic IO (Next.js 16)
   cacheComponents: true,
@@ -177,9 +177,8 @@ const nextConfig: NextConfig = {
     ],
 
     // Enable Turbopack file system caching for faster dev rebuilds (Next.js 16)
-    // This caches compilation results to disk, dramatically reducing rebuild times
-    // TEMPORARILY DISABLED: Investigating stability issues
-    // turbopackFileSystemCacheForDev: true,
+    // Caches compilation results to disk, dramatically reducing rebuild times
+    turbopackFileSystemCacheForDev: true,
   },
 
   // Enable typed routes for compile-time validation of Link hrefs

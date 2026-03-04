@@ -90,14 +90,14 @@ export default function ExpensesScreen() {
         <Text style={[styles.expenseCategory, { color: colors.text }]}>
           {item.category}
         </Text>
-        {item.description && (
+        {item.description ? (
           <Text
             style={[styles.expenseDescription, { color: colors.textSecondary }]}
             numberOfLines={1}
           >
             {item.description}
           </Text>
-        )}
+        ) : null}
         <Text style={[styles.expenseDate, { color: colors.textMuted }]}>
           {format(parseISO(item.date), 'MMM d, yyyy')}
         </Text>
@@ -107,14 +107,14 @@ export default function ExpensesScreen() {
         <Text style={[styles.amountText, { color: colors.text }]}>
           {formatCurrency(item.amount, merchant?.payout_currency || 'NGN')}
         </Text>
-        {item.receipt_url && (
+        {item.receipt_url ? (
           <Ionicons
             name="document-attach-outline"
             size={14}
             color={colors.textSecondary}
             style={{ marginTop: 4 }}
           />
-        )}
+        ) : null}
       </View>
     </Pressable>
   );

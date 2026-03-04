@@ -61,11 +61,11 @@ export function RevenueChart({
             </Text>
           )}
         </View>
-        {totalRevenue && (
+        {totalRevenue ? (
           <Text style={[styles.totalRevenue, { color: colors.text }]}>
             {totalRevenue}
           </Text>
-        )}
+        ) : null}
       </View>
 
       {/* Bar Chart */}
@@ -111,7 +111,7 @@ export function RevenueChart({
       </View>
 
       {/* Insight Text */}
-      {insightText && (
+      {insightText ? (
         <View style={styles.insightContainer}>
           <Ionicons
             name={
@@ -146,7 +146,7 @@ export function RevenueChart({
             {insightText}
           </Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

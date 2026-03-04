@@ -197,7 +197,23 @@ export function useProduct(productId: string) {
         }
       }
 
-      return { ...productData, variants: variants || [] } as Product & {
+      const withRelations = productData as Product & {
+        categories?: { name: string } | Array<{ name: string }> | null;
+        brands?: { name: string } | Array<{ name: string }> | null;
+      };
+      const category = Array.isArray(withRelations.categories)
+        ? withRelations.categories[0]
+        : withRelations.categories;
+      const brand = Array.isArray(withRelations.brands)
+        ? withRelations.brands[0]
+        : withRelations.brands;
+
+      return {
+        ...withRelations,
+        categories: category ? { name: category.name } : undefined,
+        brands: brand ? { name: brand.name } : undefined,
+        variants: (variants as Product[] | null) ?? [],
+      } as Product & {
         categories?: { name: string };
         brands?: { name: string };
         variants: Product[];

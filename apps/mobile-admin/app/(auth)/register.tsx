@@ -499,9 +499,9 @@ export default function RegisterScreen() {
                       />
                     </Pressable>
                   </View>
-                  {confirmError && (
+                  {confirmError ? (
                     <Text style={styles.errorText}>{confirmError}</Text>
-                  )}
+                  ) : null}
                 </View>
 
                 <Pressable style={styles.button} onPress={handleNext}>

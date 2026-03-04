@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -74,7 +74,7 @@ export function SuccessModal({
             {message}
           </Text>
 
-          {subMessage && (
+          {subMessage ? (
             <View
               style={[
                 styles.subMessageContainer,
@@ -91,17 +91,20 @@ export function SuccessModal({
                 {subMessage}
               </Text>
             </View>
-          )}
+          ) : null}
 
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: colors.success }]}
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              { backgroundColor: colors.success },
+              pressed && styles.buttonPressed,
+            ]}
             onPress={onClose}
-            activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="Dismiss success message"
           >
             <Text style={styles.buttonText}>Beautiful!</Text>
-          </TouchableOpacity>
+          </Pressable>
         </Animated.View>
       </View>
     </Modal>
@@ -181,6 +184,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
+  },
+  buttonPressed: {
+    opacity: 0.85,
   },
   buttonText: {
     color: '#FFFFFF',

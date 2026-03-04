@@ -1,14 +1,17 @@
 import { Ratelimit } from '@upstash/ratelimit';
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
 import { type CoreMessage, generateText } from 'ai';
 import { match } from 'ts-pattern';
 import { activeTextModel } from '@/ai/provider';
 
-// Check if KV is configured for rate limiting (optional)
+// Check if Upstash Redis is configured for rate limiting (optional)
 const ratelimit =
-  process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
     ? new Ratelimit({
-        redis: kv,
+        redis: new Redis({
+          url: process.env.UPSTASH_REDIS_REST_URL,
+          token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        }),
         limiter: Ratelimit.slidingWindow(50, '1 d'),
         analytics: true,
       })

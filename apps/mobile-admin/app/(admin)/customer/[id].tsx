@@ -278,7 +278,7 @@ export default function CustomerDetailsScreen() {
             </Pressable>
           </View>
 
-          {customer.phone && (
+          {customer.phone ? (
             <View style={styles.contactRow}>
               <View style={styles.contactItem}>
                 <Text
@@ -305,9 +305,9 @@ export default function CustomerDetailsScreen() {
                 </Pressable>
               </View>
             </View>
-          )}
+          ) : null}
 
-          {customer.address && (
+          {customer.address ? (
             <View style={styles.contactRow}>
               <View style={styles.contactItem}>
                 <Text
@@ -320,7 +320,7 @@ export default function CustomerDetailsScreen() {
                 </Text>
               </View>
             </View>
-          )}
+          ) : null}
         </View>
 
         {/* Stats Grid */}
