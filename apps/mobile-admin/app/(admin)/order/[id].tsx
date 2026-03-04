@@ -79,12 +79,14 @@ const routeParamsSchema = z.object({
   action: z.enum(['record-payment', 'ship-on-credit']).optional(),
 });
 
-type ShippingAddress = {
+type ShippingAddressObject = {
   address?: string | null;
   address_line1?: string | null;
   city?: string | null;
   state?: string | null;
-} | null | undefined;
+};
+
+type ShippingAddress = ShippingAddressObject | string | null | undefined;
 
 // Helper to get consistent theme colors for statuses
 const getStatusColor = (
@@ -356,8 +358,11 @@ export default function OrderDetailsScreen() {
 
     await handleSaveRider(riderPhone);
 
-    const shippingAddress = order?.shipping_address as ShippingAddress;
+    const rawShipping = order?.shipping_address as ShippingAddress;
+    const shippingAddress =
+      typeof rawShipping === 'object' ? rawShipping : null;
     const deliveryAddress =
+      (typeof rawShipping === 'string' ? rawShipping.trim() : null) ||
       shippingAddress?.address ||
       shippingAddress?.address_line1 ||
       order?.customer_address ||
@@ -382,7 +387,7 @@ ${merchant?.business_address || ''}
 ${order?.customer_name}
 ${deliveryAddress}
 ${deliveryCityState}
-Phone: ${order?.customer_phone}
+Phone: ${order?.customer_phone?.trim() || 'N/A'}
 
 *Items:*
 ${itemsList}
@@ -416,7 +421,7 @@ ${itemsList}
   };
 
   const handleSendRiderToCustomer = () => {
-    if (!order?.customer_phone) return;
+    if (!order?.customer_phone?.trim()) return;
 
     const message = `
 🚚 *Order Update*
@@ -488,7 +493,8 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
   };
 
   const handleCall = () => {
-    if (order?.customer_phone) Linking.openURL(`tel:${order.customer_phone}`);
+    const phone = order?.customer_phone?.trim();
+    if (phone) Linking.openURL(`tel:${phone}`);
   };
 
   const handleEmail = () => {
@@ -497,9 +503,9 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
   };
 
   const handleWhatsApp = () => {
-    if (order?.customer_phone) {
-      const phone = order.customer_phone.replace(/\D/g, '');
-      Linking.openURL(`https://wa.me/${phone}`);
+    const phone = order?.customer_phone?.trim();
+    if (phone) {
+      Linking.openURL(`https://wa.me/${phone.replace(/\D/g, '')}`);
     }
   };
 
@@ -1436,68 +1442,68 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
             </Text>
           </View>
           {order.items?.map((item, index: number) => (
-              <Pressable
-                key={item.id}
+            <Pressable
+              key={item.id}
+              style={[
+                styles.itemRow,
+                index !== (order.items?.length || 0) - 1 && {
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.border,
+                },
+              ]}
+              onPress={
+                item.product_id && !item.product_id.startsWith('custom-')
+                  ? () => router.push(`/product/${item.product_id}`)
+                  : undefined
+              }
+            >
+              <View
                 style={[
-                  styles.itemRow,
-                  index !== (order.items?.length || 0) - 1 && {
-                    borderBottomWidth: 1,
-                    borderBottomColor: colors.border,
-                  },
+                  styles.itemImagePlaceholder,
+                  { backgroundColor: colors.backgroundLight },
                 ]}
-                onPress={
-                  item.product_id && !item.product_id.startsWith('custom-')
-                    ? () => router.push(`/product/${item.product_id}`)
-                    : undefined
-                }
               >
-                <View
-                  style={[
-                    styles.itemImagePlaceholder,
-                    { backgroundColor: colors.backgroundLight },
-                  ]}
+                {item.image_url ? (
+                  <SafeImage
+                    source={{ uri: item.image_url }}
+                    style={styles.itemImage}
+                  />
+                ) : (
+                  <Ionicons
+                    name="image-outline"
+                    size={24}
+                    color={colors.textMuted}
+                  />
+                )}
+              </View>
+              <View style={styles.itemDetails}>
+                <Text
+                  style={[styles.itemName, { color: colors.text }]}
+                  numberOfLines={2}
                 >
-                  {item.image_url ? (
-                    <SafeImage
-                      source={{ uri: item.image_url }}
-                      style={styles.itemImage}
-                    />
-                  ) : (
-                    <Ionicons
-                      name="image-outline"
-                      size={24}
-                      color={colors.textMuted}
-                    />
-                  )}
-                </View>
-                <View style={styles.itemDetails}>
+                  {item.name}
+                </Text>
+                <Text style={[styles.itemRef, { color: colors.textMuted }]}>
+                  SKU: {item.product_id?.slice(0, 8)}...
+                </Text>
+                <View style={styles.itemPriceRow}>
                   <Text
-                    style={[styles.itemName, { color: colors.text }]}
-                    numberOfLines={2}
+                    style={[styles.itemQty, { color: colors.textSecondary }]}
                   >
-                    {item.name}
+                    x{item.quantity}
                   </Text>
-                  <Text style={[styles.itemRef, { color: colors.textMuted }]}>
-                    SKU: {item.product_id?.slice(0, 8)}...
+                  <Text style={[styles.itemPrice, { color: colors.text }]}>
+                    {formatPrice(item.price)}
                   </Text>
-                  <View style={styles.itemPriceRow}>
-                    <Text
-                      style={[styles.itemQty, { color: colors.textSecondary }]}
-                    >
-                      x{item.quantity}
-                    </Text>
-                    <Text style={[styles.itemPrice, { color: colors.text }]}>
-                      {formatPrice(item.price)}
-                    </Text>
-                  </View>
                 </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={20}
-                  color={colors.textMuted}
-                />
-              </Pressable>
-            ))}
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={colors.textMuted}
+              />
+            </Pressable>
+          ))}
         </View>
 
         {/* Order Summary */}
