@@ -106,7 +106,9 @@ export default function StaffAccountsScreen() {
     queryFn: async () => {
       const { data } = await supabase
         .from('virtual_terminals')
-        .select('*')
+        .select(
+          'id, code, name, account_number, account_name, bank, payment_link, active, branch_id, staff_id'
+        )
         .eq('merchant_id', merchant?.id)
         .order('created_at', { ascending: false });
       return (data || []) as StaffAccount[];
@@ -124,7 +126,7 @@ export default function StaffAccountsScreen() {
     queryFn: async () => {
       const { data } = await supabase
         .from('branches')
-        .select('*')
+        .select('id, name, address, city, is_default, active')
         .eq('merchant_id', merchant?.id)
         .order('is_default', { ascending: false })
         .order('created_at', { ascending: true });
@@ -221,7 +223,7 @@ export default function StaffAccountsScreen() {
           name,
           city: city || null,
         })
-        .select()
+        .select('id, name, city, address, is_default, active')
         .single();
       if (error) throw error;
       return data;
@@ -492,7 +494,7 @@ export default function StaffAccountsScreen() {
                       </View>
                     </View>
 
-                    {account.account_number && (
+                    {account.account_number ? (
                       <Pressable
                         style={[
                           styles.accountDetail,
@@ -529,7 +531,7 @@ export default function StaffAccountsScreen() {
                           color={colors.textMuted}
                         />
                       </Pressable>
-                    )}
+                    ) : null}
                   </View>
                 ))
               )}

@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 env:
-  JAVA_VERSION: '17'
+  JAVA_VERSION: '25'
   NODE_VERSION: '24'
   WORKING_DIR: apps/mobile-admin
   # Offset added to github.run_number to avoid collisions with
@@ -36,60 +36,27 @@ env:
 jobs:
   build-and-deploy:
     name: Build AAB & Upload to Play Store
-    runs-on: ubuntu-latest
+    runs-on: baci-vps
     timeout-minutes: 45
 
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Setup Java
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
+      - name: Setup pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
 
       - name: Setup Node.js
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
-
-      # Node 22+ type stripping breaks expo-modules-core. Set NODE_OPTIONS
-      # here (not in global env) so the Actions runner's Node 20 is unaffected.
+      # Node 22+ type stripping breaks expo-modules-core.
       - name: Disable Node type stripping
         run: echo "NODE_OPTIONS=--no-strip-types" >> "$GITHUB_ENV"
 
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm store
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: ${{ runner.os }}-pnpm-
-
-      - name: Cache Gradle
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-            ${{ env.WORKING_DIR }}/android/.gradle
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: ${{ runner.os }}-gradle-
-
-      - name: Cache Turborepo
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
-        with:
-          path: node_modules/.cache/turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-turbo-
+      # VPS has persistent disk — pnpm store, Gradle caches, and Turbo cache
+      # survive across runs. No actions/cache needed.
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

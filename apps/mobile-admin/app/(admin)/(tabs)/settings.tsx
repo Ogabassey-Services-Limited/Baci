@@ -68,13 +68,13 @@ export default function SettingsScreen() {
         <Text style={[styles.settingTitle, { color: colors.text }]}>
           {title}
         </Text>
-        {subtitle && (
+        {subtitle ? (
           <Text
             style={[styles.settingSubtitle, { color: colors.textSecondary }]}
           >
             {subtitle}
           </Text>
-        )}
+        ) : null}
       </View>
       {toggle !== undefined ? (
         <Switch

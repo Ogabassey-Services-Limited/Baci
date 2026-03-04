@@ -41,17 +41,20 @@ interface OrdersPage {
 /** Shape returned by Supabase select on order_items with joined products */
 interface OrderItemRow {
   id: string;
-  product_id: string;
-  name: string;
+  product_id: string | null;
+  name: string | null;
   quantity: number;
   price: number;
-  products: { name: string; images: string[] } | null;
+  products:
+    | { name: string; images: string[] | null }
+    | Array<{ name: string; images: string[] | null }>
+    | null;
 }
 
 const PAGE_SIZE = 20;
 
 const ORDER_COLUMNS =
-  'id, order_number, merchant_id, customer_id, customer_name, customer_email, customer_phone, shipping_status, payment_status, total, subtotal, shipping_fee, tax_amount, discount_amount, discount_code, currency, source, payment_method, notes, is_credit_order, shipping_address, recorded_by_user_id, wallet_amount_used, created_at, updated_at' as const;
+  'id, order_number, merchant_id, customer_id, customer_name, customer_email, customer_phone, customer_address, shipping_status, payment_status, total, subtotal, shipping_fee, tax_amount, discount_amount, discount_code, currency, source, payment_method, notes, is_credit_order, shipping_address, recorded_by_user_id, wallet_amount_used, fulfillment_details, created_at, updated_at' as const;
 
 async function fetchOrders(
   merchantId: string,
@@ -357,6 +360,11 @@ export function useOrder(orderId: string) {
       const amountPaid = transTotal + (Number(order.wallet_amount_used) || 0);
       const balance = Math.max(0, (Number(order.total) || 0) - amountPaid);
 
+      const orderWithMeta = order as typeof order & {
+        customer_address?: string | null;
+        fulfillment_details?: { imei?: string; serialNumber?: string } | null;
+      };
+
       return {
         ...order,
         amount_paid: amountPaid,
@@ -364,15 +372,25 @@ export function useOrder(orderId: string) {
         virtual_account: virtualAccount || null,
         staff_terminal: staffTerminal,
         recorded_by_name: recordedByName,
-        items: (items as OrderItemRow[] | null)?.map((item) => ({
-          id: item.id,
-          product_id: item.product_id,
-          name: item.name || item.products?.name,
-          product_name: item.name || item.products?.name,
-          quantity: item.quantity,
-          price: item.price,
-          image_url: item.products?.images?.[0],
-        })),
+        customer_address: orderWithMeta.customer_address ?? null,
+        fulfillment_details: orderWithMeta.fulfillment_details ?? null,
+        items: (items as OrderItemRow[] | null)?.map((item) => {
+          const product = Array.isArray(item.products)
+            ? item.products[0]
+            : item.products;
+          const itemName = item.name ?? product?.name ?? 'Unnamed item';
+          const imageUrl = product?.images?.[0];
+
+          return {
+            id: item.id,
+            product_id: item.product_id ?? `custom-${item.id}`,
+            name: itemName,
+            product_name: itemName,
+            quantity: item.quantity,
+            price: item.price,
+            image_url: imageUrl,
+          };
+        }),
       };
     },
     enabled: !!orderId && !!merchant?.id,

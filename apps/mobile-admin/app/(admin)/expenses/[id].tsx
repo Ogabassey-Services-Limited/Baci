@@ -32,7 +32,7 @@ export default function ExpenseDetailScreen() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('expenses')
-        .select('*')
+        .select('id, amount, category, date, reference, description, receipt_url')
         .eq('id', id)
         .single();
       if (error) throw error;
@@ -161,7 +161,7 @@ export default function ExpenseDetailScreen() {
           </View>
         </View>
 
-        {expense.receipt_url && (
+        {expense.receipt_url ? (
           <View style={styles.receiptSection}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Receipt
@@ -182,7 +182,7 @@ export default function ExpenseDetailScreen() {
               </Text>
             </Pressable>
           </View>
-        )}
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

@@ -787,7 +787,7 @@ export default function OrdersScreen() {
       </Animated.View>
 
       {/* Date Range Chip */}
-      {dateRange && (
+      {dateRange ? (
         <View style={styles.dateChipContainer}>
           <View
             style={[styles.dateChip, { backgroundColor: colors.goldLight }]}
@@ -814,7 +814,7 @@ export default function OrdersScreen() {
             </Pressable>
           </View>
         </View>
-      )}
+      ) : null}
 
       {/* Insight Card */}
       {showInsight && pendingCount > 0 && (

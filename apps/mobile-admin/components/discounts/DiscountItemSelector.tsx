@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import SafeImage from '@/components/ui/SafeImage';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -33,6 +33,49 @@ interface DiscountItemSelectorProps {
   type: 'product' | 'category';
 }
 
+async function fetchSelectableItems(params: {
+  merchantId: string;
+  type: 'product' | 'category';
+  search: string;
+}): Promise<Item[]> {
+  const sanitizedSearch = sanitizeSearchQuery(params.search);
+  const searchTerm = `%${sanitizedSearch}%`;
+
+  if (params.type === 'product') {
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, description, images')
+      .eq('merchant_id', params.merchantId)
+      .ilike('name', searchTerm)
+      .limit(50);
+
+    if (error) throw error;
+
+    return ((data as Item[] | null) ?? []).map((item) => ({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      images: item.images || [],
+    }));
+  }
+
+  const { data, error } = await supabase
+    .from('categories')
+    .select('id, name, description')
+    .eq('merchant_id', params.merchantId)
+    .ilike('name', searchTerm)
+    .limit(50);
+
+  if (error) throw error;
+
+  return ((data as Item[] | null) ?? []).map((item) => ({
+    id: item.id,
+    name: item.name,
+    description: item.description,
+    images: [],
+  }));
+}
+
 export function DiscountItemSelector({
   visible,
   onClose,
@@ -48,59 +91,69 @@ export function DiscountItemSelector({
     new Set(initialIds)
   );
   const [loading, setLoading] = useState(false);
+  const requestIdRef = useRef(0);
 
-  const fetchItems = async () => {
+  const handleFetchItems = async (searchTerm: string) => {
+    if (!merchant?.id) {
+      setItems([]);
+      return;
+    }
+
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     try {
-      let query;
-      const sanitizedSearch = sanitizeSearchQuery(search);
-      if (type === 'product') {
-        query = supabase
-          .from('products')
-          .select('id, name, description, images')
-          .eq('merchant_id', merchant?.id)
-          .ilike('name', `%${sanitizedSearch}%`)
-          .limit(50);
-      } else {
-        query = supabase
-          .from('categories')
-          .select('id, name, description')
-          .eq('merchant_id', merchant?.id)
-          .ilike('name', `%${sanitizedSearch}%`)
-          .limit(50);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setItems(
-        (data as Item[])?.map((item: Item) => ({
-          id: item.id,
-          name: item.name,
-          description: item.description,
-          images: item.images || [],
-        })) || []
-      );
+      const fetchedItems = await fetchSelectableItems({
+        merchantId: merchant.id,
+        type,
+        search: searchTerm,
+      });
+      if (requestId !== requestIdRef.current) return;
+      setItems(fetchedItems);
     } catch (error) {
       console.error('[DiscountItemSelector] Error fetching items:', error);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    if (__DEV__) {
-      console.log(
-        '[DiscountItemSelector] useEffect triggered. Visible:',
-        visible,
-        'MerchantID:',
-        merchant?.id
-      );
+    if (visible) {
+      setSelectedIds(new Set(initialIds));
+      setSearch('');
     }
-    if (visible && merchant?.id) {
-      fetchItems();
-    }
-  }, [visible, merchant?.id, fetchItems]);
+  }, [visible, initialIds]);
+
+  useEffect(() => {
+    const loadInitialItems = async () => {
+      if (!visible || !merchant?.id) return;
+
+      const requestId = ++requestIdRef.current;
+      setLoading(true);
+      try {
+        const fetchedItems = await fetchSelectableItems({
+          merchantId: merchant.id,
+          type,
+          search: '',
+        });
+        if (requestId !== requestIdRef.current) return;
+        setItems(fetchedItems);
+      } catch (error) {
+        console.error('[DiscountItemSelector] Error fetching items:', error);
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadInitialItems();
+
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [visible, merchant?.id, type]);
 
   const toggleSelection = (id: string) => {
     const newSet = new Set(selectedIds);
@@ -188,7 +241,9 @@ export function DiscountItemSelector({
               setSearch(text);
               // Debounce could be added here
             }}
-            onSubmitEditing={fetchItems}
+            onSubmitEditing={() => {
+              void handleFetchItems(search);
+            }}
           />
         </View>
 
@@ -229,7 +284,7 @@ export function DiscountItemSelector({
                     <Text style={[styles.itemName, { color: colors.text }]}>
                       {item.name}
                     </Text>
-                    {item.description && (
+                    {item.description ? (
                       <Text
                         style={[
                           styles.itemDesc,
@@ -239,7 +294,7 @@ export function DiscountItemSelector({
                       >
                         {stripHtml(item.description)}
                       </Text>
-                    )}
+                    ) : null}
                   </View>
                   {isSelected && (
                     <Ionicons

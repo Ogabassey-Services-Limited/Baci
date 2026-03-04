@@ -9,8 +9,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -1035,7 +1037,7 @@ export default function AnalyticsScreen() {
         </Modal>
       </SafeAreaView>
 
-      {analytics && (
+      {analytics && merchant?.id && (
         <ReportSelectionModal
           visible={reportModalVisible}
           onClose={() => setReportModalVisible(false)}

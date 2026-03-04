@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import type { Domain } from './domain-types';
@@ -81,7 +81,7 @@ export function DomainItemCard({
         </View>
       </View>
 
-      <TouchableOpacity
+      <Pressable
         style={styles.optionsButton}
         onPress={() => onOpenOptions(domain)}
         disabled={actionLoading}
@@ -93,7 +93,7 @@ export function DomainItemCard({
           size={20}
           color={colors.textSecondary}
         />
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }

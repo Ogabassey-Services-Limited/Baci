@@ -24,7 +24,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -79,6 +78,13 @@ const routeParamsSchema = z.object({
   id: z.string().uuid(),
   action: z.enum(['record-payment', 'ship-on-credit']).optional(),
 });
+
+type ShippingAddress = {
+  address?: string | null;
+  address_line1?: string | null;
+  city?: string | null;
+  state?: string | null;
+} | null | undefined;
 
 // Helper to get consistent theme colors for statuses
 const getStatusColor = (
@@ -350,11 +356,18 @@ export default function OrderDetailsScreen() {
 
     await handleSaveRider(riderPhone);
 
+    const shippingAddress = order?.shipping_address as ShippingAddress;
+    const deliveryAddress =
+      shippingAddress?.address ||
+      shippingAddress?.address_line1 ||
+      order?.customer_address ||
+      '';
+    const deliveryCityState = [shippingAddress?.city, shippingAddress?.state]
+      .filter((part): part is string => Boolean(part?.trim()))
+      .join(' ');
+
     const itemsList = order?.items
-      ?.map(
-        (item: { quantity: number; name: string }) =>
-          `- ${item.quantity}x ${item.name}`
-      )
+      ?.map((item) => `- ${item.quantity}x ${item.name}`)
       .join('\n');
 
     const message = `
@@ -367,8 +380,8 @@ ${merchant?.business_address || ''}
 
 *Deliver to:*
 ${order?.customer_name}
-${order?.shipping_address?.address || order?.customer_address}
-${order?.shipping_address?.city || ''} ${order?.shipping_address?.state || ''}
+${deliveryAddress}
+${deliveryCityState}
 Phone: ${order?.customer_phone}
 
 *Items:*
@@ -420,6 +433,11 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
   };
 
   const handleRecordPayment = async () => {
+    if (!order) {
+      Alert.alert('Error', 'Order details are not available yet');
+      return;
+    }
+
     if (
       !paymentAmount ||
       Number.isNaN(Number(paymentAmount)) ||
@@ -510,7 +528,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
 
     if (newStatus === 'shipped' && order.shipping_status === 'processing') {
       const hasGadgetItems = order.items?.some(
-        (item: { name: string }) =>
+        (item) =>
           item.name?.toLowerCase().includes('phone') ||
           item.name?.toLowerCase().includes('laptop') ||
           item.name?.toLowerCase().includes('iphone') ||
@@ -1322,26 +1340,24 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
           </View>
 
           <View style={styles.actionButtons}>
-            <TouchableOpacity
+            <Pressable
               style={[
                 styles.actionBtn,
                 { backgroundColor: colors.backgroundLight },
               ]}
               onPress={handleCall}
-              activeOpacity={0.7}
             >
               <Ionicons name="call" size={20} color={colors.primary} />
               <Text style={[styles.actionBtnText, { color: colors.primary }]}>
                 Call
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+            </Pressable>
+            <Pressable
               style={[
                 styles.actionBtn,
                 { backgroundColor: colors.backgroundLight },
               ]}
               onPress={handleWhatsApp}
-              activeOpacity={0.7}
             >
               <Ionicons
                 name="logo-whatsapp"
@@ -1353,14 +1369,13 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
               >
                 WhatsApp
               </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+            </Pressable>
+            <Pressable
               style={[
                 styles.actionBtn,
                 { backgroundColor: colors.backgroundLight },
               ]}
               onPress={handleEmail}
-              activeOpacity={0.7}
             >
               <Ionicons name="mail" size={20} color={colors.textSecondary} />
               <Text
@@ -1368,12 +1383,12 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
               >
                 Email
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Rider Actions - Full Width */}
           {order.shipping_status === 'processing' && (
-            <TouchableOpacity
+            <Pressable
               style={[
                 styles.actionBtn,
                 {
@@ -1383,17 +1398,16 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                 },
               ]}
               onPress={() => setShowRiderModal(true)}
-              activeOpacity={0.7}
             >
               <Ionicons name="bicycle" size={20} color={colors.warning} />
               <Text style={[styles.actionBtnText, { color: colors.warning }]}>
                 Dispatch Rider
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           {order.shipping_status === 'shipped' && (
-            <TouchableOpacity
+            <Pressable
               style={[
                 styles.actionBtn,
                 {
@@ -1403,13 +1417,12 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                 },
               ]}
               onPress={handleSendRiderToCustomer}
-              activeOpacity={0.7}
             >
               <Ionicons name="share-social" size={20} color={colors.success} />
               <Text style={[styles.actionBtnText, { color: colors.success }]}>
                 Share Rider Info
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
 
@@ -1422,20 +1435,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
               Items ({order.items?.length || 0})
             </Text>
           </View>
-          {order.items?.map(
-            (
-              item: {
-                id: string;
-                name: string;
-                quantity: number;
-                price: number;
-                image_url?: string;
-                color?: string;
-                size?: string;
-                product_id?: string;
-              },
-              index: number
-            ) => (
+          {order.items?.map((item, index: number) => (
               <Pressable
                 key={item.id}
                 style={[
@@ -1497,8 +1497,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                   color={colors.textMuted}
                 />
               </Pressable>
-            )
-          )}
+            ))}
         </View>
 
         {/* Order Summary */}
@@ -1514,7 +1513,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
           {order.payment_status !== 'paid' && (
             <>
               <View style={styles.paymentActionsRow}>
-                <TouchableOpacity
+                <Pressable
                   style={[
                     styles.paymentActionBtn,
                     { borderColor: colors.success },
@@ -1526,7 +1525,6 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                     setPaymentAmount(String(Math.round(balance)));
                     setShowRecordPaymentModal(true);
                   }}
-                  activeOpacity={0.7}
                 >
                   <Ionicons
                     name="card-outline"
@@ -1541,15 +1539,14 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                   >
                     Record Payment
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
 
-                <TouchableOpacity
+                <Pressable
                   style={[
                     styles.paymentActionBtn,
                     { borderColor: colors.primary },
                   ]}
                   onPress={handleSendReminder}
-                  activeOpacity={0.7}
                 >
                   <Ionicons
                     name="notifications-outline"
@@ -1564,7 +1561,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                   >
                     Request Payment
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
               <View
                 style={[
@@ -2092,9 +2089,9 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={{ gap: 8 }}
                 >
-                  {savedRiders.map((phone, index) => (
-                    <TouchableOpacity
-                      key={index}
+                  {savedRiders.map((phone) => (
+                    <Pressable
+                      key={phone}
                       style={{
                         backgroundColor: colors.backgroundLight,
                         paddingHorizontal: 12,
@@ -2109,7 +2106,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                       <Text style={{ color: colors.text, fontSize: 12 }}>
                         {phone}
                       </Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   ))}
                 </ScrollView>
               </View>
@@ -2263,7 +2260,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
               </Text>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 {['transfer', 'pos', 'cash'].map((method) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={method}
                     style={{
                       flex: 1,
@@ -2291,7 +2288,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                     >
                       {method === 'pos' ? 'POS' : method}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </View>
             </View>

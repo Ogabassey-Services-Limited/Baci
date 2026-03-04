@@ -113,12 +113,16 @@ function FailedOrderItem({
     expired: 'Payment Expired',
   };
 
+  const gatewayMessage =
+    typeof item.gateway_response?.message === 'string' &&
+      item.gateway_response.message.trim() !== ''
+      ? item.gateway_response.message
+      : null;
   const errorMessage =
-    item.gateway_response?.message ||
-    STATUS_LABELS[item.payment_status] ||
-    'Payment Failed';
+    gatewayMessage ?? STATUS_LABELS[item.payment_status] ?? 'Payment Failed';
 
   const displayName = item.customer_name || 'Guest';
+  const customerPhone = item.customer_phone || null;
 
   return (
     <Pressable
@@ -174,7 +178,7 @@ function FailedOrderItem({
       </View>
 
       <View style={styles.actionRow}>
-        {item.customer_phone && (
+        {customerPhone ? (
           <>
             <Pressable
               style={[
@@ -187,7 +191,7 @@ function FailedOrderItem({
               ]}
               onPress={(e) => {
                 e.stopPropagation();
-                handleWhatsApp(item.customer_phone!);
+                handleWhatsApp(customerPhone);
               }}
               accessibilityLabel={`Message ${displayName} on WhatsApp`}
               accessibilityRole="button"
@@ -206,7 +210,7 @@ function FailedOrderItem({
               ]}
               onPress={(e) => {
                 e.stopPropagation();
-                handleCall(item.customer_phone!);
+                handleCall(customerPhone);
               }}
               accessibilityLabel={`Call ${displayName}`}
               accessibilityRole="button"
@@ -215,7 +219,7 @@ function FailedOrderItem({
               <Ionicons name="call" size={16} color={colors.textSecondary} />
             </Pressable>
           </>
-        )}
+        ) : null}
         <Pressable
           style={[
             styles.miniActionButton,
@@ -257,6 +261,7 @@ function CustomerItem({
   onPress,
 }: CustomerItemProps) {
   const displayName = getDisplayName(item);
+  const customerPhone = item.phone || null;
 
   return (
     <Pressable
@@ -308,7 +313,7 @@ function CustomerItem({
       </View>
 
       <View style={styles.actionRow}>
-        {item.phone && (
+        {customerPhone ? (
           <>
             <Pressable
               style={[
@@ -317,7 +322,7 @@ function CustomerItem({
               ]}
               onPress={(e) => {
                 e.stopPropagation();
-                handleWhatsApp(item.phone!);
+                handleWhatsApp(customerPhone);
               }}
               accessibilityLabel={`Message ${displayName} on WhatsApp`}
               accessibilityRole="button"
@@ -332,7 +337,7 @@ function CustomerItem({
               ]}
               onPress={(e) => {
                 e.stopPropagation();
-                handleCall(item.phone!);
+                handleCall(customerPhone);
               }}
               accessibilityLabel={`Call ${displayName}`}
               accessibilityRole="button"
@@ -341,7 +346,7 @@ function CustomerItem({
               <Ionicons name="call" size={16} color="#4B5563" />
             </Pressable>
           </>
-        )}
+        ) : null}
         <Pressable
           style={[
             styles.miniActionButton,

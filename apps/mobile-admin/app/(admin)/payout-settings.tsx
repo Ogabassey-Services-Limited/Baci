@@ -338,7 +338,7 @@ export default function PayoutSettingsScreen() {
                 </View>
               )}
 
-              {verifiedName && (
+              {verifiedName ? (
                 <View
                   style={[
                     styles.verificationContainer,
@@ -356,9 +356,9 @@ export default function PayoutSettingsScreen() {
                     {verifiedName}
                   </Text>
                 </View>
-              )}
+              ) : null}
 
-              {verifyError && (
+              {verifyError ? (
                 <View style={styles.verificationContainer}>
                   <Ionicons
                     name="alert-circle"
@@ -371,7 +371,7 @@ export default function PayoutSettingsScreen() {
                     {verifyError}
                   </Text>
                 </View>
-              )}
+              ) : null}
             </View>
           </View>
 

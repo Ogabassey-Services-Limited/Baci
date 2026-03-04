@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -55,7 +55,7 @@ export function DomainEmptyState({
           look more professional to customers.
         </Text>
 
-        <TouchableOpacity
+        <Pressable
           style={[styles.buyButton, { backgroundColor: colors.primary }]}
           onPress={onBuyDomain}
           accessibilityRole="button"
@@ -63,9 +63,9 @@ export function DomainEmptyState({
         >
           <Text style={styles.buyButtonText}>Get a Custom Domain</Text>
           <Ionicons name="arrow-forward" size={18} color="#FFF" />
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
+        <Pressable
           style={styles.connectLink}
           onPress={onConnectDomain}
           accessibilityRole="button"
@@ -74,7 +74,7 @@ export function DomainEmptyState({
           <Text style={[styles.connectLinkText, { color: colors.primary }]}>
             I already own a domain
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
