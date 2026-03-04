@@ -28,11 +28,11 @@ export default function AuthLayout() {
   // If user is authenticated, redirect to admin home
   // EXCEPTION: If we are on the 'verify' screen, let the screen handle the redirect
   // This prevents race conditions where AuthLayout redirects while VerifyScreen is showing success modal
-  const segs = segments as string[];
-  const inAuthGroup = segs.length > 0 && segs[0] === '(auth)';
-  const isVerifyScreen = inAuthGroup && segs.length > 1 && segs[1] === 'verify';
+  const inAuthGroup = segments[0] === '(auth)';
+  const authSegment = segments.at(1);
+  const isVerifyScreen = inAuthGroup && authSegment === 'verify';
   const isCompleteProfileScreen =
-    inAuthGroup && segs.length > 1 && segs[1] === 'complete-profile';
+    inAuthGroup && authSegment === 'complete-profile';
 
   if (
     isAuthenticated &&
