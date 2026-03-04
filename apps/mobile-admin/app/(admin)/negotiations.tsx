@@ -1,20 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
-  ActivityIndicator,
   RefreshControl,
-  Alert,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
-import { BRAND, SPACING, RADIUS, SHADOWS, palette } from '@/constants/Colors';
 import { formatCurrency as formatPrice } from '@/utils/format';
-import { useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
 
 interface NegotiationRequest {
   id: string;
@@ -35,10 +35,12 @@ export default function NegotiationsScreen() {
   const [requests, setRequests] = useState<NegotiationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [_fetchError, setFetchError] = useState<string | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const _router = useRouter();
 
   const fetchRequests = async () => {
+    setFetchError(null);
     try {
       const { data, error } = await supabase
         .from('negotiation_requests')
@@ -49,9 +51,9 @@ export default function NegotiationsScreen() {
 
       if (error) throw error;
       setRequests(data || []);
-    } catch (error) {
-      console.error('Error fetching negotiations:', error);
-      Alert.alert('Error', 'Failed to fetch negotiation requests');
+    } catch (err) {
+      console.error('Error fetching negotiations:', err);
+      setFetchError('Failed to load negotiations');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -74,7 +76,7 @@ export default function NegotiationsScreen() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchRequests]);
 
   const handleAction = async (id: string, status: 'accepted' | 'rejected') => {
     if (actionLoadingId) return; // Prevent double-submit
@@ -90,7 +92,8 @@ export default function NegotiationsScreen() {
       fetchRequests();
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      const message = error instanceof Error ? error.message : `Failed to ${status} request`;
+      const message =
+        error instanceof Error ? error.message : `Failed to ${status} request`;
       Alert.alert('Error', message);
     } finally {
       setActionLoadingId(null);
@@ -205,6 +208,25 @@ export default function NegotiationsScreen() {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={BRAND.primary} />
+      </View>
+    );
+  }
+
+  if (_fetchError) {
+    return (
+      <View style={styles.centered}>
+        <Ionicons name="alert-circle" size={48} color={palette.red[400]} />
+        <Text style={styles.emptyTitle}>{_fetchError}</Text>
+        <Pressable
+          style={styles.retryButton}
+          onPress={() => {
+            setLoading(true);
+            fetchRequests();
+          }}
+        >
+          <Ionicons name="refresh" size={18} color={BRAND.primary} />
+          <Text style={styles.retryText}>Tap to retry</Text>
+        </Pressable>
       </View>
     );
   }
@@ -382,5 +404,18 @@ const styles = StyleSheet.create({
     color: palette.gray[500],
     textAlign: 'center',
     lineHeight: 20,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  retryText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: BRAND.primary,
   },
 });

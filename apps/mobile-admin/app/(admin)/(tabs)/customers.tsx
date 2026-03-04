@@ -115,14 +115,14 @@ function FailedOrderItem({
 
   const gatewayMessage =
     typeof item.gateway_response?.message === 'string' &&
-      item.gateway_response.message.trim() !== ''
+    item.gateway_response.message.trim() !== ''
       ? item.gateway_response.message
       : null;
   const errorMessage =
     gatewayMessage ?? STATUS_LABELS[item.payment_status] ?? 'Payment Failed';
 
   const displayName = item.customer_name || 'Guest';
-  const customerPhone = item.customer_phone || null;
+  const customerPhone = item.customer_phone?.trim() || null;
 
   return (
     <Pressable

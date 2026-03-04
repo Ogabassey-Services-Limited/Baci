@@ -21,6 +21,7 @@ import {
 import { BASE_URL } from '@/lib/api-client';
 import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
+import { getJoinedRecord } from '@/lib/supabase-utils';
 import { useMerchant } from './useMerchant';
 
 // Re-export for backward compatibility
@@ -375,9 +376,7 @@ export function useOrder(orderId: string) {
         customer_address: orderWithMeta.customer_address ?? null,
         fulfillment_details: orderWithMeta.fulfillment_details ?? null,
         items: (items as OrderItemRow[] | null)?.map((item) => {
-          const product = Array.isArray(item.products)
-            ? item.products[0]
-            : item.products;
+          const product = getJoinedRecord(item.products);
           const itemName = item.name ?? product?.name ?? 'Unnamed item';
           const imageUrl = product?.images?.[0];
 

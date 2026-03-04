@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import SafeImage from '@/components/ui/SafeImage';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -12,18 +11,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
-import { sanitizeSearchQuery } from '@/lib/sanitize';
-import { supabase } from '@/lib/supabase';
-
-interface Item {
-  id: string;
-  name: string;
-  description?: string;
-  images: string[];
-}
+import {
+  fetchSelectableItems,
+  type SelectableItem,
+} from '@/lib/discount-items';
+import { stripHtmlTags } from '@/lib/sanitize';
 
 interface DiscountItemSelectorProps {
   visible: boolean;
@@ -31,49 +27,6 @@ interface DiscountItemSelectorProps {
   onSelect: (ids: string[]) => void;
   initialIds: string[];
   type: 'product' | 'category';
-}
-
-async function fetchSelectableItems(params: {
-  merchantId: string;
-  type: 'product' | 'category';
-  search: string;
-}): Promise<Item[]> {
-  const sanitizedSearch = sanitizeSearchQuery(params.search);
-  const searchTerm = `%${sanitizedSearch}%`;
-
-  if (params.type === 'product') {
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, name, description, images')
-      .eq('merchant_id', params.merchantId)
-      .ilike('name', searchTerm)
-      .limit(50);
-
-    if (error) throw error;
-
-    return ((data as Item[] | null) ?? []).map((item) => ({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      images: item.images || [],
-    }));
-  }
-
-  const { data, error } = await supabase
-    .from('categories')
-    .select('id, name, description')
-    .eq('merchant_id', params.merchantId)
-    .ilike('name', searchTerm)
-    .limit(50);
-
-  if (error) throw error;
-
-  return ((data as Item[] | null) ?? []).map((item) => ({
-    id: item.id,
-    name: item.name,
-    description: item.description,
-    images: [],
-  }));
 }
 
 export function DiscountItemSelector({
@@ -86,11 +39,12 @@ export function DiscountItemSelector({
   const { colors } = useTheme();
   const { merchant } = useMerchant();
   const [search, setSearch] = useState('');
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<SelectableItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     new Set(initialIds)
   );
   const [loading, setLoading] = useState(false);
+  const [_fetchError, setFetchError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
   const handleFetchItems = async (searchTerm: string) => {
@@ -101,6 +55,7 @@ export function DiscountItemSelector({
 
     const requestId = ++requestIdRef.current;
     setLoading(true);
+    setFetchError(null);
     try {
       const fetchedItems = await fetchSelectableItems({
         merchantId: merchant.id,
@@ -111,6 +66,9 @@ export function DiscountItemSelector({
       setItems(fetchedItems);
     } catch (error) {
       console.error('[DiscountItemSelector] Error fetching items:', error);
+      if (requestId === requestIdRef.current) {
+        setFetchError('Failed to load items');
+      }
     } finally {
       if (requestId === requestIdRef.current) {
         setLoading(false);
@@ -131,6 +89,7 @@ export function DiscountItemSelector({
 
       const requestId = ++requestIdRef.current;
       setLoading(true);
+      setFetchError(null);
       try {
         const fetchedItems = await fetchSelectableItems({
           merchantId: merchant.id,
@@ -141,6 +100,9 @@ export function DiscountItemSelector({
         setItems(fetchedItems);
       } catch (error) {
         console.error('[DiscountItemSelector] Error fetching items:', error);
+        if (requestId === requestIdRef.current) {
+          setFetchError('Failed to load items');
+        }
       } finally {
         if (requestId === requestIdRef.current) {
           setLoading(false);
@@ -168,25 +130,6 @@ export function DiscountItemSelector({
   const handleSave = () => {
     onSelect(Array.from(selectedIds));
     onClose();
-  };
-
-  const stripHtml = (html: string) => {
-    if (!html) return '';
-    return (
-      html
-        // 1. Replace known tags with space to preserve word separation
-        .replace(/<[^>]+>/g, ' ')
-        // 2. Nuclear option: Remove ALL remaining angle brackets to ensure
-        // no HTML tags can exist. This satisfies CodeQL that <script> is impossible.
-        .replace(/[<>]/g, '')
-        // 3. Decode harmless entities (excluding < and >)
-        // IMPORTANT: Decode &amp; LAST to prevent double-unescaping patterns
-        // like &amp;quot; → &quot; → " (which would be a security issue)
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&amp;/g, '&')
-    );
   };
 
   return (
@@ -247,6 +190,17 @@ export function DiscountItemSelector({
           />
         </View>
 
+        {_fetchError && !loading ? (
+          <View
+            style={[styles.errorBanner, { backgroundColor: colors.errorLight }]}
+          >
+            <Ionicons name="alert-circle" size={18} color={colors.error} />
+            <Text style={[styles.errorText, { color: colors.error }]}>
+              {_fetchError}
+            </Text>
+          </View>
+        ) : null}
+
         {loading ? (
           <ActivityIndicator
             size="large"
@@ -292,7 +246,7 @@ export function DiscountItemSelector({
                         ]}
                         numberOfLines={2}
                       >
-                        {stripHtml(item.description)}
+                        {stripHtmlTags(item.description)}
                       </Text>
                     ) : null}
                   </View>
@@ -369,5 +323,18 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     marginTop: 2,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: SPACING.md,
+    padding: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    gap: SPACING.sm,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
 });
