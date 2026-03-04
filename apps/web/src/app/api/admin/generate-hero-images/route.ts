@@ -108,9 +108,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     logger.error({ message: 'Hero image generation API error', error });
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Internal server error',
-      },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -181,9 +179,7 @@ export async function GET() {
   } catch (error) {
     logger.error({ message: 'Hero image stats API error', error });
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Internal server error',
-      },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
