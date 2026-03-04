@@ -79,6 +79,14 @@ export interface HeroSlide {
   cta: string;
 }
 
+export interface MerchantFeatureSettings {
+  blog_enabled?: boolean;
+  shipping_insurance_enabled?: boolean;
+  shipping_insurance_min_order_value?: number;
+  shipping_insurance_opt_in_default?: boolean;
+  [key: string]: unknown;
+}
+
 export interface CachedMerchant {
   id: string;
   business_name: string;
@@ -127,8 +135,7 @@ export interface CachedMerchant {
     | 'exempt'
     | 'pending';
   vat_rate?: number;
-  // biome-ignore lint/suspicious/noExplicitAny: Supabase returns dynamic JSON types
-  feature_settings?: any;
+  feature_settings?: MerchantFeatureSettings;
   // Legacy content pages (JSONB — used by contact, terms, privacy, faq, about pages)
   pages?: {
     contact?: string;
@@ -138,8 +145,7 @@ export interface CachedMerchant {
     about?: string;
   };
   // Structured about page data
-  // biome-ignore lint/suspicious/noExplicitAny: Supabase returns dynamic JSON types
-  about_page?: any;
+  about_page?: unknown;
   // FAQ items array
   faq_items?: unknown[];
   // Last update timestamp
@@ -219,7 +225,9 @@ export async function getCachedMerchant(
   } else {
     // Normalize feature_settings from array to object (Edge Compatibility Pattern)
     const settings = data.feature_settings;
-    data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+    if (Array.isArray(settings)) {
+      data.feature_settings = settings[0];
+    }
 
     const safeSlug = String(slug || '')
       .replace(/[\r\n]/g, '')
@@ -245,11 +253,27 @@ export async function getCachedMerchant(
       .single();
 
     if (primaryDomain) {
-      return { ...data, custom_domain: primaryDomain.domain };
+      const result: CachedMerchant = {
+        ...data,
+        feature_settings: data.feature_settings as unknown as
+          | MerchantFeatureSettings
+          | undefined,
+        custom_domain: primaryDomain.domain,
+      };
+      return result;
     }
   }
 
-  return data;
+  if (data) {
+    const result: CachedMerchant = {
+      ...data,
+      feature_settings: data.feature_settings as unknown as
+        | MerchantFeatureSettings
+        | undefined,
+    };
+    return result;
+  }
+  return null;
 }
 
 /**
@@ -337,9 +361,13 @@ export async function getCachedMerchantByDomain(
   }
 
   // Normalize feature_settings from array to object (Edge Compatibility Pattern)
-  // biome-ignore lint/suspicious/noExplicitAny: Supabase returns loose types for joined data
-  const settings = (data as any).feature_settings; // Type assertion since Supabase types might be loose
-  data.feature_settings = Array.isArray(settings) ? settings[0] : settings;
+  const settings = data.feature_settings;
+  let normalizedSettings: MerchantFeatureSettings | undefined;
+  if (Array.isArray(settings)) {
+    normalizedSettings = settings[0] as MerchantFeatureSettings | undefined;
+  } else {
+    normalizedSettings = settings as MerchantFeatureSettings | undefined;
+  }
 
   console.log('Successfully fetched merchant by domain', {
     domain: normalizedDomain,
@@ -357,7 +385,12 @@ export async function getCachedMerchantByDomain(
   }
 
   // Return with the custom_domain set
-  return { ...data, custom_domain: domainData.domain };
+  const result: CachedMerchant = {
+    ...data,
+    feature_settings: normalizedSettings,
+    custom_domain: domainData.domain,
+  };
+  return result;
 }
 
 /**
@@ -1012,8 +1045,7 @@ export async function getCachedCategoryPageData(
   // Let's keep it simple: Return the category object + products.
 
   // 4. Get products
-  // biome-ignore lint/suspicious/noExplicitAny: Supabase returns dynamic types
-  let products: any[] = [];
+  let products: unknown[] = [];
   let productsError = null;
 
   if (category?.id) {

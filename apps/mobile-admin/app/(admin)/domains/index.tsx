@@ -7,7 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -80,6 +79,7 @@ export default function DomainsDashboard() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [_fetchError, setFetchError] = useState<string | null>(null);
 
   // Options Sheet State
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
@@ -111,6 +111,7 @@ export default function DomainsDashboard() {
         return;
       }
 
+      setFetchError(null);
       try {
         const fetchedDomains = await fetchMerchantDomains(merchant.id);
         if (!isMounted) return;
@@ -118,7 +119,7 @@ export default function DomainsDashboard() {
       } catch (error) {
         console.error('Error fetching domains:', error);
         if (isMounted) {
-          Alert.alert('Error', 'Failed to load domains');
+          setFetchError('Failed to load domains');
         }
       } finally {
         if (isMounted) {
@@ -144,6 +145,7 @@ export default function DomainsDashboard() {
 
   const refreshDomains = async () => {
     setRefreshing(true);
+    setFetchError(null);
 
     if (!merchant?.id) {
       setRefreshing(false);
@@ -155,7 +157,7 @@ export default function DomainsDashboard() {
       setDomains(fetchedDomains);
     } catch (error) {
       console.error('Error fetching domains:', error);
-      Alert.alert('Error', 'Failed to load domains');
+      setFetchError('Failed to load domains');
     } finally {
       setRefreshing(false);
     }
@@ -219,6 +221,17 @@ export default function DomainsDashboard() {
             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
               Loading domains...
             </Text>
+          ) : _fetchError ? (
+            <Pressable
+              style={[styles.errorCard, { backgroundColor: colors.errorLight }]}
+              onPress={onRefresh}
+            >
+              <Ionicons name="alert-circle" size={20} color={colors.error} />
+              <Text style={[styles.errorText, { color: colors.error }]}>
+                {_fetchError}
+              </Text>
+              <Ionicons name="refresh" size={16} color={colors.error} />
+            </Pressable>
           ) : domains.filter((d) => d.domain_type !== 'subdomain').length ===
             0 ? (
             <DomainEmptyState
@@ -299,6 +312,19 @@ const styles = StyleSheet.create({
   loadingText: {
     textAlign: 'center',
     marginTop: SPACING.xl,
+  },
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SPACING.md,
+    borderRadius: 8,
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   domainsList: {
     gap: SPACING.md,

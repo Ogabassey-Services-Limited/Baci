@@ -29,9 +29,9 @@ export default function AuthLayout() {
   // EXCEPTION: If we are on the 'verify' screen, let the screen handle the redirect
   // This prevents race conditions where AuthLayout redirects while VerifyScreen is showing success modal
   const inAuthGroup = segments[0] === '(auth)';
-  const isVerifyScreen = inAuthGroup && segments[1] === 'verify';
-  const isCompleteProfileScreen =
-    inAuthGroup && segments[1] === 'complete-profile';
+  const authSegment = segments.at(1);
+  const isVerifyScreen = inAuthGroup && authSegment === 'verify';
+  const isCompleteProfileScreen = inAuthGroup && authSegment === 'complete-profile';
 
   if (
     isAuthenticated &&

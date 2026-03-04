@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-query';
 import { sanitizeSearchQuery, sanitizeText } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
+import { getJoinedRecord } from '@/lib/supabase-utils';
 import { useMerchant } from './useMerchant';
 
 export type ProductStatus = 'active' | 'draft' | 'archived';
@@ -201,12 +202,8 @@ export function useProduct(productId: string) {
         categories?: { name: string } | Array<{ name: string }> | null;
         brands?: { name: string } | Array<{ name: string }> | null;
       };
-      const category = Array.isArray(withRelations.categories)
-        ? withRelations.categories[0]
-        : withRelations.categories;
-      const brand = Array.isArray(withRelations.brands)
-        ? withRelations.brands[0]
-        : withRelations.brands;
+      const category = getJoinedRecord(withRelations.categories);
+      const brand = getJoinedRecord(withRelations.brands);
 
       return {
         ...withRelations,

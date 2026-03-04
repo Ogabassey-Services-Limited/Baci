@@ -116,7 +116,9 @@ export async function getWalletData(merchantId: string) {
     // Fallback if RPC fails or returns empty
     const { data: wallet } = await supabase
       .from('merchant_wallets')
-      .select('*')
+      .select(
+        'id, available_balance, pending_balance, upcoming_balance, upcoming_count, total_earned, total_withdrawn, auto_payout_enabled, auto_payout_day, min_payout_amount, last_payout_at, last_payout_amount'
+      )
       .eq('merchant_id', merchantId)
       .single();
 
@@ -205,7 +207,7 @@ export async function getTransactions(merchantId: string, limit = 10) {
 
   const { data: transactions } = await supabase
     .from('merchant_transactions')
-    .select('*')
+    .select('id, type, amount, balance_after, status, description, created_at')
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false })
     .limit(safeLimit);
