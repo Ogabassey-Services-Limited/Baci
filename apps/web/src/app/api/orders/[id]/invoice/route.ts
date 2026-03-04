@@ -150,12 +150,20 @@ export async function GET(
     // Fetch tax subtotals if VAT registered
     let taxSubtotals: TaxSubtotalRow[] = [];
     if (merchant.vat_registration_status === 'registered') {
-      const { data: subtotals } = await supabase
+      const { data: subtotals, error: subtotalsError } = await supabase
         .from('order_tax_subtotals')
         .select(
           'vat_category_code, vat_rate, taxable_amount, tax_amount, exemption_reason'
         )
         .eq('order_id', orderId);
+
+      if (subtotalsError) {
+        console.error('Error fetching tax subtotals:', subtotalsError);
+        return NextResponse.json(
+          { error: 'Failed to fetch tax subtotals' },
+          { status: 500 }
+        );
+      }
 
       taxSubtotals = subtotals || [];
     }
