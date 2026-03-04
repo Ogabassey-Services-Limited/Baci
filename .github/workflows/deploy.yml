@@ -60,10 +60,9 @@ jobs:
           path: node_modules
           key: ${{ runner.os }}-modules-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm install
-      - run: pnpm add -g vercel@latest
-      - run: vercel pull --yes --environment=production
-      - run: vercel build --prod
-      - run: vercel deploy --prebuilt --prod
+      - run: pnpm dlx vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - run: pnpm dlx vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - run: pnpm dlx vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
 
   deploy-preview:
     needs: [changes]
@@ -92,7 +91,12 @@ jobs:
           path: node_modules
           key: ${{ runner.os }}-modules-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm install
-      - run: pnpm add -g vercel@latest
-      - run: vercel pull --yes --environment=preview
-      - run: vercel build
-      - run: vercel deploy --prebuilt
+      - name: Pull Vercel Environment Information
+        if: ${{ env.VERCEL_TOKEN != '' }}
+        run: pnpm dlx vercel pull --yes --environment=preview --token=${{ env.VERCEL_TOKEN }}
+      - name: Build Project Artifacts
+        if: ${{ env.VERCEL_TOKEN != '' }}
+        run: pnpm dlx vercel build --token=${{ env.VERCEL_TOKEN }}
+      - name: Deploy Project Artifacts to Vercel
+        if: ${{ env.VERCEL_TOKEN != '' }}
+        run: pnpm dlx vercel deploy --prebuilt --token=${{ env.VERCEL_TOKEN }}
