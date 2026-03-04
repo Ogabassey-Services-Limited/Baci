@@ -5,7 +5,7 @@ describe('settings-store', () => {
     useSettingsStore.setState({ appearance: 'system' });
   });
 
-  it('defaults appearance to system', () => {
+  it('appearance is system after reset', () => {
     expect(useSettingsStore.getState().appearance).toBe('system');
   });
 

@@ -126,6 +126,13 @@ export async function GET(
       ? (order.merchants[0] as MerchantData)
       : (order.merchants as MerchantData);
 
+    if (!merchant) {
+      return NextResponse.json(
+        { error: 'Merchant data not found' },
+        { status: 404 }
+      );
+    }
+
     if (merchant.user_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
