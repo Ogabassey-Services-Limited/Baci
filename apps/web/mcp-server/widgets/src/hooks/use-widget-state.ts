@@ -1,4 +1,4 @@
-import { type SetStateAction, useEffect, useState } from 'react';
+import { type SetStateAction, useCallback, useEffect, useState } from 'react';
 import { useOpenAiGlobal } from './use-openai-global';
 
 type UnknownObject = Record<string, unknown>;
@@ -35,7 +35,7 @@ export function useWidgetState<T extends UnknownObject>(
     }
   }, [widgetStateFromWindow]);
 
-  const setWidgetState = (state: SetStateAction<T | null>) => {
+  const setWidgetState = useCallback((state: SetStateAction<T | null>) => {
     _setWidgetState((prevState) => {
       const newState = typeof state === 'function' ? state(prevState) : state;
 
@@ -46,7 +46,7 @@ export function useWidgetState<T extends UnknownObject>(
 
       return newState;
     });
-  };
+  }, []);
 
   return [widgetState, setWidgetState] as const;
 }
