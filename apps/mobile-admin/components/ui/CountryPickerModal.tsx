@@ -56,7 +56,13 @@ export function CountryPickerModal({
           <Text style={[styles.modalTitle, { color: colors.text }]}>
             Select Country
           </Text>
-          <Pressable onPress={onClose} style={styles.closeButton}>
+          <Pressable
+            onPress={onClose}
+            style={styles.closeButton}
+            accessibilityRole="button"
+            accessibilityLabel="Close country picker"
+            accessibilityHint="Closes the country selection modal"
+          >
             <Ionicons name="close" size={24} color={colors.text} />
           </Pressable>
         </View>
@@ -82,9 +88,17 @@ export function CountryPickerModal({
               value={search}
               onChangeText={setSearch}
               autoCorrect={false}
+              keyboardType="default"
+              returnKeyType="search"
+              accessibilityLabel="Search countries"
             />
             {search.length > 0 && (
-              <Pressable onPress={() => setSearch('')}>
+              <Pressable
+                onPress={() => setSearch('')}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+                accessibilityHint="Clears the country search input"
+              >
                 <Ionicons
                   name="close-circle"
                   size={18}
@@ -96,54 +110,57 @@ export function CountryPickerModal({
         </View>
 
         <ScrollView contentContainerStyle={{ padding: SPACING.md }}>
-          {filteredCountries.map((item) => (
-            <Pressable
-              key={item.code}
-              style={[
-                styles.countryItem,
-                {
-                  backgroundColor:
-                    selectedCountry === item.code ||
-                    selectedCountry === item.name
+          {filteredCountries.map((item) => {
+            const isSelected =
+              selectedCountry === item.code || selectedCountry === item.name;
+            return (
+              <Pressable
+                key={item.code}
+                style={[
+                  styles.countryItem,
+                  {
+                    backgroundColor: isSelected
                       ? colors.primaryLight
                       : colors.card,
-                  borderColor: colors.border,
-                },
-              ]}
-              onPress={() => onSelect(item)}
-            >
-              <View>
-                <Text
-                  style={[
-                    styles.countryName,
-                    {
-                      color: colors.text,
-                      fontWeight:
-                        selectedCountry === item.code ||
-                        selectedCountry === item.name
-                          ? 'bold'
-                          : 'normal',
-                    },
-                  ]}
-                >
-                  {item.name}
-                </Text>
-                <Text
-                  style={[styles.currencyText, { color: colors.textSecondary }]}
-                >
-                  {item.currency} ({item.currencySymbol})
-                </Text>
-              </View>
-              {(selectedCountry === item.code ||
-                selectedCountry === item.name) && (
-                <Ionicons
-                  name="checkmark-circle"
-                  size={20}
-                  color={colors.primary}
-                />
-              )}
-            </Pressable>
-          ))}
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={() => onSelect(item)}
+                accessibilityRole="button"
+                accessibilityLabel={item.name}
+                accessibilityState={{ selected: isSelected }}
+              >
+                <View>
+                  <Text
+                    style={[
+                      styles.countryName,
+                      {
+                        color: colors.text,
+                        fontWeight: isSelected ? 'bold' : 'normal',
+                      },
+                    ]}
+                  >
+                    {item.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.currencyText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {item.currency} ({item.currencySymbol})
+                  </Text>
+                </View>
+                {isSelected && (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={20}
+                    color={colors.primary}
+                  />
+                )}
+              </Pressable>
+            );
+          })}
         </ScrollView>
       </View>
     </Modal>
