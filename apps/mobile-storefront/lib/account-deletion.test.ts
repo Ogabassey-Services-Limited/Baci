@@ -46,6 +46,15 @@ describe('account-deletion helpers', () => {
       expect(hasAppleProvider(undefined)).toBe(false);
     });
 
+    it('returns false when identities is undefined', () => {
+      const result = hasAppleProvider({
+        app_metadata: { providers: ['email'] },
+        identities: undefined as unknown as UserIdentity[],
+      });
+
+      expect(result).toBe(false);
+    });
+
     it('returns false when Apple provider is not present', () => {
       const result = hasAppleProvider({
         app_metadata: { providers: ['email', 'google'] },

@@ -259,7 +259,11 @@ export default function DeleteAccountScreen() {
               <Text
                 style={[
                   styles.deleteButtonText,
-                  { color: colors.destructiveForeground },
+                  {
+                    color: isConfirmed
+                      ? colors.destructiveForeground
+                      : colors.textSecondary,
+                  },
                 ]}
               >
                 Delete Account
