@@ -47,6 +47,7 @@ jobs:
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: pnpm/action-setup@c5ba7f7862a0f64c1b1a05fbac13e0b8e86ba08c # v4
@@ -77,6 +78,7 @@ jobs:
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: pnpm/action-setup@c5ba7f7862a0f64c1b1a05fbac13e0b8e86ba08c # v4
@@ -89,6 +91,12 @@ jobs:
           path: node_modules
           key: ${{ runner.os }}-modules-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm install
-      - run: pnpm dlx vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-      - run: pnpm dlx vercel build --token=${{ secrets.VERCEL_TOKEN }}
-      - run: pnpm dlx vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Pull Vercel Environment Information
+        if: ${{ env.VERCEL_TOKEN != '' }}
+        run: pnpm dlx vercel pull --yes --environment=preview --token=${{ env.VERCEL_TOKEN }}
+      - name: Build Project Artifacts
+        if: ${{ env.VERCEL_TOKEN != '' }}
+        run: pnpm dlx vercel build --token=${{ env.VERCEL_TOKEN }}
+      - name: Deploy Project Artifacts to Vercel
+        if: ${{ env.VERCEL_TOKEN != '' }}
+        run: pnpm dlx vercel deploy --prebuilt --token=${{ env.VERCEL_TOKEN }}
