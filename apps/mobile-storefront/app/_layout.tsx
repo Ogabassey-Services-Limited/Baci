@@ -188,8 +188,8 @@ function RootLayoutNav({
 }: {
   persistenceEnabled?: boolean;
 }) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const colors = Colors[colorScheme as 'light' | 'dark'];
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme];
   const enableConnectivityBanner = true;
   const enableChatWidget = true;
   const enableNegotiationModal = true;
@@ -318,9 +318,10 @@ function RootLayoutNav({
                 })}
               />
               <Stack.Screen
-                name="modal"
+                name="settings/index"
                 options={{
-                  presentation: 'modal',
+                  title: 'App Settings',
+                  animation: 'slide_from_right',
                 }}
               />
               <Stack.Screen

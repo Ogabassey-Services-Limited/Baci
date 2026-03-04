@@ -248,7 +248,7 @@ export default function AccountScreen() {
           icon: 'settings-outline',
           label: 'App Settings',
           subLabel: 'Themes, notifications, and more',
-          route: '/modal',
+          route: '/settings',
           color: palette.gray[500],
         },
       ],
