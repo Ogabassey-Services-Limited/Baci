@@ -39,9 +39,6 @@ export function InsightCard({
       ]}
       onPress={onPress}
       disabled={!onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`Insight: ${title}. ${message}`}
-      accessibilityHint={onPress ? "Tap to learn more" : undefined}
     >
       <LinearGradient
         colors={gradientColors}
@@ -65,9 +62,6 @@ export function InsightCard({
                 { backgroundColor: colors.backgroundLight },
               ]}
               onPress={onDismiss}
-              accessibilityRole="button"
-              accessibilityLabel="Dismiss insight"
-              accessibilityHint="Tap to dismiss this insight"
             >
               <Ionicons name="close" size={14} color={colors.textSecondary} />
             </Pressable>

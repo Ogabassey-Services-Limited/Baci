@@ -44,6 +44,7 @@ export interface OrderItem {
   product_name: string;
   quantity: number;
   price: number;
+  total?: number;
   image_url?: string;
 }
 

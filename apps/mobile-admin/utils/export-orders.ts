@@ -32,8 +32,7 @@ loadNativeModules();
 import { supabase } from '@/lib/supabase';
 
 // Helper to escape CSV fields with formula injection prevention
-// biome-ignore lint/suspicious/noExplicitAny: CSV output needs to handle mixed types
-const escapeCtx = (text: any) => {
+const escapeCtx = (text: unknown) => {
   if (text === null || text === undefined) return '';
   let str = String(text);
   // Prevent CSV formula injection: prefix dangerous starting characters
@@ -143,8 +142,7 @@ export const exportOrderReportPDF = async (
     );
     // Note: tax_amount is in DB but might not be in shared type yet - calculating as difference or 0
     const totalTax = orders.reduce(
-      // biome-ignore lint/suspicious/noExplicitAny: Dynamic DB property
-      (sum, o) => sum + (Number((o as any).tax_amount) || 0),
+      (sum, o) => sum + (Number(o.tax_amount) || 0),
       0
     );
 
@@ -159,15 +157,17 @@ export const exportOrderReportPDF = async (
     ).length;
 
     // Grouping Helpers
-    const groupBy = <T>(array: T[], keyGetter: (item: T) => string) => {
+    const groupBy = <T extends { total?: number | string | null }>(
+      array: T[],
+      keyGetter: (item: T) => string
+    ) => {
       const map = new Map<string, { count: number; total: number }>();
       array.forEach((item) => {
         const key = keyGetter(item) || 'Unknown';
         const current = map.get(key) || { count: 0, total: 0 };
         map.set(key, {
           count: current.count + 1,
-          // biome-ignore lint/suspicious/noExplicitAny: Dynamic DB property
-          total: current.total + (Number((item as any).total) || 0),
+          total: current.total + (Number(item.total) || 0),
         });
       });
       return Array.from(map.entries()).sort((a, b) => b[1].total - a[1].total);
@@ -184,13 +184,21 @@ export const exportOrderReportPDF = async (
     let topProduct: { name: string; qty: number; revenue: number } | null =
       null;
 
+    interface OrderItemQueryData {
+      product_id: string;
+      quantity: number;
+      price: number;
+      products: { name: string } | null;
+    }
+
     try {
       const orderIds = orders.map((o) => o.id);
       if (orderIds.length > 0) {
         const { data: itemData, error: itemError } = await supabase
           .from('order_items')
           .select('product_id, quantity, price, products(name)')
-          .in('order_id', orderIds);
+          .in('order_id', orderIds)
+          .returns<OrderItemQueryData[]>();
 
         if (itemError) {
           console.warn('Failed to fetch order items:', itemError.message);
@@ -207,8 +215,7 @@ export const exportOrderReportPDF = async (
           { name: string; qty: number; revenue: number }
         > = {};
         itemData?.forEach((item) => {
-          // biome-ignore lint/suspicious/noExplicitAny: Dynamic DB property
-          const name = (item.products as any)?.name || 'Unknown Product';
+          const name = item.products?.name || 'Unknown Product';
           if (!productStats[name])
             productStats[name] = { name, qty: 0, revenue: 0 };
           productStats[name].qty += Number(item.quantity) || 0;

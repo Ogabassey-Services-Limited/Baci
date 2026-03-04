@@ -236,7 +236,6 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   <button
                     onClick={() => setIsMenuOpen(true)}
                     className="text-white transition-colors active:text-white"
-                    aria-label="Open menu"
                   >
                     <Menu className="h-6 w-6" />
                   </button>
@@ -290,7 +289,6 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   <button
                     onClick={() => setShowNotifications(!showNotifications)}
                     className={`relative flex items-center justify-center hover:text-white transition-colors ${showNotifications ? 'text-white' : ''}`}
-                    aria-label="Toggle notifications"
                   >
                     <Bell size={22} />
                     {/* TODO: Add notification badge when notifications are implemented
