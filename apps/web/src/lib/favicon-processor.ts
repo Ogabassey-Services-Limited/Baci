@@ -1,6 +1,6 @@
-import DOMPurify from 'isomorphic-dompurify';
 import { cookies } from 'next/headers';
 import sharp from 'sharp';
+import { sanitizeSvg } from '@/lib/sanitize';
 import { createClient } from '@/lib/supabase/server';
 
 export interface FaviconUploadResult {
@@ -143,57 +143,10 @@ export async function processFavicon(
 
 /**
  * Sanitize SVG content to remove malicious scripts
- * Uses DOMPurify with SVG profile for comprehensive security
+ * Uses sanitize-html allowlisting to remove active content
  * @param svgContent - Raw SVG file content
  * @returns Sanitized SVG string
  */
 export function sanitizeSVG(svgContent: string): string {
-  return DOMPurify.sanitize(svgContent, {
-    USE_PROFILES: { svg: true, svgFilters: true },
-    ADD_TAGS: [
-      'svg',
-      'path',
-      'circle',
-      'rect',
-      'polygon',
-      'line',
-      'polyline',
-      'ellipse',
-      'g',
-      'defs',
-      'use',
-      'symbol',
-      'linearGradient',
-      'radialGradient',
-      'stop',
-    ],
-    ADD_ATTR: [
-      'viewBox',
-      'xmlns',
-      'fill',
-      'stroke',
-      'stroke-width',
-      'd',
-      'cx',
-      'cy',
-      'r',
-      'x',
-      'y',
-      'width',
-      'height',
-      'points',
-      'x1',
-      'y1',
-      'x2',
-      'y2',
-      'rx',
-      'ry',
-      'transform',
-      'id',
-      'class',
-      'style',
-    ],
-    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'link'],
-    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
-  });
+  return sanitizeSvg(svgContent);
 }
