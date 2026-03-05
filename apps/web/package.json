@@ -98,7 +98,7 @@
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
     "feed": "^5.2.0",
-    "firebase-admin": "^13.6.1",
+    "firebase-admin": "^13.7.0",
     "framer-motion": "^12.34.3",
     "fuse.js": "^7.1.0",
     "hast-util-to-html": "^9.0.5",
@@ -151,8 +151,8 @@
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
     "@types/sanitize-html": "^2.16.0",
-    "@typescript-eslint/eslint-plugin": "^8.54.0",
-    "@typescript-eslint/parser": "^8.54.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
     "@unlighthouse/cli": "^0.17.4",
     "@unlighthouse/core": "^0.17.4",
     "@vitejs/plugin-react": "^5.1.4",
@@ -179,7 +179,7 @@
     "typedoc": "^0.28.16",
     "typedoc-plugin-markdown": "^4.10.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.54.0",
+    "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18"
   },
   "browserslist": [
