@@ -11,6 +11,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import * as Crypto from 'expo-crypto';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -69,11 +70,7 @@ interface AddressAutocompleteProps
 
 // Generate session token for Places API billing optimization
 function generateSessionToken(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  return Crypto.randomUUID();
 }
 
 // Simple in-memory cache for address predictions with max size limit

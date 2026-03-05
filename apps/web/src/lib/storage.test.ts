@@ -52,7 +52,7 @@ describe('uploadImage', () => {
       expect(mockFrom).toHaveBeenCalledWith('images');
       expect(mockUpload).toHaveBeenCalledTimes(1);
       const uploadCall = mockUpload.mock.calls[0];
-      expect(uploadCall[0]).toMatch(/^\d+-[a-z0-9]+\.png$/); // fileName pattern
+      expect(uploadCall[0]).toMatch(/^\d+-[a-z0-9-]+\.png$/); // fileName with exact length
       expect(uploadCall[1]).toBeInstanceOf(Blob);
       expect(uploadCall[1].type).toBe('image/png');
       expect(mockGetPublicUrl).toHaveBeenCalledWith(uploadCall[0]);
@@ -70,7 +70,7 @@ describe('uploadImage', () => {
       // Assert
       expect(mockUpload).toHaveBeenCalledTimes(1);
       const uploadCall = mockUpload.mock.calls[0];
-      expect(uploadCall[0]).toMatch(/^\d+-[a-z0-9]+\.svg$/); // .svg extension
+      expect(uploadCall[0]).toMatch(/^\d+-[a-z0-9-]+\.svg$/); // .svg extension
       expect(uploadCall[1]).toBeInstanceOf(Blob);
       expect(uploadCall[1].type).toBe('image/svg+xml');
       expect(result).toBe('https://example.com/storage/images/test-file.png');
@@ -88,7 +88,7 @@ describe('uploadImage', () => {
       // Assert
       expect(mockUpload).toHaveBeenCalledTimes(1);
       const uploadCall = mockUpload.mock.calls[0];
-      expect(uploadCall[0]).toMatch(/^\d+-[a-z0-9]+\.jpeg$/); // .jpeg extension
+      expect(uploadCall[0]).toMatch(/^\d+-[a-z0-9-]+\.jpeg$/); // .jpeg extension
       expect(uploadCall[1]).toBeInstanceOf(Blob);
       expect(uploadCall[1].type).toBe('image/jpeg');
       expect(result).toBe('https://example.com/storage/images/test-file.png');
@@ -278,8 +278,8 @@ describe('uploadImage', () => {
       const fileName1 = mockUpload.mock.calls[0][0] as string;
       const fileName2 = mockUpload.mock.calls[1][0] as string;
       expect(fileName1).not.toBe(fileName2); // Should be unique
-      expect(fileName1).toMatch(/^\d+-[a-z0-9]+\.png$/);
-      expect(fileName2).toMatch(/^\d+-[a-z0-9]+\.png$/);
+      expect(fileName1).toMatch(/^\d+-[a-z0-9-]+\.png$/);
+      expect(fileName2).toMatch(/^\d+-[a-z0-9-]+\.png$/);
     });
 
     it('handles empty data URI data segment', async () => {

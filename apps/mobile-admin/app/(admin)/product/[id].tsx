@@ -5,6 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Crypto from 'expo-crypto';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -163,7 +164,7 @@ export default function ProductEditScreen() {
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
 
   const generateSKU = () => {
-    return `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    return `SKU-${Crypto.randomUUID().substring(0, 6).toUpperCase()}`;
   };
 
   const [formData, setFormData] = useState({
