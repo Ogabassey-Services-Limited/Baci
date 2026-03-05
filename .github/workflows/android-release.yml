@@ -134,10 +134,16 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }}
         run: |
           WRAPPER="android/gradle/wrapper/gradle-wrapper.properties"
-          if [ -f "$WRAPPER" ]; then
-            sed -i 's|gradle-[0-9][^"]*-bin\.zip|gradle-9.4.0-bin.zip|' "$WRAPPER"
-            echo "Pinned Gradle wrapper to 9.4.0"
+          if [ ! -f "$WRAPPER" ]; then
+            echo "::error::Gradle wrapper properties not found at $WRAPPER"
+            exit 1
           fi
+          sed -i 's|gradle-[0-9][^"]*-\(bin\|all\)\.zip|gradle-9.4.0-bin.zip|' "$WRAPPER"
+          if ! grep -q "gradle-9.4.0-bin.zip" "$WRAPPER"; then
+            echo "::error::Failed to pin Gradle wrapper to 9.4.0"
+            exit 1
+          fi
+          echo "Pinned Gradle wrapper to 9.4.0"
 
       - name: Decode keystore
         working-directory: ${{ env.WORKING_DIR }}

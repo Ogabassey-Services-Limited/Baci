@@ -126,8 +126,7 @@ export function sanitizeHtml(dirty: string): string {
     allowedSchemesByTag: {
       img: ['http', 'https', 'data'], // Allow base64 images if needed
     },
-    // Prevent DOM clobbering attacks (sanitize-html handles this by default)
-    // Return clean HTML string (not DOM nodes)
+    allowProtocolRelative: false,
   });
 }
 
@@ -241,6 +240,7 @@ export function sanitizeSvg(svgContent: string): string {
     disallowedTagsMode: 'discard',
     allowedSchemes: ['http', 'https'],
     allowedSchemesAppliedToAttributes: ['href', 'xlink:href'],
+    allowProtocolRelative: false,
     parser: {
       lowerCaseTags: false,
       lowerCaseAttributeNames: false,

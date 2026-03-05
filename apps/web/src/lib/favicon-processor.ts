@@ -22,7 +22,7 @@ export async function processFavicon(
   merchantId: string
 ): Promise<FaviconUploadResult> {
   const isSvg = file.type === 'image/svg+xml';
-  const buffer = Buffer.from(await file.arrayBuffer());
+  let buffer = Buffer.from(await file.arrayBuffer());
 
   // Validate merchantId to prevent path traversal
   if (!merchantId || !/^[a-f0-9-]{36}$/i.test(merchantId)) {
@@ -38,17 +38,17 @@ export async function processFavicon(
     apple_touch_url: '',
   };
 
-  // If SVG, sanitize first, then upload and convert to PNG sizes
+  // If SVG, sanitize first, then upload and use sanitized buffer for all downstream processing
   if (isSvg) {
     // CRITICAL: Sanitize SVG to prevent XSS attacks
     const svgString = buffer.toString('utf-8');
     const sanitizedSvgString = sanitizeSVG(svgString);
-    const sanitizedBuffer = Buffer.from(sanitizedSvgString, 'utf-8');
+    buffer = Buffer.from(sanitizedSvgString, 'utf-8');
 
     const svgPath = `${merchantId}/icon.svg`;
     const { data: _svgData, error: svgError } = await supabase.storage
       .from('favicons')
-      .upload(svgPath, sanitizedBuffer, {
+      .upload(svgPath, buffer, {
         contentType: 'image/svg+xml',
         upsert: true,
       });
@@ -62,7 +62,7 @@ export async function processFavicon(
     result.svg_url = svgUrl;
   }
 
-  // Generate PNG variants
+  // Generate PNG variants (uses sanitized buffer for SVG input)
   // 32x32 - Standard favicon
   const png32Buffer = await sharp(buffer)
     .resize(32, 32, {
