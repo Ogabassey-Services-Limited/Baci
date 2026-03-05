@@ -1,6 +1,6 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
-import { type CoreMessage, generateText } from 'ai';
+import { generateText, type ModelMessage } from 'ai';
 import { match } from 'ts-pattern';
 import { activeTextModel } from '@/ai/provider';
 
@@ -44,7 +44,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   // Generate content using Gemini via Vercel AI SDK
-  const messages: CoreMessage[] = match(option)
+  const messages: ModelMessage[] = match(option)
     .with(
       'continue',
       () =>
@@ -60,7 +60,7 @@ export async function POST(req: Request): Promise<Response> {
             role: 'user',
             content: prompt,
           },
-        ] as CoreMessage[]
+        ] as ModelMessage[]
     )
     .with(
       'improve',
@@ -76,7 +76,7 @@ export async function POST(req: Request): Promise<Response> {
             role: 'user',
             content: `The existing text is: ${prompt}`,
           },
-        ] as CoreMessage[]
+        ] as ModelMessage[]
     )
     .with(
       'shorter',
@@ -92,7 +92,7 @@ export async function POST(req: Request): Promise<Response> {
             role: 'user',
             content: `The existing text is: ${prompt}`,
           },
-        ] as CoreMessage[]
+        ] as ModelMessage[]
     )
     .with(
       'longer',
@@ -108,7 +108,7 @@ export async function POST(req: Request): Promise<Response> {
             role: 'user',
             content: `The existing text is: ${prompt}`,
           },
-        ] as CoreMessage[]
+        ] as ModelMessage[]
     )
     .with(
       'fix',
@@ -124,7 +124,7 @@ export async function POST(req: Request): Promise<Response> {
             role: 'user',
             content: `The existing text is: ${prompt}`,
           },
-        ] as CoreMessage[]
+        ] as ModelMessage[]
     )
     .with(
       'zap',
@@ -141,7 +141,7 @@ export async function POST(req: Request): Promise<Response> {
             role: 'user',
             content: `For this text: ${prompt}. You have to respect the command: ${command}`,
           },
-        ] as CoreMessage[]
+        ] as ModelMessage[]
     )
     .run();
 

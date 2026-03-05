@@ -20,12 +20,9 @@ env:
 
 jobs:
   changes:
-    # Lightweight (just git diff) — runs on GitHub-hosted to keep
-    # fork/Dependabot PR code off VPS entirely.
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       web: ${{ steps.filter.outputs.web }}
-      is_untrusted: ${{ steps.trust.outputs.is_untrusted }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -40,30 +37,12 @@ jobs:
               - 'turbo.json'
               - 'tsconfig*.json'
               - 'biome.json'
-      - id: trust
-        # Untrusted = fork PR OR Dependabot PR. Neither should run on VPS.
-        run: |
-          IS_FORK="false"
-          IS_DEPENDABOT="false"
-          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "" ] && \
-             [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
-            IS_FORK="true"
-          fi
-          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
-            IS_DEPENDABOT="true"
-          fi
-          if [ "$IS_FORK" = "true" ] || [ "$IS_DEPENDABOT" = "true" ]; then
-            echo "is_untrusted=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_untrusted=false" >> "$GITHUB_OUTPUT"
-          fi
 
   quality:
     name: Quality Gate
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
-    # Fork/Dependabot PRs run on GitHub-hosted (untrusted code stays off VPS)
-    runs-on: ${{ needs.changes.outputs.is_untrusted == 'true' && 'ubuntu-22.04' || 'baci-vps' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -86,7 +65,7 @@ jobs:
     name: Build
     needs: [changes, quality]
     if: needs.changes.outputs.web == 'true'
-    runs-on: ${{ needs.changes.outputs.is_untrusted == 'true' && 'ubuntu-22.04' || 'baci-vps' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
