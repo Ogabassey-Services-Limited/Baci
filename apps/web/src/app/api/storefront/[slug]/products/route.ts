@@ -2,6 +2,7 @@ import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { PRODUCT_COLUMNS } from '@/lib/product-queries';
 
 // Map database product to API response format function
 function mapProduct(p: Record<string, unknown>) {
@@ -84,7 +85,7 @@ export async function GET(
     console.log('[API] Fetching products for merchant:', merchantId);
     const { data: products, error } = await supabase
       .from('products')
-      .select('*')
+      .select(PRODUCT_COLUMNS)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .order('created_at', { ascending: false });
