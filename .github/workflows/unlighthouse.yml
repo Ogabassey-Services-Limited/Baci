@@ -5,14 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
-concurrency:
-  group: unlighthouse-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   unlighthouse:
     name: SEO & Core Web Vitals Audit
-    runs-on: baci-lighthouse
+    runs-on: baci-vps
     timeout-minutes: 20
 
     permissions:

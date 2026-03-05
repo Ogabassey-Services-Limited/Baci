@@ -6,6 +6,7 @@
  */
 
 import Constants from 'expo-constants';
+import * as Crypto from 'expo-crypto';
 import { useEffect, useState } from 'react';
 import { createLogger } from '@/lib/logger';
 import {
@@ -93,7 +94,7 @@ export function useReviews({
                   id:
                     typeof r.id === 'string'
                       ? r.id
-                      : `fallback-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                      : `fallback-${Date.now()}-${Crypto.randomUUID()}`,
                   rating:
                     typeof r.rating === 'number' &&
                     r.rating >= 1 &&

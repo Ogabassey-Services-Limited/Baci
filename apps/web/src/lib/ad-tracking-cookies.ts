@@ -174,7 +174,7 @@ export function generateFbc(fbclid: string): string {
  */
 export function generateEventId(): string {
   const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2, 10);
+  const random = crypto.randomUUID().replace(/-/g, '').substring(0, 10);
   return `${timestamp}_${random}`;
 }
 

@@ -52,7 +52,7 @@ export function ReviewCard({ review, className }: ReviewCardProps) {
       // Use email from localStorage or generate session ID
       const voterIdentifier =
         localStorage.getItem('customerEmail') ||
-        `session_${Math.random().toString(36).substr(2, 9)}`;
+        `session_${crypto.randomUUID()}`;
 
       const response = await fetch(`/api/reviews/${review.id}/helpful`, {
         method: 'POST',

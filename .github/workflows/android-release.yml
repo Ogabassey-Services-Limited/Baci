@@ -36,7 +36,7 @@ env:
 jobs:
   build-and-deploy:
     name: Build AAB & Upload to Play Store
-    runs-on: baci-android
+    runs-on: baci-vps
     timeout-minutes: 45
 
     steps:
@@ -128,7 +128,9 @@ jobs:
         run: pnpm exec expo prebuild --platform android --clean
 
       - name: Pin Gradle wrapper to 9.4.0
-        # RN 0.84 ships Gradle 9.0.0; pin to 9.4.0 for full Java 25 support.
+        # RN 0.83 may ship an older Gradle 9.x wrapper; pin to 9.4.0
+        # for full Java 25 support. The foojay-resolver-convention 0.5.0
+        # incompatibility with Gradle 9 is fixed via pnpm patch (→ 1.0.0).
         working-directory: ${{ env.WORKING_DIR }}
         run: |
           WRAPPER="android/gradle/wrapper/gradle-wrapper.properties"
@@ -136,10 +138,9 @@ jobs:
             echo "::error::Gradle wrapper properties not found at $WRAPPER"
             exit 1
           fi
-          sed -E -i 's|gradle-[0-9][0-9.]+-[a-z]+\.zip|gradle-9.4.0-bin.zip|' "$WRAPPER"
+          sed -i 's|gradle-[0-9][^"]*-\(bin\|all\)\.zip|gradle-9.4.0-bin.zip|' "$WRAPPER"
           if ! grep -q "gradle-9.4.0-bin.zip" "$WRAPPER"; then
             echo "::error::Failed to pin Gradle wrapper to 9.4.0"
-            cat "$WRAPPER"
             exit 1
           fi
           echo "Pinned Gradle wrapper to 9.4.0"
@@ -167,7 +168,6 @@ jobs:
       - name: Build Android App Bundle
         working-directory: ${{ env.WORKING_DIR }}/android
         env:
-          GRADLE_OPTS: "-Xmx4g -XX:+UseZGC"
           ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/${{ env.WORKING_DIR }}/android/app/release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -181,7 +181,7 @@ jobs:
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
           EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID: ${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}
           VERSION_CODE: ${{ env.VERSION_CODE }}
-        run: ./gradlew app:bundleRelease -x lint -x test --configure-on-demand --build-cache --parallel --no-daemon
+        run: ./gradlew app:bundleRelease -x lint -x test --configure-on-demand --build-cache --no-daemon
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

@@ -121,34 +121,13 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          interface GoogleAIPart {
-            inlineData?: {
-              data: string;
-              mimeType: string;
-            };
-            text?: string;
-          }
-
-          interface GoogleAIContent {
-            parts?: GoogleAIPart[];
-            role?: string;
-          }
-
-          interface GoogleAICandidate {
-            content?: GoogleAIContent;
-            finishReason?: string;
-            index?: number;
-          }
-
-          interface GoogleAIResponse {
-            candidates?: GoogleAICandidate[];
-            promptFeedback?: unknown;
-          }
-
-          const responseBody = response.body as unknown as GoogleAIResponse;
-          const content = responseBody?.candidates?.[0]?.content;
-          const parts = content?.parts || [];
-          const imagePart = parts.find((p) => p.inlineData);
+          // biome-ignore lint/suspicious/noExplicitAny: Google AI response
+          const content = (response.body as any)?.candidates?.[0]?.content;
+          // biome-ignore lint/suspicious/noExplicitAny: Google AI response
+          const parts = (content?.parts as any[]) || [];
+          const imagePart = (
+            parts as { inlineData: { data: string; mimeType: string } }[]
+          ).find((p) => p.inlineData);
 
           let base64Data = null;
           let contentType = 'image/png';

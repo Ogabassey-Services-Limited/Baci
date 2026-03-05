@@ -182,7 +182,7 @@ async function generateEventId(): Promise<string> {
  */
 function generateEventIdSync(): string {
   const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 10);
+  const random = Crypto.randomUUID().replace(/-/g, '').substring(0, 10);
   return `${timestamp}_${random}`;
 }
 
