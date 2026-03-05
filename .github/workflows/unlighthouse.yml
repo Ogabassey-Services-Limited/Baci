@@ -42,8 +42,11 @@ jobs:
             echo "PUPPETEER_EXECUTABLE_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
           else
             echo "No system Chrome found — downloading via puppeteer"
-            pnpm exec puppeteer browsers install chrome
-            CHROME_PATH=$(find "$HOME/.cache/puppeteer" -type f \( -name "chrome" -o -name "chrome-linux" \) -perm -u+x 2>/dev/null | head -1)
+            if ! pnpm exec puppeteer browsers install chrome; then
+              echo "::error::Failed to download Chrome via puppeteer"
+              exit 1
+            fi
+            CHROME_PATH=$(find "$HOME/.cache/puppeteer" -type f -name "chrome" -perm -u+x 2>/dev/null | head -1)
             if [ -z "$CHROME_PATH" ]; then
               echo "::error::Failed to locate downloaded Chrome binary"
               exit 1

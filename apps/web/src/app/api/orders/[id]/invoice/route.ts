@@ -1,6 +1,5 @@
-'use server';
-
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   generateInvoiceBlob,
   type InvoiceData,
@@ -9,6 +8,10 @@ import {
 } from '@/lib/invoice-generator';
 import { ORDER_COLUMNS } from '@/lib/order-queries';
 import { createClient } from '@/lib/supabase/server';
+
+const paramsSchema = z.object({
+  id: z.string().uuid(),
+});
 
 interface OrderItem {
   id: string;
@@ -63,7 +66,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: orderId } = await params;
+    const parsed = paramsSchema.safeParse(await params);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid order ID', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const orderId = parsed.data.id;
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -76,7 +87,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch order with all related data
+    // Fetch order with all related data, scoped to authenticated user
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
@@ -99,6 +110,7 @@ export async function GET(
       `
       )
       .eq('id', orderId)
+      .eq('merchants.user_id', user.id)
       .single();
 
     if (orderError || !order) {
@@ -121,10 +133,41 @@ export async function GET(
       logo_url: string | null;
     };
 
-    // Verify user owns this merchant
-    const merchant = Array.isArray(order.merchants)
-      ? (order.merchants[0] as MerchantData)
-      : (order.merchants as MerchantData);
+    // Normalize: Supabase may return an object or array depending on join
+    const rawMerchant = order.merchants;
+    const merchantData = Array.isArray(rawMerchant)
+      ? rawMerchant[0]
+      : rawMerchant;
+    if (!merchantData || typeof merchantData !== 'object') {
+      console.error('Unexpected merchant data shape:', {
+        type: typeof rawMerchant,
+        isArray: Array.isArray(rawMerchant),
+        isNull: rawMerchant === null,
+      });
+      return NextResponse.json(
+        { error: 'Invalid merchant data' },
+        { status: 500 }
+      );
+    }
+
+    const md = merchantData as Record<string, unknown>;
+    if (
+      typeof md.id !== 'string' ||
+      typeof md.user_id !== 'string' ||
+      typeof md.business_name !== 'string'
+    ) {
+      console.error('Merchant data missing required fields:', {
+        hasId: typeof md.id === 'string',
+        hasUserId: typeof md.user_id === 'string',
+        hasBusinessName: typeof md.business_name === 'string',
+      });
+      return NextResponse.json(
+        { error: 'Invalid merchant data' },
+        { status: 500 }
+      );
+    }
+
+    const merchant = md as MerchantData;
 
     if (merchant.user_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -150,12 +193,24 @@ export async function GET(
     // Fetch tax subtotals if VAT registered
     let taxSubtotals: TaxSubtotalRow[] = [];
     if (merchant.vat_registration_status === 'registered') {
-      const { data: subtotals } = await supabase
+      const { data: subtotals, error: taxError } = await supabase
         .from('order_tax_subtotals')
         .select(
           'vat_category_code, vat_rate, taxable_amount, tax_amount, exemption_reason'
         )
         .eq('order_id', orderId);
+
+      if (taxError) {
+        console.error(
+          'Error fetching order_tax_subtotals for order:',
+          orderId,
+          taxError
+        );
+        return NextResponse.json(
+          { error: 'Failed to fetch tax data for invoice' },
+          { status: 500 }
+        );
+      }
 
       taxSubtotals = subtotals || [];
     }

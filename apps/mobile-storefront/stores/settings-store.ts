@@ -4,7 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type AppearanceMode = 'system' | 'light' | 'dark';
 
-interface SettingsState {
+export interface SettingsState {
   appearance: AppearanceMode;
   setAppearance: (mode: AppearanceMode) => void;
 }
