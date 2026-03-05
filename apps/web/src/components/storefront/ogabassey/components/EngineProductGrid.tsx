@@ -47,7 +47,14 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
       return img.url || '';
     };
 
-    const images = p.images?.map(mapImage).filter(Boolean) || [];
+    // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map().filter())
+    const images: string[] = [];
+    if (p.images) {
+      for (const img of p.images) {
+        const mapped = mapImage(img);
+        if (mapped) images.push(mapped);
+      }
+    }
     const mainImage = p.image || images[0];
     const condition: ConditionLabel = p.has_condition_offers
       ? 'New & Used'
@@ -132,45 +139,58 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   const categories = ['All', ...categoryList.map(c => c.name)];
 
   // Brands from all products (not filtered, so brand filter always shows all options)
-  const brands = Array.from(new Set(allProducts.map(p => p.brand).filter(Boolean) as string[]));
+  // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map().filter())
+  const brands = Array.from(
+    (() => {
+      const set = new Set<string>();
+      for (const p of allProducts) {
+        if (p.brand) set.add(p.brand);
+      }
+      return set;
+    })()
+  );
 
   // INSTANT client-side filtering - all filters applied in one computation
+  // PERFORMANCE OPTIMIZATION: Replaced O(N*K) chained filters with O(N) single-pass filter + early return
   const filteredProducts = (() => {
-    let result = allProducts;
+    const result = [];
 
-    // Category filter
-    if (selectedCategory !== 'All') {
-      result = result.filter(p =>
-        p.category?.toLowerCase() === selectedCategory.toLowerCase()
-      );
-    }
+    for (const p of allProducts) {
+      // Limit check (Early exit)
+      if (limit && limit > 0 && result.length >= limit) {
+        break;
+      }
 
-    // Brand filter
-    if (selectedBrand !== 'All') {
-      result = result.filter(p => p.brand === selectedBrand);
-    }
+      // Category filter
+      if (
+        selectedCategory !== 'All' &&
+        p.category?.toLowerCase() !== selectedCategory.toLowerCase()
+      ) {
+        continue;
+      }
 
-    // Condition filter
-    if (selectedCondition !== 'All') {
-      result = result.filter(p => p.condition === selectedCondition);
-    }
+      // Brand filter
+      if (selectedBrand !== 'All' && p.brand !== selectedBrand) {
+        continue;
+      }
 
-    // Price filter
-    if (minPrice > 0) {
-      result = result.filter(p => (p.rawPrice || 0) >= minPrice);
-    }
-    if (maxPrice < 100000000) {
-      result = result.filter(p => (p.rawPrice || 0) <= maxPrice);
-    }
+      // Condition filter
+      if (selectedCondition !== 'All' && p.condition !== selectedCondition) {
+        continue;
+      }
 
-    // Rating filter
-    if (minRating > 0) {
-      result = result.filter(p => (p.rating || 0) >= minRating);
-    }
+      // Price filter
+      const price = p.rawPrice || 0;
+      if ((minPrice > 0 && price < minPrice) || (maxPrice < 100000000 && price > maxPrice)) {
+        continue;
+      }
 
-    // Limit
-    if (limit && limit > 0) {
-      result = result.slice(0, limit);
+      // Rating filter
+      if (minRating > 0 && (p.rating || 0) < minRating) {
+        continue;
+      }
+
+      result.push(p);
     }
 
     return result;
