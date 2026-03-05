@@ -178,7 +178,7 @@ class OfflineQueueManager {
    * Add a mutation to the queue
    */
   async enqueue<T>(type: MutationType, payload: T): Promise<string> {
-    const id = `${type}_${Date.now()}_${Crypto.randomUUID().substring(0, 8)}`;
+    const id = `${type}_${Date.now()}_${Crypto.randomUUID().replace(/-/g, '').substring(0, 9)}`;
 
     const mutation: QueuedMutation = {
       id,
