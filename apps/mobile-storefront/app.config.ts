@@ -43,6 +43,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.app',
+    buildNumber: '5',
     scheme: 'ogabassey', // Ensure scheme is explicitly set for iOS
     associatedDomains: [
       'applinks:ogabassey.com',
@@ -121,9 +122,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-build-properties',
       {
-        android: {
-          kotlinVersion: '2.3.0',
-        },
         ios: {
           useFrameworks: 'static',
         },
