@@ -36,47 +36,54 @@ export default function NegotiationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [_fetchError, setFetchError] = useState<string | null>(null);
+  const [refreshCount, setRefreshCount] = useState(0);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const _router = useRouter();
 
-  const fetchRequests = async () => {
-    setFetchError(null);
-    try {
-      const { data, error } = await supabase
-        .from('negotiation_requests')
-        .select(
-          'id, customer_id, type, status, offered_price, current_price, item_info, created_at, evidence_url'
-        )
-        .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setRequests(data || []);
-    } catch (err) {
-      console.error('Error fetching negotiations:', err);
-      setFetchError('Failed to load negotiations');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
 
   useEffect(() => {
-    fetchRequests();
+    const fetchRequests = async () => {
+      setFetchError(null);
+      try {
+        const { data, error } = await supabase
+          .from('negotiation_requests')
+          .select(
+            'id, customer_id, type, status, offered_price, current_price, item_info, created_at, evidence_url'
+          )
+          .order('created_at', { ascending: false });
 
+        if (error) throw error;
+        setRequests(data || []);
+      } catch (err) {
+        console.error('Error fetching negotiations:', err);
+        setFetchError('Failed to load negotiations');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    };
+
+    fetchRequests();
+  }, [refreshCount]);
+
+  useEffect(() => {
     // Subscribe to real-time updates
     const channel = supabase
       .channel('negotiation_updates')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'negotiation_requests' },
-        () => fetchRequests()
+        () => {
+          setRefreshCount((c) => c + 1);
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchRequests]);
+  }, []);
 
   const handleAction = async (id: string, status: 'accepted' | 'rejected') => {
     if (actionLoadingId) return; // Prevent double-submit
@@ -89,7 +96,7 @@ export default function NegotiationsScreen() {
 
       if (error) throw error;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      fetchRequests();
+      setRefreshCount(c => c + 1);
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       const message =
@@ -221,7 +228,7 @@ export default function NegotiationsScreen() {
           style={styles.retryButton}
           onPress={() => {
             setLoading(true);
-            fetchRequests();
+            setRefreshCount(c => c + 1);
           }}
         >
           <Ionicons name="refresh" size={18} color={BRAND.primary} />
@@ -243,7 +250,7 @@ export default function NegotiationsScreen() {
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
-              fetchRequests();
+              setRefreshCount(c => c + 1);
             }}
           />
         }
