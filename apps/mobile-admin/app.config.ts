@@ -132,7 +132,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           'com.googleusercontent.apps.319018494610-qao63i6hrhsqupk7cbtd80ovfamrm4lm',
       },
     ],
-    'expo-build-properties',
+    [
+      'expo-build-properties',
+      {
+        android: {
+          kotlinVersion: '2.3.0',
+        },
+      },
+    ],
     'expo-web-browser',
     'expo-font',
     'expo-sharing',

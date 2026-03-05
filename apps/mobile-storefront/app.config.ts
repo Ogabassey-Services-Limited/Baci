@@ -121,6 +121,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-build-properties',
       {
+        android: {
+          kotlinVersion: '2.3.0',
+        },
         ios: {
           useFrameworks: 'static',
         },
