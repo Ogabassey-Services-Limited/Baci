@@ -21,7 +21,7 @@ jobs:
   changes:
     # Lightweight job (just git diff) — runs on GitHub-hosted to keep
     # fork/Dependabot PR code off the self-hosted VPS entirely.
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       web: ${{ steps.filter.outputs.web }}
     steps:
