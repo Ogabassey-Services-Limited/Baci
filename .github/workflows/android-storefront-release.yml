@@ -36,7 +36,7 @@ env:
 jobs:
   build-and-deploy:
     name: Build Storefront AAB & Upload to Play Store
-    runs-on: baci-vps
+    runs-on: baci-android
     timeout-minutes: 45
 
     steps:
