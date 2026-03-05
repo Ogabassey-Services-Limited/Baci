@@ -62,6 +62,8 @@ export function Cart() {
                           }
                           disabled={item.quantity <= 1}
                           className="h-11 w-11 min-w-[44px] min-h-[44px]"
+                          ariaLabel={`Decrease quantity for ${item.name}`}
+                          title="Decrease quantity"
                         />
                         <Input
                           type="number"
@@ -82,6 +84,8 @@ export function Cart() {
                             updateQuantity(item.id, item.quantity + 1)
                           }
                           className="h-11 w-11 min-w-[44px] min-h-[44px]"
+                          ariaLabel={`Increase quantity for ${item.name}`}
+                          title="Increase quantity"
                         />
                       </div>
                     </div>
