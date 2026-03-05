@@ -50,7 +50,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.baci',
-    buildNumber: '9',
+    buildNumber: '10',
     associatedDomains: ['applinks:usebaci.com', 'applinks:www.usebaci.com'],
     infoPlist: {
       NSCameraUsageDescription:
@@ -132,14 +132,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           'com.googleusercontent.apps.319018494610-qao63i6hrhsqupk7cbtd80ovfamrm4lm',
       },
     ],
-    [
-      'expo-build-properties',
-      {
-        android: {
-          kotlinVersion: '2.3.0',
-        },
-      },
-    ],
+    'expo-build-properties',
     'expo-web-browser',
     'expo-font',
     'expo-sharing',
