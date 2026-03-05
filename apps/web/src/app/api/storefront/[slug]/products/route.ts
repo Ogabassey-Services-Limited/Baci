@@ -24,10 +24,8 @@ function mapProduct(p: Record<string, unknown>) {
     manage_stock: p.manage_stock,
     stock: p.stock_quantity || 0,
     low_stock_threshold: p.low_stock_threshold,
-    colors: p.colors || [],
-    storage_options: p.storage_options || [],
+    color: p.color || '',
     condition: p.condition || 'new',
-    rating: p.rating || 5,
   };
 }
 
