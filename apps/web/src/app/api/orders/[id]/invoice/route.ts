@@ -126,7 +126,11 @@ export async function GET(
       typeof merchantData !== 'object' ||
       Array.isArray(merchantData)
     ) {
-      console.error('Unexpected merchant data shape:', merchantData);
+      console.error('Unexpected merchant data shape:', {
+        type: typeof merchantData,
+        isArray: Array.isArray(merchantData),
+        isNull: merchantData === null,
+      });
       return NextResponse.json(
         { error: 'Invalid merchant data' },
         { status: 500 }
