@@ -31,7 +31,12 @@ export function StatusModal({ status, onClose }: StatusModalProps) {
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.card }]}
+          accessible={true}
+          accessibilityViewIsModal={true}
+          accessibilityLabel={`${status.title}. ${status.message}`}
+        >
           <View
             style={[
               styles.iconContainer,
@@ -54,14 +59,17 @@ export function StatusModal({ status, onClose }: StatusModalProps) {
             {status.message}
           </Text>
           <Pressable
-            style={[
+            style={({ pressed }) => [
               styles.button,
               {
                 backgroundColor:
                   status.type === 'success' ? colors.primary : '#C62828',
               },
+              pressed && { opacity: 0.85 },
             ]}
             onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss status message"
           >
             <Text style={styles.buttonText}>Okay</Text>
           </Pressable>
