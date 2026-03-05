@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeSVG } from './favicon-processor';
+import { processFavicon, sanitizeSVG } from './favicon-processor';
 
 describe('sanitizeSVG', () => {
   it('preserves valid SVG content', () => {
@@ -27,12 +27,34 @@ describe('sanitizeSVG', () => {
     expect(result).not.toContain('onclick');
   });
 
+  it('strips onload and onerror handlers', () => {
+    const malicious =
+      '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><rect onerror="alert(2)" width="100" height="100"/></svg>';
+    const result = sanitizeSVG(malicious);
+    expect(result).not.toContain('onload');
+    expect(result).not.toContain('onerror');
+  });
+
   it('strips foreign content (iframe, object)', () => {
     const malicious =
       '<svg xmlns="http://www.w3.org/2000/svg"><foreignObject><iframe src="evil.com"></iframe></foreignObject></svg>';
     const result = sanitizeSVG(malicious);
     expect(result).not.toContain('<iframe');
     expect(result).not.toContain('<foreignObject');
+  });
+
+  it('strips javascript: URLs from use href', () => {
+    const malicious =
+      '<svg xmlns="http://www.w3.org/2000/svg"><use href="javascript:alert(1)"/></svg>';
+    const result = sanitizeSVG(malicious);
+    expect(result).not.toContain('javascript:');
+  });
+
+  it('strips data: URLs from use href', () => {
+    const malicious =
+      '<svg xmlns="http://www.w3.org/2000/svg"><use href="data:text/html,<script>alert(1)</script>"/></svg>';
+    const result = sanitizeSVG(malicious);
+    expect(result).not.toContain('data:');
   });
 
   it('preserves gradient elements', () => {
@@ -50,7 +72,6 @@ describe('sanitizeSVG', () => {
 
 describe('processFavicon', () => {
   it('validates merchantId format', async () => {
-    const { processFavicon } = await import('./favicon-processor');
     const file = new File(['<svg></svg>'], 'icon.svg', {
       type: 'image/svg+xml',
     });

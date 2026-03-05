@@ -239,6 +239,8 @@ export function sanitizeSvg(svgContent: string): string {
       stop: ['offset', 'stop-color', 'stop-opacity'],
     },
     disallowedTagsMode: 'discard',
+    allowedSchemes: ['http', 'https'],
+    allowedSchemesAppliedToAttributes: ['href', 'xlink:href'],
     parser: {
       lowerCaseTags: false,
       lowerCaseAttributeNames: false,
