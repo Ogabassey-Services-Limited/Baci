@@ -90,6 +90,7 @@ interface OrderItem {
 }
 
 interface CustomerInfo {
+  id: string | null;
   name: string;
   email: string;
   phone: string;
@@ -186,6 +187,7 @@ export default function NewOrderScreen() {
     useState<OrderSource>('physical');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('unpaid');
   const [customer, setCustomer] = useState<CustomerInfo>({
+    id: null,
     name: '',
     email: '',
     phone: '',
@@ -358,6 +360,7 @@ export default function NewOrderScreen() {
         .filter((name): name is string => Boolean(name))
         .join(' ') || item.email.split('@')[0];
     setCustomer({
+      id: item.id,
       name: displayName,
       email: item.email || '',
       phone: item.phone || '',
@@ -440,7 +443,7 @@ export default function NewOrderScreen() {
       return;
     }
 
-    if (!customer.name) {
+    if (!customer.id || !customer.name) {
       Alert.alert('Required', 'Please select a customer for this order');
       return;
     }
@@ -481,6 +484,7 @@ export default function NewOrderScreen() {
         .from('orders')
         .insert({
           merchant_id: merchant?.id,
+          customer_id: customer.id,
           order_number: orderNumber,
           customer_name: sanitizedCustomerName,
           customer_email: sanitizedCustomerEmail,
@@ -2228,7 +2232,13 @@ export default function NewOrderScreen() {
                 onPress={() => {
                   setShowSuccessModal(false);
                   setOrderItems([]);
-                  setCustomer({ name: '', email: '', phone: '', address: '' });
+                  setCustomer({
+                    id: null,
+                    name: '',
+                    email: '',
+                    phone: '',
+                    address: '',
+                  });
                   setNotes('');
                   setLastOrderId(null);
                 }}

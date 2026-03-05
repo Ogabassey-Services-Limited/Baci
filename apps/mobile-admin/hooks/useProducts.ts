@@ -66,6 +66,58 @@ interface ProductsPage {
 }
 
 const PAGE_SIZE = 20;
+const DUPLICATE_PRODUCT_ERROR = 'A product with this name already exists.';
+
+function toProductSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
+function isDuplicateConstraintError(error: { code?: string; message: string }) {
+  return (
+    error.code === '23505' ||
+    error.message.toLowerCase().includes('duplicate')
+  );
+}
+
+async function assertNoDuplicateProduct(args: {
+  merchantId: string;
+  productName: string;
+  excludeProductId?: string;
+}) {
+  const normalizedName = args.productName.trim();
+  const normalizedSlug = toProductSlug(normalizedName);
+
+  let nameQuery = supabase
+    .from('products')
+    .select('id', { count: 'exact', head: true })
+    .eq('merchant_id', args.merchantId)
+    .ilike('name', normalizedName);
+
+  let slugQuery = supabase
+    .from('products')
+    .select('id', { count: 'exact', head: true })
+    .eq('merchant_id', args.merchantId)
+    .eq('slug', normalizedSlug);
+
+  if (args.excludeProductId) {
+    nameQuery = nameQuery.neq('id', args.excludeProductId);
+    slugQuery = slugQuery.neq('id', args.excludeProductId);
+  }
+
+  const [{ count: nameMatches, error: nameError }, { count: slugMatches, error: slugError }] =
+    await Promise.all([nameQuery, slugQuery]);
+
+  if (nameError) throw new Error(nameError.message);
+  if (slugError) throw new Error(slugError.message);
+
+  if ((nameMatches ?? 0) > 0 || (slugMatches ?? 0) > 0) {
+    throw new Error(DUPLICATE_PRODUCT_ERROR);
+  }
+}
 
 async function fetchProducts(
   merchantId: string,
@@ -227,7 +279,7 @@ import {
 
 export function useUpdateProduct() {
   const queryClient = useQueryClient();
-  const { merchant: _merchant } = useMerchant();
+  const { merchant } = useMerchant();
 
   return useMutation({
     mutationKey: ['updateProduct'],
@@ -238,9 +290,17 @@ export function useUpdateProduct() {
       id: string;
       updates: ProductFormValues;
     }) => {
+      if (!merchant?.id) throw new Error('No merchant');
+
       // 1. Validate & Transform (Client-side validation)
       // We perform the parse here to ensure the data matches our schema before transform
       const dbPayload = ProductDbSchema.parse(updates);
+
+      await assertNoDuplicateProduct({
+        merchantId: merchant.id,
+        productName: dbPayload.name,
+        excludeProductId: id,
+      });
 
       const { data, error } = await supabase
         .from('products')
@@ -249,10 +309,16 @@ export function useUpdateProduct() {
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
+        .eq('merchant_id', merchant.id)
         .select(PRODUCT_COLUMNS)
         .single();
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        if (isDuplicateConstraintError(error)) {
+          throw new Error(DUPLICATE_PRODUCT_ERROR);
+        }
+        throw new Error(error.message);
+      }
       return data;
     },
     onSuccess: (data) => {
@@ -274,6 +340,11 @@ export function useCreateProduct() {
       // 1. Validate & Transform
       const dbPayload = ProductDbSchema.parse(newProduct);
 
+      await assertNoDuplicateProduct({
+        merchantId: merchant.id,
+        productName: dbPayload.name,
+      });
+
       const { data, error } = await supabase
         .from('products')
         .insert([
@@ -285,7 +356,12 @@ export function useCreateProduct() {
         .select(PRODUCT_COLUMNS)
         .single();
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        if (isDuplicateConstraintError(error)) {
+          throw new Error(DUPLICATE_PRODUCT_ERROR);
+        }
+        throw new Error(error.message);
+      }
       return data;
     },
     onSuccess: () => {
