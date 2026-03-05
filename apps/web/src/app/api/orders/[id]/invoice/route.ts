@@ -120,7 +120,19 @@ export async function GET(
     };
 
     // merchants!inner guarantees a single joined object
-    const merchant = order.merchants as unknown as MerchantData;
+    const merchantData = order.merchants;
+    if (
+      !merchantData ||
+      typeof merchantData !== 'object' ||
+      Array.isArray(merchantData)
+    ) {
+      console.error('Unexpected merchant data shape:', merchantData);
+      return NextResponse.json(
+        { error: 'Invalid merchant data' },
+        { status: 500 }
+      );
+    }
+    const merchant = merchantData as MerchantData;
 
     if (merchant.user_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -158,6 +170,10 @@ export async function GET(
           'Error fetching order_tax_subtotals for order:',
           orderId,
           taxError
+        );
+        return NextResponse.json(
+          { error: 'Failed to fetch tax data for invoice' },
+          { status: 500 }
         );
       }
 
