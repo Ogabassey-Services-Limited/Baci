@@ -87,6 +87,7 @@ export default function OrderDetailsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((state) => state.user);
+  const customer = useAuthStore((state) => state.customer);
 
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [insurancePolicy, setInsurancePolicy] =
@@ -101,7 +102,7 @@ export default function OrderDetailsScreen() {
     if (!id) return;
 
     // Auth check: require authenticated user to view order details
-    if (!user?.id) {
+    if (!user?.id || !customer?.id) {
       setError('Please sign in to view order details');
       setIsLoading(false);
       return;
@@ -141,7 +142,7 @@ export default function OrderDetailsScreen() {
             )
           `)
           .eq('id', id)
-          .eq('customer_id', user.id)
+          .eq('customer_id', customer.id)
           .single();
 
         if (fetchError) throw fetchError;
@@ -194,7 +195,7 @@ export default function OrderDetailsScreen() {
       }
     };
     fetchOrder();
-  }, [id, user?.id]);
+  }, [id, user?.id, customer?.id]);
 
   // Supabase Realtime subscription for live order status updates
   useEffect(() => {

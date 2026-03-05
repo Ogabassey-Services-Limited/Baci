@@ -81,6 +81,7 @@ export default function OrdersScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const user = useAuthStore((state) => state.user);
+  const customer = useAuthStore((state) => state.customer);
 
   // 2026 Best Practice: Declarative auth-gate with intent-preserving returnTo
   const { redirectTo } = useRequireAuth();
@@ -95,7 +96,7 @@ export default function OrdersScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const fetchOrders = async () => {
-    if (!user?.id) {
+    if (!customer?.id) {
       setIsLoading(false);
       return;
     }
@@ -116,7 +117,7 @@ export default function OrdersScreen() {
             price
           )
         `)
-        .eq('customer_id', user.id)
+        .eq('customer_id', customer.id)
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -145,7 +146,7 @@ export default function OrdersScreen() {
   useEffect(() => {
     fetchOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler handles memoization (ADR-004)
-  }, [user?.id]);
+  }, [customer?.id]);
 
   // 2026 Best Practice: Auto-refetch when coming back online
   // biome-ignore lint/correctness/useExhaustiveDependencies: fetchOrders used in multiple places; React Compiler handles memoization (ADR-004)
