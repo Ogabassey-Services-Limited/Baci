@@ -105,8 +105,8 @@ jobs:
             echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer (>=1)."
             exit 1
           fi
-          if [ "$VERSION_CODE" -gt 2147483647 ]; then
-            echo "::error::Invalid version code '$VERSION_CODE'. Must be a positive integer <= 2147483647."
+          if [ "$VERSION_CODE" -gt 2100000000 ]; then
+            echo "::error::Invalid version code '$VERSION_CODE'. Must be a positive integer <= 2100000000."
             exit 1
           fi
 
@@ -126,9 +126,7 @@ jobs:
         run: pnpm exec expo prebuild --platform android --clean
 
       - name: Pin Gradle wrapper to 9.4.0
-        # RN 0.83 may ship an older Gradle 9.x wrapper; pin to 9.4.0
-        # for full Java 25 support. The foojay-resolver-convention 0.5.0
-        # incompatibility with Gradle 9 is fixed via pnpm patch (→ 1.0.0).
+        # RN 0.84 ships Gradle 9.0.0; pin to 9.4.0 for full Java 25 support.
         working-directory: ${{ env.WORKING_DIR }}
         run: |
           WRAPPER="android/gradle/wrapper/gradle-wrapper.properties"
@@ -136,9 +134,10 @@ jobs:
             echo "::error::Gradle wrapper properties not found at $WRAPPER"
             exit 1
           fi
-          sed -i 's|gradle-[0-9][^"]*-\(bin\|all\)\.zip|gradle-9.4.0-bin.zip|' "$WRAPPER"
+          sed -E -i 's|gradle-[0-9][0-9.]+-[a-z]+\.zip|gradle-9.4.0-bin.zip|' "$WRAPPER"
           if ! grep -q "gradle-9.4.0-bin.zip" "$WRAPPER"; then
             echo "::error::Failed to pin Gradle wrapper to 9.4.0"
+            cat "$WRAPPER"
             exit 1
           fi
           echo "Pinned Gradle wrapper to 9.4.0"
@@ -180,6 +179,7 @@ jobs:
       - name: Build Android App Bundle (storefront)
         working-directory: ${{ env.WORKING_DIR }}/android
         env:
+          GRADLE_OPTS: "-Xmx4g -XX:+UseZGC"
           ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/${{ env.WORKING_DIR }}/android/app/release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_STOREFRONT_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_STOREFRONT_KEY_ALIAS }}
@@ -190,7 +190,7 @@ jobs:
           EXPO_PUBLIC_API_URL: https://usebaci.com
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
         run: |
-          GRADLE_ARGS="app:bundleRelease -x lint -x lintVitalAnalyzeRelease -x test --configure-on-demand --build-cache --no-daemon"
+          GRADLE_ARGS="app:bundleRelease -x lint -x lintVitalAnalyzeRelease -x test --configure-on-demand --build-cache --parallel --no-daemon"
           # shellcheck disable=SC2086
           ./gradlew $GRADLE_ARGS
 
