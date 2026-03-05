@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 env:
-  JAVA_VERSION: "24"
+  JAVA_VERSION: "21"
   NODE_VERSION: "24"
   WORKING_DIR: apps/mobile-storefront
   # Offset added to github.run_number to avoid collisions with
@@ -170,7 +170,7 @@ jobs:
       - name: Build Android App Bundle (storefront)
         working-directory: ${{ env.WORKING_DIR }}/android
         env:
-          GRADLE_OPTS: "-Xmx4g -XX:+UseZGC"
+          GRADLE_OPTS: "-Xmx4g"
           ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/${{ env.WORKING_DIR }}/android/app/release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_STOREFRONT_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_STOREFRONT_KEY_ALIAS }}
