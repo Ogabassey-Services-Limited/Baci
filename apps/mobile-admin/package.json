@@ -27,7 +27,7 @@
     "@react-native-community/datetimepicker": "8.6.0",
     "@react-native-community/netinfo": "^11.5.2",
     "@react-native-google-signin/google-signin": "^16.1.1",
-    "@react-navigation/native": "^7.1.8",
+    "@react-navigation/native": "^7.1.33",
     "@shopify/flash-list": "2.0.2",
     "@supabase/supabase-js": "^2.95.3",
     "@tanstack/query-sync-storage-persister": "^5.90.22",
