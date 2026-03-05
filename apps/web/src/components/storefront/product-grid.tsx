@@ -207,14 +207,18 @@ export function StorefrontProductGrid({
     },
   ];
 
-  // Optimization: Single-pass iteration to avoid intermediate array allocations
+  // Single-pass category extraction — reused by filterOptions and categories
+  const uniqueCategories = (() => {
+    const cats = new Set<string>();
+    for (const p of products) {
+      if (p.category) cats.add(p.category);
+    }
+    return Array.from(cats);
+  })();
+
   const filterOptions = (() => {
     if (filterType === 'category') {
-      const cats = new Set<string>();
-      for (const p of products) {
-        if (p.category) cats.add(p.category);
-      }
-      return Array.from(cats);
+      return uniqueCategories;
     } else if (filterType === 'brand') {
       const brands = new Set<string>();
       for (const p of products) {
@@ -239,13 +243,6 @@ export function StorefrontProductGrid({
   })();
 
   const categories = (() => {
-    // Optimization: Single-pass iteration
-    const cats = new Set<string>();
-    for (const p of products) {
-      if (p.category) cats.add(p.category);
-    }
-    const availableCategories = Array.from(cats);
-
     const priorityList: string[] = [];
     if (merchantContext?.navigationCategories) {
       for (const c of merchantContext.navigationCategories) {
@@ -255,7 +252,7 @@ export function StorefrontProductGrid({
     }
 
     const sorted = sortCategories({
-      categories: availableCategories,
+      categories: uniqueCategories,
       priorityList,
     });
 
