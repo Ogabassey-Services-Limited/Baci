@@ -31,3 +31,6 @@ https://dummy.com/
 # Social media domains that rate-limit CI requests
 https://linkedin.com/
 http://linkedin.com/
+
+# Snapchat Business Help blocks automated requests
+https://businesshelp.snapchat.com/
