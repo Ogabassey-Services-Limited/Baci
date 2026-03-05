@@ -43,6 +43,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - name: Clean stale pnpm setup directory
+        run: rm -rf ~/setup-pnpm/node_modules/.bin 2>/dev/null || true
+
       - name: Setup pnpm
         uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.2.0
 
@@ -56,6 +59,21 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Discover ANDROID_HOME
+        run: |
+          if [ -n "$ANDROID_HOME" ] && [ -d "$ANDROID_HOME" ]; then
+            echo "ANDROID_HOME already set: $ANDROID_HOME"
+            exit 0
+          fi
+          for p in "$HOME/Android/Sdk" /usr/local/lib/android/sdk /opt/android-sdk; do
+            if [ -d "$p" ]; then
+              echo "ANDROID_HOME=$p" >> "$GITHUB_ENV"
+              echo "Found Android SDK at $p"
+              exit 0
+            fi
+          done
+          echo "::warning::ANDROID_HOME not found — Gradle may fail"
 
       # Node 22+ type stripping breaks expo-modules-core.
       - name: Disable Node type stripping
