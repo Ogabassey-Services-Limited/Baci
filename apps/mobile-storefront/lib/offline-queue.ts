@@ -13,6 +13,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import * as Crypto from 'expo-crypto';
 import { createLogger } from './logger';
 
 const log = createLogger('OfflineQueue');
@@ -177,7 +178,7 @@ class OfflineQueueManager {
    * Add a mutation to the queue
    */
   async enqueue<T>(type: MutationType, payload: T): Promise<string> {
-    const id = `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = `${type}_${Date.now()}_${Crypto.randomUUID().substring(0, 8)}`;
 
     const mutation: QueuedMutation = {
       id,

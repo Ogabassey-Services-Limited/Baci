@@ -5,6 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Crypto from 'expo-crypto';
 import { router, Stack } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import {
@@ -430,7 +431,7 @@ export default function NewOrderScreen() {
     const date = new Date();
     const prefix = 'ORD';
     const datePart = `${String(date.getDate()).padStart(2, '0')}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getFullYear()).slice(-2)}`;
-    const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const randomPart = Crypto.randomUUID().substring(0, 4).toUpperCase();
     return `${prefix}-${datePart}-${randomPart}`;
   };
 

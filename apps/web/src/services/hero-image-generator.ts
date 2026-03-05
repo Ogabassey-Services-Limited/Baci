@@ -130,7 +130,7 @@ export async function generateHeroImageBatch(
           const base64Image = imageFile.base64;
 
           // Upload to Supabase Storage
-          const fileName = `hero-${category}-${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+          const fileName = `hero-${category}-${Date.now()}-${crypto.randomUUID()}.png`;
           const { data: uploadData, error: uploadError } =
             await supabase.storage
               .from('hero-images')

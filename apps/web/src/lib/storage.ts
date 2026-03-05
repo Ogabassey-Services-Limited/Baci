@@ -72,7 +72,7 @@ export async function uploadImage(
     const mimeType = blob.type;
     const fileExt =
       mimeType === 'image/svg+xml' ? 'svg' : mimeType.split('/')[1] || 'png';
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+    const fileName = `${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
     const filePath = `${fileName}`;
 
     const { error: uploadError } = await supabase.storage
