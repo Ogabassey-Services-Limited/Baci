@@ -154,7 +154,7 @@ export async function GET(
       );
     }
 
-    const merchant = merchantData as MerchantData;
+    const merchant = md as MerchantData;
 
     if (merchant.user_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
