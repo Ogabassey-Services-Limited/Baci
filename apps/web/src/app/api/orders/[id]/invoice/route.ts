@@ -136,6 +136,24 @@ export async function GET(
         { status: 500 }
       );
     }
+
+    const md = merchantData as Record<string, unknown>;
+    if (
+      typeof md.id !== 'string' ||
+      typeof md.user_id !== 'string' ||
+      typeof md.business_name !== 'string'
+    ) {
+      console.error('Merchant data missing required fields:', {
+        hasId: typeof md.id === 'string',
+        hasUserId: typeof md.user_id === 'string',
+        hasBusinessName: typeof md.business_name === 'string',
+      });
+      return NextResponse.json(
+        { error: 'Invalid merchant data' },
+        { status: 500 }
+      );
+    }
+
     const merchant = merchantData as MerchantData;
 
     if (merchant.user_id !== user.id) {
