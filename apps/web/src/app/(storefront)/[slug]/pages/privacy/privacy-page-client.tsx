@@ -1,12 +1,12 @@
 'use client';
 
-import DOMPurify from 'isomorphic-dompurify';
 import { Eye, FileText, Lock, Shield } from 'lucide-react';
 import AppBody from '@/components/app-body';
 import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 interface PrivacyPageClientProps {
   merchant: {
@@ -36,64 +36,11 @@ export function PrivacyPageClient({
 }: PrivacyPageClientProps) {
   // Defense-in-depth: sanitize on client if server-sanitized content not provided
   const safeHtml = (() => {
-    // Ensure even server-provided content passes through client sanitizer for defense-in-depth to satisfy CodeQL
-    if (sanitizedContent) return DOMPurify.sanitize(sanitizedContent);
+    // Ensure even server-provided content passes through sanitizer for defense-in-depth.
+    if (sanitizedContent) return sanitizeHtml(sanitizedContent);
     if (!content) return undefined;
     // Fallback client-side sanitization (should not normally be needed)
-    return DOMPurify.sanitize(content, {
-      ALLOWED_TAGS: [
-        'b',
-        'i',
-        'em',
-        'strong',
-        'u',
-        's',
-        'mark',
-        'small',
-        'sub',
-        'sup',
-        'h1',
-        'h2',
-        'h3',
-        'h4',
-        'h5',
-        'h6',
-        'p',
-        'br',
-        'hr',
-        'div',
-        'span',
-        'blockquote',
-        'pre',
-        'code',
-        'ul',
-        'ol',
-        'li',
-        'a',
-        'img',
-        'table',
-        'thead',
-        'tbody',
-        'tfoot',
-        'tr',
-        'th',
-        'td',
-      ],
-      ALLOWED_ATTR: [
-        'class',
-        'id',
-        'title',
-        'width',
-        'height',
-        'colspan',
-        'rowspan',
-        'href',
-        'target',
-        'rel',
-        'src',
-        'alt',
-      ],
-    });
+    return sanitizeHtml(content);
   })();
 
   return (
@@ -168,7 +115,7 @@ export function PrivacyPageClient({
               {/* Content */}
               <div className="container px-4 md:px-6 py-12 md:py-16">
                 <div className="max-w-3xl mx-auto">
-                  {/* Security: Content is sanitized via DOMPurify (client-side) or sanitize-html (server-side) */}
+                  {/* Security: Content is sanitized via shared sanitizeHtml utility */}
                   {safeHtml ? (
                     <div
                       className="prose prose-lg dark:prose-invert max-w-none
@@ -179,7 +126,7 @@ export function PrivacyPageClient({
                         prose-li:text-muted-foreground
                         prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
                       // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized via DOMPurify
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized via sanitizeHtml utility
                       dangerouslySetInnerHTML={{ __html: safeHtml }}
                     />
                   ) : (
