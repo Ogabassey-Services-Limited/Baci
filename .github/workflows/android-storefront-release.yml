@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 env:
-  JAVA_VERSION: "21"
+  JAVA_VERSION: "25"
   NODE_VERSION: "24"
   WORKING_DIR: apps/mobile-storefront
   # Offset added to github.run_number to avoid collisions with
@@ -126,13 +126,15 @@ jobs:
         run: pnpm exec expo prebuild --platform android --clean
 
       - name: Pin Gradle wrapper to 8.x
-        # Gradle 9.0 removed JvmVendorSpec.IBM_SEMERU which React Native's
-        # Gradle plugin still references. Pin to 8.14.3 until RN catches up.
+        # RN 0.83 ships Gradle 9.0 wrapper but bundles foojay-resolver-convention
+        # 0.5.0 which references the removed JvmVendorSpec.IBM_SEMERU constant.
+        # Upstream fix: github.com/facebook/react-native/issues/55781
+        # Pin to 8.14.3 until RN ships foojay 1.0.0+.
         working-directory: ${{ env.WORKING_DIR }}
         run: |
           WRAPPER="android/gradle/wrapper/gradle-wrapper.properties"
           if grep -q "gradle-9" "$WRAPPER" 2>/dev/null; then
-            sed -i 's|gradle-9[^-]*-bin.zip|gradle-8.14.3-bin.zip|' "$WRAPPER"
+            sed -i 's|gradle-9[^"]*\.zip|gradle-8.14.3-bin.zip|' "$WRAPPER"
             echo "Pinned Gradle wrapper to 8.14.3"
           fi
 
