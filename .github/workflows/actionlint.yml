@@ -33,7 +33,7 @@ jobs:
         run: |
           # Fail if any workflow uses the retired baci-vps runner label.
           # New runners: baci-android, baci-deploy, baci-lighthouse
-          if grep -rn 'runs-on:.*baci-vps' .github/workflows/; then
+          if grep -rn 'runs-on:.*baci-vps' .github/workflows/ --include='*.yml' --exclude='actionlint.yml'; then
             echo "::error::Deprecated runner label 'baci-vps' found. Use baci-android, baci-deploy, or baci-lighthouse instead."
             exit 1
           fi
