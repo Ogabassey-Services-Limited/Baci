@@ -2,6 +2,7 @@ import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { PRODUCT_COLUMNS } from '@/lib/product-queries';
 
 // Map database product to API response format function
 function mapProduct(p: Record<string, unknown>) {
@@ -23,10 +24,8 @@ function mapProduct(p: Record<string, unknown>) {
     manage_stock: p.manage_stock,
     stock: p.stock_quantity || 0,
     low_stock_threshold: p.low_stock_threshold,
-    colors: p.colors || [],
-    storage_options: p.storage_options || [],
+    color: p.color || '',
     condition: p.condition || 'new',
-    rating: p.rating || 5,
   };
 }
 
@@ -84,7 +83,7 @@ export async function GET(
     console.log('[API] Fetching products for merchant:', merchantId);
     const { data: products, error } = await supabase
       .from('products')
-      .select('*')
+      .select(PRODUCT_COLUMNS)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .order('created_at', { ascending: false });
