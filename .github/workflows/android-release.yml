@@ -127,18 +127,23 @@ jobs:
           EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID: ${{ secrets.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID }}
         run: pnpm exec expo prebuild --platform android --clean
 
-      - name: Pin Gradle wrapper to 8.x
-        # RN 0.83 ships Gradle 9.0 wrapper but bundles foojay-resolver-convention
-        # 0.5.0 which references the removed JvmVendorSpec.IBM_SEMERU constant.
-        # Upstream fix: github.com/facebook/react-native/issues/55781
-        # Pin to 8.14.3 until RN ships foojay 1.0.0+.
+      - name: Pin Gradle wrapper to 9.4.0
+        # RN 0.83 may ship an older Gradle 9.x wrapper; pin to 9.4.0
+        # for full Java 25 support. The foojay-resolver-convention 0.5.0
+        # incompatibility with Gradle 9 is fixed via pnpm patch (→ 1.0.0).
         working-directory: ${{ env.WORKING_DIR }}
         run: |
           WRAPPER="android/gradle/wrapper/gradle-wrapper.properties"
-          if grep -q "gradle-9" "$WRAPPER" 2>/dev/null; then
-            sed -i 's|gradle-9[^"]*\.zip|gradle-8.14.3-bin.zip|' "$WRAPPER"
-            echo "Pinned Gradle wrapper to 8.14.3"
+          if [ ! -f "$WRAPPER" ]; then
+            echo "::error::Gradle wrapper properties not found at $WRAPPER"
+            exit 1
           fi
+          sed -i 's|gradle-[0-9][^"]*-\(bin\|all\)\.zip|gradle-9.4.0-bin.zip|' "$WRAPPER"
+          if ! grep -q "gradle-9.4.0-bin.zip" "$WRAPPER"; then
+            echo "::error::Failed to pin Gradle wrapper to 9.4.0"
+            exit 1
+          fi
+          echo "Pinned Gradle wrapper to 9.4.0"
 
       - name: Decode keystore
         working-directory: ${{ env.WORKING_DIR }}

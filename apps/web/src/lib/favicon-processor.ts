@@ -1,6 +1,6 @@
-import DOMPurify from 'isomorphic-dompurify';
 import { cookies } from 'next/headers';
 import sharp from 'sharp';
+import { sanitizeSvg } from '@/lib/sanitize';
 import { createClient } from '@/lib/supabase/server';
 
 export interface FaviconUploadResult {
@@ -22,7 +22,7 @@ export async function processFavicon(
   merchantId: string
 ): Promise<FaviconUploadResult> {
   const isSvg = file.type === 'image/svg+xml';
-  const buffer = Buffer.from(await file.arrayBuffer());
+  let buffer = Buffer.from(await file.arrayBuffer());
 
   // Validate merchantId to prevent path traversal
   if (!merchantId || !/^[a-f0-9-]{36}$/i.test(merchantId)) {
@@ -38,17 +38,17 @@ export async function processFavicon(
     apple_touch_url: '',
   };
 
-  // If SVG, sanitize first, then upload and convert to PNG sizes
+  // If SVG, sanitize first, then upload and use sanitized buffer for all downstream processing
   if (isSvg) {
     // CRITICAL: Sanitize SVG to prevent XSS attacks
     const svgString = buffer.toString('utf-8');
     const sanitizedSvgString = sanitizeSVG(svgString);
-    const sanitizedBuffer = Buffer.from(sanitizedSvgString, 'utf-8');
+    buffer = Buffer.from(sanitizedSvgString, 'utf-8');
 
     const svgPath = `${merchantId}/icon.svg`;
     const { data: _svgData, error: svgError } = await supabase.storage
       .from('favicons')
-      .upload(svgPath, sanitizedBuffer, {
+      .upload(svgPath, buffer, {
         contentType: 'image/svg+xml',
         upsert: true,
       });
@@ -62,7 +62,7 @@ export async function processFavicon(
     result.svg_url = svgUrl;
   }
 
-  // Generate PNG variants
+  // Generate PNG variants (uses sanitized buffer for SVG input)
   // 32x32 - Standard favicon
   const png32Buffer = await sharp(buffer)
     .resize(32, 32, {
@@ -143,57 +143,10 @@ export async function processFavicon(
 
 /**
  * Sanitize SVG content to remove malicious scripts
- * Uses DOMPurify with SVG profile for comprehensive security
+ * Uses sanitize-html allowlisting to remove active content
  * @param svgContent - Raw SVG file content
  * @returns Sanitized SVG string
  */
 export function sanitizeSVG(svgContent: string): string {
-  return DOMPurify.sanitize(svgContent, {
-    USE_PROFILES: { svg: true, svgFilters: true },
-    ADD_TAGS: [
-      'svg',
-      'path',
-      'circle',
-      'rect',
-      'polygon',
-      'line',
-      'polyline',
-      'ellipse',
-      'g',
-      'defs',
-      'use',
-      'symbol',
-      'linearGradient',
-      'radialGradient',
-      'stop',
-    ],
-    ADD_ATTR: [
-      'viewBox',
-      'xmlns',
-      'fill',
-      'stroke',
-      'stroke-width',
-      'd',
-      'cx',
-      'cy',
-      'r',
-      'x',
-      'y',
-      'width',
-      'height',
-      'points',
-      'x1',
-      'y1',
-      'x2',
-      'y2',
-      'rx',
-      'ry',
-      'transform',
-      'id',
-      'class',
-      'style',
-    ],
-    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'link'],
-    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
-  });
+  return sanitizeSvg(svgContent);
 }

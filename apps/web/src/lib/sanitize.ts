@@ -1,5 +1,4 @@
 // Input Sanitization Utilities
-// This module includes DOMPurify for HTML sanitization (requires jsdom on server)
 // For server components that don't need HTML sanitization, import from './sanitize-core' instead
 
 import sanitizeLib from 'sanitize-html';
@@ -127,8 +126,7 @@ export function sanitizeHtml(dirty: string): string {
     allowedSchemesByTag: {
       img: ['http', 'https', 'data'], // Allow base64 images if needed
     },
-    // Prevent DOM clobbering attacks (sanitize-html handles this by default)
-    // Return clean HTML string (not DOM nodes)
+    allowProtocolRelative: false,
   });
 }
 
@@ -173,6 +171,79 @@ export function sanitizeForFeed(dirty: string): string {
         tagName,
         attribs: { ...attribs, rel: 'noopener noreferrer' },
       }),
+    },
+  });
+}
+
+/**
+ * Sanitize untrusted SVG content before persisting or rendering it.
+ *
+ * This allowlist keeps common favicon/vector tags while stripping scripting,
+ * foreign content, and unknown attributes.
+ */
+export function sanitizeSvg(svgContent: string): string {
+  return sanitizeLib(svgContent, {
+    allowedTags: [
+      'svg',
+      'path',
+      'circle',
+      'rect',
+      'polygon',
+      'line',
+      'polyline',
+      'ellipse',
+      'g',
+      'defs',
+      'use',
+      'symbol',
+      'linearGradient',
+      'radialGradient',
+      'stop',
+      'title',
+      'desc',
+    ],
+    allowedAttributes: {
+      '*': [
+        'id',
+        'class',
+        'viewBox',
+        'xmlns',
+        'xmlns:xlink',
+        'role',
+        'aria-hidden',
+        'focusable',
+        'fill',
+        'stroke',
+        'stroke-width',
+        'stroke-linecap',
+        'stroke-linejoin',
+        'stroke-dasharray',
+        'stroke-dashoffset',
+        'opacity',
+        'fill-opacity',
+        'stroke-opacity',
+        'transform',
+      ],
+      svg: ['width', 'height', 'x', 'y'],
+      path: ['d', 'pathLength'],
+      circle: ['cx', 'cy', 'r'],
+      rect: ['x', 'y', 'width', 'height', 'rx', 'ry'],
+      ellipse: ['cx', 'cy', 'rx', 'ry'],
+      line: ['x1', 'y1', 'x2', 'y2'],
+      polyline: ['points'],
+      polygon: ['points'],
+      use: ['href', 'xlink:href', 'x', 'y', 'width', 'height'],
+      linearGradient: ['id', 'x1', 'y1', 'x2', 'y2', 'gradientUnits'],
+      radialGradient: ['id', 'cx', 'cy', 'r', 'fx', 'fy', 'gradientUnits'],
+      stop: ['offset', 'stop-color', 'stop-opacity'],
+    },
+    disallowedTagsMode: 'discard',
+    allowedSchemes: ['http', 'https'],
+    allowedSchemesAppliedToAttributes: ['href', 'xlink:href'],
+    allowProtocolRelative: false,
+    parser: {
+      lowerCaseTags: false,
+      lowerCaseAttributeNames: false,
     },
   });
 }
