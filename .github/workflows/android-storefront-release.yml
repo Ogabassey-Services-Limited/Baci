@@ -66,14 +66,24 @@ jobs:
             echo "ANDROID_HOME already set: $ANDROID_HOME"
             exit 0
           fi
-          for p in "$HOME/Android/Sdk" /usr/local/lib/android/sdk /opt/android-sdk; do
+          # Check common paths, then search for platforms dir as a fingerprint
+          for p in "$HOME/Android/Sdk" /usr/local/lib/android/sdk /opt/android-sdk /usr/lib/android-sdk; do
             if [ -d "$p" ]; then
               echo "ANDROID_HOME=$p" >> "$GITHUB_ENV"
               echo "Found Android SDK at $p"
               exit 0
             fi
           done
-          echo "::warning::ANDROID_HOME not found — Gradle may fail"
+          # Broader search: find any directory containing 'platforms/android-*'
+          SDK_DIR=$(find /home /opt /usr/local -maxdepth 4 -type d -name "platforms" 2>/dev/null \
+            | while read d; do ls "$d"/android-* >/dev/null 2>&1 && dirname "$d" && break; done || true)
+          if [ -n "$SDK_DIR" ]; then
+            echo "ANDROID_HOME=$SDK_DIR" >> "$GITHUB_ENV"
+            echo "Found Android SDK at $SDK_DIR (via search)"
+          else
+            echo "::error::ANDROID_HOME not found. Install Android SDK or set ANDROID_HOME on the runner."
+            exit 1
+          fi
 
       # Node 22+ type stripping breaks expo-modules-core.
       - name: Disable Node type stripping
