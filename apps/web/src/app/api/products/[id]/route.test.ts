@@ -195,12 +195,14 @@ const createMockSupabase = () => ({
     if (table === 'product_variants') {
       const variantSelectChain = {
         eq: vi.fn(() => ({
-          eq: vi.fn(() =>
-            Promise.resolve({
-              data: variants,
-              error: null,
-            })
-          ),
+          eq: vi.fn(() => ({
+            returns: vi.fn(() =>
+              Promise.resolve({
+                data: variants,
+                error: null,
+              })
+            ),
+          })),
         })),
       };
       return {
