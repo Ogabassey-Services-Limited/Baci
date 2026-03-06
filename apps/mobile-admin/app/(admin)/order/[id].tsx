@@ -365,6 +365,7 @@ export default function OrderDetailsScreen() {
       (typeof rawShipping === 'string' ? rawShipping.trim() : null) ||
       shippingAddress?.address ||
       shippingAddress?.address_line1 ||
+      order?.customer_address ||
       '';
     const deliveryCityState = [shippingAddress?.city, shippingAddress?.state]
       .filter((part): part is string => Boolean(part?.trim()))

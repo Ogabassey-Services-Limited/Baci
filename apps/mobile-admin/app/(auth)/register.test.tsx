@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   push: vi.fn(),
   mutate: vi.fn(),
-  completeOnboarding: vi.fn(),
 }));
 
 // --- Mock react-native with HTML-compatible components ---
@@ -115,12 +114,6 @@ vi.mock('@/hooks/useRegistration', () => ({
   }),
 }));
 
-vi.mock('@/context/OnboardingContext', () => ({
-  useOnboarding: () => ({
-    completeOnboarding: mocks.completeOnboarding,
-  }),
-}));
-
 vi.mock('@/lib/password-utils', () => ({
   validatePassword: () => ({
     isValid: true,
@@ -191,7 +184,6 @@ describe('RegisterScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    mocks.completeOnboarding.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -215,21 +207,20 @@ describe('RegisterScreen', () => {
   });
 
   describe('onSuccess', () => {
-    it('completes onboarding and routes to the app root', async () => {
+    it('navigates to dashboard via router.replace', () => {
       render(<RegisterScreen />);
       fillFormAndSubmit();
 
-      await getCallbacks().onSuccess();
+      getCallbacks().onSuccess();
 
-      expect(mocks.completeOnboarding).toHaveBeenCalledTimes(1);
-      expect(mocks.replace).toHaveBeenCalledWith('/');
+      expect(mocks.replace).toHaveBeenCalledWith('/(admin)/(tabs)');
     });
 
-    it('uses replace (not push) to prevent back-navigation to register', async () => {
+    it('uses replace (not push) to prevent back-navigation to register', () => {
       render(<RegisterScreen />);
       fillFormAndSubmit();
 
-      await getCallbacks().onSuccess();
+      getCallbacks().onSuccess();
 
       expect(mocks.replace).toHaveBeenCalledTimes(1);
       expect(mocks.push).not.toHaveBeenCalled();
@@ -297,23 +288,6 @@ describe('RegisterScreen', () => {
 
       expect(mocks.replace).not.toHaveBeenCalled();
       expect(mocks.push).not.toHaveBeenCalled();
-    });
-
-    it('routes to verification when email confirmation is required', async () => {
-      render(<RegisterScreen />);
-      fillFormAndSubmit();
-
-      await getCallbacks().onError(
-        new NetworkError('Please confirm your email', {
-          statusCode: 403,
-          code: 'EMAIL_CONFIRMATION_REQUIRED',
-        })
-      );
-
-      expect(mocks.completeOnboarding).toHaveBeenCalledTimes(1);
-      expect(mocks.replace).toHaveBeenCalledWith(
-        '/(auth)/verify?email=test%40example.com'
-      );
     });
 
     it('shows timeout message for timeout errors', () => {

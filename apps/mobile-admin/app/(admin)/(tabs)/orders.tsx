@@ -281,7 +281,6 @@ export default function OrdersScreen() {
   const {
     data,
     isLoading,
-    error,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
@@ -941,17 +940,15 @@ export default function OrdersScreen() {
           !isLoading ? (
             <View style={styles.emptyContainer}>
               <Ionicons
-                name={error ? 'alert-circle-outline' : 'receipt-outline'}
+                name="receipt-outline"
                 size={56}
-                color={error ? colors.error : colors.textMuted}
+                color={colors.textMuted}
               />
               <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                {error ? 'Failed to load orders' : 'No orders found'}
+                No orders found
               </Text>
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                {error instanceof Error
-                  ? error.message
-                  : 'Orders will appear here when customers place them'}
+                Orders will appear here when customers place them
               </Text>
             </View>
           ) : null

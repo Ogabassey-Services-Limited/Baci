@@ -31,7 +31,6 @@ export class NetworkError extends Error {
   public readonly isTimeout: boolean;
   public readonly isOffline: boolean;
   public readonly statusCode?: number;
-  public readonly code?: string;
 
   constructor(
     message: string,
@@ -39,7 +38,6 @@ export class NetworkError extends Error {
       isTimeout?: boolean;
       isOffline?: boolean;
       statusCode?: number;
-      code?: string;
     } = {}
   ) {
     super(message);
@@ -47,7 +45,6 @@ export class NetworkError extends Error {
     this.isTimeout = options.isTimeout ?? false;
     this.isOffline = options.isOffline ?? false;
     this.statusCode = options.statusCode;
-    this.code = options.code;
   }
 }
 
@@ -136,17 +133,8 @@ export async function apiClient<T = unknown>(
         (typeof data === 'object' && data.error) ||
         (typeof data === 'string' && data) ||
         `Request failed with status ${response.status}`;
-      const errorCode =
-        typeof data === 'object' &&
-        data !== null &&
-        typeof data.code === 'string'
-          ? data.code
-          : undefined;
 
-      throw new NetworkError(errorMessage, {
-        statusCode: response.status,
-        code: errorCode,
-      });
+      throw new NetworkError(errorMessage, { statusCode: response.status });
     }
 
     return data as T;
