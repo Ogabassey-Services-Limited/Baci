@@ -50,11 +50,23 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Derive categories and brands dynamically from products
-  const categories = ['All', ...Array.from(new Set(gridProducts.map((p) => p.category)))];
+  const categories = (() => {
+    // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map())
+    const categorySet = new Set<string>();
+    for (const p of gridProducts) {
+      if (p.category) categorySet.add(p.category);
+    }
+    return ['All', ...Array.from(categorySet)];
+  })();
 
-  const brands = Array.from(
-    new Set(gridProducts.map((p) => p.brand).filter(Boolean) as string[])
-  );
+  const brands = (() => {
+    // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map().filter())
+    const brandSet = new Set<string>();
+    for (const p of gridProducts) {
+      if (p.brand) brandSet.add(p.brand);
+    }
+    return Array.from(brandSet);
+  })();
 
   const filteredProducts = gridProducts.filter((product) => {
     // Category Filter

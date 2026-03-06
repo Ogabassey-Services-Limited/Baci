@@ -62,18 +62,31 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   const categories = (() => {
     // If explicit categories array provided:
     if (explicitCategories && explicitCategories.length > 0) {
-      // Map to just names string array, ensuring "All" is first
-      return ['All', ...explicitCategories.map(c => c.name)];
+      // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map())
+      const result = ['All'];
+      for (const c of explicitCategories) {
+        if (c.name) result.push(c.name);
+      }
+      return result;
     }
 
     // Fallback behavior: derive from current products
-    return ['All', ...Array.from(new Set(products.map((p) => p.categories?.name || (p as any).category)))];
+    // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map().filter())
+    const categorySet = new Set<string>();
+    for (const p of products) {
+      const cat = p.categories?.name || (p as any).category;
+      if (cat) categorySet.add(cat);
+    }
+    return ['All', ...Array.from(categorySet)];
   })();
 
   const brands = (() => {
-    return Array.from(
-      new Set(products.map((p) => p.brand).filter(Boolean) as string[])
-    );
+    // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map().filter())
+    const brandSet = new Set<string>();
+    for (const p of products) {
+      if (p.brand) brandSet.add(p.brand);
+    }
+    return Array.from(brandSet);
   })();
 
   const filteredProducts = products.filter((product) => {
