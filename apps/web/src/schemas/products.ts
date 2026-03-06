@@ -46,6 +46,12 @@ const productVariantSchema = z.object({
     .transform((val) => sanitizePrice(val))
     .optional()
     .nullable(),
+  cost_price: z
+    .number()
+    .min(0)
+    .transform((val) => sanitizePrice(val))
+    .optional()
+    .nullable(),
   stock_quantity: z.number().int().min(0).optional().default(0),
   sku: z
     .string()
