@@ -97,7 +97,7 @@ export function TrackingPixelSection({
           </div>
         )}
         {children}
-        <Button onClick={handleSave} disabled={isSaving}>
+        <Button type="button" onClick={handleSave} disabled={isSaving}>
           {isSaving ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
