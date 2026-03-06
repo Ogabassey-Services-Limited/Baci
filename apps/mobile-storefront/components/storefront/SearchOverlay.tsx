@@ -15,7 +15,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -131,6 +131,7 @@ export function SearchOverlay({
             </Text>
             <Pressable
               onPress={clearHistory}
+              hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
               accessibilityRole="button"
               accessibilityLabel="Clear recent searches"
             >
@@ -271,7 +272,10 @@ export function SearchOverlay({
   if (!isVisible) return null;
 
   return (
-    <View style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}>
+    <View
+      style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}
+      accessibilityViewIsModal={true}
+    >
       {/* Backdrop */}
       <Animated.View
         entering={FadeIn}
@@ -284,8 +288,7 @@ export function SearchOverlay({
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel="Close search"
+          accessible={false}
         />
       </Animated.View>
 
@@ -323,6 +326,7 @@ export function SearchOverlay({
             {query.length > 0 && (
               <Pressable
                 onPress={() => setQuery('')}
+                hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
                 accessibilityRole="button"
                 accessibilityLabel="Clear search input"
               >
