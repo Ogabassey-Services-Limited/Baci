@@ -207,7 +207,7 @@ export interface CachedProductCategory {
 }
 
 export interface CachedProductCategoryJoin {
-  categories?: CachedProductCategory | null;
+  categories?: CachedProductCategory | CachedProductCategory[] | null;
 }
 
 export interface CachedProductVariantRow {
@@ -263,7 +263,7 @@ export interface CachedProductRow {
   category?: string | null;
   category_slug?: string | null;
   category_id?: string | null;
-  categories?: CachedProductCategory | null;
+  categories?: CachedProductCategory | CachedProductCategory[] | null;
   product_categories?: CachedProductCategoryJoin[] | null;
   color?: string | null;
   has_variants?: boolean | null;
@@ -351,12 +351,30 @@ function normalizeProductImages(
   );
 }
 
-function getPrimaryCategory(cachedProduct: CachedProductRow) {
-  if (cachedProduct.categories) {
-    return cachedProduct.categories;
+function normalizeCategory(
+  category:
+    | CachedProductCategory
+    | CachedProductCategory[]
+    | Product['categories']
+    | Product['categories'][]
+    | null
+    | undefined
+) {
+  if (Array.isArray(category)) {
+    return category[0] || null;
   }
 
-  return cachedProduct.product_categories?.[0]?.categories || null;
+  return category || null;
+}
+
+function getPrimaryCategory(cachedProduct: CachedProductRow) {
+  const joinedCategory = normalizeCategory(cachedProduct.categories);
+
+  if (joinedCategory) {
+    return joinedCategory;
+  }
+
+  return normalizeCategory(cachedProduct.product_categories?.[0]?.categories);
 }
 
 function mapProductVariants(
@@ -371,7 +389,10 @@ function mapProductVariants(
     id: variant.id,
     product_id: variant.product_id || cachedProduct.id,
     merchant_id:
-      variant.merchant_id || merchantIdOverride || cachedProduct.merchant_id || '',
+      variant.merchant_id ||
+      merchantIdOverride ||
+      cachedProduct.merchant_id ||
+      '',
     attributes: variant.attributes || {},
     price_override: toOptionalNumber(variant.price_override),
     cost_price: toOptionalNumber(variant.cost_price),
@@ -415,10 +436,14 @@ export function mapCachedProductToProduct(
     cachedProduct.name
   );
   const primaryImage = normalizedImages[0]?.url || '';
-  const primaryCategory = overrides.categories || getPrimaryCategory(cachedProduct);
+  const primaryCategory =
+    overrides.categories || getPrimaryCategory(cachedProduct);
   const variants = mapProductVariants(cachedProduct, overrides.merchantId);
   const category =
-    overrides.category || primaryCategory?.name || cachedProduct.category || undefined;
+    overrides.category ||
+    primaryCategory?.name ||
+    cachedProduct.category ||
+    undefined;
   const categorySlug =
     overrides.category_slug ||
     primaryCategory?.slug ||

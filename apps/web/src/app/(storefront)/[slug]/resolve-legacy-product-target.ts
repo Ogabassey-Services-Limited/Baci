@@ -152,7 +152,9 @@ export async function resolveLegacyProductTarget(
     return null;
   }
 
-  const candidateIdentifiers = getLegacyProductCandidates(legacyProductIdentifier);
+  const candidateIdentifiers = getLegacyProductCandidates(
+    legacyProductIdentifier
+  );
   const [primaryCandidateIdentifier, ...fallbackCandidateIdentifiers] =
     candidateIdentifiers;
 

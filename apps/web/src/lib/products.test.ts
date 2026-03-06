@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  mapCachedProductToProduct,
-  type CachedProductRow,
-} from './products';
+import { type CachedProductRow, mapCachedProductToProduct } from './products';
 
 describe('mapCachedProductToProduct', () => {
   it('maps modern storefront rows into the shared Product shape', () => {
