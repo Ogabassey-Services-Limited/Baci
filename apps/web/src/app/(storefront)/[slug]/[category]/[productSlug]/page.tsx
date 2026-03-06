@@ -10,7 +10,7 @@ import {
   getCachedMerchantByDomain,
   getCachedProductWithDetails,
 } from '@/lib/cached-data';
-import type { Product } from '@/lib/products';
+import { mapCachedProductToProduct, type Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -22,6 +22,7 @@ import {
 } from '@/lib/seo-utils';
 import { isDomainIdentifier } from '@/lib/validation';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
+import { cachedResolveLegacyProductTarget } from '../../resolve-legacy-product-target';
 
 /** KeySpecs interface for product_key_specs */
 interface KeySpecs {
@@ -621,38 +622,13 @@ const getProduct = async (
     return null;
   }
 
-  // 3. Process category data
-  interface ProductWithCategory {
-    categories?: {
-      id: string;
-      name: string;
-      slug: string;
-      parent_id?: string;
-    } | null;
-  }
-  const productWithCat = product as unknown as ProductWithCategory;
-  const joinedCategory = productWithCat.categories;
-
-  const dbCategorySlug = joinedCategory?.slug;
-  const dbCategoryName = joinedCategory?.name || product.category;
-
-  // Create extended product with category info
-  const productWithCategorySlug: Product = {
-    ...product,
-    category: dbCategoryName || product.category,
-    category_slug: dbCategorySlug,
-    // Filter offers to exclude main product condition
-    offers: product.product_offers?.filter(
-      (o: { condition: string; status: string }) =>
-        o.condition !== product.condition && o.status === 'active'
-    ),
-    // Map variants
-    variants: product.product_variants || [],
-  } as Product;
+  const productWithCategorySlug = mapCachedProductToProduct(product);
 
   const productCategorySlug =
-    dbCategorySlug ||
-    (product.category ? generateSlug(product.category) : null);
+    productWithCategorySlug.category_slug ||
+    (productWithCategorySlug.category
+      ? generateSlug(productWithCategorySlug.category)
+      : null);
 
   const categoryMismatch =
     productCategorySlug && productCategorySlug !== categorySlug;
@@ -674,9 +650,33 @@ export async function generateMetadata({
   const result = await getProduct(slug, category, productSlug);
 
   if (!result?.product) {
+    const headersList = await headers();
+    const host =
+      headersList.get('host') ||
+      (isDomainIdentifier(slug) ? slug : `${slug}.usebaci.com`);
+    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+    const baseUrl = `${protocol}://${host}`;
+    const isLocalhost =
+      host.includes('localhost') || host.includes('127.0.0.1');
+    const basePath = isLocalhost ? `/${slug}` : '';
+    const legacyTarget = await cachedResolveLegacyProductTarget(
+      slug,
+      productSlug
+    );
+    const requestedProductUrl = legacyTarget
+      ? `${baseUrl}${basePath}${legacyTarget}`
+      : `${baseUrl}${basePath}/${encodeURIComponent(category)}/${encodeURIComponent(
+          productSlug
+        )}`;
+
     return {
-      title: 'Product Not Found',
-      description: 'The product you are looking for does not exist.',
+      title: legacyTarget ? 'Product Redirect' : 'Product Not Found',
+      description: legacyTarget
+        ? 'This product has moved to a newer URL.'
+        : 'The product you are looking for does not exist.',
+      alternates: {
+        canonical: requestedProductUrl,
+      },
       robots: {
         index: false,
         follow: false,
@@ -778,6 +778,20 @@ export default async function CategoryProductPage({ params }: PageProps) {
   const result = await getProduct(slug, category, productSlug);
 
   if (!result?.product) {
+    const headersList = await headers();
+    const host = headersList.get('host') || 'baci.app';
+    const isLocalhost =
+      host.includes('localhost') || host.includes('127.0.0.1');
+    const basePath = isLocalhost ? `/${slug}` : '';
+    const legacyTarget = await cachedResolveLegacyProductTarget(
+      slug,
+      productSlug
+    );
+
+    if (legacyTarget) {
+      permanentRedirect(`${basePath}${legacyTarget}` as `/${string}`);
+    }
+
     notFound();
   }
 
