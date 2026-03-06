@@ -129,7 +129,11 @@ export function SearchOverlay({
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Recent
             </Text>
-            <Pressable onPress={clearHistory}>
+            <Pressable
+              onPress={clearHistory}
+              accessibilityRole="button"
+              accessibilityLabel="Clear recent searches"
+            >
               <Text style={{ color: colors.text, opacity: 0.6, fontSize: 13 }}>
                 Clear
               </Text>
@@ -144,6 +148,8 @@ export function SearchOverlay({
                   { backgroundColor: colors.card, borderColor: colors.border },
                 ]}
                 onPress={() => handleSuggestionPress(term)}
+                accessibilityRole="button"
+                accessibilityLabel={`Search for ${term}`}
               >
                 <Ionicons
                   name="time-outline"
@@ -172,6 +178,8 @@ export function SearchOverlay({
                 { backgroundColor: colors.card, borderColor: colors.border },
               ]}
               onPress={() => handleCategoryPress(cat.slug)}
+              accessibilityRole="button"
+              accessibilityLabel={`Explore category ${cat.name}`}
             >
               <Text style={[styles.categoryText, { color: colors.text }]}>
                 {cat.name}
@@ -229,6 +237,8 @@ export function SearchOverlay({
           <Pressable
             style={[styles.resultItem, { borderBottomColor: colors.border }]}
             onPress={() => handleProductPress(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`View product ${item.name} by ${item.brand}`}
           >
             <View style={styles.resultDetails}>
               <Text
@@ -271,7 +281,12 @@ export function SearchOverlay({
           { backgroundColor: 'rgba(0,0,0,0.4)' },
         ]}
       >
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close search"
+        />
       </Animated.View>
 
       {/* Main Sheet */}
@@ -306,7 +321,11 @@ export function SearchOverlay({
               clearButtonMode="while-editing"
             />
             {query.length > 0 && (
-              <Pressable onPress={() => setQuery('')}>
+              <Pressable
+                onPress={() => setQuery('')}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search input"
+              >
                 <Ionicons
                   name="close-circle"
                   size={18}
@@ -316,7 +335,12 @@ export function SearchOverlay({
               </Pressable>
             )}
           </View>
-          <Pressable onPress={onClose} hitSlop={10}>
+          <Pressable
+            onPress={onClose}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel search"
+          >
             <Text style={[styles.cancelText, { color: colors.text }]}>
               Cancel
             </Text>
