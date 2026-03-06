@@ -60,7 +60,7 @@ jobs:
       - run: pnpm install
       - run: pnpm dlx vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
       - run: pnpm dlx vercel build --prod --token="$VERCEL_TOKEN"
-      - run: pnpm dlx vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+      - run: pnpm dlx vercel deploy --prebuilt --prod --archive=tgz --token="$VERCEL_TOKEN"
 
   deploy-preview:
     needs: [changes]
@@ -95,4 +95,4 @@ jobs:
         run: pnpm dlx vercel build --token="$VERCEL_TOKEN"
       - name: Deploy Project Artifacts to Vercel
         if: ${{ env.VERCEL_TOKEN != '' }}
-        run: pnpm dlx vercel deploy --prebuilt --token="$VERCEL_TOKEN"
+        run: pnpm dlx vercel deploy --prebuilt --archive=tgz --token="$VERCEL_TOKEN"
