@@ -53,10 +53,16 @@ CREATE OR REPLACE FUNCTION public.smart_customer_search(
   relevance REAL,
   total_count BIGINT
 )
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SET search_path = pg_catalog, public, extensions
 AS $$
+BEGIN
+  IF p_merchant_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  RETURN QUERY
   WITH input AS (
     SELECT
       lower(trim(regexp_replace(COALESCE(p_search_query, ''), '\s+', ' ', 'g'))) AS normalized_query,
@@ -260,6 +266,7 @@ AS $$
   ORDER BY relevance DESC, total_orders DESC, total_spent DESC, created_at DESC
   LIMIT (SELECT safe_limit FROM prepared)
   OFFSET (SELECT safe_offset FROM prepared);
+END;
 $$;
 
 REVOKE ALL ON FUNCTION public.smart_customer_search(TEXT, UUID, INT, INT) FROM PUBLIC;
