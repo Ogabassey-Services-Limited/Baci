@@ -39,7 +39,7 @@ export async function GET(_request: Request) {
     // Get preferences
     const { data: preferences, error } = await supabase
       .from('dashboard_preferences')
-      .select('*')
+      .select('layout_config, visible_cards')
       .eq('merchant_id', merchantId)
       .single();
 
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
           onConflict: 'merchant_id',
         }
       )
-      .select()
+      .select('layout_config, visible_cards')
       .single();
 
     if (error) {
