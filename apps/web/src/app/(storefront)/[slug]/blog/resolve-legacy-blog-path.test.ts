@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { resolveLegacyBlogPath } from './resolve-legacy-blog-path';
 
 describe('resolveLegacyBlogPath', () => {
+  it('rejects empty legacy paths', () => {
+    expect(resolveLegacyBlogPath([])).toEqual({
+      type: 'invalid',
+    });
+  });
+
   it('classifies archive-style category URLs as invalid routes', () => {
     expect(resolveLegacyBlogPath(['category', '1976', '1'])).toEqual({
       type: 'invalid',
@@ -58,6 +64,12 @@ describe('resolveLegacyBlogPath', () => {
   it('keeps the blog sitemap redirect explicit', () => {
     expect(resolveLegacyBlogPath(['sitemap.xml'])).toEqual({
       type: 'sitemap',
+    });
+  });
+
+  it('rejects single-segment blog paths that belong on the post route', () => {
+    expect(resolveLegacyBlogPath(['some-slug'])).toEqual({
+      type: 'invalid',
     });
   });
 

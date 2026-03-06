@@ -71,4 +71,24 @@ describe('legacy blog catch-all metadata', () => {
       follow: false,
     });
   });
+
+  it('falls back to a self-canonical archive URL when a legacy alias no longer resolves', async () => {
+    const { generateMetadata } = await import('./page');
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        catchAll: ['2024', '10', '14', 'non-existent-post'],
+      }),
+    });
+
+    expect(metadata.title).toBe('Page Not Found');
+    expect(metadata.alternates?.canonical).toBe(
+      'https://ogabassey.com/blog/2024/10/14/non-existent-post'
+    );
+    expect(metadata.robots).toMatchObject({
+      index: false,
+      follow: false,
+    });
+  });
 });

@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
@@ -20,6 +19,7 @@ import {
   generateSlug,
   getProductUrl,
 } from '@/lib/seo-utils';
+import { getRequestUrlContext } from '@/lib/url-context';
 import { isDomainIdentifier } from '@/lib/validation';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
 import { resolveLegacyProductTarget } from '../../resolve-legacy-product-target';
@@ -675,15 +675,7 @@ export async function generateMetadata({
   const result = await getProduct(slug, category, productSlug);
 
   if (!result?.product) {
-    const headersList = await headers();
-    const host =
-      headersList.get('host') ||
-      (isDomainIdentifier(slug) ? slug : `${slug}.usebaci.com`);
-    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-    const baseUrl = `${protocol}://${host}`;
-    const isLocalhost =
-      host.includes('localhost') || host.includes('127.0.0.1');
-    const basePath = isLocalhost ? `/${slug}` : '';
+    const { basePath, baseUrl } = await getRequestUrlContext(slug);
     const legacyTarget = await resolveLegacyProductTarget(slug, productSlug);
     const requestedProductUrl = legacyTarget
       ? `${baseUrl}${basePath}${legacyTarget}`
@@ -708,19 +700,17 @@ export async function generateMetadata({
 
   const { product, merchant } = result;
 
-  const headersList = await headers();
-  const host = headersList.get('host') || 'baci.app';
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  let baseUrl = `${protocol}://${host}`;
-
-  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+  const {
+    basePath: urlPrefix,
+    baseUrl: requestBaseUrl,
+    isLocalhost,
+  } = await getRequestUrlContext(slug);
+  let baseUrl = requestBaseUrl;
 
   // FIX: Ensure canonical URL always points to the production custom domain if it exists
   if (!isLocalhost && merchant?.custom_domain) {
     baseUrl = `https://${merchant.custom_domain}`;
   }
-
-  const urlPrefix = isLocalhost ? `/${slug}` : '';
 
   // Construct canonical URL:
   // 1. Use explicit canonical from product data if available
@@ -800,11 +790,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
   const result = await getProduct(slug, category, productSlug);
 
   if (!result?.product) {
-    const headersList = await headers();
-    const host = headersList.get('host') || 'baci.app';
-    const isLocalhost =
-      host.includes('localhost') || host.includes('127.0.0.1');
-    const basePath = isLocalhost ? `/${slug}` : '';
+    const { basePath } = await getRequestUrlContext(slug);
     const legacyTarget = await resolveLegacyProductTarget(slug, productSlug);
 
     if (legacyTarget) {
@@ -816,9 +802,11 @@ export default async function CategoryProductPage({ params }: PageProps) {
 
   const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
 
-  const headersList = await headers();
-  const host = headersList.get('host') || 'baci.app';
-  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+  const {
+    basePath: urlPrefix,
+    baseUrl: requestBaseUrl,
+    isLocalhost,
+  } = await getRequestUrlContext(slug);
 
   // Strict Canonical URL Enforcement:
   // 1. If we found via case-insensitive fallback -> Redirect to lowercase canonical
@@ -832,14 +820,13 @@ export default async function CategoryProductPage({ params }: PageProps) {
       const cleanSlug = product.slug || product.id;
 
       const targetPath = isLocalhost
-        ? `/${slug}/${correctCategorySlug}/${cleanSlug}`
+        ? `${urlPrefix}/${correctCategorySlug}/${cleanSlug}`
         : `/${correctCategorySlug}/${cleanSlug}`;
 
       permanentRedirect(targetPath as `/${string}`);
     }
   }
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  let baseUrl = `${protocol}://${host}`;
+  let baseUrl = requestBaseUrl;
 
   // FIX: Ensure schema URL always points to the production custom domain if it exists
   if (!isLocalhost && merchant?.custom_domain) {

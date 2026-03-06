@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { cache } from 'react';
 import { getCachedBlogPost } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
-import { isDomainIdentifier } from '@/lib/validation';
+import { getRequestUrlContext } from '@/lib/url-context';
 import { resolveLegacyBlogPath } from '../resolve-legacy-blog-path';
 
 /**
@@ -29,7 +28,7 @@ export default async function BlogCatchAllPage({
   params: Promise<{ slug: string; catchAll: string[] }>;
 }) {
   const { slug, catchAll } = await params;
-  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
+  const { basePath } = await getRequestUrlContext(slug);
   const resolution = resolveLegacyBlogPath(catchAll);
 
   if (resolution.type === 'sitemap') {
@@ -96,16 +95,3 @@ const getLegacyBlogPost = cache(
   async (slug: string, candidatePostSlug: string) =>
     getCachedBlogPost(slug, candidatePostSlug)
 );
-
-async function getRequestUrlContext(slug: string) {
-  const headersList = await headers();
-  const host =
-    headersList.get('host') ||
-    (isDomainIdentifier(slug) ? slug : `${slug}.usebaci.com`);
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-
-  return {
-    basePath: isDomainIdentifier(slug) ? '' : `/${slug}`,
-    baseUrl: `${protocol}://${host}`,
-  };
-}
