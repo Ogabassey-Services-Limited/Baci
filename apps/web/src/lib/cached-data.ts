@@ -553,14 +553,12 @@ export async function getCachedProducts(
         condition,
         product_variants (
           id,
-          name,
-          options,
-          price_modifier,
-          stock,
-          storage,
-          sim_type,
-          color,
-          price_override
+          sku,
+          attributes,
+          price_override,
+          stock_quantity,
+          images,
+          primary_image
         ),
         product_categories (
           category_id,
@@ -659,13 +657,8 @@ export async function getCachedProduct(
           attributes,
           price_override,
           stock_quantity,
-          storage,
-          sim_type,
-          color,
           images,
-          primary_image,
-          ram_gb,
-          condition
+          primary_image
         ),
         product_categories (
           category_id,
@@ -786,13 +779,8 @@ export async function getCachedProductWithDetails(
           attributes,
           price_override,
           stock_quantity,
-          storage,
-          sim_type,
-          color,
           images,
-          primary_image,
-          ram_gb,
-          condition
+          primary_image
         ),
         product_offers (
           id,
@@ -806,7 +794,8 @@ export async function getCachedProductWithDetails(
           status
         )
       `)
-    .eq('merchant_id', merchantId);
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active');
 
   if (isUuid) {
     query = query.or(`slug.eq.${productSlug},id.eq.${productSlug}`);

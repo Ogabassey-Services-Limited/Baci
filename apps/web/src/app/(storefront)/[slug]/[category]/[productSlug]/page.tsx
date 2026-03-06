@@ -22,6 +22,7 @@ import {
 } from '@/lib/seo-utils';
 import { isDomainIdentifier } from '@/lib/validation';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
+import { resolveLegacyProductTarget } from '../../resolve-legacy-product-target';
 
 /** KeySpecs interface for product_key_specs */
 interface KeySpecs {
@@ -674,9 +675,30 @@ export async function generateMetadata({
   const result = await getProduct(slug, category, productSlug);
 
   if (!result?.product) {
+    const headersList = await headers();
+    const host =
+      headersList.get('host') ||
+      (isDomainIdentifier(slug) ? slug : `${slug}.usebaci.com`);
+    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+    const baseUrl = `${protocol}://${host}`;
+    const isLocalhost =
+      host.includes('localhost') || host.includes('127.0.0.1');
+    const basePath = isLocalhost ? `/${slug}` : '';
+    const legacyTarget = await resolveLegacyProductTarget(slug, productSlug);
+    const requestedProductUrl = legacyTarget
+      ? `${baseUrl}${basePath}${legacyTarget}`
+      : `${baseUrl}${basePath}/${encodeURIComponent(category)}/${encodeURIComponent(
+          productSlug
+        )}`;
+
     return {
-      title: 'Product Not Found',
-      description: 'The product you are looking for does not exist.',
+      title: legacyTarget ? 'Product Redirect' : 'Product Not Found',
+      description: legacyTarget
+        ? 'This product has moved to a newer URL.'
+        : 'The product you are looking for does not exist.',
+      alternates: {
+        canonical: requestedProductUrl,
+      },
       robots: {
         index: false,
         follow: false,
@@ -778,6 +800,17 @@ export default async function CategoryProductPage({ params }: PageProps) {
   const result = await getProduct(slug, category, productSlug);
 
   if (!result?.product) {
+    const headersList = await headers();
+    const host = headersList.get('host') || 'baci.app';
+    const isLocalhost =
+      host.includes('localhost') || host.includes('127.0.0.1');
+    const basePath = isLocalhost ? `/${slug}` : '';
+    const legacyTarget = await resolveLegacyProductTarget(slug, productSlug);
+
+    if (legacyTarget) {
+      permanentRedirect(`${basePath}${legacyTarget}` as `/${string}`);
+    }
+
     notFound();
   }
 

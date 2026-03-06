@@ -23,6 +23,7 @@ import {
   getProductUrl,
 } from '@/lib/seo-utils';
 import type { FAQItem } from '@/types/faq';
+import { resolveLegacyProductTarget } from '../../resolve-legacy-product-target';
 import ProductDetailClient from './product-detail-client';
 
 interface PageProps {
@@ -145,9 +146,27 @@ export async function generateMetadata(
   const product = await getProductCached(slug, productSlug);
 
   if (!product) {
+    const legacyTarget = await resolveLegacyProductTarget(slug, productSlug);
+    const headersList = await headers();
+    const host =
+      headersList.get('host') ||
+      (slug.includes('.') ? slug : `${slug}.usebaci.com`);
+    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+    const baseUrl = `${protocol}://${host}`;
+    const isLocalhost =
+      host.includes('localhost') || host.includes('127.0.0.1');
+    const basePath = isLocalhost ? `/${slug}` : '';
+
     return {
-      title: 'Product Not Found',
-      description: 'The product you are looking for does not exist.',
+      title: legacyTarget ? 'Product Redirect' : 'Product Not Found',
+      description: legacyTarget
+        ? 'This product has moved to a newer URL.'
+        : 'The product you are looking for does not exist.',
+      alternates: {
+        canonical: legacyTarget
+          ? `${baseUrl}${basePath}${legacyTarget}`
+          : `${baseUrl}${basePath}/products/${encodeURIComponent(productSlug)}`,
+      },
       robots: {
         index: false,
         follow: false,
@@ -283,6 +302,16 @@ export default async function ProductPage({ params }: PageProps) {
   const product = await getProductCached(slug, productSlug);
 
   if (!product) {
+    const host = headersList.get('host') || 'baci.app';
+    const isLocalhost =
+      host.includes('localhost') || host.includes('127.0.0.1');
+    const basePath = isLocalhost ? `/${slug}` : '';
+    const legacyTarget = await resolveLegacyProductTarget(slug, productSlug);
+
+    if (legacyTarget) {
+      permanentRedirect(`${basePath}${legacyTarget}` as `/${string}`);
+    }
+
     notFound();
   }
 
