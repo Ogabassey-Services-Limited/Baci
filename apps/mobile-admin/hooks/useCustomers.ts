@@ -11,7 +11,13 @@ import {
 } from '@tanstack/react-query';
 import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
+import {
+  getRankedCustomerSearchTotalCount,
+  mapRankedCustomerSearchRow,
+  type RankedCustomerSearchRow,
+} from './customer-search-results';
 import { useMerchant } from './useMerchant';
+import { getCustomerPageSize } from './customer-search-page-size';
 
 export interface Customer {
   id: string;
@@ -35,8 +41,6 @@ interface CustomersPage {
   totalCount: number;
 }
 
-const PAGE_SIZE = 20;
-
 const CUSTOMER_COLUMNS =
   'id, email, first_name, last_name, phone, address, total_orders, total_spent, store_credit, loyalty_points, created_at, last_login_at, deleted_at' as const;
 
@@ -48,12 +52,36 @@ async function fetchCustomers(
     sortBy?: 'recent' | 'orders' | 'spent' | 'alpha';
   }
 ): Promise<CustomersPage> {
+  const term = filters?.search ? sanitizeSearchQuery(filters.search) : '';
+  const pageSize = getCustomerPageSize(term);
+
+  if (term) {
+    const { data, error } = await supabase.rpc('smart_customer_search', {
+      p_search_query: term,
+      p_merchant_id: merchantId,
+      p_limit: pageSize,
+      p_offset: cursor,
+    });
+
+    if (error) throw new Error(error.message);
+
+    const rows = (data ?? []) as RankedCustomerSearchRow[];
+    const totalCount = getRankedCustomerSearchTotalCount(rows);
+    const hasMore = totalCount > cursor + pageSize;
+
+    return {
+      customers: rows.map(mapRankedCustomerSearchRow),
+      nextCursor: hasMore ? cursor + pageSize : null,
+      totalCount,
+    };
+  }
+
   let query = supabase
     .from('customers')
     .select(CUSTOMER_COLUMNS, { count: 'exact' })
     .eq('merchant_id', merchantId)
     .is('deleted_at', null) // Exclude soft-deleted customers
-    .range(cursor, cursor + PAGE_SIZE - 1);
+    .range(cursor, cursor + pageSize - 1);
 
   // Apply sorting
   switch (filters?.sortBy) {
@@ -70,24 +98,15 @@ async function fetchCustomers(
       query = query.order('created_at', { ascending: false });
   }
 
-  if (filters?.search) {
-    const term = sanitizeSearchQuery(filters.search);
-    if (term) {
-      query = query.or(
-        `first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`
-      );
-    }
-  }
-
   const { data, error, count } = await query;
 
   if (error) throw new Error(error.message);
 
-  const hasMore = (count ?? 0) > cursor + PAGE_SIZE;
+  const hasMore = (count ?? 0) > cursor + pageSize;
 
   return {
     customers: data ?? [],
-    nextCursor: hasMore ? cursor + PAGE_SIZE : null,
+    nextCursor: hasMore ? cursor + pageSize : null,
     totalCount: count ?? 0,
   };
 }

@@ -1,0 +1,2 @@
+export const ORDER_COLUMNS =
+  'id, created_at, updated_at, merchant_id, customer_id, order_number, customer_name, customer_email, customer_phone, shipping_status, payment_status, total, subtotal, shipping_fee, tax_amount, discount_amount, currency, source, payment_method, notes, is_credit_order, shipping_address, recorded_by_user_id, amount_paid, wallet_amount_used, fulfillment_details' as const;
