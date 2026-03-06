@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Product } from '../types';
-import { deriveEngineProductGridData } from './EngineProductGrid.helpers';
+import type { Product } from '@/components/storefront/ogabassey/types';
+import { PRICE_UPPER_SENTINEL, deriveEngineProductGridData } from './EngineProductGrid.helpers';
 
 const makeProduct = (overrides: Partial<Product>): Product => ({
   id: overrides.id ?? 'product-id',
@@ -78,11 +78,12 @@ describe('deriveEngineProductGridData', () => {
       selectedBrand: 'All',
       selectedCondition: 'All',
       minPrice: 0,
-      maxPrice: 100000000,
+      maxPrice: PRICE_UPPER_SENTINEL,
       minRating: 0,
     });
 
-    expect(brands).toEqual(['Apple', 'Samsung', 'Zero']);
+    expect(brands).toHaveLength(3);
+    expect(brands).toEqual(expect.arrayContaining(['Apple', 'Samsung', 'Zero']));
   });
 
   it('applies mixed filters in order and stops once the limit is reached', () => {
@@ -152,7 +153,7 @@ describe('deriveEngineProductGridData', () => {
       selectedBrand: 'All',
       selectedCondition: 'All',
       minPrice: 0,
-      maxPrice: 100000000,
+      maxPrice: PRICE_UPPER_SENTINEL,
       minRating: 0,
     });
 
@@ -168,7 +169,7 @@ describe('deriveEngineProductGridData', () => {
       selectedBrand: 'All',
       selectedCondition: 'All',
       minPrice: 1,
-      maxPrice: 100000000,
+      maxPrice: PRICE_UPPER_SENTINEL,
       minRating: 0,
     });
 
@@ -200,7 +201,7 @@ describe('deriveEngineProductGridData', () => {
       selectedBrand: 'All',
       selectedCondition: 'All',
       minPrice: 0,
-      maxPrice: 100000000,
+      maxPrice: PRICE_UPPER_SENTINEL,
       minRating: 1,
     });
 

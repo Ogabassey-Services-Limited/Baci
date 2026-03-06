@@ -1,5 +1,7 @@
 import type { Product } from '@/components/storefront/ogabassey/types';
 
+export const PRICE_UPPER_SENTINEL = 100_000_000;
+
 interface DeriveEngineProductGridDataOptions {
   allProducts: Product[];
   selectedCategory: string;
@@ -53,10 +55,10 @@ export function deriveEngineProductGridData({
 
     const price = p.rawPrice ?? null;
     if (price === null) {
-      if (minPrice > 0 || maxPrice < 100000000) {
+      if (minPrice > 0 || maxPrice < PRICE_UPPER_SENTINEL) {
         continue;
       }
-    } else if (price < minPrice || (maxPrice < 100000000 && price > maxPrice)) {
+    } else if (price < minPrice || (maxPrice < PRICE_UPPER_SENTINEL && price > maxPrice)) {
       continue;
     }
 

@@ -16,7 +16,7 @@ import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 import { AdUnit } from './AdUnit';
 import { AdvancedProductFilters } from './AdvancedProductFilters';
-import { deriveEngineProductGridData } from './EngineProductGrid.helpers';
+import { PRICE_UPPER_SENTINEL, deriveEngineProductGridData } from './EngineProductGrid.helpers';
 import { FloatingParticles, type Particle } from './FloatingParticles';
 import { ProductGridItem } from './ProductGridItem';
 import { ProductListItem } from './ProductListItem';
@@ -122,7 +122,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedCondition, setSelectedCondition] = useState('All');
   const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(100000000);
+  const [maxPrice, setMaxPrice] = useState(PRICE_UPPER_SENTINEL);
   const [minRating, setMinRating] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -171,7 +171,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     setSelectedBrand('All');
     setSelectedCondition('All');
     setMinPrice(0);
-    setMaxPrice(100000000);
+    setMaxPrice(PRICE_UPPER_SENTINEL);
     setMinRating(0);
     setDisplayCount(PRODUCTS_PER_PAGE);
     window.history.replaceState(null, '', pathname);
