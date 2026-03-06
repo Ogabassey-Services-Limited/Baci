@@ -145,8 +145,8 @@ describe('deriveEngineProductGridData', () => {
     expect(filteredProducts).toHaveLength(1);
   });
 
-  it('uses zero defaults for missing rawPrice and rating fields', () => {
-    const unfiltered = deriveEngineProductGridData({
+  it('includes products with missing rawPrice when no price filter is active', () => {
+    const { filteredProducts } = deriveEngineProductGridData({
       allProducts,
       selectedCategory: 'All',
       selectedBrand: 'All',
@@ -155,21 +155,57 @@ describe('deriveEngineProductGridData', () => {
       maxPrice: 100000000,
       minRating: 0,
     });
-    const filtered = deriveEngineProductGridData({
+
+    expect(
+      filteredProducts.some((product) => product.name === 'Fallback Phone')
+    ).toBe(true);
+  });
+
+  it('excludes products with missing rawPrice when minPrice filter is active', () => {
+    const { filteredProducts } = deriveEngineProductGridData({
       allProducts,
       selectedCategory: 'All',
       selectedBrand: 'All',
       selectedCondition: 'All',
       minPrice: 1,
       maxPrice: 100000000,
+      minRating: 0,
+    });
+
+    expect(
+      filteredProducts.some((product) => product.name === 'Fallback Phone')
+    ).toBe(false);
+  });
+
+  it('excludes products with missing rawPrice when maxPrice filter is active', () => {
+    const { filteredProducts } = deriveEngineProductGridData({
+      allProducts,
+      selectedCategory: 'All',
+      selectedBrand: 'All',
+      selectedCondition: 'All',
+      minPrice: 0,
+      maxPrice: 1,
+      minRating: 0,
+    });
+
+    expect(
+      filteredProducts.some((product) => product.name === 'Fallback Phone')
+    ).toBe(false);
+  });
+
+  it('excludes products with missing rating when minRating filter is active', () => {
+    const { filteredProducts } = deriveEngineProductGridData({
+      allProducts,
+      selectedCategory: 'All',
+      selectedBrand: 'All',
+      selectedCondition: 'All',
+      minPrice: 0,
+      maxPrice: 100000000,
       minRating: 1,
     });
 
     expect(
-      unfiltered.filteredProducts.some((product) => product.name === 'Fallback Phone')
-    ).toBe(true);
-    expect(
-      filtered.filteredProducts.some((product) => product.name === 'Fallback Phone')
+      filteredProducts.some((product) => product.name === 'Fallback Phone')
     ).toBe(false);
   });
 });

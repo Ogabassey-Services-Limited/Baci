@@ -1,4 +1,4 @@
-import type { Product } from '../types';
+import type { Product } from '@/components/storefront/ogabassey/types';
 
 interface DeriveEngineProductGridDataOptions {
   allProducts: Product[];
@@ -51,11 +51,12 @@ export function deriveEngineProductGridData({
       continue;
     }
 
-    const price = p.rawPrice || 0;
-    if (
-      (minPrice > 0 && price < minPrice) ||
-      (maxPrice < 100000000 && price > maxPrice)
-    ) {
+    const price = p.rawPrice ?? null;
+    if (price === null) {
+      if (minPrice > 0 || maxPrice < 100000000) {
+        continue;
+      }
+    } else if (price < minPrice || (maxPrice < 100000000 && price > maxPrice)) {
       continue;
     }
 
