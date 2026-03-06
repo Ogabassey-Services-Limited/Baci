@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { marked } from 'marked';
 import type { Metadata, Route } from 'next';
-import { draftMode, headers } from 'next/headers';
+import { draftMode } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -25,7 +25,7 @@ import {
   generateBlogPostSchema,
   generateBreadcrumbSchema,
 } from '@/lib/seo-utils';
-import { isDomainIdentifier } from '@/lib/validation';
+import { getRequestUrlContext } from '@/lib/url-context';
 import { ViewCounter } from './view-counter';
 
 interface PageProps {
@@ -40,7 +40,19 @@ export async function generateMetadata({
   const data = await getCachedBlogPost(slug, postSlug, isDraftMode);
 
   if (!data) {
-    return { title: 'Post Not Found' };
+    const { basePath, baseUrl } = await getRequestUrlContext(slug);
+
+    return {
+      title: 'Post Not Found',
+      description: 'The requested blog post could not be found.',
+      alternates: {
+        canonical: `${baseUrl}${basePath}/blog/${encodeURIComponent(postSlug)}`,
+      },
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
   }
 
   const { merchant, post } = data;
@@ -52,12 +64,8 @@ export async function generateMetadata({
       ? post.content.substring(0, 160)
       : 'Read the latest from our blog.');
 
-  // Use request headers to determine the actual domain (supports custom domains)
-  const headersList = await headers();
-  const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
-  const url = `${baseUrl}/blog/${post.slug}`;
+  const { basePath, baseUrl } = await getRequestUrlContext(slug);
+  const url = `${baseUrl}${basePath}/blog/${post.slug}`;
 
   return {
     title: `${title} | ${merchant.business_name}`,
@@ -131,21 +139,14 @@ export default async function BlogPostPage({ params }: PageProps) {
     }
   }
 
-  // Use request headers to determine the actual domain (supports custom domains)
-  const headersList = await headers();
-  const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
-
-  // Determine base path for internal links
-  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
+  const { basePath, baseUrl } = await getRequestUrlContext(slug);
 
   // Generate schema
   const blogSchema = generateBlogPostSchema({
     title: post.seo_title || post.title,
     description:
       post.seo_description || post.excerpt || post.content.substring(0, 160),
-    url: `${baseUrl}/blog/${post.slug}`,
+    url: `${baseUrl}${basePath}/blog/${post.slug}`,
     image: post.featured_image_url || `${baseUrl}/opengraph-image`,
     datePublished: post.published_at,
     dateModified: post.updated_at,
