@@ -77,9 +77,27 @@ export function useRegistration() {
     },
   });
 
+  const finalizeOnboardingMutation = useMutation({
+    mutationFn: (): Promise<OnboardingResponse> =>
+      apiClient<OnboardingResponse>(`${ONBOARDING_ENDPOINT}/finalize`, {
+        method: 'POST',
+        timeout: 30_000,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['merchant'] });
+    },
+    onError: (error) => {
+      console.error('Onboarding finalization failed:', error);
+    },
+  });
+
   return {
     register: registerMutation,
     completeProfile: completeProfileMutation,
-    isLoading: registerMutation.isPending || completeProfileMutation.isPending,
+    finalizeOnboarding: finalizeOnboardingMutation,
+    isLoading:
+      registerMutation.isPending ||
+      completeProfileMutation.isPending ||
+      finalizeOnboardingMutation.isPending,
   };
 }

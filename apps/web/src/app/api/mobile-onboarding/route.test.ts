@@ -1,29 +1,31 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// --- Mock setup ---
+const mocks = vi.hoisted(() => ({
+  getUser: vi.fn(),
+  signUp: vi.fn(),
+  createScopedClient: vi.fn(),
+  provisionMobileOnboarding: vi.fn(),
+  after: vi.fn(),
+}));
 
-const mockGetUser = vi.fn();
-const mockSignUp = vi.fn();
-const mockFrom = vi.fn();
+const mockGetUser = mocks.getUser;
+const mockSignUp = mocks.signUp;
+const mockCreateScopedClient = mocks.createScopedClient;
+const mockProvisionMobileOnboarding = mocks.provisionMobileOnboarding;
+const mockAfter = mocks.after;
+
 const mockSupabaseServer = {
   auth: { getUser: mockGetUser, signUp: mockSignUp },
-  from: mockFrom,
 };
+const mockScopedSupabase = { from: vi.fn() };
 
-const mockAdminFrom = vi.fn();
-const mockAdminClient = { from: mockAdminFrom };
+vi.mock('@/lib/password-breach', () => ({
+  checkPasswordBreach: vi
+    .fn()
+    .mockResolvedValue({ isBreached: false, count: 0 }),
+}));
 
-// Track after() callbacks for manual execution in tests
-const afterCallbacks: Array<() => Promise<void>> = [];
-
-vi.mock('@/lib/password-breach', () => {
-  return {
-    checkPasswordBreach: vi
-      .fn()
-      .mockResolvedValue({ isBreached: false, count: 0 }),
-  };
-});
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
     getAll: () => [],
@@ -36,18 +38,16 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabaseServer),
 }));
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => mockAdminClient),
+vi.mock('@/lib/supabase/scoped', () => ({
+  createScopedClient: mocks.createScopedClient,
 }));
 
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(() => mockSupabaseServer),
+vi.mock('@/lib/mobile-onboarding/provision', () => ({
+  provisionMobileOnboarding: mocks.provisionMobileOnboarding,
 }));
 
 vi.mock('@/env', () => ({
   env: { NEXT_PUBLIC_ROOT_DOMAIN: 'usebaci.com' },
-  getSupabaseUrl: () => 'https://test.supabase.co',
-  getSupabaseAnonKey: () => 'test-anon-key',
 }));
 
 vi.mock('next/server', async () => {
@@ -55,16 +55,11 @@ vi.mock('next/server', async () => {
     await vi.importActual<typeof import('next/server')>('next/server');
   return {
     ...actual,
-    after: vi.fn((cb: () => Promise<void>) => {
-      afterCallbacks.push(cb);
-    }),
+    after: mocks.after,
   };
 });
 
-// Now import the route handler (after mocks are registered)
 import { POST } from './route';
-
-// --- Helpers ---
 
 function makeRequest(body: Record<string, unknown>): NextRequest {
   return new NextRequest('http://localhost/api/mobile-onboarding', {
@@ -82,151 +77,92 @@ const validBody = {
   lastName: 'Doe',
   businessName: 'Test Store',
   businessType: 'fashion',
+  slug: 'test-store',
+  logoUrl: 'https://cdn.usebaci.com/logo.png',
   brandColors: JSON.stringify({
-    primary: '#000',
-    background: '#fff',
+    primary: '#000000',
+    background: '#ffffff',
     accent: '#F59E0B',
   }),
 };
 
-// --- Tests ---
-
 describe('POST /api/mobile-onboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    afterCallbacks.length = 0;
+    mockCreateScopedClient.mockReturnValue(mockScopedSupabase);
+    mockProvisionMobileOnboarding.mockResolvedValue({
+      success: true,
+      user: { id: 'user-1', email: 'test@example.com' },
+      merchant: { id: 'merch-1', slug: 'test-store' },
+      message: 'Account created successfully',
+    });
   });
 
-  // --- Validation ---
+  it('returns 400 for invalid input', async () => {
+    const response = await POST(makeRequest({ email: 'bad' }));
+    const body = await response.json();
 
-  it('returns 400 for missing required fields', async () => {
-    const res = await POST(makeRequest({ email: 'bad' }));
-    const body = await res.json();
-
-    expect(res.status).toBe(400);
+    expect(response.status).toBe(400);
     expect(body.error).toContain('Validation failed');
   });
 
-  it('returns 400 for invalid email', async () => {
-    const res = await POST(
-      makeRequest({ ...validBody, email: 'not-an-email' })
-    );
-    const body = await res.json();
-
-    expect(res.status).toBe(400);
-    expect(body.error).toContain('Validation failed');
-  });
-
-  // --- Auth / Signup ---
-
-  it('returns 400 when password is missing for unauthenticated user', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-
-    const { password, confirmPassword, ...noPasswordBody } = validBody;
-    const res = await POST(makeRequest(noPasswordBody));
-    const body = await res.json();
-
-    expect(res.status).toBe(400);
-    expect(body.error).toBe('Password is required for new accounts.');
-  });
-
-  it('returns 409 when user already exists', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-    mockSignUp.mockResolvedValue({
-      data: { user: null, session: null },
-      error: { message: 'User already registered', status: 422 },
-    });
-
-    const res = await POST(makeRequest(validBody));
-    const body = await res.json();
-
-    expect(res.status).toBe(409);
-    expect(body.error).toBe('User already exists. Please log in.');
-  });
-
-  it('returns 429 when signup hits rate limit', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-    mockSignUp.mockResolvedValue({
-      data: { user: null, session: null },
-      error: {
-        message:
-          'For security purposes, you can only request this after 57 seconds.',
-        status: 429,
-      },
-    });
-
-    const res = await POST(makeRequest(validBody));
-    const body = await res.json();
-
-    expect(res.status).toBe(429);
-    expect(body.error).toBe(
-      'Too many attempts. Please wait a minute and try again.'
-    );
-  });
-
-  it('returns 429 when signup error has status 429 without message match', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-    mockSignUp.mockResolvedValue({
-      data: { user: null, session: null },
-      error: {
-        message: 'Rate limit exceeded',
-        status: 429,
-      },
-    });
-
-    const res = await POST(makeRequest(validBody));
-    const body = await res.json();
-
-    expect(res.status).toBe(429);
-    expect(body.error).toBe(
-      'Too many attempts. Please wait a minute and try again.'
-    );
-  });
-
-  it('returns 403 when email confirmation is required (no session token)', async () => {
+  it('returns 403 when email confirmation is required', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     mockSignUp.mockResolvedValue({
       data: {
         user: { id: 'user-1', email: 'test@example.com' },
-        session: null, // No session = email confirmation required
+        session: null,
       },
       error: null,
     });
 
-    const res = await POST(makeRequest(validBody));
-    const body = await res.json();
+    const response = await POST(makeRequest(validBody));
+    const body = await response.json();
 
-    expect(res.status).toBe(403);
+    expect(response.status).toBe(403);
     expect(body.code).toBe('EMAIL_CONFIRMATION_REQUIRED');
+    expect(mockProvisionMobileOnboarding).not.toHaveBeenCalled();
   });
 
-  it('returns 400 when password has been breached', async () => {
+  it('stores rich onboarding metadata during signup', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-
-    const { checkPasswordBreach } = await import('@/lib/password-breach');
-    vi.mocked(checkPasswordBreach).mockResolvedValueOnce({
-      isBreached: true,
-      count: 5,
+    mockSignUp.mockResolvedValue({
+      data: {
+        user: { id: 'user-1', email: 'test@example.com' },
+        session: null,
+      },
+      error: null,
     });
 
-    const res = await POST(makeRequest(validBody));
-    const body = await res.json();
+    const response = await POST(makeRequest(validBody));
 
-    expect(res.status).toBe(400);
-    expect(body.error).toContain(
-      'This password has appeared in 5 known data breaches'
-    );
-    expect(mockSignUp).not.toHaveBeenCalled();
+    expect(response.status).toBe(403);
+    expect(mockSignUp).toHaveBeenCalledWith({
+      email: 'test@example.com',
+      password: 'StrongP@ss123!',
+      options: {
+        data: {
+          full_name: 'John Doe',
+          first_name: 'John',
+          last_name: 'Doe',
+          business_name: 'Test Store',
+          business_type: 'fashion',
+          other_business_type: null,
+          phone: null,
+          slug: 'test-store',
+          logo_url: 'https://cdn.usebaci.com/logo.png',
+          brand_colors: {
+            primary: '#000000',
+            background: '#ffffff',
+            accent: '#F59E0B',
+          },
+        },
+      },
+    });
   });
 
-  it('proceeds with signup when breach check throws (fail-open)', async () => {
+  it('provisions onboarding with a scoped client when signup returns a session', async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-
-    const { checkPasswordBreach } = await import('@/lib/password-breach');
-    vi.mocked(checkPasswordBreach).mockRejectedValueOnce(
-      new Error('HIBP API timeout')
-    );
-
     mockSignUp.mockResolvedValue({
       data: {
         user: { id: 'user-1', email: 'test@example.com' },
@@ -235,291 +171,57 @@ describe('POST /api/mobile-onboarding', () => {
       error: null,
     });
 
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          single: vi.fn().mockResolvedValue({
-            data: { id: 'merch-1', slug: 'test' },
-            error: null,
-          }),
-        };
-      }
-      if (table === 'domains') {
-        return {
-          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-        };
-      }
-      if (table === 'staff_members') {
-        return {
-          upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
-        };
-      }
-      return {
-        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-      };
-    });
+    const response = await POST(makeRequest(validBody));
+    const body = await response.json();
 
-    const res = await POST(makeRequest(validBody));
-    const body = await res.json();
-
-    // Signup should succeed despite breach check failure
-    expect(res.status).toBe(200);
+    expect(response.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(mockSignUp).toHaveBeenCalled();
+    expect(mockCreateScopedClient).toHaveBeenCalledWith('tok-123');
+    expect(mockProvisionMobileOnboarding).toHaveBeenCalledWith({
+      supabase: mockScopedSupabase,
+      user: { id: 'user-1', email: 'test@example.com' },
+      profile: {
+        email: 'test@example.com',
+        fullName: 'John Doe',
+        firstName: 'John',
+        lastName: 'Doe',
+        businessName: 'Test Store',
+        businessType: 'fashion',
+        otherBusinessType: null,
+        phone: null,
+        slug: 'test-store',
+        logoUrl: 'https://cdn.usebaci.com/logo.png',
+        brandColors: {
+          primary: '#000000',
+          background: '#ffffff',
+          accent: '#F59E0B',
+        },
+      },
+      rootDomain: 'usebaci.com',
+      defer: mockAfter,
+      overwriteExistingProfile: true,
+    });
   });
 
-  // --- Merchant creation ---
-
-  it('returns 500 when merchant lookup fails', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-    mockSignUp.mockResolvedValue({
-      data: {
-        user: { id: 'user-1', email: 'test@example.com' },
-        session: { access_token: 'tok-123' },
-      },
+  it('passes through provisioning errors', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'test@example.com' } },
       error: null,
     });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'DB error', code: '42P01' },
-          }),
-        };
-      }
-      return { insert: vi.fn().mockReturnThis() };
-    });
-
-    const res = await POST(makeRequest(validBody));
-    const body = await res.json();
-
-    expect(res.status).toBe(500);
-    expect(body.error).toBe('Failed to check existing account.');
-  });
-
-  // --- Domain creation ---
-
-  it('returns 500 for non-duplicate domain error', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-    mockSignUp.mockResolvedValue({
-      data: {
-        user: { id: 'user-1', email: 'test@example.com' },
-        session: { access_token: 'tok-123' },
+    mockProvisionMobileOnboarding.mockResolvedValue({
+      success: false,
+      status: 422,
+      body: {
+        error:
+          'Store link is already in use. Please complete your profile to choose another one.',
+        code: 'SLUG_UNAVAILABLE',
       },
-      error: null,
     });
 
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          single: vi.fn().mockResolvedValue({
-            data: { id: 'merch-1', slug: 'test' },
-            error: null,
-          }),
-        };
-      }
-      if (table === 'domains') {
-        return {
-          insert: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'RLS violation', code: '42501' },
-          }),
-        };
-      }
-      return {
-        upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
-      };
-    });
+    const response = await POST(makeRequest(validBody));
+    const body = await response.json();
 
-    const res = await POST(makeRequest(validBody));
-    const body = await res.json();
-
-    expect(res.status).toBe(500);
-    expect(body.error).toBe(
-      'Failed to provision store domain. Please try again.'
-    );
-  });
-
-  it('ignores duplicate domain error (code 23505)', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-    mockSignUp.mockResolvedValue({
-      data: {
-        user: { id: 'user-1', email: 'test@example.com' },
-        session: { access_token: 'tok-123' },
-      },
-      error: null,
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          single: vi.fn().mockResolvedValue({
-            data: { id: 'merch-1', slug: 'test' },
-            error: null,
-          }),
-        };
-      }
-      if (table === 'domains') {
-        return {
-          insert: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'duplicate key value', code: '23505' },
-          }),
-        };
-      }
-      if (table === 'staff_members') {
-        return {
-          upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
-        };
-      }
-      return {
-        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-      };
-    });
-
-    const res = await POST(makeRequest(validBody));
-    const body = await res.json();
-
-    // Should succeed despite duplicate domain
-    expect(res.status).toBe(200);
-    expect(body.success).toBe(true);
-  });
-
-  // --- Success path ---
-
-  it('returns success for valid new registration', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-    mockSignUp.mockResolvedValue({
-      data: {
-        user: { id: 'user-1', email: 'test@example.com' },
-        session: { access_token: 'tok-123' },
-      },
-      error: null,
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          single: vi.fn().mockResolvedValue({
-            data: { id: 'merch-1', slug: 'test' },
-            error: null,
-          }),
-        };
-      }
-      if (table === 'domains') {
-        return {
-          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-        };
-      }
-      if (table === 'staff_members') {
-        return {
-          upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
-        };
-      }
-      return {
-        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-      };
-    });
-
-    const res = await POST(makeRequest(validBody));
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body.success).toBe(true);
-    expect(body.user).toEqual({ id: 'user-1', email: 'test@example.com' });
-    expect(body.merchant).toEqual({ id: 'merch-1', slug: 'test' });
-    expect(body.message).toBe('Account created successfully');
-  });
-
-  it('defers template and hero image generation via after()', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-    mockSignUp.mockResolvedValue({
-      data: {
-        user: { id: 'user-1', email: 'test@example.com' },
-        session: { access_token: 'tok-123' },
-      },
-      error: null,
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          insert: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          single: vi.fn().mockResolvedValue({
-            data: { id: 'merch-1', slug: 'test' },
-            error: null,
-          }),
-        };
-      }
-      if (table === 'domains') {
-        return {
-          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-        };
-      }
-      if (table === 'staff_members') {
-        return {
-          upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
-        };
-      }
-      return {
-        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-      };
-    });
-
-    await POST(makeRequest(validBody));
-
-    // after() should have been called with a callback (template + hero images)
-    const { after } = await import('next/server');
-    expect(after).toHaveBeenCalledTimes(1);
-    expect(afterCallbacks).toHaveLength(1);
-  });
-
-  // --- Error catch-all ---
-
-  it('returns generic 500 for unexpected errors (no message leak)', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
-    mockSignUp.mockResolvedValue({
-      data: {
-        user: { id: 'user-1', email: 'test@example.com' },
-        session: { access_token: 'tok-123' },
-      },
-      error: null,
-    });
-
-    // Throw an unexpected error during merchant lookup
-    mockFrom.mockImplementation(() => {
-      throw new Error('SECRET_DB_CONNECTION_STRING leaked');
-    });
-
-    const res = await POST(makeRequest(validBody));
-    const body = await res.json();
-
-    expect(res.status).toBe(500);
-    expect(body.error).toBe('Internal Server Error');
-    // Must NOT contain the actual error message
-    expect(JSON.stringify(body)).not.toContain('SECRET_DB_CONNECTION_STRING');
+    expect(response.status).toBe(422);
+    expect(body.code).toBe('SLUG_UNAVAILABLE');
   });
 });

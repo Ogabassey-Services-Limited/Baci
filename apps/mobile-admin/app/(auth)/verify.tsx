@@ -14,11 +14,15 @@ import {
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useOnboarding } from '@/context/OnboardingContext';
+import { useRegistration } from '@/hooks/useRegistration';
 import { supabase } from '@/lib/supabase';
 
 export default function VerifyScreen() {
   const router = useRouter();
   const { email } = useLocalSearchParams<{ email: string }>();
+  const { completeOnboarding } = useOnboarding();
+  const { finalizeOnboarding } = useRegistration();
   const [code, setCode] = useState(['', '', '', '', '', '']); // 6 digits
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false); // Custom success state
@@ -116,6 +120,25 @@ export default function VerifyScreen() {
     }
   };
 
+  const handleVerificationSuccess = async () => {
+    try {
+      await finalizeOnboarding.mutateAsync();
+    } catch (error) {
+      console.error('Failed to finalize onboarding after verification:', error);
+    }
+
+    try {
+      await completeOnboarding();
+    } catch (error) {
+      console.error(
+        'Failed to persist onboarding state after verification:',
+        error
+      );
+    }
+
+    setShowSuccess(true);
+  };
+
   const verifyOtp = async () => {
     const token = code.join('');
     if (token.length !== 6) {
@@ -135,13 +158,9 @@ export default function VerifyScreen() {
 
       if (error) throw error;
 
-      // Verification successful!
-      // Session is automatically updated by the Supabase client
-      // which triggers the useAuth listener.
-
-      // Verification successful!
-      // Show custom success view
-      setShowSuccess(true);
+      // Verification successful. Session is updated by the Supabase client;
+      // finalize the merchant setup before allowing the app redirect.
+      await handleVerificationSuccess();
     } catch (error: unknown) {
       const err = error as Error;
       console.error('Verification error:', err);
@@ -153,7 +172,7 @@ export default function VerifyScreen() {
           type: 'email',
         });
         if (!retryError) {
-          setShowSuccess(true);
+          await handleVerificationSuccess();
           return;
         }
         Alert.alert('Verification Failed', err.message || 'Invalid code');
@@ -261,9 +280,7 @@ export default function VerifyScreen() {
             <Pressable
               style={styles.successButton}
               onPress={() => {
-                // Dismiss the modal — the auth layout will handle the redirect
-                // once the auth state updates from the Supabase listener
-                router.dismissAll();
+                router.replace('/');
               }}
             >
               <Text style={styles.successButtonText}>Enter Dashboard</Text>

@@ -16,6 +16,31 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function getRecipientName(
+  record: WebhookPayload['record'],
+  businessName: string | null
+): string {
+  const metadata = record.raw_user_meta_data || record.user_metadata || {};
+  const firstName =
+    typeof metadata.first_name === 'string' ? metadata.first_name.trim() : '';
+  const fullName =
+    typeof metadata.full_name === 'string' ? metadata.full_name.trim() : '';
+  const displayName = firstName || fullName.split(' ')[0] || '';
+  const fallbackFromEmail =
+    typeof record.email === 'string' ? record.email.split('@')[0] : '';
+
+  return displayName || businessName?.trim() || fallbackFromEmail || 'there';
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
@@ -53,7 +78,7 @@ Deno.serve(async (req) => {
     // checking public.merchants
 
     // Simple retry logic if merchant not found immediately (race condition possible during signup)
-    let businessName = 'Merchant';
+    let businessName: string | null = 'Merchant';
 
     // Try to fetch merchant
     const { data: merchant } = await supabase
@@ -63,17 +88,20 @@ Deno.serve(async (req) => {
       .single();
 
     if (merchant) {
-      businessName = merchant.business_name;
+      businessName = merchant.business_name || 'Merchant';
     } else {
       console.log(
         'Merchant record not found immediately via user_id, defaulting name.'
       );
     }
 
+    const recipientName = getRecipientName(record, businessName);
+    const escapedRecipientName = escapeHtml(recipientName);
+
     // 3. Send Email
     const emailTo = record.email;
 
-    console.log('Sending welcome email to:', emailTo, 'Name:', businessName);
+    console.log('Sending welcome email to:', emailTo, 'Name:', recipientName);
 
     const htmlBody = `
 <!DOCTYPE html>
@@ -85,7 +113,7 @@ Deno.serve(async (req) => {
 <body style="font-family: system-ui, -apple-system, sans-serif; color: #333; line-height: 1.5;">
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
     <h1>Welcome to Baci!</h1>
-    <p>Hi ${businessName},</p>
+    <p>Hi ${escapedRecipientName},</p>
     <p>Thanks for verifying your account. We're excited to have you on board!</p>
     <p>Your store is ready to go. You can access your dashboard to start adding products and customizing your site.</p>
     <p>
@@ -109,7 +137,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: { address: 'noreply@usebaci.com', name: 'Baci' },
-        to: [{ email_address: { address: emailTo, name: businessName } }],
+        to: [{ email_address: { address: emailTo, name: recipientName } }],
         subject: 'Welcome to Baci - Your store is ready!',
         htmlbody: htmlBody,
       }),

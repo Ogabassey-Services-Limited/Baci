@@ -73,6 +73,7 @@ import { BaciLogo } from '@/components/BaciLogo';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useRegistration } from '@/hooks/useRegistration';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
@@ -111,7 +112,8 @@ export default function LoginScreen() {
   const { push, replace } = useRouter();
   const { colors } = useTheme();
   const { signIn } = useAuth();
-  const { resetOnboarding } = useOnboarding();
+  const { completeOnboarding, resetOnboarding } = useOnboarding();
+  const { finalizeOnboarding } = useRegistration();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -136,6 +138,20 @@ export default function LoginScreen() {
       }
     }
   }, []);
+
+  const handlePostAuthSuccess = async () => {
+    try {
+      await finalizeOnboarding.mutateAsync();
+    } catch (error) {
+      console.error('Failed to finalize onboarding after login:', error);
+    }
+    try {
+      await completeOnboarding();
+    } catch (error) {
+      console.error('Failed to persist onboarding state after login:', error);
+    }
+    replace('/');
+  };
 
   const handleGoogleSignIn = async () => {
     if (Platform.OS === 'web' || !GoogleSignin) {
@@ -166,6 +182,8 @@ export default function LoginScreen() {
         });
         if (signInError) {
           setError(signInError.message);
+        } else {
+          await handlePostAuthSuccess();
         }
       } else {
         // More detailed error message
@@ -214,6 +232,8 @@ export default function LoginScreen() {
         });
         if (signInError) {
           setError(signInError.message);
+        } else {
+          await handlePostAuthSuccess();
         }
       }
     } catch (err: unknown) {
@@ -250,6 +270,8 @@ export default function LoginScreen() {
             ? 'Incorrect email or password'
             : authError.message
         );
+      } else {
+        await handlePostAuthSuccess();
       }
     } catch (_err) {
       setError('Network error. Please check your connection and try again.');

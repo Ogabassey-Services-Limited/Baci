@@ -1,10 +1,18 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
   signIn: vi.fn(),
+  finalizeOnboarding: vi.fn(),
+  completeOnboarding: vi.fn(),
   resetOnboarding: vi.fn(),
   signInWithIdToken: vi.fn(),
   alert: vi.fn(),
@@ -99,7 +107,8 @@ vi.mock('@expo/vector-icons', async () => {
   const React = await import('react');
 
   return {
-    Ionicons: ({ name }: { name: string }) => React.createElement('span', null, name),
+    Ionicons: ({ name }: { name: string }) =>
+      React.createElement('span', null, name),
   };
 });
 
@@ -157,8 +166,15 @@ vi.mock('@/hooks/useAuth', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useRegistration', () => ({
+  useRegistration: () => ({
+    finalizeOnboarding: { mutateAsync: mocks.finalizeOnboarding },
+  }),
+}));
+
 vi.mock('@/context/OnboardingContext', () => ({
   useOnboarding: () => ({
+    completeOnboarding: mocks.completeOnboarding,
     resetOnboarding: mocks.resetOnboarding,
   }),
 }));
@@ -190,6 +206,7 @@ describe('LoginScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.signIn.mockResolvedValue({ error: null });
+    mocks.finalizeOnboarding.mockResolvedValue({ success: true });
   });
 
   afterEach(() => {
@@ -245,6 +262,29 @@ describe('LoginScreen', () => {
     }
     await waitFor(() => {
       expect(signUpButton.disabled).toBe(false);
+    });
+  });
+
+  it('completes onboarding and routes to the app root after a successful password sign-in', async () => {
+    render(<LoginScreen />);
+    fillLoginFields();
+
+    fireEvent.click(screen.getByText('Sign In'));
+
+    await waitFor(() => {
+      expect(mocks.signIn).toHaveBeenCalledWith(
+        'merchant@example.com',
+        'StrongP@ss123!'
+      );
+    });
+    await waitFor(() => {
+      expect(mocks.finalizeOnboarding).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(mocks.completeOnboarding).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(mocks.replace).toHaveBeenCalledWith('/');
     });
   });
 });
