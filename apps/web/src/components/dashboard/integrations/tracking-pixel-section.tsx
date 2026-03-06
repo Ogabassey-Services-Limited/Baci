@@ -1,5 +1,6 @@
 'use client';
 
+import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
 interface TrackingPixelSectionProps {
@@ -70,9 +72,8 @@ export function TrackingPixelSection({
           <label htmlFor="pixel-id" className="text-sm font-medium">
             {pixelLabel}
           </label>
-          <input
+          <Input
             id="pixel-id"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             value={localPixelId}
             onChange={(e) => setLocalPixelId(e.target.value)}
             placeholder={`Enter your ${platform} Pixel ID`}
@@ -83,9 +84,8 @@ export function TrackingPixelSection({
             <label htmlFor="access-token" className="text-sm font-medium">
               {tokenLabel}
             </label>
-            <input
+            <Input
               id="access-token"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               value={localToken}
               onChange={(e) => setLocalToken(e.target.value)}
               type="password"
@@ -98,7 +98,14 @@ export function TrackingPixelSection({
         )}
         {children}
         <Button onClick={handleSave} disabled={isSaving}>
-          {isSaving ? 'Saving...' : 'Save Changes'}
+          {isSaving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Save Changes'
+          )}
         </Button>
       </CardContent>
     </Card>
