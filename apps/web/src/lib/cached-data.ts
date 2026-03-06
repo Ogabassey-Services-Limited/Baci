@@ -490,6 +490,7 @@ export async function getCachedMerchantById(merchantId: string) {
         slug,
         business_address,
         country,
+        country,
         hero_slides,
         favicon_svg_url,
         favicon_png_32_url,
@@ -552,12 +553,14 @@ export async function getCachedProducts(
         condition,
         product_variants (
           id,
-          sku,
-          attributes,
-          price_override,
-          stock_quantity,
-          images,
-          primary_image
+          name,
+          options,
+          price_modifier,
+          stock,
+          storage,
+          sim_type,
+          color,
+          price_override
         ),
         product_categories (
           category_id,
@@ -656,8 +659,13 @@ export async function getCachedProduct(
           attributes,
           price_override,
           stock_quantity,
+          storage,
+          sim_type,
+          color,
           images,
-          primary_image
+          primary_image,
+          ram_gb,
+          condition
         ),
         product_categories (
           category_id,
@@ -692,45 +700,6 @@ export async function getCachedProduct(
  * Fetches product + key_specs + variants + offers + category in a single query.
  * Uses 'products' cacheLife profile (stale 5min, revalidate 5min, expire 24hr)
  */
-const DETAILED_STOREFRONT_PRODUCT_COLUMNS = `
-  id,
-  merchant_id,
-  name,
-  description,
-  slug,
-  status,
-  price,
-  compare_at_price,
-  stock,
-  manage_stock,
-  low_stock_threshold,
-  sku,
-  brand,
-  category,
-  color,
-  has_variants,
-  images,
-  condition,
-  condition_detail,
-  variant_attributes,
-  specifications,
-  has_condition_offers,
-  meta_title,
-  meta_description,
-  keywords,
-  canonical_url,
-  schema_markup,
-  gtin,
-  mpn,
-  google_product_category,
-  weight_value,
-  weight_unit,
-  dimensions,
-  taxable,
-  tax_code,
-  category_id
-`;
-
 export async function getCachedProductWithDetails(
   merchantId: string,
   productSlug: string
@@ -754,7 +723,8 @@ export async function getCachedProductWithDetails(
   let query = supabase
     .from('products')
     .select(`
-        ${DETAILED_STOREFRONT_PRODUCT_COLUMNS},
+        *,
+        category_id,
         categories:category_id(id, name, slug, parent_id),
         product_key_specs (
           screen_size_inches,
@@ -816,8 +786,13 @@ export async function getCachedProductWithDetails(
           attributes,
           price_override,
           stock_quantity,
+          storage,
+          sim_type,
+          color,
           images,
-          primary_image
+          primary_image,
+          ram_gb,
+          condition
         ),
         product_offers (
           id,
@@ -831,8 +806,7 @@ export async function getCachedProductWithDetails(
           status
         )
       `)
-    .eq('merchant_id', merchantId)
-    .eq('status', 'active');
+    .eq('merchant_id', merchantId);
 
   if (isUuid) {
     query = query.or(`slug.eq.${productSlug},id.eq.${productSlug}`);
