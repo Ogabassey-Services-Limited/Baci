@@ -40,26 +40,43 @@ describe('category product metadata', () => {
     resolveLegacyProductTargetMock.mockResolvedValue(null);
   });
 
-  it('returns active metadata for a resolved product lookup', async () => {
+  it('builds canonical and social metadata for active category products', async () => {
+    getCachedMerchantByDomainMock.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
     getCachedProductWithDetailsMock.mockResolvedValue({
       id: 'product-1',
       merchant_id: 'merchant-1',
       name: 'iPhone 15 Pro',
-      description: 'Flagship smartphone',
+      description: 'Flagship iPhone with titanium design.',
       status: 'active',
       slug: 'iphone-15-pro',
       price: 1500,
       stock: 3,
       manage_stock: true,
-      images: [{ url: 'https://cdn.example.com/iphone-15-pro.jpg' }],
-      category: 'Phones',
+      meta_title: 'iPhone 15 Pro at Ogabassey',
+      meta_description: 'Buy the iPhone 15 Pro with fast delivery in Nigeria.',
+      keywords: ['iphone', 'apple', 'smartphone'],
+      image: 'https://cdn.ogabassey.com/products/iphone-15-pro.jpg',
+      imageLarge: 'https://cdn.ogabassey.com/products/iphone-15-pro-large.jpg',
+      images: [
+        {
+          url: 'https://cdn.ogabassey.com/products/iphone-15-pro-front.jpg',
+          alt: 'iPhone 15 Pro front view',
+        },
+      ],
+      category: 'Smartphones',
+      condition: 'new',
+      canonical_url: null,
+      product_offers: [],
+      product_variants: [],
       categories: {
         id: 'category-1',
         name: 'Smartphones',
         slug: 'smartphones',
       },
-      product_variants: [],
-      product_offers: [],
     });
 
     const { generateMetadata } = await import('./page');
@@ -76,6 +93,22 @@ describe('category product metadata', () => {
     expect(metadata.alternates?.canonical).toBe(
       'https://ogabassey.com/smartphones/iphone-15-pro'
     );
+    expect(metadata.openGraph).toMatchObject({
+      title: 'iPhone 15 Pro at Ogabassey',
+      description: 'Buy the iPhone 15 Pro with fast delivery in Nigeria.',
+      url: 'https://ogabassey.com/smartphones/iphone-15-pro',
+    });
+    expect(metadata.openGraph?.images).toStrictEqual([
+      {
+        url: 'https://cdn.ogabassey.com/products/iphone-15-pro-front.jpg',
+        alt: 'iPhone 15 Pro front view',
+      },
+    ]);
+    expect(metadata.twitter).toMatchObject({
+      title: 'iPhone 15 Pro at Ogabassey',
+      description: 'Buy the iPhone 15 Pro with fast delivery in Nigeria.',
+      images: ['https://cdn.ogabassey.com/products/iphone-15-pro-front.jpg'],
+    });
     expect(metadata.robots).toBeUndefined();
     expect(resolveLegacyProductTargetMock).not.toHaveBeenCalled();
   });
