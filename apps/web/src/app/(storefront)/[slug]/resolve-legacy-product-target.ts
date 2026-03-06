@@ -152,10 +152,41 @@ export async function resolveLegacyProductTarget(
     return null;
   }
 
-  for (const candidateIdentifier of getLegacyProductCandidates(
-    legacyProductIdentifier
-  )) {
-    const product = await getCachedProduct(merchant.id, candidateIdentifier);
+  const candidateIdentifiers = getLegacyProductCandidates(legacyProductIdentifier);
+  const [primaryCandidateIdentifier, ...fallbackCandidateIdentifiers] =
+    candidateIdentifiers;
+
+  if (primaryCandidateIdentifier) {
+    const primaryProduct = await getCachedProduct(
+      merchant.id,
+      primaryCandidateIdentifier
+    );
+
+    if (primaryProduct) {
+      const primaryCategory = (
+        primaryProduct.product_categories?.[0] as
+          | LegacyProductCategoryJoin
+          | undefined
+      )?.categories;
+
+      return getProductUrl({
+        id: primaryProduct.id,
+        name: primaryProduct.name,
+        slug: primaryProduct.slug,
+        category: primaryCategory?.name || null,
+        category_slug: primaryCategory?.slug,
+        categories: primaryCategory,
+      });
+    }
+  }
+
+  const candidateProducts = await Promise.all(
+    fallbackCandidateIdentifiers.map((candidateIdentifier) =>
+      getCachedProduct(merchant.id, candidateIdentifier)
+    )
+  );
+
+  for (const product of candidateProducts) {
     if (!product) {
       continue;
     }

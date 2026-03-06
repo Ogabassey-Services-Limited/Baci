@@ -10,7 +10,7 @@ import {
   getCachedProductRatingStats,
   getCachedProductReviews,
 } from '@/lib/cached-data';
-import type { Product } from '@/lib/products';
+import { mapCachedProductToProduct, type Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -60,81 +60,9 @@ async function getProductCached(
     return null;
   }
 
-  // Transform cached product to match Product interface
-  // Map database fields to Product interface expected fields
-  // Images can be stored as flat strings ["url"] or objects [{url, alt, order}]
-  const rawImages = cachedProduct.images as Array<
-    string | { url: string; alt?: string; order?: number }
-  > | null;
-  const normalizedImages = rawImages?.map((img, idx) => {
-    if (typeof img === 'string') {
-      return { url: img, alt: cachedProduct.name, order: idx };
-    }
-    return {
-      url: img.url,
-      alt: img.alt || cachedProduct.name,
-      order: img.order ?? idx,
-    };
+  return mapCachedProductToProduct(cachedProduct, {
+    merchantId: merchant.id,
   });
-  const firstImage = normalizedImages?.[0]?.url || '';
-
-  const product: Product = {
-    id: cachedProduct.id,
-    name: cachedProduct.name,
-    description: cachedProduct.description || '',
-    status: cachedProduct.status as 'draft' | 'active' | 'archived',
-    slug: cachedProduct.slug,
-    // Map base_price to price
-    price: cachedProduct.sale_price || cachedProduct.base_price,
-    compare_at_price: cachedProduct.sale_price
-      ? cachedProduct.base_price
-      : undefined,
-    // Stock fields
-    manage_stock: cachedProduct.track_quantity ?? false,
-    stock: cachedProduct.quantity ?? 0,
-    // Image fields
-    image: firstImage,
-    imageLarge: firstImage,
-    imageHint: cachedProduct.name,
-    images: normalizedImages,
-    // Brand/identifiers (defaults for missing fields)
-    brand: '',
-    gtin: '',
-    mpn: '',
-    // Category from nested join (cast through unknown for Supabase type compatibility)
-    category:
-      (
-        cachedProduct.product_categories?.[0]?.categories as unknown as {
-          id: string;
-          name: string;
-          slug: string;
-        } | null
-      )?.name || undefined,
-    category_slug:
-      (
-        cachedProduct.product_categories?.[0]?.categories as unknown as {
-          slug: string;
-        } | null
-      )?.slug || undefined,
-    // Variants
-    has_variants: (cachedProduct.product_variants?.length ?? 0) > 0,
-    variants:
-      cachedProduct.product_variants?.map((v) => ({
-        id: v.id,
-        product_id: cachedProduct.id,
-        merchant_id: merchant.id,
-        attributes: v.attributes || {},
-        stock_quantity: v.stock_quantity ?? 0,
-        price_override: v.price_override,
-      })) || [],
-    // Specs for SEO Schema
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    specifications: cachedProduct.specifications as any,
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    product_key_specs: cachedProduct.product_key_specs as any,
-  };
-
-  return product;
 }
 
 export async function generateMetadata(

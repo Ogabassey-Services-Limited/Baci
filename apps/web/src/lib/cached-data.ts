@@ -490,7 +490,6 @@ export async function getCachedMerchantById(merchantId: string) {
         slug,
         business_address,
         country,
-        country,
         hero_slides,
         favicon_svg_url,
         favicon_png_32_url,

@@ -10,7 +10,7 @@ import {
   getCachedMerchantByDomain,
   getCachedProductWithDetails,
 } from '@/lib/cached-data';
-import type { Product } from '@/lib/products';
+import { mapCachedProductToProduct, type Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -622,45 +622,13 @@ const getProduct = async (
     return null;
   }
 
-  // 3. Process category data
-  interface ProductWithCategory {
-    categories?: {
-      id: string;
-      name: string;
-      slug: string;
-      parent_id?: string;
-    } | null;
-  }
-  const productWithCat = product as unknown as ProductWithCategory;
-  const joinedCategory = productWithCat.categories;
-
-  const dbCategorySlug = joinedCategory?.slug;
-  const dbCategoryName = joinedCategory?.name || product.category;
-
-  // Map DB row → Product. The Supabase query returns raw columns that don't
-  // map 1:1 to the Product interface (e.g. `images` array vs `image` string,
-  // missing `imageLarge`/`imageHint`). We remap at the boundary.
-  const productImages = product.images as { url: string }[] | undefined;
-  const mainImage = productImages?.[0]?.url || '';
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- DB→domain boundary
-  const row = product as any;
-  const productWithCategorySlug: Product = {
-    ...row,
-    image: mainImage,
-    imageLarge: mainImage,
-    imageHint: product.name || '',
-    category: dbCategoryName || product.category,
-    category_slug: dbCategorySlug,
-    offers: product.product_offers?.filter(
-      (o: { condition: string; status: string }) =>
-        o.condition !== product.condition && o.status === 'active'
-    ),
-    variants: product.product_variants || [],
-  };
+  const productWithCategorySlug = mapCachedProductToProduct(product);
 
   const productCategorySlug =
-    dbCategorySlug ||
-    (product.category ? generateSlug(product.category) : null);
+    productWithCategorySlug.category_slug ||
+    (productWithCategorySlug.category
+      ? generateSlug(productWithCategorySlug.category)
+      : null);
 
   const categoryMismatch =
     productCategorySlug && productCategorySlug !== categorySlug;
