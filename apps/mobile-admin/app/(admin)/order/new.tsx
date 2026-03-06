@@ -229,7 +229,13 @@ export default function NewOrderScreen() {
   const [productSearch, setProductSearch] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const debouncedCustomerSearch = useDebounce(customerSearch, 300);
-  const { data: customersData } = useCustomers({
+  const {
+    data: customersData,
+    fetchNextPage: fetchMoreCustomers,
+    hasNextPage: hasMoreCustomers,
+    isFetching: isFetchingCustomers,
+    isFetchingNextPage: isFetchingMoreCustomers,
+  } = useCustomers({
     search: debouncedCustomerSearch,
     sortBy: 'alpha',
   });
@@ -560,6 +566,12 @@ export default function NewOrderScreen() {
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
+    }
+  };
+
+  const handleLoadMoreCustomers = () => {
+    if (hasMoreCustomers && !isFetchingMoreCustomers) {
+      fetchMoreCustomers();
     }
   };
 
@@ -2064,6 +2076,9 @@ export default function NewOrderScreen() {
                 data={customersData?.pages.flatMap((p) => p.customers) || []}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={{ paddingBottom: 40 }}
+                keyboardShouldPersistTaps="handled"
+                onEndReached={handleLoadMoreCustomers}
+                onEndReachedThreshold={0.4}
                 renderItem={({ item }) => (
                   <Pressable
                     style={[
@@ -2122,10 +2137,27 @@ export default function NewOrderScreen() {
                     )}
                   </Pressable>
                 )}
+                ListFooterComponent={
+                  isFetchingMoreCustomers ? (
+                    <View style={{ paddingVertical: 16 }}>
+                      <ActivityIndicator color={colors.primary} />
+                    </View>
+                  ) : null
+                }
                 ListEmptyComponent={
                   <View style={{ padding: 32, alignItems: 'center' }}>
-                    <Text style={{ color: colors.textMuted }}>
-                      No customers found
+                    {isFetchingCustomers ? (
+                      <ActivityIndicator color={colors.primary} />
+                    ) : null}
+                    <Text
+                      style={{
+                        color: colors.textMuted,
+                        marginTop: isFetchingCustomers ? 12 : 0,
+                      }}
+                    >
+                      {isFetchingCustomers
+                        ? 'Searching customers...'
+                        : 'No customers found'}
                     </Text>
                   </View>
                 }
