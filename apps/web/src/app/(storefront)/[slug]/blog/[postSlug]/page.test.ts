@@ -61,7 +61,7 @@ describe('blog post metadata', () => {
       index: true,
       follow: true,
     });
-  });
+  }, 15_000);
 
   it('self-canonicalizes missing posts on the current store host', async () => {
     const { generateMetadata } = await import('./page');

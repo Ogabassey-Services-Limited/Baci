@@ -9,7 +9,7 @@ import {
   getCachedMerchantByDomain,
   getCachedProductWithDetails,
 } from '@/lib/cached-data';
-import type { Product } from '@/lib/products';
+import { mapCachedProductToProduct, type Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -22,7 +22,7 @@ import {
 import { getRequestUrlContext } from '@/lib/url-context';
 import { isDomainIdentifier } from '@/lib/validation';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
-import { resolveLegacyProductTarget } from '../../resolve-legacy-product-target';
+import { cachedResolveLegacyProductTarget } from '../../resolve-legacy-product-target';
 
 /** KeySpecs interface for product_key_specs */
 interface KeySpecs {
@@ -622,38 +622,13 @@ const getProduct = async (
     return null;
   }
 
-  // 3. Process category data
-  interface ProductWithCategory {
-    categories?: {
-      id: string;
-      name: string;
-      slug: string;
-      parent_id?: string;
-    } | null;
-  }
-  const productWithCat = product as unknown as ProductWithCategory;
-  const joinedCategory = productWithCat.categories;
-
-  const dbCategorySlug = joinedCategory?.slug;
-  const dbCategoryName = joinedCategory?.name || product.category;
-
-  // Create extended product with category info
-  const productWithCategorySlug: Product = {
-    ...product,
-    category: dbCategoryName || product.category,
-    category_slug: dbCategorySlug,
-    // Filter offers to exclude main product condition
-    offers: product.product_offers?.filter(
-      (o: { condition: string; status: string }) =>
-        o.condition !== product.condition && o.status === 'active'
-    ),
-    // Map variants
-    variants: product.product_variants || [],
-  } as Product;
+  const productWithCategorySlug = mapCachedProductToProduct(product);
 
   const productCategorySlug =
-    dbCategorySlug ||
-    (product.category ? generateSlug(product.category) : null);
+    productWithCategorySlug.category_slug ||
+    (productWithCategorySlug.category
+      ? generateSlug(productWithCategorySlug.category)
+      : null);
 
   const categoryMismatch =
     productCategorySlug && productCategorySlug !== categorySlug;
@@ -676,7 +651,10 @@ export async function generateMetadata({
 
   if (!result?.product) {
     const { basePath, baseUrl } = await getRequestUrlContext(slug);
-    const legacyTarget = await resolveLegacyProductTarget(slug, productSlug);
+    const legacyTarget = await cachedResolveLegacyProductTarget(
+      slug,
+      productSlug
+    );
     const requestedProductUrl = legacyTarget
       ? `${baseUrl}${basePath}${legacyTarget}`
       : `${baseUrl}${basePath}/${encodeURIComponent(category)}/${encodeURIComponent(
@@ -791,7 +769,10 @@ export default async function CategoryProductPage({ params }: PageProps) {
 
   if (!result?.product) {
     const { basePath } = await getRequestUrlContext(slug);
-    const legacyTarget = await resolveLegacyProductTarget(slug, productSlug);
+    const legacyTarget = await cachedResolveLegacyProductTarget(
+      slug,
+      productSlug
+    );
 
     if (legacyTarget) {
       permanentRedirect(`${basePath}${legacyTarget}` as `/${string}`);

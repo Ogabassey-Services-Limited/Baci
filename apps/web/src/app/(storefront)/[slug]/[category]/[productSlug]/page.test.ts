@@ -23,7 +23,7 @@ vi.mock('@/lib/cached-data', () => ({
 }));
 
 vi.mock('../../resolve-legacy-product-target', () => ({
-  resolveLegacyProductTarget: resolveLegacyProductTargetMock,
+  cachedResolveLegacyProductTarget: resolveLegacyProductTargetMock,
 }));
 
 describe('category product metadata', () => {
@@ -48,9 +48,14 @@ describe('category product metadata', () => {
     });
     getCachedProductWithDetailsMock.mockResolvedValue({
       id: 'product-1',
+      merchant_id: 'merchant-1',
       name: 'iPhone 15 Pro',
-      slug: 'iphone-15-pro',
       description: 'Flagship iPhone with titanium design.',
+      status: 'active',
+      slug: 'iphone-15-pro',
+      price: 1500,
+      stock: 3,
+      manage_stock: true,
       meta_title: 'iPhone 15 Pro at Ogabassey',
       meta_description: 'Buy the iPhone 15 Pro with fast delivery in Nigeria.',
       keywords: ['iphone', 'apple', 'smartphone'],
@@ -102,8 +107,10 @@ describe('category product metadata', () => {
     expect(metadata.twitter).toMatchObject({
       title: 'iPhone 15 Pro at Ogabassey',
       description: 'Buy the iPhone 15 Pro with fast delivery in Nigeria.',
-      images: ['https://cdn.ogabassey.com/products/iphone-15-pro-large.jpg'],
+      images: ['https://cdn.ogabassey.com/products/iphone-15-pro-front.jpg'],
     });
+    expect(metadata.robots).toBeUndefined();
+    expect(resolveLegacyProductTargetMock).not.toHaveBeenCalled();
   });
 
   it('self-canonicalizes missing category products on the current store host', async () => {
@@ -171,5 +178,27 @@ describe('category product metadata', () => {
       index: false,
       follow: false,
     });
+  });
+
+  it('surfaces merchant lookup failures during metadata generation', async () => {
+    getCachedMerchantByDomainMock.mockRejectedValue(
+      new Error('merchant lookup failed')
+    );
+
+    const { generateMetadata } = await import('./page');
+
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          category: 'smartphones',
+          productSlug: 'iphone-15-pro',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('merchant lookup failed');
+
+    expect(getCachedProductWithDetailsMock).not.toHaveBeenCalled();
+    expect(resolveLegacyProductTargetMock).not.toHaveBeenCalled();
   });
 });
