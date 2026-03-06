@@ -1,23 +1,26 @@
-import { cookies } from 'next/headers';
-import { notFound, permanentRedirect, redirect } from 'next/navigation';
-import {
-  getCachedMerchant,
-  getCachedMerchantByDomain,
-} from '@/lib/cached-data';
-import { createClient } from '@/lib/supabase/server';
-import { isDomainIdentifier } from '@/lib/validation';
+import type { Metadata } from 'next';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { cache } from 'react';
+import { getCachedBlogPost } from '@/lib/cached-data';
+import { asRoute } from '@/lib/routes';
+import { getRequestUrlContext } from '@/lib/url-context';
+import { resolveLegacyBlogPath } from '../resolve-legacy-blog-path';
 
 /**
- * Catch-all route for legacy blog URLs with category prefixes.
+ * Catch-all route for legacy blog URLs.
  *
- * Handles URLs like:
+ * Redirects only true legacy post aliases to their canonical slug and
+ * returns a 404 for fake archive/search/feed paths.
+ *
+ * Handles legacy aliases like:
  * - /blog/iphone/the-iphone-15-what-we-know-so-far
- * - /blog/smartphones/8-things-you-didnt-know-your-iphone-can-do
- * - /blog/gadgets/tecno-spark-10-pro-all-you-need-to-know
+ * - /blog/2024/10/14/macbook-air-m1-in-2024-the-perfect-laptop-or-time-to-look-elsewhere
  *
- * Redirects to the canonical URL: /blog/{postSlug}
- *
- * Also filters out WordPress admin URLs (/blog/wp-admin/...) with 404.
+ * Returns 404 for unsupported legacy paths like:
+ * - /blog/tag/iphone
+ * - /blog/category/1976/1
+ * - /blog/search.php
+ * - /blog/post-slug/feed
  */
 export default async function BlogCatchAllPage({
   params,
@@ -25,79 +28,70 @@ export default async function BlogCatchAllPage({
   params: Promise<{ slug: string; catchAll: string[] }>;
 }) {
   const { slug, catchAll } = await params;
+  const { basePath } = await getRequestUrlContext(slug);
+  const resolution = resolveLegacyBlogPath(catchAll);
 
-  // 308 redirect legacy /blog/sitemap.xml → /sitemap.xml (blog entries merged into main sitemap)
-  if (catchAll.length === 1 && catchAll[0] === 'sitemap.xml') {
-    permanentRedirect('/sitemap.xml');
+  if (resolution.type === 'sitemap') {
+    permanentRedirect(asRoute(`${basePath}/sitemap.xml`));
   }
 
-  // Filter out WordPress admin URLs and known spam
-  // Spam patterns: shopdetail, zhHant (Chinese spam), product IDs, etc.
-  const spamKeywords = ['wp-', 'shopdetail', 'zhhant', 'surugaya', '.html'];
-  if (
-    catchAll.some((segment) =>
-      spamKeywords.some((keyword) => segment.toLowerCase().includes(keyword))
-    )
-  ) {
-    notFound();
+  if (resolution.type === 'post-alias') {
+    const blogPost = await getLegacyBlogPost(
+      slug,
+      resolution.candidatePostSlug
+    );
+    if (blogPost) {
+      permanentRedirect(asRoute(`${basePath}/blog/${blogPost.post.slug}`));
+    }
   }
 
-  // Get merchant
-  const cachedMerchant = isDomainIdentifier(slug)
-    ? await getCachedMerchantByDomain(slug.toLowerCase())
-    : await getCachedMerchant(slug.toLowerCase());
-
-  if (!cachedMerchant) {
-    notFound();
-  }
-
-  // Extract merchant ID (TypeScript now knows it's not null)
-  const merchantId = cachedMerchant.id;
-
-  // The last segment is likely the post slug
-  // e.g., /blog/iphone/the-iphone-15-what-we-know -> postSlug = "the-iphone-15-what-we-know"
-  const postSlug = catchAll[catchAll.length - 1];
-
-  // Strip query parameters from the slug
-  const cleanPostSlug = postSlug.split('?')[0];
-
-  // Look up the post by slug
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-
-  const { data: post } = await supabase
-    .from('blog_posts')
-    .select('slug')
-    .eq('merchant_id', merchantId)
-    .eq('slug', cleanPostSlug)
-    .eq('status', 'published')
-    .maybeSingle();
-
-  if (post) {
-    // Redirect to canonical URL (without category prefix)
-    // Use 301 permanent redirect for SEO
-    redirect(`/${slug}/blog/${post.slug}`);
-  }
-
-  // If post not found, try matching without hyphens/underscores
-  // (in case of slight URL variations)
-  const normalizedSlug = cleanPostSlug.replace(/[-_]/g, '').toLowerCase();
-
-  const { data: fuzzyPost } = await supabase
-    .from('blog_posts')
-    .select('slug')
-    .eq('merchant_id', merchantId)
-    .eq('status', 'published')
-    .limit(100);
-
-  const matchingPost = fuzzyPost?.find(
-    (p) => p.slug.replace(/[-_]/g, '').toLowerCase() === normalizedSlug
-  );
-
-  if (matchingPost) {
-    redirect(`/${slug}/blog/${matchingPost.slug}`);
-  }
-
-  // No matching post found
   notFound();
 }
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string; catchAll: string[] }>;
+}): Promise<Metadata> {
+  const { slug, catchAll } = await params;
+  const resolution = resolveLegacyBlogPath(catchAll);
+  const { basePath, baseUrl } = await getRequestUrlContext(slug);
+  const requestedUrl = `${baseUrl}${basePath}/blog/${catchAll
+    .map((segment) => encodeURIComponent(segment))
+    .join('/')}`;
+
+  if (resolution.type === 'post-alias') {
+    const blogPost = await getLegacyBlogPost(
+      slug,
+      resolution.candidatePostSlug
+    );
+    if (blogPost) {
+      return {
+        title: `${blogPost.post.title} | ${blogPost.merchant.business_name}`,
+        alternates: {
+          canonical: `${baseUrl}${basePath}/blog/${blogPost.post.slug}`,
+        },
+        robots: {
+          index: false,
+          follow: false,
+        },
+      };
+    }
+  }
+
+  return {
+    title: 'Page Not Found',
+    alternates: {
+      canonical: requestedUrl,
+    },
+    robots: {
+      index: false,
+      follow: false,
+    },
+  };
+}
+
+const getLegacyBlogPost = cache(
+  async (slug: string, candidatePostSlug: string) =>
+    getCachedBlogPost(slug, candidatePostSlug)
+);
