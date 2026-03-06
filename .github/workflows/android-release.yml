@@ -19,8 +19,10 @@ on:
         type: string
 
 concurrency:
-  group: android-release-${{ github.ref }}
-  cancel-in-progress: true
+  # Shared group prevents both Android workflows from running simultaneously
+  # on the same VPS runner, which corrupts the pnpm store.
+  group: baci-android-runner
+  cancel-in-progress: false
 
 permissions:
   contents: read
