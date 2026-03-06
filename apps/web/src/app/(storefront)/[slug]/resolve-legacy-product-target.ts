@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
@@ -175,3 +176,7 @@ export async function resolveLegacyProductTarget(
 
   return null;
 }
+
+export const cachedResolveLegacyProductTarget = cache(
+  resolveLegacyProductTarget
+);

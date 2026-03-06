@@ -813,6 +813,7 @@ describe('cached-data utility functions', () => {
       const variantSelectBlock =
         selectClause.match(/product_variants\s*\(([\s\S]*?)\)/)?.[1] || '';
 
+      expect(selectClause).not.toContain('*');
       expect(selectClause).toContain('product_variants (');
       expect(variantSelectBlock).toContain('attributes');
       expect(variantSelectBlock).toContain('stock_quantity');

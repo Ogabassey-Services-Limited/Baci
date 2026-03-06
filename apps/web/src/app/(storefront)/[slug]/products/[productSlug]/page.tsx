@@ -23,7 +23,7 @@ import {
   getProductUrl,
 } from '@/lib/seo-utils';
 import type { FAQItem } from '@/types/faq';
-import { resolveLegacyProductTarget } from '../../resolve-legacy-product-target';
+import { cachedResolveLegacyProductTarget } from '../../resolve-legacy-product-target';
 import ProductDetailClient from './product-detail-client';
 
 interface PageProps {
@@ -146,7 +146,10 @@ export async function generateMetadata(
   const product = await getProductCached(slug, productSlug);
 
   if (!product) {
-    const legacyTarget = await resolveLegacyProductTarget(slug, productSlug);
+    const legacyTarget = await cachedResolveLegacyProductTarget(
+      slug,
+      productSlug
+    );
     const headersList = await headers();
     const host =
       headersList.get('host') ||
@@ -306,7 +309,10 @@ export default async function ProductPage({ params }: PageProps) {
     const isLocalhost =
       host.includes('localhost') || host.includes('127.0.0.1');
     const basePath = isLocalhost ? `/${slug}` : '';
-    const legacyTarget = await resolveLegacyProductTarget(slug, productSlug);
+    const legacyTarget = await cachedResolveLegacyProductTarget(
+      slug,
+      productSlug
+    );
 
     if (legacyTarget) {
       permanentRedirect(`${basePath}${legacyTarget}` as `/${string}`);

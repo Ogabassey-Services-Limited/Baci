@@ -23,7 +23,7 @@ vi.mock('@/lib/cached-data', () => ({
 }));
 
 vi.mock('../../resolve-legacy-product-target', () => ({
-  resolveLegacyProductTarget: resolveLegacyProductTargetMock,
+  cachedResolveLegacyProductTarget: resolveLegacyProductTargetMock,
 }));
 
 describe('category product metadata', () => {

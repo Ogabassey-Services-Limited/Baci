@@ -22,7 +22,7 @@ import {
 } from '@/lib/seo-utils';
 import { isDomainIdentifier } from '@/lib/validation';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
-import { resolveLegacyProductTarget } from '../../resolve-legacy-product-target';
+import { cachedResolveLegacyProductTarget } from '../../resolve-legacy-product-target';
 
 /** KeySpecs interface for product_key_specs */
 interface KeySpecs {
@@ -684,7 +684,10 @@ export async function generateMetadata({
     const isLocalhost =
       host.includes('localhost') || host.includes('127.0.0.1');
     const basePath = isLocalhost ? `/${slug}` : '';
-    const legacyTarget = await resolveLegacyProductTarget(slug, productSlug);
+    const legacyTarget = await cachedResolveLegacyProductTarget(
+      slug,
+      productSlug
+    );
     const requestedProductUrl = legacyTarget
       ? `${baseUrl}${basePath}${legacyTarget}`
       : `${baseUrl}${basePath}/${encodeURIComponent(category)}/${encodeURIComponent(
@@ -805,7 +808,10 @@ export default async function CategoryProductPage({ params }: PageProps) {
     const isLocalhost =
       host.includes('localhost') || host.includes('127.0.0.1');
     const basePath = isLocalhost ? `/${slug}` : '';
-    const legacyTarget = await resolveLegacyProductTarget(slug, productSlug);
+    const legacyTarget = await cachedResolveLegacyProductTarget(
+      slug,
+      productSlug
+    );
 
     if (legacyTarget) {
       permanentRedirect(`${basePath}${legacyTarget}` as `/${string}`);
