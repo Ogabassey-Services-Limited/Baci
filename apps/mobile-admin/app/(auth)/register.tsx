@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { DARK_COLORS, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme'; // Adjust import path if needed
-import { useOnboarding } from '@/context/OnboardingContext';
 import { useRegistration } from '@/hooks/useRegistration';
 import type { NetworkError } from '@/lib/api-client';
 import {
@@ -43,7 +42,6 @@ const BUSINESS_TYPES = [
 export default function RegisterScreen() {
   const router = useRouter();
   const { register, isLoading } = useRegistration();
-  const { completeOnboarding } = useOnboarding();
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -186,38 +184,14 @@ export default function RegisterScreen() {
         brandPreferences: '',
       },
       {
-        onSuccess: async () => {
-          try {
-            await completeOnboarding();
-          } catch (error) {
-            console.error(
-              'Failed to persist onboarding state after registration:',
-              error
-            );
-          }
-          router.replace('/');
+        onSuccess: () => {
+          // Navigate directly to dashboard — email confirmation is disabled,
+          // so signup returns a session immediately and the merchant is ready.
+          router.replace('/(admin)/(tabs)');
         },
-        onError: async (error: Error) => {
+        onError: (error: Error) => {
           console.error('Registration error:', error.message);
           const networkError = error as NetworkError;
-
-          if (
-            networkError.statusCode === 403 &&
-            networkError.code === 'EMAIL_CONFIRMATION_REQUIRED'
-          ) {
-            try {
-              await completeOnboarding();
-            } catch (persistError) {
-              console.error(
-                'Failed to persist onboarding state before verification:',
-                persistError
-              );
-            }
-            router.replace(
-              `/(auth)/verify?email=${encodeURIComponent(email)}`
-            );
-            return;
-          }
 
           // Handle specific server error codes
           if (networkError.statusCode === 409) {

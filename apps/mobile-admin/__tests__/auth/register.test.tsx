@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   push: vi.fn(),
   mutate: vi.fn(),
-  completeOnboarding: vi.fn(),
   signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
 }));
 
@@ -117,12 +116,6 @@ vi.mock('@/hooks/useRegistration', () => ({
   }),
 }));
 
-vi.mock('@/context/OnboardingContext', () => ({
-  useOnboarding: () => ({
-    completeOnboarding: mocks.completeOnboarding,
-  }),
-}));
-
 vi.mock('@/lib/password-utils', () => ({
   validatePassword: () => ({
     isValid: true,
@@ -193,7 +186,6 @@ describe('RegisterScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    mocks.completeOnboarding.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -217,14 +209,13 @@ describe('RegisterScreen', () => {
   });
 
   describe('onSuccess', () => {
-    it('completes onboarding and routes to the app root on success', async () => {
+    it('navigates to dashboard via router.replace on success', async () => {
       render(<RegisterScreen />);
       fillFormAndSubmit();
 
       await getCallbacks().onSuccess();
 
-      expect(mocks.completeOnboarding).toHaveBeenCalledTimes(1);
-      expect(mocks.replace).toHaveBeenCalledWith('/');
+      expect(mocks.replace).toHaveBeenCalledWith('/(admin)/(tabs)');
     });
 
     it('uses replace (not push) to prevent back-navigation to register', async () => {
@@ -301,23 +292,6 @@ describe('RegisterScreen', () => {
       expect(mocks.push).not.toHaveBeenCalled();
     });
 
-    it('routes to email verification when confirmation is required', async () => {
-      render(<RegisterScreen />);
-      fillFormAndSubmit();
-
-      await getCallbacks().onError(
-        new NetworkError('Please confirm your email', {
-          statusCode: 403,
-          code: 'EMAIL_CONFIRMATION_REQUIRED',
-        })
-      );
-
-      expect(mocks.completeOnboarding).toHaveBeenCalledTimes(1);
-      expect(mocks.replace).toHaveBeenCalledWith(
-        '/(auth)/verify?email=test%40example.com'
-      );
-    });
-
     it('shows timeout message for timeout errors', () => {
       render(<RegisterScreen />);
       fillFormAndSubmit();
@@ -374,14 +348,16 @@ describe('RegisterScreen', () => {
   });
 
   describe('post-registration navigation', () => {
-    it('does not call signInWithPassword after a successful registration', async () => {
+    it('navigates directly to dashboard without calling signInWithPassword', async () => {
+      // Since email confirmation is disabled, signup returns a session immediately.
+      // The component navigates directly — no separate sign-in call needed.
       render(<RegisterScreen />);
       fillFormAndSubmit();
 
       await getCallbacks().onSuccess();
 
       expect(mocks.signInWithPassword).not.toHaveBeenCalled();
-      expect(mocks.replace).toHaveBeenCalledWith('/');
+      expect(mocks.replace).toHaveBeenCalledWith('/(admin)/(tabs)');
     });
   });
 });

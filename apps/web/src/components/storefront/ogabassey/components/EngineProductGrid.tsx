@@ -16,7 +16,6 @@ import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 import { AdUnit } from './AdUnit';
 import { AdvancedProductFilters } from './AdvancedProductFilters';
-import { PRICE_UPPER_SENTINEL, deriveEngineProductGridData } from './EngineProductGrid.helpers';
 import { FloatingParticles, type Particle } from './FloatingParticles';
 import { ProductGridItem } from './ProductGridItem';
 import { ProductListItem } from './ProductListItem';
@@ -122,7 +121,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedCondition, setSelectedCondition] = useState('All');
   const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(PRICE_UPPER_SENTINEL);
+  const [maxPrice, setMaxPrice] = useState(100000000);
   const [minRating, setMinRating] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -138,16 +137,64 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   const navCategories = merchantContext?.navigationCategories || [];
   const categoryList = externalCategories || navCategories;
   const categories = ['All', ...categoryList.map(c => c.name)];
-  const { brands, filteredProducts } = deriveEngineProductGridData({
-    allProducts,
-    selectedCategory,
-    selectedBrand,
-    selectedCondition,
-    minPrice,
-    maxPrice,
-    minRating,
-    limit,
-  });
+
+  // Brands from all products (not filtered, so brand filter always shows all options)
+  // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map().filter())
+  const brands = Array.from(
+    (() => {
+      const set = new Set<string>();
+      for (const p of allProducts) {
+        if (p.brand) set.add(p.brand);
+      }
+      return set;
+    })()
+  );
+
+  // INSTANT client-side filtering - all filters applied in one computation
+  // PERFORMANCE OPTIMIZATION: Replaced O(N*K) chained filters with O(N) single-pass filter + early return
+  const filteredProducts = (() => {
+    const result = [];
+
+    for (const p of allProducts) {
+      // Limit check (Early exit)
+      if (limit && limit > 0 && result.length >= limit) {
+        break;
+      }
+
+      // Category filter
+      if (
+        selectedCategory !== 'All' &&
+        p.category?.toLowerCase() !== selectedCategory.toLowerCase()
+      ) {
+        continue;
+      }
+
+      // Brand filter
+      if (selectedBrand !== 'All' && p.brand !== selectedBrand) {
+        continue;
+      }
+
+      // Condition filter
+      if (selectedCondition !== 'All' && p.condition !== selectedCondition) {
+        continue;
+      }
+
+      // Price filter
+      const price = p.rawPrice || 0;
+      if ((minPrice > 0 && price < minPrice) || (maxPrice < 100000000 && price > maxPrice)) {
+        continue;
+      }
+
+      // Rating filter
+      if (minRating > 0 && (p.rating || 0) < minRating) {
+        continue;
+      }
+
+      result.push(p);
+    }
+
+    return result;
+  })();
 
   // Update URL when category changes (for sharing/bookmarking)
   const handleCategoryChange = (category: string) => {
@@ -171,7 +218,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     setSelectedBrand('All');
     setSelectedCondition('All');
     setMinPrice(0);
-    setMaxPrice(PRICE_UPPER_SENTINEL);
+    setMaxPrice(100000000);
     setMinRating(0);
     setDisplayCount(PRODUCTS_PER_PAGE);
     window.history.replaceState(null, '', pathname);

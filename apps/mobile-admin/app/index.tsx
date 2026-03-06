@@ -42,12 +42,12 @@ export default function Index() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  // 3. Authenticated with an incomplete merchant profile -> Complete Profile
-  // Loading is handled above; this branch covers missing business_name or slug.
-  if (!merchant?.business_name || !merchant.slug) {
+  // 3. Authenticated but No Merchant -> Complete Profile
+  // We check !merchantLoading to ensure we don't redirect prematurely
+  if (!merchant) {
     if (__DEV__) {
       console.log(
-        '[Index] Authenticated default redirect to Complete Profile (Incomplete Merchant)'
+        '[Index] Authenticated default redirect to Complete Profile (No Merchant)'
       );
     }
     return <Redirect href="/(auth)/complete-profile" />;
