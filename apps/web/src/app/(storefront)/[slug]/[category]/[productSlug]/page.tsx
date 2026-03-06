@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
@@ -10,7 +9,7 @@ import {
   getCachedMerchantByDomain,
   getCachedProductWithDetails,
 } from '@/lib/cached-data';
-import type { Product } from '@/lib/products';
+import { mapCachedProductToProduct, type Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -20,8 +19,10 @@ import {
   generateSlug,
   getProductUrl,
 } from '@/lib/seo-utils';
+import { getRequestUrlContext } from '@/lib/url-context';
 import { isDomainIdentifier } from '@/lib/validation';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
+import { cachedResolveLegacyProductTarget } from '../../resolve-legacy-product-target';
 
 /** KeySpecs interface for product_key_specs */
 interface KeySpecs {
@@ -621,38 +622,13 @@ const getProduct = async (
     return null;
   }
 
-  // 3. Process category data
-  interface ProductWithCategory {
-    categories?: {
-      id: string;
-      name: string;
-      slug: string;
-      parent_id?: string;
-    } | null;
-  }
-  const productWithCat = product as unknown as ProductWithCategory;
-  const joinedCategory = productWithCat.categories;
-
-  const dbCategorySlug = joinedCategory?.slug;
-  const dbCategoryName = joinedCategory?.name || product.category;
-
-  // Create extended product with category info
-  const productWithCategorySlug: Product = {
-    ...product,
-    category: dbCategoryName || product.category,
-    category_slug: dbCategorySlug,
-    // Filter offers to exclude main product condition
-    offers: product.product_offers?.filter(
-      (o: { condition: string; status: string }) =>
-        o.condition !== product.condition && o.status === 'active'
-    ),
-    // Map variants
-    variants: product.product_variants || [],
-  } as Product;
+  const productWithCategorySlug = mapCachedProductToProduct(product);
 
   const productCategorySlug =
-    dbCategorySlug ||
-    (product.category ? generateSlug(product.category) : null);
+    productWithCategorySlug.category_slug ||
+    (productWithCategorySlug.category
+      ? generateSlug(productWithCategorySlug.category)
+      : null);
 
   const categoryMismatch =
     productCategorySlug && productCategorySlug !== categorySlug;
@@ -674,9 +650,25 @@ export async function generateMetadata({
   const result = await getProduct(slug, category, productSlug);
 
   if (!result?.product) {
+    const { basePath, baseUrl } = await getRequestUrlContext(slug);
+    const legacyTarget = await cachedResolveLegacyProductTarget(
+      slug,
+      productSlug
+    );
+    const requestedProductUrl = legacyTarget
+      ? `${baseUrl}${basePath}${legacyTarget}`
+      : `${baseUrl}${basePath}/${encodeURIComponent(category)}/${encodeURIComponent(
+          productSlug
+        )}`;
+
     return {
-      title: 'Product Not Found',
-      description: 'The product you are looking for does not exist.',
+      title: legacyTarget ? 'Product Redirect' : 'Product Not Found',
+      description: legacyTarget
+        ? 'This product has moved to a newer URL.'
+        : 'The product you are looking for does not exist.',
+      alternates: {
+        canonical: requestedProductUrl,
+      },
       robots: {
         index: false,
         follow: false,
@@ -686,19 +678,17 @@ export async function generateMetadata({
 
   const { product, merchant } = result;
 
-  const headersList = await headers();
-  const host = headersList.get('host') || 'baci.app';
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  let baseUrl = `${protocol}://${host}`;
-
-  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+  const {
+    basePath: urlPrefix,
+    baseUrl: requestBaseUrl,
+    isLocalhost,
+  } = await getRequestUrlContext(slug);
+  let baseUrl = requestBaseUrl;
 
   // FIX: Ensure canonical URL always points to the production custom domain if it exists
   if (!isLocalhost && merchant?.custom_domain) {
     baseUrl = `https://${merchant.custom_domain}`;
   }
-
-  const urlPrefix = isLocalhost ? `/${slug}` : '';
 
   // Construct canonical URL:
   // 1. Use explicit canonical from product data if available
@@ -778,14 +768,26 @@ export default async function CategoryProductPage({ params }: PageProps) {
   const result = await getProduct(slug, category, productSlug);
 
   if (!result?.product) {
+    const { basePath } = await getRequestUrlContext(slug);
+    const legacyTarget = await cachedResolveLegacyProductTarget(
+      slug,
+      productSlug
+    );
+
+    if (legacyTarget) {
+      permanentRedirect(`${basePath}${legacyTarget}` as `/${string}`);
+    }
+
     notFound();
   }
 
   const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
 
-  const headersList = await headers();
-  const host = headersList.get('host') || 'baci.app';
-  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+  const {
+    basePath: urlPrefix,
+    baseUrl: requestBaseUrl,
+    isLocalhost,
+  } = await getRequestUrlContext(slug);
 
   // Strict Canonical URL Enforcement:
   // 1. If we found via case-insensitive fallback -> Redirect to lowercase canonical
@@ -799,14 +801,13 @@ export default async function CategoryProductPage({ params }: PageProps) {
       const cleanSlug = product.slug || product.id;
 
       const targetPath = isLocalhost
-        ? `/${slug}/${correctCategorySlug}/${cleanSlug}`
+        ? `${urlPrefix}/${correctCategorySlug}/${cleanSlug}`
         : `/${correctCategorySlug}/${cleanSlug}`;
 
       permanentRedirect(targetPath as `/${string}`);
     }
   }
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  let baseUrl = `${protocol}://${host}`;
+  let baseUrl = requestBaseUrl;
 
   // FIX: Ensure schema URL always points to the production custom domain if it exists
   if (!isLocalhost && merchant?.custom_domain) {
