@@ -10,7 +10,7 @@ import {
   getCachedProductRatingStats,
   getCachedProductReviews,
 } from '@/lib/cached-data';
-import { mapCachedProductToProduct, type Product } from '@/lib/products';
+import type { Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -23,7 +23,6 @@ import {
   getProductUrl,
 } from '@/lib/seo-utils';
 import type { FAQItem } from '@/types/faq';
-import { cachedResolveLegacyProductTarget } from '../../resolve-legacy-product-target';
 import ProductDetailClient from './product-detail-client';
 
 interface PageProps {
@@ -60,9 +59,81 @@ async function getProductCached(
     return null;
   }
 
-  return mapCachedProductToProduct(cachedProduct, {
-    merchantId: merchant.id,
+  // Transform cached product to match Product interface
+  // Map database fields to Product interface expected fields
+  // Images can be stored as flat strings ["url"] or objects [{url, alt, order}]
+  const rawImages = cachedProduct.images as Array<
+    string | { url: string; alt?: string; order?: number }
+  > | null;
+  const normalizedImages = rawImages?.map((img, idx) => {
+    if (typeof img === 'string') {
+      return { url: img, alt: cachedProduct.name, order: idx };
+    }
+    return {
+      url: img.url,
+      alt: img.alt || cachedProduct.name,
+      order: img.order ?? idx,
+    };
   });
+  const firstImage = normalizedImages?.[0]?.url || '';
+
+  const product: Product = {
+    id: cachedProduct.id,
+    name: cachedProduct.name,
+    description: cachedProduct.description || '',
+    status: cachedProduct.status as 'draft' | 'active' | 'archived',
+    slug: cachedProduct.slug,
+    // Map base_price to price
+    price: cachedProduct.sale_price || cachedProduct.base_price,
+    compare_at_price: cachedProduct.sale_price
+      ? cachedProduct.base_price
+      : undefined,
+    // Stock fields
+    manage_stock: cachedProduct.track_quantity ?? false,
+    stock: cachedProduct.quantity ?? 0,
+    // Image fields
+    image: firstImage,
+    imageLarge: firstImage,
+    imageHint: cachedProduct.name,
+    images: normalizedImages,
+    // Brand/identifiers (defaults for missing fields)
+    brand: '',
+    gtin: '',
+    mpn: '',
+    // Category from nested join (cast through unknown for Supabase type compatibility)
+    category:
+      (
+        cachedProduct.product_categories?.[0]?.categories as unknown as {
+          id: string;
+          name: string;
+          slug: string;
+        } | null
+      )?.name || undefined,
+    category_slug:
+      (
+        cachedProduct.product_categories?.[0]?.categories as unknown as {
+          slug: string;
+        } | null
+      )?.slug || undefined,
+    // Variants
+    has_variants: (cachedProduct.product_variants?.length ?? 0) > 0,
+    variants:
+      cachedProduct.product_variants?.map((v) => ({
+        id: v.id,
+        product_id: cachedProduct.id,
+        merchant_id: merchant.id,
+        attributes: v.attributes || {},
+        stock_quantity: v.stock_quantity ?? 0,
+        price_override: v.price_override,
+      })) || [],
+    // Specs for SEO Schema
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
+    specifications: cachedProduct.specifications as any,
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
+    product_key_specs: cachedProduct.product_key_specs as any,
+  };
+
+  return product;
 }
 
 export async function generateMetadata(
@@ -74,30 +145,9 @@ export async function generateMetadata(
   const product = await getProductCached(slug, productSlug);
 
   if (!product) {
-    const legacyTarget = await cachedResolveLegacyProductTarget(
-      slug,
-      productSlug
-    );
-    const headersList = await headers();
-    const host =
-      headersList.get('host') ||
-      (slug.includes('.') ? slug : `${slug}.usebaci.com`);
-    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-    const baseUrl = `${protocol}://${host}`;
-    const isLocalhost =
-      host.includes('localhost') || host.includes('127.0.0.1');
-    const basePath = isLocalhost ? `/${slug}` : '';
-
     return {
-      title: legacyTarget ? 'Product Redirect' : 'Product Not Found',
-      description: legacyTarget
-        ? 'This product has moved to a newer URL.'
-        : 'The product you are looking for does not exist.',
-      alternates: {
-        canonical: legacyTarget
-          ? `${baseUrl}${basePath}${legacyTarget}`
-          : `${baseUrl}${basePath}/products/${encodeURIComponent(productSlug)}`,
-      },
+      title: 'Product Not Found',
+      description: 'The product you are looking for does not exist.',
       robots: {
         index: false,
         follow: false,
@@ -233,19 +283,6 @@ export default async function ProductPage({ params }: PageProps) {
   const product = await getProductCached(slug, productSlug);
 
   if (!product) {
-    const host = headersList.get('host') || 'baci.app';
-    const isLocalhost =
-      host.includes('localhost') || host.includes('127.0.0.1');
-    const basePath = isLocalhost ? `/${slug}` : '';
-    const legacyTarget = await cachedResolveLegacyProductTarget(
-      slug,
-      productSlug
-    );
-
-    if (legacyTarget) {
-      permanentRedirect(`${basePath}${legacyTarget}` as `/${string}`);
-    }
-
     notFound();
   }
 

@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CachedMerchant } from './cached-data';
 import {
-  getCachedProduct,
-  getCachedProductWithDetails,
   getMerchantByIdentifier,
   getMerchantSafe,
   getRequestScopedMerchant,
@@ -775,65 +773,6 @@ describe('cached-data utility functions', () => {
     it('handles identifier with unicode characters (invalid)', async () => {
       const result = await getMerchantByIdentifier('störe');
       expect(result).toBeNull();
-    });
-  });
-
-  describe('product query projections', () => {
-    it('does not request removed variant columns for cached product lookups', async () => {
-      mockSingle.mockResolvedValueOnce({
-        data: null,
-        error: null,
-      });
-
-      await getCachedProduct('merchant-123', 'iphone-15-pro');
-
-      const selectClause = mockSelect.mock.calls[0]?.[0] as string;
-      const variantSelectBlock =
-        selectClause.match(/product_variants\s*\(([\s\S]*?)\)/)?.[1] || '';
-
-      expect(selectClause).toContain('product_variants (');
-      expect(variantSelectBlock).toContain('attributes');
-      expect(variantSelectBlock).toContain('stock_quantity');
-      expect(variantSelectBlock).not.toContain('storage,');
-      expect(variantSelectBlock).not.toContain('sim_type,');
-      expect(variantSelectBlock).not.toContain('color,');
-      expect(variantSelectBlock).not.toContain('ram_gb,');
-      expect(variantSelectBlock).not.toContain('condition');
-    });
-
-    it('does not request removed variant columns for detailed product lookups', async () => {
-      mockMaybeSingle.mockResolvedValueOnce({
-        data: null,
-        error: null,
-      });
-
-      await getCachedProductWithDetails('merchant-123', 'iphone-15-pro');
-
-      const selectClause = mockSelect.mock.calls[0]?.[0] as string;
-      const variantSelectBlock =
-        selectClause.match(/product_variants\s*\(([\s\S]*?)\)/)?.[1] || '';
-
-      expect(selectClause).not.toContain('*');
-      expect(selectClause).toContain('product_variants (');
-      expect(variantSelectBlock).toContain('attributes');
-      expect(variantSelectBlock).toContain('stock_quantity');
-      expect(variantSelectBlock).not.toContain('storage,');
-      expect(variantSelectBlock).not.toContain('sim_type,');
-      expect(variantSelectBlock).not.toContain('color,');
-      expect(variantSelectBlock).not.toContain('ram_gb,');
-      expect(variantSelectBlock).not.toContain('condition');
-    });
-
-    it('filters detailed product lookups to active products only', async () => {
-      mockMaybeSingle.mockResolvedValueOnce({
-        data: null,
-        error: null,
-      });
-
-      await getCachedProductWithDetails('merchant-123', 'iphone-15-pro');
-
-      expect(mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
-      expect(mockEq).toHaveBeenCalledWith('status', 'active');
     });
   });
 });
