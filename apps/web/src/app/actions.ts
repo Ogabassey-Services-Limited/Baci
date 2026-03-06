@@ -18,8 +18,8 @@ async function fetchMetricsInternal(): Promise<LandingMetrics> {
 
     // Execute queries in parallel - use RPC for sales to avoid fetching all orders
     const [merchantResult, orderResult, salesResult] = await Promise.all([
-      supabase.from('merchants').select('*', { count: 'exact', head: true }),
-      supabase.from('orders').select('*', { count: 'exact', head: true }),
+      supabase.from('merchants').select('id', { count: 'exact', head: true }),
+      supabase.from('orders').select('id', { count: 'exact', head: true }),
       // Use RPC function instead of fetching all orders (huge performance improvement)
       supabase.rpc('get_total_sales'),
     ]);

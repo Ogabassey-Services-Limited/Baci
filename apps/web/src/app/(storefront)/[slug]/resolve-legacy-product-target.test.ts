@@ -63,6 +63,18 @@ describe('resolveLegacyProductTarget', () => {
     );
   });
 
+  it('returns null when the merchant cannot be resolved for a custom domain', async () => {
+    getCachedMerchantByDomainMock.mockResolvedValue(null);
+
+    const result = await resolveLegacyProductTarget(
+      'missing-store.com',
+      'iphone-15-pro'
+    );
+
+    expect(result).toBeNull();
+    expect(getCachedProductMock).not.toHaveBeenCalled();
+  });
+
   it('falls back to an active parent slug when a legacy variant slug no longer exists', async () => {
     getCachedProductMock
       .mockResolvedValueOnce(null)
