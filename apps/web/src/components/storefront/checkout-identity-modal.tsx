@@ -55,8 +55,7 @@ export function CheckoutIdentityModal({
       if (loginError) throw loginError;
 
       // Successful login - proceed to checkout
-      // biome-ignore lint/suspicious/noExplicitAny: Next.js Typed Routes
-      router.push(checkoutUrl as any);
+      router.push(checkoutUrl as `/${string}`);
       onOpenChange(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in');
@@ -65,8 +64,7 @@ export function CheckoutIdentityModal({
   };
 
   const handleGuestCheckout = () => {
-    // biome-ignore lint/suspicious/noExplicitAny: Next.js Typed Routes
-    router.push(checkoutUrl as any);
+    router.push(checkoutUrl as `/${string}`);
     onOpenChange(false);
   };
 
@@ -154,10 +152,7 @@ export function CheckoutIdentityModal({
                   </p>
                   <Button
                     variant="outline"
-                    onClick={() =>
-                      // biome-ignore lint/suspicious/noExplicitAny: Next.js Typed Routes
-                      router.push('/signup?redirect=/checkout' as any)
-                    }
+                    onClick={() => router.push('/signup?redirect=/checkout')}
                     className="w-full border-[var(--store-primary)] text-[var(--store-primary)] hover:bg-[var(--store-primary)]/10 font-bold py-6 rounded-xl transition-all"
                   >
                     Register Now
@@ -211,8 +206,7 @@ export function CheckoutIdentityModal({
                     </Label>
                     <button
                       type="button"
-                      // biome-ignore lint/suspicious/noExplicitAny: Next.js Typed Routes
-                      onClick={() => router.push('/forgot-password' as any)}
+                      onClick={() => router.push('/forgot-password')}
                       className="text-[10px] font-bold text-[var(--store-primary)] hover:underline uppercase"
                     >
                       Forgot?
