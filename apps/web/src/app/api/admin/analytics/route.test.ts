@@ -1,8 +1,6 @@
 import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockCheckCsrfProtection = vi.fn();
 const mockCookies = vi.fn();
 const mockGetCachedPlatformAnalytics = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
@@ -10,10 +8,6 @@ const mockCreateClient = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => mockCookies()),
-}));
-
-vi.mock('@/lib/csrf', () => ({
-  checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
 }));
 
 vi.mock('@/lib/cached-data', () => ({
@@ -82,9 +76,11 @@ function createRequest(url: string, init: RequestInit = {}): NextRequest {
   return new Request(url, init) as NextRequest;
 }
 
+const analyticsUrl = 'http://localhost/api/admin/analytics';
+
 let mockSupabase = createMockSupabase();
 
-import { GET, POST } from './route';
+import { GET } from './route';
 
 describe('/api/admin/analytics route', () => {
   beforeEach(() => {
@@ -122,7 +118,6 @@ describe('/api/admin/analytics route', () => {
         totalGmv: 500,
         totalOrders: 2,
       });
-    mockCheckCsrfProtection.mockResolvedValue({ valid: true });
   });
 
   it('returns 401 when the user is not authenticated', async () => {
@@ -131,9 +126,7 @@ describe('/api/admin/analytics route', () => {
       error: null,
     });
 
-    const response = await GET(
-      createRequest('http://localhost/api/admin/analytics')
-    );
+    const response = await GET(createRequest(analyticsUrl));
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -141,9 +134,7 @@ describe('/api/admin/analytics route', () => {
   });
 
   it('returns 400 for an invalid period before route queries run', async () => {
-    const response = await GET(
-      createRequest('http://localhost/api/admin/analytics?period=14d')
-    );
+    const response = await GET(createRequest(`${analyticsUrl}?period=14d`));
     const body = await response.json();
 
     expect(response.status).toBe(400);
@@ -166,9 +157,7 @@ describe('/api/admin/analytics route', () => {
     });
     mockCreateClient.mockReturnValue(mockSupabase);
 
-    const response = await GET(
-      createRequest('http://localhost/api/admin/analytics?period=30d')
-    );
+    const response = await GET(createRequest(`${analyticsUrl}?period=30d`));
     const body = await response.json();
 
     expect(response.status).toBe(500);
@@ -230,9 +219,7 @@ describe('/api/admin/analytics route', () => {
     });
     mockCreateClient.mockReturnValue(mockSupabase);
 
-    const response = await GET(
-      createRequest('http://localhost/api/admin/analytics?period=7d')
-    );
+    const response = await GET(createRequest(`${analyticsUrl}?period=7d`));
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -255,40 +242,5 @@ describe('/api/admin/analytics route', () => {
         orders: 4,
       },
     ]);
-  });
-
-  it('returns 403 when CSRF validation fails on POST', async () => {
-    mockCheckCsrfProtection.mockResolvedValueOnce({
-      valid: false,
-      response: NextResponse.json(
-        { error: 'Invalid CSRF token' },
-        { status: 403 }
-      ),
-    });
-
-    const response = await POST(
-      createRequest('http://localhost/api/admin/analytics/refresh', {
-        method: 'POST',
-      })
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(403);
-    expect(body.error).toBe('Invalid CSRF token');
-  });
-
-  it('refreshes analytics views on a valid POST request', async () => {
-    const response = await POST(
-      createRequest('http://localhost/api/admin/analytics/refresh', {
-        method: 'POST',
-      })
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.success).toBe(true);
-    expect(mockSupabase.rpc).toHaveBeenCalledWith(
-      'refresh_platform_analytics_views'
-    );
   });
 });
