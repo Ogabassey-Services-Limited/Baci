@@ -78,8 +78,7 @@ export async function POST(
 
       try {
         insuranceResult = await purchaseOrderInsurance(id, deviceDetails);
-        // biome-ignore lint/suspicious/noExplicitAny: Error from catch block
-      } catch (err: any) {
+      } catch (err: unknown) {
         logger.error({
           message: 'Insurance purchase error during confirm',
           error: err,
@@ -112,8 +111,7 @@ export async function POST(
       message: 'Order confirmed successfully',
       insurance: insuranceResult,
     });
-    // biome-ignore lint/suspicious/noExplicitAny: Error from catch block
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error({ message: 'Confirm Order API Error', error });
     return NextResponse.json(
       { error: 'Internal server error' },

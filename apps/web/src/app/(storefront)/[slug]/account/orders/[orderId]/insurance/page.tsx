@@ -59,9 +59,10 @@ export default function InsurancePolicyPage() {
         } else {
           setPolicy(data.policy);
         }
-        // biome-ignore lint/suspicious/noExplicitAny: Error type from fetch
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        setError(
+          err instanceof Error ? err.message : 'An unknown error occurred'
+        );
       } finally {
         setLoading(false);
       }
