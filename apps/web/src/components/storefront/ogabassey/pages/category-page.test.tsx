@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/link', () => ({
@@ -39,9 +39,10 @@ import { CategoryPage } from './category-page';
 
 describe('CategoryPage', () => {
   it('renders without crashing with empty products', () => {
-    const { container } = render(
-      <CategoryPage products={[]} />
-    );
-    expect(container).toBeDefined();
+    render(<CategoryPage products={[]} />);
+
+    const banner = screen.getByTestId('category-banner-carousel');
+    expect(banner).toBeInTheDocument();
+    expect(banner).toHaveClass('hidden', 'md:block');
   });
 });

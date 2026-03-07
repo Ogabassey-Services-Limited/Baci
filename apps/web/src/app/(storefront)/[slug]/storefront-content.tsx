@@ -1,11 +1,15 @@
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';
+import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
+import type { MerchantData } from '@/hooks/use-merchant';
 import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import type { CachedMerchant } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
 import { createClient } from '@/lib/supabase/server';
+import { getTemplate } from '@/templates/registry';
+import { resolveStorefrontTemplateId } from './resolve-storefront-template';
 import { StorefrontWrapper } from './storefront-wrapper';
 
 interface StorefrontContentProps {
@@ -72,6 +76,42 @@ export async function StorefrontContent({
     categories: p.product_categories?.[0]?.categories || null,
     product_categories: undefined,
   })) as unknown as Product[];
+
+  const templateId = resolveStorefrontTemplateId(
+    merchant.template_id,
+    merchant.business_type
+  );
+
+  if (templateId) {
+    const template = getTemplate(templateId);
+
+    if (template) {
+      try {
+        const components = await template.getComponents();
+        const TemplateHome = components.Home;
+
+        return (
+          <>
+            <AnalyticsProvider />
+            <TemplateHome
+              storeSlug={merchant.slug}
+              merchant={merchant as unknown as MerchantData}
+              products={merchantProducts}
+              categories={categories || []}
+              isPreview={false}
+              initialTheme={initialTheme}
+            />
+          </>
+        );
+      } catch (error) {
+        console.error('Failed to server-render storefront template:', {
+          merchantId: merchant.id,
+          templateId,
+          error,
+        });
+      }
+    }
+  }
 
   return (
     <StorefrontWrapper

@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -81,7 +81,7 @@ import { ProductDetailsPage } from './product-details-page';
 
 describe('ProductDetailsPage', () => {
   it('renders without crashing', () => {
-    const { container } = render(
+    render(
       <ProductDetailsPage product={{
         id: 'p-1',
         name: 'Test Product',
@@ -94,6 +94,9 @@ describe('ProductDetailsPage', () => {
         images: ['https://example.com/img.jpg'],
       }} />
     );
-    expect(container).toBeDefined();
+
+    const banner = screen.getByTestId('product-banner-carousel');
+    expect(banner).toBeInTheDocument();
+    expect(banner).toHaveClass('hidden', 'md:block');
   });
 });
