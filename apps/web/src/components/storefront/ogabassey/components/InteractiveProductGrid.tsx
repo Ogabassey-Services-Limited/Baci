@@ -1,15 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-// Migrated from temp-source/components/InteractiveProductGrid.tsx
 import React, { useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 
-// import { products } from '../data/products'; // REMOVED MOCK DATA
-// Wishlist feature available via useV2Saved - uncomment when implementing
-// import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 import { AdvancedProductFilters } from './AdvancedProductFilters';
 import { NativeProductRow } from './NativeProductRow';
@@ -17,7 +13,7 @@ import { FloatingParticles, type Particle } from './FloatingParticles';
 import { ProductCard } from './ProductCard';
 
 interface InteractiveProductGridProps {
-  products: Product[]; // ADDED PROP
+  products: Product[];
   categories?: { name: string; slug: string }[];
   selectedCategory?: string;
   minPrice?: number;
@@ -27,7 +23,7 @@ interface InteractiveProductGridProps {
 }
 
 export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
-  products, // DESTRUCTURED PROP
+  products,
   categories: explicitCategories,
   selectedCategory: defaultCategory = 'All',
   minPrice: defaultMin = 0,
@@ -42,7 +38,6 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   const [addedItems, setAddedItems] = useState<number[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
 
-  // State for Filters
   const [selectedCategory, setSelectedCategory] = useState(defaultCategory);
   const [priceRange, setPriceRange] = useState({
     min: defaultMin,
@@ -51,18 +46,13 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedCondition, setSelectedCondition] = useState('All');
   const [minRating, setMinRating] = useState(0);
-
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  // Pagination: Load 20 products initially, then more on demand
   const PRODUCTS_PER_PAGE = 20;
   const [displayCount, setDisplayCount] = useState(PRODUCTS_PER_PAGE);
 
-  // Derive categories: Use explicitly passed categories if available, otherwise derive from products
   const categories = (() => {
-    // If explicit categories array provided:
     if (explicitCategories && explicitCategories.length > 0) {
-      // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map())
       const result = ['All'];
       for (const c of explicitCategories) {
         if (c.name) result.push(c.name);
@@ -70,18 +60,15 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
       return result;
     }
 
-    // Fallback behavior: derive from current products
-    // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map().filter())
     const categorySet = new Set<string>();
     for (const p of products) {
-      const cat = p.categories?.name || (p as any).category;
+      const cat = p.categories?.name || p.category;
       if (cat) categorySet.add(cat);
     }
     return ['All', ...Array.from(categorySet)];
   })();
 
   const brands = (() => {
-    // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map().filter())
     const brandSet = new Set<string>();
     for (const p of products) {
       if (p.brand) brandSet.add(p.brand);
@@ -90,28 +77,23 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   })();
 
   const filteredProducts = products.filter((product) => {
-    // Category Filter
-    const productCategory = product.categories?.name || (product as any).category;
+    const productCategory = product.categories?.name || product.category;
     if (selectedCategory !== 'All' && productCategory !== selectedCategory) {
       return false;
     }
-    // Brand Filter
     if (selectedBrand !== 'All' && product.brand !== selectedBrand) {
       return false;
     }
-    // Condition Filter
     if (
       selectedCondition !== 'All' &&
       product.condition !== selectedCondition
     ) {
       return false;
     }
-    // Rating Filter
     const rating = product.rating ?? 0;
     if (rating < minRating) {
       return false;
     }
-    // Price Filter
     const productPrice = product.rawPrice || 0;
     if (
       productPrice < priceRange.min ||
@@ -123,14 +105,8 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   });
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
-    // e.preventDefault(); // Moved to ProductCard internal handler or kept here if needed
-    // In ProductCard, we call onAddToCart.
-
-    // We already stopPropagation in ProductCard, but good to ensure.
-
     addToCart(product as any, 1);
 
-    // Particle Animation Logic
     const rect = e.currentTarget.getBoundingClientRect();
     const id = Date.now() + Math.random();
     setParticles((prev) => [
@@ -142,12 +118,10 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
       },
     ]);
 
-    // Remove particle after animation
     setTimeout(() => {
       setParticles((prev) => prev.filter((p) => p.id !== id));
     }, 1000);
 
-    // Show visual feedback on button
     const pid =
       typeof product.id === 'string'
         ? Number.parseInt(product.id, 10)
@@ -167,12 +141,10 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
     setDisplayCount(PRODUCTS_PER_PAGE); // Reset pagination on filter reset
   };
 
-  // Reset pagination when any filter changes
   React.useEffect(() => {
     setDisplayCount(PRODUCTS_PER_PAGE);
   }, [selectedCategory, priceRange.min, priceRange.max, selectedBrand, selectedCondition, minRating]);
 
-  // Slice products for pagination
   const visibleProducts = filteredProducts.slice(0, displayCount);
   const hasMoreProducts = displayCount < filteredProducts.length;
 
