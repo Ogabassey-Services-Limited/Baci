@@ -201,11 +201,21 @@ export async function PUT(request: Request) {
 
   // 1. Save current published version to history (if exists)
   if (currentConfig.published_config) {
-    await supabase.from('page_config_history').insert({
-      page_config_id: currentConfig.id,
-      config: currentConfig.published_config,
-      version_note: `Published on ${new Date().toLocaleString()}`,
-    });
+    const { error: historyError } = await supabase
+      .from('page_config_history')
+      .insert({
+        page_config_id: currentConfig.id,
+        config: currentConfig.published_config,
+        version_note: `Published on ${new Date().toLocaleString()}`,
+      });
+
+    if (historyError) {
+      console.error('Failed to save config history:', historyError);
+      return NextResponse.json(
+        { error: 'Failed to save config history' },
+        { status: 500 }
+      );
+    }
   }
 
   // 2. Update page_config to publish all draft settings

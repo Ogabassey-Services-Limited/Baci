@@ -42,7 +42,7 @@ interface MerchantBankSettings {
 }
 
 export default function PayoutSettingsScreen() {
-  const { colors, shadows } = useTheme();
+  const { colors, shadows, isDark } = useTheme();
   const { user, session } = useAuth();
   const { resolveAccount, savePayoutSettings } = usePayouts();
   const router = useRouter();

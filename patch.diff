@@ -1,0 +1,39 @@
+--- apps/mobile-admin/app/(admin)/payout-settings.tsx
++++ apps/mobile-admin/app/(admin)/payout-settings.tsx
+@@ -218,15 +218,15 @@
+               <Ionicons
+                 name="arrow-back"
+                 size={24}
+-                color={isDark ? colors.text : '#fff'}
++                color={colors.text}
+               />
+             </Pressable>
+           ),
+           headerStyle: {
+-            backgroundColor: '#0F172A', // Force dark background to match screenshot
++            backgroundColor: colors.card,
+           },
+           headerTitleStyle: {
+-            color: '#fff',
++            color: colors.text,
+           },
+           headerRight: () => (
+             <Pressable
+@@ -378,7 +378,7 @@
+
+           <View
+             style={[
+               styles.noteCard,
+-              { backgroundColor: colors.infoLight || '#EFF6FF' },
++              { backgroundColor: colors.infoLight },
+             ]}
+           >
+             <Ionicons name="information-circle" size={20} color={colors.info} />
+@@ -539,7 +539,7 @@
+   },
+   successContainer: {
+-    backgroundColor: 'rgba(34, 197, 94, 0.1)', // green-500 with opacity
++    backgroundColor: undefined, // this will be provided inline to access colors.successLight
+     padding: SPACING.xs,
+     borderRadius: RADIUS.sm,
+     alignSelf: 'flex-start',

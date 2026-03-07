@@ -142,11 +142,13 @@ export async function POST(
         { type: 'privacy_policy', url: 'https://ogabassey.com/privacy' },
       ],
     });
-    // biome-ignore lint/suspicious/noExplicitAny: Generic error handling
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Agentic Checkout Update Error:', err);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: err.message },
+      {
+        error: 'Internal Server Error',
+        details: err instanceof Error ? err.message : 'Unknown error',
+      },
       { status: 500 }
     );
   }

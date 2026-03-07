@@ -18,10 +18,12 @@ export async function POST(_request: NextRequest) {
       message: 'Claims status synced successfully',
       updatedCount: result.updated,
     });
-    // biome-ignore lint/suspicious/noExplicitAny: Error from catch block
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { error: 'Internal server error', details: error.message },
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
       { status: 500 }
     );
   }

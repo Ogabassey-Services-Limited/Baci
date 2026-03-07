@@ -13,7 +13,7 @@ import {
   PRODUCT_COLUMNS,
   PRODUCT_VARIANT_COLUMNS,
 } from '@/lib/product-queries';
-import type { Product } from '@/lib/products';
+import type { Product, ProductVariant } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { sanitizeSchemaMarkup } from '@/lib/sanitize-json-ld';
@@ -80,14 +80,14 @@ export async function GET(
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    // biome-ignore lint/suspicious/noExplicitAny: Legacy code using any
-    let variants: any[] = [];
+    let variants: ProductVariant[] = [];
     if (product.has_variants) {
       const { data: v } = await supabase
         .from('product_variants')
         .select(PRODUCT_VARIANT_COLUMNS)
         .eq('product_id', product.id)
-        .eq('merchant_id', merchantId);
+        .eq('merchant_id', merchantId)
+        .returns<ProductVariant[]>();
       variants = v || [];
     }
 
@@ -439,10 +439,8 @@ export async function PUT(
     if (body.has_variants && body.variants) {
       // 1. Get IDs of variants to keep
       const variantIdsToKeep = body.variants
-        // biome-ignore lint/suspicious/noExplicitAny: Legacy code using any
-        .filter((v: any) => v.id)
-        // biome-ignore lint/suspicious/noExplicitAny: Legacy code using any
-        .map((v: any) => v.id);
+        .filter((v) => v.id)
+        .map((v) => v.id);
 
       // 2. Delete variants not in the list
       if (variantIdsToKeep.length > 0) {
@@ -461,24 +459,21 @@ export async function PUT(
       }
 
       // 3. Separate updates and inserts
-      // biome-ignore lint/suspicious/noExplicitAny: Legacy code using any
-      const variantsToUpsert = body.variants.map((v: any) => ({
+      const variantsToUpsert = body.variants.map((v) => ({
         id: v.id,
         product_id: id,
         merchant_id: merchantId,
         attributes: v.attributes,
-        price_override: v.price,
+        price_override: v.price_override,
         cost_price: v.cost_price, // New field
         stock_quantity: v.stock_quantity,
         sku: v.sku,
-        primary_image: v.image,
+        primary_image: v.primary_image,
         images: v.images || [],
       }));
 
-      // biome-ignore lint/suspicious/noExplicitAny: Legacy code using any
-      const variantsToUpdate = variantsToUpsert.filter((v: any) => v.id);
-      // biome-ignore lint/suspicious/noExplicitAny: Legacy code using any
-      const variantsToInsert = variantsToUpsert.filter((v: any) => !v.id);
+      const variantsToUpdate = variantsToUpsert.filter((v) => v.id);
+      const variantsToInsert = variantsToUpsert.filter((v) => !v.id);
 
       if (variantsToUpdate.length > 0) {
         const { error: updateVarError } = await supabase
