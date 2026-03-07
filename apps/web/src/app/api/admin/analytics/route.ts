@@ -83,26 +83,17 @@ export async function GET(request: NextRequest) {
     // Fetch all data in parallel
     const [
       dailySummaryResult,
-      _previousDailySummaryResult,
       merchantHealthResult,
       growthResult,
       topMerchantsResult,
       totalMerchantsResult,
-      _platformRevenueResult,
     ] = await Promise.all([
       // Current period daily summary
       supabase
         .from('platform_daily_summary')
-        .select('*')
+        .select('sale_date, platform_gmv, total_orders, active_merchants')
         .gte('sale_date', startDateStr)
         .order('sale_date', { ascending: true }),
-
-      // Previous period for comparison
-      supabase
-        .from('platform_daily_summary')
-        .select('*')
-        .gte('sale_date', previousStartDateStr)
-        .lt('sale_date', startDateStr),
 
       // Merchant health breakdown
       supabase.from('merchant_health').select('health_status'),
@@ -110,14 +101,14 @@ export async function GET(request: NextRequest) {
       // Growth metrics
       supabase
         .from('platform_growth')
-        .select('*')
+        .select('month, new_merchants')
         .order('month', { ascending: false })
         .limit(2),
 
       // Top merchants
       supabase
         .from('top_merchants')
-        .select('*')
+        .select('merchant_id, business_name, total_gmv, total_orders')
         .order('total_gmv', { ascending: false })
         .limit(10),
 
@@ -127,9 +118,6 @@ export async function GET(request: NextRequest) {
         .select('id', { count: 'exact', head: true })
         .not('business_name', 'is', null)
         .not('slug', 'is', null),
-
-      // Platform revenue from fees
-      supabase.from('platform_revenue').select('*').gte('date', startDateStr),
     ]);
 
     // REFACTORED: Use Cached RPC for heavy aggregation (5 min cache)
