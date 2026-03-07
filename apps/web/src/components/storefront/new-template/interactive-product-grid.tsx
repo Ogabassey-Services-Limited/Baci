@@ -50,11 +50,23 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Derive categories and brands dynamically from products
-  const categories = ['All', ...Array.from(new Set(gridProducts.map((p) => p.category)))];
+  const categories = (() => {
+    // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map())
+    const categorySet = new Set<string>();
+    for (const p of gridProducts) {
+      if (p.category) categorySet.add(p.category);
+    }
+    return ['All', ...Array.from(categorySet)];
+  })();
 
-  const brands = Array.from(
-    new Set(gridProducts.map((p) => p.brand).filter(Boolean) as string[])
-  );
+  const brands = (() => {
+    // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map().filter())
+    const brandSet = new Set<string>();
+    for (const p of gridProducts) {
+      if (p.brand) brandSet.add(p.brand);
+    }
+    return Array.from(brandSet);
+  })();
 
   const filteredProducts = gridProducts.filter((product) => {
     // Category Filter
@@ -157,7 +169,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
         <div className="flex items-center justify-between mb-6 md:mb-8">
           <div>
             {title === 'Featured Products' && (
-              <span className="text-red-600 font-bold uppercase tracking-wider text-xs md:text-sm">
+              <span className="text-[var(--store-primary)] font-bold uppercase tracking-wider text-xs md:text-sm">
                 Best Sellers
               </span>
             )}
@@ -170,7 +182,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
             {showViewAll && (
               <Link
                 href="#"
-                className="text-gray-500 hover:text-red-600 font-medium transition-colors text-xs md:text-base hidden sm:block"
+                className="text-gray-500 hover:text-[var(--store-primary)] font-medium transition-colors text-xs md:text-base hidden sm:block"
               >
                 View all products
               </Link>
@@ -185,7 +197,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
             </p>
             <button
               onClick={handleResetFilters}
-              className="mt-4 text-red-600 font-semibold hover:underline"
+              className="mt-4 text-[var(--store-primary)] font-semibold hover:underline"
             >
               Reset Filters
             </button>
