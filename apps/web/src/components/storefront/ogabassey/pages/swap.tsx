@@ -75,9 +75,9 @@ function TradeInModal({
 
       setResult(data.data);
       setStep('result');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setStep('upload');
     }
   };

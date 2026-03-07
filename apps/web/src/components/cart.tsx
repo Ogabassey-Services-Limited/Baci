@@ -27,6 +27,11 @@ export function Cart() {
 
   return (
     <ThemedSheetContent className="glass-themed flex w-full flex-col pr-0 sm:max-w-lg">
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {cartCount > 0
+          ? `Cart updated. ${cartCount} items in cart. Subtotal is ${formatCurrency(cartTotal)}.`
+          : 'Cart is empty'}
+      </div>
       <SheetHeader className="px-6">
         <SheetTitle>Cart {cartCount > 0 && `(${cartCount})`}</SheetTitle>
       </SheetHeader>

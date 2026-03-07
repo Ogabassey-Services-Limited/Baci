@@ -389,14 +389,16 @@ export async function POST(
       new_balance: remainingBalance,
       updated_status: updates,
     });
-    // biome-ignore lint/suspicious/noExplicitAny: Catch error type
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error({
       message: 'RecordPayment internal error',
       error,
     });
     return NextResponse.json(
-      { error: error.message || 'Internal Error' },
+      {
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
       { status: 500 }
     );
   }
