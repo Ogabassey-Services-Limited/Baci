@@ -1,0 +1,64 @@
+ WARN  Unsupported engine: wanted: {"node":"24.x"} (current: {"node":"v22.22.0","pnpm":"10.28.0"})
+• turbo 2.8.10
+• Packages in scope: @baci/web
+• Running dev in 1 packages
+• Remote caching disabled
+@baci/web:dev: cache bypass, force executing b4d069538906873a
+@baci/web:dev:
+@baci/web:dev: > @baci/web@0.1.0 dev /app/apps/web
+@baci/web:dev: > next dev
+@baci/web:dev:
+@baci/web:dev: ▲ Next.js 16.1.6 (Turbopack, Cache Components)
+@baci/web:dev: - Local:         http://localhost:3000
+@baci/web:dev: - Network:       http://192.168.0.2:3000
+@baci/web:dev: - Experiments (use with caution):
+@baci/web:dev:   ✓ inlineCss
+@baci/web:dev:   · optimizePackageImports
+@baci/web:dev:   · serverActions
+@baci/web:dev:   ✓ viewTransition
+@baci/web:dev:
+@baci/web:dev: ✓ Starting...
+@baci/web:dev: Attention: Next.js now collects completely anonymous telemetry regarding usage.
+@baci/web:dev: This information is used to shape Next.js' roadmap and prioritize features.
+@baci/web:dev: You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+@baci/web:dev: https://nextjs.org/telemetry
+@baci/web:dev:
+@baci/web:dev: ✓ Ready in 3s
+@baci/web:dev: ❌ Invalid environment variables: NEXT_PUBLIC_SUPABASE_URL: Required
+@baci/web:dev: NEXT_PUBLIC_SUPABASE_ANON_KEY: Required
+@baci/web:dev: SUPABASE_SERVICE_ROLE_KEY: Required
+@baci/web:dev: ○ Compiling / ...
+@baci/web:dev: ❌ Invalid environment variables: NEXT_PUBLIC_SUPABASE_URL: Required
+@baci/web:dev: NEXT_PUBLIC_SUPABASE_ANON_KEY: Required
+@baci/web:dev: SUPABASE_SERVICE_ROLE_KEY: Required
+@baci/web:dev: Failed to fetch metrics: Error: NEXT_PUBLIC_SUPABASE_URL is not defined
+@baci/web:dev:     at getSupabaseUrl (src/env.ts:167:11)
+@baci/web:dev:     at createServiceClient (src/lib/supabase/service.ts:14:29)
+@baci/web:dev:     at fetchMetricsInternal (src/app/actions.ts:17:41)
+@baci/web:dev:     at getCachedMetrics.revalidate (src/app/actions.ts:73:15)
+@baci/web:dev:     at async getLandingMetrics (src/app/actions.ts:82:10)
+@baci/web:dev:     at async HomePage (src/app/page.tsx:573:19)
+@baci/web:dev:   165 | export const getSupabaseUrl = (): string => {
+@baci/web:dev:   166 |   if (!env?.NEXT_PUBLIC_SUPABASE_URL)
+@baci/web:dev: > 167 |     throw new Error('NEXT_PUBLIC_SUPABASE_URL is not defined');
+@baci/web:dev:       |           ^
+@baci/web:dev:   168 |   return env.NEXT_PUBLIC_SUPABASE_URL;
+@baci/web:dev:   169 | };
+@baci/web:dev:   170 |
+@baci/web:dev: ❌ Invalid environment variables: NEXT_PUBLIC_SUPABASE_URL: Required
+@baci/web:dev: NEXT_PUBLIC_SUPABASE_ANON_KEY: Required
+@baci/web:dev: SUPABASE_SERVICE_ROLE_KEY: Required
+@baci/web:dev: ⨯ Error: NEXT_PUBLIC_SUPABASE_URL is not defined
+@baci/web:dev:     at getSupabaseUrl (src/env.ts:167:11)
+@baci/web:dev:     at createClient (src/lib/supabase/client.ts:7:44)
+@baci/web:dev:     at AuthProvider (src/contexts/auth-context.tsx:24:32)
+@baci/web:dev:   165 | export const getSupabaseUrl = (): string => {
+@baci/web:dev:   166 |   if (!env?.NEXT_PUBLIC_SUPABASE_URL)
+@baci/web:dev: > 167 |     throw new Error('NEXT_PUBLIC_SUPABASE_URL is not defined');
+@baci/web:dev:       |           ^
+@baci/web:dev:   168 |   return env.NEXT_PUBLIC_SUPABASE_URL;
+@baci/web:dev:   169 | };
+@baci/web:dev:   170 | {
+@baci/web:dev:   digest: '663703892'
+@baci/web:dev: }
+@baci/web:dev:  GET / 200 in 15.5s (compile: 13.5s, proxy.ts: 301ms, render: 1758ms)
