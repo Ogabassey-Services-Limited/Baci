@@ -94,11 +94,13 @@ export async function POST(request: NextRequest) {
         'idempotency-key': idempotencyKey || '',
       },
     });
-    // biome-ignore lint/suspicious/noExplicitAny: Generic error handling
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Agentic Checkout Create Error:', err);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: err.message },
+      {
+        error: 'Internal Server Error',
+        details: err instanceof Error ? err.message : 'Unknown error',
+      },
       { status: 500 }
     );
   }

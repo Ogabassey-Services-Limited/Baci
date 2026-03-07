@@ -119,11 +119,10 @@ export function OrderManagerModal({
         toast({ title: 'Success', description: data.message });
         fetchItems(); // Refresh status
       }
-      // biome-ignore lint/suspicious/noExplicitAny: error handling
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Action Failed',
-        description: err.message,
+        description: err instanceof Error ? err.message : 'Unknown error',
         variant: 'destructive',
       });
     } finally {
