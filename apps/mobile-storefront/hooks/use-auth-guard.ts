@@ -19,6 +19,7 @@ import {
 } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { createLogger } from '@/lib/logger';
+import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('AuthGuard');
@@ -38,8 +39,12 @@ const PROTECTED_ROUTES = [
  * Should be called in the root layout
  */
 export function useAuthGuard() {
-  const user = useAuthStore((state) => state.user);
-  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const { user, isInitialized } = useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      isInitialized: state.isInitialized,
+    }))
+  );
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   const previousUser = useRef(user);
@@ -110,8 +115,12 @@ export function useAuthGuard() {
  * ```
  */
 export function useRequireAuth() {
-  const user = useAuthStore((state) => state.user);
-  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const { user, isInitialized } = useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      isInitialized: state.isInitialized,
+    }))
+  );
   const pathname = usePathname();
 
   const isAuthenticated = user !== null;
@@ -137,10 +146,14 @@ export function useRequireAuth() {
  * Useful for conditional UI rendering
  */
 export function useAuthStatus() {
-  const user = useAuthStore((state) => state.user);
-  const customer = useAuthStore((state) => state.customer);
-  const isInitialized = useAuthStore((state) => state.isInitialized);
-  const isLoading = useAuthStore((state) => state.isLoading);
+  const { user, customer, isInitialized, isLoading } = useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      customer: state.customer,
+      isInitialized: state.isInitialized,
+      isLoading: state.isLoading,
+    }))
+  );
 
   return {
     isAuthenticated: user !== null,
