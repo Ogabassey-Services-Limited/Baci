@@ -1,12 +1,12 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCachedPlatformAnalytics } from '@/lib/cached-data';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
-
+import { adminAnalyticsQuerySchema } from '@/schemas/admin-analytics-query';
 import type { DailyGmvData, PlatformAnalytics } from '@/types/analytics';
 
-// Re-export types for backward compatibility if needed, or just use the imported one
 type PlatformAnalyticsResponse = PlatformAnalytics;
 
 /**
@@ -21,8 +21,6 @@ export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    // Step 1: Authentication check
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -30,7 +28,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Step 2: Resolve merchant (supports both owners and staff)
+    const { searchParams } = new URL(request.url);
+    const parseResult = adminAnalyticsQuerySchema.safeParse({
+      period: searchParams.get('period') ?? undefined,
+    });
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error:
+            parseResult.error.issues[0]?.message ?? 'Invalid period parameter',
+          code: 'INVALID_PERIOD',
+        },
+        { status: 400 }
+      );
+    }
+
+    const { period } = parseResult.data;
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);
     if (!merchantContext) {
       return NextResponse.json(
@@ -38,20 +51,23 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       );
     }
-
-    // Admin routes require being the merchant owner, not staff
     if (merchantContext.staffAccess.isStaff) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
     const merchantId = merchantContext.merchantId;
-
-    // Step 3: Admin role check
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck, error: adminCheckError } = await supabase
       .from('merchants')
       .select('is_platform_admin')
       .eq('id', merchantId)
       .maybeSingle();
+    if (adminCheckError) {
+      console.error('Admin analytics admin check error:', adminCheckError);
+      return NextResponse.json(
+        { error: 'Failed to verify admin access' },
+        { status: 500 }
+      );
+    }
 
     if (!adminCheck?.is_platform_admin) {
       return NextResponse.json(
@@ -59,11 +75,6 @@ export async function GET(request: NextRequest) {
         { status: 403 }
       );
     }
-
-    // Parse period parameter
-    const { searchParams } = new URL(request.url);
-    const period = searchParams.get('period') || '30d';
-
     const periodDays =
       period === '7d'
         ? 7
@@ -71,7 +82,7 @@ export async function GET(request: NextRequest) {
           ? 90
           : period === 'all'
             ? 3650
-            : 30; // 10 years for 'all'
+            : 30;
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - periodDays);
     const startDateStr = startDate.toISOString().split('T')[0];
@@ -79,8 +90,6 @@ export async function GET(request: NextRequest) {
     const previousStartDate = new Date(startDate);
     previousStartDate.setDate(previousStartDate.getDate() - periodDays);
     const previousStartDateStr = previousStartDate.toISOString().split('T')[0];
-
-    // Fetch all data in parallel
     const [
       dailySummaryResult,
       merchantHealthResult,
@@ -88,39 +97,42 @@ export async function GET(request: NextRequest) {
       topMerchantsResult,
       totalMerchantsResult,
     ] = await Promise.all([
-      // Current period daily summary
       supabase
         .from('platform_daily_summary')
         .select('sale_date, platform_gmv, total_orders, active_merchants')
         .gte('sale_date', startDateStr)
         .order('sale_date', { ascending: true }),
-
-      // Merchant health breakdown
       supabase.from('merchant_health').select('health_status'),
-
-      // Growth metrics
       supabase
         .from('platform_growth')
         .select('month, new_merchants')
         .order('month', { ascending: false })
         .limit(2),
-
-      // Top merchants
       supabase
         .from('top_merchants')
         .select('merchant_id, business_name, total_gmv, total_orders')
         .order('total_gmv', { ascending: false })
         .limit(10),
-
-      // Total merchants count (exclude incomplete/customer merchants)
       supabase
         .from('merchants')
         .select('id', { count: 'exact', head: true })
         .not('business_name', 'is', null)
         .not('slug', 'is', null),
     ]);
+    const queryError =
+      dailySummaryResult.error ||
+      merchantHealthResult.error ||
+      growthResult.error ||
+      topMerchantsResult.error ||
+      totalMerchantsResult.error;
+    if (queryError) {
+      console.error('Admin analytics query error:', queryError);
+      return NextResponse.json(
+        { error: 'Failed to fetch analytics data' },
+        { status: 500 }
+      );
+    }
 
-    // REFACTORED: Use Cached RPC for heavy aggregation (5 min cache)
     const endDateStr = new Date().toISOString().split('T')[0];
     const [summaryData, prevSummaryData] = await Promise.all([
       getCachedPlatformAnalytics(startDateStr, endDateStr),
@@ -148,11 +160,7 @@ export async function GET(request: NextRequest) {
     const previousGmv = Number(prevStats.totalGmv) || 0;
     const gmvChange =
       previousGmv > 0 ? ((totalGmv - previousGmv) / previousGmv) * 100 : 0;
-
-    // Process daily summary for cleanup (still needed for charts if not in RPC)
     const dailyData = dailySummaryResult.data || [];
-
-    // Process merchant health breakdown (still needed as not in RPC yet)
     const healthData = merchantHealthResult.data || [];
     const merchantHealth = {
       healthy: healthData.filter((h) => h.health_status === 'healthy').length,
@@ -173,24 +181,18 @@ export async function GET(request: NextRequest) {
       : newMerchantsThisMonth > 0
         ? 100
         : 0;
-
-    // Process top merchants
     const topMerchants = (topMerchantsResult.data || []).map((m) => ({
       id: m.merchant_id,
       name: m.business_name || 'Unnamed Store',
       gmv: Number(m.total_gmv) || 0,
       orders: Number(m.total_orders) || 0,
     }));
-
-    // Format daily GMV data for charts
     const dailyGmv: DailyGmvData[] = dailyData.map((d) => ({
       date: d.sale_date,
       gmv: Number(d.platform_gmv) || 0,
       orders: Number(d.total_orders) || 0,
       merchants: Number(d.active_merchants) || 0,
     }));
-
-    // Use RPC values for summary
     const response: PlatformAnalyticsResponse = {
       summary: {
         totalGmv,
@@ -216,7 +218,6 @@ export async function GET(request: NextRequest) {
       dailyGmv,
       generatedAt: new Date().toISOString(),
     };
-
     return NextResponse.json(response);
   } catch (error) {
     console.error('Platform analytics error:', error);
@@ -232,20 +233,24 @@ export async function GET(request: NextRequest) {
  * Refreshes the platform analytics materialized views
  * Only accessible to platform administrators
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    // Step 1: Authentication check
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    // Step 2: Resolve merchant (supports both owners and staff)
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);
     if (!merchantContext) {
       return NextResponse.json(
@@ -253,20 +258,26 @@ export async function POST() {
         { status: 404 }
       );
     }
-
-    // Admin routes require being the merchant owner, not staff
     if (merchantContext.staffAccess.isStaff) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
     const merchantId = merchantContext.merchantId;
-
-    // Step 3: Admin role check
-    const { data: adminCheck } = await supabase
+    const { data: adminCheck, error: adminCheckError } = await supabase
       .from('merchants')
       .select('is_platform_admin')
       .eq('id', merchantId)
       .maybeSingle();
+    if (adminCheckError) {
+      console.error(
+        'Admin analytics refresh admin check error:',
+        adminCheckError
+      );
+      return NextResponse.json(
+        { error: 'Failed to verify admin access' },
+        { status: 500 }
+      );
+    }
 
     if (!adminCheck?.is_platform_admin) {
       return NextResponse.json(
@@ -274,8 +285,6 @@ export async function POST() {
         { status: 403 }
       );
     }
-
-    // Refresh materialized views
     const { error } = await supabase.rpc('refresh_platform_analytics_views');
 
     if (error) {
