@@ -318,7 +318,11 @@ function CustomerItem({
             <Pressable
               style={[
                 styles.miniActionButton,
-                { backgroundColor: '#DCFCE7', minWidth: 44, minHeight: 44 },
+                {
+                  backgroundColor: colors.successLight,
+                  minWidth: 44,
+                  minHeight: 44,
+                },
               ]}
               onPress={(e) => {
                 e.stopPropagation();
@@ -328,12 +332,16 @@ function CustomerItem({
               accessibilityRole="button"
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             >
-              <Ionicons name="logo-whatsapp" size={16} color="#16A34A" />
+              <Ionicons name="logo-whatsapp" size={16} color={colors.success} />
             </Pressable>
             <Pressable
               style={[
                 styles.miniActionButton,
-                { backgroundColor: '#F3F4F6', minWidth: 44, minHeight: 44 },
+                {
+                  backgroundColor: colors.backgroundLight,
+                  minWidth: 44,
+                  minHeight: 44,
+                },
               ]}
               onPress={(e) => {
                 e.stopPropagation();
@@ -343,14 +351,18 @@ function CustomerItem({
               accessibilityRole="button"
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             >
-              <Ionicons name="call" size={16} color="#4B5563" />
+              <Ionicons name="call" size={16} color={colors.textSecondary} />
             </Pressable>
           </>
         ) : null}
         <Pressable
           style={[
             styles.miniActionButton,
-            { backgroundColor: '#DBEAFE', minWidth: 44, minHeight: 44 },
+            {
+              backgroundColor: colors.primaryLight,
+              minWidth: 44,
+              minHeight: 44,
+            },
           ]}
           onPress={(e) => {
             e.stopPropagation();
@@ -360,7 +372,7 @@ function CustomerItem({
           accessibilityRole="button"
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
-          <Ionicons name="mail" size={16} color="#2563EB" />
+          <Ionicons name="mail" size={16} color={colors.primary} />
         </Pressable>
       </View>
     </Pressable>
@@ -601,7 +613,7 @@ export default function CustomersScreen() {
             style={[
               styles.tabText,
               activeTab === 'failed'
-                ? { color: '#FFF' }
+                ? { color: isDark ? colors.background : colors.backgroundLight }
                 : { color: colors.textSecondary },
             ]}
           >
@@ -626,7 +638,7 @@ export default function CustomersScreen() {
             style={[
               styles.tabText,
               activeTab === 'all'
-                ? { color: '#FFF' }
+                ? { color: isDark ? colors.background : colors.backgroundLight }
                 : { color: colors.textSecondary },
             ]}
           >
