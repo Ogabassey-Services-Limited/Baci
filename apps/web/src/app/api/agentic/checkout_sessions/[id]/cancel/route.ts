@@ -39,8 +39,7 @@ export async function POST(
       id: params.id,
       status: 'canceled',
     });
-    // biome-ignore lint/suspicious/noExplicitAny: Generic error handling
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Agentic Checkout Cancel Error:', err);
     return NextResponse.json(
       { error: 'Internal Server Error' },

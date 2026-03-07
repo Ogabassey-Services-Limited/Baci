@@ -57,16 +57,15 @@ export async function sendFCMNotification(
       },
     });
     return { success: true, messageId: response };
-    // biome-ignore lint/suspicious/noExplicitAny: Error object is unknown type
-  } catch (error: any) {
-    const errorCode = error?.code;
+  } catch (error: unknown) {
+    const errorCode = (error as { code?: string })?.code;
     const isUnregistered =
       errorCode === 'messaging/registration-token-not-registered' ||
       errorCode === 'messaging/invalid-registration-token';
 
     return {
       success: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       isUnregistered,
     };
   }
