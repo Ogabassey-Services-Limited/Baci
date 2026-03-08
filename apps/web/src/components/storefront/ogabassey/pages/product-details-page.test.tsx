@@ -95,7 +95,9 @@ describe('ProductDetailsPage', () => {
       }} />
     );
 
-    const banner = screen.getByTestId('product-banner-carousel');
+    const banner = screen.getByRole('region', {
+      name: /product banner carousel/i,
+    });
     expect(banner).toBeInTheDocument();
   });
 
@@ -124,5 +126,56 @@ describe('ProductDetailsPage', () => {
 
     expect(screen.getByRole('tabpanel', { name: 'Reviews (7)' })).toBeInTheDocument();
     expect(screen.getByText('Based on 7 reviews')).toBeInTheDocument();
+  });
+
+  it('shows the empty review state when rating data is missing', () => {
+    render(
+      <ProductDetailsPage
+        product={{
+          id: 'p-3',
+          name: 'No Reviews Product',
+          price: '₦7,500',
+          image: 'https://example.com/no-reviews.jpg',
+          description: 'No reviews yet',
+          condition: 'new' as const,
+          colors: [],
+          storage: [],
+          images: ['https://example.com/no-reviews.jpg'],
+        }}
+      />
+    );
+
+    const reviewsTab = screen.getByRole('tab', { name: 'Reviews (0)' });
+    fireEvent.click(reviewsTab);
+
+    expect(
+      screen.getByRole('tabpanel', { name: 'Reviews (0)' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Based on 0 reviews')).toBeInTheDocument();
+  });
+
+  it('renders a fallback shell when image and description data are missing', () => {
+    render(
+      <ProductDetailsPage
+        product={{
+          id: 'p-4',
+          name: 'Minimal Product',
+          price: '₦2,500',
+          image: '',
+          description: '',
+          condition: 'new' as const,
+          colors: [],
+          storage: [],
+          images: [],
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Minimal Product' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: /product banner carousel/i })
+    ).toBeInTheDocument();
   });
 });

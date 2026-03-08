@@ -51,6 +51,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   const { addToCart } = useCart();
   const [addedItems, setAddedItems] = useState<number[]>([]);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [showDesktopBanner, setShowDesktopBanner] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const merchantContext = useMerchantSafe();
@@ -77,6 +78,27 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     window.scrollTo(0, 0);
     setFilters(initialFilterState);
   }, [categoryName]); // Add categoryName dependency for proper reset
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    const updateBannerVisibility = () => {
+      setShowDesktopBanner(mediaQuery.matches);
+    };
+
+    updateBannerVisibility();
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', updateBannerVisibility);
+      return () => {
+        mediaQuery.removeEventListener('change', updateBannerVisibility);
+      };
+    }
+
+    mediaQuery.addListener(updateBannerVisibility);
+    return () => {
+      mediaQuery.removeListener(updateBannerVisibility);
+    };
+  }, []);
 
   // Derived Data: Products in the current Category (from props)
   const categoryProducts = (() => {
@@ -242,17 +264,21 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   return (
     <div className="min-h-screen bg-gray-50 pb-20 pt-4">
       {/* Header Ad replaced with Banner Carousel */}
-      <div
-        data-testid="category-banner-carousel"
-        className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 mb-4"
-      >
-        <BannerCarousel
-          className="h-40 md:h-52"
-          categoryImage={categoryImage}
-          title={displayTitle}
-          description={seoDescription}
-        />
-      </div>
+      {showDesktopBanner && (
+        <div
+          data-testid="category-banner-carousel"
+          role="region"
+          aria-label="Category banner carousel"
+          className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 mb-4"
+        >
+          <BannerCarousel
+            className="h-40 md:h-52"
+            categoryImage={categoryImage}
+            title={displayTitle}
+            description={seoDescription}
+          />
+        </div>
+      )}
 
       {/* Breadcrumb & Header */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 mb-6">

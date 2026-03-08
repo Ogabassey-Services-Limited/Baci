@@ -6,6 +6,7 @@ import {
   calculateCheckoutSession,
 } from '@/lib/agentic/checkout';
 import { createServiceClient } from '@/lib/supabase/service';
+import { agenticCheckoutUpdateSchema } from '@/schemas/agentic-checkout';
 
 // Helper to get session from DB
 async function getSession(supabase: SupabaseClient, id: string) {
@@ -85,7 +86,18 @@ export async function POST(
   }
 
   try {
-    const { items, fulfillment_address, fulfillment_option_id } = body;
+    const parsed = agenticCheckoutUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid request body',
+          details: parsed.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const { items, fulfillment_address, fulfillment_option_id } = parsed.data;
     // Note: Spec allows updating items, address, or option.
 
     const supabase = createServiceClient();
@@ -96,8 +108,11 @@ export async function POST(
     }
 
     // Merge updates
-    const newItems = items || session.items;
-    const newAddress = fulfillment_address || session.fulfillment_address;
+    const newItems = items ?? session.items;
+    const newAddress =
+      fulfillment_address !== undefined
+        ? fulfillment_address
+        : session.fulfillment_address;
     const newOptionId =
       fulfillment_option_id !== undefined
         ? fulfillment_option_id

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getIdempotencyKey, verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { createServiceClient } from '@/lib/supabase/service';
+import { checkoutSessionSchema } from '@/schemas/agentic-checkout';
 
 export async function POST(request: NextRequest) {
   // 1. Auth & Idempotency
@@ -20,14 +21,17 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { items, fulfillment_address, currency = 'NGN' } = body;
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
+    const parsed = checkoutSessionSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Items array is required' },
+        {
+          error: 'Invalid request body',
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       );
     }
+    const { items, fulfillment_address, currency } = parsed.data;
 
     // 2. Calculate Cart State
     const supabase = createServiceClient();

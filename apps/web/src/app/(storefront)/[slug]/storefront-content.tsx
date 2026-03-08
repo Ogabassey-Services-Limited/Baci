@@ -61,6 +61,21 @@ function reportTemplateRenderFailure(context: {
   });
 }
 
+function warnMissingTemplate(context: {
+  merchantId: string;
+  merchantTemplateId?: string | null;
+  resolvedTemplateId: string;
+}) {
+  console.warn(
+    'Storefront template not found, falling back to default storefront:',
+    {
+      merchantId: context.merchantId,
+      merchantTemplateId: context.merchantTemplateId,
+      resolvedTemplateId: context.resolvedTemplateId,
+    }
+  );
+}
+
 function toTemplateMerchantData(merchant: CachedMerchant): MerchantData {
   return {
     id: merchant.id,
@@ -190,6 +205,12 @@ export async function StorefrontContent({
           error,
         });
       }
+    } else {
+      warnMissingTemplate({
+        merchantId: merchant.id,
+        merchantTemplateId: merchant.template_id,
+        resolvedTemplateId: templateId,
+      });
     }
   }
 

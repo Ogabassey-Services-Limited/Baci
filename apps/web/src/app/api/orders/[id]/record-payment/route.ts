@@ -47,10 +47,15 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const { amount, payment_method, reference, notes } = body;
+    const parsedAmount = Number(body.amount);
+    const payment_method =
+      typeof body.payment_method === 'string' ? body.payment_method : undefined;
+    const reference =
+      typeof body.reference === 'string' ? body.reference : undefined;
+    const notes = typeof body.notes === 'string' ? body.notes : undefined;
     logger.info({
       message: 'RecordPayment body parsed',
-      amount,
+      amount: parsedAmount,
       payment_method,
       orderId: id,
     });
@@ -62,7 +67,7 @@ export async function POST(
     // 2. getMerchantIdForApiUser() - gets the merchant for this user
     // 3. Order query with .eq('merchant_id', merchant.id) - ensures order ownership
     // lgtm[js/user-controlled-bypass] codeql[js/user-controlled-bypass-of-security-check]
-    if (!amount || amount <= 0) {
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
     }
 
@@ -149,7 +154,7 @@ export async function POST(
       transactions?.reduce((sum, t) => sum + (Number(t.amount) || 0), 0) || 0;
     const walletUsed = Number(order.wallet_amount_used) || 0;
     const totalPaidBefore = currentPaid + walletUsed;
-    const newPaid = totalPaidBefore + Number(amount);
+    const newPaid = totalPaidBefore + parsedAmount;
     const orderTotal = Number(order.total) || 0;
     const remainingBalance = Math.max(0, orderTotal - newPaid);
 
@@ -169,7 +174,7 @@ export async function POST(
         merchant_id: merchant.id,
         order_id: id,
         transaction_type: 'payment',
-        amount: amount,
+        amount: parsedAmount,
         currency: order.currency || 'NGN',
         status: 'completed', // Valid values: pending, processing, completed, failed, cancelled
         gateway: 'manual',
@@ -333,7 +338,7 @@ export async function POST(
           customerName: order.customer_name,
           items: emailItems,
           totalAmount: Number(orderTotal),
-          amountPaidNow: Number(amount),
+          amountPaidNow: parsedAmount,
           totalPaidSoFar: Number(newPaid),
           balanceDue: Number(remainingBalance),
           merchantName: merchant.business_name,
@@ -397,7 +402,7 @@ export async function POST(
     logger.info({ message: 'RecordPayment success', orderId: id });
     return NextResponse.json({
       success: true,
-      amount_paid: amount,
+      amount_paid: parsedAmount,
       new_balance: remainingBalance,
       updated_status: updates,
     });

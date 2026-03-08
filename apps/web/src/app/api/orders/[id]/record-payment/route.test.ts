@@ -160,6 +160,24 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(data).toEqual({ error: 'Invalid amount' });
   });
 
+  it('returns 400 when amount is not numeric', async () => {
+    // Arrange
+    const request = createRequest({
+      amount: 'not-a-number',
+      payment_method: 'cash',
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    // Act
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    // Assert
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Invalid amount' });
+  });
+
   it('returns 401 when authentication fails', async () => {
     // Arrange
     mockAuthenticateApiRequest.mockResolvedValue({
