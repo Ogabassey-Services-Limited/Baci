@@ -1,39 +1,37 @@
---- apps/mobile-admin/app/(admin)/payout-settings.tsx
-+++ apps/mobile-admin/app/(admin)/payout-settings.tsx
-@@ -218,15 +218,15 @@
-               <Ionicons
-                 name="arrow-back"
-                 size={24}
--                color={isDark ? colors.text : '#fff'}
-+                color={colors.text}
-               />
-             </Pressable>
-           ),
-           headerStyle: {
--            backgroundColor: '#0F172A', // Force dark background to match screenshot
-+            backgroundColor: colors.card,
-           },
-           headerTitleStyle: {
--            color: '#fff',
-+            color: colors.text,
-           },
-           headerRight: () => (
-             <Pressable
-@@ -378,7 +378,7 @@
+--- apps/mobile-storefront/hooks/use-network-state.ts
++++ apps/mobile-storefront/hooks/use-network-state.ts
+@@ -8,6 +8,7 @@
+  */
 
-           <View
-             style={[
-               styles.noteCard,
--              { backgroundColor: colors.infoLight || '#EFF6FF' },
-+              { backgroundColor: colors.infoLight },
-             ]}
-           >
-             <Ionicons name="information-circle" size={20} color={colors.info} />
-@@ -539,7 +539,7 @@
-   },
-   successContainer: {
--    backgroundColor: 'rgba(34, 197, 94, 0.1)', // green-500 with opacity
-+    backgroundColor: undefined, // this will be provided inline to access colors.successLight
-     padding: SPACING.xs,
-     borderRadius: RADIUS.sm,
-     alignSelf: 'flex-start',
+ import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
++import { onlineManager } from '@tanstack/react-query';
+ import { useEffect, useRef, useState } from 'react';
+ import { createLogger } from '@/lib/logger';
+
+@@ -70,6 +71,8 @@
+       const isInternetReachable = netState.isInternetReachable ?? true;
+       const isOnline = isConnected && isInternetReachable !== false;
+
++      onlineManager.setOnline(isOnline);
++
+       // Detect reconnection
+       const wasJustReconnected = wasOffline.current && isOnline;
+
+@@ -118,6 +121,8 @@
+       const isInternetReachable = netState.isInternetReachable ?? true;
+       const isOnline = isConnected && isInternetReachable !== false;
+
++      onlineManager.setOnline(isOnline);
++
+       setState({
+         isConnected,
+         isInternetReachable,
+@@ -144,6 +149,8 @@
+     const isConnected = netState.isConnected ?? true;
+     const isInternetReachable = netState.isInternetReachable ?? true;
+     const isOnline = isConnected && isInternetReachable !== false;
++
++    onlineManager.setOnline(isOnline);
+
+     setState((prev) => ({
+       ...prev,
