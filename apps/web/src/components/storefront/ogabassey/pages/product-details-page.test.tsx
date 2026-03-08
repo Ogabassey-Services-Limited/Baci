@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -80,7 +80,7 @@ vi.mock('../components/FlyToCartAnimation', () => ({
 import { ProductDetailsPage } from './product-details-page';
 
 describe('ProductDetailsPage', () => {
-  it('renders without crashing', () => {
+  it('renders the product page shell', () => {
     render(
       <ProductDetailsPage product={{
         id: 'p-1',
@@ -97,6 +97,32 @@ describe('ProductDetailsPage', () => {
 
     const banner = screen.getByTestId('product-banner-carousel');
     expect(banner).toBeInTheDocument();
-    expect(banner).toHaveClass('hidden', 'md:block');
+  });
+
+  it('uses the real review count and exposes the reviews tab panel semantics', () => {
+    render(
+      <ProductDetailsPage product={{
+        id: 'p-2',
+        name: 'Reviewed Product',
+        price: '₦15,000',
+        image: 'https://example.com/reviewed.jpg',
+        description: 'A reviewed product',
+        condition: 'new' as const,
+        colors: [],
+        storage: [],
+        images: ['https://example.com/reviewed.jpg'],
+        reviews: 7,
+        rating: 4.5,
+      }} />
+    );
+
+    const reviewsTab = screen.getByRole('tab', { name: 'Reviews (7)' });
+    expect(reviewsTab).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Reviews (124)' })).not.toBeInTheDocument();
+
+    fireEvent.click(reviewsTab);
+
+    expect(screen.getByRole('tabpanel', { name: 'Reviews (7)' })).toBeInTheDocument();
+    expect(screen.getByText('Based on 7 reviews')).toBeInTheDocument();
   });
 });

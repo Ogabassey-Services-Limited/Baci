@@ -34,7 +34,19 @@ export async function POST(
     const { id } = await params;
     logger.info({ message: 'RecordPayment starting', orderId: id });
 
-    const body = await request.json();
+    let body: Awaited<ReturnType<NextRequest['json']>>;
+
+    try {
+      body = await request.json();
+    } catch (error) {
+      logger.warn({
+        message: 'RecordPayment invalid JSON body',
+        error,
+        orderId: id,
+      });
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
     const { amount, payment_method, reference, notes } = body;
     logger.info({
       message: 'RecordPayment body parsed',
@@ -389,16 +401,13 @@ export async function POST(
       new_balance: remainingBalance,
       updated_status: updates,
     });
-  } catch (error: unknown) {
+  } catch (error) {
     logger.error({
       message: 'RecordPayment internal error',
       error,
     });
     return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

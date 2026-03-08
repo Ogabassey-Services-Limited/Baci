@@ -244,7 +244,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       {/* Header Ad replaced with Banner Carousel */}
       <div
         data-testid="category-banner-carousel"
-        className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 mb-4 [content-visibility:auto] contain-intrinsic-size-[1400px_220px]"
+        className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 mb-4"
       >
         <BannerCarousel
           className="h-40 md:h-52"
@@ -299,7 +299,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
             </button>
           </div>
         </div>
-      </div >
+      </div>
 
       <div className="max-w-[1400px] mx-auto px-4 md:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -381,7 +381,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       </div>
 
       {/* SEO Content & FAQs - Moved to Bottom (Best Practice) */}
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6 mt-16 border-t border-gray-100 pt-16 [content-visibility:auto] contain-intrinsic-size-[1400px_900px]">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-6 mt-16 border-t border-gray-100 pt-16 [content-visibility:auto] [contain-intrinsic-size:1400px_900px]">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           {/* SEO Text */}
           {(seoHeading || seoDescription) && (
@@ -469,6 +469,6 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
           </div>
         )
       }
-    </div >
+    </div>
   );
 };

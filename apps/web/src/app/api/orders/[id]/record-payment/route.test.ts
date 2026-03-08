@@ -437,6 +437,30 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(data).toEqual({ error: 'Failed to record payment' });
   });
 
+  it('returns 400 when the request body cannot be parsed', async () => {
+    // Arrange
+    const request = new NextRequest(
+      `http://localhost/api/orders/${mockOrderId}/record-payment`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: '{invalid-json',
+      }
+    );
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    // Act
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    // Assert
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Invalid JSON body' });
+  });
+
   it('returns 200 and marks order as paid when full payment is made', async () => {
     // Arrange
     const mockMerchant = {

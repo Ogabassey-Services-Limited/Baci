@@ -186,6 +186,7 @@ export async function PUT(request: Request) {
   }
 
   const merchantId = merchantContext.merchantId;
+  const publishedAt = new Date().toISOString();
 
   // Get current draft
   const { data: currentConfig } = await supabase
@@ -206,7 +207,7 @@ export async function PUT(request: Request) {
       .insert({
         page_config_id: currentConfig.id,
         config: currentConfig.published_config,
-        version_note: `Published on ${new Date().toLocaleString()}`,
+        version_note: `Published on ${publishedAt}`,
       });
 
     if (historyError) {
@@ -227,8 +228,8 @@ export async function PUT(request: Request) {
       published_store_settings: currentConfig.draft_store_settings,
       published_setup_settings: currentConfig.draft_setup_settings,
       is_published: true,
-      published_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      published_at: publishedAt,
+      updated_at: publishedAt,
     })
     .eq('id', currentConfig.id);
 

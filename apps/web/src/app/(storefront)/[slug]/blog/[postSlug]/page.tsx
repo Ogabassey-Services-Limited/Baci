@@ -65,8 +65,24 @@ async function BlogPostBody({
   const contentStr =
     typeof content === 'string' ? content : JSON.stringify(content);
   const trimmedContent = contentStr.trim();
+  let parsedJson: unknown = null;
+
+  if (typeof content === 'string') {
+    try {
+      parsedJson = JSON.parse(trimmedContent);
+    } catch {
+      parsedJson = null;
+    }
+  } else {
+    parsedJson = content;
+  }
+
+  const renderedContent =
+    parsedJson !== null && typeof parsedJson === 'object'
+      ? parsedJson
+      : content;
   const isJson =
-    trimmedContent.startsWith('{') || trimmedContent.startsWith('[');
+    renderedContent !== null && typeof renderedContent === 'object';
   const isHtml = trimmedContent.startsWith('<');
 
   let legacyHtml = '';
@@ -77,14 +93,14 @@ async function BlogPostBody({
   }
 
   return (
-    <div className="[content-visibility:auto] contain-intrinsic-size-[1152px_2400px]">
+    <div className="[content-visibility:auto] [contain-intrinsic-size:1152px_2400px]">
       {/* Table of Contents (auto-generated from headings) */}
       {isJson && <TableOfContents />}
 
       {/* Post Content */}
       <div className="mb-8">
         {isJson ? (
-          <BlogContentRenderer json={content} />
+          <BlogContentRenderer json={renderedContent} />
         ) : (
           <div
             className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
@@ -203,7 +219,7 @@ function BlogPostBodyFallback() {
   return (
     <div
       aria-hidden="true"
-      className="space-y-4 [content-visibility:auto] contain-intrinsic-size-[1152px_1600px]"
+      className="space-y-4 [content-visibility:auto] [contain-intrinsic-size:1152px_1600px]"
     >
       <div className="h-4 w-32 rounded bg-muted/60" />
       <div className="h-4 w-full rounded bg-muted/40" />

@@ -31,6 +31,7 @@ import { PriceRangeProducts } from '@/components/storefront/price-range-products
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
+import type { Product as RelatedProductsProduct } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { AdUnit } from '../components/AdUnit';
@@ -49,6 +50,68 @@ interface ProductDetailsPageProps {
   product: Product;
 }
 
+function normalizeRelatedProductCondition(
+  condition?: Product['condition']
+): RelatedProductsProduct['condition'] {
+  if (!condition) {
+    return undefined;
+  }
+
+  const normalized = condition.toLowerCase().replace(/\s+/g, '_');
+
+  return normalized === 'new' ||
+    normalized === 'used' ||
+    normalized === 'open_box' ||
+    normalized === 'refurbished'
+    ? normalized
+    : undefined;
+}
+
+function parseRelatedProductPrice(product: Product): number {
+  if (typeof product.rawPrice === 'number' && Number.isFinite(product.rawPrice)) {
+    return product.rawPrice;
+  }
+
+  const parsedPrice = Number.parseFloat(
+    String(product.price).replace(/[^0-9.]/g, '')
+  );
+
+  return Number.isFinite(parsedPrice) ? parsedPrice : 0;
+}
+
+function toRelatedProductsProduct(product: Product): RelatedProductsProduct {
+  const primaryImage = product.images?.[0] || product.image || '/placeholder.svg';
+
+  return {
+    id: String(product.id),
+    merchant_id: product.merchantId,
+    name: product.name,
+    description: product.description || '',
+    status: 'active',
+    price: parseRelatedProductPrice(product),
+    manage_stock: Boolean(product.manage_stock),
+    stock: product.stock ?? 0,
+    image: primaryImage,
+    imageLarge: primaryImage,
+    imageHint: product.brand || product.name,
+    brand: product.brand || '',
+    gtin: '',
+    mpn: '',
+    slug: product.slug,
+    category: product.category,
+    category_slug: product.categorySlug,
+    categories: product.categories
+      ? {
+          id: product.categories.id,
+          name: product.categories.name,
+          slug: product.categories.slug,
+          parent_id: product.categories.parent_id ?? undefined,
+        }
+      : null,
+    condition: normalizeRelatedProductCondition(product.condition),
+  };
+}
+
 export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product: serverProduct }) => {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -65,6 +128,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   } = useCart();
   const { toast } = useToast();
   const { toggleSaved, isSaved } = useV2Saved();
+  const relatedProductsProduct = toRelatedProductsProduct(serverProduct);
 
   // Handle ?action=buy from ChatGPT widget - auto add to cart and go to checkout
   const buyActionHandled = useRef(false);
@@ -73,7 +137,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
     if (action === 'buy' && serverProduct && !buyActionHandled.current) {
       buyActionHandled.current = true;
       // Add to cart
-      addToCart(serverProduct as any, 1);
+      addToCart(relatedProductsProduct, 1);
       toast({
         title: 'Added to cart',
         description: `${serverProduct.name} has been added to your cart.`,
@@ -196,7 +260,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               items: [
                 { label: 'Brand', value: serverProduct.brand || 'Generic' },
                 { label: 'Condition', value: serverProduct.condition || 'New' },
-                { label: 'Category', value: serverProduct.categories?.name || (serverProduct as any).category || 'General' },
+                { label: 'Category', value: serverProduct.categories?.name || serverProduct.category || 'General' },
               ],
             },
           ]) as { category: string; items: { label: string; value: string }[] }[],
@@ -206,6 +270,11 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       ],
     };
   })();
+  const normalizedReviewRating = Math.max(
+    0,
+    Math.min(Number(productData.rating) || 0, 5)
+  );
+  const normalizedReviewRatingWidth = `${(normalizedReviewRating / 5) * 100}%`;
 
   // Phase 7: Condition State
   type ConditionType = 'new' | 'used' | 'open_box' | 'refurbished';
@@ -439,7 +508,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       image: productData.images[selectedImage],
       description: productData.description,
       rating: productData.rating,
-      category: productData.categories?.name || (productData as any).category,
+      category: productData.categories?.name || productData.category,
       condition: selectedCondition as 'New' | 'Used', // Use selected condition
       brand: productData.brand,
       // Pass selected variant attributes
@@ -568,7 +637,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       image: productData.image,
       description: productData.description,
       rating: productData.rating,
-      category: productData.categories?.name || (productData as any).category,
+      category: productData.categories?.name || productData.category,
       condition: productData.condition as 'New' | 'Used',
       brand: productData.brand,
       // Store additional details for full object persistence if needed
@@ -630,7 +699,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       {/* Header Ad - Replaced with Banner Carousel */}
       <div
         data-testid="product-banner-carousel"
-        className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 mb-8 [content-visibility:auto] contain-intrinsic-size-[1400px_220px]"
+        className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 mb-8"
       >
         <BannerCarousel className="h-40 md:h-52" />
       </div>
@@ -643,10 +712,10 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           </Link>
           <ChevronRight size={16} className="mx-2" />
           <Link
-            href={`/${params.slug}/${productData.categories?.slug || productData.categorySlug || encodeURIComponent((productData.categories?.name || (productData as any).category || '').toLowerCase())}` as any}
+            href={`/${params.slug}/${productData.categories?.slug || productData.categorySlug || encodeURIComponent((productData.categories?.name || productData.category || '').toLowerCase())}` as any}
             className="md:hover:text-red-600 transition-colors"
           >
-            {productData.categories?.name || (productData as any).category}
+            {productData.categories?.name || productData.category}
           </Link>
           <ChevronRight size={16} className="mx-2" />
           <span className="text-gray-900 font-medium">{productData.name}</span>
@@ -1129,7 +1198,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           </div>
         </div>
 
-        <div className="[content-visibility:auto] contain-intrinsic-size-[1400px_2200px]">
+        <div className="[content-visibility:auto] [contain-intrinsic-size:1400px_2200px]">
           {/* Content Break Ad */}
           <div className="mt-12 mb-12">
             <AdUnit placementKey="CONTENT_BREAK" />
@@ -1139,6 +1208,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           <div className="mt-8">
             <div className="flex border-b border-gray-200 mb-8 overflow-x-auto hide-scrollbar" role="tablist">
               <button
+                type="button"
                 onClick={() => setActiveTab('description')}
                 className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap ${activeTab === 'description' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'}`}
                 role="tab"
@@ -1149,6 +1219,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                 Description
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab('specs')}
                 className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap ${activeTab === 'specs' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'}`}
                 role="tab"
@@ -1159,6 +1230,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                 Specifications
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab('reviews')}
                 className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap ${activeTab === 'reviews' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'}`}
                 role="tab"
@@ -1166,9 +1238,10 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                 aria-controls="tab-reviews"
                 id="tab-btn-reviews"
               >
-                Reviews (124)
+                Reviews ({productData.reviewCount})
               </button>
               <button
+                type="button"
                 onClick={() => setActiveTab('compare')}
                 className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'compare' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'}`}
                 role="tab"
@@ -1182,7 +1255,12 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
 
             <div className="min-h-[300px]">
               {activeTab === 'description' && (
-                <div className="prose max-w-none text-gray-600 animate-in fade-in duration-300">
+                <div
+                  role="tabpanel"
+                  id="tab-description"
+                  aria-labelledby="tab-btn-description"
+                  className="prose max-w-none text-gray-600 animate-in fade-in duration-300"
+                >
                   {/* Render description as HTML with client-side sanitization */}
                   <div
                     className="mb-4 prose-headings:text-gray-900 prose-strong:text-gray-800 prose-table:text-sm"
@@ -1209,7 +1287,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                           {productData.storage && productData.storage.length > 0 && (
                             <li>{productData.storage[0]} Storage</li>
                           )}
-                          {productData.condition && <li>Condition: {productData.condition as any}</li>}
+                          {productData.condition && <li>Condition: {productData.condition}</li>}
                           <li>{productData.brand} Official Warranty</li>
                         </>
                       )}
@@ -1219,7 +1297,12 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               )}
 
               {activeTab === 'specs' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-300">
+                <div
+                  role="tabpanel"
+                  id="tab-specs"
+                  aria-labelledby="tab-btn-specs"
+                  className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-300"
+                >
                   {productData.detailedSpecs?.map((section: any, idx: number) => (
                     <div
                       key={idx}
@@ -1249,7 +1332,12 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               )}
 
               {activeTab === 'reviews' && (
-                <div className="space-y-6 animate-in fade-in duration-300">
+                <div
+                  role="tabpanel"
+                  id="tab-reviews"
+                  aria-labelledby="tab-btn-reviews"
+                  className="space-y-6 animate-in fade-in duration-300"
+                >
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-xl font-bold text-gray-900">
                       Customer Reviews
@@ -1264,34 +1352,39 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                       <div className="text-5xl font-extrabold text-gray-900 mb-2">
                         {productData.rating}
                       </div>
-                      <div className="flex justify-center gap-1 text-yellow-400 mb-2">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} size={20} fill="currentColor" />
-                        ))}
+                      <div className="mb-2 flex justify-center">
+                        <div className="relative inline-flex">
+                          <div className="flex gap-1 text-gray-200">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={`empty-${i}`} size={20} fill="currentColor" />
+                            ))}
+                          </div>
+                          <div
+                            className="absolute inset-0 overflow-hidden text-yellow-400"
+                            style={{ width: normalizedReviewRatingWidth }}
+                          >
+                            <div className="flex w-max gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star key={`filled-${i}`} size={20} fill="currentColor" />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       <p className="text-sm text-gray-500">
                         Based on {productData.reviewCount} reviews
                       </p>
                     </div>
 
-                    {/* Rating Bars */}
-                    <div className="col-span-2 space-y-2">
-                      {[5, 4, 3, 2, 1].map((num) => (
-                        <div key={num} className="flex items-center gap-4">
-                          <span className="text-xs font-bold text-gray-500 w-3">
-                            {num}
-                          </span>
-                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-yellow-400 rounded-full"
-                              style={{
-                                width:
-                                  num === 5 ? '80%' : num === 4 ? '15%' : '2%',
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))}
+                    <div className="col-span-2 rounded-2xl border border-dashed border-gray-200 bg-white p-6">
+                      <h4 className="text-sm font-semibold uppercase tracking-wider text-gray-900">
+                        Rating Breakdown
+                      </h4>
+                      <p className="mt-3 text-sm leading-6 text-gray-500">
+                        Detailed per-star review distribution is not available in the current
+                        product payload yet.
+                      </p>
+                      {/* TODO: Render per-star rating bars once backend review distribution is included here. */}
                     </div>
                   </div>
 
@@ -1311,17 +1404,24 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               )}
 
               {activeTab === 'compare' && (
-                <ProductComparisonTable mainProduct={productData} storeSlug={params?.slug as string} />
+                <div
+                  role="tabpanel"
+                  id="tab-compare"
+                  aria-labelledby="tab-btn-compare"
+                  className="animate-in fade-in duration-300"
+                >
+                  <ProductComparisonTable mainProduct={productData} storeSlug={params?.slug as string} />
+                </div>
               )}
-            </div >
-          </div >
+            </div>
+          </div>
 
           {productData.videoUrl && (
             <ProductVideo videoId={productData.videoUrl} title={productData.name} />
           )}
 
           <BlogSnippet
-            category={productData.categories?.name || (productData as any).category}
+            category={productData.categories?.name || productData.category || 'General'}
             productId={String(productData.id)}
             merchantId={merchantContext?.merchant?.id}
           />
@@ -1330,20 +1430,20 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           <div className="max-w-[1400px] mx-auto">
             {/* Same brand, same category - builds brand entity */}
             <BrandProducts
-              product={serverProduct as any}
+              product={relatedProductsProduct}
               maxProducts={4}
               className="border-t border-gray-100 pt-8"
             />
 
             {/* Same category, similar price - supports comparison intent */}
             <PriceRangeProducts
-              product={serverProduct as any}
+              product={relatedProductsProduct}
               maxProducts={4}
               className="border-t border-gray-100"
             />
           </div>
         </div>
-      </div >
+      </div>
 
       {/* --- FIXED MOBILE BOTTOM BAR (positioned above bottom nav) --- */}
       <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 p-3 z-40 md:hidden shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
@@ -1624,6 +1724,6 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           }
         }}
       />
-    </div >
+    </div>
   );
 };

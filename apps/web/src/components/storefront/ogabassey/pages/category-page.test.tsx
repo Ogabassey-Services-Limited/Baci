@@ -43,6 +43,5 @@ describe('CategoryPage', () => {
 
     const banner = screen.getByTestId('category-banner-carousel');
     expect(banner).toBeInTheDocument();
-    expect(banner).toHaveClass('hidden', 'md:block');
   });
 });

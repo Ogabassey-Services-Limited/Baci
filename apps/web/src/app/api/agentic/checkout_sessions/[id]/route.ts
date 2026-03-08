@@ -75,8 +75,16 @@ export async function POST(
   if (!verifyAgenticApiKey(request))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  let body: Awaited<ReturnType<NextRequest['json']>>;
+
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch (err) {
+    console.error('Agentic Checkout Update JSON Parse Error:', err);
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
     const { items, fulfillment_address, fulfillment_option_id } = body;
     // Note: Spec allows updating items, address, or option.
 
@@ -142,13 +150,10 @@ export async function POST(
         { type: 'privacy_policy', url: 'https://ogabassey.com/privacy' },
       ],
     });
-  } catch (err: unknown) {
+  } catch (err) {
     console.error('Agentic Checkout Update Error:', err);
     return NextResponse.json(
-      {
-        error: 'Internal Server Error',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }

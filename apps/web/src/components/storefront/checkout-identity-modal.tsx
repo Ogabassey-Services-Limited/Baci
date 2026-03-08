@@ -3,6 +3,7 @@
 import { AlertCircle, Loader2, User, UserPlus, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { buildCheckoutIdentityRoutes } from '@/components/storefront/checkout-route';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,6 +41,8 @@ export function CheckoutIdentityModal({
   const supabase = createClient();
   const merchantContext = useMerchantSafe();
   const _merchant = merchantContext?.merchant;
+  const { checkoutUrl: normalizedCheckoutUrl, signupUrl } =
+    buildCheckoutIdentityRoutes(checkoutUrl);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +58,7 @@ export function CheckoutIdentityModal({
       if (loginError) throw loginError;
 
       // Successful login - proceed to checkout
-      router.push(checkoutUrl as `/${string}`);
+      router.push(normalizedCheckoutUrl);
       onOpenChange(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in');
@@ -64,7 +67,7 @@ export function CheckoutIdentityModal({
   };
 
   const handleGuestCheckout = () => {
-    router.push(checkoutUrl as `/${string}`);
+    router.push(normalizedCheckoutUrl);
     onOpenChange(false);
   };
 
@@ -152,7 +155,7 @@ export function CheckoutIdentityModal({
                   </p>
                   <Button
                     variant="outline"
-                    onClick={() => router.push('/signup?redirect=/checkout')}
+                    onClick={() => router.push(signupUrl)}
                     className="w-full border-[var(--store-primary)] text-[var(--store-primary)] hover:bg-[var(--store-primary)]/10 font-bold py-6 rounded-xl transition-all"
                   >
                     Register Now

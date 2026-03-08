@@ -10,8 +10,16 @@ export async function POST(request: NextRequest) {
   }
   const idempotencyKey = getIdempotencyKey(request); // ToDo: Implement idempotent checks if needed
 
+  let body: Awaited<ReturnType<NextRequest['json']>>;
+
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch (err) {
+    console.error('Agentic Checkout Create JSON Parse Error:', err);
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
     const { items, fulfillment_address, currency = 'NGN' } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -94,13 +102,10 @@ export async function POST(request: NextRequest) {
         'idempotency-key': idempotencyKey || '',
       },
     });
-  } catch (err: unknown) {
+  } catch (err) {
     console.error('Agentic Checkout Create Error:', err);
     return NextResponse.json(
-      {
-        error: 'Internal Server Error',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }
