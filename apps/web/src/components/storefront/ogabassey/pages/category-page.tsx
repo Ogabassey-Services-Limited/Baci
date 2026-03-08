@@ -36,6 +36,12 @@ export interface CategorySEOProps {
   categoryImage?: string | null;
 }
 
+type CategoryPageColor =
+  | string
+  | {
+      name?: string | null;
+    };
+
 export const CategoryPage: React.FC<CategorySEOProps> = ({
   seoHeading,
   seoDescription,
@@ -131,10 +137,16 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
         }
       }
       if (p.ram) options.ram.add(p.ram);
-      if (p.colors)
-        p.colors.forEach((c: any) =>
-          options.colors.add(typeof c === 'string' ? c : c.name || c)
-        );
+      if (p.colors) {
+        p.colors.forEach((color: CategoryPageColor) => {
+          const colorName =
+            typeof color === 'string' ? color : color.name || null;
+
+          if (colorName) {
+            options.colors.add(colorName);
+          }
+        });
+      }
       if (p.simType) options.simType.add(p.simType);
       if (p.displayType) options.displayType.add(p.displayType);
       if (p.displaySize) options.displaySize.add(p.displaySize);
@@ -202,9 +214,11 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       if (filters.colors.length > 0) {
         if (
           !p.colors ||
-          !p.colors.some((c: any) =>
-            filters.colors.includes(typeof c === 'string' ? c : c.name || c)
-          )
+          !p.colors.some((color: CategoryPageColor) => {
+            const colorName =
+              typeof color === 'string' ? color : color.name || null;
+            return colorName ? filters.colors.includes(colorName) : false;
+          })
         )
           return false;
       }
@@ -262,32 +276,38 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   const pageTitle = displayTitle;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 pt-4">
+    <div className="min-h-screen bg-[color:color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-4">
       {/* Header Ad replaced with Banner Carousel */}
-      {showDesktopBanner && (
-        <div
-          data-testid="category-banner-carousel"
-          role="region"
-          aria-label="Category banner carousel"
-          className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 mb-4"
-        >
-          <BannerCarousel
-            className="h-40 md:h-52"
-            categoryImage={categoryImage}
-            title={displayTitle}
-            description={seoDescription}
-          />
-        </div>
-      )}
+      <div className="mx-auto mb-4 hidden min-h-[208px] max-w-[1400px] px-4 md:block md:px-6">
+        {showDesktopBanner && (
+          <div
+            data-testid="category-banner-carousel"
+            role="region"
+            aria-label="Category banner carousel"
+          >
+            <BannerCarousel
+              className="h-40 md:h-52"
+              categoryImage={categoryImage}
+              title={displayTitle}
+              description={seoDescription}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Breadcrumb & Header */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 mb-6">
-        <nav className="flex items-center text-sm text-gray-500 overflow-x-auto whitespace-nowrap pb-2">
-          <Link href={asRoute(basePath || '')} className="hover:text-red-600 transition-colors">
+        <nav className="flex items-center overflow-x-auto whitespace-nowrap pb-2 text-sm text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_65%,transparent)]">
+          <Link
+            href={asRoute(basePath || '')}
+            className="transition-colors hover:text-[var(--store-primary)]"
+          >
             Home
           </Link>
           <ChevronRight size={16} className="mx-2" />
-          <span className="text-gray-900 font-medium">{displayTitle}</span>
+          <span className="font-medium text-[var(--store-background-text,#111827)]">
+            {displayTitle}
+          </span>
         </nav>
 
         <div className="mt-4 flex items-end justify-between">
@@ -319,7 +339,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
 
             <button
               onClick={() => setIsMobileFilterOpen(true)}
-              className="md:hidden flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-md active:scale-95"
+              className="flex items-center gap-2 rounded-xl bg-[var(--store-primary)] px-4 py-2.5 text-sm font-bold text-[var(--store-primary-text,#ffffff)] shadow-md active:scale-95 md:hidden"
             >
               <Filter size={16} /> Filters
             </button>
@@ -359,7 +379,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                 </p>
                 <button
                   onClick={() => setFilters(initialFilterState)}
-                  className="text-red-600 font-bold hover:underline"
+                  className="font-bold text-[var(--store-primary)] hover:underline"
                 >
                   Clear all filters
                 </button>
@@ -441,7 +461,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
               <Accordion type="single" collapsible className="w-full">
                 {seoFaqs.map((faq, idx) => (
                   <AccordionItem value={`item-${idx}`} key={idx} className="border-b-gray-100">
-                    <AccordionTrigger className="text-sm font-semibold text-gray-800 text-left hover:no-underline hover:text-red-600 py-3">
+                    <AccordionTrigger className="py-3 text-left text-sm font-semibold text-gray-800 hover:text-[var(--store-primary)] hover:no-underline">
                       {faq.question}
                     </AccordionTrigger>
                     <AccordionContent className="text-gray-500 text-sm leading-relaxed">
@@ -486,7 +506,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
               <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
                 <button
                   onClick={() => setIsMobileFilterOpen(false)}
-                  className="w-full bg-red-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95"
+                  className="w-full rounded-xl bg-[var(--store-primary)] py-3 font-bold text-[var(--store-primary-text,#ffffff)] shadow-lg active:scale-95"
                 >
                   Show {filteredProducts.length} Results
                 </button>

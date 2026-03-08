@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 function mockMatchMedia(matches: boolean) {
   Object.defineProperty(window, 'matchMedia', {
@@ -53,6 +53,10 @@ vi.mock('../components/ProductCard', () => ({
 import { CategoryPage } from './category-page';
 
 describe('CategoryPage', () => {
+  beforeEach(() => {
+    window.scrollTo = vi.fn();
+  });
+
   it('renders the category banner region on desktop', () => {
     mockMatchMedia(true);
 

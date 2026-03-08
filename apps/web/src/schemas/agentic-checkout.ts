@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const agenticCheckoutItemSchema = z.object({
-  id: z.string().min(1, 'Item id is required'),
+  id: z.string().trim().min(1, 'Item id is required'),
   quantity: z.number().int().positive('Quantity must be a positive integer'),
 });
 
@@ -38,7 +38,7 @@ export const agenticCheckoutUpdateSchema = z
   .object({
     items: z.array(agenticCheckoutItemSchema).min(1).optional(),
     fulfillment_address: agenticFulfillmentAddressSchema.nullable().optional(),
-    fulfillment_option_id: z.string().min(1).nullable().optional(),
+    fulfillment_option_id: z.string().trim().min(1).nullable().optional(),
   })
   .refine(
     (value) =>

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { Info, MapPin } from 'lucide-react';
 import type { NormalizedProductDetails } from './product-details-helpers';
 
@@ -20,6 +21,12 @@ interface ProductOptionSelectorsProps {
   selectedColor: number | null;
   showColorToast: boolean;
 }
+
+const secondaryAccent =
+  'color-mix(in_srgb,var(--store-primary) 72%,var(--store-background-text,#111827) 28%)';
+type SecondaryAccentStyle = CSSProperties & {
+  '--store-option-secondary': string;
+};
 
 export function ProductOptionSelectors({
   deliveryEstimate,
@@ -73,7 +80,7 @@ export function ProductOptionSelectors({
               current === 'Lagos' ? 'Outside Lagos' : 'Lagos'
             )
           }
-          className="mt-1 text-xs font-bold text-red-600 transition-transform active:scale-95 hover:underline"
+          className="mt-1 text-xs font-bold text-[var(--store-primary)] transition-transform active:scale-95 hover:underline"
           aria-label="Change delivery location"
         >
           Change
@@ -87,7 +94,10 @@ export function ProductOptionSelectors({
             secondaryColor === null && (
               <div className="pointer-events-none absolute -top-12 left-0 right-0 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex max-w-fit items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg">
-                  <Info size={14} className="shrink-0 text-blue-400" />
+                  <Info
+                    size={14}
+                    className="shrink-0 text-[var(--store-primary)]"
+                  />
                   <span>
                     Optional: Select a backup color in case your first choice is
                     out of stock.
@@ -100,7 +110,7 @@ export function ProductOptionSelectors({
           <label className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm font-bold text-gray-900">
             <span className="flex items-center gap-2">
               Color:
-              <span className="text-red-600">
+              <span className="text-[var(--store-primary)]">
                 {selectedColor !== null
                   ? productData.colors[selectedColor]?.name
                   : 'Select a color'}
@@ -112,7 +122,7 @@ export function ProductOptionSelectors({
               )}
             </span>
             {selectedColor === null && (
-              <span className="animate-pulse text-xs font-normal text-red-500">
+              <span className="animate-pulse text-xs font-normal text-[var(--store-primary)]">
                 * Required
               </span>
             )}
@@ -124,36 +134,73 @@ export function ProductOptionSelectors({
               const isSecondary = secondaryColor === index;
 
               return (
-                <button
-                  key={color.name}
-                  type="button"
-                  onClick={() => onSelectColor(index)}
-                  onDoubleClick={() => onSelectSecondaryColor(index)}
-                  className={`group relative flex h-14 w-14 items-center justify-center rounded-full transition-all duration-300 outline-none active:scale-95 ${
-                    isPrimary
-                      ? 'scale-110 border-[3px] border-red-600 shadow-lg'
-                      : isSecondary
-                        ? 'scale-105 border-[3px] border-blue-500 shadow-md'
-                        : 'border border-gray-200 shadow-sm md:hover:scale-105 md:hover:border-gray-400'
-                  }`}
-                  aria-label={`Select color ${color.name}`}
-                  title={color.name}
-                >
-                  <div
-                    className="h-11 w-11 rounded-full border border-black/5 shadow-inner"
-                    style={{ backgroundColor: color.value }}
-                  />
-                  {isPrimary && (
-                    <div className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-red-600 text-[10px] font-bold text-white shadow-sm">
-                      1
-                    </div>
+                <div key={color.name} className="flex flex-col items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onSelectColor(index)}
+                    className={`group relative flex h-14 w-14 items-center justify-center rounded-full transition-all duration-300 outline-none active:scale-95 ${
+                      isPrimary
+                        ? 'scale-110 border-[3px] border-[var(--store-primary)] shadow-lg'
+                        : isSecondary
+                          ? 'scale-105 border-[3px] border-[color:var(--store-option-secondary)] shadow-md'
+                          : 'border border-gray-200 shadow-sm md:hover:scale-105 md:hover:border-gray-400'
+                    }`}
+                    style={
+                      isSecondary
+                        ? ({
+                            '--store-option-secondary': secondaryAccent,
+                          } as SecondaryAccentStyle)
+                        : undefined
+                    }
+                    aria-label={`Select color ${color.name}`}
+                    aria-pressed={isPrimary}
+                    title={color.name}
+                  >
+                    <div
+                      className="h-11 w-11 rounded-full border border-black/5 shadow-inner"
+                      style={{ backgroundColor: color.value }}
+                    />
+                    {isPrimary && (
+                      <div className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-[var(--store-primary)] text-[10px] font-bold text-[var(--store-primary-text,#ffffff)] shadow-sm">
+                        1
+                      </div>
+                    )}
+                    {isSecondary && (
+                      <div
+                        className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-[color:var(--store-option-secondary)] text-[10px] font-bold text-[var(--store-primary-text,#ffffff)] shadow-sm"
+                        style={
+                          {
+                            '--store-option-secondary': secondaryAccent,
+                          } as SecondaryAccentStyle
+                        }
+                      >
+                        2
+                      </div>
+                    )}
+                  </button>
+                  {selectedColor !== null && selectedColor !== index && (
+                    <button
+                      type="button"
+                      onClick={() => onSelectSecondaryColor(index)}
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors ${
+                        isSecondary
+                          ? 'bg-[color:var(--store-option-secondary)]/10 text-[color:var(--store-option-secondary)]'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                      style={
+                        isSecondary
+                          ? ({
+                              '--store-option-secondary': secondaryAccent,
+                            } as SecondaryAccentStyle)
+                          : undefined
+                      }
+                      aria-pressed={isSecondary}
+                      aria-label={`${isSecondary ? 'Remove' : 'Set'} backup color ${color.name}`}
+                    >
+                      {isSecondary ? 'Backup' : 'Set backup'}
+                    </button>
                   )}
-                  {isSecondary && (
-                    <div className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-blue-500 text-[10px] font-bold text-white shadow-sm">
-                      2
-                    </div>
-                  )}
-                </button>
+                </div>
               );
             })}
           </div>
@@ -179,12 +226,13 @@ export function ProductOptionSelectors({
                 <label className="flex items-center justify-between text-sm font-bold text-gray-900">
                   <span>
                     {label}:{' '}
-                    <span className="text-red-600">
-                      {selectedAttributes[axis] || `Select ${label.toLowerCase()}`}
+                    <span className="text-[var(--store-primary)]">
+                      {selectedAttributes[axis] ||
+                        `Select ${label.toLowerCase()}`}
                     </span>
                   </span>
                   {!selectedAttributes[axis] && (
-                    <span className="animate-pulse text-xs font-normal text-red-500">
+                    <span className="animate-pulse text-xs font-normal text-[var(--store-primary)]">
                       * Required
                     </span>
                   )}
@@ -197,7 +245,7 @@ export function ProductOptionSelectors({
                       onClick={() => onSelectAttribute(axis, value)}
                       className={`rounded-xl border px-4 py-3 text-sm font-bold transition-all active:scale-95 ${
                         selectedAttributes[axis] === value
-                          ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100'
+                          ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5 text-[var(--store-primary)] ring-2 ring-[var(--store-primary)]/20'
                           : 'border-gray-200 text-gray-700 md:hover:border-gray-400 md:hover:bg-gray-50'
                       }`}
                       aria-label={`Select ${value} ${label.toLowerCase()}`}

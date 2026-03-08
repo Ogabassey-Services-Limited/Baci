@@ -1,10 +1,15 @@
-import { buildDescriptionExcerpt, type ConditionType, type NormalizedProductDetails } from './product-details-helpers';
+import type { Route } from 'next';
+import {
+  buildDescriptionExcerpt,
+  type ConditionType,
+  type NormalizedProductDetails,
+} from './product-details-helpers';
 import { ProductCartActions } from './product-cart-actions';
 import { ProductOptionSelectors } from './product-option-selectors';
 import { ProductSummaryPanel } from './product-summary-panel';
 
 interface ProductPurchasePanelProps {
-  cartHref: string;
+  cartHref: Route;
   currentOfferPrice: string;
   deliveryEstimate: string;
   deliveryLocation: 'Lagos' | 'Outside Lagos';

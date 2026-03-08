@@ -8,9 +8,9 @@ import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
 import { useV2Saved } from '../../providers/v2-saved-context';
 import type { Product } from '../../types';
+import { createProductCartHandlers } from './product-cart-handlers';
 import {
   buildCartItemId,
-  buildCartProduct,
   type ConditionType,
   formatAxisLabel,
   getAxisOptions,
@@ -18,9 +18,10 @@ import {
   getEffectiveAxes,
   getMissingSelectionFields,
   normalizeProductDetails,
-  resolveCurrentOffer,
   toRelatedProductsProduct,
 } from './product-details-helpers';
+import { resolveCurrentOffer } from './offer-resolution';
+import { shareProductLink } from './product-share';
 
 export type ProductDetailsActiveTab =
   | 'compare'
@@ -86,10 +87,6 @@ export function useProductDetailsState(serverProduct: Product) {
     setSelectedCondition(productData.condition || 'new');
   }, [productData.id, productData.condition]);
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-
   const currentCartItemId = buildCartItemId(productData.id, {
     color:
       selectedColor !== null ? productData.colors[selectedColor]?.name : undefined,
@@ -134,26 +131,6 @@ export function useProductDetailsState(serverProduct: Product) {
     const value = event.target.value;
     if (value === '' || /^\d+$/.test(value)) {
       setInputValue(value);
-    }
-  };
-
-  const handleQuantityBlur = () => {
-    if (!currentCartItemId) {
-      return;
-    }
-
-    let newQuantity = Number.parseInt(inputValue, 10);
-    if (Number.isNaN(newQuantity) || newQuantity < 1) {
-      setInputValue(String(quantityInCart));
-      return;
-    }
-
-    if (newQuantity > 99) {
-      newQuantity = 99;
-    }
-
-    if (newQuantity !== quantityInCart) {
-      updateQuantity(currentCartItemId, newQuantity);
     }
   };
 
@@ -205,134 +182,49 @@ export function useProductDetailsState(serverProduct: Product) {
       selectedAttributes
     );
 
-  const validateAndAddToCart = (missing = getMissingFields()) => {
-    if (missing.length > 0) {
-      setMissingFields(missing);
-      setIsSelectionModalOpen(true);
-      return false;
-    }
-
-    addToCart(
-      buildCartProduct(
-        productData,
-        currentOffer,
-        selectedImage,
-        selectedCondition,
-        selectedAttributes
-      ),
-      1,
-      {
-        color:
-          selectedColor !== null ? productData.colors[selectedColor]?.name : undefined,
-        colorValue:
-          selectedColor !== null ? productData.colors[selectedColor]?.value : undefined,
-        secondaryColor:
-          secondaryColor !== null
-            ? productData.colors[secondaryColor]?.name
-            : undefined,
-        secondaryColorValue:
-          secondaryColor !== null
-            ? productData.colors[secondaryColor]?.value
-            : undefined,
-        storage: selectedAttributes.storage,
-        condition: selectedCondition,
-        ...selectedAttributes,
-      }
-    );
-
-    toast({
-      title: 'Added to cart',
-      description: `${productData.name} has been added to your cart.`,
-      className: 'bg-white text-gray-900 border-red-600 border-2',
-    });
-    return true;
-  };
-
-  const handleIncrement = () => {
-    if (currentCartItemId) {
-      updateQuantity(currentCartItemId, quantityInCart + 1);
-    }
-  };
-
-  const handleDecrement = () => {
-    if (!currentCartItemId || quantityInCart <= 0) {
-      return;
-    }
-    if (quantityInCart <= 1) {
-      removeFromCart(currentCartItemId);
-      return;
-    }
-    updateQuantity(currentCartItemId, quantityInCart - 1);
-  };
-
   const handleToggleSaved = () => {
     toggleSaved(relatedProductsProduct);
   };
 
   const handleShare = async () => {
-    const sharePayload = {
-      title: productData.name,
-      text: `Check out ${productData.name} on ${merchantName}`,
+    await shareProductLink({
+      merchantName,
+      productName: productData.name,
+      toast,
       url: window.location.href,
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(sharePayload);
-        return;
-      } catch (error) {
-        if ((error as Error).name === 'AbortError') {
-          return;
-        }
-      }
-    }
-
-    try {
-      await navigator.clipboard.writeText(sharePayload.url);
-    } catch {
-      const textArea = document.createElement('textarea');
-      textArea.value = sharePayload.url;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-    }
-
-    toast({
-      title: 'Link copied!',
-      description: 'Product link has been copied to your clipboard.',
     });
   };
 
-  const handleMobileAddToCart = (startRect: DOMRect) => {
-    const missing = getMissingFields();
-    if (missing.length === 0) {
-      triggerFlyToCart(startRect);
-    }
-    validateAndAddToCart(missing);
-  };
-
-  const handleNegotiationSuccess = (price: number) => {
-    setIsNegotiationOpen(false);
-
-    const missing = getMissingFields();
-    if (missing.length > 0) {
-      setMissingFields(missing);
-      setIsSelectionModalOpen(true);
-      return;
-    }
-
-    validateAndAddToCart(missing);
-    applyNegotiatedPrice?.(
-      buildCartItemId(productData.id, {
-        color:
-          selectedColor !== null ? productData.colors[selectedColor]?.name : undefined,
-        condition: selectedCondition,
-        storage: selectedAttributes.storage,
-      }),
-      price
-    );
-  };
+  const {
+    handleDecrement,
+    handleIncrement,
+    handleMobileAddToCart,
+    handleNegotiationSuccess,
+    handleQuantityBlur,
+    validateAndAddToCart,
+  } = createProductCartHandlers({
+    addToCart,
+    applyNegotiatedPrice,
+    currentCartItemId,
+    currentOffer,
+    getMissingFields,
+    inputValue,
+    productData,
+    quantityInCart,
+    removeFromCart,
+    secondaryColor,
+    selectedAttributes,
+    selectedColor,
+    selectedCondition,
+    selectedImage,
+    setInputValue,
+    setIsNegotiationOpen,
+    setIsSelectionModalOpen,
+    setMissingFields,
+    toast,
+    triggerFlyToCart,
+    updateQuantity,
+  });
 
   return {
     activeTab,

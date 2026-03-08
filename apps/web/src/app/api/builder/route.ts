@@ -114,6 +114,26 @@ export async function POST(request: NextRequest) {
   const { valid, response } = await checkCsrfProtection(request);
   if (!valid) return response as NextResponse;
 
+  // Support both cookie and Bearer token auth
+  const auth = await getAuthenticatedUser(request);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { user, supabase } = auth;
+
+  // Resolve merchant context (supports both owners and staff)
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+  if (!merchantContext) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+
+  // Permission check
+  const access = toUserAccess(merchantContext);
+  if (!hasPermission(access, 'builder', 'edit')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   let body: unknown;
 
   try {
@@ -134,26 +154,6 @@ export async function POST(request: NextRequest) {
   }
 
   const { slug, config, name, seo, storeSettings, setupSettings } = parsed.data;
-
-  // Support both cookie and Bearer token auth
-  const auth = await getAuthenticatedUser(request);
-  if (!auth) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { user, supabase } = auth;
-
-  // Resolve merchant context (supports both owners and staff)
-  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
-  if (!merchantContext) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  // Permission check
-  const access = toUserAccess(merchantContext);
-  if (!hasPermission(access, 'builder', 'edit')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
 
   const merchantId = merchantContext.merchantId;
 
@@ -195,6 +195,26 @@ export async function PUT(request: NextRequest) {
   const { valid, response } = await checkCsrfProtection(request);
   if (!valid) return response as NextResponse;
 
+  // Support both cookie and Bearer token auth
+  const auth = await getAuthenticatedUser(request);
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { user, supabase } = auth;
+
+  // Resolve merchant context (supports both owners and staff)
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+  if (!merchantContext) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+
+  // Permission check
+  const access = toUserAccess(merchantContext);
+  if (!hasPermission(access, 'builder', 'edit')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   let body: unknown;
 
   try {
@@ -215,26 +235,6 @@ export async function PUT(request: NextRequest) {
   }
 
   const { slug } = parsed.data;
-
-  // Support both cookie and Bearer token auth
-  const auth = await getAuthenticatedUser(request);
-  if (!auth) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { user, supabase } = auth;
-
-  // Resolve merchant context (supports both owners and staff)
-  const merchantContext = await getMerchantForApiRequest(supabase, user.id);
-  if (!merchantContext) {
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  }
-
-  // Permission check
-  const access = toUserAccess(merchantContext);
-  if (!hasPermission(access, 'builder', 'edit')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
 
   const merchantId = merchantContext.merchantId;
   const publishedAt = new Date().toISOString();

@@ -14,6 +14,7 @@ import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
+import { recordPaymentBodySchema } from '@/schemas/record-payment';
 import { purchaseInsuranceForPaidOrder } from '@/services/insurance';
 
 /** Order item interface for email templates (2026 best practice) */
@@ -34,7 +35,7 @@ export async function POST(
     const { id } = await params;
     logger.info({ message: 'RecordPayment starting', orderId: id });
 
-    let body: Awaited<ReturnType<NextRequest['json']>>;
+    let body: unknown;
 
     try {
       body = await request.json();
@@ -47,12 +48,27 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const parsedAmount = Number(body.amount);
-    const payment_method =
-      typeof body.payment_method === 'string' ? body.payment_method : undefined;
-    const reference =
-      typeof body.reference === 'string' ? body.reference : undefined;
-    const notes = typeof body.notes === 'string' ? body.notes : undefined;
+    const parsedBody = recordPaymentBodySchema.safeParse(body);
+    if (!parsedBody.success) {
+      logger.warn({
+        message: 'RecordPayment invalid request body',
+        orderId: id,
+        details: parsedBody.error.flatten(),
+      });
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
+    const parsedAmount = Number(parsedBody.data.amount);
+    const { payment_method, reference, notes } = parsedBody.data;
+    if (!reference) {
+      return NextResponse.json(
+        { error: 'Payment reference is required' },
+        { status: 400 }
+      );
+    }
     logger.info({
       message: 'RecordPayment body parsed',
       amount: parsedAmount,
@@ -145,16 +161,22 @@ export async function POST(
 
     const { data: transactions } = await supabase
       .from('transactions')
-      .select('amount')
+      .select('amount, gateway_reference')
       .eq('order_id', id)
       .eq('status', 'completed');
+
+    const existingTransaction = transactions?.find(
+      (transaction) => transaction.gateway_reference === reference
+    );
 
     // 3. Calculate Totals
     const currentPaid =
       transactions?.reduce((sum, t) => sum + (Number(t.amount) || 0), 0) || 0;
     const walletUsed = Number(order.wallet_amount_used) || 0;
     const totalPaidBefore = currentPaid + walletUsed;
-    const newPaid = totalPaidBefore + parsedAmount;
+    const newPaid = existingTransaction
+      ? totalPaidBefore
+      : totalPaidBefore + parsedAmount;
     const orderTotal = Number(order.total) || 0;
     const remainingBalance = Math.max(0, orderTotal - newPaid);
 
@@ -167,6 +189,25 @@ export async function POST(
       remainingBalance,
     });
 
+    if (existingTransaction) {
+      logger.warn({
+        message: 'RecordPayment duplicate reference ignored',
+        orderId: id,
+        merchantId: merchant.id,
+        reference,
+      });
+      return NextResponse.json({
+        success: true,
+        amount_paid: Number(existingTransaction.amount) || parsedAmount,
+        duplicate: true,
+        new_balance: remainingBalance,
+        updated_status: {
+          payment_status: order.payment_status,
+          shipping_status: order.shipping_status,
+        },
+      });
+    }
+
     // 4. Create Transaction
     const { error: transactionError } = await supabase
       .from('transactions')
@@ -178,7 +219,7 @@ export async function POST(
         currency: order.currency || 'NGN',
         status: 'completed', // Valid values: pending, processing, completed, failed, cancelled
         gateway: 'manual',
-        gateway_reference: reference || `MAN-${Date.now()}`,
+        gateway_reference: reference,
         description: notes || `Manual payment (${payment_method})`,
         metadata: {
           payment_method: payment_method || 'manual',

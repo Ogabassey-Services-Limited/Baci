@@ -1,4 +1,7 @@
+'use client';
+
 import { AlertCircle, Check, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import type { NormalizedProductDetails } from './product-details-helpers';
 
 interface SelectionRequiredModalProps {
@@ -30,6 +33,50 @@ export function SelectionRequiredModal({
   selectedAttributes,
   selectedColor,
 }: SelectionRequiredModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen || !dialogRef.current) {
+      return;
+    }
+
+    const dialog = dialogRef.current;
+    const selector =
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(selector)
+    );
+    const firstFocusable = focusable[0];
+    const lastFocusable = focusable[focusable.length - 1];
+
+    firstFocusable?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (event.key !== 'Tab' || focusable.length === 0) {
+        return;
+      }
+
+      if (event.shiftKey && document.activeElement === firstFocusable) {
+        event.preventDefault();
+        lastFocusable?.focus();
+      } else if (!event.shiftKey && document.activeElement === lastFocusable) {
+        event.preventDefault();
+        firstFocusable?.focus();
+      }
+    };
+
+    dialog.addEventListener('keydown', handleKeyDown);
+    return () => {
+      dialog.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) {
     return null;
   }
@@ -40,9 +87,17 @@ export function SelectionRequiredModal({
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full animate-in slide-in-from-bottom-10 rounded-t-2xl bg-white shadow-2xl duration-300 md:max-w-md md:rounded-2xl">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="selection-required-heading"
+        tabIndex={-1}
+        className="relative z-10 w-full animate-in slide-in-from-bottom-10 rounded-t-2xl bg-white shadow-2xl duration-300 md:max-w-md md:rounded-2xl"
+      >
         <div className="flex items-center justify-between border-b border-gray-100 p-4">
           <h3
+            id="selection-required-heading"
             className={`flex items-center gap-2 text-lg font-bold ${
               missingFields.length === 0 ? 'text-green-600' : 'text-gray-900'
             }`}
@@ -53,7 +108,7 @@ export function SelectionRequiredModal({
               </>
             ) : (
               <>
-                <AlertCircle className="text-red-600" size={20} />
+                <AlertCircle className="text-[var(--store-primary)]" size={20} />
                 Select Options
               </>
             )}
@@ -92,10 +147,10 @@ export function SelectionRequiredModal({
                       key={color.name}
                       type="button"
                       onClick={() => onSelectColor(index)}
-                      className={`group relative flex h-14 w-14 items-center justify-center rounded-full transition-all duration-300 outline-none focus:ring-4 focus:ring-red-100 active:scale-95 ${
+                      className={`group relative flex h-14 w-14 items-center justify-center rounded-full transition-all duration-300 outline-none focus:ring-4 focus:ring-[var(--store-primary)]/20 active:scale-95 ${
                         isSelected
-                          ? 'scale-110 border-[3px] border-red-600 shadow-lg'
-                          : 'border border-gray-200 shadow-sm md:hover:scale-105 md:hover:border-gray-400'
+                          ? 'scale-110 border-[3px] border-[var(--store-primary)] shadow-lg'
+                          : 'border border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_15%,transparent)] shadow-sm md:hover:scale-105 md:hover:border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_30%,transparent)]'
                       }`}
                     >
                       <div
@@ -106,7 +161,11 @@ export function SelectionRequiredModal({
                         <div className="absolute inset-0 z-10 flex items-center justify-center">
                           <Check
                             size={20}
-                            className={isLight ? 'text-gray-900' : 'text-white'}
+                            className={
+                              isLight
+                                ? 'text-[var(--store-background-text,#111827)]'
+                                : 'text-[var(--store-primary-text,#ffffff)]'
+                            }
                             strokeWidth={3}
                           />
                         </div>
@@ -143,8 +202,8 @@ export function SelectionRequiredModal({
                         onClick={() => onSelectAttribute(axis, value)}
                         className={`rounded-xl border px-4 py-3 text-sm font-bold transition-all active:scale-95 ${
                           selectedAttributes[axis] === value
-                            ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100'
-                            : 'border-gray-200 bg-gray-50 text-gray-700'
+                            ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5 text-[var(--store-primary)] ring-2 ring-[var(--store-primary)]/20'
+                            : 'border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_15%,transparent)] bg-gray-50 text-gray-700'
                         }`}
                       >
                         {value}
@@ -161,7 +220,7 @@ export function SelectionRequiredModal({
             type="button"
             onClick={onConfirm}
             disabled={missingFields.length > 0}
-            className="w-full rounded-xl bg-red-600 py-3.5 font-bold text-white shadow-lg transition-all active:scale-[0.98] disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none hover:bg-red-700"
+            className="w-full rounded-xl bg-[var(--store-primary)] py-3.5 font-bold text-[var(--store-primary-text,#ffffff)] shadow-lg transition-all active:scale-[0.98] disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none hover:bg-[var(--store-primary)]/90"
           >
             {missingFields.length > 0
               ? `Select ${missingFields.length} more option${

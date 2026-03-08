@@ -8,6 +8,8 @@ interface TipTapNode {
   type?: string;
 }
 
+const MAX_TIPTAP_DEPTH = 75;
+
 function normalizeBasePath(basePath: string): string {
   if (!basePath || basePath === '/') {
     return '';
@@ -28,8 +30,19 @@ function tryParseJson(content: unknown): unknown | null {
   }
 }
 
-function extractTipTapText(node: TipTapNode): string {
-  const childText = node.content?.map(extractTipTapText).join(' ') || '';
+function extractTipTapText(
+  node: TipTapNode,
+  depth = 0,
+  maxDepth = MAX_TIPTAP_DEPTH
+): string {
+  if (depth >= maxDepth) {
+    return node.text?.trim() || '';
+  }
+
+  const childText =
+    node.content
+      ?.map((childNode) => extractTipTapText(childNode, depth + 1, maxDepth))
+      .join(' ') || '';
   return [node.text, childText].filter(Boolean).join(' ').trim();
 }
 
@@ -43,7 +56,11 @@ function truncateText(text: string, maxLength: number): string {
 
 export async function resolveBlogPostContent(content: unknown) {
   const contentStr =
-    typeof content === 'string' ? content : JSON.stringify(content ?? '');
+    typeof content === 'string'
+      ? content
+      : content && typeof content === 'object'
+        ? JSON.stringify(content)
+        : '';
   const trimmedContent = contentStr.trim();
   const parsedJson = tryParseJson(content);
   const renderedContent =

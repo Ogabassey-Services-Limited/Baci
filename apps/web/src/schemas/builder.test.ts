@@ -20,6 +20,15 @@ describe('builderCreateSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('rejects non-object config payloads', () => {
+    const result = builderCreateSchema.safeParse({
+      slug: 'home',
+      config: 'not-an-object',
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('builderPublishSchema', () => {

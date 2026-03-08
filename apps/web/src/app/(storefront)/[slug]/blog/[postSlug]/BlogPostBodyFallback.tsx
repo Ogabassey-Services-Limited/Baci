@@ -2,6 +2,7 @@ export function BlogPostBodyFallback() {
   return (
     <div
       aria-hidden="true"
+      data-testid="blog-post-body-fallback"
       className="space-y-4 [content-visibility:auto] [contain-intrinsic-size:1152px_1600px]"
     >
       <div className="h-4 w-32 rounded bg-muted/60" />

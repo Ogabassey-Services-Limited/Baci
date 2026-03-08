@@ -1,21 +1,55 @@
 'use client';
 
-import { NegotiationModal } from '../components/NegotiationModal';
-import { ProductVideo } from '../components/ProductVideo';
-import { AdUnit } from '../components/AdUnit';
-import { BannerCarousel } from '../components/BannerCarousel';
-import { BlogSnippet } from '../components/BlogSnippet';
-import { FlyToCartAnimation } from '../components/FlyToCartAnimation';
-import { BrandProducts } from '@/components/storefront/brand-products';
-import { PriceRangeProducts } from '@/components/storefront/price-range-products';
+import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
 import type { Product } from '../types';
+import { FlyToCartAnimation } from '../components/FlyToCartAnimation';
+import { NegotiationModal } from '../components/NegotiationModal';
 import { ProductBreadcrumbs } from './product-details-page/product-breadcrumbs';
-import { ProductDetailsTabs } from './product-details-page/product-details-tabs';
 import { ProductMediaGallery } from './product-details-page/product-media-gallery';
 import { ProductMobileActionBar } from './product-details-page/product-mobile-action-bar';
 import { ProductPurchasePanel } from './product-details-page/product-purchase-panel';
 import { SelectionRequiredModal } from './product-details-page/selection-required-modal';
 import { useProductDetailsState } from './product-details-page/use-product-details-state';
+
+const AdUnit = dynamic(
+  () => import('../components/AdUnit').then((mod) => mod.AdUnit),
+  { loading: () => null, ssr: false }
+);
+const BannerCarousel = dynamic(
+  () =>
+    import('../components/BannerCarousel').then((mod) => mod.BannerCarousel),
+  { loading: () => null, ssr: false }
+);
+const BlogSnippet = dynamic(
+  () => import('../components/BlogSnippet').then((mod) => mod.BlogSnippet),
+  { loading: () => null }
+);
+const BrandProducts = dynamic(
+  () =>
+    import('@/components/storefront/brand-products').then(
+      (mod) => mod.BrandProducts
+    ),
+  { loading: () => null }
+);
+const PriceRangeProducts = dynamic(
+  () =>
+    import('@/components/storefront/price-range-products').then(
+      (mod) => mod.PriceRangeProducts
+    ),
+  { loading: () => null }
+);
+const ProductDetailsTabs = dynamic(
+  () =>
+    import('./product-details-page/product-details-tabs').then(
+      (mod) => mod.ProductDetailsTabs
+    ),
+  { loading: () => null }
+);
+const ProductVideo = dynamic(
+  () => import('../components/ProductVideo').then((mod) => mod.ProductVideo),
+  { loading: () => null }
+);
 
 interface ProductDetailsPageProps {
   product: Product;
@@ -75,6 +109,29 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
     validateAndAddToCart,
   } = useProductDetailsState(product);
 
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    const syncViewport = () => {
+      setIsDesktop(mediaQuery.matches);
+    };
+
+    syncViewport();
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncViewport);
+      return () => {
+        mediaQuery.removeEventListener('change', syncViewport);
+      };
+    }
+
+    mediaQuery.addListener(syncViewport);
+    return () => {
+      mediaQuery.removeListener(syncViewport);
+    };
+  }, []);
+
   const handleAttributeSelection = (axis: string, value: string) => {
     setSelectedAttributes((prev) => ({ ...prev, [axis]: value }));
   };
@@ -97,9 +154,9 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
         data-testid="product-banner-carousel"
         role="region"
         aria-label="Product banner carousel"
-        className="mx-auto mb-8 hidden max-w-[1400px] px-4 md:block md:px-6"
+        className="mx-auto mb-8 hidden min-h-[208px] max-w-[1400px] px-4 md:block md:px-6"
       >
-        <BannerCarousel className="h-40 md:h-52" />
+        {isDesktop ? <BannerCarousel className="h-40 md:h-52" /> : null}
       </div>
 
       <div className="mx-auto max-w-[1400px] px-4 md:px-6">
@@ -173,7 +230,10 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
           />
 
           {productData.videoUrl && (
-            <ProductVideo videoId={productData.videoUrl} title={productData.name} />
+            <ProductVideo
+              videoId={productData.videoUrl}
+              title={productData.name}
+            />
           )}
 
           <BlogSnippet
@@ -238,9 +298,10 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
         isOpen={isNegotiationOpen}
         onClose={() => setIsNegotiationOpen(false)}
         productName={productData.name}
-        currentPrice={productData.rawPrice || 0}
-        type="single"
+        currentPrice={currentOffer.rawPrice}
         onSuccess={handleNegotiationSuccess}
+        type="single"
+        itemId={String(productData.id)}
       />
     </div>
   );

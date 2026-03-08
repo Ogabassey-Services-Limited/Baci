@@ -51,6 +51,7 @@ export async function BlogPostBody({
           <BlogContentRenderer json={renderedContent} />
         ) : (
           <div
+            data-testid="blog-post-legacy-content"
             className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
             /*
               biome-ignore lint/security/noDangerouslySetInnerHtml: Legacy content sanitized

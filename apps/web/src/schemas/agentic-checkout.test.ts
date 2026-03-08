@@ -32,6 +32,14 @@ describe('checkoutSessionSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('rejects whitespace-only item identifiers', () => {
+    const result = checkoutSessionSchema.safeParse({
+      items: [{ id: '   ', quantity: 1 }],
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('agenticCheckoutUpdateSchema', () => {
@@ -49,6 +57,14 @@ describe('agenticCheckoutUpdateSchema', () => {
 
   it('rejects empty update payloads', () => {
     const result = agenticCheckoutUpdateSchema.safeParse({});
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects whitespace-only fulfillment option identifiers', () => {
+    const result = agenticCheckoutUpdateSchema.safeParse({
+      fulfillment_option_id: '   ',
+    });
 
     expect(result.success).toBe(false);
   });

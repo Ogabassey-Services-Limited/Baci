@@ -1,5 +1,10 @@
+'use client';
+
 import { Heart, Share2, Star } from 'lucide-react';
-import type { ConditionType, NormalizedProductDetails } from './product-details-helpers';
+import type {
+  ConditionType,
+  NormalizedProductDetails,
+} from './product-details-helpers';
 
 interface ProductSummaryPanelProps {
   currentOfferPrice: string;
@@ -11,6 +16,22 @@ interface ProductSummaryPanelProps {
   setSelectedCondition: (condition: ConditionType) => void;
 }
 
+function formatConditionLabel(condition?: string | null) {
+  if (!condition) {
+    return 'New';
+  }
+
+  if (condition === 'used') {
+    return 'Premium Used';
+  }
+
+  if (condition === 'open_box') {
+    return 'Open Box';
+  }
+
+  return `${condition.charAt(0).toUpperCase()}${condition.slice(1)}`;
+}
+
 export function ProductSummaryPanel({
   currentOfferPrice,
   isLiked,
@@ -20,17 +41,19 @@ export function ProductSummaryPanel({
   selectedCondition,
   setSelectedCondition,
 }: ProductSummaryPanelProps) {
+  const baseCondition = productData.condition || 'new';
+
   return (
     <>
       <div className="mb-2 flex items-start justify-between">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-red-600">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--store-primary)]">
           {productData.brand}
         </h2>
         <div className="flex gap-3">
           <button
             type="button"
             onClick={onShare}
-            className="text-gray-400 transition-colors active:text-red-600 md:hover:text-red-600"
+            className="text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_45%,transparent)] transition-colors active:text-[var(--store-primary)] md:hover:text-[var(--store-primary)]"
             aria-label="Share this product"
           >
             <Share2 size={20} />
@@ -38,27 +61,25 @@ export function ProductSummaryPanel({
           <button
             type="button"
             onClick={onToggleSaved}
-            className={`transition-colors active:text-red-600 ${
+            className={`transition-colors active:text-[var(--store-primary)] ${
               isLiked
-                ? 'text-red-600'
-                : 'text-gray-400 md:hover:text-red-600'
+                ? 'text-[var(--store-primary)]'
+                : 'text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_45%,transparent)] md:hover:text-[var(--store-primary)]'
             }`}
-            aria-label={
-              isLiked ? 'Remove from wishlist' : 'Add to wishlist'
-            }
+            aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
           >
             <Heart size={20} fill={isLiked ? 'currentColor' : 'none'} />
           </button>
         </div>
       </div>
 
-      <h1 className="mb-4 text-3xl font-extrabold text-gray-900 md:text-3xl">
+      <h1 className="mb-4 text-3xl font-extrabold text-[var(--store-background-text,#111827)] md:text-3xl">
         {productData.name}
       </h1>
 
       <div className="mb-6 flex items-center gap-4">
         <div
-          className="flex items-center gap-0.5 text-yellow-400"
+          className="flex items-center gap-0.5 text-[color:var(--store-rating,#facc15)]"
           role="img"
           aria-label={`Rated ${productData.rating} out of 5 stars`}
         >
@@ -70,82 +91,59 @@ export function ProductSummaryPanel({
                 index < Math.floor(productData.rating) ? 'currentColor' : 'none'
               }
               className={
-                index >= Math.floor(productData.rating) ? 'text-gray-300' : ''
+                index >= Math.floor(productData.rating)
+                  ? 'text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_18%,transparent)]'
+                  : ''
               }
               aria-hidden="true"
             />
           ))}
         </div>
-        <span className="text-sm font-medium text-gray-500">
+        <span className="text-sm font-medium text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_60%,transparent)]">
           {productData.reviewCount} Reviews
         </span>
       </div>
 
-      <div className="mb-6 text-3xl font-bold text-red-600">
+      <div className="mb-6 text-3xl font-bold text-[var(--store-primary)]">
         {currentOfferPrice}
       </div>
 
       {(productData.has_condition_offers ||
         (productData.offers && productData.offers.length > 0)) && (
         <div className="mb-6">
-          <label className="mb-3 block text-sm font-bold text-gray-900">
+          <label className="mb-3 block text-sm font-bold text-[var(--store-background-text,#111827)]">
             Condition:{' '}
-            <span className="text-red-600">
-              {selectedCondition === 'used'
-                ? 'Premium Used'
-                : selectedCondition === 'open_box'
-                  ? 'Open Box'
-                  : `${selectedCondition.charAt(0).toUpperCase()}${selectedCondition.slice(1)}`}
+            <span className="text-[var(--store-primary)]">
+              {formatConditionLabel(selectedCondition)}
             </span>
           </label>
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() =>
-                setSelectedCondition(
-                  (productData.condition?.toLowerCase() || 'new') as ConditionType
-                )
-              }
+              onClick={() => setSelectedCondition(baseCondition)}
               className={`rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all ${
-                selectedCondition ===
-                (productData.condition?.toLowerCase() || 'new')
-                  ? 'border-red-600 bg-red-50 text-red-700'
-                  : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                selectedCondition === baseCondition
+                  ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5 text-[var(--store-primary)]'
+                  : 'border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_15%,transparent)] text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_70%,transparent)] hover:border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_30%,transparent)]'
               }`}
             >
-              {productData.condition === 'used'
-                ? 'Premium Used'
-                : productData.condition === 'open_box'
-                  ? 'Open Box'
-                  : productData.condition === 'new'
-                    ? 'New'
-                    : productData.condition?.charAt(0).toUpperCase() +
-                        productData.condition?.slice(1) || 'New'}
+              {formatConditionLabel(baseCondition)}
             </button>
 
-            {productData.offers?.map((offer) => {
-              const label =
-                offer.condition === 'used'
-                  ? 'Premium Used'
-                  : offer.condition === 'open_box'
-                    ? 'Open Box'
-                    : `${offer.condition.charAt(0).toUpperCase()}${offer.condition.slice(1)}`;
-
-              return (
-                <button
-                  key={offer.id}
-                  type="button"
-                  onClick={() => setSelectedCondition(offer.condition)}
-                  className={`rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all ${
-                    selectedCondition === offer.condition
-                      ? 'border-red-600 bg-red-50 text-red-700'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
+            {productData.offers?.map((offer) => (
+              <button
+                key={offer.id}
+                type="button"
+                onClick={() => setSelectedCondition(offer.condition)}
+                className={`rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all ${
+                  selectedCondition === offer.condition
+                    ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5 text-[var(--store-primary)]'
+                    : 'border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_15%,transparent)] text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_70%,transparent)] hover:border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_30%,transparent)]'
+                }`}
+              >
+                {formatConditionLabel(offer.condition)}
+              </button>
+            ))}
           </div>
         </div>
       )}

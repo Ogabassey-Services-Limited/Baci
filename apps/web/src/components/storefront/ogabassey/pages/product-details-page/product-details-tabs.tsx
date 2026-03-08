@@ -1,8 +1,8 @@
 import { ArrowRightLeft, Star, User } from 'lucide-react';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { ProductComparisonTable } from '../../components/ProductComparisonTable';
-import type { ProductDetailsActiveTab } from './use-product-details-state';
 import type { NormalizedProductDetails } from './product-details-helpers';
+import type { ProductDetailsActiveTab } from './use-product-details-state';
 
 interface ProductDetailsTabsProps {
   activeTab: ProductDetailsActiveTab;
@@ -21,7 +21,10 @@ export function ProductDetailsTabs({
 }: ProductDetailsTabsProps) {
   return (
     <div className="mt-8">
-      <div className="hide-scrollbar mb-8 flex overflow-x-auto border-b border-gray-200" role="tablist">
+      <div
+        className="hide-scrollbar mb-8 flex overflow-x-auto border-b border-gray-200"
+        role="tablist"
+      >
         {[
           ['description', 'Description'],
           ['specs', 'Specifications'],
@@ -34,7 +37,7 @@ export function ProductDetailsTabs({
             onClick={() => onSelectTab(value as ProductDetailsActiveTab)}
             className={`whitespace-nowrap px-6 pb-4 text-lg font-semibold transition-colors ${
               activeTab === value
-                ? 'border-b-2 border-red-600 text-red-600'
+                ? 'border-b-2 border-[var(--store-primary)] text-[var(--store-primary)]'
                 : 'text-gray-500 md:hover:text-gray-800'
             } ${value === 'compare' ? 'flex items-center gap-2' : ''}`}
             role="tab"
@@ -81,9 +84,7 @@ export function ProductDetailsTabs({
                     {productData.displaySize && <li>{productData.displaySize} Display</li>}
                     {productData.ram && <li>{productData.ram} RAM</li>}
                     {productData.storage[0] && <li>{productData.storage[0]} Storage</li>}
-                    {productData.condition && (
-                      <li>Condition: {productData.condition}</li>
-                    )}
+                    {productData.condition && <li>Condition: {productData.condition}</li>}
                     <li>{productData.brand} Official Warranty</li>
                   </>
                 )}
@@ -138,7 +139,12 @@ export function ProductDetailsTabs({
               <h3 className="text-xl font-bold text-gray-900">
                 Customer Reviews
               </h3>
-              <button className="text-sm font-bold text-red-600 hover:text-red-700">
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="cursor-not-allowed text-sm font-bold text-[var(--store-primary)]/60"
+              >
                 Write a Review
               </button>
             </div>
@@ -160,7 +166,7 @@ export function ProductDetailsTabs({
                       ))}
                     </div>
                     <div
-                      className="absolute inset-0 overflow-hidden text-yellow-400"
+                      className="absolute inset-0 overflow-hidden text-[color:var(--store-rating,#facc15)]"
                       style={{ width: normalizedReviewRatingWidth }}
                     >
                       <div className="flex w-max gap-1">

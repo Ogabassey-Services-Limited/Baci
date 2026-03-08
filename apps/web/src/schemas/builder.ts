@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
+const builderConfigSchema = z.object({}).passthrough();
+
 export const builderCreateSchema = z.object({
   slug: z.string().trim().min(1).optional().default('home'),
-  config: z.unknown().refine((value) => value !== undefined, {
-    message: 'Config is required',
-  }),
+  config: builderConfigSchema,
   name: z.string().trim().min(1).optional().default('Home'),
   seo: z.unknown().nullable().optional(),
   storeSettings: z.unknown().nullable().optional(),
