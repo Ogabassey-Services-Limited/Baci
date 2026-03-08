@@ -49,6 +49,16 @@ export interface Banner {
   size: 'large' | 'small';
 }
 
+export interface ProductSpecItem {
+  label: string;
+  value: string;
+}
+
+export interface ProductSpecSection {
+  category: string;
+  items: ProductSpecItem[];
+}
+
 export interface Product {
   id: number | string;
   merchantId?: string; // For scoped searches (comparison)
@@ -80,8 +90,8 @@ export interface Product {
   // New fields for Interactive Grid
   images?: string[];
   spec?: string;
-  specs?: { label: string; value: string }[];
-  detailedSpecs?: { category: string; items: { label: string; value: string }[] }[];
+  specs?: ProductSpecItem[];
+  detailedSpecs?: ProductSpecSection[];
   reviews?: number;
   stock?: number;
   manage_stock?: boolean;

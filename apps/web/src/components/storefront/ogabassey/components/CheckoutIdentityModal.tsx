@@ -3,6 +3,7 @@
 import { AlertCircle, Loader2, User, UserPlus, X, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { buildCheckoutIdentityRoutes } from '@/components/storefront/checkout-route';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,8 @@ export function CheckoutIdentityModal({
   const supabase = createClient();
   const merchantContext = useMerchantSafe();
   const _merchant = merchantContext?.merchant;
+  const { checkoutUrl: normalizedCheckoutUrl, signupUrl } =
+    buildCheckoutIdentityRoutes(checkoutUrl);
 
   // 2026 Best Practice: Lock body scroll when modal is open
   useEffect(() => {
@@ -74,7 +77,7 @@ export function CheckoutIdentityModal({
       if (loginError) throw loginError;
 
       // Successful login - proceed to checkout
-      router.push(checkoutUrl as never);
+      router.push(normalizedCheckoutUrl);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in');
@@ -83,7 +86,7 @@ export function CheckoutIdentityModal({
   };
 
   const handleGuestCheckout = () => {
-    router.push(checkoutUrl as never);
+    router.push(normalizedCheckoutUrl);
     onClose();
   };
 
@@ -175,7 +178,7 @@ export function CheckoutIdentityModal({
                   Save your details for faster checkout next time.
                 </p>
                 <button
-                  onClick={() => router.push('/signup?redirect=/checkout')}
+                  onClick={() => router.push(signupUrl)}
                   className="w-full border-2 border-red-600 text-red-600 hover:bg-red-50 font-bold py-3.5 rounded-xl text-sm transition-all"
                 >
                   Register Now

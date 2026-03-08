@@ -30,6 +30,14 @@ paths-ignore:
   
   # Product pages using safeJsonLdStringify() for JSON-LD schemas
   - "**/products/*/page.tsx"
+
+  # False positive: Next.js <Link href> components - React escapes all JSX attributes
+  - "**/product-details-page/product-breadcrumbs.tsx"
+  - "**/product-details-page/product-cart-actions.tsx"
+  - "**/product-details-page/product-mobile-action-bar.tsx"
+
+  # False positive: Next.js <Link href> in category page breadcrumb
+  - "**/ogabassey/pages/category-page.tsx"
   
   # Components with validated redirects
   - "**/dashboard/client-layout.tsx"

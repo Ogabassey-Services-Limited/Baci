@@ -1,0 +1,147 @@
+import { describe, expect, it } from 'vitest';
+import {
+  buildBlogUrl,
+  getBlogPostTextPreview,
+  resolveBlogPostContent,
+} from './blog-post-content';
+
+describe('resolveBlogPostContent', () => {
+  it('preserves TipTap JSON documents for structured rendering', async () => {
+    const content = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Structured content' }],
+        },
+      ],
+    };
+
+    const result = await resolveBlogPostContent(content);
+
+    expect(result.isJson).toBe(true);
+    expect(result.renderedContent).toEqual(content);
+    expect(result.legacyHtml).toBe('');
+  });
+
+  it('parses stringified TipTap JSON documents for structured rendering', async () => {
+    const content = JSON.stringify({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Structured content string' }],
+        },
+      ],
+    });
+
+    const result = await resolveBlogPostContent(content);
+
+    expect(result.isJson).toBe(true);
+    expect(result.renderedContent).toEqual(JSON.parse(content));
+    expect(result.legacyHtml).toBe('');
+  });
+
+  it('keeps legacy HTML on the sanitized legacy branch', async () => {
+    const result = await resolveBlogPostContent('<p>Legacy content</p>');
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('Legacy content');
+  });
+
+  it('renders markdown into sanitized legacy HTML', async () => {
+    const result = await resolveBlogPostContent('## Markdown title');
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('Markdown title');
+  });
+
+  it('handles empty and null content safely', async () => {
+    const emptyResult = await resolveBlogPostContent('');
+    const nullResult = await resolveBlogPostContent(null);
+
+    expect(emptyResult.isJson).toBe(false);
+    expect(emptyResult.legacyHtml).toBe('');
+    expect(nullResult.isJson).toBe(false);
+    expect(nullResult.legacyHtml).toBe('');
+  });
+});
+
+describe('getBlogPostTextPreview', () => {
+  it('extracts plain text from TipTap JSON strings', () => {
+    const preview = getBlogPostTextPreview(
+      JSON.stringify({
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Hello structured blog world' }],
+          },
+        ],
+      })
+    );
+
+    expect(preview).toBe('Hello structured blog world');
+  });
+
+  it('falls back safely when the content is not extractable', () => {
+    const preview = getBlogPostTextPreview({ foo: 'bar' });
+
+    expect(preview).toBe('Read this blog post');
+  });
+
+  it('falls back for empty strings', () => {
+    const preview = getBlogPostTextPreview('');
+
+    expect(preview).toBe('Read this blog post');
+  });
+
+  it('concatenates nested TipTap paragraphs', () => {
+    const preview = getBlogPostTextPreview({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'First paragraph' }],
+        },
+        {
+          type: 'blockquote',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'Nested second paragraph' }],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(preview).toBe('First paragraph Nested second paragraph');
+  });
+});
+
+describe('buildBlogUrl', () => {
+  it('preserves merchant base paths for subpath storefronts', () => {
+    expect(buildBlogUrl('https://usebaci.com', '/ogabassey', 'post-1')).toBe(
+      'https://usebaci.com/ogabassey/blog/post-1'
+    );
+  });
+
+  it('omits the base path for custom-domain storefronts', () => {
+    expect(buildBlogUrl('https://ogabassey.com', '', 'post-1')).toBe(
+      'https://ogabassey.com/blog/post-1'
+    );
+  });
+
+  it('normalizes trailing slashes in merchant base paths', () => {
+    expect(buildBlogUrl('https://usebaci.com', '/ogabassey/', 'post-1')).toBe(
+      'https://usebaci.com/ogabassey/blog/post-1'
+    );
+  });
+
+  it('normalizes repeated trailing slashes for blog index urls', () => {
+    expect(buildBlogUrl('https://usebaci.com', '/ogabassey///')).toBe(
+      'https://usebaci.com/ogabassey/blog'
+    );
+  });
+});

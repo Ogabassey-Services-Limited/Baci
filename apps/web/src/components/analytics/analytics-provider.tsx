@@ -1,6 +1,6 @@
 'use client';
 
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import { FacebookPixel } from './facebook-pixel';
 import { GoogleAnalytics } from './google-analytics';
 import { SnapchatPixel } from './snapchat-pixel';
@@ -32,11 +32,16 @@ interface MerchantWithAnalytics {
   twitter_pixel_id?: string;
 }
 
-export function AnalyticsProvider() {
-  const { merchant } = useMerchant();
+interface AnalyticsProviderProps {
+  merchant?: MerchantWithAnalytics | null;
+}
+
+export function AnalyticsProvider({ merchant }: AnalyticsProviderProps = {}) {
+  const merchantContext = useMerchantSafe();
 
   // Get analytics IDs from merchant settings
-  const merchantData = merchant as MerchantWithAnalytics | null;
+  const merchantData =
+    merchant || (merchantContext?.merchant as MerchantWithAnalytics | null);
   const gaId = merchantData?.google_analytics_id;
   const fbPixelId = merchantData?.facebook_pixel_id;
   const tiktokPixelId = merchantData?.tiktok_pixel_id;
