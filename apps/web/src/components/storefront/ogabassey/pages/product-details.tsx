@@ -555,11 +555,17 @@ export const OgabasseyV2ProductDetails: React.FC<
                 {productData.brand}
               </h2>
               <div className="flex gap-3">
-                <button className="text-gray-400 md:hover:text-red-600 transition-colors active:text-red-600">
+                <button
+                  aria-label="Share product"
+                  title="Share product"
+                  className="text-gray-400 md:hover:text-red-600 transition-colors active:text-red-600"
+                >
                   <Share2 size={20} />
                 </button>
                 <button
                   onClick={handleToggleSaved}
+                  aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
+                  title={isLiked ? 'Remove from Wishlist' : 'Add to Wishlist'}
                   className={`transition - colors active: text - red - 600 ${isLiked ? 'text-red-600' : 'text-gray-400 md:hover:text-red-600'} `}
                 >
                   <Heart size={20} fill={isLiked ? 'currentColor' : 'none'} />
