@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { HeroSkeleton, ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SPACING, TYPOGRAPHY } from '@/constants/Colors';
 import { useCategories, useMerchant, useProducts } from '@/hooks/use-products';
@@ -70,9 +71,13 @@ const ProductGrid = ({
 
     return undefined;
   })();
+  const displayLimit = block.props.limit ?? 12;
+  const shouldPrioritizeSmartphones =
+    selectedCategoryName === 'All' && !normalizedCategoryId;
+  const fetchLimit = shouldPrioritizeSmartphones ? displayLimit * 4 : displayLimit;
 
   const { products, isLoading, isFetching } = useProducts({
-    limit: block.props.limit || 12,
+    limit: fetchLimit,
     category: normalizedCategoryId,
     minPrice: minPrice > 0 ? minPrice : undefined,
     maxPrice: maxPrice < 3000000 ? maxPrice : undefined,
@@ -139,6 +144,10 @@ const ProductGrid = ({
   const brands = Array.from(
     new Set(products.map((p) => p.brand).filter(Boolean) as string[])
   );
+  const orderedProducts =
+    shouldPrioritizeSmartphones
+      ? prioritizeSmartphoneProducts(products).slice(0, displayLimit)
+      : products;
 
   const handlePriceChange = (min: number, max: number) => {
     setMinPrice(min);
@@ -187,7 +196,7 @@ const ProductGrid = ({
             </Text>
           </View>
         ) : (
-          products.map((product) => (
+          orderedProducts.map((product) => (
             <View
               key={product.id}
               style={

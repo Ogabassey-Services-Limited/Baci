@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CachedMerchant } from './cached-data';
 import {
+  getCachedProduct,
+  getCachedProductWithDetails,
   getMerchantByIdentifier,
   getMerchantSafe,
   getRequestScopedMerchant,
@@ -35,6 +37,34 @@ let mockEq: ReturnType<typeof vi.fn>;
 let mockSelect: ReturnType<typeof vi.fn>;
 let mockFrom: ReturnType<typeof vi.fn>;
 let mockCreateClient: (...args: unknown[]) => unknown;
+
+function getProductVariantsSelect(selectArg: unknown): string {
+  const selectText = String(selectArg);
+  const relationStart = selectText.indexOf('product_variants');
+  if (relationStart === -1) {
+    return '';
+  }
+
+  const openParenIndex = selectText.indexOf('(', relationStart);
+  if (openParenIndex === -1) {
+    return '';
+  }
+
+  let depth = 1;
+  for (let index = openParenIndex + 1; index < selectText.length; index += 1) {
+    const char = selectText[index];
+    if (char === '(') {
+      depth += 1;
+    } else if (char === ')') {
+      depth -= 1;
+      if (depth === 0) {
+        return selectText.slice(openParenIndex + 1, index);
+      }
+    }
+  }
+
+  return '';
+}
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => {
@@ -773,6 +803,54 @@ describe('cached-data utility functions', () => {
     it('handles identifier with unicode characters (invalid)', async () => {
       const result = await getMerchantByIdentifier('störe');
       expect(result).toBeNull();
+    });
+  });
+
+  describe('product query projections', () => {
+    it('getCachedProduct uses the current product_variants columns', async () => {
+      mockSingle.mockResolvedValueOnce({
+        data: { id: 'product-123', slug: 'iphone-16' },
+        error: null,
+      });
+
+      await getCachedProduct('merchant-123', 'iphone-16');
+
+      const variantsSelect = getProductVariantsSelect(
+        mockSelect.mock.calls.at(-1)?.[0]
+      );
+      expect(variantsSelect).toContain('attributes');
+      expect(variantsSelect).toContain('stock_quantity');
+      expect(variantsSelect).toContain('primary_image');
+      expect(variantsSelect).not.toMatch(/\bstorage\b/);
+      expect(variantsSelect).not.toMatch(/\bsim_type\b/);
+      expect(variantsSelect).not.toMatch(/\bcolor\b/);
+      expect(variantsSelect).not.toMatch(/\bram_gb\b/);
+      expect(variantsSelect).not.toMatch(/\bcondition\b/);
+    });
+
+    it('getCachedProductWithDetails avoids removed variant columns', async () => {
+      mockMaybeSingle.mockResolvedValueOnce({
+        data: { id: 'product-123', slug: 'iphone-16' },
+        error: null,
+      });
+
+      await getCachedProductWithDetails('merchant-123', 'iphone-16');
+
+      const selectArg = mockSelect.mock.calls.at(-1)?.[0];
+      const variantsSelect = getProductVariantsSelect(selectArg);
+      expect(String(selectArg)).not.toMatch(/\*\s*,/);
+      expect(String(selectArg)).toContain('imageHint:image_hint');
+      expect(String(selectArg)).toContain(
+        'fulfillmentFields:fulfillment_fields'
+      );
+      expect(variantsSelect).toContain('attributes');
+      expect(variantsSelect).toContain('stock_quantity');
+      expect(variantsSelect).toContain('primary_image');
+      expect(variantsSelect).not.toMatch(/\bstorage\b/);
+      expect(variantsSelect).not.toMatch(/\bsim_type\b/);
+      expect(variantsSelect).not.toMatch(/\bcolor\b/);
+      expect(variantsSelect).not.toMatch(/\bram_gb\b/);
+      expect(variantsSelect).not.toMatch(/\bcondition\b/);
     });
   });
 });

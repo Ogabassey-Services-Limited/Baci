@@ -635,10 +635,52 @@ const getProduct = async (
 
   const dbCategorySlug = joinedCategory?.slug;
   const dbCategoryName = joinedCategory?.name || product.category;
+  const rawImages = Array.isArray(product.images)
+    ? (product.images as Array<string | { url: string; alt?: string }>)
+    : [];
+  const normalizedImages = rawImages.map((image, index) =>
+    typeof image === 'string'
+      ? { url: image, alt: product.name, order: index }
+      : {
+          url: image.url,
+          alt: image.alt || product.name,
+          order: index,
+        }
+  );
+  const primaryImage = normalizedImages[0]?.url || '/placeholder.png';
 
   // Create extended product with category info
   const productWithCategorySlug: Product = {
     ...product,
+    description: product.description || '',
+    price:
+      typeof product.price === 'string'
+        ? Number.parseFloat(product.price)
+        : product.price,
+    compare_at_price:
+      typeof product.compare_at_price === 'string'
+        ? Number.parseFloat(product.compare_at_price)
+        : product.compare_at_price,
+    manage_stock: product.manage_stock ?? true,
+    stock: (() => {
+      if (typeof product.stock === 'number') {
+        return product.stock;
+      }
+
+      if (typeof product.stock === 'string') {
+        const parsedStock = Number.parseInt(product.stock, 10);
+        if (!Number.isNaN(parsedStock)) {
+          return parsedStock;
+        }
+      }
+
+      return product.stock_quantity ?? 0;
+    })(),
+    image: primaryImage,
+    imageLarge: primaryImage,
+    imageHint: product.imageHint || product.name,
+    images: normalizedImages,
+    fulfillmentFields: product.fulfillmentFields || [],
     category: dbCategoryName || product.category,
     category_slug: dbCategorySlug,
     // Filter offers to exclude main product condition
