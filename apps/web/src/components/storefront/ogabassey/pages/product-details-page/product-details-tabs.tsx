@@ -59,8 +59,10 @@ export function ProductDetailsTabs({
             aria-labelledby="tab-btn-description"
             className="prose max-w-none animate-in fade-in text-gray-600 duration-300"
           >
+            {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
             <div
               className="prose-headings:text-gray-900 prose-strong:text-gray-800 prose-table:text-sm mb-4"
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized via sanitizeHtml()
               dangerouslySetInnerHTML={{
                 __html: sanitizeHtml(productData.description || ''),
               }}

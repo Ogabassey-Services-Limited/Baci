@@ -55,10 +55,8 @@ export async function BlogPostBody({
           <div
             data-testid="blog-post-legacy-content"
             className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
-            /*
-              biome-ignore lint/security/noDangerouslySetInnerHtml: Legacy content sanitized
-              nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-            */
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: Legacy content sanitized via sanitizeHtml()
+            // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
             dangerouslySetInnerHTML={{ __html: legacyHtml }}
           />
         )}
