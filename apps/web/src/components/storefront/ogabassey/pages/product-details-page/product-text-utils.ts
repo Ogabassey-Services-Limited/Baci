@@ -46,5 +46,5 @@ export function buildDescriptionExcerpt(description: string) {
     return excerpt.length > 200 ? `${excerpt.substring(0, 200)}...` : excerpt;
   }
 
-  return plainText ? `${plainText.substring(0, 200)}...` : '';
+  return plainText ? (plainText.length > 200 ? `${plainText.substring(0, 200)}...` : plainText) : '';
 }

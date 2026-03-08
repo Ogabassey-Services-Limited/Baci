@@ -117,10 +117,11 @@ export function ProductSummaryPanel({
               {formatConditionLabel(selectedCondition)}
             </span>
           </label>
-          <div className="flex flex-wrap gap-3">
+          <div role="group" aria-label="Product condition" className="flex flex-wrap gap-3">
             <button
               type="button"
               onClick={() => setSelectedCondition(baseCondition)}
+              aria-pressed={selectedCondition === baseCondition}
               className={`rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all ${
                 selectedCondition === baseCondition
                   ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5 text-[var(--store-primary)]'
@@ -135,6 +136,7 @@ export function ProductSummaryPanel({
                 key={offer.id}
                 type="button"
                 onClick={() => setSelectedCondition(offer.condition)}
+                aria-pressed={selectedCondition === offer.condition}
                 className={`rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all ${
                   selectedCondition === offer.condition
                     ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5 text-[var(--store-primary)]'

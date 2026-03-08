@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const originalMatchMedia = window.matchMedia;
 
 function mockMatchMedia(matches: boolean) {
   Object.defineProperty(window, 'matchMedia', {
@@ -55,6 +57,10 @@ import { CategoryPage } from './category-page';
 describe('CategoryPage', () => {
   beforeEach(() => {
     window.scrollTo = vi.fn();
+  });
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
   });
 
   it('renders the category banner region on desktop', () => {

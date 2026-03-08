@@ -49,7 +49,7 @@ export function ProductMediaGallery({
       <div className="hide-scrollbar flex gap-4 overflow-x-auto pb-2">
         {productData.images.map((image, index) => (
           <button
-            key={image}
+            key={`${image}-${index}`}
             type="button"
             onClick={() => onSelectImage(index)}
             className={`relative flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50 p-0 transition-all active:scale-95 ${

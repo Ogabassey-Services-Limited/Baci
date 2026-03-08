@@ -62,7 +62,7 @@ export function ProductBreadcrumbs({
   return (
     <>
       <script type="application/ld+json">{breadcrumbSchemaJson}</script>
-      <nav className="mb-8 flex items-center overflow-x-auto whitespace-nowrap pb-2 text-sm text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_70%,transparent)]">
+      <nav aria-label="Breadcrumb" className="mb-8 flex items-center overflow-x-auto whitespace-nowrap pb-2 text-sm text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_70%,transparent)]">
         <Link
           href={homeHref}
           className="transition-colors md:hover:text-[var(--store-primary)]"

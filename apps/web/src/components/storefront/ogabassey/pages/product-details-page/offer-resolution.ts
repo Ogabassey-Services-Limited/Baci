@@ -53,6 +53,7 @@ export function resolveCurrentOffer(
         price = variant.price_override;
       } else if (variant.price_modifier) {
         price += variant.price_modifier;
+        price = Math.max(0, price);
       }
 
       if (variant.stock !== undefined) {

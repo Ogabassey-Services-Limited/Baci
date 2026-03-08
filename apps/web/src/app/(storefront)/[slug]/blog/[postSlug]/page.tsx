@@ -110,6 +110,7 @@ export default async function BlogPostPage({ params }: PageProps) {
   const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
+  const locale = headersList.get('accept-language')?.split(',')[0] ?? undefined;
 
   // Determine base path for internal links
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
@@ -232,6 +233,7 @@ export default async function BlogPostPage({ params }: PageProps) {
               author_name={post.author_name}
               author_title={post.author_title}
               category={post.category}
+              locale={locale}
               published_at={post.published_at}
               reading_time_minutes={post.reading_time_minutes}
               title={post.title}
@@ -242,6 +244,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                 basePath={basePath}
                 baseUrl={baseUrl}
                 content={content}
+                locale={locale}
                 post={{
                   author_bio: post.author_bio,
                   id: post.id,

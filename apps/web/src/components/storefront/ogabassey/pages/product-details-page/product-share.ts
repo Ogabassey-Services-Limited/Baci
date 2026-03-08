@@ -44,6 +44,7 @@ export async function shareProductLink({
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
+    document.execCommand('copy');
     document.body.removeChild(textArea);
   }
 

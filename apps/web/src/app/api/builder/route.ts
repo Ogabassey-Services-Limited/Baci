@@ -240,14 +240,21 @@ export async function PUT(request: NextRequest) {
   const publishedAt = new Date().toISOString();
 
   // Get current draft
-  const { data: currentConfig } = await supabase
+  const { data: currentConfig, error: draftError } = await supabase
     .from('page_configs')
     .select(
       'id, draft_config, published_config, draft_seo, draft_store_settings, draft_setup_settings'
     )
     .eq('merchant_id', merchantId)
     .eq('page_slug', slug)
-    .single();
+    .maybeSingle();
+
+  if (draftError) {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
 
   if (!currentConfig || !currentConfig.draft_config) {
     return NextResponse.json({ error: 'No draft to publish' }, { status: 400 });

@@ -137,8 +137,7 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
   };
 
   const handleModalColorSelection = (index: number) => {
-    setSelectedColor(index);
-    setSelectedImage(index);
+    handleColorSelection(index);
     setMissingFields((prev) => prev.filter((field) => field !== 'Color'));
   };
 

@@ -68,9 +68,9 @@ export function getAxisOptions(
     new Set(
       productData.variants
         .map((variant) => variant.attributes?.[axis])
-        .filter(Boolean)
+        .filter((v): v is string => Boolean(v))
     )
-  ) as string[];
+  );
 }
 
 export function formatAxisLabel(axis: string) {
@@ -125,6 +125,7 @@ export function buildCartProduct(
 
   return {
     ...baseProduct,
+    ...selectedAttributes,
     price: currentOffer.rawPrice,
     image: productData.images[selectedImage],
     imageLarge: productData.images[selectedImage],
@@ -132,6 +133,5 @@ export function buildCartProduct(
     rating: productData.rating,
     category: productData.categories?.name || productData.category,
     condition: selectedCondition,
-    ...selectedAttributes,
   };
 }

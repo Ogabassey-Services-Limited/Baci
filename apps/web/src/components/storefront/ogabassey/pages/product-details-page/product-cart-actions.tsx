@@ -46,7 +46,7 @@ export function ProductCartActions({
                 type="button"
                 onClick={onDecrement}
                 className="flex h-full w-14 items-center justify-center border-r border-[var(--store-primary)]/15 text-[var(--store-primary)] transition-colors hover:bg-[var(--store-primary)]/5"
-                aria-label="Decrease quantity"
+                aria-label={quantityInCart === 1 ? 'Remove item' : 'Decrease quantity'}
               >
                 {quantityInCart === 1 ? (
                   <Trash2 size={20} />

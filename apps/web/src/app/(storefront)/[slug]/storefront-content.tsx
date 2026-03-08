@@ -152,7 +152,7 @@ export async function StorefrontContent({
 
         return (
           <>
-            <AnalyticsProvider merchant={templateMerchant} />
+            <AnalyticsProvider />
             <TemplateHome
               storeSlug={merchant.slug}
               merchant={templateMerchant}

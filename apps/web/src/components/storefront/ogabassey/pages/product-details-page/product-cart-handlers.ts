@@ -1,5 +1,4 @@
 import {
-  buildCartItemId,
   buildCartProduct,
   type ConditionType,
   type NormalizedProductDetails,
@@ -130,7 +129,7 @@ export function createProductCartHandlers({
   };
 
   const handleIncrement = () => {
-    if (currentCartItemId) {
+    if (currentCartItemId && quantityInCart < 99) {
       updateQuantity(currentCartItemId, quantityInCart + 1);
     }
   };
@@ -165,15 +164,7 @@ export function createProductCartHandlers({
     }
 
     validateAndAddToCart(missing);
-    applyNegotiatedPrice?.(
-      buildCartItemId(productData.id, {
-        color:
-          selectedColor !== null ? productData.colors[selectedColor]?.name : undefined,
-        condition: selectedCondition,
-        storage: selectedAttributes.storage,
-      }),
-      price
-    );
+    applyNegotiatedPrice?.(currentCartItemId, price);
   };
 
   return {

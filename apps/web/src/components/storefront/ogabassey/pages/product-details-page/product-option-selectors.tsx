@@ -92,7 +92,7 @@ export function ProductOptionSelectors({
           {showColorToast &&
             selectedColor !== null &&
             secondaryColor === null && (
-              <div className="pointer-events-none absolute -top-12 left-0 right-0 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div aria-live="polite" aria-atomic="true" role="status" className="pointer-events-none absolute -top-12 left-0 right-0 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex max-w-fit items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg">
                   <Info
                     size={14}

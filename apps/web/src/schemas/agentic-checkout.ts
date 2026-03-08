@@ -5,20 +5,18 @@ export const agenticCheckoutItemSchema = z.object({
   quantity: z.number().int().positive('Quantity must be a positive integer'),
 });
 
-export const agenticFulfillmentAddressSchema = z
-  .object({
-    name: z.string().min(1).optional(),
-    email: z.string().email().optional(),
-    phone: z.string().min(7).optional(),
-    address: z.string().min(1).optional(),
-    city: z.string().min(1).optional(),
-    state: z.string().min(1).optional(),
-    country: z.string().min(1).optional(),
-    countryCode: z.string().min(2).max(3).optional(),
-    postalCode: z.string().min(1).optional(),
-    stationId: z.number().int().nonnegative().optional(),
-  })
-  .passthrough();
+export const agenticFulfillmentAddressSchema = z.object({
+  name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  phone: z.string().min(7).optional(),
+  address: z.string().min(1).optional(),
+  city: z.string().min(1).optional(),
+  state: z.string().min(1).optional(),
+  country: z.string().min(1).optional(),
+  countryCode: z.string().min(2).max(3).optional(),
+  postalCode: z.string().min(1).optional(),
+  stationId: z.number().int().nonnegative().optional(),
+});
 
 export const checkoutSessionSchema = z.object({
   items: z

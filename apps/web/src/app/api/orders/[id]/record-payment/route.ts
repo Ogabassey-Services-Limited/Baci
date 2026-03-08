@@ -159,11 +159,23 @@ export async function POST(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    const { data: transactions } = await supabase
+    const { data: transactions, error: txError } = await supabase
       .from('transactions')
       .select('amount, gateway_reference')
       .eq('order_id', id)
       .eq('status', 'completed');
+
+    if (txError) {
+      logger.error({
+        message: 'RecordPayment transactions fetch error',
+        error: txError,
+        orderId: id,
+      });
+      return NextResponse.json(
+        { error: 'Failed to fetch transactions' },
+        { status: 500 }
+      );
+    }
 
     const existingTransaction = transactions?.find(
       (transaction) => transaction.gateway_reference === reference
@@ -220,7 +232,11 @@ export async function POST(
         status: 'completed', // Valid values: pending, processing, completed, failed, cancelled
         gateway: 'manual',
         gateway_reference: reference,
-        description: notes || `Manual payment (${payment_method})`,
+        description:
+          notes ||
+          (payment_method
+            ? `Manual payment (${payment_method})`
+            : 'Manual payment'),
         metadata: {
           payment_method: payment_method || 'manual',
           recorded_by: user.email,

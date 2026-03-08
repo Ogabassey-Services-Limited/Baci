@@ -42,6 +42,10 @@ type CategoryPageColor =
       name?: string | null;
     };
 
+function getColorName(color: CategoryPageColor): string | null {
+  return typeof color === 'string' ? color : color.name || null;
+}
+
 export const CategoryPage: React.FC<CategorySEOProps> = ({
   seoHeading,
   seoDescription,
@@ -106,6 +110,15 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (!isMobileFilterOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMobileFilterOpen(false);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isMobileFilterOpen]);
+
   // Derived Data: Products in the current Category (from props)
   const categoryProducts = (() => {
     // Use server-provided products directly - no additional filtering needed
@@ -139,9 +152,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       if (p.ram) options.ram.add(p.ram);
       if (p.colors) {
         p.colors.forEach((color: CategoryPageColor) => {
-          const colorName =
-            typeof color === 'string' ? color : color.name || null;
-
+          const colorName = getColorName(color);
           if (colorName) {
             options.colors.add(colorName);
           }
@@ -215,8 +226,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
         if (
           !p.colors ||
           !p.colors.some((color: CategoryPageColor) => {
-            const colorName =
-              typeof color === 'string' ? color : color.name || null;
+            const colorName = getColorName(color);
             return colorName ? filters.colors.includes(colorName) : false;
           })
         )
@@ -484,12 +494,18 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
               className="absolute inset-0 bg-black/50 backdrop-blur-sm"
               onClick={() => setIsMobileFilterOpen(false)}
             />
-            <div className="relative w-full max-w-xs bg-white h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300">
+            <div
+              className="relative w-full max-w-xs bg-white h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="mobile-filter-heading"
+            >
               <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="font-bold text-lg text-gray-900">Filters</h3>
+                <h3 id="mobile-filter-heading" className="font-bold text-lg text-gray-900">Filters</h3>
                 <button
                   onClick={() => setIsMobileFilterOpen(false)}
                   className="p-1 hover:bg-gray-100 rounded-full"
+                  aria-label="Close filters"
                 >
                   <X size={24} className="text-gray-500" />
                 </button>

@@ -13,6 +13,7 @@ export interface BlogPostBodyProps {
   basePath: string;
   baseUrl: string;
   content: unknown;
+  locale?: string;
   post: {
     author_bio?: string | null;
     id: string;
@@ -35,6 +36,7 @@ export async function BlogPostBody({
   basePath,
   baseUrl,
   content,
+  locale,
   post,
   relatedPosts,
 }: BlogPostBodyProps) {
@@ -143,7 +145,9 @@ export async function BlogPostBody({
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       {related.published_at && (
                         <span>
-                          {new Date(related.published_at).toLocaleDateString()}
+                          {new Date(related.published_at).toLocaleDateString(
+                            locale?.trim() || undefined
+                          )}
                         </span>
                       )}
                       {related.reading_time_minutes && (
