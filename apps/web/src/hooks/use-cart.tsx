@@ -54,6 +54,8 @@ interface AddToCartOptions {
   storage?: string;
   condition?: string;
   platform?: string; // Phase 4 Extension
+  // Allow arbitrary attribute keys (e.g. ram, processor) from selectedAttributes
+  [key: string]: string | Record<string, string> | undefined;
 }
 
 export interface CartContextType {
@@ -155,11 +157,34 @@ const generateCartItemId = (
   options?: AddToCartOptions
 ): string => {
   const parts = [productId];
-  if (options?.variantId) parts.push(options.variantId);
-  if (options?.color) parts.push(options.color);
-  if (options?.storage) parts.push(options.storage);
-  if (options?.condition) parts.push(options.condition);
-  return parts.join('-');
+  if (options?.variantId) parts.push(`variant=${options.variantId}`);
+  if (options?.color) parts.push(`color=${options.color}`);
+  if (options?.secondaryColor)
+    parts.push(`secondaryColor=${options.secondaryColor}`);
+  if (options?.condition) parts.push(`condition=${options.condition}`);
+
+  // Include all extra attribute keys (sorted) for deterministic IDs.
+  // This mirrors buildCartItemId's selectedAttributes handling.
+  if (options) {
+    const skipKeys = new Set([
+      'variantId',
+      'variantAttributes',
+      'color',
+      'colorValue',
+      'secondaryColor',
+      'secondaryColorValue',
+      'condition',
+    ]);
+    for (const key of Object.keys(options).sort()) {
+      if (skipKeys.has(key)) continue;
+      const value = options[key];
+      if (typeof value === 'string' && value) {
+        parts.push(`${key}=${value}`);
+      }
+    }
+  }
+
+  return parts.join('::');
 };
 
 const getCartFromStorage = (
@@ -471,10 +496,21 @@ export const CartProvider = ({
 
       // Robust duplicate check: Match by cartItemId OR Legacy ID/Variant
       const existingItemIndex = prev.findIndex((item) => {
-        // 1. Direct V2 Match
+        // 1. Direct V2 Match (:: separator)
         if (item.cartItemId === cartItemId) return true;
 
-        // 2. Legacy Match (if item has no cartItemId)
+        // 2. Legacy V1 Match (old - separator format stored in cart)
+        if (item.cartItemId?.includes('-') && !item.cartItemId.includes('::')) {
+          // Rebuild what the old generateCartItemId would have produced
+          const legacyParts = [product.id];
+          if (options?.variantId) legacyParts.push(options.variantId);
+          if (options?.color) legacyParts.push(options.color);
+          if (options?.storage) legacyParts.push(options.storage);
+          if (options?.condition) legacyParts.push(options.condition);
+          if (item.cartItemId === legacyParts.join('-')) return true;
+        }
+
+        // 3. Legacy Match (if item has no cartItemId)
         if (!item.cartItemId && item.id === product.id) {
           const itemVar = item.variantId;
           const newVar = options?.variantId;

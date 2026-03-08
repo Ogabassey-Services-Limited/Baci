@@ -1,5 +1,22 @@
-import { render } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const originalMatchMedia = window.matchMedia;
+
+function mockMatchMedia(matches: boolean) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation(() => ({
+      matches,
+      media: '(min-width: 768px)',
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
 
 vi.mock('next/link', () => ({
   default: ({ children, ...props }: { children: React.ReactNode; href: string }) => (
@@ -38,10 +55,32 @@ vi.mock('../components/ProductCard', () => ({
 import { CategoryPage } from './category-page';
 
 describe('CategoryPage', () => {
-  it('renders without crashing with empty products', () => {
-    const { container } = render(
-      <CategoryPage products={[]} />
-    );
-    expect(container).toBeDefined();
+  beforeEach(() => {
+    window.scrollTo = vi.fn();
+  });
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
+  it('renders the category banner region on desktop', () => {
+    mockMatchMedia(true);
+
+    render(<CategoryPage products={[]} />);
+
+    const banner = screen.getByRole('region', {
+      name: /category banner carousel/i,
+    });
+    expect(banner).toBeInTheDocument();
+  });
+
+  it('does not render the category banner region on mobile', () => {
+    mockMatchMedia(false);
+
+    render(<CategoryPage products={[]} />);
+
+    expect(
+      screen.queryByRole('region', { name: /category banner carousel/i })
+    ).not.toBeInTheDocument();
   });
 });
