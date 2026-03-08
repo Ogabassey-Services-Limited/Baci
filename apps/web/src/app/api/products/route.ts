@@ -276,7 +276,8 @@ export async function GET(request: NextRequest) {
         // Fallback: Use separate COUNT query for out-of-stock count
         const oosResult = await supabase
           .from('products')
-          .select('*', { count: 'exact', head: true })
+          // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+          .select('id', { count: 'exact', head: true })
           .eq('merchant_id', merchantId)
           .eq('stock_quantity', 0);
 

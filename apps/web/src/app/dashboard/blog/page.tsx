@@ -82,21 +82,25 @@ export default async function BlogPage() {
     ] = await Promise.all([
       supabase
         .from('blog_posts')
-        .select('*', { count: 'exact', head: true })
+        // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+        .select('id', { count: 'exact', head: true })
         .eq('merchant_id', merchant.id),
       supabase
         .from('blog_posts')
-        .select('*', { count: 'exact', head: true })
+        // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+        .select('id', { count: 'exact', head: true })
         .eq('merchant_id', merchant.id)
         .eq('status', 'published'),
       supabase
         .from('blog_posts')
-        .select('*', { count: 'exact', head: true })
+        // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+        .select('id', { count: 'exact', head: true })
         .eq('merchant_id', merchant.id)
         .eq('status', 'draft'),
       supabase
         .from('blog_posts')
-        .select('*', { count: 'exact', head: true })
+        // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+        .select('id', { count: 'exact', head: true })
         .eq('merchant_id', merchant.id)
         .eq('status', 'archived'),
     ]);

@@ -89,12 +89,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     // Get stats
     const { count: totalRecipients } = await supabase
       .from('merchant_notifications')
-      .select('*', { count: 'exact', head: true })
+      // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+      .select('id', { count: 'exact', head: true })
       .eq('notification_id', id);
 
     const { count: readCount } = await supabase
       .from('merchant_notifications')
-      .select('*', { count: 'exact', head: true })
+      // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+      .select('id', { count: 'exact', head: true })
       .eq('notification_id', id)
       .not('read_at', 'is', null);
 

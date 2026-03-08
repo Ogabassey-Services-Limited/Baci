@@ -88,14 +88,16 @@ export async function POST(request: NextRequest) {
     // Check for at least one product
     const { count: productCount, error: productError } = await supabase
       .from('products')
-      .select('*', { count: 'exact', head: true })
+      // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+      .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchant.id)
       .eq('status', 'published');
 
     // Also get total products for debugging
     const { count: totalProducts } = await supabase
       .from('products')
-      .select('*', { count: 'exact', head: true })
+      // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+      .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchant.id);
 
     console.log('[Publish API] Product check:', {
