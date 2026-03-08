@@ -446,12 +446,12 @@ export default function CartScreen() {
                       <Text style={styles.originalPrice}>
                         {formatPrice(item.price * item.quantity)}
                       </Text>
-                      <Text style={styles.negotiatedPrice}>
+                      <Text style={[styles.negotiatedPrice, { color: colors.success }]}>
                         {formatPrice(itemTotal)}
                       </Text>
                     </>
                   ) : (
-                    <Text style={styles.currentPrice}>
+                    <Text style={[styles.currentPrice, { color: colors.text }]}>
                       {formatPrice(itemTotal)}
                     </Text>
                   )}
@@ -613,9 +613,9 @@ export default function CartScreen() {
 
             {/* Content Layer */}
             <View style={styles.checkoutButtonContent}>
-              <Text style={styles.checkoutBtnLabel}>Checkout</Text>
+              <Text style={[styles.checkoutBtnLabel, { color: colors.primaryForeground }]}>Checkout</Text>
               <View style={styles.checkoutBtnDot} />
-              <Text style={styles.checkoutBtnPrice}>
+              <Text style={[styles.checkoutBtnPrice, { color: colors.primaryForeground }]}>
                 {formatPrice(grandTotal || 0)}
               </Text>
               <Animated.View style={animatedArrowStyle}>
@@ -682,7 +682,7 @@ export default function CartScreen() {
                   }
                 }}
               >
-                <Text style={styles.warningPrimaryButtonText}>
+                <Text style={[styles.warningPrimaryButtonText, { color: colors.primaryForeground }]}>
                   Negotiate This Item
                 </Text>
               </Pressable>
@@ -822,11 +822,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   conditionTagTextNew: {
-    color: '#047857',
-  },
+    },
   conditionTagTextUsed: {
-    color: '#B45309',
-  },
+    },
   colorTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -912,8 +910,7 @@ const styles = StyleSheet.create({
   negotiatedPrice: {
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
-    color: '#10B981',
-  },
+    },
   currentPrice: {
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
@@ -1001,8 +998,7 @@ const styles = StyleSheet.create({
   negotiatedBadgeText: {
     fontSize: 12,
     fontFamily: 'Inter_700Bold',
-    color: '#10B981',
-  },
+    },
   checkoutStickyFooter: {
     position: 'absolute',
     bottom: 0,
@@ -1062,7 +1058,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   checkoutBtnLabel: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontFamily: 'Inter_700Bold',
   },
@@ -1073,7 +1068,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.4)',
   },
   checkoutBtnPrice: {
-    color: '#FFFFFF',
     fontSize: 15,
     fontFamily: 'Inter_700Bold',
   },
@@ -1109,7 +1103,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
   },
   redCheckoutButtonPressed: {
-    backgroundColor: '#DC2626',
     transform: [{ scale: 0.98 }],
   },
   checkoutButtonInner: {
@@ -1121,8 +1114,7 @@ const styles = StyleSheet.create({
   redCheckoutButtonText: {
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
-    color: '#FFF',
-  },
+    },
   checkoutDot: {
     width: 4,
     height: 4,
@@ -1132,11 +1124,9 @@ const styles = StyleSheet.create({
   redCheckoutPriceText: {
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
-    color: '#FFF',
-  },
+    },
   summaryCard: {
     marginTop: SPACING.md,
-    backgroundColor: '#FFF',
     borderRadius: RADIUS['2xl'],
     padding: SPACING.lg,
     borderWidth: 1,
@@ -1210,7 +1200,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#000',
     paddingVertical: 16,
     borderRadius: RADIUS.xl,
     ...SHADOWS.lg,
@@ -1225,8 +1214,7 @@ const styles = StyleSheet.create({
   checkoutButtonText: {
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
-    color: '#FFF',
-  },
+    },
   secureBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1276,8 +1264,7 @@ const styles = StyleSheet.create({
   shopButtonText: {
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
-    color: '#FFF',
-  },
+    },
   // Warning Modal Styles
   warningOverlay: {
     flex: 1,
@@ -1336,8 +1323,7 @@ const styles = StyleSheet.create({
   warningPrimaryButtonText: {
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
-    color: '#FFF',
-  },
+    },
   warningSecondaryButton: {
     paddingVertical: 14,
     borderRadius: 16,
