@@ -90,8 +90,10 @@ export function useProductDetailsState(serverProduct: Product) {
   const currentCartItemId = buildCartItemId(productData.id, {
     color:
       selectedColor !== null ? productData.colors[selectedColor]?.name : undefined,
+    secondaryColor:
+      secondaryColor !== null ? productData.colors[secondaryColor]?.name : undefined,
     condition: selectedCondition,
-    storage: selectedAttributes.storage,
+    selectedAttributes,
   });
 
   const cartItem = currentCartItemId

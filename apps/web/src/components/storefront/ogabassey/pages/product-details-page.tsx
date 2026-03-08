@@ -102,7 +102,6 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
     setIsSelectionModalOpen,
     setMissingFields,
     setSelectedAttributes,
-    setSelectedColor,
     setSelectedCondition,
     setSelectedImage,
     showColorToast,
@@ -148,7 +147,7 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
   };
 
   return (
-    <div className="relative bg-white pb-32 pt-4">
+    <div className="relative bg-[var(--store-background,#ffffff)] pb-32 pt-4">
       <div
         data-testid="product-banner-carousel"
         role="region"
@@ -269,7 +268,7 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
           key={`${rect.x}-${rect.y}-${index}`}
           startRect={rect}
           onComplete={handleAnimationComplete}
-          imageSrc={productData.images[0]}
+          imageSrc={productData.images[selectedImage] ?? productData.images[0]}
         />
       ))}
 

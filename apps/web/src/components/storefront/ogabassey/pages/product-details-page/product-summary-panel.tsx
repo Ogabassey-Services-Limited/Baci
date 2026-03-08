@@ -83,21 +83,34 @@ export function ProductSummaryPanel({
           role="img"
           aria-label={`Rated ${productData.rating} out of 5 stars`}
         >
-          {[...Array(5)].map((_, index) => (
-            <Star
-              key={index}
-              size={18}
-              fill={
-                index < Math.floor(productData.rating) ? 'currentColor' : 'none'
-              }
-              className={
-                index >= Math.floor(productData.rating)
-                  ? 'text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_18%,transparent)]'
-                  : ''
-              }
-              aria-hidden="true"
-            />
-          ))}
+          {[...Array(5)].map((_, index) => {
+            const filled = Math.floor(productData.rating);
+            const fraction = productData.rating - filled;
+            const isFull = index < filled;
+            const isPartial = index === filled && fraction > 0;
+            const isEmpty = !isFull && !isPartial;
+
+            if (isPartial) {
+              return (
+                <span key={index} className="relative inline-flex" style={{ width: 18, height: 18 }} aria-hidden="true">
+                  <span className="absolute inset-0 overflow-hidden" style={{ width: `${fraction * 100}%` }}>
+                    <Star size={18} fill="currentColor" className="shrink-0" />
+                  </span>
+                  <Star size={18} fill="none" className="text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_18%,transparent)]" />
+                </span>
+              );
+            }
+
+            return (
+              <Star
+                key={index}
+                size={18}
+                fill={isFull ? 'currentColor' : 'none'}
+                className={isEmpty ? 'text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_18%,transparent)]' : ''}
+                aria-hidden="true"
+              />
+            );
+          })}
         </div>
         <span className="text-sm font-medium text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_60%,transparent)]">
           {productData.reviewCount} Reviews

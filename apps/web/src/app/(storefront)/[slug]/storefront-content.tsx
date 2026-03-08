@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';
+import { resolveStorefrontTemplateId } from '@/app/(storefront)/[slug]/resolve-storefront-template';
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
@@ -9,7 +10,6 @@ import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import type { Product } from '@/lib/products';
 import { createClient } from '@/lib/supabase/server';
 import { getTemplate } from '@/templates/registry';
-import { resolveStorefrontTemplateId } from './resolve-storefront-template';
 import { StorefrontWrapper } from './storefront-wrapper';
 
 interface StorefrontContentProps {

@@ -201,7 +201,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid request body' });
+    expect(data).toEqual({ error: 'Invalid JSON body' });
   });
 
   it('returns 400 when valid JSON is not an object', async () => {
@@ -213,7 +213,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid request body' });
+    expect(data).toEqual({ error: 'Invalid JSON body' });
   });
 
   it('returns 401 when authentication fails', async () => {
@@ -535,7 +535,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid request body' });
+    expect(data).toEqual({ error: 'Invalid JSON body' });
   });
 
   it('returns 200 and marks order as paid when full payment is made', async () => {

@@ -110,7 +110,16 @@ export default async function BlogPostPage({ params }: PageProps) {
   const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
-  const locale = headersList.get('accept-language')?.split(',')[0] ?? undefined;
+  const rawLocale = headersList.get('accept-language')?.split(',')[0];
+  let locale: string | undefined;
+  if (rawLocale) {
+    try {
+      const [canonical] = Intl.getCanonicalLocales(rawLocale);
+      locale = canonical;
+    } catch {
+      locale = undefined;
+    }
+  }
 
   // Determine base path for internal links
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;

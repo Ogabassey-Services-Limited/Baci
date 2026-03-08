@@ -9,7 +9,7 @@ import {
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 import { builderCreateSchema, builderPublishSchema } from '@/schemas/builder';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const pageSlug = searchParams.get('slug') || 'home';
 

@@ -44,12 +44,21 @@ export async function shareProductLink({
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
-    document.execCommand('copy');
+    const copied = document.execCommand('copy');
     document.body.removeChild(textArea);
-  }
 
-  toast({
-    title: 'Copy link manually',
-    description: 'The product link is selected. Copy it from the URL field.',
-  });
+    toast(
+      copied
+        ? {
+            title: 'Link copied!',
+            description: 'Product link has been copied to your clipboard.',
+          }
+        : {
+            title: 'Copy link manually',
+            description:
+              'The product link is selected. Copy it from the URL field.',
+          }
+    );
+    return;
+  }
 }

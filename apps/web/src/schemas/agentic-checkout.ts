@@ -6,15 +6,15 @@ export const agenticCheckoutItemSchema = z.object({
 });
 
 export const agenticFulfillmentAddressSchema = z.object({
-  name: z.string().min(1).optional(),
+  name: z.string().trim().min(1).optional(),
   email: z.string().email().optional(),
   phone: z.string().min(7).optional(),
-  address: z.string().min(1).optional(),
-  city: z.string().min(1).optional(),
-  state: z.string().min(1).optional(),
-  country: z.string().min(1).optional(),
+  address: z.string().trim().min(1).optional(),
+  city: z.string().trim().min(1).optional(),
+  state: z.string().trim().min(1).optional(),
+  country: z.string().trim().min(1).optional(),
   countryCode: z.string().min(2).max(3).optional(),
-  postalCode: z.string().min(1).optional(),
+  postalCode: z.string().trim().min(1).optional(),
   stationId: z.number().int().nonnegative().optional(),
 });
 

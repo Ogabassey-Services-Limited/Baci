@@ -48,6 +48,10 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
+    if (body === null || typeof body !== 'object') {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
     const parsedBody = recordPaymentBodySchema.safeParse(body);
     if (!parsedBody.success) {
       logger.warn({

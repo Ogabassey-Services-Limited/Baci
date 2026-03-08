@@ -61,7 +61,7 @@ export function BlogPostHeader({
         )}
       </div>
 
-      {author_bio && (
+      {author_name && author_bio && (
         <div className="mt-4 rounded-lg bg-muted p-4">
           <p className="text-sm text-muted-foreground">{author_bio}</p>
         </div>

@@ -63,6 +63,7 @@ export function createProductCartHandlers({
   updateQuantity,
 }: ProductCartHandlersArgs) {
   const buildSelectionMetadata = () => ({
+    ...selectedAttributes,
     color:
       selectedColor !== null ? productData.colors[selectedColor]?.name : undefined,
     colorValue:
@@ -77,7 +78,6 @@ export function createProductCartHandlers({
         : undefined,
     storage: selectedAttributes.storage,
     condition: selectedCondition,
-    ...selectedAttributes,
   });
 
   const validateAndAddToCart = (missing = getMissingFields()) => {
