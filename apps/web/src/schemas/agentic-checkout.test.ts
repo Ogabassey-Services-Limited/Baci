@@ -46,7 +46,7 @@ describe('agenticCheckoutUpdateSchema', () => {
   it('accepts a valid update payload', () => {
     const result = agenticCheckoutUpdateSchema.safeParse({
       fulfillment_option_id: 'shipping_standard',
-      fulfillment_address: {
+      shipping_address: {
         address: '12 Example Street',
         city: 'Lagos',
       },

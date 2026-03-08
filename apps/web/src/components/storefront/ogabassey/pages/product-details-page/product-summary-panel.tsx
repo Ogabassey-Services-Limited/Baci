@@ -4,7 +4,7 @@ import { Heart, Share2, Star } from 'lucide-react';
 import type {
   ConditionType,
   NormalizedProductDetails,
-} from './product-details-helpers';
+} from '@/components/storefront/ogabassey/pages/product-details-page/product-details-helpers';
 
 interface ProductSummaryPanelProps {
   currentOfferPrice: string;

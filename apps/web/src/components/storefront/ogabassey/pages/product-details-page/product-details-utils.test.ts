@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildDescriptionExcerpt,
-  getDeliveryEstimate,
-} from './product-details-utils';
+import { getDeliveryEstimate } from './product-delivery-estimate';
+import { buildDescriptionExcerpt } from './build-description-excerpt';
 
 describe('getDeliveryEstimate', () => {
   const FIXED_DATE = new Date('2024-01-10T12:00:00Z');
@@ -15,11 +13,12 @@ describe('getDeliveryEstimate', () => {
     plus2.setDate(FIXED_DATE.getDate() + 2);
 
     const fmt = (d: Date) =>
-      d.toLocaleDateString('en-US', {
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Africa/Lagos',
         weekday: 'short',
         month: 'short',
         day: 'numeric',
-      });
+      }).format(d);
 
     expect(result).toBe(`${fmt(plus1)} - ${fmt(plus2)}`);
   });
@@ -32,11 +31,12 @@ describe('getDeliveryEstimate', () => {
     plus5.setDate(FIXED_DATE.getDate() + 5);
 
     const fmt = (d: Date) =>
-      d.toLocaleDateString('en-US', {
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Africa/Lagos',
         weekday: 'short',
         month: 'short',
         day: 'numeric',
-      });
+      }).format(d);
 
     expect(result).toBe(`${fmt(plus3)} - ${fmt(plus5)}`);
   });

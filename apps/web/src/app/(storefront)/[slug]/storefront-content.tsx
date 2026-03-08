@@ -89,6 +89,15 @@ export async function StorefrontContent({
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
+  // Resolve template early so we can start loading components in parallel with data fetches
+  const templateId = resolveStorefrontTemplateId(
+    merchant.template_id,
+    merchant.business_type
+  );
+  const template = templateId ? getTemplate(templateId) : null;
+  // Start template loading early so it runs in parallel with data fetches
+  const componentsPromise = template ? template.getComponents() : null;
+
   // Define fetches
   const productsPromise = supabase
     .from('products')
@@ -136,17 +145,10 @@ export async function StorefrontContent({
     product_categories: undefined,
   })) as unknown as Product[];
 
-  const templateId = resolveStorefrontTemplateId(
-    merchant.template_id,
-    merchant.business_type
-  );
-
   if (templateId) {
-    const template = getTemplate(templateId);
-
-    if (template) {
+    if (template && componentsPromise) {
       try {
-        const components = await template.getComponents();
+        const components = await componentsPromise;
         const TemplateHome = components.Home;
         const templateMerchant = toTemplateMerchantData(merchant);
 

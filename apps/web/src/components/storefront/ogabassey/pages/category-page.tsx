@@ -446,7 +446,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                 {seoHeading || `Buy ${pageTitle} in Nigeria`}
               </h2>
               {seoDescription && (
-                <div className="prose prose-gray text-[var(--store-background-text,#111827)]/50 leading-relaxed text-sm">
+                <div className="prose text-[var(--store-background-text,#111827)] text-[var(--store-background-text,#111827)]/50 leading-relaxed text-sm">
                   <p>{seoDescription}</p>
                 </div>
               )}
@@ -455,7 +455,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
                   {seoFeatures.map((feature, idx) => (
                     <li key={idx} className="flex items-center gap-2 text-sm text-[var(--store-background-text,#111827)]/70">
-                      <CheckCircle size={16} className="text-green-500 shrink-0" />
+                      <CheckCircle size={16} className="text-[var(--store-primary)] shrink-0" />
                       <span className="font-medium">{feature}</span>
                     </li>
                   ))}
@@ -470,7 +470,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
               <h3 className="text-xl font-bold text-[var(--store-background-text,#111827)] mb-4">Frequently Asked Questions</h3>
               <Accordion type="single" collapsible className="w-full">
                 {seoFaqs.map((faq, idx) => (
-                  <AccordionItem value={`item-${idx}`} key={idx} className="border-b-[var(--store-background-text,#111827)]/10">
+                  <AccordionItem value={`item-${idx}`} key={idx} className="border-b border-b-[color:var(--store-background-text,#111827)]/10">
                     <AccordionTrigger className="py-3 text-left text-sm font-semibold text-[var(--store-background-text,#111827)]/80 hover:text-[var(--store-primary)] hover:no-underline">
                       {faq.question}
                     </AccordionTrigger>

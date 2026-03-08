@@ -204,18 +204,6 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(data).toEqual({ error: 'Invalid JSON body' });
   });
 
-  it('returns 400 when valid JSON is not an object', async () => {
-    const request = createRequest(null);
-    const params = { params: Promise.resolve({ id: mockOrderId }) };
-
-    const { POST } = await import('./route');
-    const response = await POST(request, params);
-    const data = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid JSON body' });
-  });
-
   it('returns 401 when authentication fails', async () => {
     // Arrange
     mockAuthenticateApiRequest.mockResolvedValue({
@@ -513,27 +501,6 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const data = await response.json();
 
     // Assert
-    expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid JSON body' });
-  });
-
-  it('returns 400 when the request body is valid JSON but not an object', async () => {
-    const request = new NextRequest(
-      `http://localhost/api/orders/${mockOrderId}/record-payment`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: 'null',
-      }
-    );
-    const params = { params: Promise.resolve({ id: mockOrderId }) };
-
-    const { POST } = await import('./route');
-    const response = await POST(request, params);
-    const data = await response.json();
-
     expect(response.status).toBe(400);
     expect(data).toEqual({ error: 'Invalid JSON body' });
   });

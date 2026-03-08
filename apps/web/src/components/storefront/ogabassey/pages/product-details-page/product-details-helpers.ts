@@ -18,4 +18,5 @@ export {
   type ProductColorOption,
 } from './product-normalization';
 export { toRelatedProductsProduct } from './related-product';
-export { buildDescriptionExcerpt, getDeliveryEstimate } from './product-text-utils';
+export { getDeliveryEstimate } from './product-delivery-estimate';
+export { buildDescriptionExcerpt } from './build-description-excerpt';

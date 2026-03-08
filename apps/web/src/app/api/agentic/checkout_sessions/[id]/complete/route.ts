@@ -184,7 +184,7 @@ export async function POST(
       status: 'payment_pending',
       currency: session.currency.toLowerCase(),
       line_items: sessionCalc.lineItems,
-      fulfillment_address: session.fulfillment_address,
+      shipping_address: session.fulfillment_address,
       fulfillment_option_id: session.fulfillment_option_id,
       totals: sessionCalc.totals,
       order_id: orderId, // Extra field helpful for debugging

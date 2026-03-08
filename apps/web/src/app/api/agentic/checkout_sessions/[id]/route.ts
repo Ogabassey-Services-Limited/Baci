@@ -59,7 +59,7 @@ export async function GET(
     totals: sessionCalc.totals,
     fulfillment_options: sessionCalc.fulfillmentOptions,
     fulfillment_option_id: fulfillmentOptionId, // Selected
-    fulfillment_address: session.fulfillment_address,
+    shipping_address: session.fulfillment_address,
     messages: sessionCalc.messages,
     links: [
       { type: 'terms_of_use', url: 'https://ogabassey.com/terms' },
@@ -97,7 +97,7 @@ export async function POST(
       );
     }
 
-    const { items, fulfillment_address, fulfillment_option_id } = parsed.data;
+    const { items, shipping_address, fulfillment_option_id } = parsed.data;
     // Note: Spec allows updating items, address, or option.
 
     const supabase = createServiceClient();
@@ -110,8 +110,8 @@ export async function POST(
     // Merge updates
     const newItems = items ?? session.items;
     const newAddress =
-      fulfillment_address !== undefined
-        ? fulfillment_address
+      shipping_address !== undefined
+        ? shipping_address
         : session.fulfillment_address;
     const newOptionId =
       fulfillment_option_id !== undefined
@@ -158,7 +158,7 @@ export async function POST(
       totals: sessionCalc.totals,
       fulfillment_options: sessionCalc.fulfillmentOptions,
       fulfillment_option_id: newOptionId,
-      fulfillment_address: newAddress,
+      shipping_address: newAddress,
       messages: sessionCalc.messages,
       links: [
         { type: 'terms_of_use', url: 'https://ogabassey.com/terms' },

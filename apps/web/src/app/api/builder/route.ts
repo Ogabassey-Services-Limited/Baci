@@ -163,8 +163,8 @@ export async function POST(request: NextRequest) {
     .upsert(
       {
         merchant_id: merchantId,
-        page_slug: slug || 'home',
-        page_name: name || 'Home',
+        page_slug: slug,
+        page_name: name,
         draft_config: config,
         draft_seo: seo,
         draft_store_settings: storeSettings,

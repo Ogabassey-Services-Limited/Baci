@@ -8,21 +8,21 @@ export const agenticCheckoutItemSchema = z.object({
 export const agenticFulfillmentAddressSchema = z.object({
   name: z.string().trim().min(1).optional(),
   email: z.string().email().optional(),
-  phone: z.string().min(7).optional(),
+  phone: z.string().trim().min(7).optional(),
   address: z.string().trim().min(1).optional(),
   city: z.string().trim().min(1).optional(),
   state: z.string().trim().min(1).optional(),
   country: z.string().trim().min(1).optional(),
-  countryCode: z.string().min(2).max(3).optional(),
-  postalCode: z.string().trim().min(1).optional(),
-  stationId: z.number().int().nonnegative().optional(),
+  country_code: z.string().trim().min(2).max(3).optional(),
+  postal_code: z.string().trim().min(1).optional(),
+  station_id: z.number().int().nonnegative().optional(),
 });
 
 export const checkoutSessionSchema = z.object({
   items: z
     .array(agenticCheckoutItemSchema)
     .min(1, 'At least one item is required'),
-  fulfillment_address: agenticFulfillmentAddressSchema.nullable().optional(),
+  shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
   currency: z
     .string()
     .trim()
@@ -35,17 +35,17 @@ export const checkoutSessionSchema = z.object({
 export const agenticCheckoutUpdateSchema = z
   .object({
     items: z.array(agenticCheckoutItemSchema).min(1).optional(),
-    fulfillment_address: agenticFulfillmentAddressSchema.nullable().optional(),
+    shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
     fulfillment_option_id: z.string().trim().min(1).nullable().optional(),
   })
   .refine(
     (value) =>
       value.items !== undefined ||
-      value.fulfillment_address !== undefined ||
+      value.shipping_address !== undefined ||
       value.fulfillment_option_id !== undefined,
     {
       message:
-        'At least one of items, fulfillment_address, or fulfillment_option_id is required',
+        'At least one of items, shipping_address, or fulfillment_option_id is required',
     }
   );
 

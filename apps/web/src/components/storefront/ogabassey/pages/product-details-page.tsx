@@ -204,9 +204,9 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
             showColorToast={showColorToast}
           />
 
-          <div className="hidden lg:col-span-3 lg:block lg:border-l lg:border-gray-100 lg:pl-8">
+          <div className="hidden lg:col-span-3 lg:block lg:border-l lg:border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] lg:pl-8">
             <div className="sticky top-24">
-              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-400">
+              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_50%,transparent)]">
                 Sponsored
               </p>
               <AdUnit placementKey="SIDEBAR_HALF_PAGE" className="mb-6" />
@@ -244,12 +244,12 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
             <BrandProducts
               product={relatedProductsProduct}
               maxProducts={4}
-              className="border-t border-gray-100 pt-8"
+              className="border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] pt-8"
             />
             <PriceRangeProducts
               product={relatedProductsProduct}
               maxProducts={4}
-              className="border-t border-gray-100"
+              className="border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)]"
             />
           </div>
         </div>

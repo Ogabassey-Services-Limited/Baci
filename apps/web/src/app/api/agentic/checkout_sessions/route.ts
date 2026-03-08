@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { items, fulfillment_address, currency } = parsed.data;
+    const { items, shipping_address, currency } = parsed.data;
 
     // 2. Calculate Cart State
     const supabase = createServiceClient();
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         totals: sessionCalc.totals,
         fulfillment_options: sessionCalc.fulfillmentOptions,
         currency,
-        fulfillment_address, // Persist address
+        fulfillment_address: shipping_address, // Persist address
         status: 'not_ready_for_payment', // Default
       })
       .select('id')

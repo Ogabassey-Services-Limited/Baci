@@ -11,6 +11,7 @@ import type { Product } from '../../types';
 import { createProductCartHandlers } from './product-cart-handlers';
 import {
   buildCartItemId,
+  buildCartProduct,
   type ConditionType,
   formatAxisLabel,
   getAxisOptions,
@@ -72,7 +73,7 @@ export function useProductDetailsState(serverProduct: Product) {
     const action = searchParams.get('action');
     if (action === 'buy' && !buyActionHandled.current) {
       buyActionHandled.current = true;
-      addToCart(toRelatedProductsProduct(serverProduct), 1);
+      addToCart(buildCartProduct(productData, resolveCurrentOffer(productData, 'new', {}), 0, 'new', {}), 1);
       toast({
         title: 'Added to cart',
         description: `${serverProduct.name} has been added to your cart.`,
@@ -97,7 +98,14 @@ export function useProductDetailsState(serverProduct: Product) {
   });
 
   const cartItem = currentCartItemId
-    ? cart.find((item) => item.cartItemId === currentCartItemId)
+    ? cart.find((item) => {
+        if (item.cartItemId === currentCartItemId) return true;
+        // Legacy fallback: match items stored with old - separator format
+        if (item.cartItemId && item.cartItemId.includes('-') && !item.cartItemId.includes('::') && item.id === productData.id) {
+          return true;
+        }
+        return false;
+      })
     : undefined;
   const quantityInCart = cartItem?.quantity || 0;
 

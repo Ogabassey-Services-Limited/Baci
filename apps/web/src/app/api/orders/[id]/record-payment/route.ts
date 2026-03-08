@@ -67,12 +67,6 @@ export async function POST(
 
     const parsedAmount = Number(parsedBody.data.amount);
     const { payment_method, reference, notes } = parsedBody.data;
-    if (!reference) {
-      return NextResponse.json(
-        { error: 'Payment reference is required' },
-        { status: 400 }
-      );
-    }
     logger.info({
       message: 'RecordPayment body parsed',
       amount: parsedAmount,

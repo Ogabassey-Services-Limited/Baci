@@ -113,7 +113,7 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          fulfillment_address: {
+          shipping_address: {
             address: '12 Example Street',
             city: 'Lagos',
           },
@@ -132,7 +132,7 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
       id: 'session-1',
       status: 'ready_for_payment',
       fulfillment_option_id: 'shipping_standard',
-      fulfillment_address: {
+      shipping_address: {
         address: '12 Example Street',
         city: 'Lagos',
       },

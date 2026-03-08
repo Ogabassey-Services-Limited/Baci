@@ -55,8 +55,7 @@ export async function shareProductLink({
           }
         : {
             title: 'Copy link manually',
-            description:
-              'The product link is selected. Copy it from the URL field.',
+            description: url,
           }
     );
     return;
