@@ -172,6 +172,17 @@ export default function CategoryScreen() {
     );
   };
 
+  const androidVirtualizationProps =
+    Platform.OS === 'android'
+      ? {
+          removeClippedSubviews: true,
+          maxToRenderPerBatch: 6,
+          windowSize: 5,
+          initialNumToRender: 6,
+          updateCellsBatchingPeriod: 50,
+        }
+      : {};
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -202,12 +213,7 @@ export default function CategoryScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         columnWrapperStyle={styles.row}
-        // 2026 Best Practice: FlatList performance optimizations
-        removeClippedSubviews={Platform.OS === 'android'}
-        maxToRenderPerBatch={6}
-        windowSize={5}
-        initialNumToRender={6}
-        updateCellsBatchingPeriod={50}
+        {...androidVirtualizationProps}
       />
     </SafeAreaView>
   );
