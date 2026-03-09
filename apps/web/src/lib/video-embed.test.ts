@@ -47,6 +47,12 @@ describe('getVideoEmbedUrl', () => {
       expect(getVideoEmbedUrl(url)).toBe(url);
     });
 
+    it('converts a www.vimeo.com share URL to player embed', () => {
+      expect(getVideoEmbedUrl('https://www.vimeo.com/123456789')).toBe(
+        'https://player.vimeo.com/video/123456789'
+      );
+    });
+
     it('returns null for non-numeric vimeo paths', () => {
       expect(getVideoEmbedUrl('https://vimeo.com/channels')).toBeNull();
     });
@@ -71,6 +77,10 @@ describe('getVideoEmbedUrl', () => {
 
     it('returns null for data: protocol', () => {
       expect(getVideoEmbedUrl('data:text/html,<h1>hi</h1>')).toBeNull();
+    });
+
+    it('returns null for http: protocol', () => {
+      expect(getVideoEmbedUrl('http://www.youtube.com/watch?v=abc')).toBeNull();
     });
   });
 });

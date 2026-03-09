@@ -49,7 +49,10 @@ export function AboutPageClient({
   legacyContent,
 }: AboutPageClientProps) {
   const hasStructuredContent =
-    aboutPage.story || aboutPage.mission || aboutPage.team?.length;
+    aboutPage.story ||
+    aboutPage.mission ||
+    aboutPage.team?.length ||
+    aboutPage.video_url;
 
   return (
     <MerchantProvider slug={merchant.slug}>

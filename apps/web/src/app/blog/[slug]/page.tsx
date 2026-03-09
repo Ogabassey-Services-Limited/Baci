@@ -118,11 +118,11 @@ export default async function BlogPostPage({ params }: PageProps) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (supabaseUrl && supabaseAnonKey) {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    void Promise.resolve(
-      supabase.rpc('increment_blog_post_views', { p_post_id: post.id })
-    ).catch(() => {
-      // View count is non-critical — silently ignore failures
-    });
+    void supabase
+      .rpc('increment_blog_post_views', { p_post_id: post.id })
+      .then(null, () => {
+        // View count is non-critical — silently ignore failures
+      });
   }
 
   return (
@@ -204,6 +204,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                   src={post.featured_image_url}
                   alt={post.featured_image_alt || post.title}
                   fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 768px, 896px"
                   className="object-cover"
                   priority
                 />
