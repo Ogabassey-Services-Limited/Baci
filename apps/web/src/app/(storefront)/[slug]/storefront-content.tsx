@@ -48,7 +48,7 @@ function reportTemplateRenderFailure(context: {
     return;
   }
 
-  errorReporter.captureException(context.error, {
+  errorReporter.captureException?.(context.error, {
     tags: {
       merchantId: context.merchantId,
       templateId: context.templateId,
