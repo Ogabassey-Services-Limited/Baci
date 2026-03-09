@@ -28,6 +28,6 @@ describe('resolveStorefrontTemplateId', () => {
 
   it('handles null business type by falling back to default template', () => {
     const result = resolveStorefrontTemplateId(undefined, null);
-    expect(typeof result === 'string' || result === null).toBe(true);
+    expect(result).toBe('electronics');
   });
 });

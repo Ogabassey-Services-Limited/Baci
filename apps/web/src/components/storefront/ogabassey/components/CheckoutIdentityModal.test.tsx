@@ -104,9 +104,7 @@ describe('CheckoutIdentityModal', () => {
     fireEvent.change(screen.getByPlaceholderText('name@example.com'), {
       target: { value: 'bad@example.com' },
     });
-    // Password input has no placeholder; select by role
-    const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement;
-    fireEvent.change(passwordInput, {
+    fireEvent.change(screen.getByLabelText('Password'), {
       target: { value: 'wrong-password' },
     });
 
@@ -124,6 +122,31 @@ describe('CheckoutIdentityModal', () => {
 
     // Should NOT navigate on failure
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('navigates to checkout on successful sign-in', async () => {
+    render(<CheckoutIdentityModal {...defaultProps} />);
+
+    // Switch to sign-in tab
+    fireEvent.click(screen.getByText('Sign In'));
+
+    // Fill in credentials
+    fireEvent.change(screen.getByPlaceholderText('name@example.com'), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'correct-password' },
+    });
+
+    // Submit the form
+    fireEvent.click(
+      screen.getByRole('button', { name: /sign in & checkout/i })
+    );
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/checkout');
+      expect(defaultProps.onClose).toHaveBeenCalled();
+    });
   });
 
   it('navigates to signup with encoded redirect on register click', () => {

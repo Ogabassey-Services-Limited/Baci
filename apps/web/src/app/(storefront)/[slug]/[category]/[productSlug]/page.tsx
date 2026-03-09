@@ -640,6 +640,9 @@ const getProduct = async (
 
   const dbCategorySlug = joinedCategory?.slug;
   const dbCategoryName = joinedCategory?.name || product.category;
+
+  // Normalize the images array from the database (JSON column stored as string or object array).
+  // Guard against both non-array values and empty arrays so primaryImage always resolves.
   const rawImages = Array.isArray(product.images)
     ? (product.images as Array<string | { url: string; alt?: string }>)
     : [];

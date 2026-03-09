@@ -14,6 +14,7 @@ export interface BlogPostBodyProps {
   basePath: string;
   baseUrl: string;
   content: unknown;
+  locale?: string;
   post: {
     author_bio?: string | null;
     id: string;
@@ -36,6 +37,7 @@ export async function BlogPostBody({
   basePath,
   baseUrl,
   content,
+  locale,
   post,
   relatedPosts,
 }: BlogPostBodyProps) {
@@ -165,7 +167,7 @@ export async function BlogPostBody({
                       {related.published_at && (
                         <span>
                           {new Date(related.published_at).toLocaleDateString(
-                            'en-NG',
+                            locale ?? 'en-NG',
                             {
                               year: 'numeric',
                               month: 'short',

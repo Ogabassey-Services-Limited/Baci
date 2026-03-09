@@ -1,21 +1,10 @@
 import type { Product } from '@/lib/products';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn(
-    (products: Array<{ category?: string }>) => {
-      const phones = products.filter((p) =>
-        p.category?.toLowerCase().includes('phone') ||
-        p.category?.toLowerCase().includes('smartphone')
-      );
-      const rest = products.filter(
-        (p) =>
-          !p.category?.toLowerCase().includes('phone') &&
-          !p.category?.toLowerCase().includes('smartphone')
-      );
-      return [...phones, ...rest];
-    }
+    (products: unknown[]) => products
   ),
 }));
 vi.mock('next/navigation', () => ({
@@ -49,13 +38,14 @@ vi.mock('./FloatingParticles', () => ({
 }));
 vi.mock('./ProductGridItem', () => ({
   ProductGridItem: ({ product }: { product: { name: string } }) => (
-    <div data-testid="grid-item">{product.name}</div>
+    <article>{product.name}</article>
   ),
 }));
 vi.mock('./ProductListItem', () => ({
   ProductListItem: () => <div data-testid="list-item" />,
 }));
 
+import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { EngineProductGrid } from './EngineProductGrid';
 
 function createTestProduct(overrides: Partial<Product>): Product {
@@ -86,8 +76,8 @@ describe('EngineProductGrid', () => {
     expect(container).toBeDefined();
   });
 
-  it('prioritizes smartphone products when All is selected', () => {
-    const { getAllByTestId } = render(
+  it('passes products through prioritizeSmartphoneProducts', () => {
+    render(
       <EngineProductGrid
         externalProducts={[
           createTestProduct({
@@ -111,9 +101,10 @@ describe('EngineProductGrid', () => {
       />
     );
 
-    // EngineProductGrid reorders the All view so smartphone categories render before other categories.
-    expect(getAllByTestId('grid-item').map((item) => item.textContent)).toEqual(
-      ['iPhone 16', 'Samsung TV']
+    expect(vi.mocked(prioritizeSmartphoneProducts)).toHaveBeenCalled();
+    // Deterministic stub returns products in original order
+    expect(screen.getAllByRole('article').map((item) => item.textContent)).toEqual(
+      ['Samsung TV', 'iPhone 16']
     );
   });
 });

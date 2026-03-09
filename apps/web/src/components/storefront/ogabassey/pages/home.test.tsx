@@ -1,3 +1,4 @@
+import type { Product } from '@/lib/products';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -60,7 +61,23 @@ describe('OgabasseyHomePage', () => {
   });
 
   it('passes products and categories to EngineProductGrid', () => {
-    const testProducts = [{ id: 'p-1', name: 'Phone' }] as never[];
+    const testProducts: Product[] = [
+      {
+        id: 'p-1',
+        name: 'Phone',
+        description: 'A smartphone',
+        status: 'active',
+        price: 100000,
+        manage_stock: true,
+        stock: 10,
+        image: '/phone.jpg',
+        imageLarge: '/phone-lg.jpg',
+        imageHint: 'Phone',
+        brand: 'TestBrand',
+        gtin: '',
+        mpn: '',
+      },
+    ];
     const testCategories = [{ name: 'Electronics', slug: 'electronics' }];
 
     render(

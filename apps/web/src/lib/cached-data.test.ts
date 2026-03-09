@@ -815,6 +815,9 @@ describe('cached-data utility functions', () => {
 
       await getCachedProduct('merchant-123', 'iphone-16');
 
+      expect(mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
+      expect(mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
+
       const selectArg = String(mockSelect.mock.calls.at(-1)?.[0]);
       expect(selectArg).not.toMatch(/\*\s*,/);
       const variantsSelect = getProductVariantsSelect(selectArg);
@@ -835,6 +838,9 @@ describe('cached-data utility functions', () => {
       });
 
       await getCachedProductWithDetails('merchant-123', 'iphone-16');
+
+      expect(mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-123');
+      expect(mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
 
       const selectArg = mockSelect.mock.calls.at(-1)?.[0];
       const variantsSelect = getProductVariantsSelect(selectArg);
