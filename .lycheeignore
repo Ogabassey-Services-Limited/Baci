@@ -34,3 +34,17 @@ http://linkedin.com/
 
 # Snapchat Business Help blocks automated requests
 https://businesshelp.snapchat.com/
+
+# Test fixture URLs with fake video IDs (not real videos)
+https://www.youtube.com/watch?v=abc123
+https://youtube.com/watch?v=xyz
+https://www.youtube.com/watch
+https://youtu.be/abc123
+https://youtu.be/
+https://www.youtube-nocookie.com/embed/abc123
+https://www.youtube-nocookie.com/embed/xyz
+http://www.youtube.com/watch?v=abc
+https://vimeo.com/123456789
+https://www.vimeo.com/123456789
+https://player.vimeo.com/video/123456789
+https://vimeo.com/channels

@@ -3,7 +3,6 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
-import { sanitizeHtml } from '@/lib/sanitize';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { PrivacyPageClient } from '../pages/privacy/privacy-page-client';
 
@@ -130,11 +129,6 @@ async function PrivacyPolicyContent({ slug }: { slug: string }) {
             // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant type differs from PrivacyPageClient prop type
             merchant={merchant as any}
             content={merchantPages?.privacy}
-            sanitizedContent={
-              merchantPages?.privacy
-                ? sanitizeHtml(merchantPages.privacy)
-                : undefined
-            }
           />
         }
       />

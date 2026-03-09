@@ -17,11 +17,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SafeHtml } from '@/components/ui/safe-html';
 import { Textarea } from '@/components/ui/textarea';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
-import { sanitizeHtml } from '@/lib/sanitize';
 
 interface ContactPageClientProps {
   merchant: {
@@ -364,12 +364,9 @@ export function ContactPageClient({
 
                     {/* Legacy content */}
                     {legacyContent && (
-                      <div
+                      <SafeHtml
+                        html={legacyContent}
                         className="prose prose-sm dark:prose-invert max-w-none"
-                        // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
-                        dangerouslySetInnerHTML={{
-                          __html: sanitizeHtml(legacyContent),
-                        }} // nosemgrep
                       />
                     )}
                   </div>

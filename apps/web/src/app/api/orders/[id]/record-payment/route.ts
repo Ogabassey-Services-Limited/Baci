@@ -35,6 +35,24 @@ export async function POST(
     const { id } = await params;
     logger.info({ message: 'RecordPayment starting', orderId: id });
 
+    // 1. Auth check FIRST — before processing any user input
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      logger.warn({
+        message: 'RecordPayment auth failed',
+        error: auth.error,
+        orderId: id,
+      });
+      return NextResponse.json(
+        { error: auth.error || 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const user = auth.user;
+    const supabase = auth.supabase;
+
+    // 2. Parse and validate request body (before any DB calls)
     let body: unknown;
 
     try {
@@ -45,10 +63,6 @@ export async function POST(
         error,
         orderId: id,
       });
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-    }
-
-    if (body === null || typeof body !== 'object') {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
@@ -74,35 +88,12 @@ export async function POST(
       orderId: id,
     });
 
-    // Input validation: Ensure amount is a positive number.
-    // Note: This is NOT a security bypass - it's input validation that runs BEFORE
-    // authentication. The actual security is enforced below via:
-    // 1. authenticateApiRequest() - verifies the user is authenticated
-    // 2. getMerchantIdForApiUser() - gets the merchant for this user
-    // 3. Order query with .eq('merchant_id', merchant.id) - ensures order ownership
-    // lgtm[js/user-controlled-bypass] codeql[js/user-controlled-bypass-of-security-check]
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
     }
 
-    // Authenticate request (supports mobile Bearer token + web cookies)
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
-      logger.warn({
-        message: 'RecordPayment auth failed',
-        error: auth.error,
-        orderId: id,
-      });
-      return NextResponse.json(
-        { error: auth.error || 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const user = auth.user;
-
-    // Get merchant ID (supports both owners and staff members)
-    const merchantId = await getMerchantIdForApiUser(auth.supabase);
+    // 3. Get merchant ID (supports both owners and staff members)
+    const merchantId = await getMerchantIdForApiUser(supabase);
     if (!merchantId) {
       logger.error({
         message: 'RecordPayment merchant not found',
@@ -114,8 +105,6 @@ export async function POST(
         { status: 404 }
       );
     }
-
-    const supabase = auth.supabase;
 
     // Fetch full Merchant details for email
     const { data: merchant, error: merchantError } = await supabase

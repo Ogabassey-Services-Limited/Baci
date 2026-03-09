@@ -13,9 +13,9 @@ import {
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { SafeHtml } from '@/components/ui/safe-html';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
-import { sanitizeHtml } from '@/lib/sanitize';
 import { type FAQItem, groupFAQsByCategory } from '@/types/faq';
 
 interface FAQPageClientProps {
@@ -36,14 +36,12 @@ interface FAQPageClientProps {
   };
   faqItems: FAQItem[];
   legacyContent?: string;
-  sanitizedLegacyContent?: string;
 }
 
 export function FAQPageClient({
   merchant,
   faqItems,
   legacyContent,
-  sanitizedLegacyContent,
 }: FAQPageClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const hasStructuredFAQs = faqItems.length > 0;
@@ -140,15 +138,9 @@ export function FAQPageClient({
                               {faq.question}
                             </AccordionTrigger>
                             <AccordionContent className="text-muted-foreground pb-4">
-                              <div
+                              <SafeHtml
+                                html={faq.answer}
                                 className="prose prose-sm dark:prose-invert max-w-none"
-                                /*
-                                  biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
-                                  nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-                                */
-                                dangerouslySetInnerHTML={{
-                                  __html: sanitizeHtml(faq.answer),
-                                }}
                               />
                             </AccordionContent>
                           </AccordionItem>
@@ -188,14 +180,9 @@ export function FAQPageClient({
                                     {faq.question}
                                   </AccordionTrigger>
                                   <AccordionContent className="text-muted-foreground pb-4">
-                                    <div
+                                    <SafeHtml
+                                      html={faq.answer}
                                       className="prose prose-sm dark:prose-invert max-w-none"
-                                      /*
-                                        biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
-                                      */
-                                      dangerouslySetInnerHTML={{
-                                        __html: sanitizeHtml(faq.answer),
-                                      }}
                                     />
                                   </AccordionContent>
                                 </AccordionItem>
@@ -209,16 +196,9 @@ export function FAQPageClient({
                 ) : legacyContent ? (
                   /* Legacy content fallback */
                   <div className="max-w-3xl mx-auto">
-                    <div
+                    <SafeHtml
+                      html={legacyContent}
                       className="prose prose-lg dark:prose-invert max-w-none"
-                      /*
-                        biome-ignore lint/security/noDangerouslySetInnerHtml: Content uses secure sanitizeHtml utility
-                        nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-                      */
-                      dangerouslySetInnerHTML={{
-                        __html:
-                          sanitizedLegacyContent || sanitizeHtml(legacyContent),
-                      }}
                     />
                   </div>
                 ) : null}

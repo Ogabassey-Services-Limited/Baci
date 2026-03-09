@@ -7,8 +7,8 @@ import { notFound } from 'next/navigation';
 import AppBody from '@/components/app-body';
 import { PlatformFooter } from '@/components/platform/footer';
 import { PlatformHeader } from '@/components/platform/header';
+import { SafeHtml } from '@/components/ui/safe-html';
 import { asRoute } from '@/lib/routes';
-import { sanitizeHtml } from '@/lib/sanitize';
 
 interface BlogPost {
   id: string;
@@ -49,7 +49,9 @@ async function getBlogPost(slug: string): Promise<BlogPost | null> {
 
   const { data: post, error } = await supabase
     .from('blog_posts')
-    .select('*')
+    .select(
+      'id, title, slug, content, excerpt, featured_image_url, featured_image_alt, category, tags, keywords, author_name, author_title, author_image_url, author_bio, reading_time_minutes, published_at, view_count, seo_title, seo_description'
+    )
     .eq('is_platform_post', true)
     .eq('status', 'published')
     .eq('slug', slug)
@@ -58,13 +60,6 @@ async function getBlogPost(slug: string): Promise<BlogPost | null> {
   if (error || !post) {
     return null;
   }
-
-  // Increment view count (fire and forget with silent error handling)
-  void Promise.resolve(
-    supabase.rpc('increment_blog_post_views', { p_post_id: post.id })
-  ).catch(() => {
-    // Silently ignore view count errors - non-critical
-  });
 
   return post;
 }
@@ -117,6 +112,9 @@ export default async function BlogPostPage({ params }: PageProps) {
   if (!post) {
     notFound();
   }
+
+  // View count is incremented via the API route (GET /api/blog/posts?slug=...)
+  // which is the single source of truth — no duplicate increment here.
 
   return (
     <AppBody>
@@ -197,6 +195,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                   src={post.featured_image_url}
                   alt={post.featured_image_alt || post.title}
                   fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 768px, 896px"
                   className="object-cover"
                   priority
                 />
@@ -204,10 +203,9 @@ export default async function BlogPostPage({ params }: PageProps) {
             )}
 
             {/* Content */}
-            <div
+            <SafeHtml
+              html={post.content}
               className="prose prose-lg dark:prose-invert max-w-none mb-12"
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
             />
 
             {/* Tags */}

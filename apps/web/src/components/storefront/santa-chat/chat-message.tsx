@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { sanitizeHtml } from '@/lib/sanitize';
+import { SafeHtml } from '@/components/ui/safe-html';
 import type { ChatMessage as ChatMessageType } from './types';
 
 interface ChatMessageProps {
@@ -11,14 +11,7 @@ interface ChatMessageProps {
 /**
  * Simple markdown renderer for Santa's messages
  */
-/**
- * Simple markdown renderer for Santa's messages
- */
 function SimpleMarkdownRenderer({ text }: { text: string }) {
-  // Import DOMPurify here or outside. Since it's a client component, we import at top.
-  // But to avoid adding imports in this replace block, I'll rely on the existing imports or add it if missing.
-  // Wait, I need to add the import first.
-
   const renderText = () => {
     let html = text;
 
@@ -47,13 +40,7 @@ function SimpleMarkdownRenderer({ text }: { text: string }) {
     return html.replace(/\n/g, '<br />');
   };
 
-  // Safe usage with project's sanitization utility
-  const cleanHtml = sanitizeHtml(renderText());
-
-  return (
-    // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized HTML content
-    <div className="text-sm" dangerouslySetInnerHTML={{ __html: cleanHtml }} />
-  );
+  return <SafeHtml html={renderText()} className="text-sm" />;
 }
 
 /**

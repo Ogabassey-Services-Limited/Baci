@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
-import { sanitizeHtml } from '@/lib/sanitize';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateAboutPageJsonLd,
@@ -73,14 +72,6 @@ export default async function AboutPage({ params }: PageProps) {
   // Generate JSON-LD structured data
   const jsonLd = generateAboutPageJsonLd(merchant, aboutPage, baseUrl);
 
-  // SANITIZE ON SERVER for performance (Client component doesn't need 30KB lib)
-  const sanitizedStory = aboutPage.story
-    ? sanitizeHtml(aboutPage.story)
-    : undefined;
-  const sanitizedLegacyContent = legacyAboutContent
-    ? sanitizeHtml(legacyAboutContent)
-    : undefined;
-
   return (
     <>
       <script
@@ -97,8 +88,6 @@ export default async function AboutPage({ params }: PageProps) {
             merchant={merchant}
             aboutPage={aboutPage}
             legacyContent={legacyAboutContent}
-            sanitizedStory={sanitizedStory}
-            sanitizedLegacyContent={sanitizedLegacyContent}
           />
         }
       />

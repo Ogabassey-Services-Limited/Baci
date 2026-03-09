@@ -30,8 +30,12 @@ vi.mock('@/components/storefront/footer', () => ({
   StorefrontFooter: () => <div data-testid="footer" />,
 }));
 
-vi.mock('@/lib/sanitize', () => ({
-  sanitizeHtml: (s: string) => s,
+vi.mock('@/components/ui/safe-html', () => ({
+  SafeHtml: ({ html, className }: { html: string; className?: string }) => (
+    <div className={className} data-testid="safe-html">
+      {html}
+    </div>
+  ),
 }));
 
 import { ContactPageClient } from './contact-page-client';

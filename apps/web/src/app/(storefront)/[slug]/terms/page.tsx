@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
-import { sanitizeHtml } from '@/lib/sanitize';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { TermsPageClient } from '../pages/terms/terms-page-client';
 
@@ -91,11 +90,6 @@ export default async function TermsPage({ params }: PageProps) {
           <TermsPageClient
             merchant={merchant}
             content={merchant.pages?.terms}
-            sanitizedContent={
-              merchant.pages?.terms
-                ? sanitizeHtml(merchant.pages.terms)
-                : undefined
-            }
           />
         }
       />
