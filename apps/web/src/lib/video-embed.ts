@@ -1,3 +1,6 @@
+// YouTube video IDs are exactly 11 characters: alphanumeric, hyphens, underscores
+const YOUTUBE_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+
 const ALLOWED_VIDEO_HOSTS = [
   'www.youtube.com',
   'youtube.com',
@@ -36,7 +39,7 @@ export function getVideoEmbedUrl(url: string): string | null {
       parsed.pathname === '/watch'
     ) {
       const videoId = parsed.searchParams.get('v');
-      return videoId
+      return videoId && YOUTUBE_ID_PATTERN.test(videoId)
         ? `https://www.youtube-nocookie.com/embed/${videoId}`
         : null;
     }
@@ -44,7 +47,7 @@ export function getVideoEmbedUrl(url: string): string | null {
     // youtu.be short link
     if (parsed.hostname === 'youtu.be') {
       const videoId = parsed.pathname.slice(1);
-      return videoId
+      return videoId && YOUTUBE_ID_PATTERN.test(videoId)
         ? `https://www.youtube-nocookie.com/embed/${videoId}`
         : null;
     }
