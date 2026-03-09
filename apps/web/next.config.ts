@@ -37,6 +37,11 @@ const nextConfig: NextConfig = {
   },
 
   images: {
+    // Custom loader bypasses Vercel's /_next/image proxy for external CDN images.
+    // Cloudflare WAF blocks Vercel's server-side fetches (OPTIMIZED_EXTERNAL_IMAGE_REQUEST_UNAUTHORIZED).
+    // Since all merchant images are pre-optimized AVIF on CDNs, re-optimization is redundant.
+    loader: 'custom',
+    loaderFile: './src/lib/image-loader.ts',
     remotePatterns: [
       {
         protocol: 'https',
