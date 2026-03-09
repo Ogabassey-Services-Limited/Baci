@@ -57,9 +57,9 @@ describe('SafeHtml', () => {
 
   it('strips javascript: protocol URLs from links', () => {
     render(<SafeHtml html='<a href="javascript:alert(1)">Malicious</a>' />);
-    const link = screen.queryByRole('link', { name: 'Malicious' });
-    if (link) {
-      expect(link.getAttribute('href')).not.toContain('javascript:');
-    }
+    // sanitize-html removes href with disallowed schemes, so the <a> is no longer a link
+    expect(screen.queryByRole('link', { name: 'Malicious' })).toBeNull();
+    // The text content is still rendered
+    expect(screen.getByText('Malicious')).toBeInTheDocument();
   });
 });
