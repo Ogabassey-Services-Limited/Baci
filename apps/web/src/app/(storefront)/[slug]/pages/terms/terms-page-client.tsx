@@ -4,9 +4,9 @@ import { AlertCircle, CheckCircle, Scale, ScrollText } from 'lucide-react';
 import AppBody from '@/components/app-body';
 import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
+import { SafeHtml } from '@/components/ui/safe-html';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
-import { sanitizeHtml } from '@/lib/sanitize';
 
 interface TermsPageClientProps {
   merchant: {
@@ -26,23 +26,9 @@ interface TermsPageClientProps {
     };
   };
   content?: string;
-  sanitizedContent?: string;
 }
 
-export function TermsPageClient({
-  merchant,
-  content,
-  sanitizedContent,
-}: TermsPageClientProps) {
-  // Defense-in-depth: sanitize on client if server-sanitized content not provided
-  const safeHtml = (() => {
-    // Ensure even server-provided content passes through sanitizer for defense-in-depth.
-    if (sanitizedContent) return sanitizeHtml(sanitizedContent);
-    if (!content) return undefined;
-    // Fallback client-side sanitization (should not normally be needed)
-    return sanitizeHtml(content);
-  })();
-
+export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
   return (
     <MerchantProvider slug={merchant.slug}>
       <StorefrontProvider>
@@ -114,9 +100,9 @@ export function TermsPageClient({
               {/* Content */}
               <div className="container px-4 md:px-6 py-12 md:py-16">
                 <div className="max-w-3xl mx-auto">
-                  {/* Security: Content is sanitized via shared sanitizeHtml utility */}
-                  {safeHtml ? (
-                    <div
+                  {content ? (
+                    <SafeHtml
+                      html={content}
                       className="prose prose-lg dark:prose-invert max-w-none
                         prose-headings:font-bold prose-headings:tracking-tight
                         prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-4
@@ -124,9 +110,6 @@ export function TermsPageClient({
                         prose-p:text-muted-foreground prose-p:leading-relaxed
                         prose-li:text-muted-foreground
                         prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
-                      // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized via sanitizeHtml utility
-                      dangerouslySetInnerHTML={{ __html: safeHtml }}
                     />
                   ) : (
                     <div className="text-center text-muted-foreground py-12">

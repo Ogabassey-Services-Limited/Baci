@@ -18,6 +18,7 @@ import { TypingAnimation } from '@/components/landing/typing-animation';
 import { PlatformFooter } from '@/components/platform/footer';
 import { PlatformHeader } from '@/components/platform/header';
 import { Button } from '@/components/ui/button';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { getLandingMetrics } from './actions';
 
 // Interface for metrics
@@ -34,9 +35,9 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
       {/* Header */}
       <script
         type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
+          __html: safeJsonLdStringify({
             '@context': 'https://schema.org',
             '@type': 'HowTo',
             name: 'How to create your online store with Baci',
@@ -358,9 +359,9 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
             {/* HowTo Schema */}
             <script
               type="application/ld+json"
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
               dangerouslySetInnerHTML={{
-                __html: JSON.stringify({
+                __html: safeJsonLdStringify({
                   '@context': 'https://schema.org',
                   '@type': 'HowTo',
                   name: 'How to Create an E-commerce Store with Baci',
@@ -484,9 +485,9 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
             {/* FAQ Schema */}
             <script
               type="application/ld+json"
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
               dangerouslySetInnerHTML={{
-                __html: JSON.stringify({
+                __html: safeJsonLdStringify({
                   '@context': 'https://schema.org',
                   '@type': 'FAQPage',
                   mainEntity: [

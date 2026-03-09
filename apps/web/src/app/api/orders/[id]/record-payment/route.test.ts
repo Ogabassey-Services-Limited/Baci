@@ -92,6 +92,25 @@ describe('POST /api/orders/[id]/record-payment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSendEmail.mockResolvedValue(undefined);
+
+    // Reset Supabase mock chain to prevent leaks between tests.
+    // vi.clearAllMocks() preserves implementations, so stubs assigned
+    // in one test can leak into later cases that don't reassign them.
+    mockSupabaseClient.from.mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      update: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+    });
+
+    // Default: authenticated merchant (auth runs before body parsing)
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'merchant@example.com' },
+      supabase: mockSupabaseClient,
+    });
+    mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
   });
 
   const createRequest = (body: unknown) => {
@@ -201,7 +220,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid JSON body' });
+    expect(data).toEqual({ error: 'Invalid request body' });
   });
 
   it('returns 401 when authentication fails', async () => {
@@ -250,6 +269,36 @@ describe('POST /api/orders/[id]/record-payment', () => {
     // Assert
     expect(response.status).toBe(401);
     expect(data).toEqual({ error: 'Unauthorized' });
+  });
+
+  it('returns 401 before parsing an invalid JSON body when auth fails', async () => {
+    // Arrange — auth fails AND body is malformed JSON
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: 'Invalid token',
+      user: null,
+      supabase: null,
+    });
+
+    const request = new NextRequest(
+      `http://localhost/api/orders/${mockOrderId}/record-payment`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '<<<not json>>>',
+      }
+    );
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    // Act
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    // Assert — 401 returned without touching merchant lookup or Supabase
+    expect(response.status).toBe(401);
+    expect(data).toEqual({ error: 'Invalid token' });
+    expect(mockGetMerchantIdForApiUser).not.toHaveBeenCalled();
+    expect(mockSupabaseClient.from).not.toHaveBeenCalled();
   });
 
   it('returns 404 when merchant not found', async () => {

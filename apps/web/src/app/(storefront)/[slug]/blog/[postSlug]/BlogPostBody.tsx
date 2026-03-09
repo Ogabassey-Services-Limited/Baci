@@ -7,6 +7,7 @@ import { TableOfContents } from '@/components/blog/table-of-contents';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SafeHtml } from '@/components/ui/safe-html';
 import { buildBlogUrl, resolveBlogPostContent } from './blog-post-content';
 
 export interface BlogPostBodyProps {
@@ -52,12 +53,10 @@ export async function BlogPostBody({
         {isJson ? (
           <BlogContentRenderer json={renderedContent} />
         ) : (
-          <div
+          <SafeHtml
             data-testid="blog-post-legacy-content"
+            html={legacyHtml}
             className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: Legacy content sanitized via sanitizeHtml()
-            // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-            dangerouslySetInnerHTML={{ __html: legacyHtml }}
           />
         )}
       </div>
