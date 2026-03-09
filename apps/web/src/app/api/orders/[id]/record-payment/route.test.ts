@@ -109,6 +109,12 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
   it('returns 400 when amount is missing', async () => {
     // Arrange
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'test@example.com' },
+      supabase: mockSupabaseClient,
+    });
+
     const request = createRequest({
       payment_method: 'bank_transfer',
     });
@@ -126,6 +132,12 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
   it('returns 400 when amount is zero', async () => {
     // Arrange
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'test@example.com' },
+      supabase: mockSupabaseClient,
+    });
+
     const request = createRequest({
       amount: 0,
       payment_method: 'cash',
@@ -144,6 +156,12 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
   it('returns 400 when amount is negative', async () => {
     // Arrange
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'test@example.com' },
+      supabase: mockSupabaseClient,
+    });
+
     const request = createRequest({
       amount: -100,
       payment_method: 'cash',
@@ -435,6 +453,36 @@ describe('POST /api/orders/[id]/record-payment', () => {
     // Assert
     expect(response.status).toBe(500);
     expect(data).toEqual({ error: 'Failed to record payment' });
+  });
+
+  it('returns 400 when the request body cannot be parsed', async () => {
+    // Arrange
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'test@example.com' },
+      supabase: mockSupabaseClient,
+    });
+
+    const request = new NextRequest(
+      `http://localhost/api/orders/${mockOrderId}/record-payment`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: '{invalid-json',
+      }
+    );
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    // Act
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    // Assert
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Invalid request body' });
   });
 
   it('returns 200 and marks order as paid when full payment is made', async () => {

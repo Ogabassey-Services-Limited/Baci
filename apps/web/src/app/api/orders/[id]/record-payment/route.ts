@@ -14,6 +14,7 @@ import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
+import { recordPaymentSchema } from '@/schemas/orders';
 import { purchaseInsuranceForPaidOrder } from '@/services/insurance';
 
 /** Order item interface for email templates (2026 best practice) */
@@ -34,26 +35,6 @@ export async function POST(
     const { id } = await params;
     logger.info({ message: 'RecordPayment starting', orderId: id });
 
-    const body = await request.json();
-    const { amount, payment_method, reference, notes } = body;
-    logger.info({
-      message: 'RecordPayment body parsed',
-      amount,
-      payment_method,
-      orderId: id,
-    });
-
-    // Input validation: Ensure amount is a positive number.
-    // Note: This is NOT a security bypass - it's input validation that runs BEFORE
-    // authentication. The actual security is enforced below via:
-    // 1. authenticateApiRequest() - verifies the user is authenticated
-    // 2. getMerchantIdForApiUser() - gets the merchant for this user
-    // 3. Order query with .eq('merchant_id', merchant.id) - ensures order ownership
-    // lgtm[js/user-controlled-bypass] codeql[js/user-controlled-bypass-of-security-check]
-    if (!amount || amount <= 0) {
-      return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
-    }
-
     // Authenticate request (supports mobile Bearer token + web cookies)
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
@@ -67,6 +48,41 @@ export async function POST(
         { status: 401 }
       );
     }
+
+    let requestBody: unknown;
+    try {
+      requestBody = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
+    const bodyResult = recordPaymentSchema.safeParse(requestBody);
+    if (!bodyResult.success) {
+      const hasAmountError = bodyResult.error.issues.some(
+        (issue) => issue.path[0] === 'amount'
+      );
+
+      return NextResponse.json(
+        hasAmountError
+          ? { error: 'Invalid amount' }
+          : {
+              error: 'Invalid input',
+              details: bodyResult.error.flatten(),
+            },
+        { status: 400 }
+      );
+    }
+
+    const { amount, payment_method, reference, notes } = bodyResult.data;
+    logger.info({
+      message: 'RecordPayment body parsed',
+      amount,
+      payment_method,
+      orderId: id,
+    });
 
     const user = auth.user;
 
@@ -389,16 +405,13 @@ export async function POST(
       new_balance: remainingBalance,
       updated_status: updates,
     });
-  } catch (error: unknown) {
+  } catch (error) {
     logger.error({
       message: 'RecordPayment internal error',
       error,
     });
     return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

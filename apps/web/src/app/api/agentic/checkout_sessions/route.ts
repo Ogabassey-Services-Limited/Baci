@@ -3,6 +3,12 @@ import { getIdempotencyKey, verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { createServiceClient } from '@/lib/supabase/service';
 
+interface CreateCheckoutSessionBody {
+  items?: unknown;
+  fulfillment_address?: unknown;
+  currency?: string;
+}
+
 export async function POST(request: NextRequest) {
   // 1. Auth & Idempotency
   if (!verifyAgenticApiKey(request)) {
@@ -11,7 +17,16 @@ export async function POST(request: NextRequest) {
   const idempotencyKey = getIdempotencyKey(request); // ToDo: Implement idempotent checks if needed
 
   try {
-    const body = await request.json();
+    let body: CreateCheckoutSessionBody;
+    try {
+      body = (await request.json()) as CreateCheckoutSessionBody;
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
     const { items, fulfillment_address, currency = 'NGN' } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -94,13 +109,10 @@ export async function POST(request: NextRequest) {
         'idempotency-key': idempotencyKey || '',
       },
     });
-  } catch (err: unknown) {
+  } catch (err) {
     console.error('Agentic Checkout Create Error:', err);
     return NextResponse.json(
-      {
-        error: 'Internal Server Error',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }

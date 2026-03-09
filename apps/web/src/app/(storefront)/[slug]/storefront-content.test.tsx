@@ -1,0 +1,155 @@
+import { render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// Mock server-only dependencies
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(() => Promise.resolve(new Map())),
+}));
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(() => ({
+    from: vi.fn(() => ({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            order: vi.fn(() => ({
+              limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
+            })),
+          })),
+        })),
+      })),
+    })),
+  })),
+}));
+vi.mock('@/lib/cached-categories', () => ({
+  getCachedNavigationCategories: vi.fn(() => Promise.resolve([])),
+}));
+vi.mock('@/templates/registry', () => ({
+  getTemplate: vi.fn(() => null),
+  getTemplateIdByBusinessType: vi.fn(() => null),
+}));
+vi.mock('./resolve-storefront-template', () => ({
+  resolveStorefrontTemplateId: vi.fn(() => null),
+}));
+vi.mock('./storefront-wrapper', () => ({
+  StorefrontWrapper: ({ products }: { products: unknown[] }) => (
+    <div data-testid="storefront-wrapper">
+      Products: {Array.isArray(products) ? products.length : 0}
+    </div>
+  ),
+}));
+vi.mock('@/components/analytics/analytics-provider', () => ({
+  AnalyticsProvider: () => null,
+}));
+vi.mock('@/components/ui/skeletons', () => ({
+  StorefrontPageSkeleton: () => <div data-testid="skeleton">Loading...</div>,
+}));
+
+import type { CachedMerchant } from '@/lib/cached-data';
+import {
+  StorefrontContent,
+  StreamingStorefrontContent,
+} from './storefront-content';
+
+function createMockMerchant(): CachedMerchant {
+  return {
+    id: 'merchant-1',
+    business_name: 'Test Store',
+    business_type: 'general',
+    email: 'test@example.com',
+    phone: '+2341234567',
+    logo_url: null,
+    brand_colors: null,
+    country: 'NG',
+    pages: null,
+    slug: 'test-store',
+    custom_domain: null,
+    favicon_svg_url: null,
+    favicon_png_32_url: null,
+    favicon_apple_touch_url: null,
+    social_media: null,
+    business_address: null,
+    is_published: true,
+    feature_settings: null,
+    template_id: null,
+    vat_registration_status: null,
+    vat_rate: null,
+    hero_slides: null,
+    mobile_hero_slides: null,
+    site_title: null,
+    site_tagline: null,
+    site_description: null,
+    payout_currency: 'NGN',
+    default_currency: 'NGN',
+    supported_currencies: null,
+  };
+}
+
+const mockMerchant = createMockMerchant();
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('StorefrontContent', () => {
+  it('renders the fallback StorefrontWrapper when no template matches', async () => {
+    const result = await StorefrontContent({ merchant: mockMerchant });
+
+    render(result as React.ReactElement);
+    expect(screen.getByTestId('storefront-wrapper')).toBeInTheDocument();
+  });
+
+  it('renders template Home component when template is resolved', async () => {
+    const { resolveStorefrontTemplateId } = await import(
+      './resolve-storefront-template'
+    );
+    const { getTemplate } = await import('@/templates/registry');
+
+    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('ogabassey');
+    vi.mocked(getTemplate).mockReturnValue({
+      getComponents: () =>
+        Promise.resolve({
+          Home: (props: Record<string, unknown>) => (
+            <div data-testid="template-home">{String(props.storeSlug)}</div>
+          ),
+        }),
+    } as ReturnType<typeof getTemplate>);
+
+    const result = await StorefrontContent({ merchant: mockMerchant });
+    render(result as React.ReactElement);
+
+    expect(screen.getByTestId('template-home')).toBeInTheDocument();
+    expect(screen.getByText('test-store')).toBeInTheDocument();
+  });
+
+  it('falls back to StorefrontWrapper when template render throws', async () => {
+    const { resolveStorefrontTemplateId } = await import(
+      './resolve-storefront-template'
+    );
+    const { getTemplate } = await import('@/templates/registry');
+
+    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('ogabassey');
+    vi.mocked(getTemplate).mockReturnValue({
+      getComponents: () => Promise.reject(new Error('render failure')),
+    } as ReturnType<typeof getTemplate>);
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
+      // intentionally suppress console.error during test
+      () => undefined
+    );
+
+    const result = await StorefrontContent({ merchant: mockMerchant });
+    render(result as React.ReactElement);
+
+    expect(screen.getByTestId('storefront-wrapper')).toBeInTheDocument();
+    consoleSpy.mockRestore();
+  });
+});
+
+describe('StreamingStorefrontContent', () => {
+  it('renders a Suspense fallback skeleton', () => {
+    render(<StreamingStorefrontContent merchant={mockMerchant} />);
+
+    // The Suspense boundary should show the skeleton while the async content loads
+    expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+  });
+});

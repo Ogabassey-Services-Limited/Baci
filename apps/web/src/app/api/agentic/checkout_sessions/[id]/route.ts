@@ -7,6 +7,12 @@ import {
 } from '@/lib/agentic/checkout';
 import { createServiceClient } from '@/lib/supabase/service';
 
+interface UpdateCheckoutSessionBody {
+  items?: unknown;
+  fulfillment_address?: unknown;
+  fulfillment_option_id?: string | null;
+}
+
 // Helper to get session from DB
 async function getSession(supabase: SupabaseClient, id: string) {
   const { data, error } = await supabase
@@ -76,7 +82,16 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const body = await request.json();
+    let body: UpdateCheckoutSessionBody;
+    try {
+      body = (await request.json()) as UpdateCheckoutSessionBody;
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
     const { items, fulfillment_address, fulfillment_option_id } = body;
     // Note: Spec allows updating items, address, or option.
 
@@ -142,13 +157,10 @@ export async function POST(
         { type: 'privacy_policy', url: 'https://ogabassey.com/privacy' },
       ],
     });
-  } catch (err: unknown) {
+  } catch (err) {
     console.error('Agentic Checkout Update Error:', err);
     return NextResponse.json(
-      {
-        error: 'Internal Server Error',
-        details: err instanceof Error ? err.message : 'Unknown error',
-      },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }
