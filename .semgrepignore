@@ -16,10 +16,6 @@ supabase/functions/
 apps/web/src/components/storefront/header.tsx
 apps/web/src/app/dashboard/client-layout.tsx
 
-# SafeHtml component — centralized sanitized HTML rendering wrapper
-# All HTML content rendering now goes through this single component
-apps/web/src/components/ui/safe-html.tsx
-
 # JSON-LD schemas — safeJsonLdStringify escapes all HTML entities
 apps/web/src/app/(storefront)/[slug]/pages/about/page.tsx
 apps/web/src/app/(storefront)/[slug]/pages/contact/page.tsx

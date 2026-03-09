@@ -23,6 +23,9 @@ type SafeHtmlProps = {
  * ```
  */
 export function SafeHtml({ html, ...rest }: SafeHtmlProps) {
+  if (!html) {
+    return <div {...rest} />;
+  }
   return (
     // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized via sanitizeHtml() allowlist — this is the ONLY place dangerouslySetInnerHTML should be used for HTML content
     <div {...rest} dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />

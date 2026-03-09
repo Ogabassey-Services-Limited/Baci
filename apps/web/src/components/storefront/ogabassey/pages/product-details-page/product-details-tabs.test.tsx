@@ -58,7 +58,7 @@ function buildProductData(
     displaySize: '6.1 inches',
     ram: '8GB',
     ...overrides,
-  } as NormalizedProductDetails;
+  };
 }
 
 function renderTabs(

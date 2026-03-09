@@ -141,10 +141,6 @@ describe('ChatMessage — user vs assistant styling', () => {
       />
     );
 
-    // The bubble div is the second child element (after the avatar image)
-    const _bubble = container.querySelector(
-      'div > div:not(:first-child), div > div:first-child'
-    );
     const bubbleEl = Array.from(container.querySelectorAll('div')).find((el) =>
       el.className.includes('bg-red-100')
     );

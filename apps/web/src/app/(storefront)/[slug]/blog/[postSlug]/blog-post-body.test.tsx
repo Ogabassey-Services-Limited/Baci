@@ -659,18 +659,18 @@ describe('BlogPostBody', () => {
         },
       ];
 
-      // Act — render with en-GB locale (different month format)
+      // Act — render with de-DE locale (German month name)
       render(
         await BlogPostBody({
           ...BASE_PROPS,
-          locale: 'en-GB',
+          locale: 'de-DE',
           content: '<p>Body</p>',
           relatedPosts,
         })
       );
 
-      // Assert — en-GB formats as "1 Mar 2026" (short month, same structure but locale-driven)
-      expect(screen.getByText(/mar 2026/i)).toBeInTheDocument();
+      // Assert — de-DE formats with German month name
+      expect(screen.getByText(/März 2026/i)).toBeInTheDocument();
     });
 
     it('does not render a date when published_at is null', async () => {

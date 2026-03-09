@@ -4,7 +4,7 @@ import type { MerchantAboutPage } from '@/types/about-page';
 import { AboutPageClient } from './about-page-client';
 
 // ---------------------------------------------------------------------------
-// Module mocks — must appear before the component import
+// Module mocks — hoisted by Vitest automatically
 // ---------------------------------------------------------------------------
 
 vi.mock('@/lib/sanitize', () => ({
@@ -535,11 +535,13 @@ describe('AboutPageClient', () => {
         screen.getByRole('heading', { name: /Watch Our Story/i })
       ).toBeInTheDocument();
 
-      const iframe = document.querySelector('iframe');
+      const iframe = screen.getByTitle('About Us Video');
       expect(iframe).toBeInTheDocument();
-      expect(iframe?.title).toBe('About Us Video');
       // YouTube watch?v= → embed/ transformation
-      expect(iframe?.src).toContain('embed/dQw4w9WgXcQ');
+      expect(iframe).toHaveAttribute(
+        'src',
+        expect.stringContaining('embed/dQw4w9WgXcQ')
+      );
     });
 
     it('does not render the video section when video_url is absent', () => {
@@ -553,7 +555,7 @@ describe('AboutPageClient', () => {
       expect(
         screen.queryByRole('heading', { name: /Watch Our Story/i })
       ).not.toBeInTheDocument();
-      expect(document.querySelector('iframe')).toBeNull();
+      expect(screen.queryByTitle('About Us Video')).not.toBeInTheDocument();
     });
   });
 

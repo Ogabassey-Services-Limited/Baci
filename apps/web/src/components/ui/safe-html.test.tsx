@@ -54,4 +54,12 @@ describe('SafeHtml', () => {
     const { container } = render(<SafeHtml html="" />);
     expect(container.firstChild).toBeEmptyDOMElement();
   });
+
+  it('strips javascript: protocol URLs from links', () => {
+    render(<SafeHtml html='<a href="javascript:alert(1)">Malicious</a>' />);
+    const link = screen.queryByRole('link', { name: 'Malicious' });
+    if (link) {
+      expect(link.getAttribute('href')).not.toContain('javascript:');
+    }
+  });
 });

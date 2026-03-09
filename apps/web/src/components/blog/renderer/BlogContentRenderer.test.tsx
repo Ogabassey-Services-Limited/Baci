@@ -644,5 +644,17 @@ describe('BlogContentRenderer', () => {
       expect(container.querySelector('ul')).toBeInTheDocument();
       expect(container.querySelector('ol')).toBeInTheDocument();
     });
+
+    it('renders multiple marks on the same text node', () => {
+      const json = doc(
+        paragraph(
+          textNode('Bold and Italic', [{ type: 'bold' }, { type: 'italic' }])
+        )
+      );
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('strong em, em strong')).toHaveTextContent(
+        'Bold and Italic'
+      );
+    });
   });
 });
