@@ -28,6 +28,7 @@ export function SafeHtml({ html, ...rest }: SafeHtmlProps) {
   }
   return (
     // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized via sanitizeHtml() allowlist — this is the ONLY place dangerouslySetInnerHTML should be used for HTML content
+    // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
     <div {...rest} dangerouslySetInnerHTML={{ __html: sanitizeHtml(html) }} />
   );
 }
