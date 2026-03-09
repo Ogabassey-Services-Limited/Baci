@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { notificationIdSchema } from '@/schemas/notifications';
 import type {
@@ -86,17 +87,40 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Use service-role client for stats queries to bypass RLS.
+    // The RLS-scoped client would only count merchant_notifications for the
+    // current admin's merchant, undercounting recipients across all merchants.
+    const adminSupabase = createAdminClient();
+
     // Get stats
-    const { count: totalRecipients } = await supabase
+    const { count: totalRecipients, error: totalError } = await adminSupabase
       .from('merchant_notifications')
-      .select('*', { count: 'exact', head: true })
+      // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+      .select('id', { count: 'exact', head: true })
       .eq('notification_id', id);
 
-    const { count: readCount } = await supabase
+    if (totalError) {
+      logger.error({
+        message: 'Error fetching total recipients',
+        error: totalError,
+        id,
+      });
+    }
+
+    const { count: readCount, error: readError } = await adminSupabase
       .from('merchant_notifications')
-      .select('*', { count: 'exact', head: true })
+      // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+      .select('id', { count: 'exact', head: true })
       .eq('notification_id', id)
       .not('read_at', 'is', null);
+
+    if (readError) {
+      logger.error({
+        message: 'Error fetching read count',
+        error: readError,
+        id,
+      });
+    }
 
     const notificationWithStats: NotificationWithStats = {
       ...notification,

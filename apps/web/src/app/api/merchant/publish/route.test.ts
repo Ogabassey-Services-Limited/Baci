@@ -357,7 +357,7 @@ describe('POST /api/merchant/publish', () => {
   });
 
   describe('validation - products', () => {
-    it('returns 400 when no published products exist', async () => {
+    it('returns 400 when no active products exist', async () => {
       setupAuth(true, true);
       setupMerchantData({
         id: MERCHANT_ID,
@@ -374,10 +374,10 @@ describe('POST /api/merchant/publish', () => {
       const json = await res.json();
 
       expect(res.status).toBe(400);
-      expect(json.missingItems).toContain('At least one published product');
+      expect(json.missingItems).toContain('At least one active product');
     });
 
-    it('returns 400 with helpful message when products exist but none published', async () => {
+    it('returns 400 with helpful message when products exist but none active', async () => {
       setupAuth(true, true);
       setupMerchantData({
         id: MERCHANT_ID,
@@ -397,7 +397,7 @@ describe('POST /api/merchant/publish', () => {
       expect(json.missingItems).toEqual(
         expect.arrayContaining([
           expect.stringContaining(
-            'At least one published product (you have 5 product(s) but none are published'
+            'At least one active product (you have 5 product(s) but none are active'
           ),
         ])
       );
@@ -433,7 +433,7 @@ describe('POST /api/merchant/publish', () => {
       expect(json.missingItems).toContain(
         'Contact information (email or phone)'
       );
-      expect(json.missingItems).toContain('At least one published product');
+      expect(json.missingItems).toContain('At least one active product');
     });
   });
 
