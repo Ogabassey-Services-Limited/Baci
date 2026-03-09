@@ -93,18 +93,34 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const adminSupabase = createAdminClient();
 
     // Get stats
-    const { count: totalRecipients } = await adminSupabase
+    const { count: totalRecipients, error: totalError } = await adminSupabase
       .from('merchant_notifications')
       // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
       .select('id', { count: 'exact', head: true })
       .eq('notification_id', id);
 
-    const { count: readCount } = await adminSupabase
+    if (totalError) {
+      logger.error({
+        message: 'Error fetching total recipients',
+        error: totalError,
+        id,
+      });
+    }
+
+    const { count: readCount, error: readError } = await adminSupabase
       .from('merchant_notifications')
       // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
       .select('id', { count: 'exact', head: true })
       .eq('notification_id', id)
       .not('read_at', 'is', null);
+
+    if (readError) {
+      logger.error({
+        message: 'Error fetching read count',
+        error: readError,
+        id,
+      });
+    }
 
     const notificationWithStats: NotificationWithStats = {
       ...notification,

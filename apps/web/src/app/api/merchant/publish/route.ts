@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       .eq('status', 'active');
 
     // Also get total products for debugging
-    const { count: totalProducts } = await supabase
+    const { count: totalProducts, error: totalProductsError } = await supabase
       .from('products')
       // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
       .select('id', { count: 'exact', head: true })
@@ -102,16 +102,17 @@ export async function POST(request: NextRequest) {
 
     console.log('[Publish API] Product check:', {
       merchantId: merchant.id,
-      publishedCount: productCount,
+      activeCount: productCount,
       totalProducts,
       productError,
+      totalProductsError,
     });
 
     if (!productCount || productCount === 0) {
       missingItems.push(
         totalProducts && totalProducts > 0
-          ? `At least one published product (you have ${totalProducts} product(s) but none are published - go to Products and publish them)`
-          : 'At least one published product'
+          ? `At least one active product (you have ${totalProducts} product(s) but none are active - go to Products and activate them)`
+          : 'At least one active product'
       );
     }
 
