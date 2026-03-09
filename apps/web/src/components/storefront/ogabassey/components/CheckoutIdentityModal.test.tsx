@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
@@ -25,6 +25,10 @@ vi.mock('@/lib/utils', () => ({ cn: vi.fn((...args: string[]) => args.filter(Boo
 import { CheckoutIdentityModal } from './CheckoutIdentityModal';
 
 describe('CheckoutIdentityModal', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   const defaultProps = {
     isOpen: true,
     onClose: vi.fn(),

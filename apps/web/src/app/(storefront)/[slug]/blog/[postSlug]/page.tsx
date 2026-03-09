@@ -117,7 +117,7 @@ async function BlogPostBody({
         <div className="flex gap-2">
           <Button variant="outline" size="sm" asChild>
             <a
-              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`${baseUrl}/blog/${post.slug}`)}`}
+              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`${baseUrl}${basePath}/blog/${post.slug}`)}`}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -126,7 +126,7 @@ async function BlogPostBody({
           </Button>
           <Button variant="outline" size="sm" asChild>
             <a
-              href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${baseUrl}/blog/${post.slug}`)}`}
+              href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${baseUrl}${basePath}/blog/${post.slug}`)}`}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -135,7 +135,7 @@ async function BlogPostBody({
           </Button>
           <Button variant="outline" size="sm" asChild>
             <a
-              href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${baseUrl}/blog/${post.slug}`)}`}
+              href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${baseUrl}${basePath}/blog/${post.slug}`)}`}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -231,7 +231,11 @@ export async function generateMetadata({
     post.seo_description ||
     post.excerpt ||
     (typeof post.content === 'string'
-      ? post.content.substring(0, 160)
+      ? post.content
+          .replace(/<[^>]*>/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .substring(0, 160)
       : 'Read the latest from our blog.');
 
   // Use request headers to determine the actual domain (supports custom domains)
@@ -239,7 +243,8 @@ export async function generateMetadata({
   const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
-  const url = `${baseUrl}/blog/${post.slug}`;
+  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
+  const url = `${baseUrl}${basePath}/blog/${post.slug}`;
 
   return {
     title: `${title} | ${merchant.business_name}`,
@@ -311,8 +316,14 @@ export default async function BlogPostPage({ params }: PageProps) {
   const blogSchema = generateBlogPostSchema({
     title: post.seo_title || post.title,
     description:
-      post.seo_description || post.excerpt || contentStr.slice(0, 160),
-    url: `${baseUrl}/blog/${post.slug}`,
+      post.seo_description ||
+      post.excerpt ||
+      contentStr
+        .replace(/<[^>]*>/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 160),
+    url: `${baseUrl}${basePath}/blog/${post.slug}`,
     image: post.featured_image_url || `${baseUrl}/opengraph-image`,
     datePublished: post.published_at,
     dateModified: post.updated_at,
@@ -341,11 +352,11 @@ export default async function BlogPostPage({ params }: PageProps) {
     },
     {
       name: 'Blog',
-      url: `${baseUrl}/blog`,
+      url: `${baseUrl}${basePath}/blog`,
     },
     {
       name: post.title,
-      url: `${baseUrl}/blog/${post.slug}`,
+      url: `${baseUrl}${basePath}/blog/${post.slug}`,
     },
   ]);
 

@@ -66,12 +66,7 @@ export async function POST(
       );
 
       return NextResponse.json(
-        hasAmountError
-          ? { error: 'Invalid amount' }
-          : {
-              error: 'Invalid input',
-              details: bodyResult.error.flatten(),
-            },
+        { error: hasAmountError ? 'Invalid amount' : 'Invalid request body' },
         { status: 400 }
       );
     }
