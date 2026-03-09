@@ -61,7 +61,7 @@ export function ProductDetailsTabs({
           >
             <SafeHtml
               html={productData.description || ''}
-              className="prose-headings:text-gray-900 prose-strong:text-gray-800 prose-table:text-sm mb-4"
+              className="prose-headings:text-inherit prose-strong:text-inherit prose-table:text-sm mb-4"
             />
             <div className="mb-6 mt-6">
               <h2 className="mb-3 text-lg font-bold text-gray-900">

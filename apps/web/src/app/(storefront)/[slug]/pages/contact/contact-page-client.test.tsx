@@ -32,8 +32,9 @@ vi.mock('@/components/storefront/footer', () => ({
 
 vi.mock('@/components/ui/safe-html', () => ({
   SafeHtml: ({ html, className }: { html: string; className?: string }) => (
-    // biome-ignore lint/security/noDangerouslySetInnerHtml: test mock for SafeHtml
-    <div className={className} dangerouslySetInnerHTML={{ __html: html }} />
+    <div className={className} data-testid="safe-html">
+      {html}
+    </div>
   ),
 }));
 

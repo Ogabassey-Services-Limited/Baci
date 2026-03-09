@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/components/ui/safe-html', () => ({
   SafeHtml: ({ html, className }: { html: string; className?: string }) => (
-    <div className={className} data-testid="safe-html">
+    <article className={className} aria-label="sanitized content">
       {html}
-    </div>
+    </article>
   ),
 }));
 
@@ -65,7 +65,7 @@ describe('OgabasseyV2LegalDispute', () => {
     it('does not render a SafeHtml node when there is no custom content', () => {
       render(<OgabasseyV2LegalDispute />);
 
-      expect(screen.queryByTestId('safe-html')).not.toBeInTheDocument();
+      expect(screen.queryByRole('article', { name: /sanitized content/i })).not.toBeInTheDocument();
     });
 
     it('uses the default business name in the intro text', () => {
@@ -109,7 +109,7 @@ describe('OgabasseyV2LegalDispute', () => {
     it('renders the custom terms content via SafeHtml', () => {
       render(<OgabasseyV2LegalDispute merchant={merchantWithCustomTerms} />);
 
-      const safeHtmlNode = screen.getByTestId('safe-html');
+      const safeHtmlNode = screen.getByRole('article', { name: /sanitized content/i });
       expect(safeHtmlNode).toBeInTheDocument();
       expect(safeHtmlNode).toHaveTextContent(
         'Custom terms and conditions for GadgetWorld customers.',
@@ -165,7 +165,7 @@ describe('OgabasseyV2LegalDispute', () => {
       expect(
         screen.getByRole('heading', { name: 'Terms of Service' }),
       ).toBeInTheDocument();
-      expect(screen.queryByTestId('safe-html')).not.toBeInTheDocument();
+      expect(screen.queryByRole('article', { name: /sanitized content/i })).not.toBeInTheDocument();
     });
   });
 });

@@ -347,27 +347,61 @@ export function AboutPageClient({
                     )}
 
                     {/* Video Section */}
-                    {aboutPage.video_url && (
-                      <section className="max-w-4xl mx-auto">
-                        <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
-                          <Play className="h-8 w-8 text-primary" />
-                          Watch Our Story
-                        </h2>
-                        <div className="aspect-video rounded-xl overflow-hidden bg-muted">
-                          <iframe
-                            src={aboutPage.video_url.replace(
-                              'watch?v=',
-                              'embed/'
-                            )}
-                            title="About Us Video"
-                            className="w-full h-full"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                            loading="lazy"
-                          />
-                        </div>
-                      </section>
-                    )}
+                    {aboutPage.video_url &&
+                      (() => {
+                        // Validate and convert video URL to safe embed URL
+                        const ALLOWED_VIDEO_HOSTS = [
+                          'www.youtube.com',
+                          'youtube.com',
+                          'youtu.be',
+                          'www.youtube-nocookie.com',
+                          'player.vimeo.com',
+                          'vimeo.com',
+                        ];
+                        try {
+                          const parsed = new URL(aboutPage.video_url);
+                          if (
+                            !['http:', 'https:'].includes(parsed.protocol) ||
+                            !ALLOWED_VIDEO_HOSTS.includes(parsed.hostname)
+                          ) {
+                            return null;
+                          }
+                          let embedUrl = aboutPage.video_url;
+                          // Convert youtube watch URLs to embed
+                          if (
+                            parsed.hostname.includes('youtube.com') &&
+                            parsed.pathname === '/watch'
+                          ) {
+                            const videoId = parsed.searchParams.get('v');
+                            if (videoId)
+                              embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`;
+                          } else if (parsed.hostname === 'youtu.be') {
+                            const videoId = parsed.pathname.slice(1);
+                            if (videoId)
+                              embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`;
+                          }
+                          return (
+                            <section className="max-w-4xl mx-auto">
+                              <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
+                                <Play className="h-8 w-8 text-primary" />
+                                Watch Our Story
+                              </h2>
+                              <div className="aspect-video rounded-xl overflow-hidden bg-muted">
+                                <iframe
+                                  src={embedUrl}
+                                  title="About Us Video"
+                                  className="w-full h-full"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                  loading="lazy"
+                                />
+                              </div>
+                            </section>
+                          );
+                        } catch {
+                          return null;
+                        }
+                      })()}
 
                     {/* Gallery */}
                     {aboutPage.gallery && aboutPage.gallery.length > 0 && (

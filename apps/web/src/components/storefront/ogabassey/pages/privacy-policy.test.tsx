@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/components/ui/safe-html', () => ({
   SafeHtml: ({ html, className }: { html: string; className?: string }) => (
-    <div className={className} data-testid="safe-html">
+    <article className={className} aria-label="sanitized content">
       {html}
-    </div>
+    </article>
   ),
 }));
 
@@ -60,7 +60,7 @@ describe('OgabasseyV2PrivacyPolicy', () => {
     it('does not render a SafeHtml node when there is no custom content', () => {
       render(<OgabasseyV2PrivacyPolicy />);
 
-      expect(screen.queryByTestId('safe-html')).not.toBeInTheDocument();
+      expect(screen.queryByRole('article', { name: /sanitized content/i })).not.toBeInTheDocument();
     });
 
     it('mentions the default business name in the intro paragraph', () => {
@@ -97,7 +97,7 @@ describe('OgabasseyV2PrivacyPolicy', () => {
     it('renders the custom privacy content via SafeHtml', () => {
       render(<OgabasseyV2PrivacyPolicy merchant={merchantWithCustomPrivacy} />);
 
-      const safeHtmlNode = screen.getByTestId('safe-html');
+      const safeHtmlNode = screen.getByRole('article', { name: /sanitized content/i });
       expect(safeHtmlNode).toBeInTheDocument();
       expect(safeHtmlNode).toHaveTextContent(
         'Our custom privacy policy for DataSafe Co. customers.',
@@ -134,7 +134,7 @@ describe('OgabasseyV2PrivacyPolicy', () => {
     it('passes the prose className to SafeHtml', () => {
       render(<OgabasseyV2PrivacyPolicy merchant={merchantWithCustomPrivacy} />);
 
-      const safeHtmlNode = screen.getByTestId('safe-html');
+      const safeHtmlNode = screen.getByRole('article', { name: /sanitized content/i });
       expect(safeHtmlNode).toHaveClass('prose');
     });
   });
@@ -157,7 +157,7 @@ describe('OgabasseyV2PrivacyPolicy', () => {
       expect(
         screen.getByRole('heading', { name: 'Information We Collect' }),
       ).toBeInTheDocument();
-      expect(screen.queryByTestId('safe-html')).not.toBeInTheDocument();
+      expect(screen.queryByRole('article', { name: /sanitized content/i })).not.toBeInTheDocument();
     });
 
     it('renders the merchant business name in intro when provided', () => {

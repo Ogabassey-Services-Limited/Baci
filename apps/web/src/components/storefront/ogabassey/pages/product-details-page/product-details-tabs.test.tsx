@@ -11,7 +11,13 @@ vi.mock('@/lib/sanitize', () => ({
 // ProductComparisonTable has its own hooks/network calls — stub it out
 vi.mock('../../components/ProductComparisonTable', () => ({
   ProductComparisonTable: () => (
-    <div data-testid="comparison-table">Comparison Table</div>
+    <table role="table" aria-label="Comparison Table">
+      <tbody>
+        <tr>
+          <td>Comparison Table</td>
+        </tr>
+      </tbody>
+    </table>
   ),
 }));
 
@@ -303,12 +309,12 @@ describe('ProductDetailsTabs — compare tab panel', () => {
   it('renders the ProductComparisonTable stub inside the compare panel', () => {
     renderTabs('compare');
 
-    expect(screen.getByTestId('comparison-table')).toBeInTheDocument();
+    expect(screen.getByRole('table', { name: /comparison table/i })).toBeInTheDocument();
   });
 
   it('does not render the compare panel when description tab is active', () => {
     renderTabs('description');
 
-    expect(screen.queryByTestId('comparison-table')).not.toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: /comparison table/i })).not.toBeInTheDocument();
   });
 });

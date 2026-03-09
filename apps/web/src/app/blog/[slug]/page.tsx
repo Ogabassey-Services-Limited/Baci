@@ -49,7 +49,9 @@ async function getBlogPost(slug: string): Promise<BlogPost | null> {
 
   const { data: post, error } = await supabase
     .from('blog_posts')
-    .select('*')
+    .select(
+      'id, title, slug, content, excerpt, featured_image_url, featured_image_alt, category, tags, keywords, author_name, author_title, author_image_url, author_bio, reading_time_minutes, published_at, view_count, seo_title, seo_description'
+    )
     .eq('is_platform_post', true)
     .eq('status', 'published')
     .eq('slug', slug)

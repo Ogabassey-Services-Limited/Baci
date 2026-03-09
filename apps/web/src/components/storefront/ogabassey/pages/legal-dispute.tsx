@@ -142,7 +142,7 @@ export const OgabasseyV2LegalDispute: React.FC<LegalProps> = ({ merchant }) => {
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 md:p-12 space-y-12">
 
           {customContent ? (
-            <SafeHtml html={customContent} className="prose max-w-none text-gray-600" />
+            <SafeHtml html={customContent} className="prose max-w-none" />
           ) : (
             <>
               <div className="prose max-w-none text-gray-600">
