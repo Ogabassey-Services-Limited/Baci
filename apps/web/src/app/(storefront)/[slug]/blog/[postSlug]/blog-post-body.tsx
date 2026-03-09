@@ -43,8 +43,9 @@ export async function BlogPostBody({
     typeof content === 'string' ? content : JSON.stringify(content);
   const trimmedContent = contentStr.trim();
   const isJson =
-    trimmedContent.startsWith('{') || trimmedContent.startsWith('[');
-  const isHtml = trimmedContent.startsWith('<');
+    (trimmedContent.startsWith('{') || trimmedContent.startsWith('[')) &&
+    !trimmedContent.startsWith('<');
+  const isHtml = !isJson && trimmedContent.startsWith('<');
 
   let legacyHtml = '';
   if (!isJson) {

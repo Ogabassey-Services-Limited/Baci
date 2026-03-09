@@ -27,6 +27,13 @@ interface ErrorReporter {
   ) => void;
 }
 
+/**
+ * Retrieve the global error reporter if one has been registered.
+ * `__BACI_ERROR_REPORTER__` is an opt-in integration point: external
+ * monitoring SDKs (e.g. Sentry) can attach a reporter at runtime.
+ * When no reporter is registered, `getErrorReporter()` returns `null`
+ * and all downstream callers gracefully skip reporting.
+ */
 function getErrorReporter(): ErrorReporter | null {
   const globalReporter = (
     globalThis as typeof globalThis & {

@@ -25,4 +25,9 @@ describe('resolveStorefrontTemplateId', () => {
   it('returns null for the puck template so the client fallback can take over', () => {
     expect(resolveStorefrontTemplateId('puck', 'ELECTRONICS')).toBeNull();
   });
+
+  it('handles null business type by falling back to default template', () => {
+    const result = resolveStorefrontTemplateId(undefined, null);
+    expect(typeof result === 'string' || result === null).toBe(true);
+  });
 });

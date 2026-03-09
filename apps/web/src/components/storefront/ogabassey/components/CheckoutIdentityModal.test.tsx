@@ -1,16 +1,18 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: mockPush })),
 }));
+
+const mockSignInWithPassword = vi.fn(() =>
+  Promise.resolve({ error: null })
+);
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
     auth: {
-      signInWithPassword: vi.fn(() =>
-        Promise.resolve({ error: null })
-      ),
+      signInWithPassword: mockSignInWithPassword,
     },
   })),
 }));
@@ -27,6 +29,7 @@ import { CheckoutIdentityModal } from './CheckoutIdentityModal';
 describe('CheckoutIdentityModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSignInWithPassword.mockResolvedValue({ error: null });
   });
 
   const defaultProps = {
@@ -82,6 +85,46 @@ describe('CheckoutIdentityModal', () => {
     expect(
       screen.getByRole('button', { name: /sign in & checkout/i })
     ).toBeInTheDocument();
+  });
+
+  it('shows error message when sign-in fails', async () => {
+    const loginError = Object.assign(new Error('Invalid login credentials'), {
+      name: 'AuthApiError',
+      status: 400,
+    });
+    mockSignInWithPassword.mockResolvedValue({
+      error: loginError as never,
+    });
+
+    render(<CheckoutIdentityModal {...defaultProps} />);
+
+    // Switch to sign-in tab
+    fireEvent.click(screen.getByText('Sign In'));
+
+    // Fill in credentials
+    fireEvent.change(screen.getByPlaceholderText('name@example.com'), {
+      target: { value: 'bad@example.com' },
+    });
+    // Password input has no placeholder; select by role
+    const passwordInput = document.querySelector('input[type="password"]') as HTMLInputElement;
+    fireEvent.change(passwordInput, {
+      target: { value: 'wrong-password' },
+    });
+
+    // Submit the form
+    fireEvent.click(
+      screen.getByRole('button', { name: /sign in & checkout/i })
+    );
+
+    // Expect the error to be displayed
+    await waitFor(() => {
+      expect(
+        screen.getByText('Invalid login credentials')
+      ).toBeInTheDocument();
+    });
+
+    // Should NOT navigate on failure
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('navigates to signup with encoded redirect on register click', () => {

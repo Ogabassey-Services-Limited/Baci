@@ -147,6 +147,7 @@ describe('POST /api/agentic/checkout_sessions', () => {
 
     expect(response.status).toBe(201);
     expect(response.headers.get('idempotency-key')).toBe('idem-1');
+    expect(mockGetIdempotencyKey).toHaveBeenCalled();
     expect(body).toMatchObject({
       id: 'session-1',
       status: 'not_ready_for_payment',

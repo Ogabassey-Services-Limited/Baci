@@ -1138,6 +1138,267 @@ describe('POST /api/orders/[id]/record-payment', () => {
     expect(data).toEqual({ error: 'Invalid request body' });
   });
 
+  it('returns 409 when a duplicate payment reference is submitted', async () => {
+    // Arrange
+    const mockMerchant = {
+      id: mockMerchantId,
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test.com',
+      email_sender_name: 'Test',
+      email: 'merchant@test.com',
+    };
+
+    const mockOrder = {
+      id: mockOrderId,
+      merchant_id: mockMerchantId,
+      order_number: 'ORD-001',
+      total: 10000,
+      currency: 'NGN',
+      wallet_amount_used: 0,
+      shipping_status: 'pending',
+      payment_status: 'partially_paid',
+      order_items: [],
+    };
+
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'test@example.com' },
+      supabase: mockSupabaseClient,
+    });
+    mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
+
+    mockSupabaseClient.from = vi.fn((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: mockMerchant,
+            error: null,
+          }),
+        };
+      }
+
+      if (table === 'orders') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: mockOrder,
+            error: null,
+          }),
+        };
+      }
+
+      if (table === 'transactions') {
+        // Return existing transaction with the same reference
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: [{ amount: 5000, gateway_reference: 'REF-DUPE-409' }],
+              error: null,
+            }),
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-DUPE-409',
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    // Act
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    // Assert
+    expect(response.status).toBe(409);
+    expect(data).toEqual({
+      error: 'Duplicate payment reference',
+      code: 'DUPLICATE_REFERENCE',
+    });
+  });
+
+  it('returns 409 when payment amount exceeds remaining balance', async () => {
+    // Arrange
+    const mockMerchant = {
+      id: mockMerchantId,
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test.com',
+      email_sender_name: 'Test',
+      email: 'merchant@test.com',
+    };
+
+    const mockOrder = {
+      id: mockOrderId,
+      merchant_id: mockMerchantId,
+      order_number: 'ORD-001',
+      total: 10000,
+      currency: 'NGN',
+      wallet_amount_used: 0,
+      shipping_status: 'pending',
+      payment_status: 'partially_paid',
+      order_items: [],
+    };
+
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'test@example.com' },
+      supabase: mockSupabaseClient,
+    });
+    mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
+
+    mockSupabaseClient.from = vi.fn((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: mockMerchant,
+            error: null,
+          }),
+        };
+      }
+
+      if (table === 'orders') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: mockOrder,
+            error: null,
+          }),
+        };
+      }
+
+      if (table === 'transactions') {
+        // Already paid 8000 out of 10000
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: [{ amount: 8000, gateway_reference: 'REF-PREV' }],
+              error: null,
+            }),
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const request = createRequest({
+      amount: 5000, // Trying to pay 5000 when only 2000 remains
+      payment_method: 'bank_transfer',
+      reference: 'REF-OVERPAY',
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    // Act
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    // Assert
+    expect(response.status).toBe(409);
+    expect(data).toEqual({ error: 'Amount exceeds remaining balance' });
+  });
+
+  it('returns 409 when order is already fully paid', async () => {
+    // Arrange
+    const mockMerchant = {
+      id: mockMerchantId,
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test.com',
+      email_sender_name: 'Test',
+      email: 'merchant@test.com',
+    };
+
+    const mockOrder = {
+      id: mockOrderId,
+      merchant_id: mockMerchantId,
+      order_number: 'ORD-001',
+      total: 10000,
+      currency: 'NGN',
+      wallet_amount_used: 0,
+      shipping_status: 'processing',
+      payment_status: 'paid',
+      order_items: [],
+    };
+
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'test@example.com' },
+      supabase: mockSupabaseClient,
+    });
+    mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
+
+    mockSupabaseClient.from = vi.fn((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: mockMerchant,
+            error: null,
+          }),
+        };
+      }
+
+      if (table === 'orders') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: mockOrder,
+            error: null,
+          }),
+        };
+      }
+
+      if (table === 'transactions') {
+        // Already fully paid
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: [{ amount: 10000, gateway_reference: 'REF-FULL' }],
+              error: null,
+            }),
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const request = createRequest({
+      amount: 1000,
+      payment_method: 'cash',
+      reference: 'REF-EXTRA',
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    // Act
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    // Assert
+    expect(response.status).toBe(409);
+    expect(data).toEqual({ error: 'Order is already fully paid' });
+  });
+
   it('returns the existing result when the same payment reference is retried', async () => {
     const mockMerchant = {
       id: mockMerchantId,
@@ -1253,16 +1514,10 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const response = await POST(request, params);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(409);
     expect(data).toEqual({
-      success: true,
-      amount_paid: 5000,
-      duplicate: true,
-      new_balance: 5000,
-      updated_status: {
-        payment_status: 'partially_paid',
-        shipping_status: 'pending',
-      },
+      error: 'Duplicate payment reference',
+      code: 'DUPLICATE_REFERENCE',
     });
     expect(mockFrom).toHaveBeenCalledTimes(3);
   });

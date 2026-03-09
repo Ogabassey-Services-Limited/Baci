@@ -2,6 +2,22 @@ import type { Product } from '@/lib/products';
 import { render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('@baci/shared', () => ({
+  prioritizeSmartphoneProducts: vi.fn(
+    (products: Array<{ category?: string }>) => {
+      const phones = products.filter((p) =>
+        p.category?.toLowerCase().includes('phone') ||
+        p.category?.toLowerCase().includes('smartphone')
+      );
+      const rest = products.filter(
+        (p) =>
+          !p.category?.toLowerCase().includes('phone') &&
+          !p.category?.toLowerCase().includes('smartphone')
+      );
+      return [...phones, ...rest];
+    }
+  ),
+}));
 vi.mock('next/navigation', () => ({
   usePathname: vi.fn(() => '/test-store'),
 }));

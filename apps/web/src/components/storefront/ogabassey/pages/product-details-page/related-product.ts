@@ -53,8 +53,8 @@ export function toRelatedProductsProduct(product: Product): CartProduct {
     gtin: '',
     mpn: '',
     slug: product.slug,
-    category: product.category,
-    category_slug: product.categorySlug,
+    category: product.category || product.categories?.name || '',
+    category_slug: product.categorySlug || product.categories?.slug || '',
     categories: product.categories
       ? {
           id: product.categories.id,

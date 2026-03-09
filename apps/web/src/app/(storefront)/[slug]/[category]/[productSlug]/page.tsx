@@ -664,7 +664,7 @@ const getProduct = async (
         : product.price,
     compare_at_price:
       typeof product.compare_at_price === 'string'
-        ? Number.parseFloat(product.compare_at_price) || 0
+        ? Number.parseFloat(product.compare_at_price) || undefined
         : product.compare_at_price,
     manage_stock: product.manage_stock ?? true,
     stock: (() => {

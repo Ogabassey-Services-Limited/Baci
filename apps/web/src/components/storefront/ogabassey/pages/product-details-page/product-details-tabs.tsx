@@ -145,6 +145,7 @@ export function ProductDetailsTabs({
                 type="button"
                 disabled
                 aria-disabled="true"
+                title="Coming soon"
                 className="cursor-not-allowed text-sm font-bold text-[var(--store-primary)]/60"
               >
                 Write a Review
@@ -154,7 +155,7 @@ export function ProductDetailsTabs({
             <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
               <div className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-center">
                 <div className="mb-2 text-5xl font-extrabold text-gray-900">
-                  {productData.rating}
+                  {Math.max(0, Math.min(productData.rating, 5))}
                 </div>
                 <div className="mb-2 flex justify-center">
                   <div className="relative inline-flex">

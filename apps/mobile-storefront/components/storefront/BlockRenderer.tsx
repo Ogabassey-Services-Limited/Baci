@@ -190,7 +190,7 @@ const ProductGrid = ({
           { opacity: isFetching ? 0.6 : 1 }, // Visual feedback for background updates
         ]}
       >
-        {products.length === 0 && !isFetching ? (
+        {orderedProducts.length === 0 && !isFetching ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: '#9CA3AF' }]}>
               No products found matches your criteria.
