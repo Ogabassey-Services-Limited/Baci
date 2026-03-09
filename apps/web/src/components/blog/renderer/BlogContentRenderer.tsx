@@ -4,8 +4,8 @@ import { toHtml } from 'hast-util-to-html';
 import { common, createLowlight } from 'lowlight';
 import Image from 'next/image';
 import type React from 'react';
+import { SafeHtml } from '@/components/ui/safe-html';
 import { generateHeadingId } from '@/lib/blog-utils';
-import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeUrl } from '@/lib/sanitize-core';
 import { cn } from '@/lib/utils';
 
@@ -263,11 +263,9 @@ const NodeRenderer = ({
 
       return highlightedHtml ? (
         <pre className="bg-slate-950 text-slate-50 p-6 rounded-xl font-mono text-sm overflow-x-auto my-8">
-          <code
+          <SafeHtml
+            html={highlightedHtml}
             className={language ? `language-${language}` : undefined}
-            // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: lowlight output is safe (no user HTML)
-            dangerouslySetInnerHTML={{ __html: highlightedHtml }}
           />
         </pre>
       ) : (
@@ -301,14 +299,7 @@ export const BlogContentRenderer = ({ json }: { json: any }) => {
 
     // Safety check for TipTap format
     if (doc.type !== 'doc') {
-      return (
-        <div
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: Fallback for invalid TipTap format, sanitized
-          dangerouslySetInnerHTML={{
-            __html: sanitizeHtml(typeof json === 'string' ? json : ''),
-          }}
-        />
-      );
+      return <SafeHtml html={typeof json === 'string' ? json : ''} />;
     }
 
     return (
@@ -318,13 +309,6 @@ export const BlogContentRenderer = ({ json }: { json: any }) => {
     );
   } catch (e) {
     console.error('Renderer failed:', e);
-    return (
-      <div
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: Fallback for rendering errors, sanitized
-        dangerouslySetInnerHTML={{
-          __html: sanitizeHtml(typeof json === 'string' ? json : ''),
-        }}
-      />
-    );
+    return <SafeHtml html={typeof json === 'string' ? json : ''} />;
   }
 };

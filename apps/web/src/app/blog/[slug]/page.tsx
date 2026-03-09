@@ -7,8 +7,8 @@ import { notFound } from 'next/navigation';
 import AppBody from '@/components/app-body';
 import { PlatformFooter } from '@/components/platform/footer';
 import { PlatformHeader } from '@/components/platform/header';
+import { SafeHtml } from '@/components/ui/safe-html';
 import { asRoute } from '@/lib/routes';
-import { sanitizeHtml } from '@/lib/sanitize';
 
 interface BlogPost {
   id: string;
@@ -204,10 +204,9 @@ export default async function BlogPostPage({ params }: PageProps) {
             )}
 
             {/* Content */}
-            <div
+            <SafeHtml
+              html={post.content}
               className="prose prose-lg dark:prose-invert max-w-none mb-12"
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
             />
 
             {/* Tags */}

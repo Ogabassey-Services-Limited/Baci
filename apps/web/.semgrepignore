@@ -16,19 +16,37 @@ supabase/functions/
 src/components/storefront/header.tsx
 src/app/dashboard/client-layout.tsx
 
-# DOMPurify sanitization in place - XSS safe
-# All dangerouslySetInnerHTML usage sanitized with DOMPurify or sanitize-html
+# SafeHtml component — centralized sanitized HTML rendering wrapper
+# All HTML content rendering now goes through this single component
+src/components/ui/safe-html.tsx
+
+# JSON-LD schemas — safeJsonLdStringify escapes all HTML entities
 src/app/(storefront)/[slug]/pages/about/page.tsx
 src/app/(storefront)/[slug]/pages/contact/page.tsx
+src/app/(storefront)/[slug]/pages/terms/page.tsx
+src/app/(storefront)/[slug]/pages/privacy/page.tsx
+src/app/(storefront)/[slug]/pages/faq/page.tsx
 src/app/(storefront)/[slug]/[category]/[productSlug]/page.tsx
-src/app/(storefront)/[slug]/pages/about/about-page-client.tsx
-
-# JSON-LD schemas - uses safeJsonLdStringify which escapes all HTML entities
 src/app/(storefront)/[slug]/blog/page.tsx
 src/app/(storefront)/[slug]/blog/[postSlug]/page.tsx
+src/app/(storefront)/[slug]/products/[productSlug]/page.tsx
+src/app/(storefront)/[slug]/[category]/page.tsx
+src/app/(storefront)/[slug]/page.tsx
+src/app/(storefront)/[slug]/terms/page.tsx
+src/app/(storefront)/[slug]/terms-of-service/page.tsx
+src/app/(storefront)/[slug]/privacy/page.tsx
+src/app/(storefront)/[slug]/privacy-policy/page.tsx
+src/app/(storefront)/[slug]/faq/page.tsx
+src/app/(storefront)/[slug]/about/page.tsx
+src/app/(storefront)/[slug]/contact/page.tsx
+src/app/(storefront)/[slug]/delete-account/page.tsx
+src/app/page.tsx
+src/app/root-dynamic-head.tsx
+src/components/seo/json-ld.tsx
 
-# FAQ page - uses sanitizeHtml from sanitize-html library (allowlist-based)
-src/app/(storefront)/[slug]/pages/faq/faq-page-client.tsx
+# CSS style injection (static trusted styles, no user input)
+src/components/ui/chart.tsx
+src/app/builder/builder-client.tsx
 
 # Theme context - RegExp input is escaped with replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 src/components/storefront/ogabassey/providers/v2-theme-context.tsx

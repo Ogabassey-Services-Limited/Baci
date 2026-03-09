@@ -16,19 +16,37 @@ supabase/functions/
 apps/web/src/components/storefront/header.tsx
 apps/web/src/app/dashboard/client-layout.tsx
 
-# DOMPurify sanitization in place - XSS safe
-# All dangerouslySetInnerHTML usage sanitized with DOMPurify or sanitize-html
+# SafeHtml component — centralized sanitized HTML rendering wrapper
+# All HTML content rendering now goes through this single component
+apps/web/src/components/ui/safe-html.tsx
+
+# JSON-LD schemas — safeJsonLdStringify escapes all HTML entities
 apps/web/src/app/(storefront)/[slug]/pages/about/page.tsx
 apps/web/src/app/(storefront)/[slug]/pages/contact/page.tsx
+apps/web/src/app/(storefront)/[slug]/pages/terms/page.tsx
+apps/web/src/app/(storefront)/[slug]/pages/privacy/page.tsx
+apps/web/src/app/(storefront)/[slug]/pages/faq/page.tsx
 apps/web/src/app/(storefront)/[slug]/[category]/[productSlug]/page.tsx
-apps/web/src/app/(storefront)/[slug]/pages/about/about-page-client.tsx
-
-# JSON-LD schemas - uses safeJsonLdStringify which escapes all HTML entities
 apps/web/src/app/(storefront)/[slug]/blog/page.tsx
 apps/web/src/app/(storefront)/[slug]/blog/[postSlug]/page.tsx
+apps/web/src/app/(storefront)/[slug]/products/[productSlug]/page.tsx
+apps/web/src/app/(storefront)/[slug]/[category]/page.tsx
+apps/web/src/app/(storefront)/[slug]/page.tsx
+apps/web/src/app/(storefront)/[slug]/terms/page.tsx
+apps/web/src/app/(storefront)/[slug]/terms-of-service/page.tsx
+apps/web/src/app/(storefront)/[slug]/privacy/page.tsx
+apps/web/src/app/(storefront)/[slug]/privacy-policy/page.tsx
+apps/web/src/app/(storefront)/[slug]/faq/page.tsx
+apps/web/src/app/(storefront)/[slug]/about/page.tsx
+apps/web/src/app/(storefront)/[slug]/contact/page.tsx
+apps/web/src/app/(storefront)/[slug]/delete-account/page.tsx
+apps/web/src/app/page.tsx
+apps/web/src/app/root-dynamic-head.tsx
+apps/web/src/components/seo/json-ld.tsx
 
-# FAQ page - uses sanitizeHtml from sanitize-html library (allowlist-based)
-apps/web/src/app/(storefront)/[slug]/pages/faq/faq-page-client.tsx
+# CSS style injection (static trusted styles, no user input)
+apps/web/src/components/ui/chart.tsx
+apps/web/src/app/builder/builder-client.tsx
 
 # Theme context - RegExp input is escaped with replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 apps/web/src/components/storefront/ogabassey/providers/v2-theme-context.tsx

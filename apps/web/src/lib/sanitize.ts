@@ -34,11 +34,9 @@ import sanitizeLib from 'sanitize-html';
  *
  * @example
  * ```tsx
- * // Safe usage in React components
- * <div
- *   className="prose"
- *   dangerouslySetInnerHTML={{ __html: sanitizeHtml(userContent) }}
- * />
+ * // Use the SafeHtml component instead of dangerouslySetInnerHTML directly
+ * import { SafeHtml } from '@/components/ui/safe-html';
+ * <SafeHtml html={userContent} className="prose" />
  * ```
  *
  * @param dirty - Untrusted HTML string from user input or AI generation

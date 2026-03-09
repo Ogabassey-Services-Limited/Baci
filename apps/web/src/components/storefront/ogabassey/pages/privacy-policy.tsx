@@ -10,7 +10,7 @@ import {
   Shield,
 } from 'lucide-react';
 import type React from 'react';
-import { sanitizeHtml } from '@/lib/sanitize';
+import { SafeHtml } from '@/components/ui/safe-html';
 
 // Define props
 interface PrivacyProps {
@@ -140,10 +140,7 @@ export const OgabasseyV2PrivacyPolicy: React.FC<PrivacyProps> = ({ merchant }) =
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 md:p-12 space-y-12">
 
           {customContent ? (
-            <div className="prose max-w-none text-gray-600">
-              {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml, typescript.react.react-dangerouslysetinnerhtml-prop.react-dangerouslysetinnerhtml-prop */}
-              <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(customContent) }} />
-            </div>
+            <SafeHtml html={customContent} className="prose max-w-none text-gray-600" />
           ) : (
             <>
               <div className="prose max-w-none text-gray-600">

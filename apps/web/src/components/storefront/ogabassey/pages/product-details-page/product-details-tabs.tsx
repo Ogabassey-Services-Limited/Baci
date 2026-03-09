@@ -1,5 +1,5 @@
 import { ArrowRightLeft, Star, User } from 'lucide-react';
-import { sanitizeHtml } from '@/lib/sanitize';
+import { SafeHtml } from '@/components/ui/safe-html';
 import { ProductComparisonTable } from '../../components/ProductComparisonTable';
 import type { NormalizedProductDetails } from './product-details-helpers';
 import type { ProductDetailsActiveTab } from './use-product-details-state';
@@ -59,13 +59,9 @@ export function ProductDetailsTabs({
             aria-labelledby="tab-btn-description"
             className="prose max-w-none animate-in fade-in text-gray-600 duration-300"
           >
-            {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
-            <div
+            <SafeHtml
+              html={productData.description || ''}
               className="prose-headings:text-gray-900 prose-strong:text-gray-800 prose-table:text-sm mb-4"
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized via sanitizeHtml()
-              dangerouslySetInnerHTML={{
-                __html: sanitizeHtml(productData.description || ''),
-              }}
             />
             <div className="mb-6 mt-6">
               <h2 className="mb-3 text-lg font-bold text-gray-900">

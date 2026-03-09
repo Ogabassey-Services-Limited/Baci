@@ -1,0 +1,651 @@
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+
+// ---------------------------------------------------------------------------
+// Mocks — must be declared before the module under test is imported so that
+// Vitest's hoisting puts them at the top of the compiled output.
+// ---------------------------------------------------------------------------
+
+// SafeHtml: render its `html` prop as plain text inside a div so we can
+// assert on the content that would have been sanitised and injected.
+vi.mock('@/components/ui/safe-html', () => ({
+  SafeHtml: ({ html, className }: { html: string; className?: string }) => (
+    <div data-testid="safe-html" data-classname={className ?? ''}>
+      {html}
+    </div>
+  ),
+}));
+
+// Pass-through: return the URL unchanged so link assertions are predictable.
+vi.mock('@/lib/sanitize-core', () => ({
+  sanitizeUrl: vi.fn((url: string) => url),
+}));
+
+// sanitize is imported by SafeHtml (already mocked above), but Vitest resolves
+// the real module graph unless we mock it as well.
+vi.mock('@/lib/sanitize', () => ({
+  sanitizeHtml: (html: string) => html,
+}));
+
+// Lowlight: echo the source code back so highlighted HTML equals the input.
+vi.mock('lowlight', () => {
+  const makeTree = (code: string) => ({
+    type: 'root',
+    children: [{ type: 'text', value: code }],
+  });
+  return {
+    common: {},
+    createLowlight: () => ({
+      highlight: vi.fn((_lang: string, code: string) => makeTree(code)),
+      highlightAuto: vi.fn((code: string) => makeTree(code)),
+      registered: vi.fn(() => true),
+    }),
+  };
+});
+
+// hast-util-to-html: join child text values into a plain string.
+vi.mock('hast-util-to-html', () => ({
+  toHtml: vi.fn((tree: { children: Array<{ value?: string }> }) =>
+    tree.children.map((c) => c.value ?? '').join('')
+  ),
+}));
+
+// next/image is already mocked globally in vitest.setup.ts.
+
+import { BlogContentRenderer } from './BlogContentRenderer';
+
+// ---------------------------------------------------------------------------
+// Local TipTap node factory helpers
+// ---------------------------------------------------------------------------
+
+type Mark = { type: string; attrs?: Record<string, unknown> };
+type TipTapNode = {
+  type: string;
+  attrs?: Record<string, unknown>;
+  content?: TipTapNode[];
+  marks?: Mark[];
+  text?: string;
+};
+
+const doc = (...content: TipTapNode[]): TipTapNode => ({
+  type: 'doc',
+  content,
+});
+
+const paragraph = (...content: TipTapNode[]): TipTapNode => ({
+  type: 'paragraph',
+  content,
+});
+
+const textNode = (value: string, marks?: Mark[]): TipTapNode => ({
+  type: 'text',
+  text: value,
+  ...(marks ? { marks } : {}),
+});
+
+const headingNode = (level: number, ...content: TipTapNode[]): TipTapNode => ({
+  type: 'heading',
+  attrs: { level },
+  content,
+});
+
+// ---------------------------------------------------------------------------
+
+describe('BlogContentRenderer', () => {
+  // -------------------------------------------------------------------------
+  // Null / falsy guard
+  // -------------------------------------------------------------------------
+
+  describe('when json is falsy', () => {
+    it('renders nothing for null', () => {
+      const { container } = render(<BlogContentRenderer json={null} />);
+      expect(container).toBeEmptyDOMElement();
+    });
+
+    it('renders nothing for undefined', () => {
+      const { container } = render(
+        // @ts-expect-error -- intentional test of falsy input
+        <BlogContentRenderer json={undefined} />
+      );
+      expect(container).toBeEmptyDOMElement();
+    });
+
+    it('renders nothing for an empty string', () => {
+      const { container } = render(<BlogContentRenderer json={''} />);
+      expect(container).toBeEmptyDOMElement();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Paragraph
+  // -------------------------------------------------------------------------
+
+  describe('paragraph nodes', () => {
+    it('renders text content inside a <p>', () => {
+      render(
+        <BlogContentRenderer json={doc(paragraph(textNode('Hello Baci')))} />
+      );
+      expect(screen.getByText('Hello Baci')).toBeInTheDocument();
+    });
+
+    it('renders an empty paragraph as a <br>', () => {
+      const { container } = render(
+        <BlogContentRenderer json={doc({ type: 'paragraph', content: [] })} />
+      );
+      expect(container.querySelector('br')).toBeInTheDocument();
+    });
+
+    it('applies text-center class when textAlign is center', () => {
+      const json = doc({
+        type: 'paragraph',
+        attrs: { textAlign: 'center' },
+        content: [textNode('Centred')],
+      });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('p')).toHaveClass('text-center');
+    });
+
+    it('applies text-right class when textAlign is right', () => {
+      const json = doc({
+        type: 'paragraph',
+        attrs: { textAlign: 'right' },
+        content: [textNode('Right')],
+      });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('p')).toHaveClass('text-right');
+    });
+
+    it('applies text-justify class when textAlign is justify', () => {
+      const json = doc({
+        type: 'paragraph',
+        attrs: { textAlign: 'justify' },
+        content: [textNode('Justified')],
+      });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('p')).toHaveClass('text-justify');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Headings
+  // -------------------------------------------------------------------------
+
+  describe('heading nodes', () => {
+    it.each([
+      1, 2, 3, 4,
+    ] as const)('renders an <h%i> element for level %i', (level) => {
+      const json = doc(headingNode(level, textNode(`Heading ${level}`)));
+      const { container } = render(<BlogContentRenderer json={json} />);
+      const el = container.querySelector(`h${level}`);
+      expect(el).toBeInTheDocument();
+      expect(el).toHaveTextContent(`Heading ${level}`);
+    });
+
+    it('generates a slug id from the heading text', () => {
+      const json = doc(headingNode(2, textNode('My Section Title')));
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('h2')).toHaveAttribute(
+        'id',
+        'my-section-title'
+      );
+    });
+
+    it('renders a self-link anchor next to the heading', () => {
+      const json = doc(headingNode(2, textNode('About Us')));
+      render(<BlogContentRenderer json={json} />);
+      const anchor = screen.getByRole('link', { name: 'Link to About Us' });
+      expect(anchor).toHaveAttribute('href', '#about-us');
+    });
+
+    it('sets the scroll-mt-20 class for sticky-header offset', () => {
+      const json = doc(headingNode(1, textNode('Title')));
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('h1')).toHaveClass('scroll-mt-20');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Lists
+  // -------------------------------------------------------------------------
+
+  describe('list nodes', () => {
+    it('renders a bullet list with list items', () => {
+      const json = doc({
+        type: 'bulletList',
+        content: [
+          { type: 'listItem', content: [paragraph(textNode('Alpha'))] },
+          { type: 'listItem', content: [paragraph(textNode('Beta'))] },
+        ],
+      });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('ul')).toBeInTheDocument();
+      expect(screen.getByText('Alpha')).toBeInTheDocument();
+      expect(screen.getByText('Beta')).toBeInTheDocument();
+    });
+
+    it('renders an ordered list with list items', () => {
+      const json = doc({
+        type: 'orderedList',
+        content: [
+          { type: 'listItem', content: [paragraph(textNode('First'))] },
+          { type: 'listItem', content: [paragraph(textNode('Second'))] },
+        ],
+      });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('ol')).toBeInTheDocument();
+      expect(screen.getByText('First')).toBeInTheDocument();
+      expect(screen.getByText('Second')).toBeInTheDocument();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Inline text marks
+  // -------------------------------------------------------------------------
+
+  describe('text marks', () => {
+    it('wraps bold text in <strong>', () => {
+      const json = doc(paragraph(textNode('Bold', [{ type: 'bold' }])));
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('strong')).toHaveTextContent('Bold');
+    });
+
+    it('wraps italic text in <em>', () => {
+      const json = doc(paragraph(textNode('Italic', [{ type: 'italic' }])));
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('em')).toHaveTextContent('Italic');
+    });
+
+    it('wraps underline text in <u>', () => {
+      const json = doc(paragraph(textNode('Under', [{ type: 'underline' }])));
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('u')).toHaveTextContent('Under');
+    });
+
+    it('wraps strikethrough text in <s>', () => {
+      const json = doc(paragraph(textNode('Strike', [{ type: 'strike' }])));
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('s')).toHaveTextContent('Strike');
+    });
+
+    it('wraps inline code in <code>', () => {
+      const json = doc(paragraph(textNode('fn()', [{ type: 'code' }])));
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('code')).toHaveTextContent('fn()');
+    });
+
+    it('renders an external link with noopener noreferrer and _blank target', () => {
+      const json = doc(
+        paragraph(
+          textNode('Visit', [
+            {
+              type: 'link',
+              attrs: { href: 'https://example.com', target: '_blank' },
+            },
+          ])
+        )
+      );
+      render(<BlogContentRenderer json={json} />);
+      const link = screen.getByRole('link', { name: 'Visit' });
+      expect(link).toHaveAttribute('href', 'https://example.com');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      expect(link).toHaveAttribute('target', '_blank');
+    });
+
+    it('renders a relative link without rel or target', () => {
+      const json = doc(
+        paragraph(
+          textNode('Home', [{ type: 'link', attrs: { href: '/home' } }])
+        )
+      );
+      render(<BlogContentRenderer json={json} />);
+      const link = screen.getByRole('link', { name: 'Home' });
+      expect(link).toHaveAttribute('href', '/home');
+      expect(link).not.toHaveAttribute('rel');
+      expect(link).not.toHaveAttribute('target');
+    });
+
+    it('renders an anchor (#hash) link without rel or target', () => {
+      const json = doc(
+        paragraph(
+          textNode('Jump', [{ type: 'link', attrs: { href: '#section' } }])
+        )
+      );
+      render(<BlogContentRenderer json={json} />);
+      const link = screen.getByRole('link', { name: 'Jump' });
+      expect(link).toHaveAttribute('href', '#section');
+      expect(link).not.toHaveAttribute('rel');
+    });
+
+    it('renders a javascript: URL as a plain <span> without an href', async () => {
+      // sanitizeUrl returns '' for non-http(s) — we override for this case.
+      const { sanitizeUrl } = await import('@/lib/sanitize-core');
+      vi.mocked(sanitizeUrl).mockReturnValueOnce('');
+
+      const json = doc(
+        paragraph(
+          textNode('Evil', [
+            { type: 'link', attrs: { href: 'javascript:alert(1)' } },
+          ])
+        )
+      );
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('a')).not.toBeInTheDocument();
+      expect(screen.getByText('Evil')).toBeInTheDocument();
+    });
+
+    it('applies a color style from the textStyle mark', () => {
+      const json = doc(
+        paragraph(
+          textNode('Red text', [{ type: 'textStyle', attrs: { color: 'red' } }])
+        )
+      );
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('span')).toHaveStyle({
+        color: 'rgb(255, 0, 0)',
+      });
+    });
+
+    it('renders plain text when there are no marks', () => {
+      const json = doc(paragraph(textNode('Plain')));
+      render(<BlogContentRenderer json={json} />);
+      expect(screen.getByText('Plain')).toBeInTheDocument();
+    });
+
+    it('returns null for a text node with no text property', () => {
+      const json = doc(paragraph({ type: 'text' } as TipTapNode));
+      expect(() => render(<BlogContentRenderer json={json} />)).not.toThrow();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Code blocks with syntax highlighting
+  // -------------------------------------------------------------------------
+
+  describe('codeBlock nodes', () => {
+    it('renders highlighted code via SafeHtml with a language class', () => {
+      const json = doc({
+        type: 'codeBlock',
+        attrs: { language: 'javascript' },
+        content: [{ type: 'text', text: 'const x = 1;' }],
+      });
+      render(<BlogContentRenderer json={json} />);
+      const safeHtml = screen.getByTestId('safe-html');
+      expect(safeHtml).toHaveTextContent('const x = 1;');
+      expect(safeHtml).toHaveAttribute('data-classname', 'language-javascript');
+    });
+
+    it('wraps code output in a <pre> element', () => {
+      const json = doc({
+        type: 'codeBlock',
+        attrs: { language: 'typescript' },
+        content: [{ type: 'text', text: 'let y: number = 2;' }],
+      });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('pre')).toBeInTheDocument();
+    });
+
+    it('falls back to <pre><code> when toHtml returns an empty string', async () => {
+      const { toHtml } = await import('hast-util-to-html');
+      vi.mocked(toHtml).mockReturnValueOnce('');
+
+      const json = doc({
+        type: 'codeBlock',
+        attrs: { language: '' },
+        content: [{ type: 'text', text: 'plain code' }],
+      });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('pre code')).toBeInTheDocument();
+      expect(screen.queryByTestId('safe-html')).not.toBeInTheDocument();
+    });
+
+    it('falls back to <pre><code> when the highlighter throws', async () => {
+      const { toHtml } = await import('hast-util-to-html');
+      vi.mocked(toHtml).mockImplementationOnce(() => {
+        throw new Error('highlight crash');
+      });
+
+      const json = doc({
+        type: 'codeBlock',
+        attrs: { language: 'js' },
+        content: [{ type: 'text', text: 'crash()' }],
+      });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      // codeBlock has its own internal try/catch — should not propagate
+      expect(container.querySelector('pre')).toBeInTheDocument();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Block elements
+  // -------------------------------------------------------------------------
+
+  describe('blockquote nodes', () => {
+    it('renders a <blockquote> wrapping its content', () => {
+      const json = doc({
+        type: 'blockquote',
+        content: [paragraph(textNode('A wise quote'))],
+      });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('blockquote')).toBeInTheDocument();
+      expect(screen.getByText('A wise quote')).toBeInTheDocument();
+    });
+  });
+
+  describe('horizontalRule node', () => {
+    it('renders an <hr>', () => {
+      const json = doc({ type: 'horizontalRule' });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('hr')).toBeInTheDocument();
+    });
+  });
+
+  describe('hardBreak node', () => {
+    it('renders a <br> inline with surrounding text', () => {
+      const json = doc(
+        paragraph(textNode('Line 1'), { type: 'hardBreak' }, textNode('Line 2'))
+      );
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('br')).toBeInTheDocument();
+      // 'Line 1' and 'Line 2' are text nodes split by <br>, so use container
+      // rather than screen.getByText to avoid the "text broken up" error.
+      expect(container).toHaveTextContent('Line 1');
+      expect(container).toHaveTextContent('Line 2');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Image nodes
+  // -------------------------------------------------------------------------
+
+  describe('image nodes', () => {
+    it('renders an image with the given src and alt', () => {
+      const json = doc({
+        type: 'image',
+        attrs: { src: 'https://cdn.example.com/photo.jpg', alt: 'A photo' },
+      });
+      render(<BlogContentRenderer json={json} />);
+      expect(screen.getByRole('img', { name: 'A photo' })).toBeInTheDocument();
+    });
+
+    it('uses "Blog image" as default alt when alt is absent', () => {
+      const json = doc({
+        type: 'image',
+        attrs: { src: 'https://cdn.example.com/photo.jpg' },
+      });
+      render(<BlogContentRenderer json={json} />);
+      expect(
+        screen.getByRole('img', { name: 'Blog image' })
+      ).toBeInTheDocument();
+    });
+
+    it('does not render an image when src is null', () => {
+      const consoleSpy = vi
+        .spyOn(console, 'warn')
+        // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console noise
+        .mockImplementation(() => {});
+      const json = doc({ type: 'image', attrs: { src: null } });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('img')).not.toBeInTheDocument();
+      consoleSpy.mockRestore();
+    });
+
+    it('does not render an image for a non-http URL (e.g. data:)', () => {
+      const consoleSpy = vi
+        .spyOn(console, 'warn')
+        // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console noise
+        .mockImplementation(() => {});
+      const json = doc({
+        type: 'image',
+        attrs: { src: 'data:image/png;base64,abc' },
+      });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('img')).not.toBeInTheDocument();
+      consoleSpy.mockRestore();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Table nodes
+  // -------------------------------------------------------------------------
+
+  describe('table nodes', () => {
+    it('renders table, th, and td elements with content', () => {
+      const json = doc({
+        type: 'table',
+        content: [
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableHeader', content: [paragraph(textNode('Name'))] },
+              { type: 'tableHeader', content: [paragraph(textNode('Price'))] },
+            ],
+          },
+          {
+            type: 'tableRow',
+            content: [
+              { type: 'tableCell', content: [paragraph(textNode('Widget'))] },
+              { type: 'tableCell', content: [paragraph(textNode('₦100'))] },
+            ],
+          },
+        ],
+      });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('table')).toBeInTheDocument();
+      expect(container.querySelector('th')).toBeInTheDocument();
+      expect(container.querySelector('td')).toBeInTheDocument();
+      expect(screen.getByText('Name')).toBeInTheDocument();
+      expect(screen.getByText('Widget')).toBeInTheDocument();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Unknown node types
+  // -------------------------------------------------------------------------
+
+  describe('unknown node types', () => {
+    it('returns null and emits a console warning', () => {
+      const consoleSpy = vi
+        .spyOn(console, 'warn')
+        // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console noise
+        .mockImplementation(() => {});
+      const json = doc({ type: 'customWidget' });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      // The doc wrapper renders but contains no visible child content.
+      expect(container.querySelector('.space-y-4')).toBeEmptyDOMElement();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('customWidget')
+      );
+      consoleSpy.mockRestore();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Legacy HTML fallback (root type !== 'doc')
+  // -------------------------------------------------------------------------
+
+  describe('legacy HTML fallback', () => {
+    it('passes the raw HTML string to SafeHtml when JSON.parse throws', () => {
+      // Not valid JSON → catch branch fires.
+      const html = '<p>Legacy <strong>content</strong></p>';
+      render(<BlogContentRenderer json={html} />);
+      expect(screen.getByTestId('safe-html')).toHaveTextContent(html);
+    });
+
+    it('passes empty string to SafeHtml when the object root type is not "doc"', () => {
+      // json is an object (not a string), so SafeHtml receives '' as fallback.
+      const json = { type: 'prose', content: [] };
+      render(<BlogContentRenderer json={json} />);
+      const safeHtml = screen.getByTestId('safe-html');
+      expect(safeHtml).toBeInTheDocument();
+      expect(safeHtml).toHaveTextContent('');
+    });
+
+    it('uses SafeHtml when the parsed JSON root type is not "doc"', () => {
+      // json is a valid JSON string, but the parsed root type is not 'doc'.
+      const nonDocJson = JSON.stringify({ type: 'prose', content: [] });
+      render(<BlogContentRenderer json={nonDocJson} />);
+      expect(screen.getByTestId('safe-html')).toBeInTheDocument();
+    });
+
+    it('renders the outer wrapper with blog-content-renderer class for valid docs', () => {
+      const json = doc(paragraph(textNode('Content')));
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(
+        container.querySelector('.blog-content-renderer')
+      ).toBeInTheDocument();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Edge cases and robustness
+  // -------------------------------------------------------------------------
+
+  describe('edge cases', () => {
+    it('does not throw on deeply nested paragraphs', () => {
+      const deepNode = (depth: number): TipTapNode =>
+        depth === 0 ? textNode('deep') : paragraph(deepNode(depth - 1));
+
+      const json = doc(deepNode(15));
+      expect(() => render(<BlogContentRenderer json={json} />)).not.toThrow();
+      expect(screen.getByText('deep')).toBeInTheDocument();
+    });
+
+    it('handles multiple paragraph nodes at the doc root', () => {
+      const json = doc(
+        paragraph(textNode('First paragraph')),
+        paragraph(textNode('Second paragraph')),
+        paragraph(textNode('Third paragraph'))
+      );
+      render(<BlogContentRenderer json={json} />);
+      expect(screen.getByText('First paragraph')).toBeInTheDocument();
+      expect(screen.getByText('Second paragraph')).toBeInTheDocument();
+      expect(screen.getByText('Third paragraph')).toBeInTheDocument();
+    });
+
+    it('renders a paragraph with no content as <br> (undefined content)', () => {
+      const json = doc({ type: 'paragraph' });
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('br')).toBeInTheDocument();
+    });
+
+    it('renders an ordered list and bullet list together in the same doc', () => {
+      const json = doc(
+        {
+          type: 'bulletList',
+          content: [
+            { type: 'listItem', content: [paragraph(textNode('Bullet'))] },
+          ],
+        },
+        {
+          type: 'orderedList',
+          content: [
+            { type: 'listItem', content: [paragraph(textNode('Ordered'))] },
+          ],
+        }
+      );
+      const { container } = render(<BlogContentRenderer json={json} />);
+      expect(container.querySelector('ul')).toBeInTheDocument();
+      expect(container.querySelector('ol')).toBeInTheDocument();
+    });
+  });
+});

@@ -17,6 +17,7 @@ import { StorefrontFooter } from '@/components/storefront/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { SafeHtml } from '@/components/ui/safe-html';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import type { MerchantAboutPage } from '@/types/about-page';
@@ -39,16 +40,12 @@ interface AboutPageClientProps {
   };
   aboutPage: MerchantAboutPage;
   legacyContent?: string;
-  sanitizedStory?: string;
-  sanitizedLegacyContent?: string;
 }
 
 export function AboutPageClient({
   merchant,
   aboutPage,
   legacyContent,
-  sanitizedStory,
-  sanitizedLegacyContent,
 }: AboutPageClientProps) {
   const hasStructuredContent =
     aboutPage.story || aboutPage.mission || aboutPage.team?.length;
@@ -88,12 +85,9 @@ export function AboutPageClient({
                           <Quote className="h-8 w-8 text-primary" />
                           Our Story
                         </h2>
-                        <div
+                        <SafeHtml
+                          html={aboutPage.story}
                           className="prose prose-lg dark:prose-invert max-w-none"
-                          // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
-                          dangerouslySetInnerHTML={{
-                            __html: sanitizedStory || aboutPage.story, // Fallback safe if server fails (but server should succeed)
-                          }} // nosemgrep
                         />
                       </section>
                     )}
@@ -404,12 +398,9 @@ export function AboutPageClient({
                   /* Legacy Content Fallback */
                   legacyContent && (
                     <div className="max-w-4xl mx-auto">
-                      <div
+                      <SafeHtml
+                        html={legacyContent}
                         className="prose prose-lg dark:prose-invert max-w-none"
-                        // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized on server
-                        dangerouslySetInnerHTML={{
-                          __html: sanitizedLegacyContent || legacyContent,
-                        }} // nosemgrep
                       />
                     </div>
                   )

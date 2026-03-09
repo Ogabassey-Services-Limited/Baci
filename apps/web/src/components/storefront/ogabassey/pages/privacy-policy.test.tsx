@@ -1,0 +1,171 @@
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/components/ui/safe-html', () => ({
+  SafeHtml: ({ html, className }: { html: string; className?: string }) => (
+    <div className={className} data-testid="safe-html">
+      {html}
+    </div>
+  ),
+}));
+
+import { OgabasseyV2PrivacyPolicy } from './privacy-policy';
+
+describe('OgabasseyV2PrivacyPolicy', () => {
+  describe('page structure', () => {
+    it('renders the main page heading', () => {
+      render(<OgabasseyV2PrivacyPolicy />);
+
+      expect(
+        screen.getByRole('heading', { level: 1 }),
+      ).toHaveTextContent('Privacy Policy');
+    });
+
+    it('always renders the privacy contact section', () => {
+      render(<OgabasseyV2PrivacyPolicy />);
+
+      expect(
+        screen.getByRole('heading', { name: /contact us regarding privacy/i }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe('default content (no merchant pages.privacy)', () => {
+    it('renders without crashing when no merchant prop is provided', () => {
+      render(<OgabasseyV2PrivacyPolicy />);
+
+      expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+    });
+
+    it('renders all five default section headings', () => {
+      render(<OgabasseyV2PrivacyPolicy />);
+
+      expect(
+        screen.getByRole('heading', { name: 'Information We Collect' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: 'How We Use Your Information' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: 'Data Security' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: 'Sharing Your Information' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: 'Cookies' }),
+      ).toBeInTheDocument();
+    });
+
+    it('does not render a SafeHtml node when there is no custom content', () => {
+      render(<OgabasseyV2PrivacyPolicy />);
+
+      expect(screen.queryByTestId('safe-html')).not.toBeInTheDocument();
+    });
+
+    it('mentions the default business name in the intro paragraph', () => {
+      render(<OgabasseyV2PrivacyPolicy />);
+
+      expect(screen.getByText('Ogabassey Limited')).toBeInTheDocument();
+    });
+
+    it('renders the default email in the contact section', () => {
+      render(<OgabasseyV2PrivacyPolicy />);
+
+      expect(
+        screen.getByRole('link', { name: 'support@ogabassey.com' }),
+      ).toHaveAttribute('href', 'mailto:support@ogabassey.com');
+    });
+
+    it('renders the default address in the contact section', () => {
+      render(<OgabasseyV2PrivacyPolicy />);
+
+      expect(screen.getByText('Lagos, Nigeria')).toBeInTheDocument();
+    });
+  });
+
+  describe('custom content via merchant.pages.privacy', () => {
+    const merchantWithCustomPrivacy = {
+      business_name: 'DataSafe Co.',
+      email: 'privacy@datasafe.com',
+      address: 'Tower 3, Eko Atlantic, Lagos',
+      pages: {
+        privacy: '<p>Our custom privacy policy for DataSafe Co. customers.</p>',
+      },
+    };
+
+    it('renders the custom privacy content via SafeHtml', () => {
+      render(<OgabasseyV2PrivacyPolicy merchant={merchantWithCustomPrivacy} />);
+
+      const safeHtmlNode = screen.getByTestId('safe-html');
+      expect(safeHtmlNode).toBeInTheDocument();
+      expect(safeHtmlNode).toHaveTextContent(
+        'Our custom privacy policy for DataSafe Co. customers.',
+      );
+    });
+
+    it('does not render the default section headings when custom content is set', () => {
+      render(<OgabasseyV2PrivacyPolicy merchant={merchantWithCustomPrivacy} />);
+
+      expect(
+        screen.queryByRole('heading', { name: 'Information We Collect' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', { name: 'Cookies' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('renders merchant email in the contact section', () => {
+      render(<OgabasseyV2PrivacyPolicy merchant={merchantWithCustomPrivacy} />);
+
+      expect(
+        screen.getByRole('link', { name: 'privacy@datasafe.com' }),
+      ).toHaveAttribute('href', 'mailto:privacy@datasafe.com');
+    });
+
+    it('renders merchant address in the contact section', () => {
+      render(<OgabasseyV2PrivacyPolicy merchant={merchantWithCustomPrivacy} />);
+
+      expect(
+        screen.getByText('Tower 3, Eko Atlantic, Lagos'),
+      ).toBeInTheDocument();
+    });
+
+    it('passes the prose className to SafeHtml', () => {
+      render(<OgabasseyV2PrivacyPolicy merchant={merchantWithCustomPrivacy} />);
+
+      const safeHtmlNode = screen.getByTestId('safe-html');
+      expect(safeHtmlNode).toHaveClass('prose');
+    });
+  });
+
+  describe('edge cases', () => {
+    it('renders correctly when merchant has no pages key', () => {
+      render(<OgabasseyV2PrivacyPolicy merchant={{ business_name: 'Acme' }} />);
+
+      // Falls back to default sections
+      expect(
+        screen.getByRole('heading', { name: 'Information We Collect' }),
+      ).toBeInTheDocument();
+    });
+
+    it('renders correctly when merchant.pages.privacy is an empty string', () => {
+      const merchant = { pages: { privacy: '' } };
+      render(<OgabasseyV2PrivacyPolicy merchant={merchant} />);
+
+      // Empty string is falsy — should fall through to default sections
+      expect(
+        screen.getByRole('heading', { name: 'Information We Collect' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('safe-html')).not.toBeInTheDocument();
+    });
+
+    it('renders the merchant business name in intro when provided', () => {
+      render(
+        <OgabasseyV2PrivacyPolicy merchant={{ business_name: 'MyShop' }} />,
+      );
+
+      expect(screen.getByText('MyShop')).toBeInTheDocument();
+    });
+  });
+});

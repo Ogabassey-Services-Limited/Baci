@@ -30,8 +30,11 @@ vi.mock('@/components/storefront/footer', () => ({
   StorefrontFooter: () => <div data-testid="footer" />,
 }));
 
-vi.mock('@/lib/sanitize', () => ({
-  sanitizeHtml: (s: string) => s,
+vi.mock('@/components/ui/safe-html', () => ({
+  SafeHtml: ({ html, className }: { html: string; className?: string }) => (
+    // biome-ignore lint/security/noDangerouslySetInnerHtml: test mock for SafeHtml
+    <div className={className} dangerouslySetInnerHTML={{ __html: html }} />
+  ),
 }));
 
 import { ContactPageClient } from './contact-page-client';

@@ -6,8 +6,8 @@ import { useParams, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import { SafeHtml } from '@/components/ui/safe-html';
 import { asRoute } from '@/lib/routes';
-import { sanitizeHtml } from '@/lib/sanitize';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
 import {
@@ -475,8 +475,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                       {faq.question}
                     </AccordionTrigger>
                     <AccordionContent className="text-[var(--store-background-text,#111827)]/50 text-sm leading-relaxed">
-                      {/* biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml() */}
-                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(faq.answer) }} />
+                      <SafeHtml html={faq.answer} />
                     </AccordionContent>
                   </AccordionItem>
                 ))}
