@@ -98,5 +98,27 @@ describe('getVideoEmbedUrl', () => {
       ).toBeNull();
       expect(getVideoEmbedUrl('https://youtu.be/../../etc')).toBeNull();
     });
+
+    it('rejects non-watch YouTube paths', () => {
+      expect(
+        getVideoEmbedUrl('https://www.youtube.com/channel/UCxyz')
+      ).toBeNull();
+      expect(
+        getVideoEmbedUrl('https://www.youtube.com/playlist?list=abc')
+      ).toBeNull();
+    });
+
+    it('rejects invalid youtube-nocookie.com paths', () => {
+      expect(
+        getVideoEmbedUrl('https://www.youtube-nocookie.com/watch?v=dQw4w9WgXcQ')
+      ).toBeNull();
+      expect(
+        getVideoEmbedUrl('https://www.youtube-nocookie.com/channel/UCxyz')
+      ).toBeNull();
+    });
+
+    it('rejects invalid player.vimeo.com paths', () => {
+      expect(getVideoEmbedUrl('https://player.vimeo.com/channels')).toBeNull();
+    });
   });
 });

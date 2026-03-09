@@ -141,5 +141,7 @@ exclude = [
   # CoinGecko API (Rate limited 429)
   "api\\.coingecko\\.com",
   # Test fixture domains (dummy URLs in unit tests)
-  "^https?://evil\\.com"
+  "^https?://evil\\.com",
+  # Blockchain explorer base URLs (address appended at runtime)
+  "polygonscan\\.com/address"
 ]
