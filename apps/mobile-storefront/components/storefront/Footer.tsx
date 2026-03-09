@@ -113,7 +113,8 @@ export function Footer() {
               ]}
               onPress={() => handleExternalLink(social.url)}
               hitSlop={8}
-              accessibilityLabel={social.platform}
+              accessibilityRole="link"
+              accessibilityLabel={`Follow us on ${social.platform}`}
             >
               <Ionicons name={social.icon} size={18} color="#9CA3AF" />
             </Pressable>
@@ -131,6 +132,8 @@ export function Footer() {
               key={link.label}
               style={styles.linkItem}
               onPress={() => handleInternalLink(link.route)}
+              accessibilityRole="link"
+              accessibilityLabel={`Navigate to ${link.label}`}
             >
               <Text style={styles.linkText}>{link.label}</Text>
             </Pressable>
@@ -145,6 +148,8 @@ export function Footer() {
               key={link.label}
               style={styles.linkItem}
               onPress={() => handleInternalLink(link.route)}
+              accessibilityRole="link"
+              accessibilityLabel={`Navigate to ${link.label}`}
             >
               <Text style={styles.linkText}>{link.label}</Text>
             </Pressable>
@@ -165,6 +170,8 @@ export function Footer() {
             onPress={() =>
               handleExternalLink(`tel:${contactInfo.phone.replace(/\s/g, '')}`)
             }
+            accessibilityRole="link"
+            accessibilityLabel={`Call us at ${contactInfo.phone}`}
           >
             <Feather name="phone" size={14} color={BRAND.primary} />
             <Text style={styles.contactText}>{contactInfo.phone}</Text>
@@ -172,6 +179,8 @@ export function Footer() {
           <Pressable
             style={styles.contactItem}
             onPress={() => handleExternalLink(`mailto:${contactInfo.email}`)}
+            accessibilityRole="link"
+            accessibilityLabel={`Email us at ${contactInfo.email}`}
           >
             <Feather name="mail" size={14} color={BRAND.primary} />
             <Text style={styles.contactText}>{contactInfo.email}</Text>
