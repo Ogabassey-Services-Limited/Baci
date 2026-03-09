@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
       // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
       .select('id', { count: 'exact', head: true })
       .eq('merchant_id', merchant.id)
-      .eq('status', 'published');
+      .eq('status', 'active');
 
     // Also get total products for debugging
     const { count: totalProducts } = await supabase
