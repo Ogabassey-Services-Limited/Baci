@@ -1,5 +1,7 @@
+# Sentinel Changelog
 
-## 2025-03-02 - Replace weak random number generation with cryptographically secure alternatives
-**Vulnerability:** Found `Math.random` being used to generate identifier codes such as file names, redemption codes, referral codes and event identifiers. `Math.random` is NOT cryptographically secure, predictable, and should never be used for things that require collision resistance or an element of security.
-**Learning:** Avoid using `Math.random` for any code, ID, password, or security token generation since it uses a pseudorandom number generator with a deterministic algorithm.
-**Prevention:** For web contexts, use `crypto.randomUUID()` or `crypto.getRandomValues()`. They provide cryptographically secure values suitable for generation of unique numbers and tokens.
+## 2026-03-09 - Missing CSRF validation in Discount Codes API
+
+**Vulnerability:** The API routes for managing discount codes (`POST /api/discount-codes`, `PATCH /api/discount-codes/[id]`, `DELETE /api/discount-codes/[id]`) did not have CSRF protection. This could allow an attacker to forge requests from a malicious site on behalf of an authenticated merchant to create, update, or delete discount codes.
+**Learning:** Even though routes check for proper authorization via Supabase `getUser()` and check user roles, they still require explicit CSRF protection to prevent cross-site request forgery attacks.
+**Prevention:** Always use the `checkCsrfProtection` utility at the beginning of `POST`, `PATCH`, `PUT`, and `DELETE` API handlers, especially those handling sensitive merchant or customer data.
