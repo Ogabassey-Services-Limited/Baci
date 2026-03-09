@@ -49,7 +49,7 @@ export async function getSantaStats(merchantId: string): Promise<SantaStats> {
 
   const { data: viewData, error: viewError } = await supabase
     .from('santa_campaign_stats')
-    .select('*')
+    .select('total_chats, unique_sessions, wishes_granted, wishes_denied, total_revenue, avg_discount')
     .eq('merchant_id', merchantId);
 
   if (!viewError && viewData) {
@@ -79,7 +79,7 @@ export async function getRecentInteractions(
 
   const { data, error } = await supabase
     .from('santa_interactions')
-    .select('*')
+    .select('id, created_at, interaction_type, user_message, santa_response, product_name, approved_price, discount_percentage, session_id')
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false })
     .limit(limit);
