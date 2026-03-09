@@ -61,13 +61,6 @@ async function getBlogPost(slug: string): Promise<BlogPost | null> {
     return null;
   }
 
-  // Increment view count (fire and forget with silent error handling)
-  void Promise.resolve(
-    supabase.rpc('increment_blog_post_views', { p_post_id: post.id })
-  ).catch(() => {
-    // Silently ignore view count errors - non-critical
-  });
-
   return post;
 }
 
@@ -118,6 +111,18 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   if (!post) {
     notFound();
+  }
+
+  // Increment view count only here (not in getBlogPost, which is also called by generateMetadata)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (supabaseUrl && supabaseAnonKey) {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    void Promise.resolve(
+      supabase.rpc('increment_blog_post_views', { p_post_id: post.id })
+    ).catch(() => {
+      // View count is non-critical — silently ignore failures
+    });
   }
 
   return (
