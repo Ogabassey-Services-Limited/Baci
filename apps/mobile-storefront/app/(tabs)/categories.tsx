@@ -7,7 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import type { Href } from 'expo-router';
 import { router } from 'expo-router';
-import { useEffect } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -32,14 +31,9 @@ export default function CategoriesScreen() {
     refetch,
     isRefetching,
   } = useCategories();
-  const { isOnline, onReconnect } = useNetworkState();
-
-  // Auto-refetch when network is restored
-  useEffect(() => {
-    return onReconnect(() => {
-      refetch();
-    });
-  }, [onReconnect, refetch]);
+  // Note: Manual onReconnect refetch removed — onlineManager.setOnline(true)
+  // combined with refetchOnReconnect: true handles automatic refetching.
+  const { isOnline } = useNetworkState();
 
   const handleCategoryPress = (slug: string) => {
     router.push(`/category/${slug}` as Href);

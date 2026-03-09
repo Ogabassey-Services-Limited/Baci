@@ -67,7 +67,9 @@ export default function ProductDetailScreen() {
   );
 
   // 2026 Best Practice: Network state monitoring for offline UX
-  const { isOnline, onReconnect } = useNetworkState();
+  // Note: Manual onReconnect refetch removed — onlineManager.setOnline(true)
+  // combined with refetchOnReconnect: true handles automatic refetching.
+  const { isOnline } = useNetworkState();
 
   // 2026 Best Practice: Haptic feedback for tactile UX
   const haptics = useHaptics();
@@ -81,15 +83,6 @@ export default function ProductDetailScreen() {
   const isSaved = useSavedStore((state) => state.isSaved);
   const savedToastState = useSavedStore((state) => state.toastState);
   const dismissSavedToast = useSavedStore((state) => state.dismissToast);
-
-  // Auto-retry fetching product when network is restored
-  useEffect(() => {
-    return onReconnect(() => {
-      if (error || !product) {
-        refetch();
-      }
-    });
-  }, [onReconnect, error, product, refetch]);
 
   // Fetch reviews for this product
   const {

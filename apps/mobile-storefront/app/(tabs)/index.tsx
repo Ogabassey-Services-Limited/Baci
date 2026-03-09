@@ -75,7 +75,9 @@ export default function HomeScreen() {
   const [headerHeight, setHeaderHeight] = useState(150); // Initial estimate for spacer
 
   // 2026 Best Practice: Network state monitoring for offline UX
-  const { isOnline, onReconnect } = useNetworkState();
+  // Note: Manual onReconnect refetch removed — onlineManager.setOnline(true)
+  // combined with refetchOnReconnect: true handles automatic refetching.
+  const { isOnline } = useNetworkState();
 
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,12 +99,6 @@ export default function HomeScreen() {
       setRefreshing(false);
     }
   };
-
-  useEffect(() => {
-    return onReconnect(() => {
-      refetch();
-    });
-  }, [onReconnect, refetch]);
 
   const handleCategorySelect = (id: string | null) => {
     if (id?.startsWith('u-')) {
