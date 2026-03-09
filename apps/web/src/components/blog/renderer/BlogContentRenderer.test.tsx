@@ -103,10 +103,7 @@ describe('BlogContentRenderer', () => {
     });
 
     it('renders nothing for undefined', () => {
-      const { container } = render(
-        // @ts-expect-error -- intentional test of falsy input
-        <BlogContentRenderer json={undefined} />
-      );
+      const { container } = render(<BlogContentRenderer json={undefined} />);
       expect(container).toBeEmptyDOMElement();
     });
 
