@@ -175,19 +175,63 @@ export async function POST(
       );
     }
 
+    // Application-level duplicate guard (pre-insert).
+    // NOTE: A concurrent request can still slip through this check. The DB-level
+    // unique constraint on (order_id, gateway_reference) is the true safeguard.
     const existingTransaction = transactions?.find(
-      (transaction) => transaction.gateway_reference === reference
+      (t) => t.gateway_reference === reference
     );
+    if (existingTransaction) {
+      logger.warn({
+        message: 'RecordPayment duplicate reference rejected',
+        orderId: id,
+        merchantId: merchant.id,
+        reference,
+      });
+      return NextResponse.json(
+        { error: 'Duplicate payment reference', code: 'DUPLICATE_REFERENCE' },
+        { status: 409 }
+      );
+    }
 
     // 3. Calculate Totals
     const currentPaid =
       transactions?.reduce((sum, t) => sum + (Number(t.amount) || 0), 0) || 0;
     const walletUsed = Number(order.wallet_amount_used) || 0;
     const totalPaidBefore = currentPaid + walletUsed;
-    const newPaid = existingTransaction
-      ? totalPaidBefore
-      : totalPaidBefore + parsedAmount;
     const orderTotal = Number(order.total) || 0;
+    const remainingBeforePayment = orderTotal - totalPaidBefore;
+
+    // Reject payments on fully-paid orders
+    if (remainingBeforePayment <= 0) {
+      logger.warn({
+        message: 'RecordPayment rejected: order already fully paid',
+        orderId: id,
+        merchantId: merchant.id,
+        orderTotal,
+        totalPaidBefore,
+      });
+      return NextResponse.json(
+        { error: 'Order is already fully paid' },
+        { status: 409 }
+      );
+    }
+
+    // Reject overpayments
+    if (parsedAmount > remainingBeforePayment) {
+      logger.warn({
+        message: 'RecordPayment rejected: amount exceeds remaining balance',
+        orderId: id,
+        amount: parsedAmount,
+        remainingBeforePayment,
+      });
+      return NextResponse.json(
+        { error: 'Amount exceeds remaining balance' },
+        { status: 409 }
+      );
+    }
+
+    const newPaid = totalPaidBefore + parsedAmount;
     const remainingBalance = Math.max(0, orderTotal - newPaid);
 
     logger.info({
@@ -199,26 +243,10 @@ export async function POST(
       remainingBalance,
     });
 
-    if (existingTransaction) {
-      logger.warn({
-        message: 'RecordPayment duplicate reference ignored',
-        orderId: id,
-        merchantId: merchant.id,
-        reference,
-      });
-      return NextResponse.json({
-        success: true,
-        amount_paid: Number(existingTransaction.amount) || parsedAmount,
-        duplicate: true,
-        new_balance: remainingBalance,
-        updated_status: {
-          payment_status: order.payment_status,
-          shipping_status: order.shipping_status,
-        },
-      });
-    }
-
     // 4. Create Transaction
+    // The pre-insert duplicate guard above catches known duplicates.
+    // A DB-level unique constraint on (order_id, gateway_reference) provides
+    // the authoritative safeguard against concurrent duplicate inserts.
     const { error: transactionError } = await supabase
       .from('transactions')
       .insert({
@@ -242,6 +270,25 @@ export async function POST(
       });
 
     if (transactionError) {
+      // Detect duplicate reference conflict (unique constraint violation = code 23505)
+      const isDuplicate =
+        transactionError.code === '23505' ||
+        transactionError.message?.toLowerCase().includes('duplicate') ||
+        transactionError.message?.toLowerCase().includes('unique');
+
+      if (isDuplicate) {
+        logger.warn({
+          message: 'RecordPayment duplicate reference rejected at DB level',
+          orderId: id,
+          merchantId: merchant.id,
+          reference,
+        });
+        return NextResponse.json(
+          { error: 'Duplicate payment reference', code: 'DUPLICATE_REFERENCE' },
+          { status: 409 }
+        );
+      }
+
       logger.error({
         message: 'RecordPayment transaction insert error',
         error: transactionError,

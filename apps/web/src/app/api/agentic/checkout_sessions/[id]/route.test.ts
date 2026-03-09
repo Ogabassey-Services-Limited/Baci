@@ -44,6 +44,29 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
     expect(body).toEqual({ error: 'Invalid JSON body' });
   });
 
+  it('returns 401 when API key verification fails and skips DB calls', async () => {
+    mockVerifyAgenticApiKey.mockReturnValue(false);
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions/session-1',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: [] }),
+      }
+    );
+    const params = { params: Promise.resolve({ id: 'session-1' }) };
+
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: 'Unauthorized' });
+    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
   it('updates an existing checkout session successfully', async () => {
     const updateSpy = vi.fn(() => ({
       eq: vi.fn().mockResolvedValue({ error: null }),
@@ -149,5 +172,30 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
         status: 'ready_for_payment',
       })
     );
+  });
+});
+
+describe('GET /api/agentic/checkout_sessions/[id]', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyAgenticApiKey.mockReturnValue(true);
+  });
+
+  it('returns 401 when API key verification fails and skips DB calls', async () => {
+    mockVerifyAgenticApiKey.mockReturnValue(false);
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions/session-1'
+    );
+    const params = { params: Promise.resolve({ id: 'session-1' }) };
+
+    const { GET } = await import('./route');
+    const response = await GET(request, params);
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: 'Unauthorized' });
+    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 });

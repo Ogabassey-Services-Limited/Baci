@@ -8,6 +8,7 @@
 
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import type { Product as BaciProduct } from '@/lib/products';
@@ -191,6 +192,10 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
       }
 
       result.push(p);
+    }
+
+    if (selectedCategory === 'All') {
+      return prioritizeSmartphoneProducts(result);
     }
 
     return result;

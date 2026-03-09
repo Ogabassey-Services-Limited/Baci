@@ -46,6 +46,28 @@ describe('POST /api/agentic/checkout_sessions', () => {
     expect(body).toEqual({ error: 'Invalid JSON body' });
   });
 
+  it('returns 401 when API key verification fails and skips downstream work', async () => {
+    mockVerifyAgenticApiKey.mockReturnValue(false);
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: [{ id: 'p-1', quantity: 1 }] }),
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: 'Unauthorized' });
+    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
   it('creates a checkout session and returns the idempotency header', async () => {
     const mockSupabase = {
       from: vi.fn((table: string) => {
@@ -127,6 +149,7 @@ describe('POST /api/agentic/checkout_sessions', () => {
 
     expect(response.status).toBe(201);
     expect(response.headers.get('idempotency-key')).toBe('idem-1');
+    expect(mockGetIdempotencyKey).toHaveBeenCalled();
     expect(body).toMatchObject({
       id: 'session-1',
       status: 'not_ready_for_payment',

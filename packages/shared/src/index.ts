@@ -2,4 +2,5 @@
 
 export * from './constants';
 export * from './receipt';
+export * from './storefront';
 export * from './types';

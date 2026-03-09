@@ -35,7 +35,7 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({ products, categorie
       </div>
 
       {/* Horizontal Carousel Banner - Desktop Only */}
-      <div className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 py-4 md:py-6">
+      <div className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 py-4 md:py-6 [content-visibility:auto] [contain-intrinsic-size:1400px_220px]">
         <BannerCarousel className="h-40 md:h-52" />
       </div>
 

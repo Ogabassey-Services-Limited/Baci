@@ -553,14 +553,12 @@ export async function getCachedProducts(
         condition,
         product_variants (
           id,
-          name,
-          options,
-          price_modifier,
-          stock,
-          storage,
-          sim_type,
-          color,
-          price_override
+          sku,
+          attributes,
+          price_override,
+          stock_quantity,
+          images,
+          primary_image
         ),
         product_categories (
           category_id,
@@ -659,13 +657,8 @@ export async function getCachedProduct(
           attributes,
           price_override,
           stock_quantity,
-          storage,
-          sim_type,
-          color,
           images,
-          primary_image,
-          ram_gb,
-          condition
+          primary_image
         ),
         product_categories (
           category_id,
@@ -695,6 +688,77 @@ export async function getCachedProduct(
   return data;
 }
 
+const STOREFRONT_PRODUCT_DETAIL_COLUMNS = `
+  id,
+  merchant_id,
+  category_id,
+  name,
+  description,
+  status,
+  price,
+  compare_at_price,
+  cost_price,
+  stock,
+  stock_quantity,
+  manage_stock,
+  low_stock_threshold,
+  sku,
+  slug,
+  condition,
+  condition_detail,
+  brand,
+  category,
+  color,
+  has_variants,
+  has_condition_offers,
+  variant_attributes,
+  images,
+  imageHint:image_hint,
+  specifications,
+  weight_value,
+  weight_unit,
+  dimensions,
+  taxable,
+  tax_code,
+  meta_title,
+  meta_description,
+  keywords,
+  canonical_url,
+  schema_markup,
+  gtin,
+  mpn,
+  google_product_category,
+  fulfillment_details,
+  fulfillmentFields:fulfillment_fields
+`;
+
+const STOREFRONT_PRODUCT_DETAIL_VARIANT_COLUMNS = `
+  id,
+  product_id,
+  merchant_id,
+  sku,
+  attributes,
+  price_override,
+  cost_price,
+  stock_quantity,
+  images,
+  primary_image,
+  created_at,
+  updated_at
+`;
+
+const STOREFRONT_PRODUCT_DETAIL_OFFERS_COLUMNS = `
+  id,
+  condition,
+  price,
+  compare_at_price,
+  stock_quantity,
+  images,
+  condition_notes,
+  grade,
+  status
+`;
+
 /**
  * Comprehensive cached product data with all relations for product pages.
  * Fetches product + key_specs + variants + offers + category in a single query.
@@ -723,8 +787,7 @@ export async function getCachedProductWithDetails(
   let query = supabase
     .from('products')
     .select(`
-        *,
-        category_id,
+        ${STOREFRONT_PRODUCT_DETAIL_COLUMNS},
         categories:category_id(id, name, slug, parent_id),
         product_key_specs (
           screen_size_inches,
@@ -780,31 +843,8 @@ export async function getCachedProductWithDetails(
           announced_date,
           release_date
         ),
-        product_variants (
-          id,
-          sku,
-          attributes,
-          price_override,
-          stock_quantity,
-          storage,
-          sim_type,
-          color,
-          images,
-          primary_image,
-          ram_gb,
-          condition
-        ),
-        product_offers (
-          id,
-          condition,
-          price,
-          compare_at_price,
-          stock_quantity,
-          images,
-          condition_notes,
-          grade,
-          status
-        )
+        product_variants (${STOREFRONT_PRODUCT_DETAIL_VARIANT_COLUMNS}),
+        product_offers (${STOREFRONT_PRODUCT_DETAIL_OFFERS_COLUMNS})
       `)
     .eq('merchant_id', merchantId);
 

@@ -138,6 +138,24 @@ describe('toRelatedProductsProduct', () => {
     expect(result.price).toBe(0);
   });
 
+  it('falls back to nested category fields when top-level category fields are missing', () => {
+    const product = makeProduct({
+      category: '',
+      categorySlug: '',
+      categories: {
+        id: 'cat-1',
+        name: 'Phones',
+        slug: 'phones',
+        parent_id: null,
+      },
+    });
+
+    const result = toRelatedProductsProduct(product);
+
+    expect(result.category).toBe('Phones');
+    expect(result.category_slug).toBe('phones');
+  });
+
   it('returns undefined condition for unrecognised condition values', () => {
     const product = makeProduct({ condition: 'New & Used' });
 

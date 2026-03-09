@@ -140,12 +140,14 @@ function toOgabasseyProduct(
     specs = specsArray;
 
     // Configuration for spec categories
+    /** Possible value type from KeySpecs index signature */
+    type KeySpecValue = string | number | boolean | undefined;
+
     interface SpecField {
       key: string;
       label: string;
       dynamicLabel?: (specs: KeySpecs) => string;
-      // biome-ignore lint/suspicious/noExplicitAny: Value types vary per field
-      transform?: (value: any, allSpecs: KeySpecs) => string;
+      transform?: (value: KeySpecValue, allSpecs: KeySpecs) => string;
       condition?: (specs: KeySpecs) => boolean;
     }
 
@@ -162,7 +164,7 @@ function toOgabasseyProduct(
           {
             key: 'has_5g',
             label: '5G Support',
-            transform: (v: boolean) => (v ? 'Yes' : 'No'),
+            transform: (v) => (v ? 'Yes' : 'No'),
           },
         ],
       },
@@ -173,7 +175,7 @@ function toOgabasseyProduct(
           {
             key: 'weight_g',
             label: 'Weight',
-            transform: (v: number) => `${v}g`,
+            transform: (v) => `${v}g`,
           },
           { key: 'build_materials', label: 'Build' },
           { key: 'sim_type', label: 'SIM' },
@@ -187,23 +189,23 @@ function toOgabasseyProduct(
           {
             key: 'screen_size_inches',
             label: 'Size',
-            transform: (v: number) => `${v} inches`,
+            transform: (v) => `${v} inches`,
           },
           { key: 'display_resolution', label: 'Resolution' },
           {
             key: 'refresh_rate_hz',
             label: 'Refresh Rate',
-            transform: (v: number) => `${v}Hz`,
+            transform: (v) => `${v}Hz`,
           },
           {
             key: 'display_ppi',
             label: 'Pixel Density',
-            transform: (v: number) => `${v} ppi`,
+            transform: (v) => `${v} ppi`,
           },
           {
             key: 'display_peak_brightness',
             label: 'Peak Brightness',
-            transform: (v: number) => `${v} nits`,
+            transform: (v) => `${v} nits`,
           },
           { key: 'display_protection', label: 'Protection' },
         ],
@@ -214,7 +216,7 @@ function toOgabasseyProduct(
           {
             key: 'android_version',
             label: 'OS',
-            transform: (v: string) => `Android ${v}`,
+            transform: (v) => `Android ${v}`,
           },
           { key: 'chipset', label: 'Chipset' },
           { key: 'cpu_cores', label: 'CPU' },
@@ -227,18 +229,18 @@ function toOgabasseyProduct(
           {
             key: 'has_card_slot',
             label: 'Card Slot',
-            transform: (_: string | number | boolean, allSpecs: KeySpecs) =>
+            transform: (_v, allSpecs) =>
               allSpecs.has_card_slot ? allSpecs.card_slot_type || 'Yes' : 'No',
           },
           {
             key: 'storage_gb',
             label: 'Internal Storage',
-            transform: (v: number) => `${v}GB`,
+            transform: (v) => `${v}GB`,
           },
           {
             key: 'ram_gb',
             label: 'RAM',
-            transform: (v: number) => `${v}GB`,
+            transform: (v) => `${v}GB`,
           },
         ],
       },
@@ -256,7 +258,7 @@ function toOgabasseyProduct(
                   : allSpecs.has_dual_camera
                     ? 'Dual Camera'
                     : 'Single Camera',
-            transform: (v: number) => `${v}MP`,
+            transform: (v) => `${v}MP`,
           },
           { key: 'rear_camera_features', label: 'Features' },
           { key: 'rear_camera_video', label: 'Video' },
@@ -268,7 +270,7 @@ function toOgabasseyProduct(
           {
             key: 'front_camera_mp',
             label: 'Resolution',
-            transform: (v: number) => `${v}MP`,
+            transform: (v) => `${v}MP`,
           },
           { key: 'front_camera_features', label: 'Features' },
           { key: 'front_camera_video', label: 'Video' },
@@ -280,13 +282,12 @@ function toOgabasseyProduct(
           {
             key: 'has_stereo_speakers',
             label: 'Loudspeaker',
-            transform: (v: boolean) =>
-              v ? 'Yes, with stereo speakers' : 'Yes (mono)',
+            transform: (v) => (v ? 'Yes, with stereo speakers' : 'Yes (mono)'),
           },
           {
             key: 'has_headphone_jack',
             label: '3.5mm Jack',
-            transform: (v: boolean) => (v ? 'Yes' : 'No'),
+            transform: (v) => (v ? 'Yes' : 'No'),
           },
         ],
       },
@@ -299,17 +300,17 @@ function toOgabasseyProduct(
           {
             key: 'has_nfc',
             label: 'NFC',
-            transform: (v: boolean) => (v ? 'Yes' : 'No'),
+            transform: (v) => (v ? 'Yes' : 'No'),
           },
           {
             key: 'has_fm_radio',
             label: 'Radio',
-            transform: (v: boolean) => (v ? 'FM Radio' : 'No'),
+            transform: (v) => (v ? 'FM Radio' : 'No'),
           },
           {
             key: 'usb_type',
             label: 'USB',
-            transform: (v: string | number | boolean, allSpecs: KeySpecs) =>
+            transform: (v, allSpecs) =>
               String(v) + (allSpecs.has_usb_otg ? ', OTG' : ''),
           },
         ],
@@ -327,18 +328,18 @@ function toOgabasseyProduct(
           {
             key: 'battery_mah',
             label: 'Capacity',
-            transform: (v: string | number | boolean, allSpecs: KeySpecs) =>
+            transform: (v, allSpecs) =>
               `${v}mAh${allSpecs.battery_removable ? ' (removable)' : ''}`,
           },
           {
             key: 'charging_watt',
             label: 'Wired Charging',
-            transform: (v: number) => `${v}W`,
+            transform: (v) => `${v}W`,
           },
           {
             key: 'wireless_charging_watt',
             label: 'Wireless Charging',
-            transform: (v: number) => `${v}W`,
+            transform: (v) => `${v}W`,
             condition: (allSpecs: KeySpecs) => !!allSpecs.has_wireless_charging,
           },
           {
@@ -537,14 +538,18 @@ function toOgabasseyProduct(
         id: o.id,
         condition: o.condition as 'new' | 'open_box' | 'used',
         price: formatter.format(
-          typeof o.price === 'string' ? Number.parseFloat(o.price) : o.price
+          typeof o.price === 'string'
+            ? Number.parseFloat(o.price) || 0
+            : o.price
         ),
         rawPrice:
-          typeof o.price === 'string' ? Number.parseFloat(o.price) : o.price,
+          typeof o.price === 'string'
+            ? Number.parseFloat(o.price) || 0
+            : o.price,
         compare_at_price: o.compare_at_price
           ? formatter.format(
               typeof o.compare_at_price === 'string'
-                ? Number.parseFloat(o.compare_at_price)
+                ? Number.parseFloat(o.compare_at_price) || 0
                 : o.compare_at_price
             )
           : undefined,
@@ -636,9 +641,54 @@ const getProduct = async (
   const dbCategorySlug = joinedCategory?.slug;
   const dbCategoryName = joinedCategory?.name || product.category;
 
+  // Normalize the images array from the database (JSON column stored as string or object array).
+  // Guard against both non-array values and empty arrays so primaryImage always resolves.
+  const rawImages = Array.isArray(product.images)
+    ? (product.images as Array<string | { url: string; alt?: string }>)
+    : [];
+  const normalizedImages = rawImages.map((image, index) =>
+    typeof image === 'string'
+      ? { url: image, alt: product.name, order: index }
+      : {
+          url: image.url,
+          alt: image.alt || product.name,
+          order: index,
+        }
+  );
+  const primaryImage = normalizedImages[0]?.url || '/placeholder.png';
+
   // Create extended product with category info
   const productWithCategorySlug: Product = {
     ...product,
+    description: product.description || '',
+    price:
+      typeof product.price === 'string'
+        ? Number.parseFloat(product.price) || 0
+        : product.price,
+    compare_at_price:
+      typeof product.compare_at_price === 'string'
+        ? Number.parseFloat(product.compare_at_price) || undefined
+        : product.compare_at_price,
+    manage_stock: product.manage_stock ?? true,
+    stock: (() => {
+      if (typeof product.stock === 'number') {
+        return product.stock;
+      }
+
+      if (typeof product.stock === 'string') {
+        const parsedStock = Number.parseInt(product.stock, 10);
+        if (!Number.isNaN(parsedStock)) {
+          return parsedStock;
+        }
+      }
+
+      return product.stock_quantity ?? 0;
+    })(),
+    image: primaryImage,
+    imageLarge: primaryImage,
+    imageHint: product.imageHint || product.name,
+    images: normalizedImages,
+    fulfillmentFields: product.fulfillmentFields || [],
     category: dbCategoryName || product.category,
     category_slug: dbCategorySlug,
     // Filter offers to exclude main product condition

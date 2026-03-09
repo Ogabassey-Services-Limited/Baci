@@ -210,7 +210,7 @@ export function CheckoutIdentityModal({
               {/* Password */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">Password</label>
+                  <label htmlFor="checkout-password" className="text-sm font-medium text-gray-700">Password</label>
                   <button
                     type="button"
                     onClick={() => router.push('/forgot-password')}
@@ -221,6 +221,7 @@ export function CheckoutIdentityModal({
                 </div>
                 <div className="relative">
                   <input
+                    id="checkout-password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
