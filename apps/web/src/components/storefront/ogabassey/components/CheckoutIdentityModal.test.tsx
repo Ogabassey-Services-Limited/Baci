@@ -84,6 +84,14 @@ describe('CheckoutIdentityModal', () => {
     ).toBeInTheDocument();
   });
 
+  it('navigates to signup with encoded redirect on register click', () => {
+    render(<CheckoutIdentityModal {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /register now/i }));
+
+    expect(mockPush).toHaveBeenCalledWith('/signup?redirect=%2Fcheckout');
+  });
+
   it('has a close button with proper aria-label', () => {
     render(<CheckoutIdentityModal {...defaultProps} />);
 

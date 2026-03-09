@@ -698,8 +698,10 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
 
       {/* Header Ad - Replaced with Banner Carousel */}
       <div
+        role="region"
+        aria-label="Product banner carousel"
         data-testid="product-banner-carousel"
-        className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 mb-8 [content-visibility:auto] [contain-intrinsic-size:1400px_220px]"
+        className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 mb-8 [content-visibility:auto] [contain-intrinsic-size:1400px_208px]"
       >
         <BannerCarousel className="h-40 md:h-52" />
       </div>
@@ -1274,7 +1276,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                     <ul className="list-disc pl-5 space-y-2 text-gray-600">
                       {/* Priority 1: Use explicit highlights/features if available */}
                       {productData.specs && productData.specs.length > 0 ? (
-                        productData.specs.slice(0, 5).map((spec: any, i: number) => (
+                        productData.specs.slice(0, 5).map((spec: { label: string; value: string }, i: number) => (
                           <li key={i}>
                             <span className="font-medium text-gray-900">{spec.label}:</span> {spec.value}
                           </li>
@@ -1303,7 +1305,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                   aria-labelledby="tab-btn-specs"
                   className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-300"
                 >
-                  {productData.detailedSpecs?.map((section: any, idx: number) => (
+                  {productData.detailedSpecs?.map((section: { category: string; items: { label: string; value: string }[] }, idx: number) => (
                     <div
                       key={idx}
                       className="bg-gray-50 rounded-2xl p-6 border border-gray-100"
@@ -1312,7 +1314,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                         {section.category}
                       </h3>
                       <ul className="space-y-3">
-                        {section.items.map((item: any, i: number) => (
+                        {section.items.map((item: { label: string; value: string }, i: number) => (
                           <li
                             key={i}
                             className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4 border-b border-gray-200 last:border-0 pb-2 last:pb-0"

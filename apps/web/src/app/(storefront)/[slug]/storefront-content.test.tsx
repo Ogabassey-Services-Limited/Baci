@@ -95,7 +95,7 @@ describe('StorefrontContent', () => {
     const result = await StorefrontContent({ merchant: mockMerchant });
 
     render(result as React.ReactElement);
-    expect(screen.getByTestId('storefront-wrapper')).toBeInTheDocument();
+    expect(screen.getByText(/Products: \d+/)).toBeInTheDocument();
   });
 
   it('renders template Home component when template is resolved', async () => {
@@ -140,7 +140,7 @@ describe('StorefrontContent', () => {
     const result = await StorefrontContent({ merchant: mockMerchant });
     render(result as React.ReactElement);
 
-    expect(screen.getByTestId('storefront-wrapper')).toBeInTheDocument();
+    expect(screen.getByText(/Products: \d+/)).toBeInTheDocument();
     consoleSpy.mockRestore();
   });
 });

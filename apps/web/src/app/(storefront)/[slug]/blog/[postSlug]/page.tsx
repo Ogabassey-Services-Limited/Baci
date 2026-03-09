@@ -1,217 +1,26 @@
-import {
-  AlertTriangle,
-  ArrowLeft,
-  Calendar,
-  Clock,
-  Tag,
-  User,
-} from 'lucide-react';
-import { marked } from 'marked';
-import type { Metadata, Route } from 'next';
+import { AlertTriangle, ArrowLeft, Calendar, Clock, User } from 'lucide-react';
+import type { Metadata } from 'next';
 import { draftMode, headers } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { BlogContentRenderer } from '@/components/blog/renderer/BlogContentRenderer';
-import { TableOfContents } from '@/components/blog/table-of-contents';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCachedBlogPost } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
-import { sanitizeHtml } from '@/lib/sanitize';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBlogPostSchema,
   generateBreadcrumbSchema,
 } from '@/lib/seo-utils';
 import { isDomainIdentifier } from '@/lib/validation';
+import { BlogPostBody } from './blog-post-body';
+import { BlogPostBodyFallback } from './blog-post-body-fallback';
 import { ViewCounter } from './view-counter';
 
 interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
-}
-
-interface BlogPostBodyProps {
-  basePath: string;
-  baseUrl: string;
-  content: unknown;
-  post: {
-    author_bio?: string | null;
-    id: string;
-    slug: string;
-    tags?: string[] | null;
-    title: string;
-  };
-  relatedPosts: Array<{
-    category?: string | null;
-    featured_image_url?: string | null;
-    id: string;
-    published_at?: string | null;
-    reading_time_minutes?: number | null;
-    slug: string;
-    title: string;
-  }>;
-}
-
-async function BlogPostBody({
-  basePath,
-  baseUrl,
-  content,
-  post,
-  relatedPosts,
-}: BlogPostBodyProps) {
-  const contentStr =
-    typeof content === 'string' ? content : JSON.stringify(content);
-  const trimmedContent = contentStr.trim();
-  const isJson =
-    trimmedContent.startsWith('{') || trimmedContent.startsWith('[');
-  const isHtml = trimmedContent.startsWith('<');
-
-  let legacyHtml = '';
-  if (!isJson) {
-    legacyHtml = isHtml
-      ? sanitizeHtml(contentStr)
-      : sanitizeHtml(await marked(contentStr));
-  }
-
-  return (
-    <div className="[content-visibility:auto] [contain-intrinsic-size:1152px_2400px]">
-      {/* Table of Contents (auto-generated from headings) */}
-      {isJson && <TableOfContents />}
-
-      {/* Post Content */}
-      <div className="mb-8">
-        {isJson ? (
-          <BlogContentRenderer json={content} />
-        ) : (
-          <div
-            className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
-            /*
-              biome-ignore lint/security/noDangerouslySetInnerHtml: Legacy content sanitized
-              nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-            */
-            dangerouslySetInnerHTML={{ __html: legacyHtml }}
-          />
-        )}
-      </div>
-
-      {/* Tags */}
-      {post.tags && post.tags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-8 pt-8 border-t">
-          <Tag className="w-4 h-4 text-muted-foreground" />
-          {post.tags.map((tag: string) => (
-            <Badge key={tag} variant="outline">
-              {tag}
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      {/* Share */}
-      <div className="flex items-center gap-4 mb-12 pb-8 border-b">
-        <span className="text-sm text-muted-foreground">
-          Share this article:
-        </span>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <a
-              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`${baseUrl}${basePath}/blog/${post.slug}`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Twitter
-            </a>
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <a
-              href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${baseUrl}${basePath}/blog/${post.slug}`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              LinkedIn
-            </a>
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <a
-              href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${baseUrl}${basePath}/blog/${post.slug}`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Facebook
-            </a>
-          </Button>
-        </div>
-      </div>
-
-      {/* Related Posts */}
-      {relatedPosts.length > 0 && (
-        <section>
-          <h2 className="text-2xl font-bold mb-6">Related Articles</h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            {relatedPosts.map((related) => (
-              <Link
-                key={related.id}
-                href={`${basePath}/blog/${related.slug}` as Route}
-              >
-                <Card className="h-full hover:shadow-lg transition-shadow group">
-                  {related.featured_image_url && (
-                    <div className="aspect-video overflow-hidden rounded-t-lg relative">
-                      <Image
-                        src={related.featured_image_url}
-                        alt={related.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    </div>
-                  )}
-                  <CardHeader>
-                    {related.category && (
-                      <Badge variant="secondary" className="w-fit mb-2">
-                        {related.category}
-                      </Badge>
-                    )}
-                    <CardTitle className="text-lg line-clamp-2 group-hover:text-primary transition-colors">
-                      {related.title}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      {related.published_at && (
-                        <span>
-                          {new Date(related.published_at).toLocaleDateString()}
-                        </span>
-                      )}
-                      {related.reading_time_minutes && (
-                        <span>{related.reading_time_minutes} min read</span>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-    </div>
-  );
-}
-
-function BlogPostBodyFallback() {
-  return (
-    <div
-      aria-hidden="true"
-      className="space-y-4 [content-visibility:auto] [contain-intrinsic-size:1152px_1600px]"
-    >
-      <div className="h-4 w-32 rounded bg-muted/60" />
-      <div className="h-4 w-full rounded bg-muted/40" />
-      <div className="h-4 w-full rounded bg-muted/40" />
-      <div className="h-4 w-5/6 rounded bg-muted/40" />
-      <div className="h-48 rounded-2xl bg-muted/50" />
-    </div>
-  );
 }
 
 export async function generateMetadata({

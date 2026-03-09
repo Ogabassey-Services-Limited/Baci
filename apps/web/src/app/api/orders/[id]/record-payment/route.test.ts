@@ -395,7 +395,22 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const mockFrom = vi.fn((_table: string) => {
       callCount++;
       if (callCount === 1) {
-        // First call: merchant details
+        // First call: idempotency check (transactions lookup by reference)
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi
+                  .fn()
+                  .mockResolvedValue({ data: null, error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (callCount === 2) {
+        // Second call: merchant details
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -406,8 +421,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         };
         return chain;
       }
-      if (callCount === 2) {
-        // Second call: order
+      if (callCount === 3) {
+        // Third call: order
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -418,8 +433,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         };
         return chain;
       }
-      if (callCount === 3) {
-        // Third call: transactions query (has TWO .eq() calls)
+      if (callCount === 4) {
+        // Fourth call: transactions query (has TWO .eq() calls)
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnValue({
@@ -427,7 +442,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
           }),
         };
       }
-      // Fourth call: transaction insert
+      // Fifth call: transaction insert
       return {
         insert: vi.fn().mockResolvedValue({
           data: null,
@@ -529,7 +544,22 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const mockFrom = vi.fn((_table: string) => {
       callCount++;
       if (callCount === 1) {
-        // First call: merchant details
+        // First call: idempotency check (transactions lookup by reference)
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi
+                  .fn()
+                  .mockResolvedValue({ data: null, error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (callCount === 2) {
+        // Second call: merchant details
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -540,8 +570,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         };
         return chain;
       }
-      if (callCount === 2) {
-        // Second call: order
+      if (callCount === 3) {
+        // Third call: order
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -552,8 +582,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         };
         return chain;
       }
-      if (callCount === 3) {
-        // Third call: transactions query (no .single())
+      if (callCount === 4) {
+        // Fourth call: transactions query (no .single())
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -561,8 +591,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
         return chain;
       }
-      if (callCount === 4) {
-        // Fourth call: transaction insert
+      if (callCount === 5) {
+        // Fifth call: transaction insert
         const chain = {
           insert: vi.fn().mockReturnThis(),
         };
@@ -572,7 +602,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         );
         return chain;
       }
-      // Fifth call: order update
+      // Sixth call: order update
       const chain = {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
@@ -652,7 +682,22 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const mockFrom = vi.fn((_table: string) => {
       callCount++;
       if (callCount === 1) {
-        // First call: merchant details
+        // First call: idempotency check (transactions lookup by reference)
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi
+                  .fn()
+                  .mockResolvedValue({ data: null, error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (callCount === 2) {
+        // Second call: merchant details
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -663,8 +708,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         };
         return chain;
       }
-      if (callCount === 2) {
-        // Second call: order
+      if (callCount === 3) {
+        // Third call: order
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -675,8 +720,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         };
         return chain;
       }
-      if (callCount === 3) {
-        // Third call: transactions query (no .single())
+      if (callCount === 4) {
+        // Fourth call: transactions query (no .single())
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -684,8 +729,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
         return chain;
       }
-      if (callCount === 4) {
-        // Fourth call: transaction insert
+      if (callCount === 5) {
+        // Fifth call: transaction insert
         const chain = {
           insert: vi.fn().mockReturnThis(),
         };
@@ -695,7 +740,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         );
         return chain;
       }
-      // Fifth call: order update
+      // Sixth call: order update
       const chain = {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),

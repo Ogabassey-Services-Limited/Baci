@@ -66,9 +66,30 @@ describe('CheckoutIdentityModal', () => {
     expect(signinTab).toHaveAttribute('aria-selected', 'false');
   });
 
+  it('navigates to signup on register click', () => {
+    render(<CheckoutIdentityModal {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /register now/i }));
+
+    expect(mockPush).toHaveBeenCalledWith('/signup?redirect=%2Fcheckout');
+  });
+
   it('does not render when closed', () => {
     render(<CheckoutIdentityModal {...defaultProps} isOpen={false} />);
 
     expect(screen.queryByText('Checkout')).not.toBeInTheDocument();
+  });
+
+  it('does not navigate when modal closes without user action', () => {
+    render(<CheckoutIdentityModal {...defaultProps} />);
+
+    // Verify modal is open with content
+    expect(screen.getByText('Checkout')).toBeInTheDocument();
+    expect(
+      screen.getByText(/your security is our priority/i)
+    ).toBeInTheDocument();
+
+    // No navigation should have happened
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

@@ -24,9 +24,30 @@ describe('prioritizeSmartphoneProducts', () => {
       { id: 'phone-1', category: 'Phones' },
     ]);
 
-    expect(sorted.map((product) => product.id)).toEqual([
-      'phone-1',
-      'audio-1',
+    expect(sorted.map((product) => product.id)).toEqual(['phone-1', 'audio-1']);
+  });
+
+  it('handles empty array', () => {
+    expect(prioritizeSmartphoneProducts([])).toEqual([]);
+  });
+
+  it('preserves order when all products are smartphones', () => {
+    const sorted = prioritizeSmartphoneProducts([
+      { id: 'a', category: 'Smartphones' },
+      { id: 'b', category: 'Mobile Phones' },
+      { id: 'c', category: 'Phones' },
     ]);
+
+    expect(sorted.map((product) => product.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('handles products with null or undefined categories', () => {
+    const sorted = prioritizeSmartphoneProducts([
+      { id: 'a', category: null },
+      { id: 'b', category: 'Smartphones' },
+      { id: 'c', category: undefined },
+    ]);
+
+    expect(sorted.map((product) => product.id)).toEqual(['b', 'a', 'c']);
   });
 });

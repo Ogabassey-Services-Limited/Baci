@@ -36,4 +36,18 @@ describe('buildCheckoutIdentityRoutes', () => {
       signupUrl: '/signup?redirect=%2Fcheckout%23step2',
     });
   });
+
+  it('falls back to the default checkout path for absolute URLs with protocols', () => {
+    expect(buildCheckoutIdentityRoutes('https://evil.com/checkout')).toEqual({
+      checkoutUrl: '/checkout',
+      signupUrl: '/signup?redirect=%2Fcheckout',
+    });
+  });
+
+  it('falls back to the default checkout path for http URLs', () => {
+    expect(buildCheckoutIdentityRoutes('http://evil.com/steal')).toEqual({
+      checkoutUrl: '/checkout',
+      signupUrl: '/signup?redirect=%2Fcheckout',
+    });
+  });
 });

@@ -9,7 +9,11 @@ interface CheckoutIdentityRoutes {
 function normalizeCheckoutUrl(checkoutUrl: string): string {
   const trimmedCheckoutUrl = checkoutUrl.trim();
 
-  if (!trimmedCheckoutUrl || trimmedCheckoutUrl.startsWith('//')) {
+  if (
+    !trimmedCheckoutUrl ||
+    trimmedCheckoutUrl.startsWith('//') ||
+    /^https?:\/\//i.test(trimmedCheckoutUrl)
+  ) {
     return '/checkout';
   }
 

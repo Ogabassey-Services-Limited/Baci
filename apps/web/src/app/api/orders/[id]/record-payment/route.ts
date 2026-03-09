@@ -79,6 +79,33 @@ export async function POST(
       orderId: id,
     });
 
+    // Idempotency check: reject duplicate payments with the same reference
+    if (reference) {
+      const { data: existingTx } = await auth.supabase
+        .from('transactions')
+        .select('id, amount, status')
+        .eq('order_id', id)
+        .eq('gateway_reference', reference)
+        .eq('status', 'completed')
+        .maybeSingle();
+
+      if (existingTx) {
+        logger.info({
+          message: 'RecordPayment duplicate reference detected',
+          orderId: id,
+          reference,
+          existingTransactionId: existingTx.id,
+        });
+        return NextResponse.json(
+          {
+            error: 'Payment with this reference already recorded',
+            code: 'DUPLICATE_REFERENCE',
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const user = auth.user;
 
     // Get merchant ID (supports both owners and staff members)
@@ -151,6 +178,24 @@ export async function POST(
     const newPaid = totalPaidBefore + Number(amount);
     const orderTotal = Number(order.total) || 0;
     const remainingBalance = Math.max(0, orderTotal - newPaid);
+
+    // Overpayment guard: reject if amount exceeds remaining balance
+    const remainingBeforePayment = Math.max(0, orderTotal - totalPaidBefore);
+    if (Number(amount) > remainingBeforePayment && remainingBeforePayment > 0) {
+      logger.warn({
+        message: 'RecordPayment overpayment rejected',
+        orderId: id,
+        amount,
+        remainingBeforePayment,
+      });
+      return NextResponse.json(
+        {
+          error: `Amount exceeds remaining balance of ${remainingBeforePayment}`,
+          code: 'OVERPAYMENT',
+        },
+        { status: 400 }
+      );
+    }
 
     logger.info({
       message: 'RecordPayment totals calculated',

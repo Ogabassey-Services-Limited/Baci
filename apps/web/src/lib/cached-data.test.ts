@@ -852,5 +852,30 @@ describe('cached-data utility functions', () => {
       expect(variantsSelect).not.toMatch(/\bram_gb\b/);
       expect(variantsSelect).not.toMatch(/\bcondition\b/);
     });
+
+    it('getCachedProduct returns null on query error', async () => {
+      mockSingle.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'db error', code: '42P01' },
+      });
+
+      const result = await getCachedProduct('merchant-123', 'missing-product');
+
+      expect(result).toBeNull();
+    });
+
+    it('getCachedProductWithDetails returns null on query error', async () => {
+      mockMaybeSingle.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'db error', code: '42P01' },
+      });
+
+      const result = await getCachedProductWithDetails(
+        'merchant-123',
+        'missing-product'
+      );
+
+      expect(result).toBeNull();
+    });
   });
 });

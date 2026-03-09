@@ -96,7 +96,7 @@ describe('ProductDetailsPage', () => {
       }} />
     );
 
-    const banner = screen.getByTestId('product-banner-carousel');
+    const banner = screen.getByRole('region', { name: /product banner carousel/i });
     expect(banner).toBeInTheDocument();
     expect(banner).toHaveClass('hidden', 'md:block');
   });
