@@ -31,7 +31,8 @@ export function getVideoEmbedUrl(url: string): string | null {
 
     // YouTube watch page → privacy-enhanced embed
     if (
-      parsed.hostname.includes('youtube.com') &&
+      (parsed.hostname === 'www.youtube.com' ||
+        parsed.hostname === 'youtube.com') &&
       parsed.pathname === '/watch'
     ) {
       const videoId = parsed.searchParams.get('v');
