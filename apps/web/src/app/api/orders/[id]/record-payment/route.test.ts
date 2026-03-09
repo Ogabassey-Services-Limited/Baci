@@ -92,6 +92,14 @@ describe('POST /api/orders/[id]/record-payment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSendEmail.mockResolvedValue(undefined);
+
+    // Default: authenticated merchant (auth runs before body parsing)
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'merchant@example.com' },
+      supabase: mockSupabaseClient,
+    });
+    mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
   });
 
   const createRequest = (body: unknown) => {
@@ -201,7 +209,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid JSON body' });
+    expect(data).toEqual({ error: 'Invalid request body' });
   });
 
   it('returns 401 when authentication fails', async () => {
