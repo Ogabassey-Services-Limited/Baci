@@ -36,6 +36,16 @@ export interface CategorySEOProps {
   categoryImage?: string | null;
 }
 
+type CategoryPageColor =
+  | string
+  | {
+      name?: string | null;
+    };
+
+function getColorName(color: CategoryPageColor): string | null {
+  return typeof color === 'string' ? color : color.name || null;
+}
+
 export const CategoryPage: React.FC<CategorySEOProps> = ({
   seoHeading,
   seoDescription,
@@ -51,6 +61,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   const { addToCart } = useCart();
   const [addedItems, setAddedItems] = useState<number[]>([]);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [showDesktopBanner, setShowDesktopBanner] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const merchantContext = useMerchantSafe();
@@ -77,6 +88,36 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     window.scrollTo(0, 0);
     setFilters(initialFilterState);
   }, [categoryName]); // Add categoryName dependency for proper reset
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    const updateBannerVisibility = () => {
+      setShowDesktopBanner(mediaQuery.matches);
+    };
+
+    updateBannerVisibility();
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', updateBannerVisibility);
+      return () => {
+        mediaQuery.removeEventListener('change', updateBannerVisibility);
+      };
+    }
+
+    mediaQuery.addListener(updateBannerVisibility);
+    return () => {
+      mediaQuery.removeListener(updateBannerVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileFilterOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMobileFilterOpen(false);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isMobileFilterOpen]);
 
   // Derived Data: Products in the current Category (from props)
   const categoryProducts = (() => {
@@ -109,10 +150,14 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
         }
       }
       if (p.ram) options.ram.add(p.ram);
-      if (p.colors)
-        p.colors.forEach((c: any) =>
-          options.colors.add(typeof c === 'string' ? c : c.name || c)
-        );
+      if (p.colors) {
+        p.colors.forEach((color: CategoryPageColor) => {
+          const colorName = getColorName(color);
+          if (colorName) {
+            options.colors.add(colorName);
+          }
+        });
+      }
       if (p.simType) options.simType.add(p.simType);
       if (p.displayType) options.displayType.add(p.displayType);
       if (p.displaySize) options.displaySize.add(p.displaySize);
@@ -180,9 +225,10 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       if (filters.colors.length > 0) {
         if (
           !p.colors ||
-          !p.colors.some((c: any) =>
-            filters.colors.includes(typeof c === 'string' ? c : c.name || c)
-          )
+          !p.colors.some((color: CategoryPageColor) => {
+            const colorName = getColorName(color);
+            return colorName ? filters.colors.includes(colorName) : false;
+          })
         )
           return false;
       }
@@ -240,52 +286,62 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   const pageTitle = displayTitle;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 pt-4">
+    <div className="min-h-screen bg-[color:color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-4">
       {/* Header Ad replaced with Banner Carousel */}
-      <div
-        data-testid="category-banner-carousel"
-        className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 mb-4 [content-visibility:auto] [contain-intrinsic-size:1400px_220px]"
-      >
-        <BannerCarousel
-          className="h-40 md:h-52"
-          categoryImage={categoryImage}
-          title={displayTitle}
-          description={seoDescription}
-        />
+      <div className="mx-auto mb-4 hidden min-h-[208px] max-w-[1400px] px-4 md:block md:px-6">
+        {showDesktopBanner && (
+          <div
+            data-testid="category-banner-carousel"
+            role="region"
+            aria-label="Category banner carousel"
+          >
+            <BannerCarousel
+              className="h-40 md:h-52"
+              categoryImage={categoryImage}
+              title={displayTitle}
+              description={seoDescription}
+            />
+          </div>
+        )}
       </div>
 
       {/* Breadcrumb & Header */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 mb-6">
-        <nav className="flex items-center text-sm text-gray-500 overflow-x-auto whitespace-nowrap pb-2">
-          <Link href={asRoute(basePath || '')} className="hover:text-red-600 transition-colors">
+        <nav className="flex items-center overflow-x-auto whitespace-nowrap pb-2 text-sm text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_65%,transparent)]">
+          <Link
+            href={asRoute(basePath || '')}
+            className="transition-colors hover:text-[var(--store-primary)]"
+          >
             Home
           </Link>
           <ChevronRight size={16} className="mx-2" />
-          <span className="text-gray-900 font-medium">{displayTitle}</span>
+          <span className="font-medium text-[var(--store-background-text,#111827)]">
+            {displayTitle}
+          </span>
         </nav>
 
         <div className="mt-4 flex items-end justify-between">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
+            <h1 className="text-3xl md:text-4xl font-bold text-[var(--store-background-text,#111827)]">
               {displayTitle}
             </h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-[var(--store-background-text,#111827)]/50 text-sm mt-1">
               {filteredProducts.length} results found
             </p>
           </div>
 
           {/* View Mode & Mobile Filter Toggle */}
           <div className="flex items-center gap-2">
-            <div className="hidden md:flex items-center bg-white rounded-lg p-1 border border-gray-200">
+            <div className="hidden md:flex items-center bg-[var(--store-background,#ffffff)] rounded-lg p-1 border border-[var(--store-background-text,#111827)]/15">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-[var(--store-background-text,#111827)]/10 text-[var(--store-background-text,#111827)] shadow-sm' : 'text-[var(--store-background-text,#111827)]/40 hover:text-[var(--store-background-text,#111827)]/70'}`}
               >
                 <LayoutGrid size={18} />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-[var(--store-background-text,#111827)]/10 text-[var(--store-background-text,#111827)] shadow-sm' : 'text-[var(--store-background-text,#111827)]/40 hover:text-[var(--store-background-text,#111827)]/70'}`}
               >
                 <List size={18} />
               </button>
@@ -293,7 +349,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
 
             <button
               onClick={() => setIsMobileFilterOpen(true)}
-              className="md:hidden flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-md active:scale-95"
+              className="flex items-center gap-2 rounded-xl bg-[var(--store-primary)] px-4 py-2.5 text-sm font-bold text-[var(--store-primary-text,#ffffff)] shadow-md active:scale-95 md:hidden"
             >
               <Filter size={16} /> Filters
             </button>
@@ -321,19 +377,19 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
           {/* Product Grid */}
           <div className="lg:col-span-3">
             {filteredProducts.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Filter className="text-gray-400" size={32} />
+              <div className="text-center py-20 bg-[var(--store-background,#ffffff)] rounded-2xl border border-[var(--store-background-text,#111827)]/10 shadow-sm">
+                <div className="w-16 h-16 bg-[var(--store-background-text,#111827)]/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Filter className="text-[var(--store-background-text,#111827)]/40" size={32} />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">
+                <h3 className="text-lg font-bold text-[var(--store-background-text,#111827)] mb-1">
                   No products found
                 </h3>
-                <p className="text-gray-500 text-sm mb-6">
+                <p className="text-[var(--store-background-text,#111827)]/50 text-sm mb-6">
                   Try adjusting your filters to find what you're looking for.
                 </p>
                 <button
                   onClick={() => setFilters(initialFilterState)}
-                  className="text-red-600 font-bold hover:underline"
+                  className="font-bold text-[var(--store-primary)] hover:underline"
                 >
                   Clear all filters
                 </button>
@@ -381,16 +437,16 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       </div>
 
       {/* SEO Content & FAQs - Moved to Bottom (Best Practice) */}
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6 mt-16 border-t border-gray-100 pt-16 [content-visibility:auto] [contain-intrinsic-size:1400px_900px]">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-6 mt-16 border-t border-[var(--store-background-text,#111827)]/10 pt-16 [content-visibility:auto] [contain-intrinsic-size:1400px_900px]">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           {/* SEO Text */}
           {(seoHeading || seoDescription) && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              <h2 className="text-2xl font-bold text-[var(--store-background-text,#111827)] mb-4">
                 {seoHeading || `Buy ${pageTitle} in Nigeria`}
               </h2>
               {seoDescription && (
-                <div className="prose prose-gray text-gray-500 leading-relaxed text-sm">
+                <div className="prose text-[var(--store-background-text,#111827)] text-[var(--store-background-text,#111827)]/50 leading-relaxed text-sm">
                   <p>{seoDescription}</p>
                 </div>
               )}
@@ -398,8 +454,8 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
               {seoFeatures && seoFeatures.length > 0 && (
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
                   {seoFeatures.map((feature, idx) => (
-                    <li key={idx} className="flex items-center gap-2 text-sm text-gray-600">
-                      <CheckCircle size={16} className="text-green-500 shrink-0" />
+                    <li key={idx} className="flex items-center gap-2 text-sm text-[var(--store-background-text,#111827)]/70">
+                      <CheckCircle size={16} className="text-[var(--store-primary)] shrink-0" />
                       <span className="font-medium">{feature}</span>
                     </li>
                   ))}
@@ -411,14 +467,14 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
           {/* FAQs */}
           {seoFaqs && seoFaqs.length > 0 && (
             <div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h3>
+              <h3 className="text-xl font-bold text-[var(--store-background-text,#111827)] mb-4">Frequently Asked Questions</h3>
               <Accordion type="single" collapsible className="w-full">
                 {seoFaqs.map((faq, idx) => (
-                  <AccordionItem value={`item-${idx}`} key={idx} className="border-b-gray-100">
-                    <AccordionTrigger className="text-sm font-semibold text-gray-800 text-left hover:no-underline hover:text-red-600 py-3">
+                  <AccordionItem value={`item-${idx}`} key={idx} className="border-b border-b-[color:var(--store-background-text,#111827)]/10">
+                    <AccordionTrigger className="py-3 text-left text-sm font-semibold text-[var(--store-background-text,#111827)]/80 hover:text-[var(--store-primary)] hover:no-underline">
                       {faq.question}
                     </AccordionTrigger>
-                    <AccordionContent className="text-gray-500 text-sm leading-relaxed">
+                    <AccordionContent className="text-[var(--store-background-text,#111827)]/50 text-sm leading-relaxed">
                       {/* biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml() */}
                       <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(faq.answer) }} />
                     </AccordionContent>
@@ -438,14 +494,20 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
               className="absolute inset-0 bg-black/50 backdrop-blur-sm"
               onClick={() => setIsMobileFilterOpen(false)}
             />
-            <div className="relative w-full max-w-xs bg-white h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300">
-              <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="font-bold text-lg text-gray-900">Filters</h3>
+            <div
+              className="relative w-full max-w-xs bg-[var(--store-background,#ffffff)] h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="mobile-filter-heading"
+            >
+              <div className="sticky top-0 bg-[var(--store-background,#ffffff)] z-10 px-5 py-4 border-b border-[var(--store-background-text,#111827)]/10 flex items-center justify-between">
+                <h3 id="mobile-filter-heading" className="font-bold text-lg text-[var(--store-background-text,#111827)]">Filters</h3>
                 <button
                   onClick={() => setIsMobileFilterOpen(false)}
-                  className="p-1 hover:bg-gray-100 rounded-full"
+                  className="p-1 hover:bg-[var(--store-background-text,#111827)]/10 rounded-full"
+                  aria-label="Close filters"
                 >
-                  <X size={24} className="text-gray-500" />
+                  <X size={24} className="text-[var(--store-background-text,#111827)]/50" />
                 </button>
               </div>
               <div className="p-5 pb-24">
@@ -457,10 +519,10 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                   className="border-none shadow-none p-0"
                 />
               </div>
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-[var(--store-background,#ffffff)] border-t border-[var(--store-background-text,#111827)]/10">
                 <button
                   onClick={() => setIsMobileFilterOpen(false)}
-                  className="w-full bg-red-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95"
+                  className="w-full rounded-xl bg-[var(--store-primary)] py-3 font-bold text-[var(--store-primary-text,#ffffff)] shadow-lg active:scale-95"
                 >
                   Show {filteredProducts.length} Results
                 </button>

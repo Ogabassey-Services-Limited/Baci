@@ -95,6 +95,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
   });
 
   const createRequest = (body: unknown) => {
+    const normalizedBody =
+      body && typeof body === 'object' && !Array.isArray(body)
+        ? { reference: 'REF-DEFAULT', ...body }
+        : body;
+
     return new NextRequest(
       `http://localhost/api/orders/${mockOrderId}/record-payment`,
       {
@@ -102,19 +107,13 @@ describe('POST /api/orders/[id]/record-payment', () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(normalizedBody),
       }
     );
   };
 
   it('returns 400 when amount is missing', async () => {
     // Arrange
-    mockAuthenticateApiRequest.mockResolvedValue({
-      error: null,
-      user: { id: mockUserId, email: 'test@example.com' },
-      supabase: mockSupabaseClient,
-    });
-
     const request = createRequest({
       payment_method: 'bank_transfer',
     });
@@ -127,17 +126,11 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
     // Assert
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid amount' });
+    expect(data).toEqual({ error: 'Invalid request body' });
   });
 
   it('returns 400 when amount is zero', async () => {
     // Arrange
-    mockAuthenticateApiRequest.mockResolvedValue({
-      error: null,
-      user: { id: mockUserId, email: 'test@example.com' },
-      supabase: mockSupabaseClient,
-    });
-
     const request = createRequest({
       amount: 0,
       payment_method: 'cash',
@@ -156,12 +149,6 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
   it('returns 400 when amount is negative', async () => {
     // Arrange
-    mockAuthenticateApiRequest.mockResolvedValue({
-      error: null,
-      user: { id: mockUserId, email: 'test@example.com' },
-      supabase: mockSupabaseClient,
-    });
-
     const request = createRequest({
       amount: -100,
       payment_method: 'cash',
@@ -176,6 +163,45 @@ describe('POST /api/orders/[id]/record-payment', () => {
     // Assert
     expect(response.status).toBe(400);
     expect(data).toEqual({ error: 'Invalid amount' });
+  });
+
+  it('returns 400 when amount is not numeric', async () => {
+    // Arrange
+    const request = createRequest({
+      amount: 'not-a-number',
+      payment_method: 'cash',
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    // Act
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    // Assert
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Invalid amount' });
+  });
+
+  it('returns 400 when the body is not an object', async () => {
+    const request = new NextRequest(
+      `http://localhost/api/orders/${mockOrderId}/record-payment`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: 'null',
+      }
+    );
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Invalid JSON body' });
   });
 
   it('returns 401 when authentication fails', async () => {
@@ -395,22 +421,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const mockFrom = vi.fn((_table: string) => {
       callCount++;
       if (callCount === 1) {
-        // First call: idempotency check (transactions lookup by reference)
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                maybeSingle: vi
-                  .fn()
-                  .mockResolvedValue({ data: null, error: null }),
-              }),
-            }),
-          }),
-        };
-      }
-      if (callCount === 2) {
-        // Second call: merchant details
+        // First call: merchant details
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -421,8 +432,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         };
         return chain;
       }
-      if (callCount === 3) {
-        // Third call: order
+      if (callCount === 2) {
+        // Second call: order
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -433,8 +444,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         };
         return chain;
       }
-      if (callCount === 4) {
-        // Fourth call: transactions query (has TWO .eq() calls)
+      if (callCount === 3) {
+        // Third call: transactions query (has TWO .eq() calls)
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnValue({
@@ -442,7 +453,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
           }),
         };
       }
-      // Fifth call: transaction insert
+      // Fourth call: transaction insert
       return {
         insert: vi.fn().mockResolvedValue({
           data: null,
@@ -472,12 +483,6 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
   it('returns 400 when the request body cannot be parsed', async () => {
     // Arrange
-    mockAuthenticateApiRequest.mockResolvedValue({
-      error: null,
-      user: { id: mockUserId, email: 'test@example.com' },
-      supabase: mockSupabaseClient,
-    });
-
     const request = new NextRequest(
       `http://localhost/api/orders/${mockOrderId}/record-payment`,
       {
@@ -497,7 +502,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
     // Assert
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid request body' });
+    expect(data).toEqual({ error: 'Invalid JSON body' });
   });
 
   it('returns 200 and marks order as paid when full payment is made', async () => {
@@ -544,22 +549,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const mockFrom = vi.fn((_table: string) => {
       callCount++;
       if (callCount === 1) {
-        // First call: idempotency check (transactions lookup by reference)
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                maybeSingle: vi
-                  .fn()
-                  .mockResolvedValue({ data: null, error: null }),
-              }),
-            }),
-          }),
-        };
-      }
-      if (callCount === 2) {
-        // Second call: merchant details
+        // First call: merchant details
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -570,8 +560,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         };
         return chain;
       }
-      if (callCount === 3) {
-        // Third call: order
+      if (callCount === 2) {
+        // Second call: order
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -582,8 +572,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         };
         return chain;
       }
-      if (callCount === 4) {
-        // Fourth call: transactions query (no .single())
+      if (callCount === 3) {
+        // Third call: transactions query (no .single())
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -591,8 +581,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
         return chain;
       }
-      if (callCount === 5) {
-        // Fifth call: transaction insert
+      if (callCount === 4) {
+        // Fourth call: transaction insert
         const chain = {
           insert: vi.fn().mockReturnThis(),
         };
@@ -602,7 +592,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         );
         return chain;
       }
-      // Sixth call: order update
+      // Fifth call: order update
       const chain = {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
@@ -682,22 +672,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const mockFrom = vi.fn((_table: string) => {
       callCount++;
       if (callCount === 1) {
-        // First call: idempotency check (transactions lookup by reference)
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                maybeSingle: vi
-                  .fn()
-                  .mockResolvedValue({ data: null, error: null }),
-              }),
-            }),
-          }),
-        };
-      }
-      if (callCount === 2) {
-        // Second call: merchant details
+        // First call: merchant details
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -708,8 +683,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         };
         return chain;
       }
-      if (callCount === 3) {
-        // Third call: order
+      if (callCount === 2) {
+        // Second call: order
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -720,8 +695,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         };
         return chain;
       }
-      if (callCount === 4) {
-        // Fourth call: transactions query (no .single())
+      if (callCount === 3) {
+        // Third call: transactions query (no .single())
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -729,8 +704,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
         return chain;
       }
-      if (callCount === 5) {
-        // Fifth call: transaction insert
+      if (callCount === 4) {
+        // Fourth call: transaction insert
         const chain = {
           insert: vi.fn().mockReturnThis(),
         };
@@ -740,7 +715,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         );
         return chain;
       }
-      // Sixth call: order update
+      // Fifth call: order update
       const chain = {
         update: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
@@ -880,6 +855,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const request = createRequest({
       amount: 5000,
       payment_method: 'bank_transfer',
+      reference: 'REF-BALANCE-1',
     });
     const params = { params: Promise.resolve({ id: mockOrderId }) };
 
@@ -1002,6 +978,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     const request = createRequest({
       amount: 10000,
       payment_method: 'bank_transfer',
+      reference: 'REF-SHIPPED-1',
     });
     const params = { params: Promise.resolve({ id: mockOrderId }) };
 
@@ -1023,7 +1000,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
   });
 
-  it('handles missing optional fields gracefully', async () => {
+  it('handles missing optional fields gracefully when a reference is provided', async () => {
     // Arrange
     const mockMerchant = {
       id: mockMerchantId,
@@ -1122,7 +1099,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
     const request = createRequest({
       amount: 5000,
-      // No payment_method, reference, or notes provided
+      reference: 'REF-MINIMAL-1',
+      // No payment_method or notes provided
     });
     const params = { params: Promise.resolve({ id: mockOrderId }) };
 
@@ -1142,5 +1120,150 @@ describe('POST /api/orders/[id]/record-payment', () => {
         shipping_status: 'processing',
       },
     });
+  });
+
+  it('returns 400 when recording a payment without a stable reference', async () => {
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'cash',
+      reference: '   ',
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Invalid request body' });
+  });
+
+  it('returns the existing result when the same payment reference is retried', async () => {
+    const mockMerchant = {
+      id: mockMerchantId,
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test.com',
+      email_sender_name: 'Test',
+      email: 'merchant@test.com',
+    };
+
+    const mockOrder = {
+      id: mockOrderId,
+      merchant_id: mockMerchantId,
+      order_number: 'ORD-001',
+      total: 10000,
+      currency: 'NGN',
+      wallet_amount_used: 0,
+      shipping_status: 'pending',
+      payment_status: 'partially_paid',
+      order_items: [],
+    };
+
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      user: { id: mockUserId, email: 'test@example.com' },
+      supabase: mockSupabaseClient,
+    });
+    mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
+
+    const mockFrom = vi.fn((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: mockMerchant,
+            error: null,
+          }),
+        };
+      }
+
+      if (table === 'orders') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: mockOrder,
+            error: null,
+          }),
+        };
+      }
+
+      if (table === 'transactions') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+        };
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const transactionsQuery = {
+      eq: vi.fn().mockResolvedValue({
+        data: [{ amount: 5000, gateway_reference: 'REF-DUPE-1' }],
+        error: null,
+      }),
+    };
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'transactions') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnValue(transactionsQuery),
+        };
+      }
+
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: mockMerchant,
+            error: null,
+          }),
+        };
+      }
+
+      if (table === 'orders') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: mockOrder,
+            error: null,
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    mockSupabaseClient.from = mockFrom;
+
+    const request = createRequest({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+      reference: 'REF-DUPE-1',
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      success: true,
+      amount_paid: 5000,
+      duplicate: true,
+      new_balance: 5000,
+      updated_status: {
+        payment_status: 'partially_paid',
+        shipping_status: 'pending',
+      },
+    });
+    expect(mockFrom).toHaveBeenCalledTimes(3);
   });
 });

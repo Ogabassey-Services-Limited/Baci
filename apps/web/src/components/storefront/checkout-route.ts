@@ -9,17 +9,20 @@ interface CheckoutIdentityRoutes {
 function normalizeCheckoutUrl(checkoutUrl: string): string {
   const trimmedCheckoutUrl = checkoutUrl.trim();
 
+  if (!trimmedCheckoutUrl) {
+    return '/checkout';
+  }
+
   if (
-    !trimmedCheckoutUrl ||
     trimmedCheckoutUrl.startsWith('//') ||
-    /^https?:\/\//i.test(trimmedCheckoutUrl)
+    /^[a-zA-Z][\w+.-]*:\/\//.test(trimmedCheckoutUrl)
   ) {
     return '/checkout';
   }
 
-  return trimmedCheckoutUrl.startsWith('/')
-    ? trimmedCheckoutUrl
-    : `/${trimmedCheckoutUrl}`;
+  const normalizedPath = trimmedCheckoutUrl.replace(/^\/+/, '');
+
+  return normalizedPath ? `/${normalizedPath}` : '/checkout';
 }
 
 export function buildCheckoutIdentityRoutes(

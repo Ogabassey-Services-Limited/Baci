@@ -1,11 +1,10 @@
-import { AlertTriangle, ArrowLeft, Calendar, Clock, User } from 'lucide-react';
+import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import type { Metadata } from 'next';
 import { draftMode, headers } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getCachedBlogPost } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
@@ -15,8 +14,10 @@ import {
   generateBreadcrumbSchema,
 } from '@/lib/seo-utils';
 import { isDomainIdentifier } from '@/lib/validation';
-import { BlogPostBody } from './blog-post-body';
-import { BlogPostBodyFallback } from './blog-post-body-fallback';
+import { BlogPostBody } from './BlogPostBody';
+import { BlogPostBodyFallback } from './BlogPostBodyFallback';
+import { BlogPostHeader } from './BlogPostHeader';
+import { buildBlogUrl, getBlogPostTextPreview } from './blog-post-content';
 import { ViewCounter } from './view-counter';
 
 interface PageProps {
@@ -36,24 +37,18 @@ export async function generateMetadata({
 
   const { merchant, post } = data;
   const title = post.seo_title || post.title || 'Blog Post';
+  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
   const description =
     post.seo_description ||
     post.excerpt ||
-    (typeof post.content === 'string'
-      ? post.content
-          .replace(/<[^>]*>/g, '')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .substring(0, 160)
-      : 'Read the latest from our blog.');
+    getBlogPostTextPreview(post.content);
 
   // Use request headers to determine the actual domain (supports custom domains)
   const headersList = await headers();
   const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
-  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
-  const url = `${baseUrl}${basePath}/blog/${post.slug}`;
+  const url = buildBlogUrl(baseUrl, basePath, post.slug);
 
   return {
     title: `${title} | ${merchant.business_name}`,
@@ -109,17 +104,26 @@ export default async function BlogPostPage({ params }: PageProps) {
   const { merchant, post, relatedPosts } = data;
 
   const content = post.content || '';
-  const contentStr =
-    typeof content === 'string' ? content : JSON.stringify(content);
 
   // Use request headers to determine the actual domain (supports custom domains)
   const headersList = await headers();
   const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
+  const rawLocale = headersList.get('accept-language')?.split(',')[0];
+  let locale: string | undefined;
+  if (rawLocale) {
+    try {
+      const [canonical] = Intl.getCanonicalLocales(rawLocale);
+      locale = canonical;
+    } catch {
+      locale = undefined;
+    }
+  }
 
   // Determine base path for internal links
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
+  const postUrl = buildBlogUrl(baseUrl, basePath, post.slug);
 
   // Generate schema
   const blogSchema = generateBlogPostSchema({
@@ -127,12 +131,8 @@ export default async function BlogPostPage({ params }: PageProps) {
     description:
       post.seo_description ||
       post.excerpt ||
-      contentStr
-        .replace(/<[^>]*>/g, '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 160),
-    url: `${baseUrl}${basePath}/blog/${post.slug}`,
+      getBlogPostTextPreview(post.content),
+    url: postUrl,
     image: post.featured_image_url || `${baseUrl}/opengraph-image`,
     datePublished: post.published_at,
     dateModified: post.updated_at,
@@ -161,11 +161,11 @@ export default async function BlogPostPage({ params }: PageProps) {
     },
     {
       name: 'Blog',
-      url: `${baseUrl}${basePath}/blog`,
+      url: buildBlogUrl(baseUrl, basePath),
     },
     {
       name: post.title,
-      url: `${baseUrl}${basePath}/blog/${post.slug}`,
+      url: postUrl,
     },
   ]);
 
@@ -237,59 +237,23 @@ export default async function BlogPostPage({ params }: PageProps) {
               />
             </div>
 
-            {/* Post Header */}
-            <header className="mb-8">
-              {post.category && (
-                <Badge variant="secondary" className="mb-4">
-                  {post.category}
-                </Badge>
-              )}
-              <h1 className="text-3xl md:text-4xl font-bold mb-4">
-                {post.title}
-              </h1>
-
-              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  <span>{post.author_name}</span>
-                  {post.author_title && (
-                    <span className="text-xs">({post.author_title})</span>
-                  )}
-                </div>
-                {post.published_at && (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4" />
-                    <time dateTime={post.published_at}>
-                      {new Date(post.published_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </time>
-                  </div>
-                )}
-                {post.reading_time_minutes && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    <span>{post.reading_time_minutes} min read</span>
-                  </div>
-                )}
-              </div>
-
-              {post.author_bio && (
-                <div className="mt-4 p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">
-                    {post.author_bio}
-                  </p>
-                </div>
-              )}
-            </header>
+            <BlogPostHeader
+              author_bio={post.author_bio}
+              author_name={post.author_name}
+              author_title={post.author_title}
+              category={post.category}
+              locale={locale}
+              published_at={post.published_at}
+              reading_time_minutes={post.reading_time_minutes}
+              title={post.title}
+            />
 
             <Suspense fallback={<BlogPostBodyFallback />}>
               <BlogPostBody
                 basePath={basePath}
                 baseUrl={baseUrl}
                 content={content}
+                locale={locale}
                 post={{
                   author_bio: post.author_bio,
                   id: post.id,

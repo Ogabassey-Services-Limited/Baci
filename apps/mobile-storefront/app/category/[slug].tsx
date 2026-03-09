@@ -9,6 +9,7 @@ import React from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -171,6 +172,17 @@ export default function CategoryScreen() {
     );
   };
 
+  const androidVirtualizationProps =
+    Platform.OS === 'android'
+      ? {
+          removeClippedSubviews: true,
+          maxToRenderPerBatch: 6,
+          windowSize: 5,
+          initialNumToRender: 6,
+          updateCellsBatchingPeriod: 50,
+        }
+      : {};
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -201,6 +213,7 @@ export default function CategoryScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         columnWrapperStyle={styles.row}
+        {...androidVirtualizationProps}
       />
     </SafeAreaView>
   );

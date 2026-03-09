@@ -1,13 +1,15 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
 import { generateDefaultConfig } from '@/lib/builder-defaults';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
+import { builderCreateSchema, builderPublishSchema } from '@/schemas/builder';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const pageSlug = searchParams.get('slug') || 'home';
 
@@ -36,7 +38,9 @@ export async function GET(request: Request) {
   // Get merchant with full details for template generation
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
-    .select('*')
+    .select(
+      'id, business_name, business_type, brand_colors, logo_url, hero_image_ids'
+    )
     .eq('id', merchantId)
     .single();
 
@@ -47,7 +51,9 @@ export async function GET(request: Request) {
   // Get page config
   const { data: pageConfig, error: configError } = await supabase
     .from('page_configs')
-    .select('*')
+    .select(
+      'id, draft_config, published_config, draft_seo, draft_store_settings, draft_setup_settings, is_published, updated_at'
+    )
     .eq('merchant_id', merchantId)
     .eq('page_slug', pageSlug)
     .single();
@@ -104,9 +110,9 @@ export async function GET(request: Request) {
   });
 }
 
-export async function POST(request: Request) {
-  const { slug, config, name, seo, storeSettings, setupSettings } =
-    await request.json();
+export async function POST(request: NextRequest) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) return response as NextResponse;
 
   // Support both cookie and Bearer token auth
   const auth = await getAuthenticatedUser(request);
@@ -128,6 +134,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const parsed = builderCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        error: 'Invalid request body',
+        details: parsed.error.flatten(),
+      },
+      { status: 400 }
+    );
+  }
+
+  const { slug, config, name, seo, storeSettings, setupSettings } = parsed.data;
+
   const merchantId = merchantContext.merchantId;
 
   // Upsert page config (save as draft)
@@ -136,8 +163,8 @@ export async function POST(request: Request) {
     .upsert(
       {
         merchant_id: merchantId,
-        page_slug: slug || 'home',
-        page_name: name || 'Home',
+        page_slug: slug,
+        page_name: name,
         draft_config: config,
         draft_seo: seo,
         draft_store_settings: storeSettings,
@@ -148,7 +175,9 @@ export async function POST(request: Request) {
         onConflict: 'merchant_id,page_slug',
       }
     )
-    .select()
+    .select(
+      'id, merchant_id, page_slug, draft_config, draft_seo, draft_store_settings, draft_setup_settings, updated_at'
+    )
     .single();
 
   if (error) {
@@ -161,9 +190,10 @@ export async function POST(request: Request) {
   return NextResponse.json({ success: true, data });
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   // Publish endpoint
-  const { slug } = await request.json();
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) return response as NextResponse;
 
   // Support both cookie and Bearer token auth
   const auth = await getAuthenticatedUser(request);
@@ -185,16 +215,46 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  let body: unknown;
+
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const parsed = builderPublishSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        error: 'Invalid request body',
+        details: parsed.error.flatten(),
+      },
+      { status: 400 }
+    );
+  }
+
+  const { slug } = parsed.data;
+
   const merchantId = merchantContext.merchantId;
   const publishedAt = new Date().toISOString();
 
   // Get current draft
-  const { data: currentConfig } = await supabase
+  const { data: currentConfig, error: draftError } = await supabase
     .from('page_configs')
-    .select('*')
+    .select(
+      'id, draft_config, published_config, draft_seo, draft_store_settings, draft_setup_settings'
+    )
     .eq('merchant_id', merchantId)
     .eq('page_slug', slug)
-    .single();
+    .maybeSingle();
+
+  if (draftError) {
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
 
   if (!currentConfig || !currentConfig.draft_config) {
     return NextResponse.json({ error: 'No draft to publish' }, { status: 400 });

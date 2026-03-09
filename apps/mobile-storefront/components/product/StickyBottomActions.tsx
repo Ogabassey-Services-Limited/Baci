@@ -102,7 +102,12 @@ export function StickyBottomActions({
             {/* View Cart Button */}
             <Pressable
               onPress={() => router.push('/(tabs)/cart')}
-              style={styles.viewCartBtn}
+              style={({ pressed }) => [
+                styles.viewCartBtn,
+                pressed && { opacity: 0.85 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="View Cart"
             >
               <Ionicons name="cart-outline" size={20} color="#FFF" />
               <Text style={styles.viewCartText}>View Cart</Text>
@@ -111,8 +116,14 @@ export function StickyBottomActions({
         ) : (
           <Pressable
             key="cart-empty"
-            style={[styles.addToCartBtn, { backgroundColor: BRAND.primary }]}
+            style={({ pressed }) => [
+              styles.addToCartBtn,
+              { backgroundColor: BRAND.primary },
+              pressed && { opacity: 0.85 },
+            ]}
             onPress={(e) => onAddToCart(e)}
+            accessibilityRole="button"
+            accessibilityLabel="Add to Cart"
           >
             <Ionicons
               name="cart-outline"

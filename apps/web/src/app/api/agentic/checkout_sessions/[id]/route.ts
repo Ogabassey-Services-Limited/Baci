@@ -6,12 +6,7 @@ import {
   calculateCheckoutSession,
 } from '@/lib/agentic/checkout';
 import { createServiceClient } from '@/lib/supabase/service';
-
-interface UpdateCheckoutSessionBody {
-  items?: unknown;
-  fulfillment_address?: unknown;
-  fulfillment_option_id?: string | null;
-}
+import { agenticCheckoutUpdateSchema } from '@/schemas/agentic-checkout';
 
 // Helper to get session from DB
 async function getSession(supabase: SupabaseClient, id: string) {
@@ -64,7 +59,7 @@ export async function GET(
     totals: sessionCalc.totals,
     fulfillment_options: sessionCalc.fulfillmentOptions,
     fulfillment_option_id: fulfillmentOptionId, // Selected
-    fulfillment_address: session.fulfillment_address,
+    shipping_address: session.fulfillment_address,
     messages: sessionCalc.messages,
     links: [
       { type: 'terms_of_use', url: 'https://ogabassey.com/terms' },
@@ -81,18 +76,28 @@ export async function POST(
   if (!verifyAgenticApiKey(request))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  let body: Awaited<ReturnType<NextRequest['json']>>;
+
   try {
-    let body: UpdateCheckoutSessionBody;
-    try {
-      body = (await request.json()) as UpdateCheckoutSessionBody;
-    } catch {
+    body = await request.json();
+  } catch (err) {
+    console.error('Agentic Checkout Update JSON Parse Error:', err);
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const parsed = agenticCheckoutUpdateSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid request body' },
+        {
+          error: 'Invalid request body',
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       );
     }
 
-    const { items, fulfillment_address, fulfillment_option_id } = body;
+    const { items, shipping_address, fulfillment_option_id } = parsed.data;
     // Note: Spec allows updating items, address, or option.
 
     const supabase = createServiceClient();
@@ -103,8 +108,11 @@ export async function POST(
     }
 
     // Merge updates
-    const newItems = items || session.items;
-    const newAddress = fulfillment_address || session.fulfillment_address;
+    const newItems = items ?? session.items;
+    const newAddress =
+      shipping_address !== undefined
+        ? shipping_address
+        : session.fulfillment_address;
     const newOptionId =
       fulfillment_option_id !== undefined
         ? fulfillment_option_id
@@ -150,7 +158,7 @@ export async function POST(
       totals: sessionCalc.totals,
       fulfillment_options: sessionCalc.fulfillmentOptions,
       fulfillment_option_id: newOptionId,
-      fulfillment_address: newAddress,
+      shipping_address: newAddress,
       messages: sessionCalc.messages,
       links: [
         { type: 'terms_of_use', url: 'https://ogabassey.com/terms' },

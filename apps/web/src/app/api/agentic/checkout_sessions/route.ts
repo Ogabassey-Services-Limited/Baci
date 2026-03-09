@@ -2,12 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getIdempotencyKey, verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { createServiceClient } from '@/lib/supabase/service';
-
-interface CreateCheckoutSessionBody {
-  items?: unknown;
-  fulfillment_address?: unknown;
-  currency?: string;
-}
+import { checkoutSessionSchema } from '@/schemas/agentic-checkout';
 
 export async function POST(request: NextRequest) {
   // 1. Auth & Idempotency
@@ -16,25 +11,27 @@ export async function POST(request: NextRequest) {
   }
   const idempotencyKey = getIdempotencyKey(request); // ToDo: Implement idempotent checks if needed
 
+  let body: Awaited<ReturnType<NextRequest['json']>>;
+
   try {
-    let body: CreateCheckoutSessionBody;
-    try {
-      body = (await request.json()) as CreateCheckoutSessionBody;
-    } catch {
+    body = await request.json();
+  } catch (err) {
+    console.error('Agentic Checkout Create JSON Parse Error:', err);
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  try {
+    const parsed = checkoutSessionSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid request body' },
+        {
+          error: 'Invalid request body',
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       );
     }
-
-    const { items, fulfillment_address, currency = 'NGN' } = body;
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        { error: 'Items array is required' },
-        { status: 400 }
-      );
-    }
+    const { items, shipping_address, currency } = parsed.data;
 
     // 2. Calculate Cart State
     const supabase = createServiceClient();
@@ -77,7 +74,7 @@ export async function POST(request: NextRequest) {
         totals: sessionCalc.totals,
         fulfillment_options: sessionCalc.fulfillmentOptions,
         currency,
-        fulfillment_address, // Persist address
+        fulfillment_address: shipping_address, // Persist address
         status: 'not_ready_for_payment', // Default
       })
       .select('id')

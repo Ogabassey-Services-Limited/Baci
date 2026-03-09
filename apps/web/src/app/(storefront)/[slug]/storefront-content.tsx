@@ -1,15 +1,15 @@
 import { cookies } from 'next/headers';
 import { Suspense } from 'react';
+import { resolveStorefrontTemplateId } from '@/app/(storefront)/[slug]/resolve-storefront-template';
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-import type { MerchantData } from '@/hooks/use-merchant';
 import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import type { CachedMerchant } from '@/lib/cached-data';
+import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import type { Product } from '@/lib/products';
 import { createClient } from '@/lib/supabase/server';
 import { getTemplate } from '@/templates/registry';
-import { resolveStorefrontTemplateId } from './resolve-storefront-template';
 import { StorefrontWrapper } from './storefront-wrapper';
 
 interface StorefrontContentProps {
@@ -54,39 +54,26 @@ function reportTemplateRenderFailure(context: {
       templateId: context.templateId,
     },
     extra: {
+      merchantId: context.merchantId,
+      templateId: context.templateId,
       source: 'storefront-template-render',
     },
   });
 }
 
-function toTemplateMerchantData(merchant: CachedMerchant): MerchantData {
-  return {
-    id: merchant.id,
-    // Public storefront rendering does not expose the owner user id.
-    user_id: '',
-    business_name: merchant.business_name,
-    business_type: merchant.business_type,
-    email: merchant.email,
-    phone: merchant.phone,
-    logo_url: merchant.logo_url,
-    brand_colors: merchant.brand_colors,
-    country: merchant.country,
-    pages: merchant.pages,
-    slug: merchant.slug,
-    custom_domain: merchant.custom_domain,
-    favicon_svg_url: merchant.favicon_svg_url,
-    favicon_png_32_url: merchant.favicon_png_32_url,
-    favicon_apple_touch_url: merchant.favicon_apple_touch_url,
-    social_media: merchant.social_media,
-    business_address: merchant.business_address,
-    is_published: merchant.is_published,
-    feature_settings: merchant.feature_settings,
-    template_id: merchant.template_id,
-    vat_registration_status: merchant.vat_registration_status,
-    vat_rate: merchant.vat_rate,
-    hero_slides: merchant.hero_slides,
-    mobile_hero_slides: merchant.mobile_hero_slides,
-  };
+function warnMissingTemplate(context: {
+  merchantId: string;
+  merchantTemplateId?: string | null;
+  resolvedTemplateId: string;
+}) {
+  console.warn(
+    'Storefront template not found, falling back to default storefront:',
+    {
+      merchantId: context.merchantId,
+      merchantTemplateId: context.merchantTemplateId,
+      resolvedTemplateId: context.resolvedTemplateId,
+    }
+  );
 }
 
 /**
@@ -101,6 +88,15 @@ export async function StorefrontContent({
   // Parallel data fetching for all non-critical data
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+
+  // Resolve template early so we can start loading components in parallel with data fetches
+  const templateId = resolveStorefrontTemplateId(
+    merchant.template_id,
+    merchant.business_type
+  );
+  const template = templateId ? getTemplate(templateId) : null;
+  // Start template loading early so it runs in parallel with data fetches
+  const componentsPromise = template ? template.getComponents() : null;
 
   // Define fetches
   const productsPromise = supabase
@@ -149,17 +145,10 @@ export async function StorefrontContent({
     product_categories: undefined,
   })) as unknown as Product[];
 
-  const templateId = resolveStorefrontTemplateId(
-    merchant.template_id,
-    merchant.business_type
-  );
-
   if (templateId) {
-    const template = getTemplate(templateId);
-
-    if (template) {
+    if (template && componentsPromise) {
       try {
-        const components = await template.getComponents();
+        const components = await componentsPromise;
         const TemplateHome = components.Home;
         const templateMerchant = toTemplateMerchantData(merchant);
 
@@ -188,6 +177,12 @@ export async function StorefrontContent({
           error,
         });
       }
+    } else {
+      warnMissingTemplate({
+        merchantId: merchant.id,
+        merchantTemplateId: merchant.template_id,
+        resolvedTemplateId: templateId,
+      });
     }
   }
 

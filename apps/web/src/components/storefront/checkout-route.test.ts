@@ -23,17 +23,24 @@ describe('buildCheckoutIdentityRoutes', () => {
     });
   });
 
-  it('falls back to the default checkout path for protocol-relative URLs', () => {
-    expect(buildCheckoutIdentityRoutes('//evil.com/checkout')).toEqual({
+  it('falls back to the default checkout path when the input is whitespace only', () => {
+    expect(buildCheckoutIdentityRoutes('   ')).toEqual({
       checkoutUrl: '/checkout',
       signupUrl: '/signup?redirect=%2Fcheckout',
     });
   });
 
-  it('preserves hash fragments in the checkout URL and encodes them for signup redirects', () => {
-    expect(buildCheckoutIdentityRoutes('/checkout#step2')).toEqual({
-      checkoutUrl: '/checkout#step2',
-      signupUrl: '/signup?redirect=%2Fcheckout%23step2',
+  it('preserves hash fragments and encodes them for signup redirects', () => {
+    expect(buildCheckoutIdentityRoutes('/checkout#section')).toEqual({
+      checkoutUrl: '/checkout#section',
+      signupUrl: '/signup?redirect=%2Fcheckout%23section',
+    });
+  });
+
+  it('falls back to the default checkout path for unsafe absolute URLs', () => {
+    expect(buildCheckoutIdentityRoutes('//evil.com/checkout')).toEqual({
+      checkoutUrl: '/checkout',
+      signupUrl: '/signup?redirect=%2Fcheckout',
     });
   });
 

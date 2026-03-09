@@ -9,6 +9,7 @@
  */
 
 import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
+import { onlineManager } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { createLogger } from '@/lib/logger';
 
@@ -70,6 +71,8 @@ export function useNetworkState(): UseNetworkStateResult {
       const isInternetReachable = netState.isInternetReachable ?? true;
       const isOnline = isConnected && isInternetReachable !== false;
 
+      onlineManager.setOnline(isOnline);
+
       // Detect reconnection
       const wasJustReconnected = wasOffline.current && isOnline;
 
@@ -126,6 +129,8 @@ export function useNetworkState(): UseNetworkStateResult {
       const isInternetReachable = netState.isInternetReachable ?? true;
       const isOnline = isConnected && isInternetReachable !== false;
 
+      onlineManager.setOnline(isOnline);
+
       setState({
         isConnected,
         isInternetReachable,
@@ -152,6 +157,8 @@ export function useNetworkState(): UseNetworkStateResult {
     const isConnected = netState.isConnected ?? true;
     const isInternetReachable = netState.isInternetReachable ?? true;
     const isOnline = isConnected && isInternetReachable !== false;
+
+    onlineManager.setOnline(isOnline);
 
     setState((prev) => ({
       ...prev,
