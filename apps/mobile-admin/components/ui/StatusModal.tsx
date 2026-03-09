@@ -37,14 +37,14 @@ export function StatusModal({ status, onClose }: StatusModalProps) {
               styles.iconContainer,
               {
                 backgroundColor:
-                  status.type === 'success' ? '#E8F5E9' : '#FFEBEE',
+                  status.type === 'success' ? colors.successLight : colors.errorLight,
               },
             ]}
           >
             <Ionicons
               name={status.type === 'success' ? 'checkmark' : 'alert'}
               size={32}
-              color={status.type === 'success' ? '#2E7D32' : '#C62828'}
+              color={status.type === 'success' ? colors.success : colors.error}
             />
           </View>
           <Text style={[styles.title, { color: colors.text }]}>
@@ -58,7 +58,7 @@ export function StatusModal({ status, onClose }: StatusModalProps) {
               styles.button,
               {
                 backgroundColor:
-                  status.type === 'success' ? colors.primary : '#C62828',
+                  status.type === 'success' ? colors.primary : colors.error,
               },
             ]}
             onPress={onClose}
