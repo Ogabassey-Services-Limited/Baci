@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
+import { getVideoEmbedUrl } from '@/lib/video-embed';
 import type { MerchantAboutPage } from '@/types/about-page';
 
 interface AboutPageClientProps {
@@ -353,27 +354,27 @@ export function AboutPageClient({
                     )}
 
                     {/* Video Section */}
-                    {aboutPage.video_url && (
-                      <section className="max-w-4xl mx-auto">
-                        <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
-                          <Play className="h-8 w-8 text-primary" />
-                          Watch Our Story
-                        </h2>
-                        <div className="aspect-video rounded-xl overflow-hidden bg-muted">
-                          <iframe
-                            src={aboutPage.video_url.replace(
-                              'watch?v=',
-                              'embed/'
-                            )}
-                            title="About Us Video"
-                            className="w-full h-full"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                            loading="lazy"
-                          />
-                        </div>
-                      </section>
-                    )}
+                    {aboutPage.video_url &&
+                      getVideoEmbedUrl(aboutPage.video_url) && (
+                        <section className="max-w-4xl mx-auto">
+                          <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
+                            <Play className="h-8 w-8 text-primary" />
+                            Watch Our Story
+                          </h2>
+                          <div className="aspect-video rounded-xl overflow-hidden bg-muted">
+                            <iframe
+                              src={
+                                getVideoEmbedUrl(aboutPage.video_url) as string
+                              }
+                              title="About Us Video"
+                              className="w-full h-full"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              loading="lazy"
+                            />
+                          </div>
+                        </section>
+                      )}
 
                     {/* Gallery */}
                     {aboutPage.gallery && aboutPage.gallery.length > 0 && (
