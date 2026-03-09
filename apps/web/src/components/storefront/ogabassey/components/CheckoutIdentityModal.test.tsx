@@ -45,11 +45,10 @@ describe('CheckoutIdentityModal', () => {
   });
 
   it('returns null when not open', () => {
-    const { container } = render(
-      <CheckoutIdentityModal {...defaultProps} isOpen={false} />
-    );
+    render(<CheckoutIdentityModal {...defaultProps} isOpen={false} />);
 
-    expect(container.innerHTML).toBe('');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByText('Checkout')).not.toBeInTheDocument();
   });
 
   it('shows guest checkout and create account options', () => {

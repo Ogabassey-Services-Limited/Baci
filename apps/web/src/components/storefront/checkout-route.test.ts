@@ -38,21 +38,23 @@ describe('buildCheckoutIdentityRoutes', () => {
   });
 
   it('falls back to the default checkout path for unsafe absolute URLs', () => {
-    expect(buildCheckoutIdentityRoutes('//evil.com/checkout')).toEqual({
+    expect(buildCheckoutIdentityRoutes('//example.org/checkout')).toEqual({
       checkoutUrl: '/checkout',
       signupUrl: '/signup?redirect=%2Fcheckout',
     });
   });
 
   it('falls back to the default checkout path for absolute URLs with protocols', () => {
-    expect(buildCheckoutIdentityRoutes('https://evil.com/checkout')).toEqual({
-      checkoutUrl: '/checkout',
-      signupUrl: '/signup?redirect=%2Fcheckout',
-    });
+    expect(buildCheckoutIdentityRoutes('https://example.com/checkout')).toEqual(
+      {
+        checkoutUrl: '/checkout',
+        signupUrl: '/signup?redirect=%2Fcheckout',
+      }
+    );
   });
 
   it('falls back to the default checkout path for http URLs', () => {
-    expect(buildCheckoutIdentityRoutes('http://evil.com/steal')).toEqual({
+    expect(buildCheckoutIdentityRoutes('http://example.net/steal')).toEqual({
       checkoutUrl: '/checkout',
       signupUrl: '/signup?redirect=%2Fcheckout',
     });

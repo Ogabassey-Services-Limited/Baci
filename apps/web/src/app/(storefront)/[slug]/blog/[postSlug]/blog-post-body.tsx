@@ -100,6 +100,7 @@ export async function BlogPostBody({
               href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(postUrl)}`}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Share on Twitter (opens in new tab)"
             >
               Twitter
             </a>
@@ -109,6 +110,7 @@ export async function BlogPostBody({
               href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Share on LinkedIn (opens in new tab)"
             >
               LinkedIn
             </a>
@@ -118,6 +120,7 @@ export async function BlogPostBody({
               href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(postUrl)}`}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Share on Facebook (opens in new tab)"
             >
               Facebook
             </a>
@@ -161,7 +164,14 @@ export async function BlogPostBody({
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       {related.published_at && (
                         <span>
-                          {new Date(related.published_at).toLocaleDateString()}
+                          {new Date(related.published_at).toLocaleDateString(
+                            'en-NG',
+                            {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            }
+                          )}
                         </span>
                       )}
                       {related.reading_time_minutes && (

@@ -815,9 +815,9 @@ describe('cached-data utility functions', () => {
 
       await getCachedProduct('merchant-123', 'iphone-16');
 
-      const variantsSelect = getProductVariantsSelect(
-        mockSelect.mock.calls.at(-1)?.[0]
-      );
+      const selectArg = String(mockSelect.mock.calls.at(-1)?.[0]);
+      expect(selectArg).not.toMatch(/\*\s*,/);
+      const variantsSelect = getProductVariantsSelect(selectArg);
       expect(variantsSelect).toContain('attributes');
       expect(variantsSelect).toContain('stock_quantity');
       expect(variantsSelect).toContain('primary_image');

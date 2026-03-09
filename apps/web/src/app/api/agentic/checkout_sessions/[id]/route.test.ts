@@ -44,7 +44,7 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
     expect(body).toEqual({ error: 'Invalid JSON body' });
   });
 
-  it('returns 401 when API key verification fails', async () => {
+  it('returns 401 when API key verification fails and skips DB calls', async () => {
     mockVerifyAgenticApiKey.mockReturnValue(false);
 
     const request = new NextRequest(
@@ -63,6 +63,8 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
 
     expect(response.status).toBe(401);
     expect(body).toEqual({ error: 'Unauthorized' });
+    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
   it('updates an existing checkout session successfully', async () => {
@@ -179,7 +181,7 @@ describe('GET /api/agentic/checkout_sessions/[id]', () => {
     mockVerifyAgenticApiKey.mockReturnValue(true);
   });
 
-  it('returns 401 when API key verification fails', async () => {
+  it('returns 401 when API key verification fails and skips DB calls', async () => {
     mockVerifyAgenticApiKey.mockReturnValue(false);
 
     const request = new NextRequest(
@@ -193,5 +195,7 @@ describe('GET /api/agentic/checkout_sessions/[id]', () => {
 
     expect(response.status).toBe(401);
     expect(body).toEqual({ error: 'Unauthorized' });
+    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 });

@@ -46,7 +46,7 @@ describe('POST /api/agentic/checkout_sessions', () => {
     expect(body).toEqual({ error: 'Invalid JSON body' });
   });
 
-  it('returns 401 when API key verification fails', async () => {
+  it('returns 401 when API key verification fails and skips downstream work', async () => {
     mockVerifyAgenticApiKey.mockReturnValue(false);
 
     const request = new NextRequest(
@@ -64,6 +64,8 @@ describe('POST /api/agentic/checkout_sessions', () => {
 
     expect(response.status).toBe(401);
     expect(body).toEqual({ error: 'Unauthorized' });
+    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
   it('creates a checkout session and returns the idempotency header', async () => {

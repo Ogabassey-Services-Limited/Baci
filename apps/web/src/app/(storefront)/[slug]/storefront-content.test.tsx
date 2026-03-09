@@ -87,7 +87,7 @@ function createMockMerchant(): CachedMerchant {
 const mockMerchant = createMockMerchant();
 
 afterEach(() => {
-  vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe('StorefrontContent', () => {
