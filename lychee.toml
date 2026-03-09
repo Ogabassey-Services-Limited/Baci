@@ -139,5 +139,7 @@ exclude = [
   # Google Storage assets (403 Forbidden due to access restrictions)
   "commondatastorage\\.googleapis\\.com",
   # CoinGecko API (Rate limited 429)
-  "api\\.coingecko\\.com"
+  "api\\.coingecko\\.com",
+  # Test fixture domains (dummy URLs in unit tests)
+  "^https?://evil\\.com"
 ]

@@ -32,7 +32,7 @@ jobs:
             --verbose
             --no-progress
             --config lychee.toml
-            './apps/web/**/*.md' './apps/web/**/*.html' './apps/web/**/*.tsx' './apps/web/**/*.ts'
+            'apps/web/**/*.md' 'apps/web/**/*.html' 'apps/web/**/*.tsx' 'apps/web/**/*.ts'
           # Fail action if broken links are found
           fail: true
         env:
