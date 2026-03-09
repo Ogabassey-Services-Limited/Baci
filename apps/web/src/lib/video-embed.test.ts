@@ -4,25 +4,25 @@ import { getVideoEmbedUrl } from './video-embed';
 describe('getVideoEmbedUrl', () => {
   describe('YouTube', () => {
     it('converts a youtube.com watch URL to nocookie embed', () => {
-      expect(getVideoEmbedUrl('https://www.youtube.com/watch?v=abc123')).toBe(
-        'https://www.youtube-nocookie.com/embed/abc123'
-      );
+      expect(
+        getVideoEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+      ).toBe('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');
     });
 
     it('converts a youtube.com watch URL without www', () => {
-      expect(getVideoEmbedUrl('https://youtube.com/watch?v=xyz')).toBe(
-        'https://www.youtube-nocookie.com/embed/xyz'
+      expect(getVideoEmbedUrl('https://youtube.com/watch?v=9bZkp7q19f0')).toBe(
+        'https://www.youtube-nocookie.com/embed/9bZkp7q19f0'
       );
     });
 
     it('converts a youtu.be short link', () => {
-      expect(getVideoEmbedUrl('https://youtu.be/abc123')).toBe(
-        'https://www.youtube-nocookie.com/embed/abc123'
+      expect(getVideoEmbedUrl('https://youtu.be/dQw4w9WgXcQ')).toBe(
+        'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ'
       );
     });
 
     it('passes through an already-embed youtube-nocookie URL', () => {
-      const url = 'https://www.youtube-nocookie.com/embed/abc123';
+      const url = 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ';
       expect(getVideoEmbedUrl(url)).toBe(url);
     });
 
@@ -81,6 +81,22 @@ describe('getVideoEmbedUrl', () => {
 
     it('returns null for http: protocol', () => {
       expect(getVideoEmbedUrl('http://www.youtube.com/watch?v=abc')).toBeNull();
+    });
+
+    it('rejects subdomain spoofing attempts', () => {
+      expect(
+        getVideoEmbedUrl('https://youtube.com.evil.com/watch?v=dQw4w9WgXcQ')
+      ).toBeNull();
+      expect(
+        getVideoEmbedUrl('https://www.youtube.com.evil.com/watch?v=dQw4w9WgXcQ')
+      ).toBeNull();
+    });
+
+    it('rejects YouTube IDs that do not match the 11-char pattern', () => {
+      expect(
+        getVideoEmbedUrl('https://www.youtube.com/watch?v=<script>')
+      ).toBeNull();
+      expect(getVideoEmbedUrl('https://youtu.be/../../etc')).toBeNull();
     });
   });
 });

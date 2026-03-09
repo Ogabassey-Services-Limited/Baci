@@ -32,6 +32,21 @@ describe('imageLoader', () => {
     expect(result).toContain('q=75');
   });
 
+  it('treats empty src as a relative path', () => {
+    const result = imageLoader({ src: '', width: 100 });
+    expect(result).toBe('/_next/image?url=&w=100&q=75');
+  });
+
+  it('treats protocol-relative URLs as relative paths', () => {
+    const result = imageLoader({
+      src: '//cdn.example.com/img.jpg',
+      width: 100,
+    });
+    expect(result).toBe(
+      '/_next/image?url=%2F%2Fcdn.example.com%2Fimg.jpg&w=100&q=75'
+    );
+  });
+
   it('encodes special characters in relative paths', () => {
     const result = imageLoader({
       src: '/path with spaces/img.png',
