@@ -62,6 +62,8 @@ jobs:
       - run: pnpm install
       - run: pnpm dlx vercel pull --yes --environment=production --token="${{ env.VERCEL_TOKEN }}"
       - run: pnpm dlx vercel build --yes --prod --token="${{ env.VERCEL_TOKEN }}"
+      # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
+      # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
         run: |
           for attempt in 1 2 3; do
@@ -109,6 +111,8 @@ jobs:
       - name: Build Project Artifacts
         if: ${{ env.VERCEL_TOKEN != '' }}
         run: pnpm dlx vercel build --yes --token="${{ env.VERCEL_TOKEN }}"
+      # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
+      # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
         if: ${{ env.VERCEL_TOKEN != '' }}
         run: |
