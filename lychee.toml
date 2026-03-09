@@ -104,6 +104,12 @@ exclude = [
   "vendor-api(-staging)?\\.jumia\\.com",
   "vendorcenter\\.jumia\\.com\\.ng",
   
+  # Video Platforms (test fixture URLs with fake IDs always 404)
+  "youtube\\.com",
+  "youtu\\.be",
+  "youtube-nocookie\\.com",
+  "vimeo\\.com",
+
   # Social Media (Bot Protection)
   "tiktok\\.com",
 
@@ -141,5 +147,7 @@ exclude = [
   # CoinGecko API (Rate limited 429)
   "api\\.coingecko\\.com",
   # Test fixture domains (dummy URLs in unit tests)
-  "^https?://evil\\.com"
+  "^https?://evil\\.com",
+  # Blockchain explorer base URLs (address appended at runtime)
+  "polygonscan\\.com/address"
 ]

@@ -16,9 +16,9 @@ const ALLOWED_VIDEO_HOSTS = [
  * Returns `null` for invalid, non-HTTPS, or unrecognized hosts.
  *
  * Supported conversions:
- * - YouTube watch URLs → youtube-nocookie.com/embed/{id}
- * - youtu.be short URLs → youtube-nocookie.com/embed/{id}
- * - Vimeo share URLs (vimeo.com/{id}) → player.vimeo.com/video/{id}
+ * - YouTube watch URLs -> youtube-nocookie.com/embed/{id}
+ * - youtu.be short URLs -> youtube-nocookie.com/embed/{id}
+ * - Vimeo share URLs (vimeo.com/{id}) -> player.vimeo.com/video/{id}
  * - Already-embeddable URLs (player.vimeo.com, youtube-nocookie.com/embed) pass through.
  */
 export function getVideoEmbedUrl(url: string): string | null {
@@ -32,16 +32,19 @@ export function getVideoEmbedUrl(url: string): string | null {
       return null;
     }
 
-    // YouTube watch page → privacy-enhanced embed
+    // YouTube watch page -> privacy-enhanced embed
     if (
-      (parsed.hostname === 'www.youtube.com' ||
-        parsed.hostname === 'youtube.com') &&
-      parsed.pathname === '/watch'
+      parsed.hostname === 'www.youtube.com' ||
+      parsed.hostname === 'youtube.com'
     ) {
-      const videoId = parsed.searchParams.get('v');
-      return videoId && YOUTUBE_ID_PATTERN.test(videoId)
-        ? `https://www.youtube-nocookie.com/embed/${videoId}`
-        : null;
+      if (parsed.pathname === '/watch') {
+        const videoId = parsed.searchParams.get('v');
+        return videoId && YOUTUBE_ID_PATTERN.test(videoId)
+          ? `https://www.youtube-nocookie.com/embed/${videoId}`
+          : null;
+      }
+      // Reject non-watch YouTube paths (channels, playlists, etc.)
+      return null;
     }
 
     // youtu.be short link
@@ -52,7 +55,7 @@ export function getVideoEmbedUrl(url: string): string | null {
         : null;
     }
 
-    // Vimeo share URL (vimeo.com/123456 or www.vimeo.com/123456) → player embed
+    // Vimeo share URL (vimeo.com/123456 or www.vimeo.com/123456) -> player embed
     if (
       parsed.hostname === 'vimeo.com' ||
       parsed.hostname === 'www.vimeo.com'
@@ -65,8 +68,17 @@ export function getVideoEmbedUrl(url: string): string | null {
       return null;
     }
 
-    // Already an embed-ready URL (player.vimeo.com, youtube-nocookie.com/embed, etc.)
-    return url;
+    // Already an embed-ready URL -- validate pathname
+    if (parsed.hostname === 'www.youtube-nocookie.com') {
+      const match = parsed.pathname.match(/^\/embed\/([A-Za-z0-9_-]{11})$/);
+      return match ? url : null;
+    }
+
+    if (parsed.hostname === 'player.vimeo.com') {
+      return /^\/video\/\d+$/.test(parsed.pathname) ? url : null;
+    }
+
+    return null;
   } catch {
     return null;
   }

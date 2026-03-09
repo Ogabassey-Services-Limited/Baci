@@ -351,12 +351,8 @@ export function AboutPageClient({
                     )}
 
                     {/* Video Section */}
-                    {(() => {
-                      const embedUrl = aboutPage.video_url
-                        ? getVideoEmbedUrl(aboutPage.video_url)
-                        : null;
-                      if (!embedUrl) return null;
-                      return (
+                    {aboutPage.video_url &&
+                      getVideoEmbedUrl(aboutPage.video_url) && (
                         <section className="max-w-4xl mx-auto">
                           <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
                             <Play className="h-8 w-8 text-primary" />
@@ -364,7 +360,9 @@ export function AboutPageClient({
                           </h2>
                           <div className="aspect-video rounded-xl overflow-hidden bg-muted">
                             <iframe
-                              src={embedUrl}
+                              src={
+                                getVideoEmbedUrl(aboutPage.video_url) as string
+                              }
                               title="About Us Video"
                               className="w-full h-full"
                               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -373,8 +371,7 @@ export function AboutPageClient({
                             />
                           </div>
                         </section>
-                      );
-                    })()}
+                      )}
 
                     {/* Gallery */}
                     {aboutPage.gallery && aboutPage.gallery.length > 0 && (
