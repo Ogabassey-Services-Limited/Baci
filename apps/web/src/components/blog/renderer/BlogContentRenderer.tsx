@@ -263,9 +263,10 @@ const NodeRenderer = ({
 
       return highlightedHtml ? (
         <pre className="bg-slate-950 text-slate-50 p-6 rounded-xl font-mono text-sm overflow-x-auto my-8">
-          <SafeHtml
-            html={highlightedHtml}
+          <code
             className={language ? `language-${language}` : undefined}
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: Syntax-highlighted HTML from lowlight (trusted, no user input)
+            dangerouslySetInnerHTML={{ __html: highlightedHtml }}
           />
         </pre>
       ) : (

@@ -50,24 +50,9 @@ export async function POST(
     }
 
     const user = auth.user;
-
-    // 2. Get merchant ID (supports both owners and staff members)
-    const merchantId = await getMerchantIdForApiUser(auth.supabase);
-    if (!merchantId) {
-      logger.error({
-        message: 'RecordPayment merchant not found',
-        userId: user.id,
-        orderId: id,
-      });
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
     const supabase = auth.supabase;
 
-    // 3. Parse and validate request body (after auth)
+    // 2. Parse and validate request body (before any DB calls)
     let body: unknown;
 
     try {
@@ -105,6 +90,20 @@ export async function POST(
 
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
+    }
+
+    // 3. Get merchant ID (supports both owners and staff members)
+    const merchantId = await getMerchantIdForApiUser(supabase);
+    if (!merchantId) {
+      logger.error({
+        message: 'RecordPayment merchant not found',
+        userId: user.id,
+        orderId: id,
+      });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Fetch full Merchant details for email

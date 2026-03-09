@@ -359,16 +359,17 @@ describe('BlogContentRenderer', () => {
   // -------------------------------------------------------------------------
 
   describe('codeBlock nodes', () => {
-    it('renders highlighted code via SafeHtml with a language class', () => {
+    it('renders highlighted code in a <code> element with a language class', () => {
       const json = doc({
         type: 'codeBlock',
         attrs: { language: 'javascript' },
         content: [{ type: 'text', text: 'const x = 1;' }],
       });
-      render(<BlogContentRenderer json={json} />);
-      const safeHtml = screen.getByTestId('safe-html');
-      expect(safeHtml).toHaveTextContent('const x = 1;');
-      expect(safeHtml).toHaveAttribute('data-classname', 'language-javascript');
+      const { container } = render(<BlogContentRenderer json={json} />);
+      const codeEl = container.querySelector('pre code');
+      expect(codeEl).toBeInTheDocument();
+      expect(codeEl).toHaveClass('language-javascript');
+      expect(codeEl?.innerHTML).toContain('const');
     });
 
     it('wraps code output in a <pre> element', () => {
