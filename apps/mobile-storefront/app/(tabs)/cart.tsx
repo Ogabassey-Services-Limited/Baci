@@ -318,7 +318,6 @@ export default function CartScreen() {
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 180 }]}
         showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{ height: SPACING.md }} />}
         renderItem={({ item }) => {
           const priceToUse = item.negotiatedPrice ?? item.price;
           const itemTotal = priceToUse * item.quantity;
@@ -533,14 +532,17 @@ export default function CartScreen() {
           );
         }}
         ListFooterComponent={
-          <View style={styles.secureBadgeInside}>
-            <Ionicons
-              name="shield-checkmark-outline"
-              size={14}
-              color={palette.gray[400]}
-            />
-            <Text style={styles.secureBadgeText}>Secure Checkout</Text>
-          </View>
+          <>
+            {/* Secure Checkout Badge */}
+            <View style={styles.secureBadgeInside}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={14}
+                color={palette.gray[400]}
+              />
+              <Text style={styles.secureBadgeText}>Secure Checkout</Text>
+            </View>
+          </>
         }
       />
 
@@ -762,6 +764,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: SPACING.md,
+    gap: SPACING.md,
   },
   cartCard: {
     borderRadius: RADIUS['2xl'],
