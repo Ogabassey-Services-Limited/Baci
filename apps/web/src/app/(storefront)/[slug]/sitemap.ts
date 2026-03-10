@@ -80,12 +80,6 @@ export default async function sitemap({
           priority: 1,
         },
         {
-          url: `${storeUrl}/products`,
-          lastModified: new Date(),
-          changeFrequency: 'daily',
-          priority: 0.8,
-        },
-        {
           url: `${storeUrl}/faq`,
           lastModified: new Date(),
           changeFrequency: 'monthly',
