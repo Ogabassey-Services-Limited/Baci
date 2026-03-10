@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import type { MerchantData } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -23,7 +24,15 @@ vi.mock('@/hooks/use-merchant', () => ({
 }));
 
 vi.mock('@/lib/routes', () => ({
-  asRoute: vi.fn((path: string) => path),
+  buildStorefrontPath: vi.fn((...parts: Array<string | undefined>) => {
+    const segments = parts
+      .flatMap((part) => (part ? part.split('/') : []))
+      .map((segment) => segment.trim())
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment));
+
+    return `/${segments.join('/')}`;
+  }),
 }));
 
 vi.mock('@/lib/social', () => ({
@@ -52,5 +61,20 @@ describe('Footer', () => {
     expect(
       screen.getByRole('link', { name: 'Gaming Laptops' })
     ).toHaveAttribute('href', '/ogabassey/gaming-laptops');
+  });
+
+  it('omits the category section when no categories are available', () => {
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      navigationCategories: undefined,
+    } as ReturnType<typeof useMerchantSafe>);
+
+    render(
+      <Footer
+        merchant={{ business_name: 'Ogabassey' } as MerchantData}
+        storeSlug="/ogabassey"
+      />
+    );
+
+    expect(screen.queryByText('Shop Categories')).not.toBeInTheDocument();
   });
 });

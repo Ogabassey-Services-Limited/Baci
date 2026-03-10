@@ -12,7 +12,7 @@ import { usePathname } from 'next/navigation';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
-import { asRoute } from '@/lib/routes';
+import { buildStorefrontPath } from '@/lib/routes';
 import type { Product as BaciProduct } from '@/lib/products';
 import { products as mockProducts } from '../data/products';
 import { useV2Saved } from '../providers/v2-saved-context';
@@ -112,9 +112,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   const { toggleSaved, isSaved } = useV2Saved();
   const pathname = usePathname();
   const basePath = merchantContext?.basePath || '';
-  const allProductsHref = asRoute(
-    basePath ? `${basePath}/products` : '/products'
-  );
+  const allProductsHref = buildStorefrontPath(basePath, 'products');
 
   // All products from SSR
   const allProducts = (() => {

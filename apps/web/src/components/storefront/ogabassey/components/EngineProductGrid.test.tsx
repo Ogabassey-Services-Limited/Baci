@@ -1,6 +1,7 @@
 import type { Product } from '@/lib/products';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 
 vi.mock('next/link', () => ({
   default: ({
@@ -34,7 +35,15 @@ vi.mock('@/hooks/use-merchant', () => ({
   })),
 }));
 vi.mock('@/lib/routes', () => ({
-  asRoute: vi.fn((path: string) => path),
+  buildStorefrontPath: vi.fn((...parts: Array<string | undefined>) => {
+    const segments = parts
+      .flatMap((part) => (part ? part.split('/') : []))
+      .map((segment) => segment.trim())
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment));
+
+    return `/${segments.join('/')}`;
+  }),
 }));
 vi.mock('../data/products', () => ({ products: [] }));
 vi.mock('../providers/v2-saved-context', () => ({
@@ -141,5 +150,41 @@ describe('EngineProductGrid', () => {
     expect(
       screen.getByRole('link', { name: 'View all products' })
     ).toHaveAttribute('href', '/test-store/products');
+  });
+
+  it('uses /products when basePath is empty', () => {
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: { id: 'm-1', slug: 'test' },
+      basePath: '',
+    } as ReturnType<typeof useMerchantSafe>);
+
+    render(
+      <EngineProductGrid
+        externalProducts={[createTestProduct({ id: 'phone-1', stock: 4 })]}
+        categories={[]}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'View all products' })
+    ).toHaveAttribute('href', '/products');
+  });
+
+  it('uses /products when basePath is root', () => {
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: { id: 'm-1', slug: 'test' },
+      basePath: '/',
+    } as ReturnType<typeof useMerchantSafe>);
+
+    render(
+      <EngineProductGrid
+        externalProducts={[createTestProduct({ id: 'phone-1', stock: 4 })]}
+        categories={[]}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'View all products' })
+    ).toHaveAttribute('href', '/products');
   });
 });

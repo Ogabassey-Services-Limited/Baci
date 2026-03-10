@@ -2,7 +2,7 @@
 
 import type { MerchantData } from '@/hooks/use-merchant';
 import { useMerchantSafe } from '@/hooks/use-merchant';
-import { asRoute } from '@/lib/routes';
+import { buildStorefrontPath } from '@/lib/routes';
 import { normalizeSocialUrl } from '@/lib/social';
 import {
   Apple,
@@ -36,7 +36,8 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   const contactEmail = merchant?.email || 'support@ogabassey.com';
   const contactPhone = merchant?.phone || '+234 814 697 8921';
   const contactAddress = merchant?.business_address || '2 Olaide Tomori St, Ikeja, Lagos';
-  const getStoreHref = (path: string) => asRoute(`${basePath}${path}`);
+  const getStoreHref = (path: string) => buildStorefrontPath(basePath, path);
+  const homeHref = buildStorefrontPath(basePath);
 
   // Helper to render social link if it exists
   const renderSocialLink = (
@@ -76,7 +77,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
           {/* Column 1: Brand Info (Compact) */}
           <div className="space-y-4">
             <Link
-              href={asRoute(basePath || '/')}
+              href={homeHref}
               className="flex items-center cursor-pointer select-none"
             >
               <Logo className="h-8 w-auto" />
