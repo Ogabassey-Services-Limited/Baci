@@ -11,7 +11,9 @@ permissions:
 
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  # Only cancel in-progress for PRs (previews). Production deploys run to completion
+  # to avoid the cascade-cancel problem where rapid merges kill every deploy.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -60,7 +62,10 @@ jobs:
       - run: pnpm install
       - run: pnpm dlx vercel pull --yes --environment=production --token="${{ env.VERCEL_TOKEN }}"
       - run: pnpm dlx vercel build --yes --prod --token="${{ env.VERCEL_TOKEN }}"
-      - run: pnpm dlx vercel deploy --yes --prebuilt --prod --token="${{ env.VERCEL_TOKEN }}"
+      # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
+      # Do NOT remove it — without it, each deploy uploads thousands of individual files.
+      - name: Deploy to Vercel (with retry)
+        run: .github/scripts/deploy-with-retry.sh pnpm dlx vercel deploy --yes --prebuilt --prod --archive=tgz --token="${{ env.VERCEL_TOKEN }}"
 
   deploy-preview:
     needs: [changes]
@@ -93,6 +98,8 @@ jobs:
       - name: Build Project Artifacts
         if: ${{ env.VERCEL_TOKEN != '' }}
         run: pnpm dlx vercel build --yes --token="${{ env.VERCEL_TOKEN }}"
-      - name: Deploy Project Artifacts to Vercel
+      # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
+      # Do NOT remove it — without it, each deploy uploads thousands of individual files.
+      - name: Deploy to Vercel (with retry)
         if: ${{ env.VERCEL_TOKEN != '' }}
-        run: pnpm dlx vercel deploy --yes --prebuilt --token="${{ env.VERCEL_TOKEN }}"
+        run: .github/scripts/deploy-with-retry.sh pnpm dlx vercel deploy --yes --prebuilt --archive=tgz --token="${{ env.VERCEL_TOKEN }}"
