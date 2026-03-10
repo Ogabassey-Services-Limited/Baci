@@ -43,7 +43,10 @@ export async function GET(request: NextRequest) {
   // Get active products with all necessary fields
   const { data: products, error: productsError } = await supabase
     .from('products')
-    .select('*')
+    // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full product rows (which include internal metadata or unneeded JSON fields) and reduce memory/bandwidth overhead in large product feeds.
+    .select(
+      'id, name, description, slug, price, compare_at_price, images, image, "imageLarge", brand, gtin, mpn, sku, stock, condition, google_product_category, category'
+    )
     .eq('merchant_id', merchant.id)
     .eq('status', 'active')
     .order('created_at', { ascending: false });
