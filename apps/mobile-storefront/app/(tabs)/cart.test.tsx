@@ -147,7 +147,8 @@ describe('CartScreen', () => {
   it('renders the Negotiate button for non-negotiated items', () => {
     render(<CartScreen />);
 
-    expect(screen.getByText('Negotiate')).toBeTruthy();
+    // "Negotiate" appears both on the item and the footer bulk button
+    expect(screen.getAllByText('Negotiate').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders the Ogabassey Assurance toggle label', () => {
