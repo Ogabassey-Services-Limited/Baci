@@ -122,7 +122,7 @@ describe('sitemap', () => {
   });
 
   describe('static sitemap', () => {
-    it('returns store URL, products page, and FAQ page', async () => {
+    it('returns store URL and FAQ page', async () => {
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({
@@ -130,13 +130,11 @@ describe('sitemap', () => {
         params: makeParams('ogabassey.com'),
       });
 
-      expect(result).toHaveLength(3);
+      expect(result).toHaveLength(2);
       expect(result[0].url).toBe('https://ogabassey.com');
       expect(result[0].priority).toBe(1);
-      expect(result[1].url).toBe('https://ogabassey.com/products');
-      expect(result[1].priority).toBe(0.8);
-      expect(result[2].url).toBe('https://ogabassey.com/faq');
-      expect(result[2].priority).toBe(0.5);
+      expect(result[1].url).toBe('https://ogabassey.com/faq');
+      expect(result[1].priority).toBe(0.5);
     });
   });
 
