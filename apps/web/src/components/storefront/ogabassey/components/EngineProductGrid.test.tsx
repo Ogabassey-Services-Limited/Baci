@@ -71,6 +71,7 @@ vi.mock('./ProductListItem', () => ({
 }));
 
 import { prioritizeSmartphoneProducts } from '@baci/shared';
+import { useSearchParams } from 'next/navigation';
 import { EngineProductGrid } from './EngineProductGrid';
 
 function createTestProduct(overrides: Partial<Product>): Product {
@@ -131,6 +132,40 @@ describe('EngineProductGrid', () => {
     expect(screen.getAllByRole('article').map((item) => item.textContent)).toEqual(
       ['Samsung TV', 'iPhone 16']
     );
+  });
+
+  it('initializes category from ?category= URL param when valid', () => {
+    vi.mocked(useSearchParams).mockReturnValue(new URLSearchParams('category=Smartphones') as ReturnType<typeof useSearchParams>);
+
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({ id: 'tv-1', name: 'Samsung TV', category: 'Smart TVs', stock: 2 }),
+          createTestProduct({ id: 'phone-1', name: 'iPhone 16', category: 'Smartphones', stock: 4 }),
+        ]}
+        categories={[{ name: 'Smartphones', slug: 'smartphones' }, { name: 'Smart TVs', slug: 'smart-tvs' }]}
+      />
+    );
+
+    const articles = screen.getAllByRole('article');
+    expect(articles).toHaveLength(1);
+    expect(articles[0].textContent).toBe('iPhone 16');
+  });
+
+  it('ignores unknown ?category= URL param and shows all products', () => {
+    vi.mocked(useSearchParams).mockReturnValue(new URLSearchParams('category=Unknown') as ReturnType<typeof useSearchParams>);
+
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({ id: 'tv-1', name: 'Samsung TV', category: 'Smart TVs', stock: 2 }),
+          createTestProduct({ id: 'phone-1', name: 'iPhone 16', category: 'Smartphones', stock: 4 }),
+        ]}
+        categories={[{ name: 'Smartphones', slug: 'smartphones' }, { name: 'Smart TVs', slug: 'smart-tvs' }]}
+      />
+    );
+
+    expect(screen.getAllByRole('article')).toHaveLength(2);
   });
 
   it('links the view-all CTA to the products index route', () => {
