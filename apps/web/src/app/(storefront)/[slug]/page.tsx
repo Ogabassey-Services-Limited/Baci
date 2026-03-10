@@ -120,10 +120,19 @@ export async function generateMetadata({
  */
 export default async function StorefrontPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { slug } = await params;
+  const [{ slug }, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams,
+  ]);
+  const categoryFilter =
+    typeof resolvedSearchParams.category === 'string'
+      ? resolvedSearchParams.category
+      : undefined;
 
   // Validate identifier format (can be slug or domain)
   if (!isValidMerchantIdentifier(slug)) {
@@ -298,7 +307,11 @@ export default async function StorefrontPage({
 
       {/* STREAMING: Heavy data fetching happens here, wrapped in Suspense */}
       <Suspense fallback={<StorefrontPageSkeleton />}>
-        <StorefrontContent merchant={merchant} initialTheme={initialTheme} />
+        <StorefrontContent
+          merchant={merchant}
+          initialTheme={initialTheme}
+          categoryFilter={categoryFilter}
+        />
       </Suspense>
     </>
   );

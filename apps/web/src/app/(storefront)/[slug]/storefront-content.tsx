@@ -15,6 +15,7 @@ import { StorefrontWrapper } from './storefront-wrapper';
 interface StorefrontContentProps {
   merchant: CachedMerchant;
   initialTheme?: V2ThemeMode;
+  categoryFilter?: string;
 }
 
 interface ErrorReporter {
@@ -91,6 +92,7 @@ function warnMissingTemplate(context: {
 export async function StorefrontContent({
   merchant,
   initialTheme,
+  categoryFilter,
 }: StorefrontContentProps) {
   // Parallel data fetching for all non-critical data
   const cookieStore = await cookies();
@@ -106,7 +108,9 @@ export async function StorefrontContent({
   const componentsPromise = template ? template.getComponents() : null;
 
   // Define fetches
-  const productsPromise = supabase
+  // When a category filter is active, fetch all products in that category.
+  // Otherwise, fetch the top 200 by price for the home page grid.
+  const productsQuery = supabase
     .from('products')
     .select(
       `
@@ -128,8 +132,11 @@ export async function StorefrontContent({
     )
     .eq('merchant_id', merchant.id)
     .eq('status', 'active')
-    .order('price', { ascending: false })
-    .limit(50); // Reduced from 500 for faster initial load
+    .order('price', { ascending: false });
+
+  const productsPromise = categoryFilter
+    ? productsQuery.ilike('category', categoryFilter)
+    : productsQuery.limit(200);
 
   const categoriesPromise = getCachedNavigationCategories(merchant.id);
 
