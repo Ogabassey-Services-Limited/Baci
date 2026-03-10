@@ -7,8 +7,8 @@
 'use client';
 
 import Link from 'next/link';
-import React, { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -111,6 +111,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   const { addToCart, cart } = useCart();
   const { toggleSaved, isSaved } = useV2Saved();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const basePath = merchantContext?.basePath ?? storeSlug ?? '';
   const allProductsHref = buildStorefrontPath(basePath, 'products');
 
@@ -232,6 +233,14 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     setDisplayCount(PRODUCTS_PER_PAGE);
     window.history.replaceState(null, '', pathname);
   };
+
+  // Sync category filter from URL ?category= param on mount/navigation
+  useEffect(() => {
+    const urlCategory = searchParams.get('category');
+    if (urlCategory && categories.includes(urlCategory)) {
+      setSelectedCategory(urlCategory);
+    }
+  }, [searchParams, categories]);
 
   // Reset pagination when filters change
   React.useEffect(() => {

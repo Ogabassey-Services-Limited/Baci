@@ -19,6 +19,7 @@ vi.mock('@baci/shared', () => ({
 }));
 vi.mock('next/navigation', () => ({
   usePathname: vi.fn(() => '/test-store'),
+  useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
 vi.mock('@/hooks/use-cart', () => ({
   useCart: vi.fn(() => ({
