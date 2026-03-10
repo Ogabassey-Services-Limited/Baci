@@ -54,11 +54,13 @@ export default function BlogPostDetailScreen() {
   useEffect(() => {
     const fetchPost = async () => {
       if (!id || id === 'new') return;
+      if (!merchant?.id) return;
       try {
         const { data, error } = await supabase
           .from('blog_posts')
           .select('title, excerpt, category, featured_image_url, status')
           .eq('id', id)
+          .eq('merchant_id', merchant.id)
           .single();
 
         if (error) throw error;
@@ -81,7 +83,7 @@ export default function BlogPostDetailScreen() {
     } else {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, merchant?.id]);
 
   // Show error screen for invalid route params (after all hooks)
   if (!validatedParams) {
@@ -148,13 +150,17 @@ export default function BlogPostDetailScreen() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      if (!merchant?.id) {
+        throw new Error('Merchant ID is missing');
+      }
+
       const payload = {
         title,
         excerpt,
         category,
         featured_image_url: featuredImage,
         status,
-        merchant_id: merchant?.id,
+        merchant_id: merchant.id,
         updated_at: new Date().toISOString(),
       };
 
@@ -173,7 +179,8 @@ export default function BlogPostDetailScreen() {
         const { error } = await supabase
           .from('blog_posts')
           .update(payload)
-          .eq('id', id);
+          .eq('id', id)
+          .eq('merchant_id', merchant.id);
         if (error) throw error;
       }
 
@@ -192,8 +199,29 @@ export default function BlogPostDetailScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await supabase.from('blog_posts').delete().eq('id', id);
-          router.back();
+          try {
+            if (!merchant?.id) {
+              throw new Error('Merchant ID is missing');
+            }
+
+            const { error } = await supabase
+              .from('blog_posts')
+              .delete()
+              .eq('id', id)
+              .eq('merchant_id', merchant.id);
+
+            if (error) {
+              throw error;
+            }
+
+            router.back();
+          } catch (e: unknown) {
+            console.error('Failed to delete blog post:', e);
+            Alert.alert(
+              'Error',
+              'Failed to delete blog post. Please try again.'
+            );
+          }
         },
       },
     ]);
