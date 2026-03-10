@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -39,7 +39,7 @@ export default function NegotiationsScreen() {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const _router = useRouter();
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     setFetchError(null);
     try {
       const { data, error } = await supabase
@@ -58,7 +58,7 @@ export default function NegotiationsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchRequests();
