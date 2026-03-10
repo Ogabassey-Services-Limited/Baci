@@ -191,36 +191,6 @@ export function asRoute(url: string): Route {
   return url as Route;
 }
 
-function toPathSegments(path: string): string[] {
-  return path
-    .split('/')
-    .map((segment) => segment.trim())
-    .filter(Boolean)
-    .map((segment) => {
-      if (segment === '.' || segment === '..') {
-        throw new Error('Relative path segments are not allowed');
-      }
-
-      return segment;
-    });
-}
-
-/**
- * Build a safe internal storefront path from dynamic segments.
- * Each segment is URL-encoded so user-controlled text cannot break out of the
- * path context when used in href attributes.
- */
-export function buildStorefrontPath(
-  ...parts: Array<string | undefined>
-): Route {
-  const segments = parts
-    .flatMap((part) => (part ? toPathSegments(part) : []))
-    .map((segment) => encodeURIComponent(segment));
-
-  const normalizedPath = `/${segments.join('/')}`;
-  return normalizedPath as Route;
-}
-
 /**
  * Additional route builders for less common routes
  */
