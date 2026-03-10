@@ -192,8 +192,26 @@ export default function BlogPostDetailScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await supabase.from('blog_posts').delete().eq('id', id);
-          router.back();
+          try {
+            if (!merchant?.id) {
+              throw new Error('Merchant ID is missing');
+            }
+
+            const { error } = await supabase
+              .from('blog_posts')
+              .delete()
+              .eq('id', id)
+              .eq('merchant_id', merchant.id);
+
+            if (error) {
+              throw error;
+            }
+
+            router.back();
+          } catch (e: unknown) {
+            console.error('Failed to delete blog post:', e);
+            Alert.alert('Error', 'Failed to delete blog post. Please try again.');
+          }
         },
       },
     ]);
