@@ -64,9 +64,7 @@ describe('Footer', () => {
   });
 
   it('omits the category section when no categories are available', () => {
-    vi.mocked(useMerchantSafe).mockReturnValue({
-      navigationCategories: undefined,
-    } as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(useMerchantSafe).mockReturnValue(null);
 
     render(
       <Footer
