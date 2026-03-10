@@ -2,6 +2,15 @@ import type { Product } from '@/lib/products';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+vi.mock('next/link', () => ({
+  default: ({
+    children,
+    ...props
+  }: {
+    children: React.ReactNode;
+    href: string;
+  }) => <a {...props}>{children}</a>,
+}));
 vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn(
     (products: unknown[]) => products
@@ -19,7 +28,13 @@ vi.mock('@/hooks/use-cart', () => ({
   })),
 }));
 vi.mock('@/hooks/use-merchant', () => ({
-  useMerchantSafe: vi.fn(() => ({ merchant: { id: 'm-1', slug: 'test' } })),
+  useMerchantSafe: vi.fn(() => ({
+    merchant: { id: 'm-1', slug: 'test' },
+    basePath: '/test-store',
+  })),
+}));
+vi.mock('@/lib/routes', () => ({
+  asRoute: vi.fn((path: string) => path),
 }));
 vi.mock('../data/products', () => ({ products: [] }));
 vi.mock('../providers/v2-saved-context', () => ({
@@ -106,5 +121,25 @@ describe('EngineProductGrid', () => {
     expect(screen.getAllByRole('article').map((item) => item.textContent)).toEqual(
       ['Samsung TV', 'iPhone 16']
     );
+  });
+
+  it('links the view-all CTA to the products index route', () => {
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({
+            id: 'phone-1',
+            name: 'iPhone 16',
+            category: 'Smartphones',
+            stock: 4,
+          }),
+        ]}
+        categories={[{ name: 'Smartphones', slug: 'smartphones' }]}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'View all products' })
+    ).toHaveAttribute('href', '/test-store/products');
   });
 });
