@@ -1,10 +1,16 @@
 import type { Product } from '@/lib/products';
+import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn(
     (products: unknown[]) => products
+  ),
+}));
+vi.mock('next/link', () => ({
+  default: ({ children, ...props }: { children: React.ReactNode; href: string }) => (
+    <a {...props}>{children}</a>
   ),
 }));
 vi.mock('next/navigation', () => ({
@@ -49,6 +55,7 @@ vi.mock('./ProductListItem', () => ({
 import { afterEach } from 'vitest';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useSearchParams } from 'next/navigation';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import { EngineProductGrid } from './EngineProductGrid';
 
 afterEach(() => {
