@@ -54,8 +54,15 @@ export function InvalidRouteScreen({
 
         {showBackButton && (
           <Pressable
-            style={[styles.button, { backgroundColor: colors.primary }]}
+            style={({ pressed }) => [
+              styles.button,
+              { backgroundColor: colors.primary },
+              pressed && { opacity: 0.85 },
+            ]}
             onPress={handleGoBack}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            accessibilityHint="Navigates to the previous screen or the home screen"
           >
             <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
             <Text style={styles.buttonText}>Go Back</Text>
