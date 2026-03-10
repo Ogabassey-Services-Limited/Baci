@@ -12,6 +12,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getTemplate } from '@/templates/registry';
 import { StorefrontWrapper } from './storefront-wrapper';
 
+const STOREFRONT_PRODUCTS_LIMIT = 200;
+
 interface StorefrontContentProps {
   merchant: CachedMerchant;
   initialTheme?: V2ThemeMode;
@@ -108,8 +110,7 @@ export async function StorefrontContent({
   const componentsPromise = template ? template.getComponents() : null;
 
   // Define fetches
-  // When a category filter is active, fetch all products in that category.
-  // Otherwise, fetch the top 200 by price for the home page grid.
+  // Keep the homepage and category-filtered fetches bounded to protect SSR.
   const productsQuery = supabase
     .from('products')
     .select(
@@ -134,9 +135,12 @@ export async function StorefrontContent({
     .eq('status', 'active')
     .order('price', { ascending: false });
 
-  const productsPromise = categoryFilter
+  const filteredProductsQuery = categoryFilter
     ? productsQuery.ilike('category', categoryFilter)
-    : productsQuery.limit(200);
+    : productsQuery;
+  const productsPromise = filteredProductsQuery.limit(
+    STOREFRONT_PRODUCTS_LIMIT
+  );
 
   const categoriesPromise = getCachedNavigationCategories(merchant.id);
 
@@ -149,7 +153,15 @@ export async function StorefrontContent({
   // TODO: Google Places fetch will be added back when integrated with template
   // Currently removed as it was unused and blocking CI
 
-  const { data: products } = productsResult;
+  if (productsResult.error) {
+    console.error('Failed to fetch storefront products:', {
+      merchantId: merchant.id,
+      categoryFilter,
+      error: productsResult.error,
+    });
+  }
+
+  const products = productsResult.error ? [] : productsResult.data;
 
   // Transform products to match expected interface
   // biome-ignore lint/suspicious/noExplicitAny: DB result shape differs from Product interface

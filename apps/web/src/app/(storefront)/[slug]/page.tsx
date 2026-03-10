@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { z } from 'zod';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
@@ -15,6 +16,8 @@ import {
 } from '@/lib/seo-utils';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { StorefrontContent } from './storefront-content';
+
+const categoryFilterSchema = z.string().trim().min(1).max(100);
 
 export async function generateMetadata({
   params,
@@ -129,10 +132,13 @@ export default async function StorefrontPage({
     params,
     searchParams,
   ]);
-  const categoryFilter =
+  const parsedCategoryFilter =
     typeof resolvedSearchParams.category === 'string'
-      ? resolvedSearchParams.category
-      : undefined;
+      ? categoryFilterSchema.safeParse(resolvedSearchParams.category)
+      : null;
+  const categoryFilter = parsedCategoryFilter?.success
+    ? parsedCategoryFilter.data
+    : undefined;
 
   // Validate identifier format (can be slug or domain)
   if (!isValidMerchantIdentifier(slug)) {

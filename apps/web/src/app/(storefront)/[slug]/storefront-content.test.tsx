@@ -1,24 +1,38 @@
 import { render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ReactElement } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockSupabase = vi.hoisted(() => {
+  const queryBuilder = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    order: vi.fn(),
+    ilike: vi.fn(),
+    limit: vi.fn(),
+  };
+
+  queryBuilder.select.mockReturnValue(queryBuilder);
+  queryBuilder.eq.mockReturnValue(queryBuilder);
+  queryBuilder.order.mockReturnValue(queryBuilder);
+  queryBuilder.ilike.mockReturnValue(queryBuilder);
+
+  const from = vi.fn(() => queryBuilder);
+
+  return {
+    from,
+    queryBuilder,
+    createClient: vi.fn(() => ({
+      from,
+    })),
+  };
+});
 
 // Mock server-only dependencies
 vi.mock('next/headers', () => ({
   cookies: vi.fn(() => Promise.resolve(new Map())),
 }));
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => ({
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            order: vi.fn(() => ({
-              limit: vi.fn(() => Promise.resolve({ data: [], error: null })),
-            })),
-          })),
-        })),
-      })),
-    })),
-  })),
+  createClient: mockSupabase.createClient,
 }));
 vi.mock('@/lib/cached-categories', () => ({
   getCachedNavigationCategories: vi.fn(() => Promise.resolve([])),
@@ -86,8 +100,15 @@ function createMockMerchant(): CachedMerchant {
 
 const mockMerchant = createMockMerchant();
 
+beforeEach(() => {
+  mockSupabase.queryBuilder.limit.mockResolvedValue({
+    data: [],
+    error: null,
+  });
+});
+
 afterEach(() => {
-  vi.resetAllMocks();
+  vi.clearAllMocks();
   vi.restoreAllMocks();
 });
 
@@ -95,7 +116,7 @@ describe('StorefrontContent', () => {
   it('renders the fallback StorefrontWrapper when no template matches', async () => {
     const result = await StorefrontContent({ merchant: mockMerchant });
 
-    render(result as React.ReactElement);
+    render(result as ReactElement);
     expect(screen.getByText(/Products: \d+/)).toBeInTheDocument();
   });
 
@@ -116,7 +137,7 @@ describe('StorefrontContent', () => {
     } as ReturnType<typeof getTemplate>);
 
     const result = await StorefrontContent({ merchant: mockMerchant });
-    render(result as React.ReactElement);
+    render(result as ReactElement);
 
     expect(screen.getByTestId('template-home')).toBeInTheDocument();
     expect(screen.getByText('test-store')).toBeInTheDocument();
@@ -139,10 +160,43 @@ describe('StorefrontContent', () => {
     );
 
     const result = await StorefrontContent({ merchant: mockMerchant });
-    render(result as React.ReactElement);
+    render(result as ReactElement);
 
     expect(screen.getByText(/Products: \d+/)).toBeInTheDocument();
     consoleSpy.mockRestore();
+  });
+
+  it('limits category-filtered queries and logs Supabase errors gracefully', async () => {
+    mockSupabase.queryBuilder.limit.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'db failed' },
+    });
+
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    const result = await StorefrontContent({
+      merchant: mockMerchant,
+      categoryFilter: 'Laptops',
+    });
+
+    render(result as ReactElement);
+
+    expect(mockSupabase.queryBuilder.ilike).toHaveBeenCalledWith(
+      'category',
+      'Laptops'
+    );
+    expect(mockSupabase.queryBuilder.limit).toHaveBeenCalledWith(200);
+    expect(screen.getByText('Products: 0')).toBeInTheDocument();
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch storefront products:',
+      expect.objectContaining({
+        merchantId: mockMerchant.id,
+        categoryFilter: 'Laptops',
+        error: expect.objectContaining({ message: 'db failed' }),
+      })
+    );
   });
 });
 
