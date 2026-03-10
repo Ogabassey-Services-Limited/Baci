@@ -321,7 +321,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
                   )}
 
                   {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <CopyButton
                       value={file.url}
                       className="h-8 w-8 bg-secondary text-secondary-foreground hover:bg-secondary/80 border-0"
@@ -332,7 +332,6 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
                       size="icon"
                       variant="destructive"
                       className="h-8 w-8"
-                      aria-label={`Delete ${file.name}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDelete(file.id, file.name);

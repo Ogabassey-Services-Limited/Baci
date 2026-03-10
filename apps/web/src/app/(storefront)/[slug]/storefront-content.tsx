@@ -12,44 +12,9 @@ import { createClient } from '@/lib/supabase/server';
 import { getTemplate } from '@/templates/registry';
 import { StorefrontWrapper } from './storefront-wrapper';
 
-const STOREFRONT_PRODUCTS_LIMIT = 200;
-const STOREFRONT_PRODUCTS_SELECT = `
-      id,
-      name,
-      slug,
-      description,
-      price,
-      compare_at_price,
-      images,
-      category,
-      brand,
-      condition,
-      stock,
-      product_categories(
-        categories(name, slug)
-      )
-    `;
-const STOREFRONT_FILTERED_PRODUCTS_SELECT = `
-      id,
-      name,
-      slug,
-      description,
-      price,
-      compare_at_price,
-      images,
-      category,
-      brand,
-      condition,
-      stock,
-      product_categories!inner(
-        categories!inner(name, slug)
-      )
-    `;
-
 interface StorefrontContentProps {
   merchant: CachedMerchant;
   initialTheme?: V2ThemeMode;
-  categoryFilter?: string;
 }
 
 interface ErrorReporter {
@@ -126,7 +91,6 @@ function warnMissingTemplate(context: {
 export async function StorefrontContent({
   merchant,
   initialTheme,
-  categoryFilter,
 }: StorefrontContentProps) {
   // Parallel data fetching for all non-critical data
   const cookieStore = await cookies();
@@ -140,25 +104,32 @@ export async function StorefrontContent({
   const template = templateId ? getTemplate(templateId) : null;
   // Start template loading early so it runs in parallel with data fetches
   const componentsPromise = template ? template.getComponents() : null;
-  const createProductsQuery = (selectClause: string) =>
-    supabase
-      .from('products')
-      .select(selectClause)
-      .eq('merchant_id', merchant.id)
-      .eq('status', 'active')
-      .order('price', { ascending: false });
 
   // Define fetches
-  // Keep the homepage and category-filtered fetches bounded to protect SSR.
-  const filteredProductsQuery = categoryFilter
-    ? createProductsQuery(STOREFRONT_FILTERED_PRODUCTS_SELECT).ilike(
-        'product_categories.categories.name',
-        categoryFilter
+  const productsPromise = supabase
+    .from('products')
+    .select(
+      `
+      id,
+      name,
+      slug,
+      description,
+      price,
+      compare_at_price,
+      images,
+      category,
+      brand,
+      condition,
+      stock,
+      product_categories(
+        categories(name, slug)
       )
-    : createProductsQuery(STOREFRONT_PRODUCTS_SELECT);
-  const productsPromise = filteredProductsQuery.limit(
-    STOREFRONT_PRODUCTS_LIMIT
-  );
+    `
+    )
+    .eq('merchant_id', merchant.id)
+    .eq('status', 'active')
+    .order('price', { ascending: false })
+    .limit(50); // Reduced from 500 for faster initial load
 
   const categoriesPromise = getCachedNavigationCategories(merchant.id);
 
@@ -171,15 +142,7 @@ export async function StorefrontContent({
   // TODO: Google Places fetch will be added back when integrated with template
   // Currently removed as it was unused and blocking CI
 
-  if (productsResult.error) {
-    console.error('Failed to fetch storefront products:', {
-      merchantId: merchant.id,
-      categoryFilter,
-      error: productsResult.error,
-    });
-  }
-
-  const products = productsResult.error ? [] : productsResult.data;
+  const { data: products } = productsResult;
 
   // Transform products to match expected interface
   // biome-ignore lint/suspicious/noExplicitAny: DB result shape differs from Product interface

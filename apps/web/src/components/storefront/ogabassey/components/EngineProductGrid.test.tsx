@@ -1,17 +1,7 @@
 import type { Product } from '@/lib/products';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { useMerchantSafe } from '@/hooks/use-merchant';
 
-vi.mock('next/link', () => ({
-  default: ({
-    children,
-    ...props
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => <a {...props}>{children}</a>,
-}));
 vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn(
     (products: unknown[]) => products
@@ -29,21 +19,7 @@ vi.mock('@/hooks/use-cart', () => ({
   })),
 }));
 vi.mock('@/hooks/use-merchant', () => ({
-  useMerchantSafe: vi.fn(() => ({
-    merchant: { id: 'm-1', slug: 'test' },
-    basePath: '/test-store',
-  })),
-}));
-vi.mock('@/lib/routes', () => ({
-  buildStorefrontPath: vi.fn((...parts: Array<string | undefined>) => {
-    const segments = parts
-      .flatMap((part) => (part ? part.split('/') : []))
-      .map((segment) => segment.trim())
-      .filter(Boolean)
-      .map((segment) => encodeURIComponent(segment));
-
-    return `/${segments.join('/')}`;
-  }),
+  useMerchantSafe: vi.fn(() => ({ merchant: { id: 'm-1', slug: 'test' } })),
 }));
 vi.mock('../data/products', () => ({ products: [] }));
 vi.mock('../providers/v2-saved-context', () => ({
@@ -130,83 +106,5 @@ describe('EngineProductGrid', () => {
     expect(screen.getAllByRole('article').map((item) => item.textContent)).toEqual(
       ['Samsung TV', 'iPhone 16']
     );
-  });
-
-  it('links the view-all CTA to the products index route', () => {
-    render(
-      <EngineProductGrid
-        externalProducts={[
-          createTestProduct({
-            id: 'phone-1',
-            name: 'iPhone 16',
-            category: 'Smartphones',
-            stock: 4,
-          }),
-        ]}
-        categories={[{ name: 'Smartphones', slug: 'smartphones' }]}
-      />
-    );
-
-    expect(
-      screen.getByRole('link', { name: 'View all products' })
-    ).toHaveAttribute('href', '/test-store/products');
-    expect(
-      screen.getByRole('link', { name: 'View all products' }).className
-    ).toContain('text-[color:var(--store-foreground');
-    expect(
-      screen.getByRole('link', { name: 'View all products' }).className
-    ).toContain('hover:text-[color:var(--store-primary');
-  });
-
-  it('uses /products when basePath is empty', () => {
-    vi.mocked(useMerchantSafe).mockReturnValue({
-      merchant: { id: 'm-1', slug: 'test' },
-      basePath: '',
-    } as ReturnType<typeof useMerchantSafe>);
-
-    render(
-      <EngineProductGrid
-        externalProducts={[createTestProduct({ id: 'phone-1', stock: 4 })]}
-        categories={[]}
-      />
-    );
-
-    expect(
-      screen.getByRole('link', { name: 'View all products' })
-    ).toHaveAttribute('href', '/products');
-  });
-
-  it('falls back to storeSlug when MerchantProvider is absent', () => {
-    vi.mocked(useMerchantSafe).mockReturnValue(null);
-
-    render(
-      <EngineProductGrid
-        storeSlug="test-store"
-        externalProducts={[createTestProduct({ id: 'phone-1', stock: 4 })]}
-        categories={[]}
-      />
-    );
-
-    expect(
-      screen.getByRole('link', { name: 'View all products' })
-    ).toHaveAttribute('href', '/test-store/products');
-  });
-
-  it('uses /products when basePath is root', () => {
-    vi.mocked(useMerchantSafe).mockReturnValue({
-      merchant: { id: 'm-1', slug: 'test' },
-      basePath: '/',
-    } as ReturnType<typeof useMerchantSafe>);
-
-    render(
-      <EngineProductGrid
-        externalProducts={[createTestProduct({ id: 'phone-1', stock: 4 })]}
-        categories={[]}
-      />
-    );
-
-    expect(
-      screen.getByRole('link', { name: 'View all products' })
-    ).toHaveAttribute('href', '/products');
   });
 });

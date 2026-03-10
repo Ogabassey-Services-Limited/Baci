@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { z } from 'zod';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
@@ -16,8 +15,6 @@ import {
 } from '@/lib/seo-utils';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { StorefrontContent } from './storefront-content';
-
-const categoryFilterSchema = z.string().trim().min(1).max(100);
 
 export async function generateMetadata({
   params,
@@ -123,22 +120,10 @@ export async function generateMetadata({
  */
 export default async function StorefrontPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [{ slug }, resolvedSearchParams] = await Promise.all([
-    params,
-    searchParams,
-  ]);
-  const parsedCategoryFilter =
-    typeof resolvedSearchParams.category === 'string'
-      ? categoryFilterSchema.safeParse(resolvedSearchParams.category)
-      : null;
-  const categoryFilter = parsedCategoryFilter?.success
-    ? parsedCategoryFilter.data
-    : undefined;
+  const { slug } = await params;
 
   // Validate identifier format (can be slug or domain)
   if (!isValidMerchantIdentifier(slug)) {
@@ -313,11 +298,7 @@ export default async function StorefrontPage({
 
       {/* STREAMING: Heavy data fetching happens here, wrapped in Suspense */}
       <Suspense fallback={<StorefrontPageSkeleton />}>
-        <StorefrontContent
-          merchant={merchant}
-          initialTheme={initialTheme}
-          categoryFilter={categoryFilter}
-        />
+        <StorefrontContent merchant={merchant} initialTheme={initialTheme} />
       </Suspense>
     </>
   );
