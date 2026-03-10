@@ -23,7 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors from '@/constants/Colors';
+import Colors, { BRAND } from '@/constants/Colors';
 import { TextContentTypes, useKeyboard } from '@/hooks/use-keyboard';
 import { createLogger } from '@/lib/logger';
 import { EmailSchema, getFirstError, OtpSchema } from '@/lib/validation';
@@ -74,7 +74,7 @@ export default function LoginScreen() {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [isAppleAvailable, setIsAppleAvailable] = useState(false);
+  const [_isAppleAvailable, setIsAppleAvailable] = useState(false);
 
   // 2026 Best Practice: Use keyboard hook for proper dismiss on submit
   const { withKeyboardDismiss } = useKeyboard();
@@ -380,28 +380,26 @@ export default function LoginScreen() {
           )}
         </Pressable>
 
-        {isAppleAvailable && (
-          <Pressable
-            style={[
-              styles.socialButton,
-              { borderColor: colors.border, flex: 1 },
-              (isLoading || isAppleLoading) && styles.buttonDisabled,
-            ]}
-            onPress={handleAppleSignIn}
-            disabled={isLoading || isAppleLoading}
-          >
-            {isAppleLoading ? (
-              <ActivityIndicator size="small" color={colors.text} />
-            ) : (
-              <>
-                <Ionicons name="logo-apple" size={22} color={colors.text} />
-                <Text style={[styles.socialButtonText, { color: colors.text }]}>
-                  Apple
-                </Text>
-              </>
-            )}
-          </Pressable>
-        )}
+        <Pressable
+          style={[
+            styles.socialButton,
+            { borderColor: colors.border, flex: 1 },
+            (isLoading || isAppleLoading) && styles.buttonDisabled,
+          ]}
+          onPress={handleAppleSignIn}
+          disabled={isLoading || isAppleLoading}
+        >
+          {isAppleLoading ? (
+            <ActivityIndicator size="small" color={colors.text} />
+          ) : (
+            <>
+              <Ionicons name="logo-apple" size={22} color={colors.text} />
+              <Text style={[styles.socialButtonText, { color: colors.text }]}>
+                Apple
+              </Text>
+            </>
+          )}
+        </Pressable>
       </View>
 
       <Text style={[styles.termsText, { color: colors.textSecondary }]}>
