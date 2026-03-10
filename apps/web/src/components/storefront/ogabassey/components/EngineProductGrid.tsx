@@ -235,10 +235,15 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   };
 
   // Sync category filter from URL ?category= param on mount/navigation
+  // Use case-insensitive match to stay consistent with the product filtering logic
   useEffect(() => {
     const urlCategory = searchParams.get('category');
-    if (urlCategory && categories.includes(urlCategory)) {
-      setSelectedCategory(urlCategory);
+    if (!urlCategory) return;
+    const match = categories.find(
+      (c) => c.toLowerCase() === urlCategory.toLowerCase()
+    );
+    if (match) {
+      setSelectedCategory(match);
     }
   }, [searchParams, categories]);
 

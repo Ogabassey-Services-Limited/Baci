@@ -70,9 +70,21 @@ vi.mock('./ProductListItem', () => ({
   ProductListItem: () => <div data-testid="list-item" />,
 }));
 
+import { afterEach } from 'vitest';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useSearchParams } from 'next/navigation';
 import { EngineProductGrid } from './EngineProductGrid';
+
+afterEach(() => {
+  vi.resetAllMocks();
+  vi.mocked(useSearchParams).mockReturnValue(
+    new URLSearchParams() as ReturnType<typeof useSearchParams>
+  );
+  vi.mocked(useMerchantSafe).mockReturnValue({
+    merchant: { id: 'm-1', slug: 'test' },
+    basePath: '/test-store',
+  } as ReturnType<typeof useMerchantSafe>);
+});
 
 function createTestProduct(overrides: Partial<Product>): Product {
   return {
