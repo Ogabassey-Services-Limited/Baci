@@ -74,7 +74,7 @@ export default function LoginScreen() {
   const [otpError, setOtpError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [_isAppleAvailable, setIsAppleAvailable] = useState(false);
+  const [isAppleAvailable, setIsAppleAvailable] = useState(false);
 
   // 2026 Best Practice: Use keyboard hook for proper dismiss on submit
   const { withKeyboardDismiss } = useKeyboard();
@@ -380,26 +380,28 @@ export default function LoginScreen() {
           )}
         </Pressable>
 
-        <Pressable
-          style={[
-            styles.socialButton,
-            { borderColor: colors.border, flex: 1 },
-            (isLoading || isAppleLoading) && styles.buttonDisabled,
-          ]}
-          onPress={handleAppleSignIn}
-          disabled={isLoading || isAppleLoading}
-        >
-          {isAppleLoading ? (
-            <ActivityIndicator size="small" color={colors.text} />
-          ) : (
-            <>
-              <Ionicons name="logo-apple" size={22} color={colors.text} />
-              <Text style={[styles.socialButtonText, { color: colors.text }]}>
-                Apple
-              </Text>
-            </>
-          )}
-        </Pressable>
+        {isAppleAvailable && (
+          <Pressable
+            style={[
+              styles.socialButton,
+              { borderColor: colors.border, flex: 1 },
+              (isLoading || isAppleLoading) && styles.buttonDisabled,
+            ]}
+            onPress={handleAppleSignIn}
+            disabled={isLoading || isAppleLoading}
+          >
+            {isAppleLoading ? (
+              <ActivityIndicator size="small" color={colors.text} />
+            ) : (
+              <>
+                <Ionicons name="logo-apple" size={22} color={colors.text} />
+                <Text style={[styles.socialButtonText, { color: colors.text }]}>
+                  Apple
+                </Text>
+              </>
+            )}
+          </Pressable>
+        )}
       </View>
 
       <Text style={[styles.termsText, { color: colors.textSecondary }]}>
