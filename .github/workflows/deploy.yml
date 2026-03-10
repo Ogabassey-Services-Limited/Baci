@@ -65,20 +65,7 @@ jobs:
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
-        run: |
-          for attempt in 1 2 3; do
-            echo "Deploy attempt $attempt/3..."
-            if pnpm dlx vercel deploy --yes --prebuilt --prod --archive=tgz --token="${{ env.VERCEL_TOKEN }}"; then
-              echo "Deploy succeeded on attempt $attempt"
-              exit 0
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "Deploy failed, retrying in 15s..."
-              sleep 15
-            fi
-          done
-          echo "Deploy failed after 3 attempts"
-          exit 1
+        run: .github/scripts/deploy-with-retry.sh pnpm dlx vercel deploy --yes --prebuilt --prod --archive=tgz --token="${{ env.VERCEL_TOKEN }}"
 
   deploy-preview:
     needs: [changes]
@@ -115,17 +102,4 @@ jobs:
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
         if: ${{ env.VERCEL_TOKEN != '' }}
-        run: |
-          for attempt in 1 2 3; do
-            echo "Deploy attempt $attempt/3..."
-            if pnpm dlx vercel deploy --yes --prebuilt --archive=tgz --token="${{ env.VERCEL_TOKEN }}"; then
-              echo "Deploy succeeded on attempt $attempt"
-              exit 0
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "Deploy failed, retrying in 15s..."
-              sleep 15
-            fi
-          done
-          echo "Deploy failed after 3 attempts"
-          exit 1
+        run: .github/scripts/deploy-with-retry.sh pnpm dlx vercel deploy --yes --prebuilt --archive=tgz --token="${{ env.VERCEL_TOKEN }}"
