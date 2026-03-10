@@ -23,7 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND } from '@/constants/Colors';
+import Colors from '@/constants/Colors';
 import { TextContentTypes, useKeyboard } from '@/hooks/use-keyboard';
 import { createLogger } from '@/lib/logger';
 import { EmailSchema, getFirstError, OtpSchema } from '@/lib/validation';
