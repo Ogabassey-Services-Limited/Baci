@@ -162,7 +162,7 @@ describe('CartScreen - empty state', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Override the cart store mock to return empty items
-    jest.mocked(useCartStore).mockImplementation(
+    (useCartStore as unknown as jest.Mock).mockImplementation(
       (selector: (state: unknown) => unknown) => {
         const state = {
           items: [],
