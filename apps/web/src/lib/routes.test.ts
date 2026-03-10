@@ -14,4 +14,13 @@ describe('buildStorefrontPath', () => {
       '/test%20store/javascript%3Aalert(1)'
     );
   });
+
+  it('rejects relative path traversal segments', () => {
+    expect(() => buildStorefrontPath('/test-store', '..', 'products')).toThrow(
+      'Relative path segments are not allowed'
+    );
+    expect(() => buildStorefrontPath('/test-store', './products')).toThrow(
+      'Relative path segments are not allowed'
+    );
+  });
 });

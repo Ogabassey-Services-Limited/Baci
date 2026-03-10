@@ -195,7 +195,14 @@ function toPathSegments(path: string): string[] {
   return path
     .split('/')
     .map((segment) => segment.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((segment) => {
+      if (segment === '.' || segment === '..') {
+        throw new Error('Relative path segments are not allowed');
+      }
+
+      return segment;
+    });
 }
 
 /**

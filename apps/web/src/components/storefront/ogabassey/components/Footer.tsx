@@ -29,7 +29,7 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   const merchantContext = useMerchantSafe();
-  const basePath = storeSlug || '';
+  const basePath = merchantContext?.basePath ?? storeSlug ?? '';
   const categoryLinks = merchantContext?.navigationCategories || [];
   const businessName = merchant?.business_name || 'Ogabassey';
   const socialLinks = merchant?.social_media || {};

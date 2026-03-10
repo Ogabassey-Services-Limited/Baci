@@ -111,7 +111,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   const { addToCart, cart } = useCart();
   const { toggleSaved, isSaved } = useV2Saved();
   const pathname = usePathname();
-  const basePath = merchantContext?.basePath || '';
+  const basePath = merchantContext?.basePath ?? storeSlug ?? '';
   const allProductsHref = buildStorefrontPath(basePath, 'products');
 
   // All products from SSR
@@ -313,7 +313,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
           {showViewAll && (
             <Link
               href={allProductsHref}
-              className="text-gray-500 hover:text-red-600 font-medium transition-colors text-xs md:text-base hidden sm:block"
+              className="font-medium transition-colors text-xs md:text-base hidden sm:block text-[color:var(--store-foreground,#6b7280)] hover:text-[color:var(--store-primary,#dc2626)]"
             >
               View all products
             </Link>

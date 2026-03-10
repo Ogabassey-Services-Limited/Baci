@@ -75,4 +75,30 @@ describe('Footer', () => {
 
     expect(screen.queryByText('Shop Categories')).not.toBeInTheDocument();
   });
+
+  it('prefers merchantContext.basePath over storeSlug when building links', () => {
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      basePath: '',
+      navigationCategories: [
+        { name: 'Laptops', slug: 'laptops' },
+        { name: 'Gaming Laptops', slug: 'gaming-laptops' },
+      ],
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+
+    render(
+      <Footer
+        merchant={{ business_name: 'Ogabassey' } as MerchantData}
+        storeSlug="/ogabassey"
+      />
+    );
+
+    expect(screen.getByRole('link', { name: 'Logo' })).toHaveAttribute(
+      'href',
+      '/'
+    );
+    expect(screen.getByRole('link', { name: 'Laptops' })).toHaveAttribute(
+      'href',
+      '/laptops'
+    );
+  });
 });

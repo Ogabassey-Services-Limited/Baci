@@ -184,8 +184,11 @@ describe('StorefrontContent', () => {
     render(result as ReactElement);
 
     expect(mockSupabase.queryBuilder.ilike).toHaveBeenCalledWith(
-      'category',
+      'product_categories.categories.name',
       'Laptops'
+    );
+    expect(mockSupabase.queryBuilder.select).toHaveBeenCalledWith(
+      expect.stringContaining('product_categories!inner')
     );
     expect(mockSupabase.queryBuilder.limit).toHaveBeenCalledWith(200);
     expect(screen.getByText('Products: 0')).toBeInTheDocument();

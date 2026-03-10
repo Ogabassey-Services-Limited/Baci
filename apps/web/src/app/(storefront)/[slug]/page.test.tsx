@@ -67,7 +67,7 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/components/storefront/store-not-published', () => ({
   StoreNotPublished: ({ businessName }: { businessName: string }) => (
-    <div>{businessName}</div>
+    <div data-testid="store-not-published">{businessName}</div>
   ),
 }));
 
@@ -149,5 +149,41 @@ describe('StorefrontPage', () => {
       categoryFilter: undefined,
     });
     expect(screen.getByText('no-filter')).toBeInTheDocument();
+  });
+
+  it('rejects with NEXT_NOT_FOUND when the slug is invalid', async () => {
+    const { isValidMerchantIdentifier } = await import('@/lib/validation');
+
+    vi.mocked(isValidMerchantIdentifier).mockReturnValueOnce(false);
+
+    await expect(renderStorefrontPage({})).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects with NEXT_NOT_FOUND when the merchant does not exist', async () => {
+    const { getRequestScopedMerchant } = await import('@/lib/cached-data');
+
+    vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce(null);
+
+    await expect(renderStorefrontPage({})).rejects.toThrow('NEXT_NOT_FOUND');
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders StoreNotPublished for unpublished stores', async () => {
+    const { getRequestScopedMerchant } = await import('@/lib/cached-data');
+
+    vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce({
+      ...mockMerchant,
+      is_published: false,
+    });
+
+    const result = await renderStorefrontPage({});
+
+    render(result as ReactElement);
+
+    expect(screen.getByTestId('store-not-published')).toHaveTextContent(
+      'Ogabassey'
+    );
+    expect(mockStorefrontContent).not.toHaveBeenCalled();
   });
 });

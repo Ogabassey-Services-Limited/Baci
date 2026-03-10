@@ -13,6 +13,38 @@ import { getTemplate } from '@/templates/registry';
 import { StorefrontWrapper } from './storefront-wrapper';
 
 const STOREFRONT_PRODUCTS_LIMIT = 200;
+const STOREFRONT_PRODUCTS_SELECT = `
+      id,
+      name,
+      slug,
+      description,
+      price,
+      compare_at_price,
+      images,
+      category,
+      brand,
+      condition,
+      stock,
+      product_categories(
+        categories(name, slug)
+      )
+    `;
+const STOREFRONT_FILTERED_PRODUCTS_SELECT = `
+      id,
+      name,
+      slug,
+      description,
+      price,
+      compare_at_price,
+      images,
+      category,
+      brand,
+      condition,
+      stock,
+      product_categories!inner(
+        categories!inner(name, slug)
+      )
+    `;
 
 interface StorefrontContentProps {
   merchant: CachedMerchant;
@@ -108,36 +140,22 @@ export async function StorefrontContent({
   const template = templateId ? getTemplate(templateId) : null;
   // Start template loading early so it runs in parallel with data fetches
   const componentsPromise = template ? template.getComponents() : null;
+  const createProductsQuery = (selectClause: string) =>
+    supabase
+      .from('products')
+      .select(selectClause)
+      .eq('merchant_id', merchant.id)
+      .eq('status', 'active')
+      .order('price', { ascending: false });
 
   // Define fetches
   // Keep the homepage and category-filtered fetches bounded to protect SSR.
-  const productsQuery = supabase
-    .from('products')
-    .select(
-      `
-      id,
-      name,
-      slug,
-      description,
-      price,
-      compare_at_price,
-      images,
-      category,
-      brand,
-      condition,
-      stock,
-      product_categories(
-        categories(name, slug)
-      )
-    `
-    )
-    .eq('merchant_id', merchant.id)
-    .eq('status', 'active')
-    .order('price', { ascending: false });
-
   const filteredProductsQuery = categoryFilter
-    ? productsQuery.ilike('category', categoryFilter)
-    : productsQuery;
+    ? createProductsQuery(STOREFRONT_FILTERED_PRODUCTS_SELECT).ilike(
+        'product_categories.categories.name',
+        categoryFilter
+      )
+    : createProductsQuery(STOREFRONT_PRODUCTS_SELECT);
   const productsPromise = filteredProductsQuery.limit(
     STOREFRONT_PRODUCTS_LIMIT
   );

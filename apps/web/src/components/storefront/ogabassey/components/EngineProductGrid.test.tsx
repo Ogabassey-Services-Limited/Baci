@@ -150,6 +150,12 @@ describe('EngineProductGrid', () => {
     expect(
       screen.getByRole('link', { name: 'View all products' })
     ).toHaveAttribute('href', '/test-store/products');
+    expect(
+      screen.getByRole('link', { name: 'View all products' }).className
+    ).toContain('text-[color:var(--store-foreground');
+    expect(
+      screen.getByRole('link', { name: 'View all products' }).className
+    ).toContain('hover:text-[color:var(--store-primary');
   });
 
   it('uses /products when basePath is empty', () => {
@@ -168,6 +174,22 @@ describe('EngineProductGrid', () => {
     expect(
       screen.getByRole('link', { name: 'View all products' })
     ).toHaveAttribute('href', '/products');
+  });
+
+  it('falls back to storeSlug when MerchantProvider is absent', () => {
+    vi.mocked(useMerchantSafe).mockReturnValue(null);
+
+    render(
+      <EngineProductGrid
+        storeSlug="test-store"
+        externalProducts={[createTestProduct({ id: 'phone-1', stock: 4 })]}
+        categories={[]}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'View all products' })
+    ).toHaveAttribute('href', '/test-store/products');
   });
 
   it('uses /products when basePath is root', () => {
