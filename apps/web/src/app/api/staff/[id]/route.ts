@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getAppUrl } from '@/env';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -86,6 +87,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  * Update a staff member (role, permissions, status)
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   try {
     const { id } = await params;
     const cookieStore = await cookies();
@@ -179,7 +188,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/staff/[id]
  * Remove a staff member (soft delete)
  */
-export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   try {
     const { id } = await params;
     const cookieStore = await cookies();
@@ -237,7 +254,15 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
  * POST /api/staff/[id]/resend
  * Resend invitation to a pending staff member
  */
-export async function POST(_request: NextRequest, { params }: RouteParams) {
+export async function POST(request: NextRequest, { params }: RouteParams) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   try {
     const { id } = await params;
     const cookieStore = await cookies();

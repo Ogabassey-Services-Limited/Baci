@@ -1,8 +1,5 @@
-'use client';
-
 import type { MerchantData } from '@/hooks/use-merchant';
-import { useMerchantSafe } from '@/hooks/use-merchant';
-import { buildStorefrontPath } from '@/lib/routes';
+import { asRoute } from '@/lib/routes';
 import { normalizeSocialUrl } from '@/lib/social';
 import {
   Apple,
@@ -28,16 +25,11 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
-  const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath ?? storeSlug ?? '';
-  const categoryLinks = merchantContext?.navigationCategories || [];
   const businessName = merchant?.business_name || 'Ogabassey';
   const socialLinks = merchant?.social_media || {};
   const contactEmail = merchant?.email || 'support@ogabassey.com';
   const contactPhone = merchant?.phone || '+234 814 697 8921';
   const contactAddress = merchant?.business_address || '2 Olaide Tomori St, Ikeja, Lagos';
-  const getStoreHref = (path: string) => buildStorefrontPath(basePath, path);
-  const homeHref = buildStorefrontPath(basePath);
 
   // Helper to render social link if it exists
   const renderSocialLink = (
@@ -77,7 +69,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
           {/* Column 1: Brand Info (Compact) */}
           <div className="space-y-4">
             <Link
-              href={homeHref}
+              href={asRoute(storeSlug || '/')}
               className="flex items-center cursor-pointer select-none"
             >
               <Logo className="h-8 w-auto" />
@@ -134,9 +126,9 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
                 Menu
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
-                <li><Link href={getStoreHref('/about')} className="hover:text-red-500">About Us</Link></li>
-                <li><Link href={getStoreHref('/blog')} className="hover:text-red-500">Blog</Link></li>
-                <li><Link href={getStoreHref('/repairs')} className="hover:text-red-500">Repairs</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/about`)} className="hover:text-red-500">About Us</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/blog`)} className="hover:text-red-500">Blog</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/repairs`)} className="hover:text-red-500">Repairs</Link></li>
               </ul>
             </div>
             <div>
@@ -144,11 +136,11 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
                 Support
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
-                <li><Link href={getStoreHref('/track-order')} className="hover:text-red-500">Track Order</Link></li>
-                <li><Link href={getStoreHref('/faq')} className="hover:text-red-500">Help Center</Link></li>
-                <li><Link href={getStoreHref('/contact')} className="hover:text-red-500">Contact Us</Link></li>
-                <li><Link href={getStoreHref('/terms')} className="hover:text-red-500">Terms of Service</Link></li>
-                <li><Link href={getStoreHref('/privacy')} className="hover:text-red-500">Privacy Policy</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/track-order`)} className="hover:text-red-500">Track Order</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/faq`)} className="hover:text-red-500">Help Center</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/contact`)} className="hover:text-red-500">Contact Us</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/terms`)} className="hover:text-red-500">Terms of Service</Link></li>
+                <li><Link href={asRoute(`${storeSlug}/privacy`)} className="hover:text-red-500">Privacy Policy</Link></li>
               </ul>
             </div>
           </nav>
@@ -249,27 +241,8 @@ export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
           </div>
         </div>
 
-        {categoryLinks.length > 0 && (
-          <div className="mt-8 border-t border-gray-800 pt-6">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-              Shop Categories
-            </h3>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {categoryLinks.map((category) => (
-                <Link
-                  key={category.slug}
-                  href={getStoreHref(`/${category.slug}`)}
-                  className="rounded-full border border-gray-700 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-red-500 hover:text-white"
-                >
-                  {category.name}
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
         <div className="mt-8 pt-4 border-t border-gray-800 text-center text-[10px] text-gray-500">
-          <span suppressHydrationWarning>&copy; {new Date().getFullYear()} {businessName} Ltd. All rights reserved.</span>
+          <span suppressHydrationWarning>&copy; {new Date().getFullYear()} Ogabassey Ltd. All rights reserved.</span>
         </div>
       </div>
     </footer>

@@ -12,7 +12,6 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
-import { buildStorefrontPath } from '@/lib/routes';
 import type { Product as BaciProduct } from '@/lib/products';
 import { products as mockProducts } from '../data/products';
 import { useV2Saved } from '../providers/v2-saved-context';
@@ -112,8 +111,9 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   const { toggleSaved, isSaved } = useV2Saved();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const basePath = merchantContext?.basePath ?? storeSlug ?? '';
-  const allProductsHref = buildStorefrontPath(basePath, 'products');
+  const rawBase = merchantContext?.basePath ?? (storeSlug ? `/${storeSlug}` : '');
+  const basePath = rawBase === '/' ? '' : rawBase;
+  const allProductsHref = `${basePath}/products`;
 
   // All products from SSR
   const allProducts = (() => {
@@ -325,10 +325,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
             <h2 className="text-xl md:text-3xl font-bold text-gray-900 mt-1">{title}</h2>
           </div>
           {showViewAll && (
-            <Link
-              href={allProductsHref}
-              className="font-medium transition-colors text-xs md:text-base hidden sm:block text-[color:var(--store-foreground,#6b7280)] hover:text-[color:var(--store-primary,#dc2626)]"
-            >
+            <Link href={allProductsHref} className="text-[color:var(--store-foreground)] hover:text-[color:var(--store-primary)] font-medium transition-colors text-xs md:text-base hidden sm:block">
               View all products
             </Link>
           )}

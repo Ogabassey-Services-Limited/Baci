@@ -7,7 +7,7 @@
  */
 
 import type { AuthError, Session, User } from '@supabase/supabase-js';
-import { useShallow } from 'zustand/react/shallow';
+import { useShallow } from 'zustand/shallow';
 import { useAuthStore } from '@/stores/auth-store';
 
 export interface UseAuthReturn {

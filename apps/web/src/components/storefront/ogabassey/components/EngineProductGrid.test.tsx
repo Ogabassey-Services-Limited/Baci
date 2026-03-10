@@ -1,17 +1,7 @@
 import type { Product } from '@/lib/products';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { useMerchantSafe } from '@/hooks/use-merchant';
 
-vi.mock('next/link', () => ({
-  default: ({
-    children,
-    ...props
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => <a {...props}>{children}</a>,
-}));
 vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn(
     (products: unknown[]) => products
@@ -30,21 +20,7 @@ vi.mock('@/hooks/use-cart', () => ({
   })),
 }));
 vi.mock('@/hooks/use-merchant', () => ({
-  useMerchantSafe: vi.fn(() => ({
-    merchant: { id: 'm-1', slug: 'test' },
-    basePath: '/test-store',
-  })),
-}));
-vi.mock('@/lib/routes', () => ({
-  buildStorefrontPath: vi.fn((...parts: Array<string | undefined>) => {
-    const segments = parts
-      .flatMap((part) => (part ? part.split('/') : []))
-      .map((segment) => segment.trim())
-      .filter(Boolean)
-      .map((segment) => encodeURIComponent(segment));
-
-    return `/${segments.join('/')}`;
-  }),
+  useMerchantSafe: vi.fn(() => ({ merchant: { id: 'm-1', slug: 'test' } })),
 }));
 vi.mock('../data/products', () => ({ products: [] }));
 vi.mock('../providers/v2-saved-context', () => ({
