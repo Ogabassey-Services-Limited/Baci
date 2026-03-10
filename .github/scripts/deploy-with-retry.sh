@@ -3,6 +3,11 @@
 # Do NOT remove it — without it, each deploy uploads thousands of individual files.
 set -euo pipefail
 
+if [ $# -eq 0 ]; then
+  echo "Usage: $0 <command> [args...]"
+  exit 1
+fi
+
 MAX_ATTEMPTS=3
 BACKOFF_SECONDS=15
 
