@@ -8,8 +8,8 @@ if [ $# -eq 0 ]; then
   exit 1
 fi
 
-MAX_ATTEMPTS=3
-BACKOFF_SECONDS=15
+MAX_ATTEMPTS=${MAX_ATTEMPTS:-3}
+BACKOFF_SECONDS=${BACKOFF_SECONDS:-15}
 
 for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   echo "Deploy attempt $attempt/$MAX_ATTEMPTS..."
