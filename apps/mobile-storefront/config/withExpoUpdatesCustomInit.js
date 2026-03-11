@@ -15,9 +15,17 @@ function applyExpoUpdatesCustomInit(_appDelegateSource) {
 }
 
 function ensureUpdatesCustomInit(podfilePropertiesSource) {
-  const podfileProperties = podfilePropertiesSource.trim()
-    ? JSON.parse(podfilePropertiesSource)
-    : {};
+  let podfileProperties = {};
+
+  if (podfilePropertiesSource.trim()) {
+    try {
+      podfileProperties = JSON.parse(podfilePropertiesSource);
+    } catch (error) {
+      throw new Error(
+        `Malformed Podfile.properties.json: ${error.message}`
+      );
+    }
+  }
 
   podfileProperties[UPDATES_CUSTOM_INIT_KEY] = 'true';
 

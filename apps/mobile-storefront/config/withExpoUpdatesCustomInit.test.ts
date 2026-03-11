@@ -59,6 +59,12 @@ public class AppDelegate: ExpoAppDelegate {}
     });
   });
 
+  it('ensureUpdatesCustomInit throws a clear error for malformed Podfile.properties.json', () => {
+    expect(() => ensureUpdatesCustomInit('{ invalid json')).toThrow(
+      'Malformed Podfile.properties.json:'
+    );
+  });
+
   it('returns a default value when a file is missing', () => {
     const tempRoot = fs.mkdtempSync(
       path.join(os.tmpdir(), 'baci-storefront-missing-file-')
@@ -87,6 +93,24 @@ public class AppDelegate: ExpoAppDelegate {}
 
       expect(findAppDelegatePath(iosDir)).toBe(
         path.join(appDir, 'AppDelegate.swift')
+      );
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('throws when no AppDelegate.swift files exist', () => {
+    const tempRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'baci-storefront-app-delegate-missing-')
+    );
+
+    try {
+      const iosDir = path.join(tempRoot, 'ios');
+
+      fs.mkdirSync(path.join(iosDir, 'Ogabassey'), { recursive: true });
+
+      expect(() => findAppDelegatePath(iosDir)).toThrow(
+        'Expected exactly one AppDelegate.swift in ios/, found 0'
       );
     } finally {
       fs.rmSync(tempRoot, { recursive: true, force: true });
