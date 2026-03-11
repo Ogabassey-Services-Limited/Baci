@@ -2,6 +2,7 @@
 
 // Template preview
 import type React from 'react';
+import { Suspense } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import type { Product } from '@/lib/products';
 import { BannerCarousel } from '../components/BannerCarousel';
@@ -39,14 +40,17 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({ products, categorie
         <BannerCarousel className="h-40 md:h-52" />
       </div>
 
-      <EngineProductGrid
-        title="Featured Products"
-        storeSlug={storeSlug}
-        // If we have products from props, pass them to prevent client-side fetching
-        externalProducts={products}
-        categories={categories}
-        useMockData={!storeSlug && !products}
-      />
+      {/* Suspense boundary required: EngineProductGrid uses useSearchParams */}
+      <Suspense>
+        <EngineProductGrid
+          title="Featured Products"
+          storeSlug={storeSlug}
+          // If we have products from props, pass them to prevent client-side fetching
+          externalProducts={products}
+          categories={categories}
+          useMockData={!storeSlug && !products}
+        />
+      </Suspense>
     </>
   );
 };

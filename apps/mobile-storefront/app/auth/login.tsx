@@ -23,7 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND } from '@/constants/Colors';
+import Colors from '@/constants/Colors';
 import { TextContentTypes, useKeyboard } from '@/hooks/use-keyboard';
 import { createLogger } from '@/lib/logger';
 import { EmailSchema, getFirstError, OtpSchema } from '@/lib/validation';
@@ -318,7 +318,7 @@ export default function LoginScreen() {
       <Pressable
         style={[
           styles.primaryButton,
-          { backgroundColor: BRAND.primary },
+          { backgroundColor: colors.primary },
           isLoading && styles.buttonDisabled,
         ]}
         onPress={handleContinue}
@@ -339,7 +339,7 @@ export default function LoginScreen() {
         onPress={() => setAuthMethod(authMethod === 'otp' ? 'password' : 'otp')}
         style={styles.methodToggle}
       >
-        <Text style={[styles.methodToggleText, { color: BRAND.primary }]}>
+        <Text style={[styles.methodToggleText, { color: colors.primary }]}>
           {authMethod === 'otp'
             ? 'Use password instead'
             : 'Use verification code instead'}
@@ -404,11 +404,11 @@ export default function LoginScreen() {
 
       <Text style={[styles.termsText, { color: colors.textSecondary }]}>
         By continuing, you agree to our{' '}
-        <Text style={[styles.link, { color: BRAND.primary }]}>
+        <Text style={[styles.link, { color: colors.primary }]}>
           Terms of Service
         </Text>{' '}
         and{' '}
-        <Text style={[styles.link, { color: BRAND.primary }]}>
+        <Text style={[styles.link, { color: colors.primary }]}>
           Privacy Policy
         </Text>
       </Text>
@@ -493,7 +493,7 @@ export default function LoginScreen() {
       <Pressable
         style={[
           styles.primaryButton,
-          { backgroundColor: BRAND.primary },
+          { backgroundColor: colors.primary },
           isLoading && styles.buttonDisabled,
         ]}
         onPress={async () => {
@@ -535,7 +535,7 @@ export default function LoginScreen() {
           Didn't receive the code?
         </Text>
         <Pressable onPress={handleResendOtp} disabled={isLoading}>
-          <Text style={[styles.resendLink, { color: BRAND.primary }]}>
+          <Text style={[styles.resendLink, { color: colors.primary }]}>
             Resend
           </Text>
         </Pressable>
@@ -600,7 +600,7 @@ export default function LoginScreen() {
       <Pressable
         style={[
           styles.primaryButton,
-          { backgroundColor: BRAND.primary },
+          { backgroundColor: colors.primary },
           isLoading && styles.buttonDisabled,
         ]}
         onPress={handlePasswordSignIn}
@@ -640,7 +640,7 @@ export default function LoginScreen() {
         }}
         style={styles.methodToggle}
       >
-        <Text style={[styles.methodToggleText, { color: BRAND.primary }]}>
+        <Text style={[styles.methodToggleText, { color: colors.primary }]}>
           Sign in with verification code instead
         </Text>
       </Pressable>

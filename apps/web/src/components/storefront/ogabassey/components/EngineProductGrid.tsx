@@ -6,8 +6,10 @@
 
 'use client';
 
-import React, { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import type { Route } from 'next';
+import Link from 'next/link';
+import React, { useEffect, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -109,6 +111,10 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   const { addToCart, cart } = useCart();
   const { toggleSaved, isSaved } = useV2Saved();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const rawBase = merchantContext?.basePath ?? (storeSlug ? `/${storeSlug}` : '');
+  const basePath = rawBase === '/' ? '' : rawBase;
+  const allProductsHref = `${basePath}/products`;
 
   // All products from SSR
   const allProducts = (() => {
@@ -229,6 +235,24 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     window.history.replaceState(null, '', pathname);
   };
 
+  // Sync category filter from URL ?category= param on mount/navigation
+  // Use case-insensitive match to stay consistent with the product filtering logic
+  // Depend on categoryList (props) instead of derived categories array for stable reference
+  useEffect(() => {
+    const urlCategory = searchParams.get('category');
+    if (!urlCategory) return;
+    if (urlCategory.toLowerCase() === 'all') {
+      setSelectedCategory('All');
+      return;
+    }
+    const match = categoryList.find(
+      (c) => c.name.toLowerCase() === urlCategory.toLowerCase()
+    );
+    if (match) {
+      setSelectedCategory(match.name);
+    }
+  }, [searchParams, categoryList]);
+
   // Reset pagination when filters change
   React.useEffect(() => {
     setDisplayCount(PRODUCTS_PER_PAGE);
@@ -307,9 +331,9 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
             <h2 className="text-xl md:text-3xl font-bold text-gray-900 mt-1">{title}</h2>
           </div>
           {showViewAll && (
-            <a href="#" className="text-gray-500 hover:text-red-600 font-medium transition-colors text-xs md:text-base hidden sm:block">
+            <Link href={allProductsHref as Route} className="text-[color:var(--store-foreground)] hover:text-[color:var(--store-primary)] font-medium transition-colors text-xs md:text-base hidden sm:block">
               View all products
-            </a>
+            </Link>
           )}
         </div>
 
