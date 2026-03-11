@@ -194,20 +194,32 @@ export async function POST(request: Request) {
       .eq('id', rewardId);
 
     // Log the redemption in loyalty history
-    await supabase.from('loyalty_transactions').insert({
-      customer_id: customer.id,
-      merchant_id: reward.merchant_id,
-      type: 'redeemed',
-      points: -reward.points_required,
-      description: `Redeemed ${reward.points_required} points for ₦${reward.airtime_amount} airtime`,
-      metadata: {
-        reward_type: 'airtime',
-        reward_id: rewardId,
-        phone_number: formattedPhone,
-        network_provider: networkProvider,
-        vtu_transaction_id: transaction.id,
-      },
-    });
+    const { error: logError } = await supabase
+      .from('points_transactions')
+      .insert({
+        customer_id: customer.id,
+        merchant_id: reward.merchant_id,
+        type: 'redeemed',
+        points: -reward.points_required,
+        balance_after: (customer.loyalty_points || 0) - reward.points_required,
+        source: 'redemption',
+        description: `Redeemed ${reward.points_required} points for ₦${reward.airtime_amount} airtime`,
+        metadata: {
+          reward_type: 'airtime',
+          reward_id: rewardId,
+          phone_number: formattedPhone,
+          network_provider: networkProvider,
+          vtu_transaction_id: transaction.id,
+        },
+      });
+
+    if (logError) {
+      console.error('Error logging points transaction:', logError);
+      return NextResponse.json(
+        { error: 'Failed to record transaction history' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
