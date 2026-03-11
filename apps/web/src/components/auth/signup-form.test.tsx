@@ -79,4 +79,21 @@ describe('SignupForm', () => {
       screen.getAllByRole('button', { name: 'Show password' })
     ).toHaveLength(1);
   });
+
+  it('restores the accessible name when a password field is hidden again', async () => {
+    const user = userEvent.setup();
+
+    render(<SignupForm />);
+
+    const [passwordToggle] = screen.getAllByRole('button', {
+      name: 'Show password',
+    });
+
+    await user.click(passwordToggle);
+    await user.click(screen.getByRole('button', { name: 'Hide password' }));
+
+    expect(
+      screen.getAllByRole('button', { name: 'Show password' })
+    ).toHaveLength(2);
+  });
 });
