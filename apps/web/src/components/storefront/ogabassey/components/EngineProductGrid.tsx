@@ -237,16 +237,21 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
 
   // Sync category filter from URL ?category= param on mount/navigation
   // Use case-insensitive match to stay consistent with the product filtering logic
+  // Depend on categoryList (props) instead of derived categories array for stable reference
   useEffect(() => {
     const urlCategory = searchParams.get('category');
     if (!urlCategory) return;
-    const match = categories.find(
-      (c) => c.toLowerCase() === urlCategory.toLowerCase()
+    if (urlCategory.toLowerCase() === 'all') {
+      setSelectedCategory('All');
+      return;
+    }
+    const match = categoryList.find(
+      (c) => c.name.toLowerCase() === urlCategory.toLowerCase()
     );
     if (match) {
-      setSelectedCategory(match);
+      setSelectedCategory(match.name);
     }
-  }, [searchParams, categories]);
+  }, [searchParams, categoryList]);
 
   // Reset pagination when filters change
   React.useEffect(() => {
