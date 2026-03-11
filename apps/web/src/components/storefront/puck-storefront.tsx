@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';
 import { useMerchant } from '@/hooks/use-merchant';
 import { createClient } from '@/lib/supabase/client';
+import type { ThemeConfiguration } from '@/lib/theme-config';
 
 interface PuckStorefrontProps {
   onNoConfig?: () => void;
@@ -43,12 +44,11 @@ export function PuckStorefront({ onNoConfig }: PuckStorefrontProps) {
 
           // Apply theme if it exists
           const configWithTheme = pageConfig.published_config as {
-            theme?: Record<string, unknown>;
+            theme?: ThemeConfiguration;
           };
           if (configWithTheme.theme) {
             const { applyTheme } = await import('@/lib/theme-manager');
-            // biome-ignore lint/suspicious/noExplicitAny: Theme structure is dynamic
-            applyTheme(configWithTheme.theme as any);
+            applyTheme(configWithTheme.theme);
           }
         } else {
           // Config exists but is empty
