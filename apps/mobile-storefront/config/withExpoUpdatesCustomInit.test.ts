@@ -6,6 +6,7 @@ import {
   applyExpoUpdatesCustomInit,
   ensureUpdatesCustomInit,
   findAppDelegatePath,
+  readFileOrDefault,
 } from './withExpoUpdatesCustomInit';
 
 describe('withExpoUpdatesCustomInit', () => {
@@ -40,6 +41,20 @@ public class AppDelegate: ExpoAppDelegate {}
       'ios.useFrameworks': 'static',
       updatesCustomInit: 'true',
     });
+  });
+
+  it('returns a default value when a file is missing', () => {
+    const tempRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'baci-storefront-missing-file-')
+    );
+
+    try {
+      const filePath = path.join(tempRoot, 'Podfile.properties.json');
+
+      expect(readFileOrDefault(filePath, '{}\n')).toBe('{}\n');
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 
   it('finds the single AppDelegate.swift in the iOS app directory', () => {

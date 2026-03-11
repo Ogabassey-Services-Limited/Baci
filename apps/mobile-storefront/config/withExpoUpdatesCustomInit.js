@@ -205,6 +205,18 @@ function findAppDelegatePath(iosDir) {
   return appDelegatePaths[0];
 }
 
+function readFileOrDefault(filePath, defaultValue) {
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      return defaultValue;
+    }
+
+    throw error;
+  }
+}
+
 const withExpoUpdatesCustomInit = (config) =>
   withDangerousMod(config, [
     'ios',
@@ -221,9 +233,10 @@ const withExpoUpdatesCustomInit = (config) =>
         fs.writeFileSync(appDelegatePath, nextAppDelegateSource);
       }
 
-      const podfilePropertiesSource = fs.existsSync(podfilePropertiesPath)
-        ? fs.readFileSync(podfilePropertiesPath, 'utf8')
-        : '{}\n';
+      const podfilePropertiesSource = readFileOrDefault(
+        podfilePropertiesPath,
+        '{}\n'
+      );
       const nextPodfilePropertiesSource = ensureUpdatesCustomInit(
         podfilePropertiesSource
       );
@@ -245,3 +258,4 @@ module.exports.APP_DELEGATE_TEMPLATE = APP_DELEGATE_TEMPLATE;
 module.exports.applyExpoUpdatesCustomInit = applyExpoUpdatesCustomInit;
 module.exports.ensureUpdatesCustomInit = ensureUpdatesCustomInit;
 module.exports.findAppDelegatePath = findAppDelegatePath;
+module.exports.readFileOrDefault = readFileOrDefault;
