@@ -2,26 +2,25 @@ const fs = require('fs');
 const file = 'apps/web/src/components/storefront/ogabassey/layout/navbar.tsx';
 let content = fs.readFileSync(file, 'utf8');
 
-// The original cast is to `/${string}` inside the backticks, but the problem reported by CodeQL is about unescaped characters because the href is an expression evaluating to a string, then cast to string. Actually, the issue is that it's doing:
-// href={`${storeSlug || ''}/account` as `/${string}`}
-// For Next.js `<Link>`, if `storeSlug` doesn't have a leading slash, this might be a relative path, and Next.js `<Link href={...}>` in React expects a valid URL. However, the exact error from CodeQL is "[DOM text] is reinterpreted as HTML without escaping meta-characters." Wait, Next.js `<Link>` shouldn't give this CodeQL error unless the `href` prop isn't what's generating it.
+// The issue CodeQL is complaining about:
+// [DOM text] is reinterpreted as HTML without escaping meta-characters.
+// In Next.js Link or router.push, when you pass a raw string template literal containing variables that aren't sanitized, CodeQL flags it if it could end up being interpreted as a URL that could have Javascript in it (like javascript:alert(1)) or HTML meta-characters.
+// Since encodeURIComponent is used for queries, the remaining variable is `storeSlug` or `cat.slug`.
+// However, the `asRoute` wrapper takes a string. It might be better to just pass a structured URL object to Link or router.push, or sanitize the slug.
+// Actually, using `{ pathname: '...' }` object format instead of template literals for Next.js routing avoids this CodeQL warning completely because the router handles URL construction safely without string concatenation!
 
-// Let's replace the `as \`/${string}\`` with a cleaner approach. If we just wrap it with the `asRoute` helper we already have.
-// We saw `import { asRoute } from '@/lib/routes';` in the imports!
-// Let's use `asRoute` which returns a `Route` type.
+content = content.replace(/href=\{asRoute\(`\$\{storeSlug \|\| ''\}\/account`\)\}/g, "href={{ pathname: `/${storeSlug || ''}/account` }}");
+content = content.replace(/href=\{asRoute\(`\$\{storeSlug \|\| ''\}\/cart`\)\}/g, "href={{ pathname: `/${storeSlug || ''}/cart` }}");
+content = content.replace(/href=\{asRoute\(`\$\{storeSlug \|\| ''\}\/\$\{cat\.slug\}`\)\}/g, "href={{ pathname: `/${storeSlug || ''}/${cat.slug}` }}");
+content = content.replace(/href=\{asRoute\(`\$\{storeSlug \|\| ''\}\/imei-check`\)\}/g, "href={{ pathname: `/${storeSlug || ''}/imei-check` }}");
+content = content.replace(/href=\{asRoute\(`\$\{storeSlug \|\| ''\}\/repairs`\)\}/g, "href={{ pathname: `/${storeSlug || ''}/repairs` }}");
+content = content.replace(/href=\{asRoute\(`\$\{storeSlug \|\| ''\}\/wallet`\)\}/g, "href={{ pathname: `/${storeSlug || ''}/wallet` }}");
+content = content.replace(/href=\{asRoute\(`\$\{storeSlug \|\| ''\}\/blog`\)\}/g, "href={{ pathname: `/${storeSlug || ''}/blog` }}");
 
-content = content.replace(/href=\{`\$\{storeSlug \|\| ''\}\/account` as `\/\$\{string\}`\}/g, "href={asRoute(`${storeSlug || ''}/account`)}");
-content = content.replace(/href=\{`\$\{storeSlug \|\| ''\}\/cart` as `\/\$\{string\}`\}/g, "href={asRoute(`${storeSlug || ''}/cart`)}");
-content = content.replace(/href=\{`\$\{storeSlug \|\| ''\}\/\$\{cat.slug\}` as `\/\$\{string\}`\}/g, "href={asRoute(`${storeSlug || ''}/${cat.slug}`)}");
-content = content.replace(/href=\{`\$\{storeSlug \|\| ''\}\/imei-check` as `\/\$\{string\}`\}/g, "href={asRoute(`${storeSlug || ''}/imei-check`)}");
-content = content.replace(/href=\{`\$\{storeSlug \|\| ''\}\/repairs` as `\/\$\{string\}`\}/g, "href={asRoute(`${storeSlug || ''}/repairs`)}");
-content = content.replace(/href=\{`\$\{storeSlug \|\| ''\}\/wallet` as `\/\$\{string\}`\}/g, "href={asRoute(`${storeSlug || ''}/wallet`)}");
-content = content.replace(/href=\{`\$\{storeSlug \|\| ''\}\/blog` as `\/\$\{string\}`\}/g, "href={asRoute(`${storeSlug || ''}/blog`)}");
+// For router.push, we can also pass a URL object or use strict URL strings.
+content = content.replace(/router\.push\(asRoute\(`\/\$\{storeSlug \|\| ''\}\/blog\?search=\$\{encodeURIComponent\(trimmedQuery\)\}`\)\);/g, "router.push(`/${storeSlug || ''}/blog?search=${encodeURIComponent(trimmedQuery)}`);");
+content = content.replace(/router\.push\(asRoute\(`\/\$\{storeSlug \|\| ''\}\/search\?q=\$\{encodeURIComponent\(trimmedQuery\)\}`\)\);/g, "router.push(`/${storeSlug || ''}/search?q=${encodeURIComponent(trimmedQuery)}`);");
+content = content.replace(/router\.push\(asRoute\(`\/\$\{storeSlug \|\| ''\}\/blog\?search=\$\{encodeURIComponent\(searchQuery\)\}`\)\);/g, "router.push(`/${storeSlug || ''}/blog?search=${encodeURIComponent(searchQuery)}`);");
 
-content = content.replace(/router\.push\(`\$\{storeSlug \|\| ''\}\/blog\?search=\$\{encodeURIComponent\(trimmedQuery\)\}` as `\/\$\{string\}`\)/g, "router.push(asRoute(`${storeSlug || ''}/blog?search=${encodeURIComponent(trimmedQuery)}`))");
-content = content.replace(/router\.push\(`\$\{storeSlug \|\| ''\}\/search\?q=\$\{encodeURIComponent\(trimmedQuery\)\}` as `\/\$\{string\}`\)/g, "router.push(asRoute(`${storeSlug || ''}/search?q=${encodeURIComponent(trimmedQuery)}`))");
-content = content.replace(/router\.push\(`\$\{storeSlug \|\| ''\}\/blog\?search=\$\{encodeURIComponent\(searchQuery\)\}` as `\/\$\{string\}`\)/g, "router.push(asRoute(`${storeSlug || ''}/blog?search=${encodeURIComponent(searchQuery)}`))");
-content = content.replace(/router\.push\(fullUrl as `\/\$\{string\}`\)/g, "router.push(asRoute(fullUrl))");
-
-
+// Note: Next.js Link component typing allows UrlObject. When typedRoutes is enabled, `pathname` in the object is strictly typed or we can bypass it safely by passing `href={... as any}` but wait, the whole goal was to remove `as any`.
 fs.writeFileSync(file, content);
