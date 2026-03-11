@@ -3,11 +3,14 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   APP_DELEGATE_TEMPLATE,
+  APP_DELEGATE_TEMPLATE_PATH,
   applyExpoUpdatesCustomInit,
   ensureUpdatesCustomInit,
   findAppDelegatePath,
   readFileOrDefault,
 } from './withExpoUpdatesCustomInit';
+
+const ROOT = path.resolve(__dirname, '..');
 
 describe('withExpoUpdatesCustomInit', () => {
   it('replaces the default AppDelegate with the custom expo-updates init flow', () => {
@@ -27,6 +30,19 @@ public class AppDelegate: ExpoAppDelegate {}
       'window?.rootViewController = UpdatesEnabledRootViewController()'
     );
     expect(result).toContain('updatesController?.launchAssetUrl()');
+  });
+
+  it('keeps the shared AppDelegate template in sync with the committed iOS file', () => {
+    const iosDir = path.join(ROOT, 'ios');
+    const committedAppDelegatePath = findAppDelegatePath(iosDir);
+    const committedAppDelegateSource = fs.readFileSync(
+      committedAppDelegatePath,
+      'utf8'
+    );
+    const templateSource = fs.readFileSync(APP_DELEGATE_TEMPLATE_PATH, 'utf8');
+
+    expect(templateSource).toBe(APP_DELEGATE_TEMPLATE);
+    expect(committedAppDelegateSource).toBe(templateSource);
   });
 
   it('enables updatesCustomInit without removing other Podfile properties', () => {
