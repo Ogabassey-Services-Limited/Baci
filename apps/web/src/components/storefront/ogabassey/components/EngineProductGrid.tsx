@@ -6,6 +6,7 @@
 
 'use client';
 
+import type { Route } from 'next';
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -325,7 +326,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
             <h2 className="text-xl md:text-3xl font-bold text-gray-900 mt-1">{title}</h2>
           </div>
           {showViewAll && (
-            <Link href={allProductsHref} className="text-[color:var(--store-foreground)] hover:text-[color:var(--store-primary)] font-medium transition-colors text-xs md:text-base hidden sm:block">
+            <Link href={allProductsHref as Route} className="text-[color:var(--store-foreground)] hover:text-[color:var(--store-primary)] font-medium transition-colors text-xs md:text-base hidden sm:block">
               View all products
             </Link>
           )}
