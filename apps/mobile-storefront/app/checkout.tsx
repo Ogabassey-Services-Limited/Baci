@@ -277,7 +277,7 @@ function FormField({
         }}
       />
       {errors[name] && (
-        <Text style={styles.fieldError} accessibilityLiveRegion="polite">
+        <Text style={[styles.fieldError, { color: colors.error }]} accessibilityLiveRegion="polite">
           {errors[name]?.message}
         </Text>
       )}
@@ -1333,9 +1333,9 @@ export default function CheckoutScreen() {
           <Text style={[styles.stepTitle, { color: colors.text }]}>
             Checkout
           </Text>
-          <View style={styles.stepBadge}>
-            <Ionicons name="checkmark" size={12} color={BRAND.primary} />
-            <Text style={styles.stepBadgeText}>
+          <View style={[styles.stepBadge, { backgroundColor: `${colors.primary}15` }]}>
+            <Ionicons name="checkmark" size={12} color={colors.primary} />
+            <Text style={[styles.stepBadgeText, { color: colors.primary }]}>
               {items.length} item{items.length === 1 ? '' : 's'}
             </Text>
           </View>
@@ -1361,9 +1361,9 @@ export default function CheckoutScreen() {
                 style={[
                   styles.stepPill,
                   {
-                    backgroundColor: isActive ? palette.red[50] : colors.card,
+                    backgroundColor: isActive ? `${colors.primary}15` : colors.card,
                     borderColor:
-                      isActive || isCompleted ? BRAND.primary : colors.border,
+                      isActive || isCompleted ? colors.primary : colors.border,
                   },
                 ]}
               >
@@ -1372,17 +1372,17 @@ export default function CheckoutScreen() {
                     styles.stepPillDot,
                     {
                       backgroundColor:
-                        isActive || isCompleted ? BRAND.primary : colors.border,
+                        isActive || isCompleted ? colors.primary : colors.border,
                     },
                   ]}
                 >
                   {isCompleted ? (
-                    <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                    <Ionicons name="checkmark" size={12} color={colors.primaryForeground} />
                   ) : (
                     <Text
                       style={[
                         styles.stepPillNumber,
-                        { color: isActive ? '#FFFFFF' : colors.textSecondary },
+                        { color: isActive ? colors.primaryForeground : colors.textSecondary },
                       ]}
                     >
                       {index + 1}
@@ -1516,7 +1516,7 @@ export default function CheckoutScreen() {
                   ]}
                 >
                   {saveDetails && (
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                    <Ionicons name="checkmark" size={14} color={colors.primaryForeground} />
                   )}
                 </View>
                 <Text style={[styles.checkboxLabel, { color: colors.text }]}>
@@ -1529,13 +1529,13 @@ export default function CheckoutScreen() {
                   <View
                     style={[
                       styles.accountInfoBanner,
-                      { backgroundColor: `${BRAND.primary}10` },
+                  { backgroundColor: `${colors.primary}10` },
                     ]}
                   >
                     <Ionicons
                       name="information-circle"
                       size={18}
-                      color={BRAND.primary}
+                  color={colors.primary}
                     />
                     <Text
                       style={[
@@ -1563,7 +1563,7 @@ export default function CheckoutScreen() {
                           borderColor:
                             accountPassword.length > 0 &&
                             accountPassword.length < 6
-                              ? '#EF4444'
+                            ? colors.error
                               : colors.border,
                         },
                       ]}
@@ -1578,7 +1578,7 @@ export default function CheckoutScreen() {
                     />
                     {accountPassword.length > 0 &&
                       accountPassword.length < 6 && (
-                        <Text style={styles.fieldError}>
+                        <Text style={[styles.fieldError, { color: colors.error }]}>
                           Password must be at least 6 characters
                         </Text>
                       )}
@@ -1664,7 +1664,7 @@ export default function CheckoutScreen() {
                         styles.selectInput,
                         {
                           backgroundColor: colors.card,
-                          borderColor: errors.city ? '#EF4444' : colors.border,
+                          borderColor: errors.city ? colors.error : colors.border,
                         },
                       ]}
                       accessibilityRole="button"
@@ -1718,7 +1718,7 @@ export default function CheckoutScreen() {
                         styles.selectInput,
                         {
                           backgroundColor: colors.card,
-                          borderColor: errors.state ? '#EF4444' : colors.border,
+                          borderColor: errors.state ? colors.error : colors.border,
                         },
                       ]}
                       accessibilityRole="button"
@@ -1807,22 +1807,22 @@ export default function CheckoutScreen() {
                   });
                 }
               }}
-              style={styles.retryCard}
+              style={[styles.retryCard, { borderColor: colors.warning, backgroundColor: colors.card }]}
               accessibilityRole="button"
               accessibilityLabel="Reload delivery rates"
             >
-              <View style={styles.retryIconWrap}>
-                <Ionicons name="car-outline" size={22} color="#B45309" />
+              <View style={[styles.retryIconWrap, { backgroundColor: colors.muted }]}>
+                <Ionicons name="car-outline" size={22} color={colors.textSecondary} />
               </View>
               <View style={styles.retryTextWrap}>
-                <Text style={styles.retryTitle}>Oops! Rates took a detour</Text>
-                <Text style={styles.retrySubtitle}>
+                <Text style={[styles.retryTitle, { color: colors.text }]}>Oops! Rates took a detour</Text>
+                <Text style={[styles.retrySubtitle, { color: colors.textSecondary }]}>
                   Our delivery partners are a bit slow today. Tap here to try
                   again.
                 </Text>
               </View>
-              <View style={styles.retryBadge}>
-                <Text style={styles.retryBadgeText}>Refresh Rates</Text>
+              <View style={[styles.retryBadge, { backgroundColor: colors.muted }]}>
+                <Text style={[styles.retryBadgeText, { color: colors.textSecondary }]}>Refresh Rates</Text>
               </View>
             </Pressable>
           ) : (
@@ -2180,13 +2180,13 @@ export default function CheckoutScreen() {
               >
                 {isProcessing ? (
                   <View style={styles.processingContainer}>
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                    <Text style={styles.actionButtonText}>Processing...</Text>
+                    <ActivityIndicator color={colors.primaryForeground} size="small" />
+                    <Text style={[styles.actionButtonText, { color: colors.primaryForeground }]}>Processing...</Text>
                   </View>
                 ) : (
                   <>
-                    <Text style={styles.actionButtonText}>Place Order</Text>
-                    <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                    <Text style={[styles.actionButtonText, { color: colors.primaryForeground }]}>Place Order</Text>
+                    <Ionicons name="arrow-forward" size={18} color={colors.primaryForeground} />
                   </>
                 )}
               </Pressable>
@@ -2200,8 +2200,8 @@ export default function CheckoutScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Continue to ${step === 'address' ? 'payment' : 'review'}`}
               >
-                <Text style={styles.actionButtonText}>Continue</Text>
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                <Text style={[styles.actionButtonText, { color: colors.primaryForeground }]}>Continue</Text>
+                <Ionicons name="arrow-forward" size={18} color={colors.primaryForeground} />
               </Pressable>
             )}
           </View>
@@ -2238,7 +2238,7 @@ export default function CheckoutScreen() {
                 keyExtractor={(item) => item}
                 renderItem={({ item }) => (
                   <Pressable
-                    style={styles.pickerItem}
+                    style={[styles.pickerItem, { borderBottomColor: colors.border }]}
                     onPress={() => handleSelectState(item)}
                   >
                     <Text
@@ -2335,7 +2335,7 @@ export default function CheckoutScreen() {
                 keyboardShouldPersistTaps="handled"
                 renderItem={({ item }) => (
                   <Pressable
-                    style={styles.pickerItem}
+                    style={[styles.pickerItem, { borderBottomColor: colors.border }]}
                     onPress={() => handleSelectCity(item)}
                   >
                     <Text
@@ -2382,7 +2382,7 @@ export default function CheckoutScreen() {
           >
             {/* Header */}
             <View
-              style={[styles.cryptoHeader, { backgroundColor: BRAND.primary }]}
+          style={[styles.cryptoHeader, { backgroundColor: colors.primary }]}
             >
               <View style={styles.cryptoHeaderLeft}>
                 <Pressable
@@ -2390,13 +2390,13 @@ export default function CheckoutScreen() {
                     setCryptoPayment(null);
                     setShowCryptoSelection(true);
                   }}
-                  style={styles.cryptoBackBtn}
+              style={[styles.cryptoBackBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
                   accessibilityLabel="Change network or coin"
                   accessibilityRole="button"
                 >
                   <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
                 </Pressable>
-                <Text style={styles.cryptoHeaderTitle}>Pay with Crypto</Text>
+            <Text style={[styles.cryptoHeaderTitle, { color: colors.primaryForeground }]}>Pay with Crypto</Text>
               </View>
               <Pressable
                 onPress={() => {
@@ -2414,7 +2414,7 @@ export default function CheckoutScreen() {
                     ]
                   );
                 }}
-                style={styles.cryptoCloseBtn}
+            style={[styles.cryptoCloseBtn, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
               >
                 <Ionicons name="close" size={18} color="#FFFFFF" />
               </Pressable>
@@ -2448,9 +2448,9 @@ export default function CheckoutScreen() {
                     {cryptoPayment.currency}
                   </Text>
                 </Text>
-                <View style={styles.cryptoChainBadge}>
-                  <View style={styles.cryptoPulseDot} />
-                  <Text style={styles.cryptoChainText}>
+                <View style={[styles.cryptoChainBadge, { backgroundColor: colors.muted }]}>
+                  <View style={[styles.cryptoPulseDot, { backgroundColor: colors.success }]} />
+                  <Text style={[styles.cryptoChainText, { color: colors.text }]}>
                     Network:{' '}
                     {{
                       TRX: 'Tron (TRC-20)',
@@ -2469,7 +2469,7 @@ export default function CheckoutScreen() {
                   { backgroundColor: colors.card },
                 ]}
               >
-                <Text style={styles.cryptoFieldLabel}>RECIPIENT ADDRESS</Text>
+                <Text style={[styles.cryptoFieldLabel, { color: colors.placeholder }]}>RECIPIENT ADDRESS</Text>
                 <View style={styles.cryptoAddressRow}>
                   <Text
                     style={[styles.cryptoAddressText, { color: colors.text }]}
@@ -2521,9 +2521,9 @@ export default function CheckoutScreen() {
               </View>
 
               {/* Warning */}
-              <View style={styles.cryptoWarning}>
-                <Ionicons name="warning" size={18} color="#F59E0B" />
-                <Text style={styles.cryptoWarningText}>
+              <View style={[styles.cryptoWarning, { backgroundColor: colors.muted }]}>
+                <Ionicons name="warning" size={18} color={colors.warning} />
+                <Text style={[styles.cryptoWarningText, { color: colors.warning }]}>
                   Only send {cryptoPayment.currency} on the{' '}
                   {cryptoPayment.chain} network. Using the wrong network will
                   result in permanent loss.
@@ -2598,7 +2598,7 @@ export default function CheckoutScreen() {
                   });
                 }}
               >
-                <Text style={styles.cryptoDoneBtnText}>
+                <Text style={[styles.cryptoDoneBtnText, { color: colors.primaryForeground }]}>
                   I've Sent the Payment
                 </Text>
               </Pressable>
@@ -2646,14 +2646,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: palette.red[50],
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: RADIUS.full,
   },
   stepBadgeText: {
     fontSize: 12,
-    color: BRAND.primary,
     fontWeight: '600',
   },
   stepSubtitle: {
@@ -2945,7 +2943,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -2955,7 +2952,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   fieldError: {
-    color: '#DC2626',
     fontSize: 13,
     fontWeight: '500',
     marginTop: 6,
@@ -2986,7 +2982,6 @@ const styles = StyleSheet.create({
   pickerItem: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   pickerItemText: {
     fontSize: 14,
@@ -3007,9 +3002,7 @@ const styles = StyleSheet.create({
   },
   retryCard: {
     borderWidth: 2,
-    borderColor: '#FCD34D',
     borderStyle: 'dashed',
-    backgroundColor: '#FFFBEB',
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
@@ -3019,7 +3012,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FEF3C7',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3029,16 +3021,13 @@ const styles = StyleSheet.create({
   retryTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
   },
   retrySubtitle: {
     fontSize: 12,
-    color: '#B45309',
     marginTop: 4,
     textAlign: 'center',
   },
   retryBadge: {
-    backgroundColor: '#FEF3C7',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
@@ -3046,7 +3035,6 @@ const styles = StyleSheet.create({
   retryBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#B45309',
   },
   saveDetailsSection: {
     gap: SPACING.sm,
@@ -3103,13 +3091,11 @@ const styles = StyleSheet.create({
   cryptoHeaderTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   cryptoBackBtn: {
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -3117,7 +3103,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -3142,7 +3127,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F3F4F6',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
@@ -3152,12 +3136,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#22C55E',
   },
   cryptoChainText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#374151',
   },
   cryptoAddressCard: {
     padding: SPACING.lg,
@@ -3167,7 +3149,6 @@ const styles = StyleSheet.create({
   cryptoFieldLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#9CA3AF',
     letterSpacing: 0.5,
   },
   cryptoAddressRow: {
@@ -3193,12 +3174,10 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     padding: SPACING.md,
     borderRadius: RADIUS.md,
-    backgroundColor: '#FFF8E1',
   },
   cryptoWarningText: {
     flex: 1,
     fontSize: 12,
-    color: '#92400E',
     lineHeight: 18,
   },
   cryptoInfoCard: {
@@ -3228,7 +3207,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cryptoDoneBtnText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
