@@ -2099,6 +2099,8 @@ export const CheckoutPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setCurrentStep('contact')}
+                aria-expanded={currentStep === 'contact'}
+                aria-controls="step-content-contact"
                 className="w-full px-6 py-4 flex items-center justify-between text-left"
               >
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -2114,7 +2116,7 @@ export const CheckoutPage: React.FC = () => {
               </button>
 
               {/* Collapsible Content */}
-              <div className={`grid transition-all duration-300 ease-in-out ${currentStep === 'contact' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+              <div id="step-content-contact" className={`grid transition-all duration-300 ease-in-out ${currentStep === 'contact' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
                 <div className="overflow-hidden">
                   <div className="p-6 pt-0 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2284,6 +2286,8 @@ export const CheckoutPage: React.FC = () => {
                 type="button"
                 onClick={() => completedSteps.contact && setCurrentStep('delivery')}
                 disabled={!completedSteps.contact}
+                aria-expanded={currentStep === 'delivery'}
+                aria-controls="step-content-delivery"
                 className="w-full px-6 py-4 flex items-center justify-between text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled"
               >
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -2298,7 +2302,7 @@ export const CheckoutPage: React.FC = () => {
                 )}
               </button>
 
-              <div className={`grid transition-all duration-300 ease-in-out ${currentStep === 'delivery' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+              <div id="step-content-delivery" className={`grid transition-all duration-300 ease-in-out ${currentStep === 'delivery' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
                 <div className={currentStep === 'delivery' ? 'overflow-visible' : 'overflow-hidden'}>
                   <div className="p-6 pt-0 space-y-4">
                     {/* STEP 1: Address Input FIRST */}
@@ -2645,6 +2649,8 @@ export const CheckoutPage: React.FC = () => {
                 type="button"
                 onClick={() => completedSteps.delivery && setCurrentStep('payment')}
                 disabled={!completedSteps.delivery}
+                aria-expanded={currentStep === 'payment'}
+                aria-controls="step-content-payment"
                 className="w-full px-6 py-4 flex items-center justify-between text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled"
               >
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -2656,7 +2662,7 @@ export const CheckoutPage: React.FC = () => {
                 </h2>
               </button>
 
-              <div className={`grid transition-all duration-300 ease-in-out ${currentStep === 'payment' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+              <div id="step-content-payment" className={`grid transition-all duration-300 ease-in-out ${currentStep === 'payment' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
                 <div className="overflow-hidden">
                   <div className="p-6 pt-0 space-y-4">
                     {/* Payment Tab Selector */}

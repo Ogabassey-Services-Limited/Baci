@@ -394,10 +394,9 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                         ) : (
                           <button
                             onClick={() => openItemNegotiation(item)}
-                            title="Click to negotiate price"
-                            className="group flex items-center gap-1.5 text-xs font-bold text-[var(--store-primary)] md:hover:bg-[var(--store-primary)]/5 px-2 py-1.5 rounded-lg transition-colors border border-red-100 md:hover:border-[var(--store-primary)]/40 active:bg-[var(--store-primary)]/5 active:scale-95"
+                            className="flex items-center gap-1.5 text-xs font-bold text-[var(--store-primary)] md:hover:bg-[var(--store-primary)]/5 px-2 py-1.5 rounded-lg transition-colors border border-red-100 md:hover:border-[var(--store-primary)]/40 active:bg-[var(--store-primary)]/5 active:scale-95"
                           >
-                            <AppNegotiateIcon size={14} className="group-hover:animate-pulse" />
+                            <AppNegotiateIcon size={14} />
                             <span>Negotiate</span>
                           </button>
                         )}
@@ -418,10 +417,9 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                 <div className="space-y-3">
                   <button
                     onClick={openTotalNegotiation}
-                    title="Click to negotiate total cart price"
-                    className="group w-full bg-gray-100 md:hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.02] border border-gray-200 active:scale-[0.98] active:bg-gray-200"
+                    className="w-full bg-gray-100 md:hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200 active:scale-[0.98] active:bg-gray-200"
                   >
-                    <AppNegotiateIcon size={18} className="text-[var(--store-primary)] group-hover:animate-pulse" />
+                    <AppNegotiateIcon size={18} className="text-[var(--store-primary)]" />
                     Negotiate Total
                   </button>
 
@@ -476,11 +474,11 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
           {/* Negotiate Icon Button */}
           <button
             onClick={openTotalNegotiation}
-            className="group h-14 px-3 flex flex-col items-center justify-center bg-gray-100 hover:bg-gray-200 active:bg-gray-200 rounded-xl border border-gray-200 transition-all hover:scale-[1.02] shrink-0"
+            className="h-14 px-3 flex flex-col items-center justify-center bg-gray-100 hover:bg-gray-200 active:bg-gray-200 rounded-xl border border-gray-200 transition-colors shrink-0"
             aria-label="Bulk Negotiate"
             title="Bulk Negotiate"
           >
-            <AppNegotiateIcon size={24} className="text-[var(--store-primary)] group-hover:animate-pulse" />
+            <AppNegotiateIcon size={24} className="text-[var(--store-primary)]" />
             <span className="text-[10px] font-bold text-gray-600 mt-0.5">Negotiate</span>
           </button>
 
