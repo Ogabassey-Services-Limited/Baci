@@ -138,7 +138,9 @@ export const ProductProvider: React.FC<{
     // biome-ignore lint/suspicious/noExplicitAny: Using function property for quick throttle patch
     const lastFetch = (fetchProducts as any).lastFetch || 0;
     if (now - lastFetch < 1000) {
-      console.log('Throttling product fetch');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Throttling product fetch');
+      }
       return;
     }
     // Store timestamp on the function object (or use a ref in real implementation, but this works for quick patch)
