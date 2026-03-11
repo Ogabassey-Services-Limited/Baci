@@ -12,7 +12,7 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
+  FlatList,
   type StyleProp,
   StyleSheet,
   Text,
@@ -312,12 +312,13 @@ export default function CartScreen() {
         </Pressable>
       </View>
 
-      <ScrollView
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 180 }]}
         showsVerticalScrollIndicator={false}
-      >
-        {items.map((item) => {
+        renderItem={({ item }) => {
           const priceToUse = item.negotiatedPrice ?? item.price;
           const itemTotal = priceToUse * item.quantity;
           const assuranceCost = item.hasAssurance
@@ -325,7 +326,7 @@ export default function CartScreen() {
             : 0;
 
           return (
-            <View key={item.id} style={[styles.cartCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.cartCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {/* Top Row: Image & Info */}
               <View style={styles.cardTop}>
                 <Pressable
@@ -529,20 +530,21 @@ export default function CartScreen() {
               </View>
             </View>
           );
-        })}
-
-        {/* Order Summary - Now inside ScrollView */}
-
-        {/* Secure Checkout Badge */}
-        <View style={styles.secureBadgeInside}>
-          <Ionicons
-            name="shield-checkmark-outline"
-            size={14}
-            color={palette.gray[400]}
-          />
-          <Text style={styles.secureBadgeText}>Secure Checkout</Text>
-        </View>
-      </ScrollView>
+        }}
+        ListFooterComponent={
+          <>
+            {/* Secure Checkout Badge */}
+            <View style={styles.secureBadgeInside}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={14}
+                color={palette.gray[400]}
+              />
+              <Text style={styles.secureBadgeText}>Secure Checkout</Text>
+            </View>
+          </>
+        }
+      />
 
       {/* Red Sticky Checkout Footer - HIGH VISIBILITY VERSION */}
       <View style={[styles.checkoutStickyFooter, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
