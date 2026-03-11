@@ -59,18 +59,3 @@ export function createUploadFile(file: RNFile): RNFile {
     type: file.type,
   };
 }
-
-/**
- * @deprecated Use createUploadFile instead. This function exists for backwards
- * compatibility but uses a type cast that bypasses TypeScript's type safety.
- *
- * Converts an RNFile to a Blob-compatible type for legacy code.
- * React Native's FormData polyfill accepts RNFile objects but TypeScript's
- * FormData types expect Blob. This function bridges that gap.
- */
-export function asUploadFile(file: RNFile): Blob {
-  // React Native's FormData polyfill handles RNFile objects correctly at runtime.
-  // The cast is safe because we're following RN's expected contract.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return file as any;
-}
