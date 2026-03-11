@@ -6,6 +6,7 @@
 import type { EventSubscription } from 'expo-modules-core';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Platform } from 'react-native';
 import { createLogger } from '@/lib/logger';
 import {
@@ -54,8 +55,12 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const user = useAuthStore((state) => state.user);
-  const merchantId = useAuthStore((state) => state.merchantId);
+  const { user, merchantId } = useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      merchantId: state.merchantId,
+    }))
+  );
   const notificationListener = useRef<EventSubscription | null>(null);
   const responseListener = useRef<EventSubscription | null>(null);
 
