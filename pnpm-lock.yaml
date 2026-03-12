@@ -250,8 +250,8 @@ importers:
         specifier: ^2.1.0
         version: 2.1.0(@types/react@19.2.13)(react-art@16.13.1(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.84.1(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.3))(react@19.2.3)
       react-native-purchases:
-        specifier: ^9.7.6
-        version: 9.7.6(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.84.1(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.3))(react@19.2.3)
+        specifier: ^9.12.0
+        version: 9.12.0(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.84.1(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.3))(react@19.2.3)
       react-native-reanimated:
         specifier: 4.2.2
         version: 4.2.2(react-native-worklets@0.7.4(@babel/core@7.29.0)(react-native@0.84.1(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.3))(react@19.2.3)
@@ -307,6 +307,9 @@ importers:
       babel-plugin-react-compiler:
         specifier: ^1.0.0
         version: 1.0.0
+      jsdom:
+        specifier: ^27.4.0
+        version: 27.4.0
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
@@ -321,7 +324,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.0.18
-        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(happy-dom@20.6.1)(jiti@2.6.1)(jsdom@28.1.0)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(happy-dom@20.6.1)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
   apps/mobile-storefront:
     dependencies:
@@ -4793,14 +4796,14 @@ packages:
   '@repeaterjs/repeater@3.0.6':
     resolution: {integrity: sha512-Javneu5lsuhwNCryN+pXH93VPQ8g0dBX7wItHFgYiwQmzE1sVdg5tWHiOgHywzL2W21XQopa7IwIEnNbmeUJYA==}
 
-  '@revenuecat/purchases-js-hybrid-mappings@17.31.0':
-    resolution: {integrity: sha512-d3clm3yyvupyfjTD6Fxj91co37Tg+4YSZw/KYDj/wUzsKtenq+z5TbRURI7VsmxYuTRVKIPIp5RScdw+R9OigQ==}
+  '@revenuecat/purchases-js-hybrid-mappings@17.46.1':
+    resolution: {integrity: sha512-9MegethaFW7RtIJTOaVilWabg0mgkN6H0i96qxwZwvufSWEg5I9J0LXANaX/m+UsaEh7Xyk4Msyug8emlJ5rWw==}
 
-  '@revenuecat/purchases-js@1.24.4':
-    resolution: {integrity: sha512-57T2976W0X87SSkayBaxT+In37kxqC6phqjmzBraJUccnhLd1tg9BpYm2AMGEfouAiNE4jUXNmL+iJRrVwRuaw==}
+  '@revenuecat/purchases-js@1.27.0':
+    resolution: {integrity: sha512-PRV5jbOyQ9ehNGyp0EeBV+Ri0T0QBTDJiftg7W0/eUFhGWs9irfw3ipQdjpmoikYxckrZQLzpsFhJ6zP/M+YgQ==}
 
-  '@revenuecat/purchases-typescript-internal@17.31.0':
-    resolution: {integrity: sha512-uQUJk90LJ8tSzI1xEzE5mqBrYfrxZW5uKz4HxJc0hW3EoEITDXvZOEAcFew0JEPJQlepjFfVn349uNHyF0J5QA==}
+  '@revenuecat/purchases-typescript-internal@17.46.1':
+    resolution: {integrity: sha512-v0NEJfSk/mNkhREfjsFkMTDnu0o8hURKOstzqbjjruzg31MBhUrAyAsSPZsTQxpx0TmS6dnnKghFIZM5lQsUWg==}
 
   '@rolldown/pluginutils@1.0.0-rc.3':
     resolution: {integrity: sha512-eybk3TjzzzV97Dlj5c+XrBFW57eTNhzod66y9HrBlzJ6NsCrWCp/2kaPS3K9wJmurBC0Tdw4yPjXKZqlznim3Q==}
@@ -13052,8 +13055,8 @@ packages:
       react: 19.2.3
       react-native: 0.84.1
 
-  react-native-purchases@9.7.6:
-    resolution: {integrity: sha512-AjlADJ4jqY8TfmVXLbRQsgQ5w5Ou1AGr5wBt7M3RhoCorP+DYLNXry9YY91x33pLosJNJrPF3cUQ91+oKwW76Q==}
+  react-native-purchases@9.12.0:
+    resolution: {integrity: sha512-poPo7A7oxO9i4nWUm6WUPwlnkxymcHhcle4Navs7Ro6AbFN8AeSuuxXX53VmlVveM5gypYV/veb3sgby2BJgMQ==}
     peerDependencies:
       react: 19.2.3
       react-native: 0.84.1
@@ -20507,13 +20510,13 @@ snapshots:
 
   '@repeaterjs/repeater@3.0.6': {}
 
-  '@revenuecat/purchases-js-hybrid-mappings@17.31.0':
+  '@revenuecat/purchases-js-hybrid-mappings@17.46.1':
     dependencies:
-      '@revenuecat/purchases-js': 1.24.4
+      '@revenuecat/purchases-js': 1.27.0
 
-  '@revenuecat/purchases-js@1.24.4': {}
+  '@revenuecat/purchases-js@1.27.0': {}
 
-  '@revenuecat/purchases-typescript-internal@17.31.0': {}
+  '@revenuecat/purchases-typescript-internal@17.46.1': {}
 
   '@rolldown/pluginutils@1.0.0-rc.3': {}
 
@@ -31423,10 +31426,10 @@ snapshots:
       - react-dom
       - react-native-web
 
-  react-native-purchases@9.7.6(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.84.1(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.3))(react@19.2.3):
+  react-native-purchases@9.12.0(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.84.1(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.3))(react@19.2.3):
     dependencies:
-      '@revenuecat/purchases-js-hybrid-mappings': 17.31.0
-      '@revenuecat/purchases-typescript-internal': 17.31.0
+      '@revenuecat/purchases-js-hybrid-mappings': 17.46.1
+      '@revenuecat/purchases-typescript-internal': 17.46.1
       react: 19.2.3
       react-native: 0.84.1(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.3)
     optionalDependencies:
@@ -33827,6 +33830,46 @@ snapshots:
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
       '@types/node': 20.19.32
+      happy-dom: 20.6.1
+      jsdom: 27.4.0
+    transitivePeerDependencies:
+      - jiti
+      - less
+      - lightningcss
+      - msw
+      - sass
+      - sass-embedded
+      - stylus
+      - sugarss
+      - terser
+      - tsx
+      - yaml
+
+  vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.2.3)(happy-dom@20.6.1)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2):
+    dependencies:
+      '@vitest/expect': 4.0.18
+      '@vitest/mocker': 4.0.18(vite@7.3.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      '@vitest/pretty-format': 4.0.18
+      '@vitest/runner': 4.0.18
+      '@vitest/snapshot': 4.0.18
+      '@vitest/spy': 4.0.18
+      '@vitest/utils': 4.0.18
+      es-module-lexer: 1.7.0
+      expect-type: 1.3.0
+      magic-string: 0.30.21
+      obug: 2.1.1
+      pathe: 2.0.3
+      picomatch: 4.0.3
+      std-env: 3.10.0
+      tinybench: 2.9.0
+      tinyexec: 1.0.2
+      tinyglobby: 0.2.15
+      tinyrainbow: 3.0.3
+      vite: 7.3.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+      why-is-node-running: 2.3.0
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.0
+      '@types/node': 25.2.3
       happy-dom: 20.6.1
       jsdom: 27.4.0
     transitivePeerDependencies:
