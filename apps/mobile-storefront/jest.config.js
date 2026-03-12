@@ -1,3 +1,9 @@
+const reactPath = require.resolve('react');
+const reactDomPath = require.resolve('react-dom');
+const reactJsxRuntimePath = require.resolve('react/jsx-runtime');
+const reactJsxDevRuntimePath = require.resolve('react/jsx-dev-runtime');
+const reactTestRendererPath = require.resolve('react-test-renderer');
+
 /** @type {import('jest').Config} */
 const config = {
   preset: 'jest-expo',
@@ -9,6 +15,11 @@ const config = {
   setupFilesAfterEnv: ['./jest.setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
+    '^react$': reactPath,
+    '^react-dom$': reactDomPath,
+    '^react/jsx-runtime$': reactJsxRuntimePath,
+    '^react/jsx-dev-runtime$': reactJsxDevRuntimePath,
+    '^react-test-renderer$': reactTestRendererPath,
     // Prevent expo winter runtime from loading native-only modules in Jest
     'expo/src/winter/ImportMetaRegistry':
       '<rootDir>/__mocks__/expo-import-meta-registry.js',
