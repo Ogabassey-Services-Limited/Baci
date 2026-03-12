@@ -40,6 +40,7 @@ interface CategoryItemProps {
 
 // React Compiler handles memoization (ADR-004)
 function CategoryItem({
+  id,
   name,
   iconName,
   variant,
@@ -81,10 +82,14 @@ function CategoryItem({
         accessibilityHint={`Tap to select ${name} services`}
       >
         <Animated.View
+          testID={`utility-category-icon-${id}`}
           style={[
             styles.circleIcon,
             { backgroundColor: colors.muted },
-            isActive && [styles.circleIconActive, { backgroundColor: colorScheme === 'dark' ? 'rgba(239, 68, 68, 0.2)' : '#FEF2F2' }],
+            isActive && [
+              styles.circleIconActive,
+              { backgroundColor: colors.selectedIconBackground },
+            ],
             isActive && [styles.activeShadow, { shadowColor: colors.black }],
             { transform: [{ scale: iconScale }] },
           ]}
@@ -119,7 +124,11 @@ export function UtilityPanel({
   onCategorySelect,
   slug,
 }: UtilityPanelProps) {
-  const { data: remoteCategories = [], isLoading } = useCategories();
+  const {
+    data: remoteCategories = [],
+    isLoading,
+    error,
+  } = useCategories();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -216,13 +225,35 @@ export function UtilityPanel({
   // We want the 'Card' container look (white bg, border) BUT 'Circle' item variant (icons)
   // regardless of what the global template says (which might be 'card' implying square items).
   const isUtility = !slug || slug === 'utility' || slug === 'utilities';
+  const hasCategoryError = Boolean(error) && !isUtility;
   const showContainer = variant === 'card' || isUtility;
   const itemVariant = isUtility ? 'circle' : variant; // Force circle icons for utilities
+
+  if (hasCategoryError) {
+    return (
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <Text style={[styles.errorTitle, { color: colors.text }]}>
+          Unable to load categories
+        </Text>
+        <Text style={[styles.errorMessage, { color: colors.textSecondary }]}>
+          Please try again in a moment.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={showContainer ? [styles.container, { backgroundColor: colors.card, borderColor: colors.border }] : styles.minimalContainer}>
       {/* Dynamic Unified Banner */}
-      <View style={[styles.promoBanner, { backgroundColor: colorScheme === 'dark' ? 'rgba(239, 68, 68, 0.1)' : '#FEF2F2' }]}>
+      <View
+        testID="utility-panel-promo-banner"
+        style={[styles.promoBanner, { backgroundColor: colors.promoBackground }]}
+      >
         <View style={{ height: 16, justifyContent: 'center' }}>
           <Text style={[styles.promoText, { color: colors.textSecondary }]}>
             We Pay <Text style={styles.promoHighlight}>YOU</Text> When You Buy{' '}
@@ -315,6 +346,16 @@ const styles = StyleSheet.create({
   },
   circleLabelActive: {
     fontWeight: '700',
+  },
+  errorTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 6,
   },
   // Keep pill styles just in case valid/used elsewhere, though variant is mostly circle here
   pillItem: {},
