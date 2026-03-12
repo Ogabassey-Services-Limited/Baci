@@ -16,7 +16,7 @@ PODS:
   - EXJSONUtils (55.0.0)
   - EXManifests (55.0.9):
     - ExpoModulesCore
-  - Expo (55.0.6):
+  - Expo (55.0.3):
     - ExpoModulesCore
     - hermes-engine
     - RCTRequired
@@ -234,7 +234,7 @@ PODS:
     - ExpoModulesCore
   - ExpoLogBox (55.0.7):
     - React-Core
-  - ExpoModulesCore (55.0.15):
+  - ExpoModulesCore (55.0.13):
     - ExpoModulesJSI
     - hermes-engine
     - RCTRequired
@@ -259,7 +259,7 @@ PODS:
     - ReactNativeDependencies
     - RNWorklets
     - Yoga
-  - ExpoModulesJSI (55.0.15):
+  - ExpoModulesJSI (55.0.13):
     - hermes-engine
     - React-Core
     - React-runtimescheduler
@@ -285,7 +285,7 @@ PODS:
     - ExpoModulesCore
   - EXUpdatesInterface (55.1.3):
     - ExpoModulesCore
-  - FBLazyVector (0.84.1)
+  - FBLazyVector (0.83.2)
   - GoogleSignIn (9.1.0):
     - AppAuth (~> 2.0)
     - AppCheckCore (~> 11.0)
@@ -304,9 +304,9 @@ PODS:
     - AppAuth/Core (~> 2.0)
     - GTMSessionFetcher/Core (< 4.0, >= 3.3)
   - GTMSessionFetcher/Core (3.5.0)
-  - hermes-engine (250829098.0.9):
-    - hermes-engine/Pre-built (= 250829098.0.9)
-  - hermes-engine/Pre-built (250829098.0.9)
+  - hermes-engine (0.14.1):
+    - hermes-engine/Pre-built (= 0.14.1)
+  - hermes-engine/Pre-built (0.14.1)
   - libavif/core (1.0.0)
   - libavif/libdav1d (1.0.0):
     - libavif/core
@@ -376,34 +376,34 @@ PODS:
   - PromisesObjC (2.4.0)
   - PurchasesHybridCommon (17.31.0):
     - RevenueCat (= 5.57.0)
-  - RCTDeprecation (0.84.1)
-  - RCTRequired (0.84.1)
-  - RCTSwiftUI (0.84.1)
-  - RCTSwiftUIWrapper (0.84.1):
+  - RCTDeprecation (0.83.2)
+  - RCTRequired (0.83.2)
+  - RCTSwiftUI (0.83.2)
+  - RCTSwiftUIWrapper (0.83.2):
     - RCTSwiftUI
-  - RCTTypeSafety (0.84.1):
-    - FBLazyVector (= 0.84.1)
-    - RCTRequired (= 0.84.1)
-    - React-Core (= 0.84.1)
-  - React (0.84.1):
-    - React-Core (= 0.84.1)
-    - React-Core/DevSupport (= 0.84.1)
-    - React-Core/RCTWebSocket (= 0.84.1)
-    - React-RCTActionSheet (= 0.84.1)
-    - React-RCTAnimation (= 0.84.1)
-    - React-RCTBlob (= 0.84.1)
-    - React-RCTImage (= 0.84.1)
-    - React-RCTLinking (= 0.84.1)
-    - React-RCTNetwork (= 0.84.1)
-    - React-RCTSettings (= 0.84.1)
-    - React-RCTText (= 0.84.1)
-    - React-RCTVibration (= 0.84.1)
-  - React-callinvoker (0.84.1)
-  - React-Core (0.84.1):
+  - RCTTypeSafety (0.83.2):
+    - FBLazyVector (= 0.83.2)
+    - RCTRequired (= 0.83.2)
+    - React-Core (= 0.83.2)
+  - React (0.83.2):
+    - React-Core (= 0.83.2)
+    - React-Core/DevSupport (= 0.83.2)
+    - React-Core/RCTWebSocket (= 0.83.2)
+    - React-RCTActionSheet (= 0.83.2)
+    - React-RCTAnimation (= 0.83.2)
+    - React-RCTBlob (= 0.83.2)
+    - React-RCTImage (= 0.83.2)
+    - React-RCTLinking (= 0.83.2)
+    - React-RCTNetwork (= 0.83.2)
+    - React-RCTSettings (= 0.83.2)
+    - React-RCTText (= 0.83.2)
+    - React-RCTVibration (= 0.83.2)
+  - React-callinvoker (0.83.2)
+  - React-Core (0.83.2):
     - hermes-engine
     - RCTDeprecation
     - React-Core-prebuilt
-    - React-Core/Default (= 0.84.1)
+    - React-Core/Default (= 0.83.2)
     - React-cxxreact
     - React-featureflags
     - React-hermes
@@ -418,66 +418,9 @@ PODS:
     - React-utils
     - ReactNativeDependencies
     - Yoga
-  - React-Core-prebuilt (0.84.1):
+  - React-Core-prebuilt (0.83.2):
     - ReactNativeDependencies
-  - React-Core/CoreModulesHeaders (0.84.1):
-    - hermes-engine
-    - RCTDeprecation
-    - React-Core-prebuilt
-    - React-Core/Default
-    - React-cxxreact
-    - React-featureflags
-    - React-hermes
-    - React-jsi
-    - React-jsiexecutor
-    - React-jsinspector
-    - React-jsinspectorcdp
-    - React-jsitooling
-    - React-perflogger
-    - React-runtimeexecutor
-    - React-runtimescheduler
-    - React-utils
-    - ReactNativeDependencies
-    - Yoga
-  - React-Core/Default (0.84.1):
-    - hermes-engine
-    - RCTDeprecation
-    - React-Core-prebuilt
-    - React-cxxreact
-    - React-featureflags
-    - React-hermes
-    - React-jsi
-    - React-jsiexecutor
-    - React-jsinspector
-    - React-jsinspectorcdp
-    - React-jsitooling
-    - React-perflogger
-    - React-runtimeexecutor
-    - React-runtimescheduler
-    - React-utils
-    - ReactNativeDependencies
-    - Yoga
-  - React-Core/DevSupport (0.84.1):
-    - hermes-engine
-    - RCTDeprecation
-    - React-Core-prebuilt
-    - React-Core/Default (= 0.84.1)
-    - React-Core/RCTWebSocket (= 0.84.1)
-    - React-cxxreact
-    - React-featureflags
-    - React-hermes
-    - React-jsi
-    - React-jsiexecutor
-    - React-jsinspector
-    - React-jsinspectorcdp
-    - React-jsitooling
-    - React-perflogger
-    - React-runtimeexecutor
-    - React-runtimescheduler
-    - React-utils
-    - ReactNativeDependencies
-    - Yoga
-  - React-Core/RCTActionSheetHeaders (0.84.1):
+  - React-Core/CoreModulesHeaders (0.83.2):
     - hermes-engine
     - RCTDeprecation
     - React-Core-prebuilt
@@ -496,7 +439,45 @@ PODS:
     - React-utils
     - ReactNativeDependencies
     - Yoga
-  - React-Core/RCTAnimationHeaders (0.84.1):
+  - React-Core/Default (0.83.2):
+    - hermes-engine
+    - RCTDeprecation
+    - React-Core-prebuilt
+    - React-cxxreact
+    - React-featureflags
+    - React-hermes
+    - React-jsi
+    - React-jsiexecutor
+    - React-jsinspector
+    - React-jsinspectorcdp
+    - React-jsitooling
+    - React-perflogger
+    - React-runtimeexecutor
+    - React-runtimescheduler
+    - React-utils
+    - ReactNativeDependencies
+    - Yoga
+  - React-Core/DevSupport (0.83.2):
+    - hermes-engine
+    - RCTDeprecation
+    - React-Core-prebuilt
+    - React-Core/Default (= 0.83.2)
+    - React-Core/RCTWebSocket (= 0.83.2)
+    - React-cxxreact
+    - React-featureflags
+    - React-hermes
+    - React-jsi
+    - React-jsiexecutor
+    - React-jsinspector
+    - React-jsinspectorcdp
+    - React-jsitooling
+    - React-perflogger
+    - React-runtimeexecutor
+    - React-runtimescheduler
+    - React-utils
+    - ReactNativeDependencies
+    - Yoga
+  - React-Core/RCTActionSheetHeaders (0.83.2):
     - hermes-engine
     - RCTDeprecation
     - React-Core-prebuilt
@@ -515,7 +496,7 @@ PODS:
     - React-utils
     - ReactNativeDependencies
     - Yoga
-  - React-Core/RCTBlobHeaders (0.84.1):
+  - React-Core/RCTAnimationHeaders (0.83.2):
     - hermes-engine
     - RCTDeprecation
     - React-Core-prebuilt
@@ -534,7 +515,7 @@ PODS:
     - React-utils
     - ReactNativeDependencies
     - Yoga
-  - React-Core/RCTImageHeaders (0.84.1):
+  - React-Core/RCTBlobHeaders (0.83.2):
     - hermes-engine
     - RCTDeprecation
     - React-Core-prebuilt
@@ -553,7 +534,7 @@ PODS:
     - React-utils
     - ReactNativeDependencies
     - Yoga
-  - React-Core/RCTLinkingHeaders (0.84.1):
+  - React-Core/RCTImageHeaders (0.83.2):
     - hermes-engine
     - RCTDeprecation
     - React-Core-prebuilt
@@ -572,7 +553,7 @@ PODS:
     - React-utils
     - ReactNativeDependencies
     - Yoga
-  - React-Core/RCTNetworkHeaders (0.84.1):
+  - React-Core/RCTLinkingHeaders (0.83.2):
     - hermes-engine
     - RCTDeprecation
     - React-Core-prebuilt
@@ -591,7 +572,7 @@ PODS:
     - React-utils
     - ReactNativeDependencies
     - Yoga
-  - React-Core/RCTSettingsHeaders (0.84.1):
+  - React-Core/RCTNetworkHeaders (0.83.2):
     - hermes-engine
     - RCTDeprecation
     - React-Core-prebuilt
@@ -610,7 +591,7 @@ PODS:
     - React-utils
     - ReactNativeDependencies
     - Yoga
-  - React-Core/RCTTextHeaders (0.84.1):
+  - React-Core/RCTSettingsHeaders (0.83.2):
     - hermes-engine
     - RCTDeprecation
     - React-Core-prebuilt
@@ -629,7 +610,7 @@ PODS:
     - React-utils
     - ReactNativeDependencies
     - Yoga
-  - React-Core/RCTVibrationHeaders (0.84.1):
+  - React-Core/RCTTextHeaders (0.83.2):
     - hermes-engine
     - RCTDeprecation
     - React-Core-prebuilt
@@ -648,11 +629,11 @@ PODS:
     - React-utils
     - ReactNativeDependencies
     - Yoga
-  - React-Core/RCTWebSocket (0.84.1):
+  - React-Core/RCTVibrationHeaders (0.83.2):
     - hermes-engine
     - RCTDeprecation
     - React-Core-prebuilt
-    - React-Core/Default (= 0.84.1)
+    - React-Core/Default
     - React-cxxreact
     - React-featureflags
     - React-hermes
@@ -667,40 +648,59 @@ PODS:
     - React-utils
     - ReactNativeDependencies
     - Yoga
-  - React-CoreModules (0.84.1):
-    - RCTTypeSafety (= 0.84.1)
+  - React-Core/RCTWebSocket (0.83.2):
+    - hermes-engine
+    - RCTDeprecation
     - React-Core-prebuilt
-    - React-Core/CoreModulesHeaders (= 0.84.1)
+    - React-Core/Default (= 0.83.2)
+    - React-cxxreact
+    - React-featureflags
+    - React-hermes
+    - React-jsi
+    - React-jsiexecutor
+    - React-jsinspector
+    - React-jsinspectorcdp
+    - React-jsitooling
+    - React-perflogger
+    - React-runtimeexecutor
+    - React-runtimescheduler
+    - React-utils
+    - ReactNativeDependencies
+    - Yoga
+  - React-CoreModules (0.83.2):
+    - RCTTypeSafety (= 0.83.2)
+    - React-Core-prebuilt
+    - React-Core/CoreModulesHeaders (= 0.83.2)
     - React-debug
-    - React-jsi (= 0.84.1)
+    - React-jsi (= 0.83.2)
     - React-jsinspector
     - React-jsinspectorcdp
     - React-jsinspectortracing
     - React-NativeModulesApple
     - React-RCTBlob
     - React-RCTFBReactNativeSpec
-    - React-RCTImage (= 0.84.1)
+    - React-RCTImage (= 0.83.2)
     - React-runtimeexecutor
     - React-utils
     - ReactCommon
     - ReactNativeDependencies
-  - React-cxxreact (0.84.1):
+  - React-cxxreact (0.83.2):
     - hermes-engine
-    - React-callinvoker (= 0.84.1)
+    - React-callinvoker (= 0.83.2)
     - React-Core-prebuilt
-    - React-debug (= 0.84.1)
-    - React-jsi (= 0.84.1)
+    - React-debug (= 0.83.2)
+    - React-jsi (= 0.83.2)
     - React-jsinspector
     - React-jsinspectorcdp
     - React-jsinspectortracing
-    - React-logger (= 0.84.1)
-    - React-perflogger (= 0.84.1)
+    - React-logger (= 0.83.2)
+    - React-perflogger (= 0.83.2)
     - React-runtimeexecutor
-    - React-timing (= 0.84.1)
+    - React-timing (= 0.83.2)
     - React-utils
     - ReactNativeDependencies
-  - React-debug (0.84.1)
-  - React-defaultsnativemodule (0.84.1):
+  - React-debug (0.83.2)
+  - React-defaultsnativemodule (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-domnativemodule
@@ -715,7 +715,7 @@ PODS:
     - React-webperformancenativemodule
     - ReactNativeDependencies
     - Yoga
-  - React-domnativemodule (0.84.1):
+  - React-domnativemodule (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-Fabric
@@ -729,7 +729,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-Fabric (0.84.1):
+  - React-Fabric (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -737,25 +737,25 @@ PODS:
     - React-Core-prebuilt
     - React-cxxreact
     - React-debug
-    - React-Fabric/animated (= 0.84.1)
-    - React-Fabric/animationbackend (= 0.84.1)
-    - React-Fabric/animations (= 0.84.1)
-    - React-Fabric/attributedstring (= 0.84.1)
-    - React-Fabric/bridging (= 0.84.1)
-    - React-Fabric/componentregistry (= 0.84.1)
-    - React-Fabric/componentregistrynative (= 0.84.1)
-    - React-Fabric/components (= 0.84.1)
-    - React-Fabric/consistency (= 0.84.1)
-    - React-Fabric/core (= 0.84.1)
-    - React-Fabric/dom (= 0.84.1)
-    - React-Fabric/imagemanager (= 0.84.1)
-    - React-Fabric/leakchecker (= 0.84.1)
-    - React-Fabric/mounting (= 0.84.1)
-    - React-Fabric/observers (= 0.84.1)
-    - React-Fabric/scheduler (= 0.84.1)
-    - React-Fabric/telemetry (= 0.84.1)
-    - React-Fabric/templateprocessor (= 0.84.1)
-    - React-Fabric/uimanager (= 0.84.1)
+    - React-Fabric/animated (= 0.83.2)
+    - React-Fabric/animationbackend (= 0.83.2)
+    - React-Fabric/animations (= 0.83.2)
+    - React-Fabric/attributedstring (= 0.83.2)
+    - React-Fabric/bridging (= 0.83.2)
+    - React-Fabric/componentregistry (= 0.83.2)
+    - React-Fabric/componentregistrynative (= 0.83.2)
+    - React-Fabric/components (= 0.83.2)
+    - React-Fabric/consistency (= 0.83.2)
+    - React-Fabric/core (= 0.83.2)
+    - React-Fabric/dom (= 0.83.2)
+    - React-Fabric/imagemanager (= 0.83.2)
+    - React-Fabric/leakchecker (= 0.83.2)
+    - React-Fabric/mounting (= 0.83.2)
+    - React-Fabric/observers (= 0.83.2)
+    - React-Fabric/scheduler (= 0.83.2)
+    - React-Fabric/telemetry (= 0.83.2)
+    - React-Fabric/templateprocessor (= 0.83.2)
+    - React-Fabric/uimanager (= 0.83.2)
     - React-featureflags
     - React-graphics
     - React-jsi
@@ -767,26 +767,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/animated (0.84.1):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-Core-prebuilt
-    - React-cxxreact
-    - React-debug
-    - React-featureflags
-    - React-graphics
-    - React-jsi
-    - React-jsiexecutor
-    - React-logger
-    - React-rendererdebug
-    - React-runtimeexecutor
-    - React-runtimescheduler
-    - React-utils
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-  - React-Fabric/animationbackend (0.84.1):
+  - React-Fabric/animated (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -805,7 +786,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/animations (0.84.1):
+  - React-Fabric/animationbackend (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -824,7 +805,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/attributedstring (0.84.1):
+  - React-Fabric/animations (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -843,7 +824,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/bridging (0.84.1):
+  - React-Fabric/attributedstring (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -862,7 +843,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/componentregistry (0.84.1):
+  - React-Fabric/bridging (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -881,7 +862,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/componentregistrynative (0.84.1):
+  - React-Fabric/componentregistry (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -900,30 +881,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/components (0.84.1):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-Core-prebuilt
-    - React-cxxreact
-    - React-debug
-    - React-Fabric/components/legacyviewmanagerinterop (= 0.84.1)
-    - React-Fabric/components/root (= 0.84.1)
-    - React-Fabric/components/scrollview (= 0.84.1)
-    - React-Fabric/components/view (= 0.84.1)
-    - React-featureflags
-    - React-graphics
-    - React-jsi
-    - React-jsiexecutor
-    - React-logger
-    - React-rendererdebug
-    - React-runtimeexecutor
-    - React-runtimescheduler
-    - React-utils
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-  - React-Fabric/components/legacyviewmanagerinterop (0.84.1):
+  - React-Fabric/componentregistrynative (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -942,7 +900,30 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/components/root (0.84.1):
+  - React-Fabric/components (0.83.2):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-cxxreact
+    - React-debug
+    - React-Fabric/components/legacyviewmanagerinterop (= 0.83.2)
+    - React-Fabric/components/root (= 0.83.2)
+    - React-Fabric/components/scrollview (= 0.83.2)
+    - React-Fabric/components/view (= 0.83.2)
+    - React-featureflags
+    - React-graphics
+    - React-jsi
+    - React-jsiexecutor
+    - React-logger
+    - React-rendererdebug
+    - React-runtimeexecutor
+    - React-runtimescheduler
+    - React-utils
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+  - React-Fabric/components/legacyviewmanagerinterop (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -961,7 +942,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/components/scrollview (0.84.1):
+  - React-Fabric/components/root (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -980,7 +961,26 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/components/view (0.84.1):
+  - React-Fabric/components/scrollview (0.83.2):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-cxxreact
+    - React-debug
+    - React-featureflags
+    - React-graphics
+    - React-jsi
+    - React-jsiexecutor
+    - React-logger
+    - React-rendererdebug
+    - React-runtimeexecutor
+    - React-runtimescheduler
+    - React-utils
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+  - React-Fabric/components/view (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1001,7 +1001,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-Fabric/consistency (0.84.1):
+  - React-Fabric/consistency (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1020,7 +1020,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/core (0.84.1):
+  - React-Fabric/core (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1039,7 +1039,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/dom (0.84.1):
+  - React-Fabric/dom (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1058,7 +1058,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/imagemanager (0.84.1):
+  - React-Fabric/imagemanager (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1077,7 +1077,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/leakchecker (0.84.1):
+  - React-Fabric/leakchecker (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1096,7 +1096,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/mounting (0.84.1):
+  - React-Fabric/mounting (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1115,7 +1115,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/observers (0.84.1):
+  - React-Fabric/observers (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1123,8 +1123,8 @@ PODS:
     - React-Core-prebuilt
     - React-cxxreact
     - React-debug
-    - React-Fabric/observers/events (= 0.84.1)
-    - React-Fabric/observers/intersection (= 0.84.1)
+    - React-Fabric/observers/events (= 0.83.2)
+    - React-Fabric/observers/intersection (= 0.83.2)
     - React-featureflags
     - React-graphics
     - React-jsi
@@ -1136,26 +1136,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/observers/events (0.84.1):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-Core-prebuilt
-    - React-cxxreact
-    - React-debug
-    - React-featureflags
-    - React-graphics
-    - React-jsi
-    - React-jsiexecutor
-    - React-logger
-    - React-rendererdebug
-    - React-runtimeexecutor
-    - React-runtimescheduler
-    - React-utils
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-  - React-Fabric/observers/intersection (0.84.1):
+  - React-Fabric/observers/events (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1174,7 +1155,26 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/scheduler (0.84.1):
+  - React-Fabric/observers/intersection (0.83.2):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-cxxreact
+    - React-debug
+    - React-featureflags
+    - React-graphics
+    - React-jsi
+    - React-jsiexecutor
+    - React-logger
+    - React-rendererdebug
+    - React-runtimeexecutor
+    - React-runtimescheduler
+    - React-utils
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+  - React-Fabric/scheduler (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1196,7 +1196,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/telemetry (0.84.1):
+  - React-Fabric/telemetry (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1215,7 +1215,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/templateprocessor (0.84.1):
+  - React-Fabric/templateprocessor (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1234,7 +1234,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/uimanager (0.84.1):
+  - React-Fabric/uimanager (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1242,7 +1242,7 @@ PODS:
     - React-Core-prebuilt
     - React-cxxreact
     - React-debug
-    - React-Fabric/uimanager/consistency (= 0.84.1)
+    - React-Fabric/uimanager/consistency (= 0.83.2)
     - React-featureflags
     - React-graphics
     - React-jsi
@@ -1255,7 +1255,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-Fabric/uimanager/consistency (0.84.1):
+  - React-Fabric/uimanager/consistency (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1275,7 +1275,7 @@ PODS:
     - React-utils
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-FabricComponents (0.84.1):
+  - React-FabricComponents (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1284,8 +1284,8 @@ PODS:
     - React-cxxreact
     - React-debug
     - React-Fabric
-    - React-FabricComponents/components (= 0.84.1)
-    - React-FabricComponents/textlayoutmanager (= 0.84.1)
+    - React-FabricComponents/components (= 0.83.2)
+    - React-FabricComponents/textlayoutmanager (= 0.83.2)
     - React-featureflags
     - React-graphics
     - React-jsi
@@ -1298,7 +1298,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricComponents/components (0.84.1):
+  - React-FabricComponents/components (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1307,18 +1307,18 @@ PODS:
     - React-cxxreact
     - React-debug
     - React-Fabric
-    - React-FabricComponents/components/inputaccessory (= 0.84.1)
-    - React-FabricComponents/components/iostextinput (= 0.84.1)
-    - React-FabricComponents/components/modal (= 0.84.1)
-    - React-FabricComponents/components/rncore (= 0.84.1)
-    - React-FabricComponents/components/safeareaview (= 0.84.1)
-    - React-FabricComponents/components/scrollview (= 0.84.1)
-    - React-FabricComponents/components/switch (= 0.84.1)
-    - React-FabricComponents/components/text (= 0.84.1)
-    - React-FabricComponents/components/textinput (= 0.84.1)
-    - React-FabricComponents/components/unimplementedview (= 0.84.1)
-    - React-FabricComponents/components/virtualview (= 0.84.1)
-    - React-FabricComponents/components/virtualviewexperimental (= 0.84.1)
+    - React-FabricComponents/components/inputaccessory (= 0.83.2)
+    - React-FabricComponents/components/iostextinput (= 0.83.2)
+    - React-FabricComponents/components/modal (= 0.83.2)
+    - React-FabricComponents/components/rncore (= 0.83.2)
+    - React-FabricComponents/components/safeareaview (= 0.83.2)
+    - React-FabricComponents/components/scrollview (= 0.83.2)
+    - React-FabricComponents/components/switch (= 0.83.2)
+    - React-FabricComponents/components/text (= 0.83.2)
+    - React-FabricComponents/components/textinput (= 0.83.2)
+    - React-FabricComponents/components/unimplementedview (= 0.83.2)
+    - React-FabricComponents/components/virtualview (= 0.83.2)
+    - React-FabricComponents/components/virtualviewexperimental (= 0.83.2)
     - React-featureflags
     - React-graphics
     - React-jsi
@@ -1331,28 +1331,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricComponents/components/inputaccessory (0.84.1):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-Core-prebuilt
-    - React-cxxreact
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-jsi
-    - React-jsiexecutor
-    - React-logger
-    - React-RCTFBReactNativeSpec
-    - React-rendererdebug
-    - React-runtimescheduler
-    - React-utils
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
-  - React-FabricComponents/components/iostextinput (0.84.1):
+  - React-FabricComponents/components/inputaccessory (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1373,7 +1352,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricComponents/components/modal (0.84.1):
+  - React-FabricComponents/components/iostextinput (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1394,7 +1373,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricComponents/components/rncore (0.84.1):
+  - React-FabricComponents/components/modal (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1415,7 +1394,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricComponents/components/safeareaview (0.84.1):
+  - React-FabricComponents/components/rncore (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1436,7 +1415,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricComponents/components/scrollview (0.84.1):
+  - React-FabricComponents/components/safeareaview (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1457,7 +1436,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricComponents/components/switch (0.84.1):
+  - React-FabricComponents/components/scrollview (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1478,7 +1457,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricComponents/components/text (0.84.1):
+  - React-FabricComponents/components/switch (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1499,7 +1478,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricComponents/components/textinput (0.84.1):
+  - React-FabricComponents/components/text (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1520,7 +1499,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricComponents/components/unimplementedview (0.84.1):
+  - React-FabricComponents/components/textinput (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1541,7 +1520,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricComponents/components/virtualview (0.84.1):
+  - React-FabricComponents/components/unimplementedview (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1562,7 +1541,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricComponents/components/virtualviewexperimental (0.84.1):
+  - React-FabricComponents/components/virtualview (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1583,7 +1562,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricComponents/textlayoutmanager (0.84.1):
+  - React-FabricComponents/components/virtualviewexperimental (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1604,27 +1583,48 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-FabricImage (0.84.1):
+  - React-FabricComponents/textlayoutmanager (0.83.2):
     - hermes-engine
-    - RCTRequired (= 0.84.1)
-    - RCTTypeSafety (= 0.84.1)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-cxxreact
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-jsi
+    - React-jsiexecutor
+    - React-logger
+    - React-RCTFBReactNativeSpec
+    - React-rendererdebug
+    - React-runtimescheduler
+    - React-utils
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - React-FabricImage (0.83.2):
+    - hermes-engine
+    - RCTRequired (= 0.83.2)
+    - RCTTypeSafety (= 0.83.2)
     - React-Core-prebuilt
     - React-Fabric
     - React-featureflags
     - React-graphics
     - React-ImageManager
     - React-jsi
-    - React-jsiexecutor (= 0.84.1)
+    - React-jsiexecutor (= 0.83.2)
     - React-logger
     - React-rendererdebug
     - React-utils
     - ReactCommon
     - ReactNativeDependencies
     - Yoga
-  - React-featureflags (0.84.1):
+  - React-featureflags (0.83.2):
     - React-Core-prebuilt
     - ReactNativeDependencies
-  - React-featureflagsnativemodule (0.84.1):
+  - React-featureflagsnativemodule (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-featureflags
@@ -1633,28 +1633,27 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-graphics (0.84.1):
+  - React-graphics (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-jsi
     - React-jsiexecutor
     - React-utils
     - ReactNativeDependencies
-  - React-hermes (0.84.1):
+  - React-hermes (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
-    - React-cxxreact (= 0.84.1)
+    - React-cxxreact (= 0.83.2)
     - React-jsi
-    - React-jsiexecutor (= 0.84.1)
+    - React-jsiexecutor (= 0.83.2)
     - React-jsinspector
     - React-jsinspectorcdp
     - React-jsinspectortracing
-    - React-jsitooling
     - React-oscompat
-    - React-perflogger (= 0.84.1)
+    - React-perflogger (= 0.83.2)
     - React-runtimeexecutor
     - ReactNativeDependencies
-  - React-idlecallbacksnativemodule (0.84.1):
+  - React-idlecallbacksnativemodule (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-jsi
@@ -1664,7 +1663,7 @@ PODS:
     - React-runtimescheduler
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-ImageManager (0.84.1):
+  - React-ImageManager (0.83.2):
     - React-Core-prebuilt
     - React-Core/Default
     - React-debug
@@ -1673,7 +1672,7 @@ PODS:
     - React-rendererdebug
     - React-utils
     - ReactNativeDependencies
-  - React-intersectionobservernativemodule (0.84.1):
+  - React-intersectionobservernativemodule (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-cxxreact
@@ -1688,7 +1687,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-jserrorhandler (0.84.1):
+  - React-jserrorhandler (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-cxxreact
@@ -1697,26 +1696,24 @@ PODS:
     - React-jsi
     - ReactCommon/turbomodule/bridging
     - ReactNativeDependencies
-  - React-jsi (0.84.1):
+  - React-jsi (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - ReactNativeDependencies
-  - React-jsiexecutor (0.84.1):
+  - React-jsiexecutor (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-cxxreact
     - React-debug
-    - React-jserrorhandler
     - React-jsi
     - React-jsinspector
     - React-jsinspectorcdp
     - React-jsinspectortracing
-    - React-jsitooling
     - React-perflogger
     - React-runtimeexecutor
     - React-utils
     - ReactNativeDependencies
-  - React-jsinspector (0.84.1):
+  - React-jsinspector (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-featureflags
@@ -1725,18 +1722,18 @@ PODS:
     - React-jsinspectornetwork
     - React-jsinspectortracing
     - React-oscompat
-    - React-perflogger (= 0.84.1)
+    - React-perflogger (= 0.83.2)
     - React-runtimeexecutor
     - React-utils
     - ReactNativeDependencies
-  - React-jsinspectorcdp (0.84.1):
+  - React-jsinspectorcdp (0.83.2):
     - React-Core-prebuilt
     - ReactNativeDependencies
-  - React-jsinspectornetwork (0.84.1):
+  - React-jsinspectornetwork (0.83.2):
     - React-Core-prebuilt
     - React-jsinspectorcdp
     - ReactNativeDependencies
-  - React-jsinspectortracing (0.84.1):
+  - React-jsinspectortracing (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-jsi
@@ -1744,28 +1741,27 @@ PODS:
     - React-oscompat
     - React-timing
     - ReactNativeDependencies
-  - React-jsitooling (0.84.1):
-    - hermes-engine
+  - React-jsitooling (0.83.2):
     - React-Core-prebuilt
-    - React-cxxreact (= 0.84.1)
+    - React-cxxreact (= 0.83.2)
     - React-debug
-    - React-jsi (= 0.84.1)
+    - React-jsi (= 0.83.2)
     - React-jsinspector
     - React-jsinspectorcdp
     - React-jsinspectortracing
     - React-runtimeexecutor
     - React-utils
     - ReactNativeDependencies
-  - React-jsitracing (0.84.1):
+  - React-jsitracing (0.83.2):
     - React-jsi
-  - React-logger (0.84.1):
+  - React-logger (0.83.2):
     - React-Core-prebuilt
     - ReactNativeDependencies
-  - React-Mapbuffer (0.84.1):
+  - React-Mapbuffer (0.83.2):
     - React-Core-prebuilt
     - React-debug
     - ReactNativeDependencies
-  - React-microtasksnativemodule (0.84.1):
+  - React-microtasksnativemodule (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-jsi
@@ -1886,7 +1882,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - React-NativeModulesApple (0.84.1):
+  - React-NativeModulesApple (0.83.2):
     - hermes-engine
     - React-callinvoker
     - React-Core
@@ -1901,18 +1897,19 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - React-networking (0.84.1):
+  - React-networking (0.83.2):
     - React-Core-prebuilt
+    - React-featureflags
     - React-jsinspectornetwork
     - React-jsinspectortracing
     - React-performancetimeline
     - React-timing
     - ReactNativeDependencies
-  - React-oscompat (0.84.1)
-  - React-perflogger (0.84.1):
+  - React-oscompat (0.83.2)
+  - React-perflogger (0.83.2):
     - React-Core-prebuilt
     - ReactNativeDependencies
-  - React-performancecdpmetrics (0.84.1):
+  - React-performancecdpmetrics (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-jsi
@@ -1920,28 +1917,26 @@ PODS:
     - React-runtimeexecutor
     - React-timing
     - ReactNativeDependencies
-  - React-performancetimeline (0.84.1):
+  - React-performancetimeline (0.83.2):
     - React-Core-prebuilt
     - React-featureflags
-    - React-jsinspector
     - React-jsinspectortracing
     - React-perflogger
     - React-timing
     - ReactNativeDependencies
-  - React-RCTActionSheet (0.84.1):
-    - React-Core/RCTActionSheetHeaders (= 0.84.1)
-  - React-RCTAnimation (0.84.1):
+  - React-RCTActionSheet (0.83.2):
+    - React-Core/RCTActionSheetHeaders (= 0.83.2)
+  - React-RCTAnimation (0.83.2):
     - RCTTypeSafety
     - React-Core-prebuilt
     - React-Core/RCTAnimationHeaders
-    - React-debug
     - React-featureflags
     - React-jsi
     - React-NativeModulesApple
     - React-RCTFBReactNativeSpec
     - ReactCommon
     - ReactNativeDependencies
-  - React-RCTAppDelegate (0.84.1):
+  - React-RCTAppDelegate (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1969,7 +1964,7 @@ PODS:
     - React-utils
     - ReactCommon
     - ReactNativeDependencies
-  - React-RCTBlob (0.84.1):
+  - React-RCTBlob (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-Core/RCTBlobHeaders
@@ -1982,7 +1977,7 @@ PODS:
     - React-RCTNetwork
     - ReactCommon
     - ReactNativeDependencies
-  - React-RCTFabric (0.84.1):
+  - React-RCTFabric (0.83.2):
     - hermes-engine
     - RCTSwiftUIWrapper
     - React-Core
@@ -2013,7 +2008,7 @@ PODS:
     - React-utils
     - ReactNativeDependencies
     - Yoga
-  - React-RCTFBReactNativeSpec (0.84.1):
+  - React-RCTFBReactNativeSpec (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2021,10 +2016,10 @@ PODS:
     - React-Core-prebuilt
     - React-jsi
     - React-NativeModulesApple
-    - React-RCTFBReactNativeSpec/components (= 0.84.1)
+    - React-RCTFBReactNativeSpec/components (= 0.83.2)
     - ReactCommon
     - ReactNativeDependencies
-  - React-RCTFBReactNativeSpec/components (0.84.1):
+  - React-RCTFBReactNativeSpec/components (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2041,7 +2036,7 @@ PODS:
     - ReactCommon
     - ReactNativeDependencies
     - Yoga
-  - React-RCTImage (0.84.1):
+  - React-RCTImage (0.83.2):
     - RCTTypeSafety
     - React-Core-prebuilt
     - React-Core/RCTImageHeaders
@@ -2051,14 +2046,14 @@ PODS:
     - React-RCTNetwork
     - ReactCommon
     - ReactNativeDependencies
-  - React-RCTLinking (0.84.1):
-    - React-Core/RCTLinkingHeaders (= 0.84.1)
-    - React-jsi (= 0.84.1)
+  - React-RCTLinking (0.83.2):
+    - React-Core/RCTLinkingHeaders (= 0.83.2)
+    - React-jsi (= 0.83.2)
     - React-NativeModulesApple
     - React-RCTFBReactNativeSpec
     - ReactCommon
-    - ReactCommon/turbomodule/core (= 0.84.1)
-  - React-RCTNetwork (0.84.1):
+    - ReactCommon/turbomodule/core (= 0.83.2)
+  - React-RCTNetwork (0.83.2):
     - RCTTypeSafety
     - React-Core-prebuilt
     - React-Core/RCTNetworkHeaders
@@ -2072,7 +2067,7 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon
     - ReactNativeDependencies
-  - React-RCTRuntime (0.84.1):
+  - React-RCTRuntime (0.83.2):
     - hermes-engine
     - React-Core
     - React-Core-prebuilt
@@ -2088,7 +2083,7 @@ PODS:
     - React-RuntimeHermes
     - React-utils
     - ReactNativeDependencies
-  - React-RCTSettings (0.84.1):
+  - React-RCTSettings (0.83.2):
     - RCTTypeSafety
     - React-Core-prebuilt
     - React-Core/RCTSettingsHeaders
@@ -2097,10 +2092,10 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon
     - ReactNativeDependencies
-  - React-RCTText (0.84.1):
-    - React-Core/RCTTextHeaders (= 0.84.1)
+  - React-RCTText (0.83.2):
+    - React-Core/RCTTextHeaders (= 0.83.2)
     - Yoga
-  - React-RCTVibration (0.84.1):
+  - React-RCTVibration (0.83.2):
     - React-Core-prebuilt
     - React-Core/RCTVibrationHeaders
     - React-jsi
@@ -2108,15 +2103,15 @@ PODS:
     - React-RCTFBReactNativeSpec
     - ReactCommon
     - ReactNativeDependencies
-  - React-rendererconsistency (0.84.1)
-  - React-renderercss (0.84.1):
+  - React-rendererconsistency (0.83.2)
+  - React-renderercss (0.83.2):
     - React-debug
     - React-utils
-  - React-rendererdebug (0.84.1):
+  - React-rendererdebug (0.83.2):
     - React-Core-prebuilt
     - React-debug
     - ReactNativeDependencies
-  - React-RuntimeApple (0.84.1):
+  - React-RuntimeApple (0.83.2):
     - hermes-engine
     - React-callinvoker
     - React-Core-prebuilt
@@ -2139,7 +2134,7 @@ PODS:
     - React-runtimescheduler
     - React-utils
     - ReactNativeDependencies
-  - React-RuntimeCore (0.84.1):
+  - React-RuntimeCore (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-cxxreact
@@ -2155,14 +2150,14 @@ PODS:
     - React-runtimescheduler
     - React-utils
     - ReactNativeDependencies
-  - React-runtimeexecutor (0.84.1):
+  - React-runtimeexecutor (0.83.2):
     - React-Core-prebuilt
     - React-debug
     - React-featureflags
-    - React-jsi (= 0.84.1)
+    - React-jsi (= 0.83.2)
     - React-utils
     - ReactNativeDependencies
-  - React-RuntimeHermes (0.84.1):
+  - React-RuntimeHermes (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-featureflags
@@ -2177,7 +2172,7 @@ PODS:
     - React-runtimeexecutor
     - React-utils
     - ReactNativeDependencies
-  - React-runtimescheduler (0.84.1):
+  - React-runtimescheduler (0.83.2):
     - hermes-engine
     - React-callinvoker
     - React-Core-prebuilt
@@ -2193,15 +2188,15 @@ PODS:
     - React-timing
     - React-utils
     - ReactNativeDependencies
-  - React-timing (0.84.1):
+  - React-timing (0.83.2):
     - React-debug
-  - React-utils (0.84.1):
+  - React-utils (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-debug
-    - React-jsi (= 0.84.1)
+    - React-jsi (= 0.83.2)
     - ReactNativeDependencies
-  - React-webperformancenativemodule (0.84.1):
+  - React-webperformancenativemodule (0.83.2):
     - hermes-engine
     - React-Core-prebuilt
     - React-cxxreact
@@ -2212,9 +2207,9 @@ PODS:
     - React-runtimeexecutor
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - ReactAppDependencyProvider (0.84.1):
+  - ReactAppDependencyProvider (0.83.2):
     - ReactCodegen
-  - ReactCodegen (0.84.1):
+  - ReactCodegen (0.83.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2234,43 +2229,43 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-  - ReactCommon (0.84.1):
+  - ReactCommon (0.83.2):
     - React-Core-prebuilt
-    - ReactCommon/turbomodule (= 0.84.1)
+    - ReactCommon/turbomodule (= 0.83.2)
     - ReactNativeDependencies
-  - ReactCommon/turbomodule (0.84.1):
+  - ReactCommon/turbomodule (0.83.2):
     - hermes-engine
-    - React-callinvoker (= 0.84.1)
+    - React-callinvoker (= 0.83.2)
     - React-Core-prebuilt
-    - React-cxxreact (= 0.84.1)
-    - React-jsi (= 0.84.1)
-    - React-logger (= 0.84.1)
-    - React-perflogger (= 0.84.1)
-    - ReactCommon/turbomodule/bridging (= 0.84.1)
-    - ReactCommon/turbomodule/core (= 0.84.1)
+    - React-cxxreact (= 0.83.2)
+    - React-jsi (= 0.83.2)
+    - React-logger (= 0.83.2)
+    - React-perflogger (= 0.83.2)
+    - ReactCommon/turbomodule/bridging (= 0.83.2)
+    - ReactCommon/turbomodule/core (= 0.83.2)
     - ReactNativeDependencies
-  - ReactCommon/turbomodule/bridging (0.84.1):
+  - ReactCommon/turbomodule/bridging (0.83.2):
     - hermes-engine
-    - React-callinvoker (= 0.84.1)
+    - React-callinvoker (= 0.83.2)
     - React-Core-prebuilt
-    - React-cxxreact (= 0.84.1)
-    - React-jsi (= 0.84.1)
-    - React-logger (= 0.84.1)
-    - React-perflogger (= 0.84.1)
+    - React-cxxreact (= 0.83.2)
+    - React-jsi (= 0.83.2)
+    - React-logger (= 0.83.2)
+    - React-perflogger (= 0.83.2)
     - ReactNativeDependencies
-  - ReactCommon/turbomodule/core (0.84.1):
+  - ReactCommon/turbomodule/core (0.83.2):
     - hermes-engine
-    - React-callinvoker (= 0.84.1)
+    - React-callinvoker (= 0.83.2)
     - React-Core-prebuilt
-    - React-cxxreact (= 0.84.1)
-    - React-debug (= 0.84.1)
-    - React-featureflags (= 0.84.1)
-    - React-jsi (= 0.84.1)
-    - React-logger (= 0.84.1)
-    - React-perflogger (= 0.84.1)
-    - React-utils (= 0.84.1)
+    - React-cxxreact (= 0.83.2)
+    - React-debug (= 0.83.2)
+    - React-featureflags (= 0.83.2)
+    - React-jsi (= 0.83.2)
+    - React-logger (= 0.83.2)
+    - React-perflogger (= 0.83.2)
+    - React-utils (= 0.83.2)
     - ReactNativeDependencies
-  - ReactNativeDependencies (0.84.1)
+  - ReactNativeDependencies (0.83.2)
   - RevenueCat (5.57.0)
   - RNCAsyncStorage (2.2.0):
     - hermes-engine
@@ -2620,133 +2615,133 @@ PODS:
     - ZXingObjC/Core
 
 DEPENDENCIES:
-  - EXApplication (from `../../../../../Baci-app/node_modules/expo-application/ios`)
-  - EXConstants (from `../../../../../Baci-app/node_modules/expo-constants/ios`)
-  - EXJSONUtils (from `../../../../../Baci-app/node_modules/expo-json-utils/ios`)
-  - EXManifests (from `../../../../../Baci-app/node_modules/expo-manifests/ios`)
-  - Expo (from `../../../../../Baci-app/node_modules/expo`)
-  - expo-dev-client (from `../../../../../Baci-app/node_modules/expo-dev-client/ios`)
-  - expo-dev-launcher (from `../../../../../Baci-app/node_modules/expo-dev-launcher`)
-  - expo-dev-menu (from `../../../../../Baci-app/node_modules/expo-dev-menu`)
-  - expo-dev-menu-interface (from `../../../../../Baci-app/node_modules/expo-dev-menu-interface/ios`)
-  - "ExpoAdapterGoogleSignIn (from `../../../../../Baci-app/node_modules/@react-native-google-signin/google-signin/expo/ios`)"
-  - ExpoAppleAuthentication (from `../../../../../Baci-app/node_modules/expo-apple-authentication/ios`)
-  - ExpoAsset (from `../../../../../Baci-app/node_modules/expo-asset/ios`)
-  - ExpoCamera (from `../../../../../Baci-app/node_modules/expo-camera/ios`)
-  - ExpoClipboard (from `../../../../../Baci-app/node_modules/expo-clipboard/ios`)
-  - ExpoCrypto (from `../../../../../Baci-app/node_modules/expo-crypto/ios`)
-  - ExpoDevice (from `../../../../../Baci-app/node_modules/expo-device/ios`)
-  - "ExpoDomWebView (from `../../../../../Baci-app/node_modules/@expo/dom-webview/ios`)"
-  - ExpoFileSystem (from `../../../../../Baci-app/node_modules/expo-file-system/ios`)
-  - ExpoFont (from `../../../../../Baci-app/node_modules/expo-font/ios`)
-  - ExpoGlassEffect (from `../../../../../Baci-app/node_modules/expo-glass-effect/ios`)
-  - ExpoHaptics (from `../../../../../Baci-app/node_modules/expo-haptics/ios`)
-  - ExpoImage (from `../../../../../Baci-app/node_modules/expo-image/ios`)
-  - ExpoImagePicker (from `../../../../../Baci-app/node_modules/expo-image-picker/ios`)
-  - ExpoKeepAwake (from `../../../../../Baci-app/node_modules/expo-keep-awake/ios`)
-  - ExpoLinearGradient (from `../../../../../Baci-app/node_modules/expo-linear-gradient/ios`)
-  - ExpoLinking (from `../../../../../Baci-app/node_modules/expo-linking/ios`)
-  - "ExpoLogBox (from `../../../../../Baci-app/node_modules/@expo/log-box`)"
-  - ExpoModulesCore (from `../../../../../Baci-app/node_modules/expo-modules-core`)
-  - ExpoModulesJSI (from `../../../../../Baci-app/node_modules/expo-modules-core`)
-  - ExpoNotifications (from `../../../../../Baci-app/node_modules/expo-notifications/ios`)
-  - ExpoPrint (from `../../../../../Baci-app/node_modules/expo-print/ios`)
-  - ExpoRouter (from `../../../../../Baci-app/node_modules/expo-router/ios`)
-  - ExpoSecureStore (from `../../../../../Baci-app/node_modules/expo-secure-store/ios`)
-  - ExpoSharing (from `../../../../../Baci-app/node_modules/expo-sharing/ios`)
-  - ExpoSplashScreen (from `../../../../../Baci-app/node_modules/expo-splash-screen/ios`)
-  - ExpoStoreReview (from `../../../../../Baci-app/node_modules/expo-store-review/ios`)
-  - ExpoSymbols (from `../../../../../Baci-app/node_modules/expo-symbols/ios`)
-  - ExpoWebBrowser (from `../../../../../Baci-app/node_modules/expo-web-browser/ios`)
-  - EXUpdatesInterface (from `../../../../../Baci-app/node_modules/expo-updates-interface/ios`)
-  - FBLazyVector (from `../../../../../Baci-app/node_modules/react-native/Libraries/FBLazyVector`)
-  - hermes-engine (from `../../../../../Baci-app/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
-  - NitroMmkv (from `../../../../../Baci-app/node_modules/react-native-mmkv`)
-  - NitroModules (from `../../../../../Baci-app/node_modules/react-native-nitro-modules`)
-  - RCTDeprecation (from `../../../../../Baci-app/node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
-  - RCTRequired (from `../../../../../Baci-app/node_modules/react-native/Libraries/Required`)
-  - RCTSwiftUI (from `../../../../../Baci-app/node_modules/react-native/ReactApple/RCTSwiftUI`)
-  - RCTSwiftUIWrapper (from `../../../../../Baci-app/node_modules/react-native/ReactApple/RCTSwiftUIWrapper`)
-  - RCTTypeSafety (from `../../../../../Baci-app/node_modules/react-native/Libraries/TypeSafety`)
-  - React (from `../../../../../Baci-app/node_modules/react-native/`)
-  - React-callinvoker (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/callinvoker`)
-  - React-Core (from `../../../../../Baci-app/node_modules/react-native/`)
-  - React-Core-prebuilt (from `../../../../../Baci-app/node_modules/react-native/React-Core-prebuilt.podspec`)
-  - React-Core/RCTWebSocket (from `../../../../../Baci-app/node_modules/react-native/`)
-  - React-CoreModules (from `../../../../../Baci-app/node_modules/react-native/React/CoreModules`)
-  - React-cxxreact (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/cxxreact`)
-  - React-debug (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/debug`)
-  - React-defaultsnativemodule (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/defaults`)
-  - React-domnativemodule (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/dom`)
-  - React-Fabric (from `../../../../../Baci-app/node_modules/react-native/ReactCommon`)
-  - React-FabricComponents (from `../../../../../Baci-app/node_modules/react-native/ReactCommon`)
-  - React-FabricImage (from `../../../../../Baci-app/node_modules/react-native/ReactCommon`)
-  - React-featureflags (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/featureflags`)
-  - React-featureflagsnativemodule (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/featureflags`)
-  - React-graphics (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/renderer/graphics`)
-  - React-hermes (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/hermes`)
-  - React-idlecallbacksnativemodule (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/idlecallbacks`)
-  - React-ImageManager (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/renderer/imagemanager/platform/ios`)
-  - React-intersectionobservernativemodule (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/intersectionobserver`)
-  - React-jserrorhandler (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/jserrorhandler`)
-  - React-jsi (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/jsi`)
-  - React-jsiexecutor (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/jsiexecutor`)
-  - React-jsinspector (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/jsinspector-modern`)
-  - React-jsinspectorcdp (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/jsinspector-modern/cdp`)
-  - React-jsinspectornetwork (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/jsinspector-modern/network`)
-  - React-jsinspectortracing (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/jsinspector-modern/tracing`)
-  - React-jsitooling (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/jsitooling`)
-  - React-jsitracing (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/hermes/executor/`)
-  - React-logger (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/logger`)
-  - React-Mapbuffer (from `../../../../../Baci-app/node_modules/react-native/ReactCommon`)
-  - React-microtasksnativemodule (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
-  - "react-native-netinfo (from `../../../../../Baci-app/node_modules/@react-native-community/netinfo`)"
-  - react-native-safe-area-context (from `../../../../../Baci-app/node_modules/react-native-safe-area-context`)
-  - react-native-webview (from `../../../../../Baci-app/node_modules/react-native-webview`)
-  - React-NativeModulesApple (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
-  - React-networking (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/networking`)
-  - React-oscompat (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/oscompat`)
-  - React-perflogger (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/reactperflogger`)
-  - React-performancecdpmetrics (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/performance/cdpmetrics`)
-  - React-performancetimeline (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/performance/timeline`)
-  - React-RCTActionSheet (from `../../../../../Baci-app/node_modules/react-native/Libraries/ActionSheetIOS`)
-  - React-RCTAnimation (from `../../../../../Baci-app/node_modules/react-native/Libraries/NativeAnimation`)
-  - React-RCTAppDelegate (from `../../../../../Baci-app/node_modules/react-native/Libraries/AppDelegate`)
-  - React-RCTBlob (from `../../../../../Baci-app/node_modules/react-native/Libraries/Blob`)
-  - React-RCTFabric (from `../../../../../Baci-app/node_modules/react-native/React`)
-  - React-RCTFBReactNativeSpec (from `../../../../../Baci-app/node_modules/react-native/React`)
-  - React-RCTImage (from `../../../../../Baci-app/node_modules/react-native/Libraries/Image`)
-  - React-RCTLinking (from `../../../../../Baci-app/node_modules/react-native/Libraries/LinkingIOS`)
-  - React-RCTNetwork (from `../../../../../Baci-app/node_modules/react-native/Libraries/Network`)
-  - React-RCTRuntime (from `../../../../../Baci-app/node_modules/react-native/React/Runtime`)
-  - React-RCTSettings (from `../../../../../Baci-app/node_modules/react-native/Libraries/Settings`)
-  - React-RCTText (from `../../../../../Baci-app/node_modules/react-native/Libraries/Text`)
-  - React-RCTVibration (from `../../../../../Baci-app/node_modules/react-native/Libraries/Vibration`)
-  - React-rendererconsistency (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/renderer/consistency`)
-  - React-renderercss (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/renderer/css`)
-  - React-rendererdebug (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/renderer/debug`)
-  - React-RuntimeApple (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/runtime/platform/ios`)
-  - React-RuntimeCore (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/runtime`)
-  - React-runtimeexecutor (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/runtimeexecutor`)
-  - React-RuntimeHermes (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/runtime`)
-  - React-runtimescheduler (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/renderer/runtimescheduler`)
-  - React-timing (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/timing`)
-  - React-utils (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/utils`)
-  - React-webperformancenativemodule (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/webperformance`)
+  - EXApplication (from `../../../node_modules/expo-application/ios`)
+  - EXConstants (from `../../../node_modules/expo-constants/ios`)
+  - EXJSONUtils (from `../../../node_modules/expo-json-utils/ios`)
+  - EXManifests (from `../../../node_modules/expo-manifests/ios`)
+  - Expo (from `../../../node_modules/expo`)
+  - expo-dev-client (from `../../../node_modules/expo-dev-client/ios`)
+  - expo-dev-launcher (from `../../../node_modules/expo-dev-launcher`)
+  - expo-dev-menu (from `../../../node_modules/expo-dev-menu`)
+  - expo-dev-menu-interface (from `../../../node_modules/expo-dev-menu-interface/ios`)
+  - "ExpoAdapterGoogleSignIn (from `../../../node_modules/@react-native-google-signin/google-signin/expo/ios`)"
+  - ExpoAppleAuthentication (from `../../../node_modules/expo-apple-authentication/ios`)
+  - ExpoAsset (from `../../../node_modules/expo-asset/ios`)
+  - ExpoCamera (from `../../../node_modules/expo-camera/ios`)
+  - ExpoClipboard (from `../../../node_modules/expo-clipboard/ios`)
+  - ExpoCrypto (from `../../../node_modules/expo-crypto/ios`)
+  - ExpoDevice (from `../../../node_modules/expo-device/ios`)
+  - "ExpoDomWebView (from `../../../node_modules/@expo/dom-webview/ios`)"
+  - ExpoFileSystem (from `../../../node_modules/expo-file-system/ios`)
+  - ExpoFont (from `../../../node_modules/expo-font/ios`)
+  - ExpoGlassEffect (from `../../../node_modules/expo-glass-effect/ios`)
+  - ExpoHaptics (from `../../../node_modules/expo-haptics/ios`)
+  - ExpoImage (from `../../../node_modules/expo-image/ios`)
+  - ExpoImagePicker (from `../../../node_modules/expo-image-picker/ios`)
+  - ExpoKeepAwake (from `../../../node_modules/expo-keep-awake/ios`)
+  - ExpoLinearGradient (from `../../../node_modules/expo-linear-gradient/ios`)
+  - ExpoLinking (from `../../../node_modules/expo-linking/ios`)
+  - "ExpoLogBox (from `../../../node_modules/@expo/log-box`)"
+  - ExpoModulesCore (from `../../../node_modules/expo-modules-core`)
+  - ExpoModulesJSI (from `../../../node_modules/expo-modules-core`)
+  - ExpoNotifications (from `../../../node_modules/expo-notifications/ios`)
+  - ExpoPrint (from `../../../node_modules/expo-print/ios`)
+  - ExpoRouter (from `../../../node_modules/expo-router/ios`)
+  - ExpoSecureStore (from `../../../node_modules/expo-secure-store/ios`)
+  - ExpoSharing (from `../../../node_modules/expo-sharing/ios`)
+  - ExpoSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
+  - ExpoStoreReview (from `../../../node_modules/expo-store-review/ios`)
+  - ExpoSymbols (from `../../../node_modules/expo-symbols/ios`)
+  - ExpoWebBrowser (from `../../../node_modules/expo-web-browser/ios`)
+  - EXUpdatesInterface (from `../../../node_modules/expo-updates-interface/ios`)
+  - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
+  - hermes-engine (from `../../../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
+  - NitroMmkv (from `../../../node_modules/react-native-mmkv`)
+  - NitroModules (from `../../../node_modules/react-native-nitro-modules`)
+  - RCTDeprecation (from `../../../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
+  - RCTRequired (from `../../../node_modules/react-native/Libraries/Required`)
+  - RCTSwiftUI (from `../../../node_modules/react-native/ReactApple/RCTSwiftUI`)
+  - RCTSwiftUIWrapper (from `../../../node_modules/react-native/ReactApple/RCTSwiftUIWrapper`)
+  - RCTTypeSafety (from `../../../node_modules/react-native/Libraries/TypeSafety`)
+  - React (from `../../../node_modules/react-native/`)
+  - React-callinvoker (from `../../../node_modules/react-native/ReactCommon/callinvoker`)
+  - React-Core (from `../../../node_modules/react-native/`)
+  - React-Core-prebuilt (from `../../../node_modules/react-native/React-Core-prebuilt.podspec`)
+  - React-Core/RCTWebSocket (from `../../../node_modules/react-native/`)
+  - React-CoreModules (from `../../../node_modules/react-native/React/CoreModules`)
+  - React-cxxreact (from `../../../node_modules/react-native/ReactCommon/cxxreact`)
+  - React-debug (from `../../../node_modules/react-native/ReactCommon/react/debug`)
+  - React-defaultsnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/defaults`)
+  - React-domnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/dom`)
+  - React-Fabric (from `../../../node_modules/react-native/ReactCommon`)
+  - React-FabricComponents (from `../../../node_modules/react-native/ReactCommon`)
+  - React-FabricImage (from `../../../node_modules/react-native/ReactCommon`)
+  - React-featureflags (from `../../../node_modules/react-native/ReactCommon/react/featureflags`)
+  - React-featureflagsnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/featureflags`)
+  - React-graphics (from `../../../node_modules/react-native/ReactCommon/react/renderer/graphics`)
+  - React-hermes (from `../../../node_modules/react-native/ReactCommon/hermes`)
+  - React-idlecallbacksnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/idlecallbacks`)
+  - React-ImageManager (from `../../../node_modules/react-native/ReactCommon/react/renderer/imagemanager/platform/ios`)
+  - React-intersectionobservernativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/intersectionobserver`)
+  - React-jserrorhandler (from `../../../node_modules/react-native/ReactCommon/jserrorhandler`)
+  - React-jsi (from `../../../node_modules/react-native/ReactCommon/jsi`)
+  - React-jsiexecutor (from `../../../node_modules/react-native/ReactCommon/jsiexecutor`)
+  - React-jsinspector (from `../../../node_modules/react-native/ReactCommon/jsinspector-modern`)
+  - React-jsinspectorcdp (from `../../../node_modules/react-native/ReactCommon/jsinspector-modern/cdp`)
+  - React-jsinspectornetwork (from `../../../node_modules/react-native/ReactCommon/jsinspector-modern/network`)
+  - React-jsinspectortracing (from `../../../node_modules/react-native/ReactCommon/jsinspector-modern/tracing`)
+  - React-jsitooling (from `../../../node_modules/react-native/ReactCommon/jsitooling`)
+  - React-jsitracing (from `../../../node_modules/react-native/ReactCommon/hermes/executor/`)
+  - React-logger (from `../../../node_modules/react-native/ReactCommon/logger`)
+  - React-Mapbuffer (from `../../../node_modules/react-native/ReactCommon`)
+  - React-microtasksnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
+  - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
+  - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
+  - react-native-webview (from `../../../node_modules/react-native-webview`)
+  - React-NativeModulesApple (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
+  - React-networking (from `../../../node_modules/react-native/ReactCommon/react/networking`)
+  - React-oscompat (from `../../../node_modules/react-native/ReactCommon/oscompat`)
+  - React-perflogger (from `../../../node_modules/react-native/ReactCommon/reactperflogger`)
+  - React-performancecdpmetrics (from `../../../node_modules/react-native/ReactCommon/react/performance/cdpmetrics`)
+  - React-performancetimeline (from `../../../node_modules/react-native/ReactCommon/react/performance/timeline`)
+  - React-RCTActionSheet (from `../../../node_modules/react-native/Libraries/ActionSheetIOS`)
+  - React-RCTAnimation (from `../../../node_modules/react-native/Libraries/NativeAnimation`)
+  - React-RCTAppDelegate (from `../../../node_modules/react-native/Libraries/AppDelegate`)
+  - React-RCTBlob (from `../../../node_modules/react-native/Libraries/Blob`)
+  - React-RCTFabric (from `../../../node_modules/react-native/React`)
+  - React-RCTFBReactNativeSpec (from `../../../node_modules/react-native/React`)
+  - React-RCTImage (from `../../../node_modules/react-native/Libraries/Image`)
+  - React-RCTLinking (from `../../../node_modules/react-native/Libraries/LinkingIOS`)
+  - React-RCTNetwork (from `../../../node_modules/react-native/Libraries/Network`)
+  - React-RCTRuntime (from `../../../node_modules/react-native/React/Runtime`)
+  - React-RCTSettings (from `../../../node_modules/react-native/Libraries/Settings`)
+  - React-RCTText (from `../../../node_modules/react-native/Libraries/Text`)
+  - React-RCTVibration (from `../../../node_modules/react-native/Libraries/Vibration`)
+  - React-rendererconsistency (from `../../../node_modules/react-native/ReactCommon/react/renderer/consistency`)
+  - React-renderercss (from `../../../node_modules/react-native/ReactCommon/react/renderer/css`)
+  - React-rendererdebug (from `../../../node_modules/react-native/ReactCommon/react/renderer/debug`)
+  - React-RuntimeApple (from `../../../node_modules/react-native/ReactCommon/react/runtime/platform/ios`)
+  - React-RuntimeCore (from `../../../node_modules/react-native/ReactCommon/react/runtime`)
+  - React-runtimeexecutor (from `../../../node_modules/react-native/ReactCommon/runtimeexecutor`)
+  - React-RuntimeHermes (from `../../../node_modules/react-native/ReactCommon/react/runtime`)
+  - React-runtimescheduler (from `../../../node_modules/react-native/ReactCommon/react/renderer/runtimescheduler`)
+  - React-timing (from `../../../node_modules/react-native/ReactCommon/react/timing`)
+  - React-utils (from `../../../node_modules/react-native/ReactCommon/react/utils`)
+  - React-webperformancenativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/webperformance`)
   - ReactAppDependencyProvider (from `build/generated/ios/ReactAppDependencyProvider`)
   - ReactCodegen (from `build/generated/ios/ReactCodegen`)
-  - ReactCommon/turbomodule/core (from `../../../../../Baci-app/node_modules/react-native/ReactCommon`)
-  - ReactNativeDependencies (from `../../../../../Baci-app/node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
-  - "RNCAsyncStorage (from `../../../../../Baci-app/node_modules/@react-native-async-storage/async-storage`)"
-  - "RNDateTimePicker (from `../../../../../Baci-app/node_modules/@react-native-community/datetimepicker`)"
-  - RNGestureHandler (from `../../../../../Baci-app/node_modules/react-native-gesture-handler`)
-  - "RNGoogleSignin (from `../../../../../Baci-app/node_modules/@react-native-google-signin/google-signin`)"
-  - RNPurchases (from `../../../../../Baci-app/node_modules/react-native-purchases`)
-  - RNReanimated (from `../../../../../Baci-app/node_modules/react-native-reanimated`)
-  - RNScreens (from `../../../../../Baci-app/node_modules/react-native-screens`)
-  - RNSVG (from `../../../../../Baci-app/node_modules/react-native-svg`)
-  - RNWorklets (from `../../../../../Baci-app/node_modules/react-native-worklets`)
-  - Yoga (from `../../../../../Baci-app/node_modules/react-native/ReactCommon/yoga`)
+  - ReactCommon/turbomodule/core (from `../../../node_modules/react-native/ReactCommon`)
+  - ReactNativeDependencies (from `../../../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
+  - "RNCAsyncStorage (from `../../../node_modules/@react-native-async-storage/async-storage`)"
+  - "RNDateTimePicker (from `../../../node_modules/@react-native-community/datetimepicker`)"
+  - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
+  - "RNGoogleSignin (from `../../../node_modules/@react-native-google-signin/google-signin`)"
+  - RNPurchases (from `../../../node_modules/react-native-purchases`)
+  - RNReanimated (from `../../../node_modules/react-native-reanimated`)
+  - RNScreens (from `../../../node_modules/react-native-screens`)
+  - RNSVG (from `../../../node_modules/react-native-svg`)
+  - RNWorklets (from `../../../node_modules/react-native-worklets`)
+  - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
   trunk:
@@ -2771,258 +2766,258 @@ SPEC REPOS:
 
 EXTERNAL SOURCES:
   EXApplication:
-    :path: "../../../../../Baci-app/node_modules/expo-application/ios"
+    :path: "../../../node_modules/expo-application/ios"
   EXConstants:
-    :path: "../../../../../Baci-app/node_modules/expo-constants/ios"
+    :path: "../../../node_modules/expo-constants/ios"
   EXJSONUtils:
-    :path: "../../../../../Baci-app/node_modules/expo-json-utils/ios"
+    :path: "../../../node_modules/expo-json-utils/ios"
   EXManifests:
-    :path: "../../../../../Baci-app/node_modules/expo-manifests/ios"
+    :path: "../../../node_modules/expo-manifests/ios"
   Expo:
-    :path: "../../../../../Baci-app/node_modules/expo"
+    :path: "../../../node_modules/expo"
   expo-dev-client:
-    :path: "../../../../../Baci-app/node_modules/expo-dev-client/ios"
+    :path: "../../../node_modules/expo-dev-client/ios"
   expo-dev-launcher:
-    :path: "../../../../../Baci-app/node_modules/expo-dev-launcher"
+    :path: "../../../node_modules/expo-dev-launcher"
   expo-dev-menu:
-    :path: "../../../../../Baci-app/node_modules/expo-dev-menu"
+    :path: "../../../node_modules/expo-dev-menu"
   expo-dev-menu-interface:
-    :path: "../../../../../Baci-app/node_modules/expo-dev-menu-interface/ios"
+    :path: "../../../node_modules/expo-dev-menu-interface/ios"
   ExpoAdapterGoogleSignIn:
-    :path: "../../../../../Baci-app/node_modules/@react-native-google-signin/google-signin/expo/ios"
+    :path: "../../../node_modules/@react-native-google-signin/google-signin/expo/ios"
   ExpoAppleAuthentication:
-    :path: "../../../../../Baci-app/node_modules/expo-apple-authentication/ios"
+    :path: "../../../node_modules/expo-apple-authentication/ios"
   ExpoAsset:
-    :path: "../../../../../Baci-app/node_modules/expo-asset/ios"
+    :path: "../../../node_modules/expo-asset/ios"
   ExpoCamera:
-    :path: "../../../../../Baci-app/node_modules/expo-camera/ios"
+    :path: "../../../node_modules/expo-camera/ios"
   ExpoClipboard:
-    :path: "../../../../../Baci-app/node_modules/expo-clipboard/ios"
+    :path: "../../../node_modules/expo-clipboard/ios"
   ExpoCrypto:
-    :path: "../../../../../Baci-app/node_modules/expo-crypto/ios"
+    :path: "../../../node_modules/expo-crypto/ios"
   ExpoDevice:
-    :path: "../../../../../Baci-app/node_modules/expo-device/ios"
+    :path: "../../../node_modules/expo-device/ios"
   ExpoDomWebView:
-    :path: "../../../../../Baci-app/node_modules/@expo/dom-webview/ios"
+    :path: "../../../node_modules/@expo/dom-webview/ios"
   ExpoFileSystem:
-    :path: "../../../../../Baci-app/node_modules/expo-file-system/ios"
+    :path: "../../../node_modules/expo-file-system/ios"
   ExpoFont:
-    :path: "../../../../../Baci-app/node_modules/expo-font/ios"
+    :path: "../../../node_modules/expo-font/ios"
   ExpoGlassEffect:
-    :path: "../../../../../Baci-app/node_modules/expo-glass-effect/ios"
+    :path: "../../../node_modules/expo-glass-effect/ios"
   ExpoHaptics:
-    :path: "../../../../../Baci-app/node_modules/expo-haptics/ios"
+    :path: "../../../node_modules/expo-haptics/ios"
   ExpoImage:
-    :path: "../../../../../Baci-app/node_modules/expo-image/ios"
+    :path: "../../../node_modules/expo-image/ios"
   ExpoImagePicker:
-    :path: "../../../../../Baci-app/node_modules/expo-image-picker/ios"
+    :path: "../../../node_modules/expo-image-picker/ios"
   ExpoKeepAwake:
-    :path: "../../../../../Baci-app/node_modules/expo-keep-awake/ios"
+    :path: "../../../node_modules/expo-keep-awake/ios"
   ExpoLinearGradient:
-    :path: "../../../../../Baci-app/node_modules/expo-linear-gradient/ios"
+    :path: "../../../node_modules/expo-linear-gradient/ios"
   ExpoLinking:
-    :path: "../../../../../Baci-app/node_modules/expo-linking/ios"
+    :path: "../../../node_modules/expo-linking/ios"
   ExpoLogBox:
-    :path: "../../../../../Baci-app/node_modules/@expo/log-box"
+    :path: "../../../node_modules/@expo/log-box"
   ExpoModulesCore:
-    :path: "../../../../../Baci-app/node_modules/expo-modules-core"
+    :path: "../../../node_modules/expo-modules-core"
   ExpoModulesJSI:
-    :path: "../../../../../Baci-app/node_modules/expo-modules-core"
+    :path: "../../../node_modules/expo-modules-core"
   ExpoNotifications:
-    :path: "../../../../../Baci-app/node_modules/expo-notifications/ios"
+    :path: "../../../node_modules/expo-notifications/ios"
   ExpoPrint:
-    :path: "../../../../../Baci-app/node_modules/expo-print/ios"
+    :path: "../../../node_modules/expo-print/ios"
   ExpoRouter:
-    :path: "../../../../../Baci-app/node_modules/expo-router/ios"
+    :path: "../../../node_modules/expo-router/ios"
   ExpoSecureStore:
-    :path: "../../../../../Baci-app/node_modules/expo-secure-store/ios"
+    :path: "../../../node_modules/expo-secure-store/ios"
   ExpoSharing:
-    :path: "../../../../../Baci-app/node_modules/expo-sharing/ios"
+    :path: "../../../node_modules/expo-sharing/ios"
   ExpoSplashScreen:
-    :path: "../../../../../Baci-app/node_modules/expo-splash-screen/ios"
+    :path: "../../../node_modules/expo-splash-screen/ios"
   ExpoStoreReview:
-    :path: "../../../../../Baci-app/node_modules/expo-store-review/ios"
+    :path: "../../../node_modules/expo-store-review/ios"
   ExpoSymbols:
-    :path: "../../../../../Baci-app/node_modules/expo-symbols/ios"
+    :path: "../../../node_modules/expo-symbols/ios"
   ExpoWebBrowser:
-    :path: "../../../../../Baci-app/node_modules/expo-web-browser/ios"
+    :path: "../../../node_modules/expo-web-browser/ios"
   EXUpdatesInterface:
-    :path: "../../../../../Baci-app/node_modules/expo-updates-interface/ios"
+    :path: "../../../node_modules/expo-updates-interface/ios"
   FBLazyVector:
-    :path: "../../../../../Baci-app/node_modules/react-native/Libraries/FBLazyVector"
+    :path: "../../../node_modules/react-native/Libraries/FBLazyVector"
   hermes-engine:
-    :podspec: "../../../../../Baci-app/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec"
-    :tag: hermes-v250829098.0.9
+    :podspec: "../../../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec"
+    :tag: hermes-v0.14.1
   NitroMmkv:
-    :path: "../../../../../Baci-app/node_modules/react-native-mmkv"
+    :path: "../../../node_modules/react-native-mmkv"
   NitroModules:
-    :path: "../../../../../Baci-app/node_modules/react-native-nitro-modules"
+    :path: "../../../node_modules/react-native-nitro-modules"
   RCTDeprecation:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation"
+    :path: "../../../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation"
   RCTRequired:
-    :path: "../../../../../Baci-app/node_modules/react-native/Libraries/Required"
+    :path: "../../../node_modules/react-native/Libraries/Required"
   RCTSwiftUI:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactApple/RCTSwiftUI"
+    :path: "../../../node_modules/react-native/ReactApple/RCTSwiftUI"
   RCTSwiftUIWrapper:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactApple/RCTSwiftUIWrapper"
+    :path: "../../../node_modules/react-native/ReactApple/RCTSwiftUIWrapper"
   RCTTypeSafety:
-    :path: "../../../../../Baci-app/node_modules/react-native/Libraries/TypeSafety"
+    :path: "../../../node_modules/react-native/Libraries/TypeSafety"
   React:
-    :path: "../../../../../Baci-app/node_modules/react-native/"
+    :path: "../../../node_modules/react-native/"
   React-callinvoker:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/callinvoker"
+    :path: "../../../node_modules/react-native/ReactCommon/callinvoker"
   React-Core:
-    :path: "../../../../../Baci-app/node_modules/react-native/"
+    :path: "../../../node_modules/react-native/"
   React-Core-prebuilt:
-    :podspec: "../../../../../Baci-app/node_modules/react-native/React-Core-prebuilt.podspec"
+    :podspec: "../../../node_modules/react-native/React-Core-prebuilt.podspec"
   React-CoreModules:
-    :path: "../../../../../Baci-app/node_modules/react-native/React/CoreModules"
+    :path: "../../../node_modules/react-native/React/CoreModules"
   React-cxxreact:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/cxxreact"
+    :path: "../../../node_modules/react-native/ReactCommon/cxxreact"
   React-debug:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/debug"
+    :path: "../../../node_modules/react-native/ReactCommon/react/debug"
   React-defaultsnativemodule:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/defaults"
+    :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/defaults"
   React-domnativemodule:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/dom"
+    :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/dom"
   React-Fabric:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon"
+    :path: "../../../node_modules/react-native/ReactCommon"
   React-FabricComponents:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon"
+    :path: "../../../node_modules/react-native/ReactCommon"
   React-FabricImage:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon"
+    :path: "../../../node_modules/react-native/ReactCommon"
   React-featureflags:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/featureflags"
+    :path: "../../../node_modules/react-native/ReactCommon/react/featureflags"
   React-featureflagsnativemodule:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/featureflags"
+    :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/featureflags"
   React-graphics:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/renderer/graphics"
+    :path: "../../../node_modules/react-native/ReactCommon/react/renderer/graphics"
   React-hermes:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/hermes"
+    :path: "../../../node_modules/react-native/ReactCommon/hermes"
   React-idlecallbacksnativemodule:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/idlecallbacks"
+    :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/idlecallbacks"
   React-ImageManager:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/renderer/imagemanager/platform/ios"
+    :path: "../../../node_modules/react-native/ReactCommon/react/renderer/imagemanager/platform/ios"
   React-intersectionobservernativemodule:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/intersectionobserver"
+    :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/intersectionobserver"
   React-jserrorhandler:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/jserrorhandler"
+    :path: "../../../node_modules/react-native/ReactCommon/jserrorhandler"
   React-jsi:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/jsi"
+    :path: "../../../node_modules/react-native/ReactCommon/jsi"
   React-jsiexecutor:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/jsiexecutor"
+    :path: "../../../node_modules/react-native/ReactCommon/jsiexecutor"
   React-jsinspector:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/jsinspector-modern"
+    :path: "../../../node_modules/react-native/ReactCommon/jsinspector-modern"
   React-jsinspectorcdp:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/jsinspector-modern/cdp"
+    :path: "../../../node_modules/react-native/ReactCommon/jsinspector-modern/cdp"
   React-jsinspectornetwork:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/jsinspector-modern/network"
+    :path: "../../../node_modules/react-native/ReactCommon/jsinspector-modern/network"
   React-jsinspectortracing:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/jsinspector-modern/tracing"
+    :path: "../../../node_modules/react-native/ReactCommon/jsinspector-modern/tracing"
   React-jsitooling:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/jsitooling"
+    :path: "../../../node_modules/react-native/ReactCommon/jsitooling"
   React-jsitracing:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/hermes/executor/"
+    :path: "../../../node_modules/react-native/ReactCommon/hermes/executor/"
   React-logger:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/logger"
+    :path: "../../../node_modules/react-native/ReactCommon/logger"
   React-Mapbuffer:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon"
+    :path: "../../../node_modules/react-native/ReactCommon"
   React-microtasksnativemodule:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
+    :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   react-native-netinfo:
-    :path: "../../../../../Baci-app/node_modules/@react-native-community/netinfo"
+    :path: "../../../node_modules/@react-native-community/netinfo"
   react-native-safe-area-context:
-    :path: "../../../../../Baci-app/node_modules/react-native-safe-area-context"
+    :path: "../../../node_modules/react-native-safe-area-context"
   react-native-webview:
-    :path: "../../../../../Baci-app/node_modules/react-native-webview"
+    :path: "../../../node_modules/react-native-webview"
   React-NativeModulesApple:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios"
+    :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios"
   React-networking:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/networking"
+    :path: "../../../node_modules/react-native/ReactCommon/react/networking"
   React-oscompat:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/oscompat"
+    :path: "../../../node_modules/react-native/ReactCommon/oscompat"
   React-perflogger:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/reactperflogger"
+    :path: "../../../node_modules/react-native/ReactCommon/reactperflogger"
   React-performancecdpmetrics:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/performance/cdpmetrics"
+    :path: "../../../node_modules/react-native/ReactCommon/react/performance/cdpmetrics"
   React-performancetimeline:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/performance/timeline"
+    :path: "../../../node_modules/react-native/ReactCommon/react/performance/timeline"
   React-RCTActionSheet:
-    :path: "../../../../../Baci-app/node_modules/react-native/Libraries/ActionSheetIOS"
+    :path: "../../../node_modules/react-native/Libraries/ActionSheetIOS"
   React-RCTAnimation:
-    :path: "../../../../../Baci-app/node_modules/react-native/Libraries/NativeAnimation"
+    :path: "../../../node_modules/react-native/Libraries/NativeAnimation"
   React-RCTAppDelegate:
-    :path: "../../../../../Baci-app/node_modules/react-native/Libraries/AppDelegate"
+    :path: "../../../node_modules/react-native/Libraries/AppDelegate"
   React-RCTBlob:
-    :path: "../../../../../Baci-app/node_modules/react-native/Libraries/Blob"
+    :path: "../../../node_modules/react-native/Libraries/Blob"
   React-RCTFabric:
-    :path: "../../../../../Baci-app/node_modules/react-native/React"
+    :path: "../../../node_modules/react-native/React"
   React-RCTFBReactNativeSpec:
-    :path: "../../../../../Baci-app/node_modules/react-native/React"
+    :path: "../../../node_modules/react-native/React"
   React-RCTImage:
-    :path: "../../../../../Baci-app/node_modules/react-native/Libraries/Image"
+    :path: "../../../node_modules/react-native/Libraries/Image"
   React-RCTLinking:
-    :path: "../../../../../Baci-app/node_modules/react-native/Libraries/LinkingIOS"
+    :path: "../../../node_modules/react-native/Libraries/LinkingIOS"
   React-RCTNetwork:
-    :path: "../../../../../Baci-app/node_modules/react-native/Libraries/Network"
+    :path: "../../../node_modules/react-native/Libraries/Network"
   React-RCTRuntime:
-    :path: "../../../../../Baci-app/node_modules/react-native/React/Runtime"
+    :path: "../../../node_modules/react-native/React/Runtime"
   React-RCTSettings:
-    :path: "../../../../../Baci-app/node_modules/react-native/Libraries/Settings"
+    :path: "../../../node_modules/react-native/Libraries/Settings"
   React-RCTText:
-    :path: "../../../../../Baci-app/node_modules/react-native/Libraries/Text"
+    :path: "../../../node_modules/react-native/Libraries/Text"
   React-RCTVibration:
-    :path: "../../../../../Baci-app/node_modules/react-native/Libraries/Vibration"
+    :path: "../../../node_modules/react-native/Libraries/Vibration"
   React-rendererconsistency:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/renderer/consistency"
+    :path: "../../../node_modules/react-native/ReactCommon/react/renderer/consistency"
   React-renderercss:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/renderer/css"
+    :path: "../../../node_modules/react-native/ReactCommon/react/renderer/css"
   React-rendererdebug:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/renderer/debug"
+    :path: "../../../node_modules/react-native/ReactCommon/react/renderer/debug"
   React-RuntimeApple:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/runtime/platform/ios"
+    :path: "../../../node_modules/react-native/ReactCommon/react/runtime/platform/ios"
   React-RuntimeCore:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/runtime"
+    :path: "../../../node_modules/react-native/ReactCommon/react/runtime"
   React-runtimeexecutor:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/runtimeexecutor"
+    :path: "../../../node_modules/react-native/ReactCommon/runtimeexecutor"
   React-RuntimeHermes:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/runtime"
+    :path: "../../../node_modules/react-native/ReactCommon/react/runtime"
   React-runtimescheduler:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/renderer/runtimescheduler"
+    :path: "../../../node_modules/react-native/ReactCommon/react/renderer/runtimescheduler"
   React-timing:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/timing"
+    :path: "../../../node_modules/react-native/ReactCommon/react/timing"
   React-utils:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/utils"
+    :path: "../../../node_modules/react-native/ReactCommon/react/utils"
   React-webperformancenativemodule:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/react/nativemodule/webperformance"
+    :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/webperformance"
   ReactAppDependencyProvider:
     :path: build/generated/ios/ReactAppDependencyProvider
   ReactCodegen:
     :path: build/generated/ios/ReactCodegen
   ReactCommon:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon"
+    :path: "../../../node_modules/react-native/ReactCommon"
   ReactNativeDependencies:
-    :podspec: "../../../../../Baci-app/node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
+    :podspec: "../../../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
   RNCAsyncStorage:
-    :path: "../../../../../Baci-app/node_modules/@react-native-async-storage/async-storage"
+    :path: "../../../node_modules/@react-native-async-storage/async-storage"
   RNDateTimePicker:
-    :path: "../../../../../Baci-app/node_modules/@react-native-community/datetimepicker"
+    :path: "../../../node_modules/@react-native-community/datetimepicker"
   RNGestureHandler:
-    :path: "../../../../../Baci-app/node_modules/react-native-gesture-handler"
+    :path: "../../../node_modules/react-native-gesture-handler"
   RNGoogleSignin:
-    :path: "../../../../../Baci-app/node_modules/@react-native-google-signin/google-signin"
+    :path: "../../../node_modules/@react-native-google-signin/google-signin"
   RNPurchases:
-    :path: "../../../../../Baci-app/node_modules/react-native-purchases"
+    :path: "../../../node_modules/react-native-purchases"
   RNReanimated:
-    :path: "../../../../../Baci-app/node_modules/react-native-reanimated"
+    :path: "../../../node_modules/react-native-reanimated"
   RNScreens:
-    :path: "../../../../../Baci-app/node_modules/react-native-screens"
+    :path: "../../../node_modules/react-native-screens"
   RNSVG:
-    :path: "../../../../../Baci-app/node_modules/react-native-svg"
+    :path: "../../../node_modules/react-native-svg"
   RNWorklets:
-    :path: "../../../../../Baci-app/node_modules/react-native-worklets"
+    :path: "../../../node_modules/react-native-worklets"
   Yoga:
-    :path: "../../../../../Baci-app/node_modules/react-native/ReactCommon/yoga"
+    :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
   AppAuth: 1c1a8afa7e12f2ec3a294d9882dfa5ab7d3cb063
@@ -3031,10 +3026,10 @@ SPEC CHECKSUMS:
   EXConstants: b3c63be5f8648e4ab8e6ff5099b62f629247f969
   EXJSONUtils: 0080c14b673cfa9a6be5e3fe429768ffe3d42dfb
   EXManifests: 2b53302deb6d7275ae26005b8014f5a1aee42a0e
-  Expo: 9a502b466698a5e33c0ba6b749ef50d7f8a02477
+  Expo: cdbfefe5771a083c56798912e068fdb58eb796b5
   expo-dev-client: 6b8f4ac3d78bec0f92681cb6ba5228744b83c634
-  expo-dev-launcher: aaf68972ba5514824088fb50ab7651b37004115d
-  expo-dev-menu: 895c6a93528f795d01f9176a75241bb914e8972e
+  expo-dev-launcher: 235942ad53a128c79d380eafab59eb236da330a9
+  expo-dev-menu: d6fe61ceb1700f131bc50192ba53a7ed0402eab2
   expo-dev-menu-interface: bf6f816d29b45bec038080790963c635e8d588c2
   ExpoAdapterGoogleSignIn: 21ff1daeef3d21cb0b45772d8029102cc728d6b1
   ExpoAppleAuthentication: 86e97b24bd6687c156c55bb448f570bc29081ace
@@ -3054,8 +3049,8 @@ SPEC CHECKSUMS:
   ExpoLinearGradient: 499856f296f83c05279d18447bdb57ab0e06d294
   ExpoLinking: 88ba36a28c83525e564b8229e02d451347accb70
   ExpoLogBox: 89b634d5a8a64c4a6a7caad8f9985a28463c7002
-  ExpoModulesCore: 53fb0bbd8f05d8e4c60a40b9314409891809365b
-  ExpoModulesJSI: 46dab6c6d9e181bf94757367a0d569bfc7fffd99
+  ExpoModulesCore: 8934d83ba557344022eff47658dd43d197cb481e
+  ExpoModulesJSI: 59a126dc51164e603242ee9a38c19339c5c79da0
   ExpoNotifications: 288a595b8805089d1e3c1fd5307a87d39f271021
   ExpoPrint: 721e992dbfc6f2d5b9f52f75dd8e614801d035d6
   ExpoRouter: 6b8875b84c8eef1359039c5b703c8ed18f536825
@@ -3066,12 +3061,12 @@ SPEC CHECKSUMS:
   ExpoSymbols: 3d67a96643245a5d933ce7fbf535f95eb541f617
   ExpoWebBrowser: f13a6e46e44049bbb8ce49ff8aaa4d819c87d1fe
   EXUpdatesInterface: d48f288b92900bd95a27c6cf92a7b9aff826d49a
-  FBLazyVector: e97c19a5a442429d1988f182a1940fb08df514da
+  FBLazyVector: 32e9ed0301d0fcbc1b2b341dd7fcbf291f51eb83
   GoogleSignIn: fcee2257188d5eda57a5e2b6a715550ffff9206d
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
   GTMAppAuth: 217a876b249c3c585a54fd6f73e6b58c4f5c4238
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
-  hermes-engine: 6b7b602b0fbca43d4716baab47772ca9a77d116e
+  hermes-engine: 779a98c2c9e0bdec5bea187d80b185dee8edbee0
   libavif: 5f8e715bea24debec477006f21ef9e95432e254d
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
@@ -3080,94 +3075,94 @@ SPEC CHECKSUMS:
   NitroModules: a5ca899bb0c1326c937f11de6b050a467c5a12de
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   PurchasesHybridCommon: 21a11c5d66c8a52cf9aede45cecc2efe1551b98b
-  RCTDeprecation: af44b104091a34482596cd9bd7e8d90c4e9b4bd7
-  RCTRequired: bb77b070f75f53398ce43c0aaaa58337cebe2bf6
-  RCTSwiftUI: afc0a0a635860da1040a0b894bfd529da06d7810
-  RCTSwiftUIWrapper: 3197c020094f3b2151bb2d1223f7276787be8166
-  RCTTypeSafety: d13e192a37f151ce354641184bf4239844a3be17
-  React: 1ba7d364ade7d883a1ec055bfc3606f35fdee17b
-  React-callinvoker: bc2a26f8d84fb01f003fc6de6c9337b64715f95b
-  React-Core: 7840d3a80b43a95c5e80ef75146bd70925ebab0f
-  React-Core-prebuilt: 0ffb63e8a9d53b3408dfdf6eb4a4cdd44a634b39
-  React-CoreModules: 2eb010400b63b89e53a324ffb3c112e4c7c3ce42
-  React-cxxreact: a558e92199d26f145afa9e62c4233cf8e7950efe
-  React-debug: 755200a6e7f5e6e0a40ff8d215493d43cce285fc
-  React-defaultsnativemodule: bb85b1bdd9b4b82650cfa92998567fcfdb030145
-  React-domnativemodule: ffdba8ba4323387e821d8298be2013516036df87
-  React-Fabric: 8705ba7f14acf5b1df474d1af4b0191c69ac4690
-  React-FabricComponents: 5a1b5007fe8c5d5f043e45c335ebef2af0717fb2
-  React-FabricImage: e96eea6bb65b501cf5db3ce4ad057a97dea1dd69
-  React-featureflags: 410f6c383eb94019f63f105374d738169df291ae
-  React-featureflagsnativemodule: 5d6d7931ec5d4576639661c0f79169a0ae383023
-  React-graphics: b9b69adbe79d6944838aa304c849d78f977e9f21
-  React-hermes: 666c66bbc856b46dfa4b132f1c9efaa37ad419a1
-  React-idlecallbacksnativemodule: 785d307b9236ec9fb4ec0bcf99b34e8539d2d76e
-  React-ImageManager: daeef8b1c19803c71a9233f21f7f235cd3ec294e
-  React-intersectionobservernativemodule: c17189d2350205012682aefe566f7ebaa4f980e3
-  React-jserrorhandler: 431377b3d1783127bc394986fe8d932bcb8982fe
-  React-jsi: 33db13b95bb53827b03d9fb0f567d12b63dfc8ef
-  React-jsiexecutor: 49de4d48a7c4f283eaa865f7a4f3919f2c39be1c
-  React-jsinspector: 3ec7dd478806a0eb4ec6ab394e51a395e8f895ba
-  React-jsinspectorcdp: bcb79a666959b1a3e8aac3ff8209d05c719aaa2a
-  React-jsinspectornetwork: be3b81a6342b56c74dd0bdd58bf3f62f978c1472
-  React-jsinspectortracing: 293251deadf7c255da593bf1d9d337a645abdfdc
-  React-jsitooling: 6f729cdb85ff0c8294709ec1903e1f0c59662331
-  React-jsitracing: be95d903cc9440ab89a704c999dd7db6675dc47f
-  React-logger: b5521614afb8690420146dfc61a1447bb5d65419
-  React-Mapbuffer: f4ee8c62e0ef8359d139124f35a471518a172cd3
-  React-microtasksnativemodule: d1956f0eec54c619b63a379520fb4c618a55ccb9
+  RCTDeprecation: a522c536d2c7be8f518dd834883cf6dce1d4f545
+  RCTRequired: 44337def23abb244c025e9e7ab58f9cd3d63ec7d
+  RCTSwiftUI: b2f0c2f2761631b8cd605767536cbb1cbf8d020f
+  RCTSwiftUIWrapper: 02581172ec5db9b67bce917579130c0f1b564b6f
+  RCTTypeSafety: 8e2d7c3de09142686e773aabf98733ac733ae36b
+  React: f4edc7518ccb0b54a6f580d89dd91471844b4990
+  React-callinvoker: 79ef4e3f1c021571f6d2dafbe45ca432b2f3a146
+  React-Core: c19ad4660fd48bc8abc060d979f8ee37f1fc4a5a
+  React-Core-prebuilt: 74bfa71036767b73019d5310a06e98627e763171
+  React-CoreModules: f94ec3ee2bac588d033ad15a2377af746284f8c8
+  React-cxxreact: de66364f2d5fb77d3da3cfa927b2fd960892c711
+  React-debug: 4f6739c820d7da9c20f48caa985573b6a847e5f5
+  React-defaultsnativemodule: 331ff498331cf9bd93f6add195c6864873bd3c82
+  React-domnativemodule: 8860ef957adc0f0637bbb7d51f76b3ab368720a0
+  React-Fabric: 052e38e1dc92bd60815e5f07b05abb2ab2d52ee0
+  React-FabricComponents: 48aa1d267c9d704fdea41094450c144a867f31cb
+  React-FabricImage: e3e6a5d1ac5edf1c33b06fffa5573f1748169374
+  React-featureflags: 4db447994c36121c013d670d4eb1c6b4d739b1a5
+  React-featureflagsnativemodule: 866a38b3e49c54452ac34176bf614835b846af3a
+  React-graphics: deb070e5745d7913aad56c7d9d790ed6046f2344
+  React-hermes: 10ce149307c1825aa4dde7981afb9fdfbd88c21d
+  React-idlecallbacksnativemodule: 4cc78f47dd6488b71138313fb62d15b06974addf
+  React-ImageManager: 703963a49915a0893631dc9fe10ca707d6a6b8b0
+  React-intersectionobservernativemodule: 2788446004e3a779deb0ff78c812d0ffef481725
+  React-jserrorhandler: 23046be59c7678567db719d4890e67cc9a7cd05b
+  React-jsi: 2b0fce5e788c3cbfddf10bfc70084aca2a82bd79
+  React-jsiexecutor: 2810824cd65560e47d751560836ef1c5a5e45e4b
+  React-jsinspector: b2c3e00c0e122a33d3a90ec9f8e530e1e0f51848
+  React-jsinspectorcdp: 29e34bcca5b2ed2e43b64eb5d1e848ea5b171b1f
+  React-jsinspectornetwork: 2ad8784d751c1e983282975f6da1c75d45c41527
+  React-jsinspectortracing: 585195329c9fac9b777cb71badaa6d53b986a414
+  React-jsitooling: f605384b63ccf2816c90885c57e14c1d07161118
+  React-jsitracing: 491e85cd6a47d5d6494bf670136f96a730e8de4a
+  React-logger: 69811317123fe08dc34ed5837dc1d269c468cc8d
+  React-Mapbuffer: 8f8cbeb5bedb521cce0897a71274e3a72b5236a1
+  React-microtasksnativemodule: bef4a47c7efd42421de52201e6d76a73cf6c816e
   react-native-netinfo: f852c868bf5175e46165c7e4db48a204a95c3800
   react-native-safe-area-context: ae7587b95fb580d1800c5b0b2a7bd48c2868e67a
   react-native-webview: 3e303e80cadb5f17118c8c1502aa398e9287e415
-  React-NativeModulesApple: 5ba0903927f6b8d335a091700e9fda143980f819
-  React-networking: 3a4b7f9ed2b2d1c0441beacb79674323a24bcca6
-  React-oscompat: ff26abf0ae3e3fdbe47b44224571e3fc7226a573
-  React-perflogger: a86b2146936f2ffa80188425c6e8892729e2ad01
-  React-performancecdpmetrics: 65b699c3e52c0a1d978d9cdf15e60c62e335b900
-  React-performancetimeline: b44f82caa563e46068d02d9cf5b0d2b84bdc7a6a
-  React-RCTActionSheet: fc1d5d419856868e7f8c13c14591ed63dadef43a
-  React-RCTAnimation: 2a1e7eeb55b71e8524db296fa31e46eeaa2d0da4
-  React-RCTAppDelegate: 317c1102a2d0bcc07567d8de58d9147102080b0e
-  React-RCTBlob: c82bbf96b2d1389550c05fb9739d4e85d471052e
-  React-RCTFabric: d82ad8120ba70fe63207e261b9e33d9b6077e2de
-  React-RCTFBReactNativeSpec: 4d33b5f3b339e9fa902168e8a1d62c458dda16e9
-  React-RCTImage: f959463e53ea731ab267e371eea1b92fccf27634
-  React-RCTLinking: 2a857113b8059ac4f0a8ae89f8aa312837b955d0
-  React-RCTNetwork: dc026bf25f6457249349be8cf8bd5fdf84cdfb14
-  React-RCTRuntime: b0630731fd864064066301e1e31406fea606d5f9
-  React-RCTSettings: e159e19475df2e92fd3b4ddcfe29f6cc12cf0ee4
-  React-RCTText: 7356cc84c2ed79635931891c176f72e0289dc75d
-  React-RCTVibration: 77621175b67b22e655ce4b29d1cda8498f2033e7
-  React-rendererconsistency: e91aba4bb482dac127ad955dba6333a8af629c5b
-  React-renderercss: 7cc41efaecf557d7b70edaa08fad5ace79f714f6
-  React-rendererdebug: 0f004cbed7b4c27327423be47209770830bf3c6d
-  React-RuntimeApple: 6f4ff8e2d8b05cb3ceabf57e494c04da8751f009
-  React-RuntimeCore: 25be9c7025eabb524cd00dbb6ce56d6b122e3d92
-  React-runtimeexecutor: 84d394b9f0a8fc7dab8a98bf88a43228bb04dac2
-  React-RuntimeHermes: 2bed5b2d2419945cc5c2f6d627a1b46ce3a0f66a
-  React-runtimescheduler: 23b092dbcd3088f9c947551c23366dd00254caf3
-  React-timing: 2ab9ccd4b41aa171090c16f664f6c5bfb2fd0ddc
-  React-utils: 8d888b379f0808bfabaea03d85f9e8dd9b8548da
-  React-webperformancenativemodule: c10016db7f1bb1153060d4aa9f7dbde2c88c845d
-  ReactAppDependencyProvider: e96e93b493d8d86eeaee3e590ba0be53f6abe46f
-  ReactCodegen: 4f594a10d0249734ed08b6fbb7ff315d59e9b174
-  ReactCommon: 07572bf9e687c8a52fbe4a3641e9e3a1a477c78e
-  ReactNativeDependencies: b90ecf78e0788fe7606f992b5aa079ae77590d6c
+  React-NativeModulesApple: f9fa097fc24cec967b77bfc05f72d2ea7db05b87
+  React-networking: 29a9ae1a2e6ce8bb19174cc47110b36ae7ffcbcd
+  React-oscompat: 856e980339052dc5a35980a498e24dd8480acf29
+  React-perflogger: 9bc8be0a575776c09af1731de3aa469c3aab322b
+  React-performancecdpmetrics: d8cf7557eb80d594a268f3215df925d3a5ddedf6
+  React-performancetimeline: ab28b8575ef5dd94da9ac3db9b7693c0a2265f11
+  React-RCTActionSheet: 832a3c674944347d5bb431ff1af831460579485b
+  React-RCTAnimation: f2246e91d358d0159b3e9796a3ec3605d7cf905a
+  React-RCTAppDelegate: 09f4de36c104fba77036c8adfe2ce2da98f34f35
+  React-RCTBlob: 72bc0e5ab91340fc68f65f487d4b15fb0c78f103
+  React-RCTFabric: 9c3b1e37689acf750c2609ba758019e29053e80b
+  React-RCTFBReactNativeSpec: f9e94240428b1f28c24774e7e830a9bedaddef26
+  React-RCTImage: b42bcb8251cf5f4dbd38bb06dbbb7573b317fff1
+  React-RCTLinking: 43bcb5c9260bf87587c3556a156e7842d5ecdbb7
+  React-RCTNetwork: 8bb137f12690823bcb85e9decb183cb1557f2dfc
+  React-RCTRuntime: aa0bc6737e7e5faa51971c95ddc8d301b341f9bc
+  React-RCTSettings: 7e86e7749698f8fba012d513d7a8ed6353110029
+  React-RCTText: 496485c3f117b7aea97875df5eccedca9afd2754
+  React-RCTVibration: 7bd136f9caffdf59e806bc6a7b78c6dccc07d2f6
+  React-rendererconsistency: c57e8f7982ff098a504f59dde1f2cd02d5e89fa5
+  React-renderercss: 750b83dbb38d2dea3472b757d5cfe1925f43501a
+  React-rendererdebug: 5b945c9984752ea71f9f260a5f9c10d63c1a9204
+  React-RuntimeApple: 106c9626d28de6ee322f55f0982325a1262d7f96
+  React-RuntimeCore: 277d6e8b468e72b682ae06f5ccadd8722a63efac
+  React-runtimeexecutor: c8dc369b1413a0cf7a1ce9704fb94c0434856354
+  React-RuntimeHermes: 748241078a52013839337873cc5aa1588f90983c
+  React-runtimescheduler: c1b5d850135067e6bff5307d34d31433f6eefb1c
+  React-timing: d331f1b7d8f206911c6d06d668c850b7065409ba
+  React-utils: d1e321807f43b6f69695842e3731d099e58e89de
+  React-webperformancenativemodule: 52be7b8ca3f0d6ba3f7314f526442554f37d5cb9
+  ReactAppDependencyProvider: d69159b417e8c9d82b8fe4d0a27def4c3e8f767f
+  ReactCodegen: 8c1129cb67e7c89999985ea34e7f01a47fe84280
+  ReactCommon: 8868269b67561136a7970be188b40738135af077
+  ReactNativeDependencies: a80cf04e6b63250fe246ea4726442b2c9a794949
   RevenueCat: 2d8aa56c68fa8e92c0d669e5e797c4a93e284f20
   RNCAsyncStorage: 3a4f5e2777dae1688b781a487923a08569e27fe4
   RNDateTimePicker: 9c0a849bbe1c256f0854fea255734b715f5ea876
-  RNGestureHandler: 07de6f059e0ee5744ae9a56feb07ee345338cc31
+  RNGestureHandler: 5494787ce29288a8941fa825663f2b1fa0a5aaf1
   RNGoogleSignin: 2a2b0d17c0184d886d8e3066060ca5e6fe04249c
   RNPurchases: 462fb7edb0304dba1db46e3d38368a271ebe4cc2
-  RNReanimated: 011780e18e641f8bd863d5870ccb90edbd7d9ec6
+  RNReanimated: 98792ccd32ae6605fc48dfc409f9e291a0f9e8ba
   RNScreens: 14243fa0d9842ffa7f8bb2d00b6c3cfd3ca817e8
-  RNSVG: 507bf2685de6b3d49449efd4aae7e7471bb9c433
-  RNWorklets: 58f5eab6d0ced85b0a9479100f55cbb65a77e1cc
+  RNSVG: 0bd149b873018bc6e0e3321e2f6435bdba294460
+  RNWorklets: 7a182b959563d4307562463f0618464bba735947
   SDWebImage: 1bb6a1b84b6fe87b972a102bdc77dd589df33477
   SDWebImageAVIFCoder: afe194a084e851f70228e4be35ef651df0fc5c57
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
-  Yoga: c0b3f2c7e8d3e327e450223a2414ca3fa296b9a2
+  Yoga: dd994d8c85dca5cc9b10f5df8c01f9ef1d0da191
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: a61e2c5933f172c443457a3486d440d7a09e5a21
