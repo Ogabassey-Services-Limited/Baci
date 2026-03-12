@@ -55,9 +55,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   showUser = true,
   showBell = true,
 }) => {
-  /* eslint-disable @typescript-eslint/no-unused-vars */
   const { totalItems, setIsCartOpen } = useCart();
-  /* eslint-enable @typescript-eslint/no-unused-vars */
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
   // const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();

@@ -34,7 +34,6 @@ export function GoogleSheetImportDialog({
   const { toast } = useToast();
 
   // Reset URL if initialUrl changes (e.g. from merchant data)
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useState(() => {
     if (initialUrl) setUrl(initialUrl);
   });

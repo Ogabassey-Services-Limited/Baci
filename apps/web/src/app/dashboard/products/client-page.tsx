@@ -150,7 +150,6 @@ function ProductsPageContent() {
   const { toast } = useToast();
 
   // Auto-open add product dialog if action=new
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useState(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);

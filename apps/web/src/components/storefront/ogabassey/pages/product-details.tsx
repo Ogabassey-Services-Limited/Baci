@@ -387,7 +387,6 @@ export const OgabasseyV2ProductDetails: React.FC<
     const productToAdd = getProductForCart();
 
     // Cast to any since template Product type differs from global Product type
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     addToCart(productToAdd as any, 1, {
       variantAttributes: {
         color:
