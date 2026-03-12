@@ -31,6 +31,32 @@ const addresses: SavedAddress[] = [
 ];
 
 describe('OgabasseyV2AddressBook', () => {
+  it('renders the empty state and routes its add action through onAdd', () => {
+    const onAdd = vi.fn();
+
+    render(
+      <OgabasseyV2AddressBook
+        addresses={[]}
+        onAdd={onAdd}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onSetDefault={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('No Addresses Found')).toBeInTheDocument();
+    expect(
+      screen.getByText("You haven't added any shipping addresses yet.")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /set as default/i })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /add new address/i }));
+
+    expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
   it('reveals action controls for keyboard users and gives them accessible names', () => {
     render(
       <OgabasseyV2AddressBook
