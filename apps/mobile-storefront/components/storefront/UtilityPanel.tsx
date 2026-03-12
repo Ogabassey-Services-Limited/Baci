@@ -11,7 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { BRAND, SPACING } from '@/constants/Colors';
+import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
 import { type Category, useCategories } from '@/hooks/use-products';
 import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
 
@@ -45,6 +46,8 @@ function CategoryItem({
   isActive,
   onPress,
 }: CategoryItemProps) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   const iconScale = useRef(new Animated.Value(isActive ? 1.05 : 1)).current;
   const labelOpacity = useRef(new Animated.Value(isActive ? 1 : 0.8)).current;
 
@@ -80,21 +83,23 @@ function CategoryItem({
         <Animated.View
           style={[
             styles.circleIcon,
-            isActive && styles.circleIconActive,
-            isActive && styles.activeShadow,
+            { backgroundColor: colors.muted },
+            isActive && [styles.circleIconActive, { backgroundColor: colorScheme === 'dark' ? 'rgba(239, 68, 68, 0.2)' : '#FEF2F2' }],
+            isActive && [styles.activeShadow, { shadowColor: colors.black }],
             { transform: [{ scale: iconScale }] },
           ]}
         >
           <Ionicons
             name={iconName}
             size={20} // Web parity: w-12 container -> ~20px icon
-            color={isActive ? BRAND.primary : '#4B5563'}
+            color={isActive ? BRAND.primary : colors.icon}
           />
         </Animated.View>
         <Animated.Text
           style={[
             styles.circleLabel,
-            isActive && styles.circleLabelActive,
+            { color: colors.textSecondary },
+            isActive && [styles.circleLabelActive, { color: colors.text }],
             { opacity: labelOpacity },
           ]}
         >
@@ -115,6 +120,8 @@ export function UtilityPanel({
   slug,
 }: UtilityPanelProps) {
   const { data: remoteCategories = [], isLoading } = useCategories();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
   // Prefetch all bill categories so data is ready when user taps a category
   usePrefetchBillers();
@@ -199,7 +206,7 @@ export function UtilityPanel({
 
   if (isLoading && categories.length === 0) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <ActivityIndicator size="small" color={BRAND.primary} />
       </View>
     );
@@ -213,11 +220,11 @@ export function UtilityPanel({
   const itemVariant = isUtility ? 'circle' : variant; // Force circle icons for utilities
 
   return (
-    <View style={showContainer ? styles.container : styles.minimalContainer}>
+    <View style={showContainer ? [styles.container, { backgroundColor: colors.card, borderColor: colors.border }] : styles.minimalContainer}>
       {/* Dynamic Unified Banner */}
-      <View style={styles.promoBanner}>
+      <View style={[styles.promoBanner, { backgroundColor: colorScheme === 'dark' ? 'rgba(239, 68, 68, 0.1)' : '#FEF2F2' }]}>
         <View style={{ height: 16, justifyContent: 'center' }}>
-          <Text style={styles.promoText}>
+          <Text style={[styles.promoText, { color: colors.textSecondary }]}>
             We Pay <Text style={styles.promoHighlight}>YOU</Text> When You Buy{' '}
             <Animated.Text
               style={[
@@ -260,23 +267,20 @@ export function UtilityPanel({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
     marginHorizontal: SPACING.md,
     marginVertical: SPACING.sm,
     borderRadius: 24, // Web: rounded-3xl
     paddingVertical: SPACING.sm,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
   },
   minimalContainer: { paddingVertical: SPACING.sm },
   promoBanner: {
-    backgroundColor: '#FEF2F2', // bg-red-50
     marginHorizontal: SPACING.md,
     marginBottom: SPACING.md,
     paddingVertical: 10, // Web: py-3 (approx 10-12px)
     borderRadius: 16, // Web: rounded-2xl
   },
-  promoText: { fontSize: 11, color: '#374151', textAlign: 'center' },
+  promoText: { fontSize: 11, textAlign: 'center' },
   promoHighlight: { color: BRAND.primary, fontWeight: '700' },
   categoriesContent: {
     flexDirection: 'row',
@@ -289,18 +293,15 @@ const styles = StyleSheet.create({
     width: 48, // Web: w-12
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F3F4F6', // Web: bg-gray-100 (inactive)
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
   },
   circleIconActive: {
-    backgroundColor: '#FEF2F2',
     borderColor: BRAND.primary,
     borderWidth: 1,
   },
   activeShadow: {
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -309,12 +310,10 @@ const styles = StyleSheet.create({
   circleLabel: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#4B5563',
     textAlign: 'center',
     marginTop: 2,
   },
   circleLabelActive: {
-    color: '#111827',
     fontWeight: '700',
   },
   // Keep pill styles just in case valid/used elsewhere, though variant is mostly circle here
