@@ -140,9 +140,11 @@ describe('OgabasseyNavbar', () => {
       expect.arrayContaining([
         '/ogabassey',
         '/ogabassey/account',
-        '/ogabassey/blog',
-        '/ogabassey/cart',
         '/ogabassey/phones',
+        '/ogabassey/imei-check',
+        '/ogabassey/repairs',
+        '/ogabassey/wallet',
+        '/ogabassey/blog',
       ])
     );
   });
