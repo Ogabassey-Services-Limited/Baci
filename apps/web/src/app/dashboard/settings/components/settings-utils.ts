@@ -1,4 +1,4 @@
-import ColorThief from 'colorthief';
+import { getPaletteSync } from 'colorthief';
 import z from 'zod';
 import { sanitizeText } from '@/lib/sanitize-core';
 import type { BrandColors } from '@/types';
@@ -22,8 +22,9 @@ export const extractColorsFromImage = (
 
     img.onload = () => {
       try {
-        const colorThief = new ColorThief();
-        const palette = colorThief.getPalette(img, 5);
+        const palette = getPaletteSync(img, { colorCount: 5 })?.map((color) =>
+          color.array()
+        );
         const safePalette = palette ?? [
           [0, 0, 0],
           [0, 0, 0],

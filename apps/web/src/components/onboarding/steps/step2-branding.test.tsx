@@ -38,15 +38,11 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 vi.mock('colorthief', () => ({
-  default: class ColorThief {
-    getPalette() {
-      return [
-        [255, 0, 0],
-        [0, 255, 0],
-        [0, 0, 255],
-      ];
-    }
-  },
+  getPaletteSync: vi.fn(() => [
+    { array: () => [255, 0, 0] },
+    { array: () => [0, 255, 0] },
+    { array: () => [0, 0, 255] },
+  ]),
 }));
 
 vi.mock('@/components/ui/button', () => ({
