@@ -140,9 +140,9 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
       !/^https?:\/\//i.test(url);
 
     if (isValidRelativePath) {
-      // Prepend storeSlug (basePath) if present - SearchAutocomplete returns URL without it
-      const fullUrl = storeSlug ? `${storeSlug}${url}` : url;
-      router.push(encodeURI(fullUrl) as `/${string}`);
+      // Prepend normalized basePath if present - SearchAutocomplete returns URL without it
+      const fullUrl = basePath ? `${basePath}${url}` : url;
+      router.push(fullUrl as `/${string}`);
     } else {
       console.warn('Invalid product URL rejected:', url);
     }
