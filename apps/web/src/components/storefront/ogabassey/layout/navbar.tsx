@@ -236,6 +236,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   <button
                     onClick={() => setIsMenuOpen(true)}
                     className="text-white transition-colors active:text-white"
+                    aria-label="Open mobile menu"
                   >
                     <Menu className="h-6 w-6" />
                   </button>
@@ -289,6 +290,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   <button
                     onClick={() => setShowNotifications(!showNotifications)}
                     className={`relative flex items-center justify-center hover:text-white transition-colors ${showNotifications ? 'text-white' : ''}`}
+                    aria-label="Toggle notifications"
                   >
                     <Bell size={22} />
                     {/* TODO: Add notification badge when notifications are implemented
@@ -359,6 +361,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                                     onClick={() => markAsRead(n.id)}
                                     className="absolute top-3 right-3 text-gray-300 hover:text-green-600 opacity-0 group-hover:opacity-100 transition-all bg-white rounded-full p-0.5 shadow-sm"
                                     title="Mark as read"
+                                    aria-label="Mark notification as read"
                                   >
                                     <Check size={14} />
                                   </button>
@@ -387,6 +390,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                     setIsCartOpen(true);
                   }}
                   className="relative flex items-center justify-center hover:text-white transition-colors"
+                  aria-label="View shopping cart"
                 >
                   <ShoppingCart size={22} />
                   <span
@@ -398,6 +402,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                 <Link
                   href={`${storeSlug || ''}/account` as any}
                   className="flex items-center justify-center hover:text-white transition-colors"
+                  aria-label="View account"
                 >
                   <User size={22} />
                 </Link>
