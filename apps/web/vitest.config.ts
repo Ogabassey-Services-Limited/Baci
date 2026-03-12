@@ -11,9 +11,11 @@ const reactPath = path.dirname(require.resolve('react/package.json'));
 const reactDomPath = path.dirname(require.resolve('react-dom/package.json'));
 
 function resolveTestingLibraryReactPath() {
-  // Use the package entry instead of an internal dist path to avoid brittle resolution.
+  // Force the ESM entry so Vite can dedupe React and React DOM in tests.
   try {
-    return require.resolve('@testing-library/react');
+    return require.resolve(
+      '@testing-library/react/dist/@testing-library/react.esm.js'
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(

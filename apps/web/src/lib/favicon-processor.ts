@@ -21,13 +21,13 @@ export async function processFavicon(
   file: File,
   merchantId: string
 ): Promise<FaviconUploadResult> {
-  const isSvg = file.type === 'image/svg+xml';
-  let buffer = Buffer.from(await file.arrayBuffer());
-
   // Validate merchantId to prevent path traversal
   if (!merchantId || !/^[a-f0-9-]{36}$/i.test(merchantId)) {
     throw new Error('Invalid merchant ID format');
   }
+
+  const isSvg = file.type === 'image/svg+xml';
+  let buffer = Buffer.from(await file.arrayBuffer());
 
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
