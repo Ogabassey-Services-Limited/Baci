@@ -19,7 +19,6 @@
 
 import { usePathname } from 'expo-router';
 import { useEffect } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import {
   identifyUser,
   isTrackingEnabled,
@@ -75,13 +74,9 @@ interface Order {
 
 export function useAnalytics() {
   const pathname = usePathname();
-  const { user, customer, merchantId } = useAuthStore(
-    useShallow((state) => ({
-      user: state.user,
-      customer: state.customer,
-      merchantId: state.merchantId,
-    }))
-  );
+  const user = useAuthStore((state) => state.user);
+  const customer = useAuthStore((state) => state.customer);
+  const merchantId = useAuthStore((state) => state.merchantId);
 
   // Set merchant ID for analytics attribution
   useEffect(() => {
