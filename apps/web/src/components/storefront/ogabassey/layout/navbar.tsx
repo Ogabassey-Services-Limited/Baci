@@ -239,9 +239,6 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   <button
                     onClick={() => setIsMenuOpen(true)}
                     className="text-white transition-colors active:text-white"
-                    aria-label={isMenuOpen ? 'Close mobile menu' : 'Open mobile menu'}
-                    aria-expanded={isMenuOpen}
-                    aria-controls="mobile-menu"
                   >
                     <Menu className="h-6 w-6" />
                   </button>
@@ -295,9 +292,6 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   <button
                     onClick={() => setShowNotifications(!showNotifications)}
                     className={`relative flex items-center justify-center hover:text-white transition-colors ${showNotifications ? 'text-white' : ''}`}
-                    aria-label={showNotifications ? 'Hide notifications' : 'Show notifications'}
-                    aria-expanded={showNotifications}
-                    aria-controls="navbar-notifications-panel"
                   >
                     <Bell size={22} />
                     {/* TODO: Add notification badge when notifications are implemented
@@ -309,10 +303,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
                   {/* Notifications Dropdown */}
                   {showNotifications && (
-                    <div
-                      id="navbar-notifications-panel"
-                      className="absolute top-full right-0 mt-4 w-80 bg-white rounded-xl shadow-xl border border-gray-100 py-0 animate-in fade-in slide-in-from-top-2 z-50 overflow-hidden"
-                    >
+                    <div className="absolute top-full right-0 mt-4 w-80 bg-white rounded-xl shadow-xl border border-gray-100 py-0 animate-in fade-in slide-in-from-top-2 z-50 overflow-hidden">
                       <div className="px-4 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                         <h3 className="font-bold text-gray-900 text-sm">
                           Notifications
@@ -369,9 +360,8 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                                   </div>
                                   <button
                                     onClick={() => markAsRead(n.id)}
-                                    className="absolute top-3 right-3 text-gray-300 hover:text-green-600 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 focus-visible:opacity-100 transition-all bg-white rounded-full p-0.5 shadow-sm"
+                                    className="absolute top-3 right-3 text-gray-300 hover:text-green-600 opacity-0 group-hover:opacity-100 transition-all bg-white rounded-full p-0.5 shadow-sm"
                                     title="Mark as read"
-                                    aria-label="Mark notification as read"
                                   >
                                     <Check size={14} />
                                   </button>
@@ -393,13 +383,13 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
+                <Link
+                  href={`${basePath}/cart` as `/${string}`}
+                  onClick={(e) => {
+                    e.preventDefault();
                     setIsCartOpen(true);
                   }}
                   className="relative flex items-center justify-center hover:text-white transition-colors"
-                  aria-label="View shopping cart"
                 >
                   <ShoppingCart size={22} />
                   <span
@@ -407,11 +397,10 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   >
                     {totalItems}
                   </span>
-                </button>
+                </Link>
                 <Link
                   href={`${basePath}/account` as `/${string}`}
                   className="flex items-center justify-center hover:text-white transition-colors"
-                  aria-label="View account"
                 >
                   <User size={22} />
                 </Link>
@@ -526,7 +515,6 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
       <MobileMenu
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
-        panelId="mobile-menu"
       />
     </>
   );
