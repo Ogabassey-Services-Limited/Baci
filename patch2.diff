@@ -1,0 +1,11 @@
+--- apps/mobile-admin/app/(admin)/payout-settings.tsx
++++ apps/mobile-admin/app/(admin)/payout-settings.tsx
+@@ -321,6 +321,7 @@
+                 <View
+                   style={[
+                     styles.verificationContainer,
+                     styles.successContainer,
++                    { backgroundColor: colors.successLight },
+                   ]}
+                 >
+                   <Ionicons

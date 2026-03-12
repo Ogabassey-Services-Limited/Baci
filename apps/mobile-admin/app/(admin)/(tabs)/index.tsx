@@ -37,7 +37,7 @@ import { useSettingsStore } from '@/hooks/useSettingsStore';
 import { useStoreReadiness } from '@/hooks/useStoreReadiness';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { createUploadFile, RNFormData } from '@/types/upload';
+import { asUploadFile } from '@/types/upload';
 
 // Helper to get currency symbol from merchant's payout_currency
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
@@ -106,10 +106,10 @@ export default function HomeScreen() {
       const fileName = `${merchant?.id}/favicon-${Date.now()}.${fileExt}`;
 
       // Use FormData for reliable file upload in React Native
-      const fileData = new FormData() as RNFormData;
+      const fileData = new FormData();
       fileData.append(
         'file',
-        createUploadFile({
+        asUploadFile({
           uri: asset.uri,
           name: fileName.split('/').pop() || 'image.png',
           type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,

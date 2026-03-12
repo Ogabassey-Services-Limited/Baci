@@ -1,54 +1,35 @@
 import Expo
-import EXUpdates
 import React
 import ReactAppDependencyProvider
-import UIKit
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
-  static func shared() -> AppDelegate? {
-    UIApplication.shared.delegate as? AppDelegate
-  }
-
   var window: UIWindow?
-  var launchOptions: [UIApplication.LaunchOptionsKey: Any]?
-  var reactNativeDelegate: ReactNativeDelegate?
+
+  var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
   var reactNativeFactory: RCTReactNativeFactory?
-  var updatesController: (any AppControllerInterface)?
 
   public override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
-    self.launchOptions = launchOptions
-    initializeReactNativeAndUpdates()
-
-#if os(iOS) || os(tvOS)
-    window = UIWindow(frame: UIScreen.main.bounds)
-    window?.rootViewController = UpdatesEnabledRootViewController()
-    window?.makeKeyAndVisible()
-#endif
-
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-  }
-
-  private func initializeReactNativeAndUpdates() {
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
 
     reactNativeDelegate = delegate
     reactNativeFactory = factory
+    bindReactNativeFactory(factory)
 
-#if DEBUG
-    updatesController = nil
-    delegate.updatesController = nil
-#else
-    AppController.initializeWithoutStarting()
-    let controller = AppController.sharedInstance
-    updatesController = controller
-    delegate.updatesController = controller
+#if os(iOS) || os(tvOS)
+    window = UIWindow(frame: UIScreen.main.bounds)
+    factory.startReactNative(
+      withModuleName: "main",
+      in: window,
+      launchOptions: launchOptions)
 #endif
+
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   // Linking API
@@ -72,8 +53,6 @@ public class AppDelegate: ExpoAppDelegate {
 }
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
-  var updatesController: (any AppControllerInterface)?
-
   // Extension point for config-plugins
 
   override func sourceURL(for bridge: RCTBridge) -> URL? {
@@ -85,76 +64,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 #if DEBUG
     return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
 #else
-    if let launchAssetUrl = updatesController?.launchAssetUrl() {
-      return launchAssetUrl
-    }
     return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
-  }
-}
-
-final class UpdatesEnabledRootViewController: UIViewController, AppControllerDelegate {
-  private var hasMountedRootView = false
-
-  override func viewDidLoad() {
-    super.viewDidLoad()
-    view.backgroundColor = .systemBackground
-    startUpdates()
-  }
-
-  private func startUpdates() {
-#if DEBUG
-    createView()
-#else
-    guard
-      let appDelegate = AppDelegate.shared(),
-      let updatesController = appDelegate.updatesController
-    else {
-      createView()
-      return
-    }
-
-    updatesController.delegate = self
-    updatesController.start()
-#endif
-  }
-
-  func appController(_ appController: AppControllerInterface, didStartWithSuccess success: Bool) {
-    DispatchQueue.main.async {
-      self.createView()
-    }
-  }
-
-  private func createView() {
-    guard !hasMountedRootView else {
-      return
-    }
-
-    guard
-      let appDelegate = AppDelegate.shared(),
-      let reactNativeFactory = appDelegate.reactNativeFactory,
-      let reactNativeDelegate = appDelegate.reactNativeDelegate
-    else {
-      return
-    }
-
-    hasMountedRootView = true
-
-    let rootView = reactNativeFactory.rootViewFactory.view(
-      withModuleName: "main",
-      initialProperties: nil,
-      launchOptions: appDelegate.launchOptions
-    )
-    reactNativeDelegate.customize(rootView)
-
-    let rootViewController = reactNativeDelegate.createRootViewController()
-    rootView.backgroundColor = .systemBackground
-    rootViewController.view = rootView
-
-    addChild(rootViewController)
-    view.addSubview(rootViewController.view)
-    rootViewController.view.frame = view.bounds
-    rootViewController.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-    rootViewController.didMove(toParent: self)
   }
 }
