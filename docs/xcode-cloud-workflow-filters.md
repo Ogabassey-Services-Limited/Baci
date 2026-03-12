@@ -54,7 +54,9 @@ If those paths are excluded, Xcode Cloud can skip builds that should have run.
 ## Repo-side fallback
 
 This repository also includes a fallback guard in `ci_scripts/should_run_xcode_cloud.sh`.
-It exits early when a workflow starts for an unrelated commit.
+It fails fast when a workflow starts for an unrelated commit.
 
-That fallback reduces wasted build time, but it does not stop Xcode Cloud from creating the build.
-The App Store Connect workflow filters above are still the primary fix.
+That fallback reduces wasted build time inside the workflow, but it does not stop
+Xcode Cloud from creating the build record.
+App Store Connect start conditions are still the primary fix if you want
+irrelevant builds to stop showing up at all.

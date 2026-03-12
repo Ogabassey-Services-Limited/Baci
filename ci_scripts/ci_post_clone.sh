@@ -141,9 +141,6 @@ sh "$repo_root/ci_scripts/should_run_xcode_cloud.sh" "$app_dir"
 path_filter_status="$?"
 set -e
 
-if [ "$path_filter_status" -eq 10 ]; then
-  exit 0
-fi
 if [ "$path_filter_status" -ne 0 ]; then
   exit "$path_filter_status"
 fi
