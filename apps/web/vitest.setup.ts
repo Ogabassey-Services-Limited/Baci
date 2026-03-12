@@ -2,8 +2,10 @@ import { vi } from 'vitest';
 import '@testing-library/jest-dom';
 import React from 'react';
 
+type MockImageSrc = string | { src: string } | { default: { src: string } };
+
 type MockNextImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
-  src?: string | { src: string };
+  src?: MockImageSrc;
   alt?: string;
 };
 
@@ -65,6 +67,8 @@ async function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
 
 if (typeof Blob !== 'undefined' && !Blob.prototype.arrayBuffer) {
   Object.defineProperty(Blob.prototype, 'arrayBuffer', {
+    configurable: true,
+    writable: true,
     value: function arrayBuffer(this: Blob) {
       return blobToArrayBuffer(this);
     },
@@ -73,6 +77,8 @@ if (typeof Blob !== 'undefined' && !Blob.prototype.arrayBuffer) {
 
 if (typeof File !== 'undefined' && !File.prototype.arrayBuffer) {
   Object.defineProperty(File.prototype, 'arrayBuffer', {
+    configurable: true,
+    writable: true,
     value: function arrayBuffer(this: File) {
       return blobToArrayBuffer(this);
     },
@@ -82,7 +88,12 @@ if (typeof File !== 'undefined' && !File.prototype.arrayBuffer) {
 // Mock Next.js Image component
 vi.mock('next/image', () => ({
   default: ({ src, alt, ...props }: MockNextImageProps) => {
-    const normalizedSrc = typeof src === 'string' ? src : src?.src;
+    const normalizedSrc =
+      typeof src === 'string'
+        ? src
+        : src && 'default' in src
+          ? src.default.src
+          : src?.src;
 
     // eslint-disable-next-line @next/next/no-img-element
     return React.createElement('img', { src: normalizedSrc, alt, ...props });

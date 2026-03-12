@@ -3,6 +3,14 @@ import sharp from 'sharp';
 import { sanitizeSvg } from '@/lib/sanitize';
 import { createClient } from '@/lib/supabase/server';
 
+const ALLOWED_FAVICON_TYPES = new Set([
+  'image/png',
+  'image/svg+xml',
+  'image/jpeg',
+  'image/webp',
+]);
+const MAX_FAVICON_BYTES = 1024 * 1024;
+
 export interface FaviconUploadResult {
   svg_url?: string;
   png_32_url: string;
@@ -26,6 +34,14 @@ export async function processFavicon(
     throw new Error('Invalid merchant ID format');
   }
 
+  if (!ALLOWED_FAVICON_TYPES.has(file.type)) {
+    throw new Error('Favicon must be a PNG, JPEG, WEBP, or SVG');
+  }
+
+  if (file.size > MAX_FAVICON_BYTES) {
+    throw new Error('Favicon exceeds the 1MB upload limit');
+  }
+
   const isSvg = file.type === 'image/svg+xml';
   let buffer = Buffer.from(await file.arrayBuffer());
 
@@ -42,7 +58,7 @@ export async function processFavicon(
   if (isSvg) {
     // CRITICAL: Sanitize SVG to prevent XSS attacks
     const svgString = buffer.toString('utf-8');
-    const sanitizedSvgString = sanitizeSVG(svgString);
+    const sanitizedSvgString = sanitizeSvg(svgString);
     buffer = Buffer.from(sanitizedSvgString, 'utf-8');
 
     const svgPath = `${merchantId}/icon.svg`;
