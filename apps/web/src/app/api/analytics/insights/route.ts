@@ -68,30 +68,44 @@ async function generateInsights(
   }
 
   // Fetch aggregated data for context
-  // 1. Daily Sales Summary (Last 30 days)
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const { data: salesHistory } = await supabase
-    .from('daily_sales_summary')
-    .select('*')
-    .eq('merchant_id', merchantId)
-    .gte('sale_date', thirtyDaysAgo.toISOString().split('T')[0])
-    .order('sale_date', { ascending: true });
+  // PERFORMANCE: Use Promise.all to fetch analytics context in parallel rather than sequentially,
+  // and specify exact columns instead of select('*') to reduce query planning overhead and payload size.
+  const [
+    { data: salesHistory },
+    { data: productPerformance },
+    { data: channelPerformance },
+  ] = await Promise.all([
+    // 1. Daily Sales Summary (Last 30 days)
+    supabase
+      .from('daily_sales_summary')
+      .select(
+        'merchant_id, sale_date, order_count, total_revenue, avg_order_value, unique_customers, paid_orders, pending_orders, paid_revenue'
+      )
+      .eq('merchant_id', merchantId)
+      .gte('sale_date', thirtyDaysAgo.toISOString().split('T')[0])
+      .order('sale_date', { ascending: true }),
 
-  // 2. Product Performance (Top 10)
-  const { data: productPerformance } = await supabase
-    .from('product_performance')
-    .select('*')
-    .eq('merchant_id', merchantId)
-    .order('total_revenue', { ascending: false })
-    .limit(10);
+    // 2. Product Performance (Top 10)
+    supabase
+      .from('product_performance')
+      .select(
+        'merchant_id, product_id, name, price, times_sold, total_quantity_sold, total_revenue, last_sold_at'
+      )
+      .eq('merchant_id', merchantId)
+      .order('total_revenue', { ascending: false })
+      .limit(10),
 
-  // 3. Sales by Channel
-  const { data: channelPerformance } = await supabase
-    .from('sales_by_channel')
-    .select('*')
-    .eq('merchant_id', merchantId);
+    // 3. Sales by Channel
+    supabase
+      .from('sales_by_channel')
+      .select(
+        'merchant_id, channel, order_count, total_revenue, avg_order_value'
+      )
+      .eq('merchant_id', merchantId),
+  ]);
 
   // Prepare context for AI
   const context = {
