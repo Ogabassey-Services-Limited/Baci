@@ -2,6 +2,7 @@ import { generateText } from 'ai';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { activeImageModel } from '@/ai/provider';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
@@ -12,6 +13,9 @@ const TARGET_IMAGE_COUNT = 4;
 export const maxDuration = 60; // Allow 60 seconds for execution
 
 export async function POST(req: NextRequest) {
+  const { valid, response } = await checkCsrfProtection(req);
+  if (!valid && response) return response;
+
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);

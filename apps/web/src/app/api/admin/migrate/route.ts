@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
@@ -13,7 +14,10 @@ function getProjectRef(): string | null {
   return match?.[1] || null;
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid && response) return response;
+
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
