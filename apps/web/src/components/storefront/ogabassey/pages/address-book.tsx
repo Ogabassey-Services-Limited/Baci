@@ -4,7 +4,6 @@ import { CheckCircle2, Edit2, MapPin, Plus, Trash2 } from 'lucide-react';
 import type React from 'react';
 import { EmptyState } from '../components/empty-state';
 
-// We'll define a local interface that matches the expected shape, or import if available
 import { type SavedAddress } from '@/contexts/customer-auth-context';
 
 
@@ -23,7 +22,6 @@ export const OgabasseyV2AddressBook: React.FC<AddressBookProps> = ({
   onDelete,
   onSetDefault,
 }) => {
-
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 w-full flex-1 flex flex-col">
@@ -65,10 +63,12 @@ export const OgabasseyV2AddressBook: React.FC<AddressBookProps> = ({
                       </span>
                     )}
                   </div>
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                     <button
                       type="button"
                       onClick={() => onEdit(addr)}
+                      aria-label={`Edit ${addr.label} address`}
+                      title={`Edit ${addr.label} address`}
                       className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                     >
                       <Edit2 size={16} />
@@ -77,6 +77,8 @@ export const OgabasseyV2AddressBook: React.FC<AddressBookProps> = ({
                       <button
                         type="button"
                         onClick={() => onDelete(addr.id)}
+                        aria-label={`Delete ${addr.label} address`}
+                        title={`Delete ${addr.label} address`}
                         className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       >
                         <Trash2 size={16} />
