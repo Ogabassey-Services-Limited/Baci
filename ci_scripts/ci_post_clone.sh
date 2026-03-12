@@ -136,6 +136,15 @@ fi
 echo "info: Xcode Cloud bootstrap for '$app_dir'"
 echo "info: Repository root '$repo_root'"
 
+set +e
+sh "$repo_root/ci_scripts/should_run_xcode_cloud.sh" "$app_dir"
+path_filter_status="$?"
+set -e
+
+if [ "$path_filter_status" -ne 0 ]; then
+  exit "$path_filter_status"
+fi
+
 install_node_if_missing
 assert_command corepack
 assert_command pod
