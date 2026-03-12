@@ -11,9 +11,6 @@ import { generateHeroImageBatch } from '@/services/hero-image-generator';
  * POST /api/admin/generate-hero-images
  */
 export async function POST(request: NextRequest) {
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid && response) return response;
-
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -26,6 +23,14 @@ export async function POST(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
     }
 
     // Resolve merchant (supports both owners and staff)

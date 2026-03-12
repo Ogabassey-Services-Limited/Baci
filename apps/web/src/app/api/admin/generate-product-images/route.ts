@@ -13,9 +13,6 @@ const TARGET_IMAGE_COUNT = 4;
 export const maxDuration = 60; // Allow 60 seconds for execution
 
 export async function POST(req: NextRequest) {
-  const { valid, response } = await checkCsrfProtection(req);
-  if (!valid && response) return response;
-
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -23,10 +20,19 @@ export async function POST(req: NextRequest) {
     // 1. Check Authentication (Admin Only)
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { valid, response } = await checkCsrfProtection(req);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
     }
 
     // Resolve merchant (supports both owners and staff)
