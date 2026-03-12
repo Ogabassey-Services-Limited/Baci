@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
@@ -22,6 +23,14 @@ export async function POST(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
     }
 
     // Resolve merchant (supports both owners and staff)
