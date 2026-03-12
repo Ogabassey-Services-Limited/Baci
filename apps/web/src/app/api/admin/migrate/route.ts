@@ -36,14 +36,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { valid, response } = await checkCsrfProtection(request);
-    if (!valid) {
-      return (
-        response ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
     // Step 2: Resolve merchant (supports both owners and staff)
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);
     if (!merchantContext) {

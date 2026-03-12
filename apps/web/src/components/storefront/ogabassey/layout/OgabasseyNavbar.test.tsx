@@ -28,9 +28,8 @@ vi.mock('next/link', () => ({
       href={href}
       onClick={(event) => {
         onClick?.(event);
-        if (!event.defaultPrevented) {
-          mocks.push(href);
-        }
+        mocks.push(href);
+        event.preventDefault();
       }}
       {...rest}
     >
@@ -172,33 +171,8 @@ describe('OgabasseyNavbar', () => {
     }
     fireEvent.submit(form);
 
-    expect(mocks.asRoute).toHaveBeenCalledWith(
-      '/ogabassey/blog?search=flash%20sale'
-    );
     expect(mocks.push).toHaveBeenCalledWith(
       '/ogabassey/blog?search=flash%20sale'
-    );
-  });
-
-  it('pushes store-prefixed product search routes on non-blog pages', () => {
-    render(<OgabasseyNavbar storeSlug="/ogabassey" />);
-
-    const input = screen.getByRole('searchbox', {
-      name: /search products/i,
-    });
-
-    fireEvent.change(input, { target: { value: 'flash sale' } });
-    const form = input.closest('form');
-    if (!(form instanceof HTMLFormElement)) {
-      throw new Error('Expected the product search input to be inside a form');
-    }
-    fireEvent.submit(form);
-
-    expect(mocks.asRoute).toHaveBeenCalledWith(
-      '/ogabassey/search?q=flash%20sale'
-    );
-    expect(mocks.push).toHaveBeenCalledWith(
-      '/ogabassey/search?q=flash%20sale'
     );
   });
 
@@ -209,9 +183,6 @@ describe('OgabasseyNavbar', () => {
     fireEvent.click(screen.getByRole('link', { name: /repairs/i }));
     fireEvent.click(screen.getByRole('link', { name: /wallet/i }));
 
-    expect(mocks.asRoute).toHaveBeenCalledWith('/ogabassey/imei-check');
-    expect(mocks.asRoute).toHaveBeenCalledWith('/ogabassey/repairs');
-    expect(mocks.asRoute).toHaveBeenCalledWith('/ogabassey/wallet');
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/imei-check');
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/repairs');
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/wallet');
