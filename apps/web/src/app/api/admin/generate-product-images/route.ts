@@ -14,6 +14,14 @@ export const maxDuration = 60; // Allow 60 seconds for execution
 
 export async function POST(req: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(req);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -25,14 +33,6 @@ export async function POST(req: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { valid, response } = await checkCsrfProtection(req);
-    if (!valid) {
-      return (
-        response ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
     }
 
     // Resolve merchant (supports both owners and staff)
