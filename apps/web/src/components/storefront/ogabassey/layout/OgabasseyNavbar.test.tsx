@@ -17,12 +17,23 @@ vi.mock('next/link', () => ({
   default: ({
     children,
     href,
+    onClick,
     ...rest
   }: {
     children: React.ReactNode;
     href: string;
+    onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
   }) => (
-    <a href={href} {...rest}>
+    <a
+      href={href}
+      onClick={(event) => {
+        onClick?.(event);
+        if (!event.defaultPrevented) {
+          mocks.push(href);
+        }
+      }}
+      {...rest}
+    >
       {children}
     </a>
   ),
@@ -50,17 +61,36 @@ vi.mock('@/hooks/use-merchant', () => ({
 
 vi.mock('@/components/storefront/search-autocomplete', () => ({
   SearchAutocomplete: ({
+    value,
+    onChange,
     onSelectProduct,
   }: {
+    value: string;
+    onChange: (value: string) => void;
     onSelectProduct: (url: string) => void;
   }) => (
-    <button
-      type="button"
-      aria-label="Select product"
-      onClick={() => onSelectProduct('/products/iphone 15')}
-    >
-      Select product
-    </button>
+    <div>
+      <input
+        type="search"
+        aria-label="Search products"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <button
+        type="button"
+        aria-label="Select product"
+        onClick={() => onSelectProduct('/products/iphone%2015')}
+      >
+        Select product
+      </button>
+      <button
+        type="button"
+        aria-label="Select invalid product"
+        onClick={() => onSelectProduct('https://example.com/bad')}
+      >
+        Select invalid product
+      </button>
+    </div>
   ),
 }));
 
@@ -118,12 +148,11 @@ describe('OgabasseyNavbar', () => {
     );
   });
 
-  it('pushes encoded store-prefixed product routes from search selection', () => {
+  it('pushes store-prefixed product routes from search selection', () => {
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
     fireEvent.click(screen.getByRole('button', { name: /select product/i }));
 
-    expect(mocks.asRoute).toHaveBeenCalledWith('/ogabassey/products/iphone%2015');
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/products/iphone%2015');
   });
 
@@ -149,5 +178,61 @@ describe('OgabasseyNavbar', () => {
     expect(mocks.push).toHaveBeenCalledWith(
       '/ogabassey/blog?search=flash%20sale'
     );
+  });
+
+  it('pushes store-prefixed product search routes on non-blog pages', () => {
+    render(<OgabasseyNavbar storeSlug="/ogabassey" />);
+
+    const input = screen.getByRole('searchbox', {
+      name: /search products/i,
+    });
+
+    fireEvent.change(input, { target: { value: 'flash sale' } });
+    const form = input.closest('form');
+    if (!(form instanceof HTMLFormElement)) {
+      throw new Error('Expected the product search input to be inside a form');
+    }
+    fireEvent.submit(form);
+
+    expect(mocks.asRoute).toHaveBeenCalledWith(
+      '/ogabassey/search?q=flash%20sale'
+    );
+    expect(mocks.push).toHaveBeenCalledWith(
+      '/ogabassey/search?q=flash%20sale'
+    );
+  });
+
+  it('uses store-prefixed routes for navigation links', () => {
+    render(<OgabasseyNavbar storeSlug="/ogabassey" />);
+
+    fireEvent.click(screen.getByRole('link', { name: /imei checker/i }));
+    fireEvent.click(screen.getByRole('link', { name: /repairs/i }));
+    fireEvent.click(screen.getByRole('link', { name: /wallet/i }));
+
+    expect(mocks.asRoute).toHaveBeenCalledWith('/ogabassey/imei-check');
+    expect(mocks.asRoute).toHaveBeenCalledWith('/ogabassey/repairs');
+    expect(mocks.asRoute).toHaveBeenCalledWith('/ogabassey/wallet');
+    expect(mocks.push).toHaveBeenCalledWith('/ogabassey/imei-check');
+    expect(mocks.push).toHaveBeenCalledWith('/ogabassey/repairs');
+    expect(mocks.push).toHaveBeenCalledWith('/ogabassey/wallet');
+  });
+
+  it('rejects invalid product URLs from search selection', () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    render(<OgabasseyNavbar storeSlug="/ogabassey" />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /select invalid product/i })
+    );
+
+    expect(mocks.asRoute).not.toHaveBeenCalledWith('https://example.com/bad');
+    expect(mocks.push).not.toHaveBeenCalled();
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'Invalid product URL rejected:',
+      'https://example.com/bad'
+    );
+
+    consoleWarn.mockRestore();
   });
 });

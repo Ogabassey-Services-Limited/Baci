@@ -77,6 +77,21 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   const router = useRouter();
   const pathname = usePathname();
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const basePath = storeSlug
+    ? `/${storeSlug.replace(/^\/+|\/+$/g, '')}`
+    : '';
+
+  const toStorePath = (suffix = '') => {
+    if (!suffix) {
+      return basePath || '/';
+    }
+
+    return `${basePath}${suffix}`;
+  };
+
+  const toStoreRoute = (suffix = '') => asRoute(toStorePath(suffix));
+  const toEncodedStoreRoute = (suffix = '') =>
+    asRoute(encodeURI(toStorePath(suffix)));
 
   // Detect if we're on the blog page
   const isBlogPage = pathname?.includes('/blog');
@@ -137,9 +152,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
       !/^https?:\/\//i.test(url);
 
     if (isValidRelativePath) {
-      // Prepend storeSlug (basePath) if present - SearchAutocomplete returns URL without it
-      const fullUrl = storeSlug ? `${storeSlug}${url}` : url;
-      router.push(asRoute(encodeURI(fullUrl)));
+      router.push(toEncodedStoreRoute(url));
     } else {
       console.warn('Invalid product URL rejected:', url);
     }
@@ -173,16 +186,20 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
     if (!trimmedQuery) return;
     // If on blog page, search blog posts; otherwise search products
     if (isBlogPage) {
-      router.push(asRoute(`${encodeURI(storeSlug || '')}/blog?search=${encodeURIComponent(trimmedQuery)}`));
+      router.push(
+        toStoreRoute(`/blog?search=${encodeURIComponent(trimmedQuery)}`)
+      );
     } else {
-      router.push(asRoute(`${encodeURI(storeSlug || '')}/search?q=${encodeURIComponent(trimmedQuery)}`));
+      router.push(
+        toStoreRoute(`/search?q=${encodeURIComponent(trimmedQuery)}`)
+      );
     }
   };
 
   // Handle blog search - navigate to blog with search query
   const handleBlogSearch = () => {
     if (!searchQuery.trim()) return;
-    router.push(asRoute(`${encodeURI(storeSlug || '')}/blog?search=${encodeURIComponent(searchQuery)}`));
+    router.push(toStoreRoute(`/blog?search=${encodeURIComponent(searchQuery)}`));
   };
 
   const openSourceModal = () => {
@@ -241,7 +258,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   </button>
 
                   <Link
-                    href={asRoute(storeSlug ? encodeURI(storeSlug) : '/')}
+                    href={toStoreRoute()}
                     className="flex items-center cursor-pointer select-none active:opacity-80 transition-opacity text-white"
                   >
                     <Logo className="h-8 w-auto" />
@@ -270,14 +287,16 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                     </form>
                   ) : (
                     // Product search with autocomplete
-                    <SearchAutocomplete
-                      merchantId={merchant.id}
-                      value={searchQuery}
-                      onChange={setSearchQuery}
-                      onSelectProduct={handleProductSelect}
-                      placeholder="Search products, brands and categories"
-                      className="[&_input]:h-11 md:[&_input]:h-12 [&_input]:bg-white [&_input]:rounded-md [&_input]:border-0 [&_input]:text-gray-800 [&_input]:placeholder-gray-500 [&_input]:text-[15px] [&_input]:focus:ring-2 [&_input]:focus:ring-primary/50"
-                    />
+                    <form onSubmit={handleSearch}>
+                      <SearchAutocomplete
+                        merchantId={merchant.id}
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        onSelectProduct={handleProductSelect}
+                        placeholder="Search products, brands and categories"
+                        className="[&_input]:h-11 md:[&_input]:h-12 [&_input]:bg-white [&_input]:rounded-md [&_input]:border-0 [&_input]:text-gray-800 [&_input]:placeholder-gray-500 [&_input]:text-[15px] [&_input]:focus:ring-2 [&_input]:focus:ring-primary/50"
+                      />
+                    </form>
                   )}
                 </div>
               )}
@@ -369,7 +388,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                       </div>
                       <div className="p-2 border-t border-gray-100 bg-gray-50 text-center">
                         <Link
-                          href={asRoute(`${encodeURI(storeSlug || '')}/account`)}
+                          href={toStoreRoute('/account')}
                           onClick={() => setShowNotifications(false)}
                           className="text-[10px] font-bold text-gray-600 hover:text-gray-900 block py-1"
                         >
@@ -381,7 +400,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                 </div>
 
                 <Link
-                  href={asRoute(`${encodeURI(storeSlug || '')}/cart`)}
+                  href={toStoreRoute('/cart')}
                   onClick={(e) => {
                     e.preventDefault();
                     setIsCartOpen(true);
@@ -396,7 +415,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   </span>
                 </Link>
                 <Link
-                  href={asRoute(`${encodeURI(storeSlug || '')}/account`)}
+                  href={toStoreRoute('/account')}
                   className="flex items-center justify-center hover:text-white transition-colors"
                 >
                   <User size={22} />
@@ -441,7 +460,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                       categories.map((cat) => (
                         <Link
                           key={cat.slug}
-                          href={asRoute(`${encodeURI(storeSlug || '')}/${encodeURIComponent(cat.slug)}`)}
+                          href={toStoreRoute(`/${encodeURIComponent(cat.slug)}`)}
                           onClick={() => setShowCategoryDropdown(false)}
                           className="flex items-center gap-3 px-4 py-3 hover:bg-primary/10 hover:text-primary transition-colors group"
                         >
@@ -465,7 +484,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* IMEI Checker */}
               <Link
-                href={asRoute(`${encodeURI(storeSlug || '')}/imei-check`)}
+                href={toStoreRoute('/imei-check')}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors px-1 py-1"
               >
                 <ScanBarcode size={18} />
@@ -476,7 +495,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* Repairs */}
               <Link
-                href={asRoute(`${encodeURI(storeSlug || '')}/repairs`)}
+                href={toStoreRoute('/repairs')}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors px-1 py-1"
               >
                 <Wrench size={18} />
@@ -487,7 +506,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* Wallet */}
               <Link
-                href={asRoute(`${encodeURI(storeSlug || '')}/wallet`)}
+                href={toStoreRoute('/wallet')}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors px-1 py-1"
               >
                 <Wallet size={18} />
@@ -498,7 +517,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* Blog */}
               <Link
-                href={asRoute(`${encodeURI(storeSlug || '')}/blog`)}
+                href={toStoreRoute('/blog')}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors px-1 py-1"
               >
                 <Newspaper size={18} />
