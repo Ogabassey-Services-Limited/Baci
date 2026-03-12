@@ -29,7 +29,7 @@ function normalizeThemeConfiguration(
     const merged: Record<string, unknown> = { ...fallback };
 
     for (const [key, value] of Object.entries(incoming)) {
-      if (!(key in fallback)) {
+      if (!Object.hasOwn(fallback, key)) {
         continue;
       }
 
