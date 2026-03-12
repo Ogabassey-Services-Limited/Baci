@@ -27,6 +27,7 @@ interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
   logo?: string;
+  panelId?: string;
 }
 
 // Revert Component Definition
@@ -34,6 +35,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   isOpen,
   onClose,
   logo,
+  panelId,
 }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -71,7 +73,12 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
       />
 
       {/* Sidebar */}
-      <div className="absolute inset-y-0 left-0 w-[85%] max-w-[320px] bg-white shadow-2xl animate-in slide-in-from-left duration-300 flex flex-col">
+      <div
+        id={panelId}
+        role="dialog"
+        aria-modal="true"
+        className="absolute inset-y-0 left-0 w-[85%] max-w-[320px] bg-white shadow-2xl animate-in slide-in-from-left duration-300 flex flex-col"
+      >
         <div className="p-5 border-b border-gray-100 flex items-center justify-between">
           <Logo className="h-8 w-auto" color="black" />
           <button
