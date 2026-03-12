@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { NetworkProvider } from '@/lib/kuda';
 
 export const billTypeEnum = z.enum([
   'airtime',
@@ -17,7 +16,7 @@ export const purchaseSchema = z
     type: billTypeEnum,
     // Airtime/Data fields
     phoneNumber: z.string().optional(),
-    networkProvider: z.nativeEnum(NetworkProvider).optional(),
+    networkProvider: z.string().optional(),
     dataPlanCode: z.string().optional(),
     // Bill payment fields (TV, Power, Betting)
     billItemIdentifier: z.string().optional(),
@@ -78,14 +77,6 @@ export type VerifyInput = z.infer<typeof verifySchema>;
 export const billersQuerySchema = z.object({
   type: billTypeEnum,
 });
-
-export const loyaltyRedeemSchema = z.object({
-  rewardId: z.string().uuid('Reward ID must be a valid UUID'),
-  phoneNumber: z.string().min(1, 'Phone number is required'),
-  networkProvider: z.nativeEnum(NetworkProvider),
-});
-
-export type LoyaltyRedeemInput = z.infer<typeof loyaltyRedeemSchema>;
 
 /** Maps our bill type enum to commission calculation categories */
 export const COMMISSION_CATEGORY_MAP: Record<BillType, string> = {

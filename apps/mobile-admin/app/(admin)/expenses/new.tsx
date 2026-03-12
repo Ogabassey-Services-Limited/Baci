@@ -27,7 +27,7 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { createUploadFile, RNFormData } from '@/types/upload';
+import { asUploadFile } from '@/types/upload';
 
 const CATEGORIES = [
   'Inventory',
@@ -70,10 +70,10 @@ export default function AddExpenseScreen() {
           const filePath = `expenses/${fileName}`; // Organized in folder
 
           // Use FormData for reliable file upload in React Native
-          const fileData = new FormData() as RNFormData;
+          const fileData = new FormData();
           fileData.append(
             'file',
-            createUploadFile({
+            asUploadFile({
               uri: receiptUri,
               name: fileName.split('/').pop() || 'receipt.jpg',
               type: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,

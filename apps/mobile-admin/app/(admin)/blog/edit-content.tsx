@@ -22,7 +22,7 @@ import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { parseWebViewEditorMessage } from '@/lib/validators/storage';
-import { createUploadFile, RNFormData } from '@/types/upload';
+import { asUploadFile } from '@/types/upload';
 
 /**
  * WebView-based Rich Text Editor
@@ -243,10 +243,10 @@ export default function EditContentScreen() {
           }
 
           // Prepare FormData for API upload
-          const formData = new FormData() as RNFormData;
+          const formData = new FormData();
           formData.append(
             'file',
-            createUploadFile({
+            asUploadFile({
               uri: asset.uri,
               name: asset.fileName || `image-${Date.now()}.png`,
               type: asset.mimeType || 'image/png',

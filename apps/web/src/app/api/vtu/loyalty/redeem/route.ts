@@ -1,70 +1,70 @@
 import { cookies } from 'next/headers';
-import { type NextRequest, NextResponse } from 'next/server';
-import { checkCsrfProtection } from '@/lib/csrf';
+import { NextResponse } from 'next/server';
 import {
   formatPhoneNumber,
   generateRequestRef,
   isValidPhoneNumber,
+  type NetworkProvider,
   purchaseAirtime,
 } from '@/lib/kuda';
 import { createClient } from '@/lib/supabase/server';
-import { loyaltyRedeemSchema } from '@/schemas/vtu';
 
-export async function POST(request: NextRequest) {
+interface RedeemRequest {
+  rewardId: string;
+  phoneNumber: string;
+  networkProvider: NetworkProvider;
+}
+
+// POST /api/vtu/loyalty/redeem - Redeem loyalty points for airtime
+export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const body: RedeemRequest = await request.json();
+    const { rewardId, phoneNumber, networkProvider } = body;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const csrfResult = await checkCsrfProtection(request);
-    if (!csrfResult.valid) {
-      return (
-        csrfResult.response ??
-        NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
-      );
-    }
-
-    const body = await request.json();
-    const parseResult = loyaltyRedeemSchema.safeParse(body);
-    if (!parseResult.success) {
+    // Validate required fields
+    if (!rewardId || !phoneNumber || !networkProvider) {
       return NextResponse.json(
-        {
-          error: 'Invalid request',
-          details: parseResult.error.flatten(),
-        },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    const { rewardId, phoneNumber, networkProvider } = parseResult.data;
-
+    // Validate phone number
     const formattedPhone = formatPhoneNumber(phoneNumber);
-    if (!isValidPhoneNumber(formattedPhone))
+    if (!isValidPhoneNumber(formattedPhone)) {
       return NextResponse.json(
         { error: 'Invalid phone number' },
         { status: 400 }
       );
+    }
 
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    // Get authenticated user
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get the airtime reward
     const { data: reward, error: rewardError } = await supabase
       .from('loyalty_airtime_rewards')
-      .select(
-        'merchant_id, name, points_required, airtime_amount, network_provider, max_total_redemptions, total_redemptions'
-      )
+      .select('*, merchants!inner(id, slug)')
       .eq('id', rewardId)
       .eq('is_active', true)
       .single();
 
-    if (rewardError || !reward)
+    if (rewardError || !reward) {
       return NextResponse.json(
         { error: 'Reward not found or inactive' },
         { status: 404 }
       );
+    }
 
+    // Check if network provider matches (if reward has specific provider)
     if (
       reward.network_provider &&
       reward.network_provider !== networkProvider
@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get customer's loyalty points
     const { data: customer, error: customerError } = await supabase
       .from('customers')
       .select('id, loyalty_points')
@@ -84,12 +85,14 @@ export async function POST(request: NextRequest) {
       .eq('merchant_id', reward.merchant_id)
       .single();
 
-    if (customerError || !customer)
+    if (customerError || !customer) {
       return NextResponse.json(
         { error: 'Customer not found' },
         { status: 404 }
       );
+    }
 
+    // Check if customer has enough points
     if ((customer.loyalty_points || 0) < reward.points_required) {
       return NextResponse.json(
         {
@@ -99,6 +102,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check redemption limits
     if (
       reward.max_total_redemptions &&
       reward.total_redemptions >= reward.max_total_redemptions
@@ -109,14 +113,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newBalance = (customer.loyalty_points || 0) - reward.points_required;
+    // Generate request reference
     const requestRef = generateRequestRef();
-    const successMessage = `₦${reward.airtime_amount} airtime sent to ${formattedPhone}`;
-    const rewardMetadata = {
-      reward_id: rewardId,
-      reward_name: reward.name,
-      points_redeemed: reward.points_required,
-    };
+
+    // Create VTU transaction record
     const { data: transaction, error: txError } = await supabase
       .from('vtu_transactions')
       .insert({
@@ -131,9 +131,13 @@ export async function POST(request: NextRequest) {
         source: 'loyalty_reward',
         platform_commission: 0, // No commission on loyalty rewards
         merchant_commission: 0,
-        metadata: rewardMetadata,
+        metadata: {
+          reward_id: rewardId,
+          reward_name: reward.name,
+          points_redeemed: reward.points_required,
+        },
       })
-      .select('id')
+      .select()
       .single();
 
     if (txError) {
@@ -144,6 +148,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Execute the airtime purchase
     const result = await purchaseAirtime(
       formattedPhone,
       reward.airtime_amount,
@@ -151,6 +156,7 @@ export async function POST(request: NextRequest) {
     );
 
     if (!result.success) {
+      // Update transaction status to failed
       await supabase
         .from('vtu_transactions')
         .update({
@@ -162,6 +168,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.message }, { status: 400 });
     }
 
+    // Update transaction with success
     await supabase
       .from('vtu_transactions')
       .update({
@@ -170,134 +177,43 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', transaction.id);
 
-    const persistReconciliationWarning = async (
-      warning: string,
-      pendingType: 'loyalty_points' | 'reward_redemption_count',
-      details: Record<string, unknown>
-    ) => {
-      const { error } = await supabase
-        .from('vtu_transactions')
-        .update({
-          error_message: warning,
-          metadata: {
-            ...rewardMetadata,
-            reconciliation_pending: pendingType,
-            customer_id: customer.id,
-            ...details,
-          },
-        })
-        .eq('id', transaction.id);
-
-      if (error) {
-        console.error(
-          `Failed to persist ${pendingType} reconciliation marker`,
-          {
-            customerId: customer.id,
-            rewardId,
-            error,
-          }
-        );
-      }
-    };
-
-    const { error: pointsUpdateError } = await supabase
+    // Deduct loyalty points from customer
+    await supabase
       .from('customers')
       .update({
-        loyalty_points: newBalance,
+        loyalty_points: (customer.loyalty_points || 0) - reward.points_required,
       })
       .eq('id', customer.id);
 
-    if (pointsUpdateError) {
-      console.error('Failed to deduct loyalty points after airtime purchase', {
-        customerId: customer.id,
-        rewardId,
-        error: pointsUpdateError,
-      });
-
-      const reconciliationWarning =
-        'Airtime sent, but loyalty points deduction is pending reconciliation.';
-
-      await persistReconciliationWarning(
-        reconciliationWarning,
-        'loyalty_points',
-        { intended_balance: newBalance }
-      );
-
-      return NextResponse.json({
-        success: true,
-        message: successMessage,
-        warning: reconciliationWarning,
-        reconciliationPending: true,
-        reference: requestRef,
-      });
-    }
-
-    const { error: rewardUpdateError } = await supabase
+    // Increment reward redemption count
+    await supabase
       .from('loyalty_airtime_rewards')
       .update({
         total_redemptions: (reward.total_redemptions || 0) + 1,
       })
       .eq('id', rewardId);
 
-    if (rewardUpdateError) {
-      console.error('Failed to update reward redemption count', {
-        customerId: customer.id,
-        rewardId,
-        error: rewardUpdateError,
-      });
-
-      const reconciliationWarning =
-        'Airtime sent and points deducted, but reward redemption count update is pending reconciliation.';
-
-      await persistReconciliationWarning(
-        reconciliationWarning,
-        'reward_redemption_count',
-        { new_balance: newBalance }
-      );
-
-      return NextResponse.json({
-        success: true,
-        message: successMessage,
-        warning: reconciliationWarning,
-        reconciliationPending: true,
-        pointsDeducted: reward.points_required,
-        newBalance,
-        reference: requestRef,
-      });
-    }
-
-    const { error: logError } = await supabase
-      .from('points_transactions')
-      .insert({
-        customer_id: customer.id,
-        merchant_id: reward.merchant_id,
-        type: 'redeem',
-        points: -reward.points_required,
-        balance_after: newBalance,
-        source: 'redemption',
-        description: `Redeemed ${reward.points_required} points for ₦${reward.airtime_amount} airtime`,
-        metadata: {
-          reward_type: 'airtime',
-          reward_id: rewardId,
-          phone_number: formattedPhone,
-          network_provider: networkProvider,
-          vtu_transaction_id: transaction.id,
-        },
-      });
-
-    if (logError) {
-      console.error('Failed to log points transaction after redemption', {
-        customerId: customer.id,
-        rewardId,
-        error: logError,
-      });
-    }
+    // Log the redemption in loyalty history
+    await supabase.from('loyalty_transactions').insert({
+      customer_id: customer.id,
+      merchant_id: reward.merchant_id,
+      type: 'redeemed',
+      points: -reward.points_required,
+      description: `Redeemed ${reward.points_required} points for ₦${reward.airtime_amount} airtime`,
+      metadata: {
+        reward_type: 'airtime',
+        reward_id: rewardId,
+        phone_number: formattedPhone,
+        network_provider: networkProvider,
+        vtu_transaction_id: transaction.id,
+      },
+    });
 
     return NextResponse.json({
       success: true,
-      message: successMessage,
+      message: `₦${reward.airtime_amount} airtime sent to ${formattedPhone}`,
       pointsDeducted: reward.points_required,
-      newBalance,
+      newBalance: (customer.loyalty_points || 0) - reward.points_required,
       reference: requestRef,
     });
   } catch (error) {

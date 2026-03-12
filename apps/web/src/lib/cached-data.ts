@@ -6,7 +6,6 @@ import {
   getSupabaseServiceRoleKey,
   getSupabaseUrl,
 } from '@/env';
-import { BLOG_POST_DETAIL_PROJECTION } from '@/lib/blog-post-projection';
 
 /**
  * Create a Supabase client for cached queries.
@@ -1397,7 +1396,7 @@ export async function getCachedBlogPost(
   // Fetch Post
   let query = supabase
     .from('blog_posts')
-    .select(BLOG_POST_DETAIL_PROJECTION)
+    .select('*')
     .eq('merchant_id', merchant.id)
     .eq('slug', postSlug.toLowerCase());
 

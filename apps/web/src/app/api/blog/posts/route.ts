@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
-import { BLOG_POST_PUBLIC_PROJECTION } from '@/lib/blog-post-projection';
 
 /**
  * Platform Blog Posts API - Public Read-Only
@@ -42,7 +41,9 @@ export async function GET(request: NextRequest) {
     if (slug) {
       const { data: post, error } = await supabase
         .from('blog_posts')
-        .select(BLOG_POST_PUBLIC_PROJECTION)
+        .select(
+          'id, merchant_id, title, slug, content, excerpt, featured_image_url, featured_image_alt, category, tags, keywords, author_name, author_title, author_image_url, author_bio, status, seo_title, seo_description, focus_keyword, reading_time_minutes, view_count, word_count, created_at, updated_at, published_at, is_ai_generated, ai_topic_id, is_platform_post'
+        )
         .eq('is_platform_post', true)
         .eq('status', 'published')
         .eq('slug', slug)
