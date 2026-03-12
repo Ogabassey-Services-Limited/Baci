@@ -6,10 +6,67 @@ import { useEffect, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';
 import { useMerchant } from '@/hooks/use-merchant';
 import { createClient } from '@/lib/supabase/client';
-import type { ThemeConfiguration } from '@/lib/theme-config';
+import { defaultTheme, type ThemeConfiguration } from '@/lib/theme-config';
 
 interface PuckStorefrontProps {
   onNoConfig?: () => void;
+}
+
+function isThemeObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+const IS_DEV = process.env.NODE_ENV !== 'production';
+
+function normalizeThemeConfiguration(
+  defaults: ThemeConfiguration,
+  overrides: Partial<ThemeConfiguration>
+): ThemeConfiguration {
+  const mergeIntoDefaults = (
+    fallback: Record<string, unknown>,
+    incoming: Record<string, unknown>
+  ): Record<string, unknown> => {
+    const merged: Record<string, unknown> = { ...fallback };
+
+    for (const [key, value] of Object.entries(incoming)) {
+      if (!(key in fallback)) {
+        continue;
+      }
+
+      const fallbackValue = fallback[key];
+      if (isThemeObject(fallbackValue)) {
+        if (isThemeObject(value)) {
+          merged[key] = mergeIntoDefaults(fallbackValue, value);
+        } else if (IS_DEV) {
+          console.warn('Theme override type mismatch', {
+            key,
+            expectedType: 'object',
+            receivedType: typeof value,
+            receivedValue: value,
+          });
+        }
+        continue;
+      }
+
+      if (typeof value === typeof fallbackValue) {
+        merged[key] = value;
+      } else if (IS_DEV) {
+        console.warn('Theme override type mismatch', {
+          key,
+          expectedType: typeof fallbackValue,
+          receivedType: typeof value,
+          receivedValue: value,
+        });
+      }
+    }
+
+    return merged;
+  };
+
+  return mergeIntoDefaults(
+    defaults as unknown as Record<string, unknown>,
+    overrides as Record<string, unknown>
+  ) as unknown as ThemeConfiguration;
 }
 
 export function PuckStorefront({ onNoConfig }: PuckStorefrontProps) {
@@ -44,11 +101,19 @@ export function PuckStorefront({ onNoConfig }: PuckStorefrontProps) {
 
           // Apply theme if it exists
           const configWithTheme = pageConfig.published_config as {
-            theme?: ThemeConfiguration;
+            theme?: Partial<ThemeConfiguration>;
           };
           if (configWithTheme.theme) {
-            const { applyTheme } = await import('@/lib/theme-manager');
-            applyTheme(configWithTheme.theme);
+            const { applyTheme, validateTheme } = await import(
+              '@/lib/theme-manager'
+            );
+            const normalizedTheme = normalizeThemeConfiguration(
+              defaultTheme,
+              configWithTheme.theme
+            );
+            if (validateTheme(normalizedTheme)) {
+              applyTheme(normalizedTheme);
+            }
           }
         } else {
           // Config exists but is empty
