@@ -100,4 +100,27 @@ describe('OgabasseyV2AddressBook', () => {
     expect(onAdd).toHaveBeenCalledTimes(1);
     expect(onSetDefault).toHaveBeenCalledWith('addr-1');
   });
+
+  it('calls onEdit and onDelete with the expected address payloads', () => {
+    const onEdit = vi.fn();
+    const onDelete = vi.fn();
+
+    render(
+      <OgabasseyV2AddressBook
+        addresses={addresses}
+        onAdd={vi.fn()}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onSetDefault={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Home address' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Delete Home address' })
+    );
+
+    expect(onEdit).toHaveBeenCalledWith(addresses[0]);
+    expect(onDelete).toHaveBeenCalledWith('addr-1');
+  });
 });
