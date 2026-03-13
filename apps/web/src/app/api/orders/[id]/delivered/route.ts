@@ -10,6 +10,7 @@ import {
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sendEmail } from '@/lib/zeptomail';
+import { orderIdParamsSchema } from '@/schemas/orders';
 
 /** Order item interface for email templates (2026 best practice) */
 interface EmailOrderItem {
@@ -27,7 +28,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const parsedParams = orderIdParamsSchema.safeParse(await params);
+    if (!parsedParams.success) {
+      return NextResponse.json(
+        { error: 'Invalid order ID', details: parsedParams.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { id } = parsedParams.data;
     console.log(`[OrderDelivered] Starting for order ${id}`);
 
     // Authenticate request
@@ -50,14 +59,30 @@ export async function POST(
 
     const supabase = auth.supabase;
 
-    // Fetch merchant details
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select(
-        'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
-      )
-      .eq('id', merchantId)
-      .single();
+    const [merchantResult, settingsResult, orderResult] = await Promise.all([
+      supabase
+        .from('merchants')
+        .select(
+          'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
+        )
+        .eq('id', merchantId)
+        .single(),
+
+      supabase
+        .from('merchant_feature_settings')
+        .select('google_place_id')
+        .eq('merchant_id', merchantId)
+        .single(),
+
+      supabase
+        .from('orders')
+        .select(ORDER_WITH_ITEMS_QUERY)
+        .eq('id', id)
+        .eq('merchant_id', merchantId)
+        .single(),
+    ]);
+
+    const { data: merchant, error: merchantError } = merchantResult;
 
     if (merchantError || !merchant) {
       return NextResponse.json(
@@ -66,20 +91,21 @@ export async function POST(
       );
     }
 
-    // Fetch merchant feature settings to get Google Place ID
-    const { data: featureSettings } = await supabase
-      .from('merchant_feature_settings')
-      .select('google_place_id')
-      .eq('merchant_id', merchantId)
-      .single();
+    const { data: featureSettings, error: settingsError } = settingsResult;
+    if (settingsError) {
+      logger.error({
+        message: 'Failed to fetch merchant feature settings',
+        error: settingsError,
+        merchantId,
+        orderId: id,
+      });
+      return NextResponse.json(
+        { error: 'Failed to load merchant settings' },
+        { status: 500 }
+      );
+    }
 
-    // Fetch order with items
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .select(ORDER_WITH_ITEMS_QUERY)
-      .eq('id', id)
-      .eq('merchant_id', merchant.id)
-      .single();
+    const { data: order, error: orderError } = orderResult;
 
     if (orderError || !order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });

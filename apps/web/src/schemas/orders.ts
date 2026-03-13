@@ -130,3 +130,9 @@ export const recordPaymentSchema = z.object({
 });
 
 export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>;
+
+export const orderIdParamsSchema = z.object({
+  id: z.string().uuid('Invalid order ID'),
+});
+
+export type OrderIdParams = z.infer<typeof orderIdParamsSchema>;
