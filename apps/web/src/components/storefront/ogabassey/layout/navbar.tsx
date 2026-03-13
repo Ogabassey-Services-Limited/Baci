@@ -30,7 +30,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { SearchAutocomplete } from '@/components/storefront/search-autocomplete';
-import { asRoute } from '@/lib/routes';
 import { Logo } from './logo';
 import { MobileMenu } from './mobile-menu';
 import { GadgetPattern } from '../components/GadgetPattern';
@@ -80,6 +79,10 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
   // Detect if we're on the blog page
   const isBlogPage = pathname?.includes('/blog');
+
+  // Safely construct base path to prevent CodeQL DOM text reinterpretation alerts
+  // CodeQL recognizes that starting with '/' prevents javascript: URIs.
+  const basePath = storeSlug ? (storeSlug.startsWith('/') ? encodeURI(storeSlug) : `/${encodeURIComponent(storeSlug)}`) : '';
 
   // Notification UI State
   const [showMobileSearch, setShowMobileSearch] = useState(false);
@@ -137,9 +140,9 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
       !/^https?:\/\//i.test(url);
 
     if (isValidRelativePath) {
-      // Prepend storeSlug (basePath) if present - SearchAutocomplete returns URL without it
-      const fullUrl = storeSlug ? `${storeSlug}${url}` : url;
-      router.push(fullUrl as any);
+      // Prepend normalized basePath if present - SearchAutocomplete returns URL without it
+      const fullUrl = basePath ? `${basePath}${url}` : url;
+      router.push(fullUrl as `/${string}`);
     } else {
       console.warn('Invalid product URL rejected:', url);
     }
@@ -173,10 +176,16 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
     if (!trimmedQuery) return;
     // If on blog page, search blog posts; otherwise search products
     if (isBlogPage) {
-      router.push(`${storeSlug || ''}/blog?search=${encodeURIComponent(trimmedQuery)}` as any);
+      router.push(`${basePath}/blog?search=${encodeURIComponent(trimmedQuery)}` as `/${string}`);
     } else {
-      router.push(`${storeSlug || ''}/search?q=${encodeURIComponent(trimmedQuery)}` as any);
+      router.push(`${basePath}/search?q=${encodeURIComponent(trimmedQuery)}` as `/${string}`);
     }
+  };
+
+  // Handle blog search - navigate to blog with search query
+  const handleBlogSearch = () => {
+    if (!searchQuery.trim()) return;
+    router.push(`${basePath}/blog?search=${encodeURIComponent(searchQuery)}` as `/${string}`);
   };
 
   const openSourceModal = () => {
@@ -235,7 +244,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   </button>
 
                   <Link
-                    href={asRoute(storeSlug || '/')}
+                    href={(basePath || '/') as `/${string}`}
                     className="flex items-center cursor-pointer select-none active:opacity-80 transition-opacity text-white"
                   >
                     <Logo className="h-8 w-auto" />
@@ -363,7 +372,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                       </div>
                       <div className="p-2 border-t border-gray-100 bg-gray-50 text-center">
                         <Link
-                          href={`${storeSlug || ''}/account` as any}
+                          href={`${basePath}/account` as `/${string}`}
                           onClick={() => setShowNotifications(false)}
                           className="text-[10px] font-bold text-gray-600 hover:text-gray-900 block py-1"
                         >
@@ -375,7 +384,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                 </div>
 
                 <Link
-                  href={`${storeSlug || ''}/cart` as any}
+                  href={`${basePath}/cart` as `/${string}`}
                   onClick={(e) => {
                     e.preventDefault();
                     setIsCartOpen(true);
@@ -390,7 +399,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   </span>
                 </Link>
                 <Link
-                  href={`${storeSlug || ''}/account` as any}
+                  href={`${basePath}/account` as `/${string}`}
                   className="flex items-center justify-center hover:text-white transition-colors"
                 >
                   <User size={22} />
@@ -435,7 +444,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                       categories.map((cat) => (
                         <Link
                           key={cat.slug}
-                          href={`${storeSlug || ''}/${cat.slug}` as any}
+                          href={`${basePath}/${encodeURIComponent(cat.slug)}` as `/${string}`}
                           onClick={() => setShowCategoryDropdown(false)}
                           className="flex items-center gap-3 px-4 py-3 hover:bg-primary/10 hover:text-primary transition-colors group"
                         >
@@ -459,7 +468,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* IMEI Checker */}
               <Link
-                href={`${storeSlug || ''}/imei-check` as any}
+                href={`${basePath}/imei-check` as `/${string}`}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors px-1 py-1"
               >
                 <ScanBarcode size={18} />
@@ -470,7 +479,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* Repairs */}
               <Link
-                href={`${storeSlug || ''}/repairs` as any}
+                href={`${basePath}/repairs` as `/${string}`}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors px-1 py-1"
               >
                 <Wrench size={18} />
@@ -481,7 +490,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* Wallet */}
               <Link
-                href={`${storeSlug || ''}/wallet` as any}
+                href={`${basePath}/wallet` as `/${string}`}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors px-1 py-1"
               >
                 <Wallet size={18} />
@@ -492,7 +501,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* Blog */}
               <Link
-                href={`${storeSlug || ''}/blog` as any}
+                href={`${basePath}/blog` as `/${string}`}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors px-1 py-1"
               >
                 <Newspaper size={18} />
