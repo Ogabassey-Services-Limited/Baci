@@ -22,6 +22,7 @@ import {
   generateSlug,
   getProductUrl,
 } from '@/lib/seo-utils';
+import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
 
@@ -76,6 +77,13 @@ async function getProductCached(
     };
   });
   const firstImage = normalizedImages?.[0]?.url || '';
+  const normalizedVariants = normalizeStorefrontProductVariants(
+    cachedProduct.product_variants,
+    {
+      merchantId: merchant.id,
+      productId: cachedProduct.id,
+    }
+  );
 
   const product: Product = {
     id: cachedProduct.id,
@@ -116,16 +124,8 @@ async function getProductCached(
         } | null
       )?.slug || undefined,
     // Variants
-    has_variants: (cachedProduct.product_variants?.length ?? 0) > 0,
-    variants:
-      cachedProduct.product_variants?.map((v) => ({
-        id: v.id,
-        product_id: cachedProduct.id,
-        merchant_id: merchant.id,
-        attributes: v.attributes || {},
-        stock_quantity: v.stock_quantity ?? 0,
-        price_override: v.price_override,
-      })) || [],
+    has_variants: normalizedVariants.length > 0,
+    variants: normalizedVariants,
     // Specs for SEO Schema
     // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
     specifications: cachedProduct.specifications as any,

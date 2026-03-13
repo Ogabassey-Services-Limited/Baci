@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { getVariantAttributeOptions } from '@/components/storefront/ogabassey/variant-attributes';
 import type {
   Product,
   ProductSpecItem,
@@ -162,18 +163,28 @@ export function normalizeProductDetails(
     images.push('/placeholder.svg');
   }
 
-  const platforms =
-    product.variant_attributes?.Platform?.length
-      ? product.variant_attributes.Platform
-      : product.variants
-        ? Array.from(
-            new Set(
-              product.variants
-                .map((variant) => variant.attributes?.platform)
-                .filter(Boolean)
-            )
-          ) as string[]
-        : [];
+  const platforms = (() => {
+    const platformOptions = getVariantAttributeOptions(
+      product.variant_attributes,
+      'platform'
+    );
+
+    if (platformOptions.length > 0) {
+      return platformOptions;
+    }
+
+    return product.variants
+      ? (Array.from(
+          new Set(
+            product.variants
+              .map((variant) => variant.attributes?.platform)
+              .filter(
+                (platform): platform is string => typeof platform === 'string'
+              )
+          )
+        ))
+      : [];
+  })();
 
   const detailedSpecs =
     Array.isArray(product.specifications) && product.specifications.length > 0

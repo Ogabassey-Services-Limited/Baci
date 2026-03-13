@@ -32,6 +32,7 @@ vi.mock('react', () => ({
 
 // Mock Supabase client - declare mocks that will be assigned in beforeEach
 let mockMaybeSingle: ReturnType<typeof vi.fn>;
+let mockRpc: ReturnType<typeof vi.fn>;
 let mockSingle: ReturnType<typeof vi.fn>;
 let mockEq: ReturnType<typeof vi.fn>;
 let mockSelect: ReturnType<typeof vi.fn>;
@@ -117,6 +118,10 @@ describe('cached-data utility functions', () => {
 
     // Initialize Supabase mock chain
     mockMaybeSingle = vi.fn();
+    mockRpc = vi.fn().mockResolvedValue({
+      data: [],
+      error: null,
+    });
     mockSingle = vi.fn();
     mockEq = vi.fn(() => ({
       maybeSingle: mockMaybeSingle,
@@ -131,6 +136,7 @@ describe('cached-data utility functions', () => {
     }));
     mockCreateClient = vi.fn(() => ({
       from: mockFrom,
+      rpc: mockRpc,
       auth: {
         getUser: vi.fn(),
       },
@@ -870,6 +876,62 @@ describe('cached-data utility functions', () => {
       expect(result).toBeNull();
     });
 
+    it('getCachedProduct attaches storefront variants from the public RPC', async () => {
+      mockSingle.mockResolvedValueOnce({
+        data: {
+          id: 'product-123',
+          slug: 'iphone-16',
+          product_variants: [],
+        },
+        error: null,
+      });
+      mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            id: 'variant-1',
+            product_id: 'product-123',
+            attributes: { storage: '128GB', sim_type: 'eSIM Only' },
+            stock_quantity: 2,
+          },
+        ],
+        error: null,
+      });
+
+      const result = await getCachedProduct('merchant-123', 'iphone-16');
+
+      expect(mockRpc).toHaveBeenCalledWith('get_storefront_product_variants', {
+        p_product_ids: ['product-123'],
+      });
+      expect(result?.product_variants).toEqual([
+        expect.objectContaining({
+          id: 'variant-1',
+          attributes: { storage: '128GB', sim_type: 'eSIM Only' },
+        }),
+      ]);
+    });
+
+    it('getCachedProduct falls back to empty variants when the public RPC fails', async () => {
+      mockSingle.mockResolvedValueOnce({
+        data: {
+          id: 'product-123',
+          slug: 'iphone-16',
+          product_variants: [],
+        },
+        error: null,
+      });
+      mockRpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'RPC failed', code: 'P0001' },
+      });
+
+      const result = await getCachedProduct('merchant-123', 'iphone-16');
+
+      expect(mockRpc).toHaveBeenCalledWith('get_storefront_product_variants', {
+        p_product_ids: ['product-123'],
+      });
+      expect(result?.product_variants).toEqual([]);
+    });
+
     it('getCachedProductWithDetails returns null on query error', async () => {
       mockMaybeSingle.mockResolvedValueOnce({
         data: null,
@@ -882,6 +944,43 @@ describe('cached-data utility functions', () => {
       );
 
       expect(result).toBeNull();
+    });
+
+    it('getCachedProductWithDetails attaches storefront variants from the public RPC', async () => {
+      mockMaybeSingle.mockResolvedValueOnce({
+        data: {
+          id: 'product-123',
+          slug: 'iphone-16',
+          product_variants: [],
+        },
+        error: null,
+      });
+      mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            id: 'variant-2',
+            product_id: 'product-123',
+            attributes: { storage: '256GB' },
+            stock_quantity: 1,
+          },
+        ],
+        error: null,
+      });
+
+      const result = await getCachedProductWithDetails(
+        'merchant-123',
+        'iphone-16'
+      );
+
+      expect(mockRpc).toHaveBeenCalledWith('get_storefront_product_variants', {
+        p_product_ids: ['product-123'],
+      });
+      expect(result?.product_variants).toEqual([
+        expect.objectContaining({
+          id: 'variant-2',
+          attributes: { storage: '256GB' },
+        }),
+      ]);
     });
   });
 });

@@ -70,6 +70,55 @@ function getServiceRoleSupabaseClient() {
   });
 }
 
+interface PublicStorefrontProductVariant {
+  attributes: Record<string, string> | null;
+  created_at?: string | null;
+  id: string;
+  images?: unknown;
+  price_override?: number | string | null;
+  primary_image?: string | null;
+  product_id: string;
+  sku?: string | null;
+  stock_quantity?: number | null;
+  updated_at?: string | null;
+}
+
+async function getPublicProductVariantsByProductIds(productIds: string[]) {
+  const uniqueProductIds = Array.from(
+    new Set(productIds.filter((id): id is string => Boolean(id)))
+  );
+
+  if (uniqueProductIds.length === 0) {
+    return {} as Record<string, PublicStorefrontProductVariant[]>;
+  }
+
+  const supabase = getPublicSupabaseClient();
+  const { data, error } = await supabase.rpc(
+    'get_storefront_product_variants',
+    {
+      p_product_ids: uniqueProductIds,
+    }
+  );
+
+  if (error) {
+    console.error('Error fetching storefront product variants:', error);
+    return {} as Record<string, PublicStorefrontProductVariant[]>;
+  }
+
+  const variantsByProductId: Record<string, PublicStorefrontProductVariant[]> =
+    {};
+
+  for (const variant of (data || []) as PublicStorefrontProductVariant[]) {
+    if (!variantsByProductId[variant.product_id]) {
+      variantsByProductId[variant.product_id] = [];
+    }
+
+    variantsByProductId[variant.product_id].push(variant);
+  }
+
+  return variantsByProductId;
+}
+
 // Type for merchant data with optional custom_domain
 export interface HeroSlide {
   id: string;
@@ -600,7 +649,15 @@ export async function getCachedProducts(
     return [];
   }
 
-  return data || [];
+  const products = data || [];
+  const variantsByProductId = await getPublicProductVariantsByProductIds(
+    products.map((product) => product.id)
+  );
+
+  return products.map((product) => ({
+    ...product,
+    product_variants: variantsByProductId[product.id] || [],
+  }));
 }
 
 /**
@@ -685,7 +742,18 @@ export async function getCachedProduct(
     return null;
   }
 
-  return data;
+  if (!data) {
+    return null;
+  }
+
+  const variantsByProductId = await getPublicProductVariantsByProductIds([
+    data.id,
+  ]);
+
+  return {
+    ...data,
+    product_variants: variantsByProductId[data.id] || [],
+  };
 }
 
 const STOREFRONT_PRODUCT_DETAIL_COLUMNS = `
@@ -739,7 +807,6 @@ const STOREFRONT_PRODUCT_DETAIL_VARIANT_COLUMNS = `
   sku,
   attributes,
   price_override,
-  cost_price,
   stock_quantity,
   images,
   primary_image,
@@ -861,7 +928,18 @@ export async function getCachedProductWithDetails(
     return null;
   }
 
-  return data;
+  if (!data) {
+    return null;
+  }
+
+  const variantsByProductId = await getPublicProductVariantsByProductIds([
+    data.id,
+  ]);
+
+  return {
+    ...data,
+    product_variants: variantsByProductId[data.id] || [],
+  };
 }
 
 /**
