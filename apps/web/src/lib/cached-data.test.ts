@@ -955,7 +955,6 @@ describe('cached-data utility functions', () => {
         data: {
           id: 'product-123',
           slug: 'iphone-16',
-          product_variants: [],
         },
         error: null,
       });
@@ -989,7 +988,6 @@ describe('cached-data utility functions', () => {
         data: {
           id: 'product-123',
           slug: 'iphone-16',
-          product_variants: [],
         },
         error: null,
       });
