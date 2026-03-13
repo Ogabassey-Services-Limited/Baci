@@ -79,7 +79,9 @@
       "@modelcontextprotocol/sdk>ajv": "^8.18.0",
       "expo-build-properties>ajv": "^8.18.0",
       "expo-dev-launcher>ajv": "^8.18.0",
-      "http-proxy-agent": "^7.0.2"
+      "http-proxy-agent": "^7.0.2",
+      "unhead": "^2.1.12",
+      "@unhead/vue": "^2.1.12"
     },
     "patchedDependencies": {
       "novel@1.0.2": "patches/novel@1.0.2.patch"

@@ -37,18 +37,6 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-vi.mock('colorthief', () => ({
-  default: class ColorThief {
-    getPalette() {
-      return [
-        [255, 0, 0],
-        [0, 255, 0],
-        [0, 0, 255],
-      ];
-    }
-  },
-}));
-
 vi.mock('@/components/ui/button', () => ({
   Button: ({
     children,
@@ -213,11 +201,17 @@ vi.mock('next/image', () => ({
   ),
 }));
 
+vi.mock('@/lib/extract-brand-colors', () => ({
+  extractBrandColorsFromImage: vi.fn(),
+}));
+
+import { extractBrandColorsFromImage } from '@/lib/extract-brand-colors';
 import { uploadImage } from '@/lib/storage';
 // --- Import after all mocks ---
 import Step2_Branding from './step2-branding';
 
 const mockUploadImage = vi.mocked(uploadImage);
+const mockExtractBrandColorsFromImage = vi.mocked(extractBrandColorsFromImage);
 
 // Test wrapper component
 function TestWrapper({ children }: { children: React.ReactNode }) {
@@ -238,6 +232,11 @@ describe('Step2_Branding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUploadImage.mockResolvedValue('https://example.com/logo.png');
+    mockExtractBrandColorsFromImage.mockResolvedValue({
+      primary: '#FF0000',
+      background: '#FFFFFF',
+      accent: '#00FF00',
+    });
 
     // Mock FileReader
     global.FileReader = class FileReader {
@@ -270,35 +269,6 @@ describe('Step2_Branding', () => {
         return true;
       }
     } as unknown as typeof FileReader;
-
-    // Mock Image element
-    global.Image = class Image {
-      onload: (() => void) | null = null;
-      onerror: (() => void) | null = null;
-      src = '';
-      crossOrigin: string | null = null;
-
-      constructor() {
-        setTimeout(() => {
-          if (this.onload) this.onload();
-        }, 0);
-      }
-    } as unknown as typeof Image;
-
-    // Mock createElement for color extraction
-    const originalCreateElement = document.createElement.bind(document);
-    vi.spyOn(document, 'createElement').mockImplementation(
-      (tagName: string) => {
-        const element = originalCreateElement(tagName);
-        if (tagName === 'img') {
-          setTimeout(() => {
-            const img = element as HTMLImageElement;
-            if (img.onload) img.onload({} as Event);
-          }, 0);
-        }
-        return element;
-      }
-    );
   });
 
   afterEach(() => {
