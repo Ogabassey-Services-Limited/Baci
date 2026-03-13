@@ -182,12 +182,6 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
     }
   };
 
-  // Handle blog search - navigate to blog with search query
-  const handleBlogSearch = () => {
-    if (!searchQuery.trim()) return;
-    router.push(`${basePath}/blog?search=${encodeURIComponent(searchQuery)}` as `/${string}`);
-  };
-
   const openSourceModal = () => {
     // setShowDropdown(false);
     setIsSourceModalOpen(true);

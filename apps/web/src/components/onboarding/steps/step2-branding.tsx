@@ -1,6 +1,5 @@
 'use client';
 
-import ColorThief from 'colorthief';
 import {
   Eraser,
   Eye,
@@ -29,6 +28,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { extractBrandColorsFromImage } from '@/lib/extract-brand-colors';
 import { logger } from '@/lib/logger';
 import { uploadImage } from '@/lib/storage';
 import { cn, getContrastColor } from '@/lib/utils';
@@ -116,70 +116,6 @@ export default function Step2_Branding() {
     setLogoUploaded(!!(currentLogoDataUri || logoUrl));
   }, [currentLogoDataUri, logoUrl, setLogoUploaded]);
 
-  const extractColorsFromImage = (
-    imageDataUri: string
-  ): Promise<BrandColors> => {
-    return new Promise((resolve, reject) => {
-      const colorThief = new ColorThief();
-      const img = document.createElement('img');
-      img.src = imageDataUri;
-      img.crossOrigin = 'Anonymous';
-
-      img.onload = () => {
-        try {
-          const palette = colorThief.getPalette(img, 8); // Get more colors to filter from
-          const toHex = (rgb: number[]) =>
-            `#${rgb.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
-
-          // Helper: Check if color is too neutral (white/black/gray)
-          const isNeutral = (rgb: number[]) => {
-            const [r, g, b] = rgb;
-            const brightness = (r + g + b) / 3;
-            const maxDiff = Math.max(
-              Math.abs(r - g),
-              Math.abs(g - b),
-              Math.abs(r - b)
-            );
-
-            // Too bright (near white) or too dark (near black) or low color variance (gray)
-            return brightness > 240 || brightness < 20 || maxDiff < 15;
-          };
-
-          // Helper: Calculate saturation (how "colorful" the color is)
-          const getSaturation = (rgb: number[]) => {
-            const [r, g, b] = rgb;
-            const max = Math.max(r, g, b);
-            const min = Math.min(r, g, b);
-            const delta = max - min;
-            return max === 0 ? 0 : delta / max;
-          };
-
-          // Filter out neutral colors
-          const vibrantColors = palette.filter((color) => !isNeutral(color));
-
-          // Sort by saturation (most colorful first)
-          vibrantColors.sort((a, b) => getSaturation(b) - getSaturation(a));
-
-          // Pick primary and accent from vibrant colors, or fallback to original palette
-          const primaryRgb = vibrantColors[0] || palette[0] || [0, 0, 0];
-          const accentRgb = vibrantColors[1] || palette[1] || primaryRgb;
-
-          resolve({
-            primary: toHex(primaryRgb),
-            background: '#FFFFFF',
-            accent: toHex(accentRgb),
-          });
-        } catch (e) {
-          reject(e);
-        }
-      };
-
-      img.onerror = (_e) => {
-        reject(new Error('Image could not be loaded for color extraction.'));
-      };
-    });
-  };
-
   // Unified handler for processing a logo (whether uploaded or generated)
   const processNewLogo = async (
     dataUri: string,
@@ -219,7 +155,7 @@ export default function Step2_Branding() {
         return;
       }
       try {
-        const colors = await extractColorsFromImage(dataUri);
+        const colors = await extractBrandColorsFromImage(dataUri);
         setValue('brandColors', JSON.stringify(colors), {
           shouldValidate: true,
         });
