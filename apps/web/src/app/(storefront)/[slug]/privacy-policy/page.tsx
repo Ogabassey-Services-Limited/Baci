@@ -68,8 +68,7 @@ async function PrivacyPolicyContent({ slug }: { slug: string }) {
   }
 
   // Check if privacy policy content exists OR template has Privacy component
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic merchant pages structure
-  const merchantPages = (merchant as any).pages;
+  const merchantPages = merchant.pages;
   const hasPrivacyContent = merchantPages?.privacy;
   const templateHasPrivacyPage = merchant.template_id === 'ogabassey';
 
@@ -105,9 +104,7 @@ async function PrivacyPolicyContent({ slug }: { slug: string }) {
     inLanguage: 'en',
     // Only include dateModified when a real timestamp exists (avoid unstable "now" fallback)
     ...(() => {
-      // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant type doesn't include updated_at
-      const m = merchant as any;
-      return m.updated_at ? { dateModified: m.updated_at as string } : {};
+      return merchant.updated_at ? { dateModified: merchant.updated_at } : {};
     })(),
   };
 
@@ -126,8 +123,7 @@ async function PrivacyPolicyContent({ slug }: { slug: string }) {
         merchant={merchant}
         fallback={
           <PrivacyPageClient
-            // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant type differs from PrivacyPageClient prop type
-            merchant={merchant as any}
+            merchant={merchant}
             content={merchantPages?.privacy}
           />
         }
