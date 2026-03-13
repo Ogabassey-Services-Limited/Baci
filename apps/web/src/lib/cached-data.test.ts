@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CachedMerchant } from './cached-data';
 import {
   getCachedProduct,
+  getCachedProducts,
   getCachedProductWithDetails,
   getMerchantByIdentifier,
   getMerchantSafe,
@@ -32,6 +33,14 @@ vi.mock('react', () => ({
 
 // Mock Supabase client - declare mocks that will be assigned in beforeEach
 let mockMaybeSingle: ReturnType<typeof vi.fn>;
+let mockLimit: ReturnType<typeof vi.fn>;
+let mockListResult: {
+  data: unknown;
+  error: unknown;
+};
+let mockOr: ReturnType<typeof vi.fn>;
+let mockOrder: ReturnType<typeof vi.fn>;
+let mockRange: ReturnType<typeof vi.fn>;
 let mockRpc: ReturnType<typeof vi.fn>;
 let mockSingle: ReturnType<typeof vi.fn>;
 let mockEq: ReturnType<typeof vi.fn>;
@@ -39,32 +48,14 @@ let mockSelect: ReturnType<typeof vi.fn>;
 let mockFrom: ReturnType<typeof vi.fn>;
 let mockCreateClient: (...args: unknown[]) => unknown;
 
-function getProductVariantsSelect(selectArg: unknown): string {
-  const selectText = String(selectArg);
-  const relationStart = selectText.indexOf('product_variants');
-  if (relationStart === -1) {
-    return '';
-  }
-
-  const openParenIndex = selectText.indexOf('(', relationStart);
-  if (openParenIndex === -1) {
-    return '';
-  }
-
-  let depth = 1;
-  for (let index = openParenIndex + 1; index < selectText.length; index += 1) {
-    const char = selectText[index];
-    if (char === '(') {
-      depth += 1;
-    } else if (char === ')') {
-      depth -= 1;
-      if (depth === 0) {
-        return selectText.slice(openParenIndex + 1, index);
-      }
-    }
-  }
-
-  return '';
+interface MockQueryBuilder {
+  eq: ReturnType<typeof vi.fn>;
+  limit: ReturnType<typeof vi.fn>;
+  maybeSingle: ReturnType<typeof vi.fn>;
+  or: ReturnType<typeof vi.fn>;
+  order: ReturnType<typeof vi.fn>;
+  range: ReturnType<typeof vi.fn>;
+  single: ReturnType<typeof vi.fn>;
 }
 
 vi.mock('@supabase/supabase-js', () => ({
@@ -118,19 +109,39 @@ describe('cached-data utility functions', () => {
 
     // Initialize Supabase mock chain
     mockMaybeSingle = vi.fn();
+    mockListResult = {
+      data: [],
+      error: null,
+    };
+    mockLimit = vi.fn();
+    mockOr = vi.fn();
+    mockOrder = vi.fn();
+    mockRange = vi.fn();
     mockRpc = vi.fn().mockResolvedValue({
       data: [],
       error: null,
     });
     mockSingle = vi.fn();
-    mockEq = vi.fn(() => ({
+    const mockQueryBuilder = Promise.resolve(mockListResult) as Promise<{
+      data: unknown;
+      error: unknown;
+    }> &
+      MockQueryBuilder;
+    mockEq = vi.fn(() => mockQueryBuilder);
+    mockOr.mockImplementation(() => mockQueryBuilder);
+    mockOrder.mockImplementation(() => mockQueryBuilder);
+    mockLimit.mockImplementation(() => mockQueryBuilder);
+    mockRange.mockImplementation(() => mockQueryBuilder);
+    Object.assign(mockQueryBuilder, {
       maybeSingle: mockMaybeSingle,
       single: mockSingle,
       eq: mockEq,
-    }));
-    mockSelect = vi.fn(() => ({
-      eq: mockEq,
-    }));
+      or: mockOr,
+      order: mockOrder,
+      limit: mockLimit,
+      range: mockRange,
+    });
+    mockSelect = vi.fn(() => mockQueryBuilder);
     mockFrom = vi.fn(() => ({
       select: mockSelect,
     }));
@@ -813,7 +824,7 @@ describe('cached-data utility functions', () => {
   });
 
   describe('product query projections', () => {
-    it('getCachedProduct uses the current product_variants columns', async () => {
+    it('getCachedProduct does not inline product_variants', async () => {
       mockSingle.mockResolvedValueOnce({
         data: { id: 'product-123', slug: 'iphone-16' },
         error: null,
@@ -826,18 +837,10 @@ describe('cached-data utility functions', () => {
 
       const selectArg = String(mockSelect.mock.calls.at(-1)?.[0]);
       expect(selectArg).not.toMatch(/\*\s*,/);
-      const variantsSelect = getProductVariantsSelect(selectArg);
-      expect(variantsSelect).toContain('attributes');
-      expect(variantsSelect).toContain('stock_quantity');
-      expect(variantsSelect).toContain('primary_image');
-      expect(variantsSelect).not.toMatch(/\bstorage\b/);
-      expect(variantsSelect).not.toMatch(/\bsim_type\b/);
-      expect(variantsSelect).not.toMatch(/\bcolor\b/);
-      expect(variantsSelect).not.toMatch(/\bram_gb\b/);
-      expect(variantsSelect).not.toMatch(/\bcondition\b/);
+      expect(selectArg).not.toContain('product_variants');
     });
 
-    it('getCachedProductWithDetails avoids removed variant columns', async () => {
+    it('getCachedProductWithDetails does not inline product_variants', async () => {
       mockMaybeSingle.mockResolvedValueOnce({
         data: { id: 'product-123', slug: 'iphone-16' },
         error: null,
@@ -849,20 +852,91 @@ describe('cached-data utility functions', () => {
       expect(mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
 
       const selectArg = mockSelect.mock.calls.at(-1)?.[0];
-      const variantsSelect = getProductVariantsSelect(selectArg);
       expect(String(selectArg)).not.toMatch(/\*\s*,/);
       expect(String(selectArg)).toContain('imageHint:image_hint');
       expect(String(selectArg)).toContain(
         'fulfillmentFields:fulfillment_fields'
       );
-      expect(variantsSelect).toContain('attributes');
-      expect(variantsSelect).toContain('stock_quantity');
-      expect(variantsSelect).toContain('primary_image');
-      expect(variantsSelect).not.toMatch(/\bstorage\b/);
-      expect(variantsSelect).not.toMatch(/\bsim_type\b/);
-      expect(variantsSelect).not.toMatch(/\bcolor\b/);
-      expect(variantsSelect).not.toMatch(/\bram_gb\b/);
-      expect(variantsSelect).not.toMatch(/\bcondition\b/);
+      expect(String(selectArg)).not.toContain('product_variants');
+    });
+
+    it('getCachedProducts attaches storefront variants from the public RPC', async () => {
+      mockListResult.data = [
+        { id: 'product-123', slug: 'iphone-16' },
+        { id: 'product-456', slug: 'iphone-15' },
+      ];
+      mockListResult.error = null;
+      mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            id: 'variant-1',
+            product_id: 'product-123',
+            attributes: { storage: '128GB' },
+            stock_quantity: 2,
+          },
+          {
+            id: 'variant-2',
+            product_id: 'product-456',
+            attributes: { storage: '256GB' },
+            stock_quantity: 1,
+          },
+        ],
+        error: null,
+      });
+
+      const result = await getCachedProducts('merchant-123');
+
+      expect(mockRpc).toHaveBeenCalledWith('get_storefront_product_variants', {
+        p_product_ids: ['product-123', 'product-456'],
+      });
+      expect(result).toEqual([
+        expect.objectContaining({
+          id: 'product-123',
+          product_variants: [
+            expect.objectContaining({
+              id: 'variant-1',
+              attributes: { storage: '128GB' },
+            }),
+          ],
+        }),
+        expect.objectContaining({
+          id: 'product-456',
+          product_variants: [
+            expect.objectContaining({
+              id: 'variant-2',
+              attributes: { storage: '256GB' },
+            }),
+          ],
+        }),
+      ]);
+    });
+
+    it('getCachedProducts falls back to empty variants when the public RPC fails', async () => {
+      mockListResult.data = [
+        { id: 'product-123', slug: 'iphone-16' },
+        { id: 'product-456', slug: 'iphone-15' },
+      ];
+      mockListResult.error = null;
+      mockRpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'RPC failed', code: 'P0001' },
+      });
+
+      const result = await getCachedProducts('merchant-123');
+
+      expect(mockRpc).toHaveBeenCalledWith('get_storefront_product_variants', {
+        p_product_ids: ['product-123', 'product-456'],
+      });
+      expect(result).toEqual([
+        expect.objectContaining({
+          id: 'product-123',
+          product_variants: [],
+        }),
+        expect.objectContaining({
+          id: 'product-456',
+          product_variants: [],
+        }),
+      ]);
     });
 
     it('getCachedProduct returns null on query error', async () => {

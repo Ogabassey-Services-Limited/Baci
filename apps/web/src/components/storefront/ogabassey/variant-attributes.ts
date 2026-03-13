@@ -13,7 +13,7 @@ export type VariantAttributeSource =
   | null
   | undefined;
 
-function canonicalizeVariantAxis(axis: string) {
+export function canonicalizeVariantAxis(axis: string) {
   return axis.trim().toLowerCase().replace(/[\s-]+/g, '_');
 }
 

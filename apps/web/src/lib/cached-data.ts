@@ -600,15 +600,6 @@ export async function getCachedProducts(
         color_images,
         brand,
         condition,
-        product_variants (
-          id,
-          sku,
-          attributes,
-          price_override,
-          stock_quantity,
-          images,
-          primary_image
-        ),
         product_categories (
           category_id,
           categories (
@@ -708,15 +699,6 @@ export async function getCachedProduct(
           stock_quantity,
           images
         ),
-        product_variants (
-          id,
-          sku,
-          attributes,
-          price_override,
-          stock_quantity,
-          images,
-          primary_image
-        ),
         product_categories (
           category_id,
           categories (
@@ -800,20 +782,6 @@ const STOREFRONT_PRODUCT_DETAIL_COLUMNS = `
   fulfillmentFields:fulfillment_fields
 `;
 
-const STOREFRONT_PRODUCT_DETAIL_VARIANT_COLUMNS = `
-  id,
-  product_id,
-  merchant_id,
-  sku,
-  attributes,
-  price_override,
-  stock_quantity,
-  images,
-  primary_image,
-  created_at,
-  updated_at
-`;
-
 const STOREFRONT_PRODUCT_DETAIL_OFFERS_COLUMNS = `
   id,
   condition,
@@ -828,7 +796,8 @@ const STOREFRONT_PRODUCT_DETAIL_OFFERS_COLUMNS = `
 
 /**
  * Comprehensive cached product data with all relations for product pages.
- * Fetches product + key_specs + variants + offers + category in a single query.
+ * Fetches product + key_specs + offers + category in the main query.
+ * Storefront-safe variants are hydrated separately through the public RPC.
  * Uses 'products' cacheLife profile (stale 5min, revalidate 5min, expire 24hr)
  */
 export async function getCachedProductWithDetails(
@@ -910,7 +879,6 @@ export async function getCachedProductWithDetails(
           announced_date,
           release_date
         ),
-        product_variants (${STOREFRONT_PRODUCT_DETAIL_VARIANT_COLUMNS}),
         product_offers (${STOREFRONT_PRODUCT_DETAIL_OFFERS_COLUMNS})
       `)
     .eq('merchant_id', merchantId);
