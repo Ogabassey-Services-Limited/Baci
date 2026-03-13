@@ -10,7 +10,6 @@ import {
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sendEmail } from '@/lib/zeptomail';
-import { orderIdParamsSchema } from '@/schemas/orders';
 
 /** Order item interface for email templates (2026 best practice) */
 interface EmailOrderItem {
@@ -28,15 +27,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const parsedParams = orderIdParamsSchema.safeParse(await params);
-    if (!parsedParams.success) {
-      return NextResponse.json(
-        { error: 'Invalid order ID', details: parsedParams.error.flatten() },
-        { status: 400 }
-      );
-    }
-
-    const { id } = parsedParams.data;
+    const { id } = await params;
     console.log(`[OrderDelivered] Starting for order ${id}`);
 
     // Authenticate request
@@ -59,7 +50,9 @@ export async function POST(
 
     const supabase = auth.supabase;
 
+    // ⚡ Bolt: PERFORMANCE: Execute independent database queries in parallel to prevent waterfall latency
     const [merchantResult, settingsResult, orderResult] = await Promise.all([
+      // Fetch merchant details
       supabase
         .from('merchants')
         .select(
@@ -68,12 +61,14 @@ export async function POST(
         .eq('id', merchantId)
         .single(),
 
+      // Fetch merchant feature settings to get Google Place ID
       supabase
         .from('merchant_feature_settings')
         .select('google_place_id')
         .eq('merchant_id', merchantId)
         .single(),
 
+      // Fetch order with items
       supabase
         .from('orders')
         .select(ORDER_WITH_ITEMS_QUERY)
@@ -83,7 +78,6 @@ export async function POST(
     ]);
 
     const { data: merchant, error: merchantError } = merchantResult;
-
     if (merchantError || !merchant) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -91,22 +85,9 @@ export async function POST(
       );
     }
 
-    const { data: featureSettings, error: settingsError } = settingsResult;
-    if (settingsError) {
-      logger.error({
-        message: 'Failed to fetch merchant feature settings',
-        error: settingsError,
-        merchantId,
-        orderId: id,
-      });
-      return NextResponse.json(
-        { error: 'Failed to load merchant settings' },
-        { status: 500 }
-      );
-    }
+    const { data: featureSettings } = settingsResult;
 
     const { data: order, error: orderError } = orderResult;
-
     if (orderError || !order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }

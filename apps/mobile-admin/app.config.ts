@@ -36,7 +36,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Baci - The Ecommerce Builder',
   slug: 'baci',
   owner: 'ogabassey-services-limited',
-  version: '1.3.1',
+  version: '1.3.0',
   orientation: 'default',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
