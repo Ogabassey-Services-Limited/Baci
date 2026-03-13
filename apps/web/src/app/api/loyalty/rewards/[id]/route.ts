@@ -73,14 +73,6 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { valid, response } = await checkCsrfProtection(request);
-    if (!valid) {
-      return (
-        response ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-    const { id } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -90,6 +82,15 @@ export async function PATCH(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+    const { id } = await params;
 
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);
     if (!merchantContext) {
@@ -163,14 +164,6 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { valid, response } = await checkCsrfProtection(request);
-    if (!valid) {
-      return (
-        response ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-    const { id } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -180,6 +173,15 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+    const { id } = await params;
 
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);
     if (!merchantContext) {
