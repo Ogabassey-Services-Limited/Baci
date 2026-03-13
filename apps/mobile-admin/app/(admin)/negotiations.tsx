@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -39,7 +39,8 @@ export default function NegotiationsScreen() {
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const _router = useRouter();
 
-  const fetchRequests = useCallback(async () => {
+  // 2026 Best Practice: Removed useCallback wrapper as React Compiler handles memoization (ADR-004)
+  const fetchRequests = async () => {
     setFetchError(null);
     try {
       const { data, error } = await supabase
@@ -58,10 +59,31 @@ export default function NegotiationsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    fetchRequests();
+    const fetchInitial = async () => {
+      setFetchError(null);
+      try {
+        const { data, error } = await supabase
+          .from('negotiation_requests')
+          .select(
+            'id, customer_id, type, status, offered_price, current_price, item_info, created_at, evidence_url'
+          )
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setRequests(data || []);
+      } catch (err) {
+        console.error('Error fetching negotiations:', err);
+        setFetchError('Failed to load negotiations');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    };
+
+    fetchInitial();
 
     // Subscribe to real-time updates
     const channel = supabase
@@ -69,14 +91,14 @@ export default function NegotiationsScreen() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'negotiation_requests' },
-        () => fetchRequests()
+        () => fetchInitial()
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchRequests]);
+  }, []);
 
   const handleAction = async (id: string, status: 'accepted' | 'rejected') => {
     if (actionLoadingId) return; // Prevent double-submit
