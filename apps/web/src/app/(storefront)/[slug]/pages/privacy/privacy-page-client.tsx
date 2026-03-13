@@ -22,9 +22,7 @@ export function PrivacyPageClient({
   return (
     <MerchantProvider slug={merchant.slug}>
       <StorefrontProvider>
-        <AppBody
-          merchant={toTemplateMerchantData(merchant)}
-        >
+        <AppBody merchant={toTemplateMerchantData(merchant)}>
           <div className="flex flex-col min-h-screen">
             <StorefrontHeader />
 
