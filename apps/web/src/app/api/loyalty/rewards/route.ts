@@ -37,7 +37,9 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('loyalty_rewards')
-      .select('*')
+      .select(
+        'id, merchant_id, name, description, image_url, points_cost, reward_type, reward_value, reward_product_id, enabled, stock_quantity, start_date, end_date, minimum_order_amount, usage_limit_per_customer, created_at, updated_at'
+      )
       .eq('merchant_id', merchantId)
       .order('points_cost', { ascending: true });
 
