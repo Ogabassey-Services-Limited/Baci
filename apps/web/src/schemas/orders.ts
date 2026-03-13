@@ -111,6 +111,10 @@ export const orderCreateSchema = z.object({
 
 export type OrderCreateInput = z.infer<typeof orderCreateSchema>;
 
+export const orderIdParamsSchema = z.object({
+  id: z.string().uuid(),
+});
+
 export const recordPaymentSchema = z.object({
   amount: z.coerce.number().positive(),
   payment_method: z
