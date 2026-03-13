@@ -113,6 +113,9 @@ exclude = [
   # Social Media (Bot Protection)
   "tiktok\\.com",
 
+  # App Stores (Rate Limited)
+  "apps\\.apple\\.com",
+
   # CodeRabbit Feedback: Anchored New Exclusions
   "^https?://your-app\\.vercel\\.app",
   "^https?://(www\\.)?anthropic\\.com",

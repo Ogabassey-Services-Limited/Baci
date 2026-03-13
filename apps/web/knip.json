@@ -58,6 +58,7 @@
     "fuse.js",
     "iconoir-react",
     "isomorphic-dompurify",
+    "jimp",
     "jspdf",
     "jspdf-autotable",
     "lucide-react",

@@ -1,6 +1,6 @@
 'use client';
 
-import { getPaletteSync } from 'colorthief';
+import ColorThief from 'colorthief';
 import {
   Eraser,
   Eye,
@@ -120,16 +120,14 @@ export default function Step2_Branding() {
     imageDataUri: string
   ): Promise<BrandColors> => {
     return new Promise((resolve, reject) => {
+      const colorThief = new ColorThief();
       const img = document.createElement('img');
       img.src = imageDataUri;
       img.crossOrigin = 'Anonymous';
 
       img.onload = () => {
         try {
-          const palette =
-            getPaletteSync(img, { colorCount: 8 })?.map((color) =>
-              color.array()
-            ) ?? [];
+          const palette = colorThief.getPalette(img, 8); // Get more colors to filter from
           const toHex = (rgb: number[]) =>
             `#${rgb.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 
