@@ -5,6 +5,12 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { buildCsrfHeaders } from '@/lib/csrf';
 
@@ -154,14 +160,24 @@ export function DiscountCodeInput({
               )}
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRemove}
-            className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-100"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRemove}
+                  className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-100"
+                  aria-label="Remove discount code"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Remove discount</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     );
@@ -173,6 +189,7 @@ export function DiscountCodeInput({
         <div className="relative flex-1">
           <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
+            aria-label="Discount code"
             placeholder="Enter discount code"
             value={code}
             onChange={(e) => {
