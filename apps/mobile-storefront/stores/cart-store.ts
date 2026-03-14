@@ -1,12 +1,8 @@
-/**
- * Shopping Cart Store using Zustand
- * Manages shopping cart state with AsyncStorage persistence
- * Compatible with Expo Go (no native modules required)
- */
-
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { syncStorage } from '../lib/storage';
+import { serializeSelectedProductAttributes } from '@/lib/storefront-product-selection';
+import { syncStorage } from '@/lib/storage';
+import { migratePersistedCartState } from '@/stores/cart-store-persistence';
 
 export interface CartItem {
   id: string;
@@ -19,8 +15,11 @@ export interface CartItem {
   quantity: number;
   image_url?: string;
   variant_name?: string;
+  /** @deprecated Use selected_attributes.color for new code. */
   color?: string;
+  /** @deprecated Use selected_attributes.storage for new code. */
   storage?: string;
+  selected_attributes?: Record<string, string>;
   condition?: string;
   max_quantity?: number;
   // Negotiation support (matches web feature parity)
@@ -29,6 +28,20 @@ export interface CartItem {
   // Device assurance support
   hasAssurance?: boolean;
   assuranceRate?: number;
+}
+
+function buildCartItemId(item: Omit<CartItem, 'id'>): string {
+  const serializedAttributes = serializeSelectedProductAttributes(
+    item.selected_attributes
+  );
+  const segments = [
+    item.product_id,
+    item.variant_id ?? 'default',
+    item.condition ?? 'default',
+    serializedAttributes,
+  ].map((segment) => encodeURIComponent(segment));
+
+  return segments.join('::');
 }
 
 interface CartState {
@@ -46,7 +59,14 @@ interface CartState {
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
-  getItem: (productId: string, variantId?: string) => CartItem | undefined;
+  getItem: (
+    productId: string,
+    options?: {
+      condition?: string;
+      selectedAttributes?: Record<string, string>;
+      variantId?: string;
+    }
+  ) => CartItem | undefined;
   // Negotiation actions (matches web feature parity)
   applyNegotiatedPrice: (id: string, negotiatedPrice: number) => void;
   applyCartWideNegotiation: (newTotal: number) => void;
@@ -97,8 +117,8 @@ export const useCartStore = create<CartState>()(
             (i) =>
               i.product_id === item.product_id &&
               i.variant_id === item.variant_id &&
-              (i.color ?? null) === (item.color ?? null) &&
-              (i.storage ?? null) === (item.storage ?? null) &&
+              serializeSelectedProductAttributes(i.selected_attributes) ===
+                serializeSelectedProductAttributes(item.selected_attributes) &&
               (i.condition ?? null) === (item.condition ?? null)
           );
 
@@ -122,7 +142,7 @@ export const useCartStore = create<CartState>()(
           // Add new item
           const newItem: CartItem = {
             ...item,
-            id: `${item.product_id}::${item.variant_id || 'default'}::${Date.now()}`,
+            id: buildCartItemId(item),
           };
 
           return { items: [...state.items, newItem] };
@@ -164,10 +184,18 @@ export const useCartStore = create<CartState>()(
       },
 
       // Get specific item
-      getItem: (productId, variantId) => {
+      getItem: (productId, options) => {
+        const variantId = options?.variantId;
+        const selectedAttributes = options?.selectedAttributes;
+        const condition = options?.condition;
+
         return get().items.find(
           (item) =>
-            item.product_id === productId && item.variant_id === variantId
+            item.product_id === productId &&
+            (item.variant_id ?? null) === (variantId ?? null) &&
+            (item.condition ?? null) === (condition ?? null) &&
+            serializeSelectedProductAttributes(item.selected_attributes) ===
+              serializeSelectedProductAttributes(selectedAttributes)
         );
       },
 
@@ -248,7 +276,13 @@ export const useCartStore = create<CartState>()(
     {
       name: 'cart-storage',
       storage: createJSONStorage(() => syncStorage),
-      partialize: (state) => ({ items: state.items }), // Only persist items
+      version: 2,
+      partialize: (state) => ({ items: state.items }),
+      migrate: (persistedState, version) =>
+        migratePersistedCartState(
+          persistedState as { items?: CartItem[] } | undefined,
+          version
+        ),
     }
   )
 );

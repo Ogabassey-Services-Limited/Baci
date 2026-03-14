@@ -3,16 +3,17 @@
  * Beautiful card-based cart with condition tags, negotiations, and sticky checkout
  */
 
+import { formatVariantAxisLabel } from '@baci/shared';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  FlatList,
   Modal,
   Platform,
   Pressable,
-  FlatList,
   type StyleProp,
   StyleSheet,
   Text,
@@ -28,8 +29,6 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-// useSafeAreaInsets kept for future use
-// import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { CheckoutIdentityModal } from '@/components/checkout/checkout-identity';
 import { SafeImage } from '@/components/ui/SafeImage';
@@ -41,6 +40,7 @@ import Colors, {
   SHADOWS,
   SPACING,
 } from '@/constants/Colors';
+import { getDisplayVariantAttributes } from '@/lib/storefront-product-selection';
 import { useAuthStore } from '@/stores/auth-store';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
@@ -87,6 +87,32 @@ const CartQuantityInput = ({
     />
   );
 };
+
+function getConditionAppearance(
+  condition: string | undefined,
+  colors: (typeof Colors)['light']
+): {
+  container: {
+    backgroundColor: string;
+    borderColor: string;
+  };
+  text: {
+    color: string;
+  };
+} {
+  const normalizedCondition = condition?.trim().toLowerCase();
+  const isNew = !normalizedCondition || normalizedCondition === 'new';
+
+  return {
+    container: {
+      backgroundColor: colors.background,
+      borderColor: isNew ? colors.success : colors.warning,
+    },
+    text: {
+      color: isNew ? colors.success : colors.warning,
+    },
+  };
+}
 
 export default function CartScreen() {
   const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
@@ -154,7 +180,15 @@ export default function CartScreen() {
 
   const triggerHaptic = () => {
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+        (error) => {
+          if (__DEV__) {
+            console.warn('Light impact haptic failed', error);
+          }
+
+          return undefined;
+        }
+      );
     }
   };
 
@@ -298,8 +332,14 @@ export default function CartScreen() {
             style={[styles.shopButton, { backgroundColor: colors.text }]}
             onPress={() => router.push('/')}
           >
-            <Text style={[styles.shopButtonText, { color: colors.background }]}>Start Shopping</Text>
-            <Ionicons name="arrow-forward" size={18} color={colors.background} />
+            <Text style={[styles.shopButtonText, { color: colors.background }]}>
+              Start Shopping
+            </Text>
+            <Ionicons
+              name="arrow-forward"
+              size={18}
+              color={colors.background}
+            />
           </Pressable>
         </View>
       </View>
@@ -336,9 +376,18 @@ export default function CartScreen() {
           const assuranceCost = item.hasAssurance
             ? Math.round(itemTotal * (item.assuranceRate ?? 0.05))
             : 0;
+          const conditionAppearance = getConditionAppearance(
+            item.condition,
+            colors
+          );
 
           return (
-            <View style={[styles.cartCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View
+              style={[
+                styles.cartCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
               {/* Top Row: Image & Info */}
               <View style={styles.cardTop}>
                 <Pressable
@@ -368,17 +417,13 @@ export default function CartScreen() {
                     <View
                       style={[
                         styles.conditionTag,
-                        item.condition?.toLowerCase() === 'new'
-                          ? [styles.conditionTagNew, { backgroundColor: colors.background, borderColor: colors.success }]
-                          : [styles.conditionTagUsed, { backgroundColor: colors.background, borderColor: colors.warning }],
+                        conditionAppearance.container,
                       ]}
                     >
                       <Text
                         style={[
                           styles.conditionTagText,
-                          item.condition?.toLowerCase() === 'new'
-                            ? [styles.conditionTagTextNew, { color: colors.success }]
-                            : [styles.conditionTagTextUsed, { color: colors.warning }],
+                          conditionAppearance.text,
                         ]}
                       >
                         {item.condition || 'NEW'}
@@ -402,6 +447,18 @@ export default function CartScreen() {
                         </Text>
                       </View>
                     )}
+                    {getDisplayVariantAttributes(item.selected_attributes, {
+                      exclude: ['color', 'storage'],
+                    }).map(([axis, value]) => (
+                      <View
+                        key={`${item.id}-${axis}`}
+                        style={styles.storageTag}
+                      >
+                        <Text style={styles.storageTagText}>
+                          {formatVariantAxisLabel(axis)}: {value}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
                 </View>
 
@@ -459,7 +516,12 @@ export default function CartScreen() {
                       <Text style={styles.originalPrice}>
                         {formatPrice(item.price * item.quantity)}
                       </Text>
-                      <Text style={[styles.negotiatedPrice, { color: colors.success }]}>
+                      <Text
+                        style={[
+                          styles.negotiatedPrice,
+                          { color: colors.success },
+                        ]}
+                      >
                         {formatPrice(itemTotal)}
                       </Text>
                     </>
@@ -494,7 +556,7 @@ export default function CartScreen() {
                       style={[
                         styles.toggleKnob,
                         item.hasAssurance && styles.toggleKnobActive,
-                        { backgroundColor: colors.background }
+                        { backgroundColor: colors.background },
                       ]}
                     />
                   </View>
@@ -519,9 +581,28 @@ export default function CartScreen() {
 
                 {/* Negotiate Button */}
                 {item.negotiationStatus === 'accepted' ? (
-                  <View style={[styles.negotiatedBadge, { backgroundColor: colors.background, borderColor: colors.success }]}>
-                    <Ionicons name="checkmark" size={12} color={colors.success} />
-                    <Text style={[styles.negotiatedBadgeText, { color: colors.success }]}>Matched</Text>
+                  <View
+                    style={[
+                      styles.negotiatedBadge,
+                      {
+                        backgroundColor: colors.background,
+                        borderColor: colors.success,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="checkmark"
+                      size={12}
+                      color={colors.success}
+                    />
+                    <Text
+                      style={[
+                        styles.negotiatedBadgeText,
+                        { color: colors.success },
+                      ]}
+                    >
+                      Matched
+                    </Text>
                   </View>
                 ) : (
                   <Pressable
@@ -559,7 +640,12 @@ export default function CartScreen() {
       />
 
       {/* Red Sticky Checkout Footer - HIGH VISIBILITY VERSION */}
-      <View style={[styles.checkoutStickyFooter, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+      <View
+        style={[
+          styles.checkoutStickyFooter,
+          { backgroundColor: colors.card, borderTopColor: colors.border },
+        ]}
+      >
         {/* Row 1: Hint Message (Now relative and centered) */}
         <View style={styles.bulkHint}>
           <Ionicons
@@ -627,13 +713,29 @@ export default function CartScreen() {
 
             {/* Content Layer */}
             <View style={styles.checkoutButtonContent}>
-              <Text style={[styles.checkoutBtnLabel, { color: colors.primaryForeground }]}>Checkout</Text>
+              <Text
+                style={[
+                  styles.checkoutBtnLabel,
+                  { color: colors.primaryForeground },
+                ]}
+              >
+                Checkout
+              </Text>
               <View style={styles.checkoutBtnDot} />
-              <Text style={[styles.checkoutBtnPrice, { color: colors.primaryForeground }]}>
+              <Text
+                style={[
+                  styles.checkoutBtnPrice,
+                  { color: colors.primaryForeground },
+                ]}
+              >
                 {formatPrice(grandTotal || 0)}
               </Text>
               <Animated.View style={animatedArrowStyle}>
-                <Ionicons name="arrow-forward" size={18} color={colors.background} />
+                <Ionicons
+                  name="arrow-forward"
+                  size={18}
+                  color={colors.primaryForeground}
+                />
               </Animated.View>
             </View>
           </Pressable>
@@ -667,8 +769,17 @@ export default function CartScreen() {
           <View style={[styles.warningModal, { backgroundColor: colors.card }]}>
             {/* Header */}
             <View style={styles.warningHeader}>
-              <View style={[styles.warningIconCircle, { backgroundColor: colors.background }]}>
-                <Ionicons name="cash-outline" size={24} color={colors.warning} />
+              <View
+                style={[
+                  styles.warningIconCircle,
+                  { backgroundColor: colors.background },
+                ]}
+              >
+                <Ionicons
+                  name="cash-outline"
+                  size={24}
+                  color={colors.warning}
+                />
               </View>
               <Text style={styles.warningTitle}>Choose Negotiation Mode</Text>
             </View>
@@ -696,7 +807,12 @@ export default function CartScreen() {
                   }
                 }}
               >
-                <Text style={[styles.warningPrimaryButtonText, { color: colors.primaryForeground }]}>
+                <Text
+                  style={[
+                    styles.warningPrimaryButtonText,
+                    { color: colors.primaryForeground },
+                  ]}
+                >
                   Negotiate This Item
                 </Text>
               </Pressable>
@@ -825,20 +941,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 1,
   },
-  conditionTagNew: {
-  },
-  conditionTagUsed: {
-  },
   conditionTagText: {
     fontSize: 9,
     fontFamily: 'Inter_700Bold',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  conditionTagTextNew: {
-    },
-  conditionTagTextUsed: {
-    },
   colorTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -924,7 +1032,7 @@ const styles = StyleSheet.create({
   negotiatedPrice: {
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
-    },
+  },
   currentPrice: {
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
@@ -1012,7 +1120,7 @@ const styles = StyleSheet.create({
   negotiatedBadgeText: {
     fontSize: 12,
     fontFamily: 'Inter_700Bold',
-    },
+  },
   checkoutStickyFooter: {
     position: 'absolute',
     bottom: 0,
@@ -1128,7 +1236,7 @@ const styles = StyleSheet.create({
   redCheckoutButtonText: {
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
-    },
+  },
   checkoutDot: {
     width: 4,
     height: 4,
@@ -1138,7 +1246,7 @@ const styles = StyleSheet.create({
   redCheckoutPriceText: {
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
-    },
+  },
   summaryCard: {
     marginTop: SPACING.md,
     borderRadius: RADIUS['2xl'],
@@ -1228,7 +1336,7 @@ const styles = StyleSheet.create({
   checkoutButtonText: {
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
-    },
+  },
   secureBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1278,7 +1386,7 @@ const styles = StyleSheet.create({
   shopButtonText: {
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
-    },
+  },
   // Warning Modal Styles
   warningOverlay: {
     flex: 1,
@@ -1337,7 +1445,7 @@ const styles = StyleSheet.create({
   warningPrimaryButtonText: {
     fontSize: 16,
     fontFamily: 'Inter_700Bold',
-    },
+  },
   warningSecondaryButton: {
     paddingVertical: 14,
     borderRadius: 16,

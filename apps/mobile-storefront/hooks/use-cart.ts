@@ -185,7 +185,14 @@ export function useCart() {
   const addToCartMutation = useMutation({
     mutationFn: async (item: AddToCartInput) => {
       // Check if item already exists to calculate total requested quantity
-      const existingItem = getItem(item.product_id, item.variant_id);
+      const existingItem = getItem(
+        item.product_id,
+        {
+          variantId: item.variant_id,
+          selectedAttributes: item.selected_attributes,
+          condition: item.condition,
+        }
+      );
       const totalQuantity = (existingItem?.quantity || 0) + item.quantity;
 
       // Validate stock in background, with cached fallback for offline
@@ -205,7 +212,7 @@ export function useCart() {
     },
 
     // Optimistic update - runs immediately before mutationFn
-    onMutate: async (item) => {
+    onMutate: (item) => {
       // Generate a temporary ID for potential rollback
       const rollbackId = `${item.product_id}-${item.variant_id || 'default'}-${Date.now()}`;
 
@@ -258,12 +265,10 @@ export function useCart() {
    * Remove from cart with optimistic update
    */
   const removeFromCartMutation = useMutation({
-    mutationFn: async (id: string) => {
-      // No backend validation needed for removal
-      return { id };
-    },
+    // Intentionally a no-op; the actual removal happens optimistically in onMutate.
+    mutationFn: (id: string) => Promise.resolve({ id }),
 
-    onMutate: async (id) => {
+    onMutate: (id) => {
       // Read fresh from store to avoid stale closure
       const freshItems = useCartStore.getState().items;
       const previousItems = [...freshItems];
@@ -309,7 +314,7 @@ export function useCart() {
       return { id, quantity, stockCheck };
     },
 
-    onMutate: async ({ id, quantity }) => {
+    onMutate: ({ id, quantity }) => {
       // Read fresh from store to avoid stale closure
       const previousItems = [...useCartStore.getState().items];
 

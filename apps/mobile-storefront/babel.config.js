@@ -16,6 +16,7 @@ module.exports = (api) => {
         {
           alias: {
             '@': './',
+            '@baci/shared': '../../packages/shared/src',
           },
           extensions: [
             '.js',

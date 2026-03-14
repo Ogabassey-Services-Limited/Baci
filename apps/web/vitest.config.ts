@@ -26,6 +26,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@baci/shared': path.resolve(
+        __dirname,
+        '../../packages/shared/src/index.ts'
+      ),
       '@testing-library/react': testingLibraryReactPath,
       react: reactPath,
       'react/jsx-runtime': path.resolve(reactPath, 'jsx-runtime.js'),

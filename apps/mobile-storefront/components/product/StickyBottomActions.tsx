@@ -6,26 +6,40 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  type GestureResponderEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
-import { BRAND, SHADOWS } from '@/constants/Colors';
+import {
+  BRAND,
+  SHADOWS,
+} from '@/constants/Colors';
 
 type ColorsScheme = (typeof Colors)['light'];
 
 export interface StickyBottomActionsProps {
+  addToCartDisabled?: boolean;
+  addToCartHelperText?: string | null;
   quantityInCart: number;
   localQty: string;
   onLocalQtyChange: (text: string) => void;
   onLocalQtyBlur: () => void;
-  onDecrement: (event: unknown) => void;
-  onIncrement: (event: unknown) => void;
-  onAddToCart: (event: unknown) => void;
+  onDecrement: (event: GestureResponderEvent) => void;
+  onIncrement: (event: GestureResponderEvent) => void;
+  onAddToCart: (event: GestureResponderEvent) => void;
   colors: ColorsScheme;
   paddingBottom: number;
 }
 
 export function StickyBottomActions({
+  addToCartDisabled = false,
+  addToCartHelperText,
   quantityInCart,
   localQty,
   onLocalQtyChange,
@@ -36,6 +50,10 @@ export function StickyBottomActions({
   colors,
   paddingBottom,
 }: StickyBottomActionsProps) {
+  const addToCartBackgroundColor = addToCartDisabled
+    ? colors.disabledBackground
+    : BRAND.primary;
+
   return (
     <View
       style={[
@@ -51,6 +69,11 @@ export function StickyBottomActions({
         layout={LinearTransition.springify().damping(18).stiffness(120)}
         style={{ width: '100%' }}
       >
+        {quantityInCart === 0 && addToCartHelperText ? (
+          <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+            {addToCartHelperText}
+          </Text>
+        ) : null}
         {quantityInCart > 0 ? (
           <View
             key="cart-active"
@@ -118,12 +141,23 @@ export function StickyBottomActions({
             key="cart-empty"
             style={({ pressed }) => [
               styles.addToCartBtn,
-              { backgroundColor: BRAND.primary },
+              {
+                backgroundColor: addToCartBackgroundColor,
+              },
+              addToCartDisabled && styles.addToCartBtnDisabled,
               pressed && { opacity: 0.85 },
             ]}
+            disabled={addToCartDisabled}
             onPress={(e) => onAddToCart(e)}
             accessibilityRole="button"
-            accessibilityLabel="Add to Cart"
+            accessibilityLabel={
+              addToCartDisabled ? 'Select Options' : 'Add to Cart'
+            }
+            accessibilityHint={
+              addToCartDisabled && addToCartHelperText
+                ? addToCartHelperText
+                : undefined
+            }
           >
             <Ionicons
               name="cart-outline"
@@ -131,7 +165,9 @@ export function StickyBottomActions({
               color="#FFF"
               style={{ marginRight: 8 }}
             />
-            <Text style={styles.addToCartBtnText}>Add to Cart</Text>
+            <Text style={styles.addToCartBtnText}>
+              {addToCartDisabled ? 'Select Options' : 'Add to Cart'}
+            </Text>
           </Pressable>
         )}
       </Animated.View>
@@ -224,9 +260,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     ...SHADOWS.md,
   },
+  addToCartBtnDisabled: {
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   addToCartBtnText: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: '800',
+  },
+  helperText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 10,
+    textAlign: 'center',
   },
 });

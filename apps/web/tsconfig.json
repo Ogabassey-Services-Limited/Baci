@@ -21,7 +21,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@baci/shared": ["../../packages/shared/src/index.ts"],
+      "@baci/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": [

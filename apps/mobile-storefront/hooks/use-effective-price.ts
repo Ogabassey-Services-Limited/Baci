@@ -3,7 +3,11 @@
  * options (condition, storage, variant) and any negotiated price.
  */
 
-import type { Product, ProductCondition } from '@/types/product';
+import type {
+  Product,
+  ProductCondition,
+  ProductVariant,
+} from '@/types/product';
 
 export interface EffectivePrice {
   price: number;
@@ -12,8 +16,7 @@ export interface EffectivePrice {
 
 function calculateEffectivePrice(
   product: Product,
-  selectedVariant: string | null,
-  selectedStorage: string | null,
+  selectedVariant: ProductVariant | null,
   selectedCondition: ProductCondition | null
 ): EffectivePrice {
   let price = product.price;
@@ -28,41 +31,27 @@ function calculateEffectivePrice(
     }
   }
 
-  // Apply storage-based variant price modifier
-  if (selectedStorage && product.variants) {
-    const variant = product.variants.find(
-      (v) =>
-        v.attributes?.storage === selectedStorage ||
-        v.name?.includes(selectedStorage)
-    );
-    if (variant) {
-      if (variant.price_override !== undefined) {
-        price = variant.price_override;
-      } else if (variant.price_modifier !== undefined) {
-        price += variant.price_modifier;
+  if (selectedVariant) {
+    if (selectedVariant.price_override !== undefined) {
+      price = selectedVariant.price_override;
+      comparePrice = undefined;
+    } else if (selectedVariant.price_modifier !== undefined) {
+      price += selectedVariant.price_modifier;
+
+      if (comparePrice !== undefined && comparePrice < price) {
+        comparePrice = undefined;
       }
     }
   }
 
-  // Apply variant price modifier if variant selected (fallback for legacy)
-  if (selectedVariant && product.variants) {
-    const variant = product.variants.find((v) => v.id === selectedVariant);
-    if (variant) {
-      if (variant.price_override !== undefined) {
-        price = variant.price_override;
-      } else if (variant.price_modifier !== undefined) {
-        price += variant.price_modifier;
-      }
-    }
-  }
+  price = Math.max(0, price);
 
   return { price, comparePrice };
 }
 
 export function useEffectivePrice(
   product: Product | null | undefined,
-  selectedVariant: string | null,
-  selectedStorage: string | null,
+  selectedVariant: ProductVariant | null,
   selectedCondition: ProductCondition | null,
   negotiatedPrice: number | null
 ): EffectivePrice {
@@ -73,12 +62,13 @@ export function useEffectivePrice(
   const { price: calculatedPrice, comparePrice } = calculateEffectivePrice(
     product,
     selectedVariant,
-    selectedStorage,
     selectedCondition
   );
 
   // M11 FIX: Use ?? instead of || so negotiatedPrice of 0 is not treated as falsy
-  const price = negotiatedPrice ?? calculatedPrice;
+  const price = Math.max(0, negotiatedPrice ?? calculatedPrice);
+  const effectiveComparePrice =
+    negotiatedPrice !== null ? undefined : comparePrice;
 
-  return { price, comparePrice };
+  return { price, comparePrice: effectiveComparePrice };
 }

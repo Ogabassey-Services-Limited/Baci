@@ -18,8 +18,9 @@ import {
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
+import { fetchProductDetails } from '@/lib/storefront-product-details';
+import { transformProduct } from '@/lib/storefront-product-transform';
 import { supabase } from '@/lib/supabase';
-import { ProductRowSchema } from '@/lib/validation';
 import type { PageConfig } from '@/types/blocks';
 import type { Product } from '@/types/product';
 
@@ -55,53 +56,6 @@ interface ProductsPage {
   products: Product[];
   nextOffset: number | null;
   total: number;
-}
-
-/** Convert [{param, options}] array to Record<string, string[]> for UI consumption */
-function normalizeVariantAttributes(
-  attrs: { param: string; options: string[] }[] | null | undefined
-): Record<string, string[]> | undefined {
-  if (!attrs || !Array.isArray(attrs)) return undefined;
-  const record: Record<string, string[]> = {};
-  for (const { param, options } of attrs) {
-    record[param] = options;
-  }
-  return Object.keys(record).length > 0 ? record : undefined;
-}
-
-// 2026 Best Practice: Transform database product to app Product type with validation
-function transformProduct(item: unknown): Product {
-  // Validate the item shape
-  const validated = ProductRowSchema.safeParse(item);
-  const product = validated.success
-    ? validated.data
-    : (item as Record<string, unknown>);
-
-  return {
-    id: String(product.id ?? ''),
-    name: String(product.name ?? ''),
-    slug: String(product.slug ?? ''),
-    description: product.description as string | undefined,
-    price: Number(product.price ?? 0),
-    compare_at_price: product.compare_at_price as number | undefined,
-    image: Array.isArray(product.images) ? (product.images[0] ?? '') : '',
-    images: Array.isArray(product.images) ? product.images : [],
-    brand: product.brand as string | undefined,
-    category: Array.isArray(product.categories)
-      ? product.categories.length > 0
-        ? (product.categories[0] as Category).name
-        : ''
-      : product.categories != null
-        ? (product.categories as unknown as Category).name
-        : '',
-    condition: product.condition as Product['condition'],
-    rating: 4.5,
-    review_count: 0,
-    manage_stock: (product.manage_stock as boolean) ?? false,
-    in_stock:
-      !(product.manage_stock as boolean) ||
-      ((product.stock_quantity as number) ?? 0) > 0,
-  };
 }
 
 interface Merchant {
@@ -354,66 +308,9 @@ export function useProduct(slug: string) {
 
   const query = useQuery({
     queryKey: ['product', slug, merchantId],
-    queryFn: async () => {
+    queryFn: () => {
       log.info('Fetching product:', slug);
-
-      // Determine if slug is actually an ID (UUID)
-      const isUuid =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          slug
-        );
-
-      let supabaseQuery = supabase
-        .from('products')
-        .select(
-          `
-          id, name, slug, description, price, compare_at_price,
-          images, brand, condition, specifications,
-          has_variants, variant_attributes, manage_stock, stock_quantity,
-          categories (id, name, slug)
-        `
-        )
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active');
-
-      if (isUuid) {
-        supabaseQuery = supabaseQuery.eq('id', slug);
-      } else {
-        supabaseQuery = supabaseQuery.eq('slug', slug);
-      }
-
-      const { data, error } = await withSupabaseRetry(
-        async () => await supabaseQuery.single(),
-        {
-          maxRetries: 3,
-          onRetry: (attempt, err) => {
-            log.warn(`Product retry ${attempt}: ${err.message}`);
-          },
-        }
-      );
-
-      if (error) throw error;
-      if (!data) throw new Error('Product not found');
-
-      // 2026 Best Practice: Validate data at the edge
-      const validated = ProductRowSchema.safeParse(data);
-      if (!validated.success) {
-        // BUG-2-002 FIX: Log validation error and throw instead of silently falling back
-        log.error('Product validation failed:', validated.error.format());
-        throw new Error(
-          `Product validation failed: ${validated.error.message}`
-        );
-      }
-
-      const item = validated.data;
-
-      return {
-        ...transformProduct(item),
-        specifications: item.specifications,
-        has_variants: item.has_variants || false,
-        variant_attributes: normalizeVariantAttributes(item.variant_attributes),
-        variants: [], // To be populated by separate variants fetch if needed
-      } as Product;
+      return fetchProductDetails(merchantId, slug);
     },
     enabled: !!slug && !!merchantId,
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -470,55 +367,7 @@ export function usePrefetchProduct() {
     if (!merchantId) return;
     queryClient.prefetchQuery({
       queryKey: ['product', slug, merchantId],
-      queryFn: async () => {
-        // Determine if slug is actually an ID (UUID)
-        const isUuid =
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-            slug
-          );
-
-        let supabaseQuery = supabase
-          .from('products')
-          .select(
-            `
-            id, name, slug, description, price, compare_at_price,
-            images, brand, condition, specifications,
-            has_variants, variant_attributes, manage_stock, stock_quantity,
-            categories (id, name, slug)
-          `
-          )
-          .eq('merchant_id', merchantId)
-          .eq('status', 'active');
-
-        if (isUuid) {
-          supabaseQuery = supabaseQuery.eq('id', slug);
-        } else {
-          supabaseQuery = supabaseQuery.eq('slug', slug);
-        }
-
-        const { data, error } = await withSupabaseRetry(
-          async () => await supabaseQuery.single(),
-          {
-            maxRetries: 3,
-            onRetry: (attempt, err) => {
-              log.warn(`Prefetch product retry ${attempt}: ${err.message}`);
-            },
-          }
-        );
-
-        if (error) throw error;
-
-        // 2026 Best Practice: Validate data at the edge
-        const validated = ProductRowSchema.safeParse(data);
-        if (!validated.success) {
-          log.error(
-            'Prefetch product validation failed:',
-            validated.error.format()
-          );
-        }
-
-        return transformProduct(validated.success ? validated.data : data);
-      },
+      queryFn: () => fetchProductDetails(merchantId, slug),
     });
   };
 }

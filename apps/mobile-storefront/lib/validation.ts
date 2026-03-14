@@ -13,6 +13,46 @@
 
 import { z } from 'zod';
 
+const ProductConditionSchema = z.enum([
+  'new',
+  'used',
+  'uk_used',
+  'open_box',
+  'refurbished',
+]);
+
+const VariantAttributeDefinitionSchema = z.object({
+  param: z.string().trim().min(1),
+  options: z.union([z.array(z.string()), z.string()]).optional(),
+});
+
+const VariantAttributeMapSchema = z.record(
+  z.string().trim().min(1),
+  z.union([z.array(z.string()), z.string()])
+);
+
+const ProductColorOptionSchema = z.union([
+  z.string().trim().min(1),
+  z.object({
+    name: z.string().trim().min(1),
+    value: z.string().optional(),
+  }),
+]);
+export type ProductColorOption = z.infer<typeof ProductColorOptionSchema>;
+
+const ProductOfferSchema = z.object({
+  id: z.string().uuid(),
+  condition: ProductConditionSchema,
+  price: z.number().min(0),
+  compare_at_price: z.number().min(0).nullable().optional(),
+  stock_quantity: z.number().int().min(0).nullable().optional(),
+  images: z.array(z.string().trim().url()).nullable().optional(),
+  condition_notes: z.string().trim().max(1000).nullable().optional(),
+  grade: z.enum(['A', 'B', 'C', 'D']).nullable().optional(),
+});
+export type ProductCondition = z.infer<typeof ProductConditionSchema>;
+export type ProductOffer = z.infer<typeof ProductOfferSchema>;
+
 // ============================================
 // AUTH SCHEMAS
 // ============================================
@@ -414,6 +454,7 @@ export type OrderRow = z.infer<typeof OrderRowSchema>;
 // Product row from Supabase query
 export const ProductRowSchema = z.object({
   id: z.string().uuid(),
+  merchant_id: z.string().uuid().optional(),
   name: z.string(),
   slug: z.string(),
   description: z.string().nullable().optional(),
@@ -428,9 +469,19 @@ export const ProductRowSchema = z.object({
   specifications: z.record(z.string(), z.string()).nullable().optional(),
   has_variants: z.boolean().nullable().optional(),
   variant_attributes: z
-    .array(z.object({ param: z.string(), options: z.array(z.string()) }))
+    .union([
+      z.array(VariantAttributeDefinitionSchema),
+      VariantAttributeMapSchema,
+    ])
     .nullable()
     .optional(),
+  colors: z.array(ProductColorOptionSchema).nullable().optional(),
+  color_images: z
+    .record(z.string(), z.array(z.string().trim().url()))
+    .nullable()
+    .optional(),
+  has_condition_offers: z.boolean().nullable().optional(),
+  offers: z.array(ProductOfferSchema).nullable().optional(),
   categories: z
     .union([
       z.array(

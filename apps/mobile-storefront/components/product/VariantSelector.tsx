@@ -1,16 +1,17 @@
 /**
  * Variant Selector Component
- * Advanced variant selection with color swatches and storage options
- * Supports color images, price modifiers, and stock tracking
+ * Advanced variant selection with color swatches and generic option axes.
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { canonicalizeVariantAxis, formatVariantAxisLabel } from '@baci/shared';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import type { SelectedProductAttributes } from '@/lib/storefront-product-selection';
+import { findMatchingProductVariant } from '@/lib/storefront-product-selection';
 import { formatPrice, type ProductVariant } from '@/types/product';
 
-// Common color name to hex mapping
 const COLOR_HEX_MAP: Record<string, string> = {
   black: '#1a1a1a',
   'space black': '#1a1a1a',
@@ -38,70 +39,100 @@ const COLOR_HEX_MAP: Record<string, string> = {
   'black titanium': '#3D3D3D',
   'white titanium': '#E8E8E8',
 };
+const COLOR_MATCH_KEYS = Object.keys(COLOR_HEX_MAP).sort(
+  (left, right) => right.length - left.length
+);
+const COLOR_MATCHERS = COLOR_MATCH_KEYS.map((key) => ({
+  key,
+  matcher: new RegExp(
+    `(^|[^a-z0-9])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`
+  ),
+}));
+const LOW_STOCK_THRESHOLD = 5;
 
-function getColorHex(colorName: string): string {
+interface ColorOption {
+  images?: string[];
+  name: string;
+  value: string;
+}
+
+interface AxisOptionState {
+  priceModifier?: number;
+  priceOverride?: number;
+  stock?: number;
+  value: string;
+}
+
+interface VariantSelectorProps {
+  attributeAxes?: string[];
+  attributeOptions?: Record<string, string[]>;
+  basePrice: number;
+  colorImages?: Record<string, string[]>;
+  colorOptions?: string[];
+  onSelectAttribute: (axis: string, value: string, images?: string[]) => void;
+  selectedAttributes: SelectedProductAttributes;
+  variants?: ProductVariant[];
+}
+
+function getColorHex(colorName: string) {
   const lower = colorName.toLowerCase();
 
-  // Direct match
   if (COLOR_HEX_MAP[lower]) {
     return COLOR_HEX_MAP[lower];
   }
 
-  // Partial match
-  for (const [key, value] of Object.entries(COLOR_HEX_MAP)) {
-    if (lower.includes(key) || key.includes(lower)) {
-      return value;
+  for (const { key, matcher } of COLOR_MATCHERS) {
+    if (matcher.test(lower)) {
+      return COLOR_HEX_MAP[key];
     }
   }
 
-  // Default gray for unknown colors
   return '#9CA3AF';
 }
 
-interface ColorOption {
-  name: string;
-  value: string; // hex
-  images?: string[];
-}
+function withAlpha(color: string, alpha: number, fallbackColor: string) {
+  const normalizedColor = color.trim();
+  const hexMatch = normalizedColor.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
 
-interface StorageOption {
-  value: string;
-  priceModifier?: number;
-  priceOverride?: number;
-  stock?: number;
-}
+  if (!hexMatch) {
+    return fallbackColor;
+  }
 
-interface VariantSelectorProps {
-  colors?: (string | { name: string; value: string })[];
-  colorImages?: Record<string, string[]>;
-  storage?: string | string[];
-  variants?: ProductVariant[];
-  selectedColor: string | null;
-  selectedStorage: string | null;
-  onSelectColor: (color: string, images?: string[]) => void;
-  onSelectStorage: (storage: string) => void;
-  basePrice: number;
+  const hexValue = hexMatch[1];
+  const expandedHex =
+    hexValue.length === 3
+      ? hexValue
+          .split('')
+          .map((char) => `${char}${char}`)
+          .join('')
+      : hexValue;
+
+  const red = Number.parseInt(expandedHex.slice(0, 2), 16);
+  const green = Number.parseInt(expandedHex.slice(2, 4), 16);
+  const blue = Number.parseInt(expandedHex.slice(4, 6), 16);
+
+  if ([red, green, blue].some((channel) => Number.isNaN(channel))) {
+    return fallbackColor;
+  }
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
 export function VariantSelector({
-  colors,
-  colorImages,
-  storage,
-  variants,
-  selectedColor,
-  selectedStorage,
-  onSelectColor,
-  onSelectStorage,
+  attributeAxes,
+  attributeOptions,
   basePrice,
+  colorImages,
+  colorOptions,
+  onSelectAttribute,
+  selectedAttributes,
+  variants,
 }: VariantSelectorProps) {
   const colorScheme = useColorScheme();
   const themeColors = Colors[colorScheme ?? 'light'];
-
-  // Normalize colors to ColorOption array
   const normalizedColors: ColorOption[] = [];
 
   if (colorImages && Object.keys(colorImages).length > 0) {
-    // Prefer color_images mapping
     for (const [colorName, images] of Object.entries(colorImages)) {
       normalizedColors.push({
         name: colorName,
@@ -109,52 +140,48 @@ export function VariantSelector({
         images,
       });
     }
-  } else if (colors && colors.length > 0) {
-    // Fall back to colors array
-    for (const color of colors) {
-      if (typeof color === 'string') {
-        normalizedColors.push({
-          name: color,
-          value: getColorHex(color),
-        });
-      } else {
-        normalizedColors.push({
-          name: color.name,
-          value: color.value || getColorHex(color.name),
-        });
-      }
-    }
-  }
-
-  // Normalize storage options
-  const normalizedStorage: StorageOption[] = [];
-
-  if (storage) {
-    const storageArray = Array.isArray(storage) ? storage : [storage];
-    for (const s of storageArray) {
-      // Find matching variant for price info
-      const variant = variants?.find(
-        (v) => v.attributes?.storage === s || v.name?.includes(s)
-      );
-
-      normalizedStorage.push({
-        value: s,
-        priceModifier: variant?.price_modifier,
-        priceOverride:
-          variant?.price_override != null ? variant.price_override : undefined,
-        stock: variant?.stock_quantity,
+  } else if (colorOptions && colorOptions.length > 0) {
+    for (const colorName of colorOptions) {
+      normalizedColors.push({
+        name: colorName,
+        value: getColorHex(colorName),
       });
     }
   }
 
-  // If no colors or storage, don't render
-  if (normalizedColors.length === 0 && normalizedStorage.length === 0) {
+  const axisState: Record<string, AxisOptionState[]> = {};
+  const renderableAxes = (attributeAxes || []).filter(
+    (axis) => canonicalizeVariantAxis(axis) !== 'color'
+  );
+
+  for (const axis of renderableAxes) {
+    const options = attributeOptions?.[axis] || [];
+    axisState[axis] = options.map((value) => {
+      const candidateVariant = findMatchingProductVariant(variants, {
+        ...selectedAttributes,
+        [axis]: value,
+      });
+
+      return {
+        value,
+        priceModifier: candidateVariant?.price_modifier,
+        priceOverride: candidateVariant?.price_override,
+        stock: candidateVariant?.stock_quantity,
+      };
+    });
+  }
+
+  if (
+    normalizedColors.length === 0 &&
+    Object.values(axisState).every((options) => options.length === 0)
+  ) {
     return null;
   }
 
+  const selectedColor = selectedAttributes.color ?? null;
+
   return (
     <View style={styles.container}>
-      {/* Color Selection */}
       {normalizedColors.length > 0 && (
         <View style={styles.section}>
           <View style={styles.labelRow}>
@@ -182,7 +209,9 @@ export function VariantSelector({
               return (
                 <Pressable
                   key={color.name}
-                  onPress={() => onSelectColor(color.name, color.images)}
+                  onPress={() =>
+                    onSelectAttribute('color', color.name, color.images)
+                  }
                   style={[
                     styles.colorSwatch,
                     {
@@ -222,90 +251,110 @@ export function VariantSelector({
         </View>
       )}
 
-      {/* Storage Selection */}
-      {normalizedStorage.length > 0 && (
-        <View style={styles.section}>
-          <Text style={[styles.label, { color: themeColors.text }]}>
-            Storage
-          </Text>
-          <View style={styles.storageGrid}>
-            {normalizedStorage.map((option) => {
-              const isSelected = selectedStorage === option.value;
-              const hasModifier =
-                option.priceModifier != null || option.priceOverride != null;
-              const displayPrice =
-                option.priceOverride != null
-                  ? option.priceOverride
-                  : option.priceModifier != null
-                    ? basePrice + option.priceModifier
-                    : null;
-              const isOutOfStock =
-                option.stock !== undefined && option.stock === 0;
-              const isLowStock =
-                option.stock !== undefined &&
-                option.stock > 0 &&
-                option.stock <= 5;
+      {renderableAxes.map((axis) => {
+        const options = axisState[axis] || [];
+        if (options.length === 0) {
+          return null;
+        }
 
-              return (
-                <Pressable
-                  key={option.value}
-                  onPress={() => !isOutOfStock && onSelectStorage(option.value)}
-                  disabled={isOutOfStock}
+        const selectedValue = selectedAttributes[axis] ?? null;
+
+        return (
+          <View key={axis} style={styles.section}>
+            <View style={styles.labelRow}>
+              <Text style={[styles.label, { color: themeColors.text }]}>
+                {formatVariantAxisLabel(axis)}
+              </Text>
+              {selectedValue && (
+                <Text
                   style={[
-                    styles.storageChip,
-                    {
-                      backgroundColor: isSelected
-                        ? `${BRAND.primary}15`
-                        : themeColors.card,
-                      borderColor: isSelected
-                        ? BRAND.primary
-                        : themeColors.border,
-                      opacity: isOutOfStock ? 0.5 : 1,
-                    },
+                    styles.selectedLabel,
+                    { color: themeColors.textSecondary },
                   ]}
-                  accessibilityRole="radio"
-                  accessibilityLabel={`${option.value}${displayPrice != null ? `, ${formatPrice(displayPrice)}` : ''}${isOutOfStock ? ', out of stock' : isLowStock ? `, ${option.stock} left` : ''}`}
-                  accessibilityState={{
-                    checked: isSelected,
-                    disabled: isOutOfStock,
-                  }}
                 >
-                  <Text
+                  {selectedValue}
+                </Text>
+              )}
+            </View>
+            <View accessibilityRole="radiogroup" style={styles.optionGrid}>
+              {options.map((option) => {
+                const isSelected = selectedValue === option.value;
+                const displayPrice =
+                  option.priceOverride != null
+                    ? option.priceOverride
+                    : option.priceModifier != null
+                      ? basePrice + option.priceModifier
+                      : null;
+                const isOutOfStock =
+                  option.stock !== undefined && option.stock === 0;
+                const isLowStock =
+                  option.stock !== undefined &&
+                  option.stock > 0 &&
+                  option.stock <= LOW_STOCK_THRESHOLD;
+
+                return (
+                  <Pressable
+                    key={`${axis}-${option.value}`}
+                    onPress={() => onSelectAttribute(axis, option.value)}
+                    disabled={isOutOfStock}
                     style={[
-                      styles.storageValue,
+                      styles.optionChip,
                       {
-                        color: isSelected ? BRAND.primary : themeColors.text,
+                        backgroundColor: isSelected
+                          ? withAlpha(BRAND.primary, 0.08, themeColors.card)
+                          : themeColors.card,
+                        borderColor: isSelected
+                          ? BRAND.primary
+                          : themeColors.border,
+                        opacity: isOutOfStock ? 0.5 : 1,
                       },
                     ]}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`${formatVariantAxisLabel(axis)}: ${option.value}`}
+                    accessibilityState={{
+                      checked: isSelected,
+                      disabled: isOutOfStock,
+                    }}
                   >
-                    {option.value}
-                  </Text>
-                  {hasModifier && displayPrice != null && (
                     <Text
                       style={[
-                        styles.storagePrice,
+                        styles.optionValue,
                         {
-                          color: isSelected
-                            ? BRAND.primary
-                            : themeColors.textSecondary,
+                          color: isSelected ? BRAND.primary : themeColors.text,
                         },
                       ]}
                     >
-                      {formatPrice(displayPrice)}
+                      {option.value}
                     </Text>
-                  )}
-                  {isLowStock && (
-                    <Text style={styles.lowStockText}>{option.stock} left</Text>
-                  )}
-                  {isOutOfStock && (
-                    <Text style={styles.outOfStockText}>Out of stock</Text>
-                  )}
-                </Pressable>
-              );
-            })}
+                    {displayPrice != null && (
+                      <Text
+                        style={[
+                          styles.optionPrice,
+                          {
+                            color: isSelected
+                              ? BRAND.primary
+                              : themeColors.textSecondary,
+                          },
+                        ]}
+                      >
+                        {formatPrice(displayPrice)}
+                      </Text>
+                    )}
+                    {isLowStock && (
+                      <Text style={styles.lowStockText}>
+                        {option.stock} left
+                      </Text>
+                    )}
+                    {isOutOfStock && (
+                      <Text style={styles.outOfStockText}>Out of stock</Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
-        </View>
-      )}
+        );
+      })}
     </View>
   );
 }
@@ -355,25 +404,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  storageGrid: {
+  optionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: SPACING.sm,
   },
-  storageChip: {
+  optionChip: {
     paddingHorizontal: SPACING.md,
-    minHeight: 44, // 2026 Accessibility: Minimum 44px touch target
+    minHeight: 44,
     justifyContent: 'center',
     borderRadius: RADIUS.md,
     borderWidth: 2,
     minWidth: 80,
     alignItems: 'center',
   },
-  storageValue: {
+  optionValue: {
     fontSize: 15,
     fontWeight: '600',
   },
-  storagePrice: {
+  optionPrice: {
     fontSize: 12,
     marginTop: 2,
   },

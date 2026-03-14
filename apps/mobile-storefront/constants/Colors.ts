@@ -232,6 +232,7 @@ const lightTheme = {
   error: palette.red[500],
   destructive: palette.red[500],
   destructiveForeground: palette.white,
+  disabledBackground: palette.gray[600],
   selectedIconBackground: palette.red[50],
   promoBackground: palette.red[50],
 
@@ -286,6 +287,7 @@ export default {
     error: palette.red[400],
     destructive: palette.red[700],
     destructiveForeground: palette.gray[50],
+    disabledBackground: palette.gray[700],
     selectedIconBackground: 'rgba(239, 68, 68, 0.2)',
     promoBackground: 'rgba(239, 68, 68, 0.1)',
 

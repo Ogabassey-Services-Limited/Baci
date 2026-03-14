@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  type GestureResponderEvent,
   Pressable,
   Share,
   StyleSheet,
@@ -20,8 +21,15 @@ import {
   View,
 } from 'react-native';
 import { createLogger } from '@/lib/logger';
+import {
+  findMatchingProductVariant,
+  getMissingProductSelections,
+  type SelectedProductAttributes,
+  serializeSelectedProductAttributes,
+} from '@/lib/storefront-product-selection';
 
 const log = createLogger('ProductDetail');
+const COLOR_ATTRIBUTE_AXIS = 'color';
 
 import Animated, {
   Extrapolate,
@@ -33,6 +41,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { OfflineEmptyState } from '@/components/OfflineNotice';
 import { FlyToCartParticle } from '@/components/product/FlyToCartParticle';
 import { NegotiationModal } from '@/components/product/NegotiationModal';
@@ -48,9 +57,51 @@ import { useProduct } from '@/hooks/use-products';
 import { markReviewHelpful, useReviews } from '@/hooks/use-reviews';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
-import { useShallow } from 'zustand/react/shallow';
 import type { ProductCondition } from '@/types/product';
 import { getDiscountPercentage } from '@/types/product';
+
+function formatSelectionList(items: string[]): string {
+  if (items.length <= 1) {
+    return items[0] || '';
+  }
+
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`;
+  }
+
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+}
+
+function resolveProductImages(
+  colorImages: string[] | null,
+  selectedVariant:
+    | {
+        images?: (string | null | undefined)[];
+      }
+    | null,
+  product: {
+    images?: (string | null | undefined)[];
+    image?: string | null;
+  }
+) {
+  const isNonEmptyString = (
+    value: string | null | undefined
+  ): value is string => typeof value === 'string' && value.length > 0;
+
+  if (colorImages?.length) {
+    return colorImages.filter(isNonEmptyString);
+  }
+
+  if (selectedVariant?.images?.length) {
+    return selectedVariant.images.filter(isNonEmptyString);
+  }
+
+  if (product.images?.length) {
+    return product.images.filter(isNonEmptyString);
+  }
+
+  return [product.image].filter(isNonEmptyString);
+}
 
 export default function ProductDetailScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
@@ -78,7 +129,14 @@ export default function ProductDetailScreen() {
   const { product, isLoading, error, refetch } = useProduct(
     isValidSlug ? slug : ''
   );
-  const { items, addItem, updateQuantity, removeItem } = useCartStore(useShallow((s) => ({ items: s.items, addItem: s.addItem, updateQuantity: s.updateQuantity, removeItem: s.removeItem })));
+  const { items, addItem, updateQuantity, removeItem } = useCartStore(
+    useShallow((s) => ({
+      items: s.items,
+      addItem: s.addItem,
+      updateQuantity: s.updateQuantity,
+      removeItem: s.removeItem,
+    }))
+  );
   const toggleSaved = useSavedStore((state) => state.toggleSaved);
   const isSaved = useSavedStore((state) => state.isSaved);
   const savedToastState = useSavedStore((state) => state.toastState);
@@ -93,11 +151,13 @@ export default function ProductDetailScreen() {
     loadMore: loadMoreReviews,
   } = useReviews({ productId: product?.id || '' });
 
-  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(
+    null
+  );
   const [selectedCondition, setSelectedCondition] =
     useState<ProductCondition | null>(null);
-  const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
+  const [selectedAttributes, setSelectedAttributes] =
+    useState<SelectedProductAttributes>({});
   const [colorImages, setColorImages] = useState<string[] | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showAddedToast, setShowAddedToast] = useState(false);
@@ -138,6 +198,28 @@ export default function ProductDetailScreen() {
     };
   }, [savedToastState.show, dismissSavedToast]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset selection state when a new product record loads
+  useEffect(() => {
+    setSelectedCondition(null);
+    setSelectedVariantId(null);
+    setSelectedAttributes({});
+    setColorImages(null);
+    setSelectedImageIndex(0);
+  }, [product?.id]);
+
+  const selectedColor = selectedAttributes.color ?? null;
+  const selectedStorage = selectedAttributes.storage ?? null;
+  const attributeSelectedVariant = product
+    ? findMatchingProductVariant(product.variants, selectedAttributes)
+    : null;
+  const selectedVariant =
+    attributeSelectedVariant ??
+    product?.variants?.find((variant) => variant.id === selectedVariantId) ??
+    null;
+  const selectedAttributesSignature =
+    serializeSelectedProductAttributes(selectedAttributes);
+  const hasSelectedAttributes = Object.keys(selectedAttributes).length > 0;
+
   // Get condition display name for cart
   const getConditionDisplay = (): string | undefined => {
     if (selectedCondition) {
@@ -159,10 +241,11 @@ export default function ProductDetailScreen() {
     return items.find(
       (item) =>
         item.product_id === product.id &&
-        (item.variant_id || null) === (selectedVariant || null) &&
+        (item.variant_id || null) ===
+          (selectedVariant?.id || selectedVariantId || null) &&
         (item.condition || null) === (getConditionDisplay() || null) &&
-        (item.color || null) === (selectedColor || null) &&
-        (item.storage || null) === (selectedStorage || null)
+        serializeSelectedProductAttributes(item.selected_attributes) ===
+          selectedAttributesSignature
     );
   })();
 
@@ -217,8 +300,7 @@ export default function ProductDetailScreen() {
     };
   }, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const triggerFlyToCart = (event: any) => {
+  const triggerFlyToCart = (event: GestureResponderEvent | undefined) => {
     // Get position from event (pageX/pageY) or fallback to center
     const { pageX, pageY } = event?.nativeEvent || {};
     const id = ++particleIdRef.current;
@@ -294,7 +376,6 @@ export default function ProductDetailScreen() {
     useEffectivePrice(
       product ?? null,
       selectedVariant,
-      selectedStorage,
       selectedCondition,
       negotiatedPrice
     );
@@ -303,7 +384,6 @@ export default function ProductDetailScreen() {
   const { price: calculatedPrice } = useEffectivePrice(
     product ?? null,
     selectedVariant,
-    selectedStorage,
     selectedCondition,
     null
   );
@@ -405,11 +485,7 @@ export default function ProductDetailScreen() {
 
   // Use color-specific images if selected, otherwise default product images
   // BUG-2-001 FIX: Filter null/undefined images and fallback to placeholder
-  const rawImages = colorImages?.length
-    ? colorImages.filter(Boolean)
-    : product.images?.length
-      ? product.images.filter(Boolean)
-      : [product.image].filter(Boolean);
+  const rawImages = resolveProductImages(colorImages, selectedVariant, product);
   const images =
     rawImages.length > 0
       ? rawImages
@@ -419,9 +495,22 @@ export default function ProductDetailScreen() {
     effectivePrice,
     effectiveComparePrice
   );
+  const missingSelections = getMissingProductSelections(
+    product,
+    selectedAttributes,
+    selectedVariantId
+  );
+  const isAddToCartDisabled = missingSelections.length > 0;
+  const addToCartHelperText =
+    missingSelections.length > 0
+      ? `Select ${formatSelectionList(missingSelections)}`
+      : null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleAddToCart = (event?: any) => {
+  const handleAddToCart = (event?: GestureResponderEvent) => {
+    if (isAddToCartDisabled) {
+      return;
+    }
+
     haptics.success(); // Haptic feedback for add to cart
 
     if (event) triggerFlyToCart(event);
@@ -430,14 +519,16 @@ export default function ProductDetailScreen() {
     addItem({
       product_id: product.id,
       slug: product.slug,
-      variant_id: selectedVariant || undefined,
+      variant_id: selectedVariant?.id || selectedVariantId || undefined,
       name: product.name,
       price: effectivePrice,
       compare_at_price: effectiveComparePrice,
       quantity: 1,
       image_url: images[0] || product.image,
+      variant_name: selectedVariant?.name || undefined,
       color: selectedColor || undefined,
       storage: selectedStorage || undefined,
+      selected_attributes: hasSelectedAttributes ? selectedAttributes : undefined,
       condition: getConditionDisplay(),
     });
 
@@ -452,8 +543,10 @@ export default function ProductDetailScreen() {
     }, 2000);
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleUpdateQuantity = (newQuantity: number, event?: any) => {
+  const handleUpdateQuantity = (
+    newQuantity: number,
+    event?: GestureResponderEvent
+  ) => {
     haptics.light();
 
     if (newQuantity > quantityInCart && event) {
@@ -594,18 +687,23 @@ export default function ProductDetailScreen() {
           effectivePrice={effectivePrice}
           effectiveComparePrice={effectiveComparePrice}
           negotiatedPrice={negotiatedPrice}
-          selectedVariant={selectedVariant}
-          setSelectedVariant={setSelectedVariant}
+          selectedVariantId={selectedVariantId}
+          setSelectedVariantId={setSelectedVariantId}
           selectedCondition={selectedCondition}
           setSelectedCondition={setSelectedCondition}
-          selectedColor={selectedColor}
-          selectedStorage={selectedStorage}
-          onSelectColor={(color, imgs) => {
-            setSelectedColor(color);
-            setColorImages(imgs?.length ? imgs : null);
-            setSelectedImageIndex(0);
+          selectedAttributes={selectedAttributes}
+          onSelectAttribute={(axis, value, imgs) => {
+            setSelectedVariantId(null);
+            setSelectedAttributes((current) => ({
+              ...current,
+              [axis]: value,
+            }));
+
+            if (axis === COLOR_ATTRIBUTE_AXIS) {
+              setColorImages(imgs?.length ? imgs : null);
+              setSelectedImageIndex(0);
+            }
           }}
-          onSelectStorage={setSelectedStorage}
           onOpenNegotiation={() => setShowNegotiationModal(true)}
           reviews={reviews}
           reviewStats={reviewStats}
@@ -630,6 +728,8 @@ export default function ProductDetailScreen() {
         onDecrement={(e) => handleUpdateQuantity(quantityInCart - 1, e)}
         onIncrement={(e) => handleUpdateQuantity(quantityInCart + 1, e)}
         onAddToCart={(e) => handleAddToCart(e)}
+        addToCartDisabled={isAddToCartDisabled}
+        addToCartHelperText={addToCartHelperText}
         colors={colors}
         paddingBottom={insets.bottom + SPACING.md}
       />

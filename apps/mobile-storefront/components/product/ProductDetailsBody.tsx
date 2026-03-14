@@ -14,6 +14,12 @@ import { HTMLRenderer } from '@/components/ui/HTMLRenderer';
 import type Colors from '@/constants/Colors';
 import { BRAND, RADIUS, TYPOGRAPHY } from '@/constants/Colors';
 import type { Review, ReviewStats } from '@/hooks/use-reviews';
+import {
+  getProductColorOptions,
+  getProductRenderableVariantAxes,
+  getProductVariantAxisOptions,
+  type SelectedProductAttributes,
+} from '@/lib/storefront-product-selection';
 import type { Product, ProductCondition } from '@/types/product';
 import { formatPrice } from '@/types/product';
 
@@ -24,14 +30,12 @@ export interface ProductDetailsBodyProps {
   effectivePrice: number;
   effectiveComparePrice: number | undefined;
   negotiatedPrice: number | null;
-  selectedVariant: string | null;
-  setSelectedVariant: (id: string) => void;
+  selectedVariantId: string | null;
+  setSelectedVariantId: (id: string) => void;
   selectedCondition: ProductCondition | null;
   setSelectedCondition: (c: ProductCondition) => void;
-  selectedColor: string | null;
-  selectedStorage: string | null;
-  onSelectColor: (color: string, imgs?: string[]) => void;
-  onSelectStorage: (storage: string) => void;
+  selectedAttributes: SelectedProductAttributes;
+  onSelectAttribute: (axis: string, value: string, images?: string[]) => void;
   onOpenNegotiation: () => void;
   reviews: Review[];
   reviewStats: ReviewStats | null;
@@ -47,14 +51,12 @@ export function ProductDetailsBody({
   effectivePrice,
   effectiveComparePrice,
   negotiatedPrice,
-  selectedVariant,
-  setSelectedVariant,
+  selectedVariantId,
+  setSelectedVariantId,
   selectedCondition,
   setSelectedCondition,
-  selectedColor,
-  selectedStorage,
-  onSelectColor,
-  onSelectStorage,
+  selectedAttributes,
+  onSelectAttribute,
   onOpenNegotiation,
   reviews,
   reviewStats,
@@ -64,6 +66,12 @@ export function ProductDetailsBody({
   onMarkHelpful,
   colors,
 }: ProductDetailsBodyProps) {
+  const colorOptions = getProductColorOptions(product);
+  const attributeAxes = getProductRenderableVariantAxes(product);
+  const attributeOptions = getProductVariantAxisOptions(product);
+  const hasAdvancedVariantSelectors =
+    colorOptions.length > 0 || attributeAxes.length > 0;
+
   return (
     <Animated.View
       entering={FadeInDown.delay(200).duration(600)}
@@ -166,36 +174,25 @@ export function ProductDetailsBody({
       )}
 
       {/* Advanced Variant Selection */}
-      {(product.colors ||
-        product.color_images ||
-        product.variant_attributes?.storage ||
-        product.variants?.some((v) => v.attributes?.storage)) && (
+      {hasAdvancedVariantSelectors && (
         <View style={styles.section}>
           <VariantSelector
-            colors={product.colors}
+            attributeAxes={attributeAxes}
+            attributeOptions={attributeOptions}
+            colorOptions={colorOptions}
             colorImages={product.color_images}
-            storage={
-              product.variant_attributes?.storage ||
-              product.variants
-                ?.map((v) => v.attributes?.storage)
-                .filter((s): s is string => !!s)
-            }
             variants={product.variants}
-            selectedColor={selectedColor}
-            selectedStorage={selectedStorage}
-            onSelectColor={onSelectColor}
-            onSelectStorage={onSelectStorage}
+            selectedAttributes={selectedAttributes}
+            onSelectAttribute={onSelectAttribute}
             basePrice={effectivePrice}
           />
         </View>
       )}
 
-      {/* Legacy Variants (fallback for products without colors/storage) */}
+      {/* Legacy Variants (fallback for products without structured selectors) */}
       {product.variants &&
         product.variants.length > 0 &&
-        !product.colors &&
-        !product.color_images &&
-        !product.variants.some((v) => v.attributes?.storage) && (
+        !hasAdvancedVariantSelectors && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Options
@@ -204,16 +201,16 @@ export function ProductDetailsBody({
               {product.variants.map((v) => (
                 <Pressable
                   key={v.id}
-                  onPress={() => setSelectedVariant(v.id)}
+                  onPress={() => setSelectedVariantId(v.id)}
                   style={[
                     styles.variantChip,
                     {
                       borderColor:
-                        selectedVariant === v.id
+                        selectedVariantId === v.id
                           ? BRAND.primary
                           : colors.border,
                     },
-                    selectedVariant === v.id && {
+                    selectedVariantId === v.id && {
                       backgroundColor: `${BRAND.primary}10`,
                     },
                   ]}
@@ -223,7 +220,7 @@ export function ProductDetailsBody({
                       styles.variantLabel,
                       {
                         color:
-                          selectedVariant === v.id
+                          selectedVariantId === v.id
                             ? BRAND.primary
                             : colors.text,
                       },
