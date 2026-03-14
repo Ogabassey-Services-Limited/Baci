@@ -53,7 +53,11 @@ export async function GET(request: Request) {
     // Build query
     let query = supabase
       .from('wallet_transactions')
-      .select('*', { count: 'exact' })
+      // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full rows
+      .select(
+        'id, type, amount, balance_after, status, description, source_type, source_id, transfer_reference, transfer_status, created_at',
+        { count: 'exact' }
+      )
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);

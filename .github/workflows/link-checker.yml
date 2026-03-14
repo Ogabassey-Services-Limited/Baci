@@ -36,4 +36,5 @@ jobs:
           # Fail action if broken links are found
           fail: true
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}

@@ -63,6 +63,7 @@ jobs:
       - name: Build Next.js App
         run: pnpm turbo build --filter=@baci/web
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -74,6 +75,7 @@ jobs:
         working-directory: apps/web
         run: pnpm start &
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           PORT: 3000
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -88,6 +90,7 @@ jobs:
         # from the sitemap (the local server only speaks HTTP).
         run: pnpm exec unlighthouse-ci --site http://localhost:3000 --no-sitemap --reporter json
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           PUPPETEER_EXECUTABLE_PATH: ${{ env.PUPPETEER_EXECUTABLE_PATH }}
 
       - name: Upload Lighthouse Report

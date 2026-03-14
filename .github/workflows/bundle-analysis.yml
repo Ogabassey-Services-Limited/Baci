@@ -37,6 +37,7 @@ jobs:
       - name: Build & Analyze
         run: pnpm --filter @baci/web run analyze
         env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
           # Fallback to dummy values for Dependabot PRs (which can't access repo secrets)
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
