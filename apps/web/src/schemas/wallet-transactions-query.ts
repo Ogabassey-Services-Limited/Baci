@@ -5,6 +5,8 @@ const walletTransactionTypeSchema = z.enum([
   'debit',
   'withdrawal',
   'payout',
+  'refund',
+  'adjustment',
 ]);
 
 const positiveIntegerQueryParam = (defaultValue: number) =>

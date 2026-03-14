@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { GET } from '@/app/api/wallet/transactions/route';
 
 const {
   cookies,
@@ -95,8 +96,6 @@ function createMockSupabase() {
     }),
   };
 }
-
-import { GET } from './route';
 
 function makeRequest(query = '') {
   const suffix = query ? `?${query}` : '';
