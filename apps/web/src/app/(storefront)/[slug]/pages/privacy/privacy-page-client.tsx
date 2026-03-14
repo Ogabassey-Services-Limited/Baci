@@ -7,24 +7,11 @@ import { StorefrontHeader } from '@/components/storefront/header';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
+import type { CachedMerchant } from '@/lib/cached-data';
+import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 
 interface PrivacyPageClientProps {
-  merchant: {
-    id: string;
-    slug: string;
-    business_name: string;
-    logo_url?: string;
-    email?: string;
-    brand_colors?: {
-      primary?: string;
-      secondary?: string;
-      accent?: string;
-      background?: string;
-    };
-    pages?: {
-      privacy?: string;
-    };
-  };
+  merchant: CachedMerchant;
   content?: string;
 }
 
@@ -35,9 +22,7 @@ export function PrivacyPageClient({
   return (
     <MerchantProvider slug={merchant.slug}>
       <StorefrontProvider>
-        <AppBody
-          merchant={merchant as Parameters<typeof AppBody>[0]['merchant']}
-        >
+        <AppBody merchant={toTemplateMerchantData(merchant)}>
           <div className="flex flex-col min-h-screen">
             <StorefrontHeader />
 
