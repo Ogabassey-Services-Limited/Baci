@@ -201,18 +201,16 @@ export default function AccountScreen() {
           />
         ) : null}
 
-        {authUser ? (
-          <Pressable
-            onPress={handleSignOut}
-            accessibilityRole="button"
-            accessibilityLabel="Sign out"
-            style={styles.signOutButton}
-          >
-            <Text style={[styles.signOutText, { color: colors.error }]}>
-              Sign Out
-            </Text>
-          </Pressable>
-        ) : null}
+        <Pressable
+          onPress={handleSignOut}
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
+          style={styles.signOutButton}
+        >
+          <Text style={[styles.signOutText, { color: colors.error }]}>
+            Sign Out
+          </Text>
+        </Pressable>
 
         <Text style={[styles.version, { color: colors.textSecondary }]}>
           ENVIRONMENT: PRODUCTION • VERSION 1.0.0
