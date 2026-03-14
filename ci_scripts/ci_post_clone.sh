@@ -54,6 +54,33 @@ assert_command() {
   fi
 }
 
+redact_url_credentials() {
+  printf '%s' "$1" | sed -E 's#(https?://)[^/@]+@#\1***:***@#'
+}
+
+log_network_diagnostics() {
+  echo "info: Network diagnostics before pod install"
+
+  for proxy_var in HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy; do
+    proxy_value="$(printenv "$proxy_var" 2>/dev/null || true)"
+    if [ -n "$proxy_value" ]; then
+      echo "info: $proxy_var=$(redact_url_credentials "$proxy_value")"
+    else
+      echo "info: $proxy_var=<unset>"
+    fi
+  done
+
+  git_config_output="$(git config --show-origin --get-regexp 'url\\..*insteadof|http\\..*proxy|https\\..*proxy' 2>/dev/null || true)"
+  if [ -n "$git_config_output" ]; then
+    echo "info: Relevant git config entries:"
+    printf '%s\n' "$git_config_output" | while IFS= read -r line; do
+      echo "info: $(redact_url_credentials "$line")"
+    done
+  else
+    echo "info: Relevant git config entries: none"
+  fi
+}
+
 resolve_required_node_version() {
   nvmrc_path="$repo_root/.nvmrc"
   if [ -f "$nvmrc_path" ]; then
@@ -206,10 +233,12 @@ if [ -d "$trunk_repo" ]; then
 fi
 
 if [ "${CI_POD_ALLOW_REPO_UPDATE:-0}" = "1" ]; then
+  log_network_diagnostics
   echo "info: Running pod install with repo updates enabled."
   # shellcheck disable=SC2086
   $pod_cmd install --repo-update
 else
+  log_network_diagnostics
   # shellcheck disable=SC2086
   $pod_cmd install --no-repo-update
 fi
