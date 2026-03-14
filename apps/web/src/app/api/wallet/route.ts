@@ -57,7 +57,9 @@ export async function GET() {
     if (summaryError) {
       const { data: wallet, error: walletError } = await supabase
         .from('merchant_wallets')
-        .select('*')
+        .select(
+          'id, available_balance, pending_balance, upcoming_balance, upcoming_count, total_earned, total_withdrawn, auto_payout_enabled, auto_payout_day, min_payout_amount, last_payout_at, last_payout_amount'
+        )
         .eq('merchant_id', merchantId)
         .single();
 
