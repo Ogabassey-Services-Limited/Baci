@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET } from '@/app/api/wallet/transactions/route';
 import type { UserAccess } from '@/lib/api-auth';
-import type { MerchantContext } from '@/lib/get-merchant-for-api-request';
+import type { MerchantContext as ResolvedMerchantContext } from '@/lib/get-merchant-for-api-request';
 
 const {
   cookies,
@@ -70,7 +70,7 @@ interface QueryResult {
 }
 
 let authUser: { id: string } | null;
-let merchantContext: MerchantContext;
+let merchantContext: ResolvedMerchantContext | null;
 let queryResult: QueryResult;
 let eqCalls: [string, unknown][];
 let rangeCalls: [number, number][];
