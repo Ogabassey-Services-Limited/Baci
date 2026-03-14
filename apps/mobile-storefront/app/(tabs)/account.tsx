@@ -201,7 +201,7 @@ export default function AccountScreen() {
           />
         ) : null}
 
-        {session ? (
+        {authUser ? (
           <Pressable
             onPress={handleSignOut}
             accessibilityRole="button"
