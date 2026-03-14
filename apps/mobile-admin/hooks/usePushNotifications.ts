@@ -24,7 +24,7 @@ try {
   console.debug('[PushHook] Native module ignored during evaluation');
 }
 
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   clearBadge,
@@ -167,11 +167,11 @@ export function usePushNotifications(): UsePushNotificationsResult {
             // Use router.push for navigation
             if (navParams.params) {
               router.push({
-                pathname: `/(admin)/${navParams.screen}` as any,
+                pathname: `/(admin)/${navParams.screen}` as Href,
                 params: navParams.params,
               });
             } else {
-              router.push(`/(admin)/${navParams.screen}` as any);
+              router.push(`/(admin)/${navParams.screen}` as Href);
             }
           }
         }

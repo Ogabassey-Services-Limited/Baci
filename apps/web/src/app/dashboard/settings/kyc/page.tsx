@@ -12,8 +12,12 @@ export default async function KycSettingsPage() {
 
     // Cast merchant to access KYC fields which may be missing in shared type
     // effectively relying on the select('*') in getMerchantForUser to return all DB columns
-    // biome-ignore lint/suspicious/noExplicitAny: KYC fields may be missing in shared MerchantData type
-    const m = merchant as any;
+    const m = merchant as unknown as {
+      nin?: string;
+      bvn?: string;
+      cac_rc_number?: string;
+      kyc_status?: 'pending' | 'verified' | 'rejected' | null;
+    };
 
     const initialData = {
       nin: m.nin || '',
