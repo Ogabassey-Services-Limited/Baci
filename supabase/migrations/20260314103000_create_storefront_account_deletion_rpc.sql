@@ -33,26 +33,11 @@ BEGIN
   END IF;
 
   IF to_regclass('public.push_tokens') IS NOT NULL THEN
-    IF EXISTS (
-      SELECT 1
-      FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND table_name = 'push_tokens'
-        AND column_name = 'app_type'
-    ) THEN
-      EXECUTE $delete_push_tokens$
-        DELETE FROM public.push_tokens
-        WHERE user_id = $1
-          AND (app_type = 'storefront' OR app_type IS NULL)
-      $delete_push_tokens$
-      USING v_user_id;
-    ELSE
-      EXECUTE $delete_push_tokens_legacy$
-        DELETE FROM public.push_tokens
-        WHERE user_id = $1
-      $delete_push_tokens_legacy$
-      USING v_user_id;
-    END IF;
+    EXECUTE $delete_push_tokens$
+      DELETE FROM public.push_tokens
+      WHERE user_id = $1
+    $delete_push_tokens$
+    USING v_user_id;
   END IF;
 
   IF to_regclass('public.wish_list_items') IS NOT NULL THEN

@@ -23,6 +23,28 @@ describe('getAccountMenuSections', () => {
     );
   });
 
+  it('keeps the delete-account entry when auth exists before the customer profile hydrates', () => {
+    const sections = getAccountMenuSections({
+      canDeleteAccount: true,
+      hasCustomerProfile: false,
+    });
+
+    const accountSection = sections.find(
+      (section) => section.title === 'Account'
+    );
+    expect(accountSection).toBeDefined();
+    const deleteAccountItem = accountSection?.items.find(
+      (item) => item.id === 'delete-account'
+    );
+
+    expect(deleteAccountItem).toEqual(
+      expect.objectContaining({
+        label: 'Delete Account',
+        route: '/profile/delete-account',
+      })
+    );
+  });
+
   it('omits the delete-account entry when deletion is unavailable', () => {
     const sections = getAccountMenuSections({
       canDeleteAccount: false,

@@ -110,10 +110,14 @@ export default function AccountScreen() {
   }, [safeCustomer?.id]);
 
   useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
     if (!authUser) {
       router.replace('/(tabs)');
     }
-  }, [authUser]);
+  }, [authUser, isInitialized]);
 
   if (!isInitialized) {
     return (

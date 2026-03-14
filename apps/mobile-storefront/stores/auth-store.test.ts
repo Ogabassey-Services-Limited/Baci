@@ -1051,6 +1051,39 @@ describe('useAuthStore', () => {
       });
       expect(supabase.auth.signOut).not.toHaveBeenCalled();
     });
+
+    it('still clears local state when the local sign-out step fails after deletion', async () => {
+      (supabase.auth.signOut as jest.Mock).mockRejectedValueOnce(
+        new Error('local sign out failed')
+      );
+      (useAuthStore.setState as (state: object) => void)({
+        user: mockUser,
+        session: mockSession,
+        customer: mockCustomerRow,
+        merchantId: MERCHANT_ID,
+        isLoading: false,
+        isInitialized: true,
+      });
+
+      let result!: { success: boolean; error?: string; usedApple?: boolean };
+      await act(async () => {
+        result = await useAuthStore.getState().deleteAccount();
+      });
+
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'delete_current_storefront_account'
+      );
+      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+      expect(mockClearCart).toHaveBeenCalled();
+      expect(mockClearSaved).toHaveBeenCalled();
+      expect(mockClearComparison).toHaveBeenCalled();
+      expect(result).toEqual({ success: true, usedApple: false });
+
+      const state = useAuthStore.getState();
+      expect(state.user).toBeNull();
+      expect(state.session).toBeNull();
+      expect(state.customer).toBeNull();
+    });
   });
 
   // -------------------------------------------------------------------------
