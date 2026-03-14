@@ -6,6 +6,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
+import { walletTransactionsQuerySchema } from '@/schemas/wallet-transactions-query';
 
 /**
  * GET /api/wallet/transactions
@@ -15,15 +16,6 @@ export async function GET(request: Request) {
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-    const { searchParams } = new URL(request.url);
-
-    const page = Number.parseInt(searchParams.get('page') || '1', 10);
-    const limit = Math.min(
-      Number.parseInt(searchParams.get('limit') || '20', 10),
-      100
-    );
-    const type = searchParams.get('type'); // credit, debit, withdrawal, payout
-    const offset = (page - 1) * limit;
 
     // Auth check
     const {
@@ -32,6 +24,26 @@ export async function GET(request: Request) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const { searchParams } = new URL(request.url);
+    const parseResult = walletTransactionsQuerySchema.safeParse({
+      page: searchParams.get('page') ?? undefined,
+      limit: searchParams.get('limit') ?? undefined,
+      type: searchParams.get('type') ?? undefined,
+    });
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error:
+            parseResult.error.issues[0]?.message ?? 'Invalid query parameters',
+        },
+        { status: 400 }
+      );
+    }
+
+    const { page, limit, type } = parseResult.data;
+    const offset = (page - 1) * limit;
 
     // Get merchant (supports both owners and staff)
     const merchantContext = await getMerchantForApiRequest(supabase, user.id);
@@ -53,19 +65,23 @@ export async function GET(request: Request) {
     // Build query
     let query = supabase
       .from('wallet_transactions')
+      // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full rows
       .select(
         'id, type, amount, balance_after, status, description, source_type, source_id, transfer_reference, transfer_status, created_at',
         { count: 'exact' }
       )
       .eq('merchant_id', merchantId)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .order('created_at', { ascending: false });
 
     if (type) {
       query = query.eq('type', type);
     }
 
-    const { data: transactions, error, count } = await query;
+    const {
+      data: transactions,
+      error,
+      count,
+    } = await query.range(offset, offset + limit - 1);
 
     if (error) {
       console.error('Failed to get transactions:', error);
