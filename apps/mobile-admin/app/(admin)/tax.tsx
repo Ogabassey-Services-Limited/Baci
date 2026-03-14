@@ -392,6 +392,7 @@ export default function TaxScreen() {
                       style={[
                         styles.toggleThumb,
                         vatEnabled && styles.toggleThumbActive,
+                      { backgroundColor: colors.backgroundLight },
                       ]}
                     />
                   </View>
@@ -889,7 +890,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,

@@ -4,6 +4,12 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
 import type { Product as OgabasseyProduct } from '@/components/storefront/ogabassey/types';
+import type { VariantAttributeSource } from '@/components/storefront/ogabassey/variant-attributes';
+import {
+  getRenderableVariantAxes,
+  mergeVariantAxisOptions,
+  normalizeVariantAttributes,
+} from '@/components/storefront/ogabassey/variant-attributes';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
   getCachedMerchant,
@@ -20,6 +26,7 @@ import {
   generateSlug,
   getProductUrl,
 } from '@/lib/seo-utils';
+import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import { isDomainIdentifier } from '@/lib/validation';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
 
@@ -393,71 +400,33 @@ function toOgabasseyProduct(
     specs = (product.specifications as any)?.[0]?.items || [];
   }
 
+  // Production data currently stores variant_attributes as either:
+  // 1. a legacy object map { Storage: ['256GB'] }
+  // 2. an array of { param: 'storage', options: ['256GB'] }
+  // Normalize both shapes before building storefront selectors.
+  const rawVariantAttributes = (product as { variant_attributes?: unknown })
+    .variant_attributes as VariantAttributeSource;
+  const normalizedVariantAttributes =
+    normalizeVariantAttributes(rawVariantAttributes);
+  const mergedVariantAxisOptions = mergeVariantAxisOptions(
+    product.variants,
+    rawVariantAttributes
+  );
+
   // Derive storage options - check multiple sources
-  // Priority: storage_options > variant_attributes.Storage > extracted from variants
-  // variant_attributes is consolidated JSONB: {"Storage": ["256GB", "512GB"], "Platform": ["EU"]}
-  const variantAttrs = (
-    product as { variant_attributes?: Record<string, string[]> }
-  ).variant_attributes;
-  let storageOptions: string[] = [];
+  // Priority: explicit storage_options > normalized variant attributes > variants
+  const storageOptions =
+    product.storage_options && product.storage_options.length > 0
+      ? product.storage_options
+      : mergedVariantAxisOptions.storage || [];
 
-  if (product.storage_options && product.storage_options.length > 0) {
-    storageOptions = product.storage_options;
-  } else if (variantAttrs?.Storage && variantAttrs.Storage.length > 0) {
-    // Consolidated storage from variant_attributes (case-sensitive key)
-    storageOptions = variantAttrs.Storage;
-  } else if (
-    variantAttrs?.storage &&
-    (variantAttrs as Record<string, string[]>).storage.length > 0
-  ) {
-    // Lowercase fallback
-    storageOptions = (variantAttrs as Record<string, string[]>).storage;
-  } else if (product.variants && product.variants.length > 0) {
-    // Extract unique storage values from variants attributes JSONB
-    storageOptions = Array.from(
-      new Set(
-        product.variants
-          .map(
-            (v: { attributes?: Record<string, string> }) =>
-              v.attributes?.storage
-          )
-          .filter(Boolean) as string[]
-      )
-    );
-  }
-
-  // Compute attributeAxes from variant attributes for dynamic selector rendering
-  const attributeAxes: string[] = [];
-  if (product.variants && product.variants.length > 0) {
-    const axisValueCounts = new Map<string, Set<string>>();
-    for (const v of product.variants) {
-      if (v.attributes) {
-        for (const [key, val] of Object.entries(v.attributes)) {
-          if (!axisValueCounts.has(key)) {
-            axisValueCounts.set(key, new Set());
-          }
-          axisValueCounts.get(key)?.add(val);
-        }
-      }
-    }
-
-    // Order: storage, ram, color, platform, then alphabetical remainder
-    // Exclude single-value axes (not selectable)
-    const priorityOrder = ['storage', 'ram', 'color', 'platform'];
-    const sortedKeys = Array.from(axisValueCounts.entries())
-      .filter(([, values]) => values.size > 1)
-      .sort(([a], [b]) => {
-        const aIdx = priorityOrder.indexOf(a);
-        const bIdx = priorityOrder.indexOf(b);
-        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
-        if (aIdx !== -1) return -1;
-        if (bIdx !== -1) return 1;
-        return a.localeCompare(b);
-      })
-      .map(([key]) => key);
-
-    attributeAxes.push(...sortedKeys);
-  }
+  // Compute attributeAxes from both denormalized metadata and actual variants.
+  // This keeps selectors visible even when variant rows are incomplete, while still
+  // allowing public storefront queries to enrich pricing/availability once RLS permits them.
+  const attributeAxes = getRenderableVariantAxes(
+    product.variants,
+    rawVariantAttributes
+  );
 
   return {
     id: product.id,
@@ -484,7 +453,7 @@ function toOgabasseyProduct(
     // Colors for variant selection UI
     colors: product.colors,
     // Consolidated variant attributes for Platform/etc selectors
-    variant_attributes: variantAttrs,
+    variant_attributes: normalizedVariantAttributes,
     // Dynamic variant axes for generic selector rendering
     attributeAxes: attributeAxes.length > 0 ? attributeAxes : undefined,
     detailedSpecs,
@@ -697,7 +666,10 @@ const getProduct = async (
         o.condition !== product.condition && o.status === 'active'
     ),
     // Map variants
-    variants: product.product_variants || [],
+    variants: normalizeStorefrontProductVariants(product.product_variants, {
+      merchantId: product.merchant_id || merchant.id,
+      productId: product.id,
+    }),
   } as Product;
 
   const productCategorySlug =
