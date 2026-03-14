@@ -122,6 +122,81 @@ redact_url_credentials() {
   printf '%s' "$1" | sed -E 's#(https?://)[^/@]+@#\1***:***@#'
 }
 
+redact_sensitive_line() {
+  printf '%s' "$1" | sed -E \
+    -e 's#(https?://)[^/@]+@#\1***:***@#' \
+    -e 's#([Pp]roxy-[Aa]uthorization: ).*#\1<redacted>#' \
+    -e 's#([Aa]uthorization: ).*#\1<redacted>#'
+}
+
+log_command_output() {
+  label="$1"
+  shift
+
+  output_file="$(mktemp)"
+  if "$@" >"$output_file" 2>&1; then
+    echo "info: $label"
+    log_prefix="info"
+  else
+    command_status="$?"
+    echo "warning: $label failed with exit code $command_status"
+    log_prefix="warning"
+  fi
+
+  while IFS= read -r line; do
+    echo "$log_prefix: $(redact_sensitive_line "$line")"
+  done < "$output_file"
+
+  rm -f "$output_file"
+}
+
+log_macos_proxy_diagnostics() {
+  if command -v scutil >/dev/null 2>&1; then
+    log_command_output "macOS system proxy settings" scutil --proxy
+  else
+    echo "info: macOS system proxy settings: scutil unavailable"
+  fi
+}
+
+log_curl_probe() {
+  probe_url="${1:-https://github.com/}"
+
+  if command -v curl >/dev/null 2>&1; then
+    log_command_output \
+      "curl probe for $(redact_url_credentials "$probe_url")" \
+      curl \
+      --head \
+      --location \
+      --silent \
+      --show-error \
+      --verbose \
+      --connect-timeout 5 \
+      --max-time 20 \
+      "$probe_url"
+  else
+    echo "info: curl probe skipped for $(redact_url_credentials "$probe_url"): curl unavailable"
+  fi
+}
+
+log_git_probe() {
+  probe_url="${1:-https://github.com/google/app-check.git}"
+
+  if command -v git >/dev/null 2>&1; then
+    log_command_output \
+      "git transport probe for $(redact_url_credentials "$probe_url")" \
+      env \
+      GIT_TERMINAL_PROMPT=0 \
+      GIT_TRACE=1 \
+      GIT_CURL_VERBOSE=1 \
+      git \
+      ls-remote \
+      "$probe_url" \
+      HEAD
+  else
+    echo "info: git transport probe skipped for $(redact_url_credentials "$probe_url"): git unavailable"
+  fi
+}
+
 log_network_diagnostics() {
   echo "info: Network diagnostics before pod install"
 
@@ -143,6 +218,11 @@ log_network_diagnostics() {
   else
     echo "info: Relevant git config entries: none"
   fi
+
+  log_macos_proxy_diagnostics
+  log_curl_probe "https://github.com/"
+  log_curl_probe "https://github.com/google/app-check.git"
+  log_git_probe "https://github.com/google/app-check.git"
 }
 
 resolve_required_node_version() {
