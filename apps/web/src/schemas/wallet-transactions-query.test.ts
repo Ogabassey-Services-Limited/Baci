@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { walletTransactionsQuerySchema } from '@/schemas/wallet-transactions-query';
 
+const supportedTransactionTypes = [
+  'credit',
+  'debit',
+  'withdrawal',
+  'payout',
+  'refund',
+  'adjustment',
+] as const;
+
 describe('walletTransactionsQuerySchema', () => {
   it('defaults page and limit when omitted', () => {
     expect(walletTransactionsQuerySchema.parse({})).toEqual({
@@ -20,16 +29,40 @@ describe('walletTransactionsQuerySchema', () => {
     });
   });
 
-  it('accepts the supported transaction types', () => {
+  it('coerces page and limit boundary values', () => {
     expect(
       walletTransactionsQuerySchema.parse({
-        type: 'refund',
+        page: '1',
+        limit: '1',
       })
     ).toEqual({
       page: 1,
-      limit: 20,
-      type: 'refund',
+      limit: 1,
     });
+
+    expect(
+      walletTransactionsQuerySchema.parse({
+        page: 1,
+        limit: 100,
+      })
+    ).toEqual({
+      page: 1,
+      limit: 100,
+    });
+  });
+
+  it('accepts all supported transaction types', () => {
+    for (const type of supportedTransactionTypes) {
+      expect(
+        walletTransactionsQuerySchema.parse({
+          type,
+        })
+      ).toEqual({
+        page: 1,
+        limit: 20,
+        type,
+      });
+    }
   });
 
   it('rejects invalid query values', () => {

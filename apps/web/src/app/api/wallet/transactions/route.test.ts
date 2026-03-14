@@ -1,5 +1,8 @@
+import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET } from '@/app/api/wallet/transactions/route';
+import type { UserAccess } from '@/lib/api-auth';
+import type { MerchantContext } from '@/lib/get-merchant-for-api-request';
 
 const {
   cookies,
@@ -7,12 +10,26 @@ const {
   hasPermission,
   getMerchantForApiRequest,
   toUserAccess,
+  userAccess,
 } = vi.hoisted(() => ({
   cookies: vi.fn(),
   createClient: vi.fn(),
   hasPermission: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
-  toUserAccess: vi.fn(() => ({ role: 'owner' })),
+  userAccess: {
+    merchantId: 'merchant-1',
+    role: 'owner',
+    isOwner: true,
+    isStaff: false,
+    permissions: { full_access: { all: true } },
+  } satisfies UserAccess,
+  toUserAccess: vi.fn(() => ({
+    merchantId: 'merchant-1',
+    role: 'owner',
+    isOwner: true,
+    isStaff: false,
+    permissions: { full_access: { all: true } },
+  })),
 }));
 
 vi.mock('next/headers', () => ({
@@ -51,8 +68,6 @@ interface QueryResult {
   error: { message: string } | null;
   count: number | null;
 }
-
-type MerchantContext = { merchantId: string; role?: string } | null;
 
 let authUser: { id: string } | null;
 let merchantContext: MerchantContext;
@@ -99,14 +114,26 @@ function createMockSupabase() {
 
 function makeRequest(query = '') {
   const suffix = query ? `?${query}` : '';
-  return new Request(`http://localhost/api/wallet/transactions${suffix}`);
+  return new Request(
+    `http://localhost/api/wallet/transactions${suffix}`
+  ) as unknown as NextRequest;
 }
 
 describe('GET /api/wallet/transactions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authUser = { id: 'user-1' };
-    merchantContext = { merchantId: 'merchant-1', role: 'owner' };
+    merchantContext = {
+      merchantId: 'merchant-1',
+      merchantSlug: 'merchant-1',
+      businessName: 'Merchant 1',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        role: null,
+        permissions: { full_access: { all: true } },
+      },
+    };
     queryResult = {
       data: [
         {
@@ -176,6 +203,8 @@ describe('GET /api/wallet/transactions', () => {
     const response = await GET(makeRequest());
     const json = await response.json();
 
+    expect(toUserAccess).toHaveBeenCalledWith(merchantContext);
+    expect(hasPermission).toHaveBeenCalledWith(userAccess, 'analytics', 'view');
     expect(response.status).toBe(403);
     expect(json.error).toBe('Forbidden');
   });
