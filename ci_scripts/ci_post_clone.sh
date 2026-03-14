@@ -19,11 +19,11 @@ resolve_app_dir() {
   fi
 
   case "${CI_XCODE_SCHEME:-}" in
-    Baci)
+    Baci|BaciTheEcommerceBuilder)
       printf 'apps/mobile-admin\n'
       return
       ;;
-    Ogabassey)
+    Ogabassey|OgabasseyEasybuyGadgets)
       printf 'apps/mobile-storefront\n'
       return
       ;;
@@ -44,6 +44,70 @@ resolve_app_dir() {
 
   echo "error: Unable to infer app directory from CI metadata." >&2
   echo "error: CI_XCODE_SCHEME='${CI_XCODE_SCHEME:-<unset>}' CI_PRODUCT='${CI_PRODUCT:-<unset>}'" >&2
+  exit 1
+}
+
+resolve_info_plist_path() {
+  ios_dir_arg="${1:-}"
+  app_dir_arg="${2:-}"
+
+  if [ -z "$ios_dir_arg" ] || [ ! -d "$ios_dir_arg" ]; then
+    echo "error: resolve_info_plist_path expected ios_dir to point to a readable iOS directory." >&2
+    exit 1
+  fi
+
+  if [ -z "$app_dir_arg" ]; then
+    echo "error: resolve_info_plist_path expected app_dir to be set before use." >&2
+    exit 1
+  fi
+
+  case "${CI_XCODE_SCHEME:-}" in
+    OgabasseyEasybuyGadgets)
+      if [ -f "$ios_dir_arg/OgabasseyEasybuyGadgets/Info.plist" ]; then
+        printf '%s\n' "$ios_dir_arg/OgabasseyEasybuyGadgets/Info.plist"
+        return
+      fi
+      ;;
+    Ogabassey)
+      if [ -f "$ios_dir_arg/Ogabassey/Info.plist" ]; then
+        printf '%s\n' "$ios_dir_arg/Ogabassey/Info.plist"
+        return
+      fi
+      ;;
+    BaciTheEcommerceBuilder)
+      if [ -f "$ios_dir_arg/BaciTheEcommerceBuilder/Info.plist" ]; then
+        printf '%s\n' "$ios_dir_arg/BaciTheEcommerceBuilder/Info.plist"
+        return
+      fi
+      ;;
+    Baci)
+      if [ -f "$ios_dir_arg/Baci/Info.plist" ]; then
+        printf '%s\n' "$ios_dir_arg/Baci/Info.plist"
+        return
+      fi
+      ;;
+  esac
+
+  case "$app_dir_arg" in
+    apps/mobile-storefront)
+      for candidate in OgabasseyEasybuyGadgets/Info.plist Ogabassey/Info.plist; do
+        if [ -f "$ios_dir_arg/$candidate" ]; then
+          printf '%s\n' "$ios_dir_arg/$candidate"
+          return
+        fi
+      done
+      ;;
+    apps/mobile-admin)
+      for candidate in BaciTheEcommerceBuilder/Info.plist Baci/Info.plist; do
+        if [ -f "$ios_dir_arg/$candidate" ]; then
+          printf '%s\n' "$ios_dir_arg/$candidate"
+          return
+        fi
+      done
+      ;;
+  esac
+
+  echo "error: Unable to locate Info.plist for '$app_dir_arg' (scheme '${CI_XCODE_SCHEME:-<unset>}')." >&2
   exit 1
 }
 
@@ -247,20 +311,12 @@ echo "info: CocoaPods installation finished for '$app_dir'"
 
 # --- Auto-bump version & build number from Xcode Cloud metadata ---
 if [ -n "${CI_BUILD_NUMBER:-}" ]; then
-  plist_path="$ios_dir/$( [ "${CI_XCODE_SCHEME:-}" = "Ogabassey" ] && echo "Ogabassey" || echo "Baci" )/Info.plist"
+  plist_path="$(resolve_info_plist_path "$ios_dir" "$app_dir")"
 
   if [ -f "$plist_path" ]; then
     # Set CFBundleVersion (build number) to CI_BUILD_NUMBER
     /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $CI_BUILD_NUMBER" "$plist_path"
     echo "info: Set CFBundleVersion to '$CI_BUILD_NUMBER'"
-
-    # Auto-bump marketing version: read major.minor from plist, set patch to CI_BUILD_NUMBER
-    # This prevents ITMS-90062 ("version must be higher than previously approved version")
-    current_version="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$plist_path")"
-    major_minor="$(echo "$current_version" | cut -d. -f1-2)"
-    new_version="${major_minor}.${CI_BUILD_NUMBER}"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $new_version" "$plist_path"
-    echo "info: Set CFBundleShortVersionString to '$new_version' (was '$current_version')"
   else
     echo "warning: Info.plist not found at '$plist_path', skipping version bump."
   fi

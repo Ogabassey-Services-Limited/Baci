@@ -988,6 +988,105 @@ describe('useAuthStore', () => {
   });
 
   // -------------------------------------------------------------------------
+  describe('deleteAccount()', () => {
+    it('calls the storefront deletion RPC, signs out locally, and clears cached state', async () => {
+      (useAuthStore.setState as (state: object) => void)({
+        user: {
+          ...mockUser,
+          app_metadata: { providers: ['email', 'apple'] },
+        },
+        session: mockSession,
+        customer: mockCustomerRow,
+        merchantId: MERCHANT_ID,
+        isLoading: false,
+        isInitialized: true,
+      });
+
+      let result!: { success: boolean; error?: string; usedApple?: boolean };
+      await act(async () => {
+        result = await useAuthStore.getState().deleteAccount();
+      });
+
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'delete_current_storefront_account'
+      );
+      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+      expect(mockClearCart).toHaveBeenCalled();
+      expect(mockClearSaved).toHaveBeenCalled();
+      expect(mockClearComparison).toHaveBeenCalled();
+      expect(result).toEqual({ success: true, usedApple: true });
+
+      const state = useAuthStore.getState();
+      expect(state.user).toBeNull();
+      expect(state.session).toBeNull();
+      expect(state.customer).toBeNull();
+    });
+
+    it('returns a safe error message when the storefront deletion RPC fails', async () => {
+      (supabase.rpc as jest.Mock).mockResolvedValue({
+        data: null,
+        error: {
+          message:
+            'update or delete on table "customers" violates foreign key constraint',
+        },
+      });
+      (useAuthStore.setState as (state: object) => void)({
+        user: mockUser,
+        session: mockSession,
+        customer: mockCustomerRow,
+        merchantId: MERCHANT_ID,
+        isLoading: false,
+        isInitialized: true,
+      });
+
+      let result!: { success: boolean; error?: string; usedApple?: boolean };
+      await act(async () => {
+        result = await useAuthStore.getState().deleteAccount();
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error:
+          'Account deletion is temporarily unavailable. Please contact support.',
+      });
+      expect(supabase.auth.signOut).not.toHaveBeenCalled();
+    });
+
+    it('still clears local state when the local sign-out step fails after deletion', async () => {
+      (supabase.auth.signOut as jest.Mock).mockRejectedValueOnce(
+        new Error('local sign out failed')
+      );
+      (useAuthStore.setState as (state: object) => void)({
+        user: mockUser,
+        session: mockSession,
+        customer: mockCustomerRow,
+        merchantId: MERCHANT_ID,
+        isLoading: false,
+        isInitialized: true,
+      });
+
+      let result!: { success: boolean; error?: string; usedApple?: boolean };
+      await act(async () => {
+        result = await useAuthStore.getState().deleteAccount();
+      });
+
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        'delete_current_storefront_account'
+      );
+      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+      expect(mockClearCart).toHaveBeenCalled();
+      expect(mockClearSaved).toHaveBeenCalled();
+      expect(mockClearComparison).toHaveBeenCalled();
+      expect(result).toEqual({ success: true, usedApple: false });
+
+      const state = useAuthStore.getState();
+      expect(state.user).toBeNull();
+      expect(state.session).toBeNull();
+      expect(state.customer).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
   describe('cleanup()', () => {
     it('unsubscribes the auth listener after initialize()', async () => {
       // Arrange

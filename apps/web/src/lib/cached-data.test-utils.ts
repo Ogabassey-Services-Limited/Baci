@@ -1,0 +1,146 @@
+import { vi } from 'vitest';
+import type { CachedMerchant } from '@/lib/cached-data';
+
+interface MockListResult {
+  data: unknown;
+  error: unknown;
+}
+
+interface MockQueryBuilder {
+  eq: ReturnType<typeof vi.fn>;
+  limit: ReturnType<typeof vi.fn>;
+  maybeSingle: ReturnType<typeof vi.fn>;
+  or: ReturnType<typeof vi.fn>;
+  order: ReturnType<typeof vi.fn>;
+  range: ReturnType<typeof vi.fn>;
+  single: ReturnType<typeof vi.fn>;
+}
+
+export interface CachedDataTestHarness {
+  mockEq: ReturnType<typeof vi.fn>;
+  mockFrom: ReturnType<typeof vi.fn>;
+  mockLimit: ReturnType<typeof vi.fn>;
+  mockListResult: MockListResult;
+  mockMaybeSingle: ReturnType<typeof vi.fn>;
+  mockOr: ReturnType<typeof vi.fn>;
+  mockOrder: ReturnType<typeof vi.fn>;
+  mockQueryExecution: ReturnType<typeof vi.fn>;
+  mockRange: ReturnType<typeof vi.fn>;
+  mockRpc: ReturnType<typeof vi.fn>;
+  mockSelect: ReturnType<typeof vi.fn>;
+  mockSingle: ReturnType<typeof vi.fn>;
+}
+
+export const mockMerchant: CachedMerchant = {
+  id: 'merchant-123',
+  business_name: 'Test Store',
+  site_title: 'Test Store - Best Products',
+  site_tagline: 'Quality products for you',
+  site_description: 'We sell amazing products',
+  business_type: 'retail',
+  logo_url: 'https://example.com/logo.png',
+  phone: '+234800000000',
+  email: 'test@example.com',
+  slug: 'test-store',
+  business_address: '123 Test Street',
+  payout_currency: 'NGN',
+  is_published: true,
+  template_id: 'template-1',
+  plan_tier: 'free',
+  premium_features: null,
+  brand_colors: {
+    primary: '#000000',
+    accent: '#ff0000',
+    background: '#ffffff',
+  },
+};
+
+let mockCreateClient: ((...args: unknown[]) => unknown) | null = null;
+
+export function getMockCreateClient() {
+  return mockCreateClient;
+}
+
+export function resetMockCreateClient() {
+  mockCreateClient = null;
+}
+
+export function buildCachedDataTestHarness(): CachedDataTestHarness {
+  vi.clearAllMocks();
+
+  const mockMaybeSingle = vi.fn();
+  const mockListResult: MockListResult = { data: [], error: null };
+  const mockLimit = vi.fn();
+  const mockOr = vi.fn();
+  const mockOrder = vi.fn();
+  const mockQueryExecution = vi.fn(() => Promise.resolve(mockListResult));
+  const mockRange = vi.fn();
+  const mockRpc = vi.fn().mockResolvedValue({ data: [], error: null });
+  const mockSingle = vi.fn();
+  const mockQueryBuilderBase = Promise.resolve(mockListResult) as Promise<{
+    data: unknown;
+    error: unknown;
+  }> &
+    MockQueryBuilder;
+  const mockQueryBuilder = new Proxy(mockQueryBuilderBase, {
+    get(target, prop, receiver) {
+      if (prop === 'then') {
+        const then = Reflect.get(
+          target,
+          prop,
+          receiver
+        ) as Promise<MockListResult>['then'];
+        return (...args: Parameters<Promise<MockListResult>['then']>) => {
+          mockQueryExecution();
+          return then.apply(target, args);
+        };
+      }
+
+      return Reflect.get(target, prop, receiver);
+    },
+  }) as Promise<{
+    data: unknown;
+    error: unknown;
+  }> &
+    MockQueryBuilder;
+
+  const mockEq = vi.fn(() => mockQueryBuilder);
+  mockOr.mockImplementation(() => mockQueryBuilder);
+  mockOrder.mockImplementation(() => mockQueryBuilder);
+  mockLimit.mockImplementation(() => mockQueryBuilder);
+  mockRange.mockImplementation(() => mockQueryBuilder);
+
+  Object.assign(mockQueryBuilder, {
+    maybeSingle: mockMaybeSingle,
+    single: mockSingle,
+    eq: mockEq,
+    or: mockOr,
+    order: mockOrder,
+    limit: mockLimit,
+    range: mockRange,
+  });
+
+  const mockSelect = vi.fn(() => mockQueryBuilder);
+  const mockFrom = vi.fn(() => ({ select: mockSelect }));
+
+  mockCreateClient = vi.fn(() => ({
+    from: mockFrom,
+    rpc: mockRpc,
+    auth: { getUser: vi.fn() },
+  }));
+
+  return {
+    mockEq,
+    mockFrom,
+    mockLimit,
+    mockListResult,
+    mockMaybeSingle,
+    mockOr,
+    mockOrder,
+    mockQueryExecution,
+    mockRange,
+    mockRpc,
+    mockSelect,
+    mockSingle,
+  };
+}
