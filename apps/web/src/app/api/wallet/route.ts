@@ -102,25 +102,29 @@ export async function GET() {
       );
     }
 
-    // Get pending settlements for detailed view
-    const { data: pendingSettlements } = await supabase
-      .from('merchant_settlements')
-      .select(
-        'id, net_amount, gateway, source_type, expected_settlement_date, description'
-      )
-      .eq('merchant_id', merchantId)
-      .eq('status', 'pending')
-      .order('expected_settlement_date', { ascending: true })
-      .limit(10);
+    // PERFORMANCE: Use Promise.all to fetch independent queries concurrently
+    const [{ data: pendingSettlements }, { data: walletSettings }] =
+      await Promise.all([
+        // Get pending settlements for detailed view
+        supabase
+          .from('merchant_settlements')
+          .select(
+            'id, net_amount, gateway, source_type, expected_settlement_date, description'
+          )
+          .eq('merchant_id', merchantId)
+          .eq('status', 'pending')
+          .order('expected_settlement_date', { ascending: true })
+          .limit(10),
 
-    // Get wallet settings
-    const { data: walletSettings } = await supabase
-      .from('merchant_wallets')
-      .select(
-        'auto_payout_enabled, auto_payout_day, min_payout_amount, last_payout_at, last_payout_amount'
-      )
-      .eq('id', summary.wallet_id)
-      .single();
+        // Get wallet settings
+        supabase
+          .from('merchant_wallets')
+          .select(
+            'auto_payout_enabled, auto_payout_day, min_payout_amount, last_payout_at, last_payout_amount'
+          )
+          .eq('id', summary.wallet_id)
+          .single(),
+      ]);
 
     return NextResponse.json({
       wallet: {
