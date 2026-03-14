@@ -69,6 +69,7 @@ export function GeminiCommandBar({
               size="icon"
               className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               disabled={isLoading || !command.trim()}
+              aria-label="Submit command"
             >
               {isLoading ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
