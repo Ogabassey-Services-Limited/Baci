@@ -50,6 +50,7 @@
       "minimatch>brace-expansion": "^5.0.2",
       "h3": "^1.15.5",
       "tar": "^7.5.8",
+      "flat-cache>flatted": "3.4.1",
       "fast-xml-parser": "5.3.8",
       "diff": "^8.0.3",
       "react-native-screens": "4.23.0",
@@ -79,6 +80,7 @@
       "@modelcontextprotocol/sdk>ajv": "^8.18.0",
       "expo-build-properties>ajv": "^8.18.0",
       "expo-dev-launcher>ajv": "^8.18.0",
+      "extract-zip>yauzl": "3.2.1",
       "http-proxy-agent": "^7.0.2",
       "unhead": "^2.1.12",
       "@unhead/vue": "^2.1.12"
