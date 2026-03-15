@@ -6,7 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { type GestureResponderEvent, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
 import { BRAND, SHADOWS } from '@/constants/Colors';
@@ -18,9 +18,9 @@ export interface StickyBottomActionsProps {
   localQty: string;
   onLocalQtyChange: (text: string) => void;
   onLocalQtyBlur: () => void;
-  onDecrement: (event: unknown) => void;
-  onIncrement: (event: unknown) => void;
-  onAddToCart: (event: unknown) => void;
+  onDecrement: (event: GestureResponderEvent) => void;
+  onIncrement: (event: GestureResponderEvent) => void;
+  onAddToCart: (event: GestureResponderEvent) => void;
   colors: ColorsScheme;
   paddingBottom: number;
 }
