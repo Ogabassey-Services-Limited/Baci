@@ -1,12 +1,12 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
-import { checkCsrfProtection } from '@/lib/csrf';
 
 /**
  * PATCH /api/notifications/mark-all-read
@@ -17,9 +17,12 @@ export async function PATCH(request: NextRequest) {
     // CSRF protection for state-changing endpoints
     const csrfCheck = await checkCsrfProtection(request);
     if (!csrfCheck.valid) {
-      return csrfCheck.response || NextResponse.json(
-        { error: 'Invalid or missing CSRF token' },
-        { status: 403 }
+      return (
+        csrfCheck.response ||
+        NextResponse.json(
+          { error: 'Invalid or missing CSRF token' },
+          { status: 403 }
+        )
       );
     }
 
