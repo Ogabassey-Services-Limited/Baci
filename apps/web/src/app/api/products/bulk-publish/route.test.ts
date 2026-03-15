@@ -97,6 +97,12 @@ vi.mock('@/lib/supabase/server', () => ({
 
 // ---- Tests ----
 
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn(() =>
+    Promise.resolve({ valid: true, response: null })
+  ),
+}));
+
 describe('POST /api/products/bulk-publish', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -112,7 +118,8 @@ describe('POST /api/products/bulk-publish', () => {
     const { POST } = await import('./route');
     authUser = null;
 
-    const res = await POST();
+    const req = new Request('http://localhost');
+    const res = await POST(req as any);
     const json = await res.json();
 
     expect(res.status).toBe(401);
@@ -123,7 +130,8 @@ describe('POST /api/products/bulk-publish', () => {
     const { POST } = await import('./route');
     merchant = null;
 
-    const res = await POST();
+    const req = new Request('http://localhost');
+    const res = await POST(req as any);
     const json = await res.json();
 
     expect(res.status).toBe(404);
@@ -133,7 +141,8 @@ describe('POST /api/products/bulk-publish', () => {
   it('deletes drafts and publishes products', async () => {
     const { POST } = await import('./route');
 
-    const res = await POST();
+    const req = new Request('http://localhost');
+    const res = await POST(req as any);
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -145,7 +154,8 @@ describe('POST /api/products/bulk-publish', () => {
   it('calls revalidateProducts after publish', async () => {
     const { POST } = await import('./route');
 
-    await POST();
+    const req = new Request('http://localhost');
+    await POST(req as any);
 
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
   });
@@ -154,7 +164,8 @@ describe('POST /api/products/bulk-publish', () => {
     const { POST } = await import('./route');
     updateError = { message: 'DB error' };
 
-    const res = await POST();
+    const req = new Request('http://localhost');
+    const res = await POST(req as any);
     const json = await res.json();
 
     expect(res.status).toBe(500);
@@ -165,7 +176,8 @@ describe('POST /api/products/bulk-publish', () => {
     const { POST } = await import('./route');
     deleteError = { message: 'Delete failed' };
 
-    const res = await POST();
+    const req = new Request('http://localhost');
+    const res = await POST(req as any);
     const json = await res.json();
 
     // Delete error is logged but does not fail the request
@@ -178,7 +190,8 @@ describe('POST /api/products/bulk-publish', () => {
     deleteData = [];
     updateData = [];
 
-    const res = await POST();
+    const req = new Request('http://localhost');
+    const res = await POST(req as any);
     const json = await res.json();
 
     expect(res.status).toBe(200);
