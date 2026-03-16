@@ -86,14 +86,14 @@ export function OrderSummary({
               )
               .map((item, index) => (
                 <View key={item.id || index} style={styles.itemRow}>
-                  <View style={styles.imageContainer}>
+                  <View style={[styles.imageContainer, { backgroundColor: colors.background }]}>
                     <SafeImage
                       source={{ uri: item.image_url ?? '' }}
                       style={styles.itemImage}
                       contentFit="contain"
                     />
-                    <View style={styles.quantityBadge}>
-                      <Text style={styles.quantityText}>{item.quantity}</Text>
+                    <View style={[styles.quantityBadge, { borderColor: colors.card }]}>
+                      <Text style={[styles.quantityText, { color: colors.background }]}>{item.quantity}</Text>
                     </View>
                   </View>
                   <View style={styles.itemInfo}>
@@ -218,7 +218,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: palette.gray[200],
-    backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -237,10 +236,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#FFF',
   },
   quantityText: {
-    color: '#FFF',
     fontSize: 10,
     fontWeight: 'bold',
   },
