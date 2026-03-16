@@ -3018,6 +3018,7 @@ export const CheckoutPage: React.FC = () => {
                       <img
                         src={item.image || item.image_url || '/placeholder.png'}
                         alt={item.name || item.product_name}
+                        loading="lazy"
                         className="w-full h-full object-contain mix-blend-multiply"
                         onError={(e) => {
                           e.currentTarget.onerror = null;
