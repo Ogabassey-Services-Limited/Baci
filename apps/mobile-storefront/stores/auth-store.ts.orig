@@ -25,7 +25,6 @@ import {
   shouldInvalidateSessionOnGetUserError,
 } from './auth-helpers';
 import { useCartStore } from './cart-store';
-import { queryClient } from '../lib/query-client';
 import { useComparisonStore } from './comparison-store';
 import { useSavedStore } from './saved-store';
 
@@ -287,7 +286,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               useCartStore.getState().clearCart();
               useSavedStore.getState().clearSaved();
               useComparisonStore.getState().clearComparison();
-              queryClient.clear();
               set({
                 user: null,
                 session: null,
@@ -635,7 +633,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       useCartStore.getState().clearCart();
       useSavedStore.getState().clearSaved();
       useComparisonStore.getState().clearComparison();
-      queryClient.clear();
       set({
         user: null,
         session: null,
@@ -671,7 +668,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       useCartStore.getState().clearCart();
       useSavedStore.getState().clearSaved();
       useComparisonStore.getState().clearComparison();
-      queryClient.clear();
       set({
         user: null,
         session: null,

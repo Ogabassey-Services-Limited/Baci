@@ -1,0 +1,34 @@
+--- apps/mobile-storefront/stores/auth-store.ts
++++ apps/mobile-storefront/stores/auth-store.ts
+@@ -21,6 +21,7 @@
+   shouldInvalidateSessionOnGetUserError,
+ } from './auth-helpers';
+ import { useCartStore } from './cart-store';
++import { queryClient } from '../lib/query-client';
+ import { useComparisonStore } from './comparison-store';
+ import { useSavedStore } from './saved-store';
+
+@@ -287,6 +288,7 @@
+               useCartStore.getState().clearCart();
+               useSavedStore.getState().clearSaved();
+               useComparisonStore.getState().clearComparison();
++              queryClient.clear();
+               set({
+                 user: null,
+                 session: null,
+@@ -634,6 +636,7 @@
+       useCartStore.getState().clearCart();
+       useSavedStore.getState().clearSaved();
+       useComparisonStore.getState().clearComparison();
++      queryClient.clear();
+       set({
+         user: null,
+         session: null,
+@@ -669,6 +672,7 @@
+       useCartStore.getState().clearCart();
+       useSavedStore.getState().clearSaved();
+       useComparisonStore.getState().clearComparison();
++      queryClient.clear();
+       set({
+         user: null,
+         session: null,
