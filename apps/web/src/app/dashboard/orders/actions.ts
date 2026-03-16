@@ -101,9 +101,12 @@ export async function getOrders(
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
+  // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full rows
   let query = supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select(
+      'id, order_number, customer_name, total, shipping_status, payment_status, payment_method, created_at, source, tracking_number, shipping_provider, order_items(id, name, quantity, price, variant_name, has_assurance)'
+    )
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false });
 
@@ -137,9 +140,12 @@ export async function getOrders(
   // biome-ignore lint/suspicious/noExplicitAny: Jumia orders are dynamic and mapped here
   let jumiaOrders: any[] = [];
   if (!filters.paymentStatus && !filters.shippingStatus) {
+    // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full rows
     const { data: jOrders } = await supabase
       .from('jumia_orders')
-      .select('*')
+      .select(
+        'status, jumia_order_id, jumia_order_number, customer_name, total_amount, created_at_jumia, items'
+      )
       .eq('merchant_id', merchantId)
       .order('created_at_jumia', { ascending: false });
     jumiaOrders = jOrders || [];
@@ -276,9 +282,12 @@ export async function getOrder(
   const supabase = createClient(cookieStore);
 
   // Try fetching by ID first, then order_number
+  // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full rows
   let query = supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select(
+      'id, order_number, customer_name, total, shipping_status, payment_status, payment_method, created_at, source, tracking_number, shipping_provider, payment_reference, customer_email, customer_phone, notes, subtotal, shipping_fee, shipping_address, order_items(id, name, quantity, price, variant_name, has_assurance)'
+    )
     .eq('merchant_id', merchantId);
 
   // Check if identifier is UUID
@@ -365,9 +374,12 @@ export async function resendOrderConfirmation(
     const supabase = createClient(cookieStore);
 
     // 1. Fetch Order
+    // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full rows
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('*, order_items(*)')
+      .select(
+        'id, order_number, customer_name, customer_email, subtotal, shipping_fee, total, shipping_address, customer_phone, merchant_id, order_items(name, quantity, price)'
+      )
       .eq('id', orderId)
       .single();
 
