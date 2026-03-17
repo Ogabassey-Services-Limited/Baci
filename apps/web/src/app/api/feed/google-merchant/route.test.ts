@@ -265,7 +265,16 @@ describe('GET /api/feed/google-merchant', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockGenerateGoogleMerchantFeed).toHaveBeenCalled();
+    expect(mockGenerateGoogleMerchantFeed).toHaveBeenCalledWith(
+      productsResult.data,
+      expect.objectContaining({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      }),
+      'https://ogabassey.com',
+      expect.any(Object)
+    );
   });
 
   it('passes an empty product list through to the feed builder', async () => {
