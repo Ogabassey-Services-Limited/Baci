@@ -32,6 +32,23 @@ describe('normalizeVariantAttributes', () => {
 });
 
 describe('normalizeProductImages', () => {
+  it('returns same array when all images are valid', () => {
+    const images = [
+      'https://cdn.example.com/iphone-13-pro-front.jpg',
+      'https://cdn.example.com/iphone-13-pro-back.jpg',
+    ];
+
+    expect(normalizeProductImages(images)).toEqual(images);
+  });
+
+  it('returns empty array for empty input', () => {
+    expect(normalizeProductImages([])).toEqual([]);
+  });
+
+  it('handles undefined input', () => {
+    expect(normalizeProductImages(undefined)).toEqual([]);
+  });
+
   it('filters empty image values', () => {
     expect(
       normalizeProductImages([
@@ -45,6 +62,15 @@ describe('normalizeProductImages', () => {
 });
 
 describe('getPrimaryProductImage', () => {
+  it('returns the first normalized product image when image array is provided', () => {
+    expect(
+      getPrimaryProductImage([
+        'https://cdn.example.com/image1.jpg',
+        'https://cdn.example.com/image2.jpg',
+      ])
+    ).toBe('https://cdn.example.com/image1.jpg');
+  });
+
   it('falls back to the placeholder image when no product image exists', () => {
     expect(getPrimaryProductImage(null)).toBe(PRODUCT_PLACEHOLDER_IMAGE);
   });

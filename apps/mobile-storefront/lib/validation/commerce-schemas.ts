@@ -9,7 +9,7 @@ export const ShippingAddressSchema = z.object({
     .max(255, 'Email is too long'),
   firstName: z
     .string()
-    .min(1, 'Please enter your first name')
+    .trim()
     .min(2, 'First name must be at least 2 characters')
     .max(50, 'First name is too long (max 50 characters)')
     .refine((value) => !/\d/.test(value), {
@@ -17,7 +17,7 @@ export const ShippingAddressSchema = z.object({
     }),
   lastName: z
     .string()
-    .min(1, 'Please enter your last name')
+    .trim()
     .min(2, 'Last name must be at least 2 characters')
     .max(50, 'Last name is too long (max 50 characters)')
     .refine((value) => !/\d/.test(value), {
@@ -26,12 +26,12 @@ export const ShippingAddressSchema = z.object({
   phone: NigerianPhoneSchema,
   address: z
     .string()
-    .min(1, 'Please enter your delivery address')
+    .trim()
     .min(5, 'Please provide a more detailed address')
     .max(255, 'Address is too long (max 255 characters)'),
   city: z
     .string()
-    .min(1, 'Please enter your city')
+    .trim()
     .min(2, 'City name must be at least 2 characters')
     .max(100, 'City name is too long (max 100 characters)'),
   state: z.string().min(1, 'Please select your state'),

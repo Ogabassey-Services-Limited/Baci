@@ -1,10 +1,11 @@
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useIsFocused } from '@react-navigation/native';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SPACING, TYPOGRAPHY, palette } from '@/constants/Colors';
 import { useCategories, useProducts } from '@/hooks/use-products';
+import { sortCategoriesByPriority } from '@/lib/category-utils';
 import type { ProductGridBlock } from '@/types/blocks';
 import { FilterBar } from './FilterBar';
 import { ProductCard } from './ProductCard';
@@ -66,7 +67,7 @@ export default function ProductGrid({
   const isFocused = useIsFocused();
   const hasFocusedOnceRef = useRef(false);
 
-  const { products, isLoading, isFetching, refetch } = useProducts({
+  const { products, isLoading, isFetching, isError, refetch } = useProducts({
     limit: fetchLimit,
     category: normalizedCategoryId,
     minPrice: minPrice > 0 ? minPrice : undefined,
@@ -90,50 +91,8 @@ export default function ProductGrid({
 
   const categoryNames = (() => {
     if (categoriesData.length > 0) {
-      const allCats = (categoriesData as Category[]).map((c) => c.name);
-
-      const sorted = allCats.sort((a: string, b: string) => {
-        const aName = a.toLowerCase().trim();
-        const bName = b.toLowerCase().trim();
-
-        const getPriority = (name: string) => {
-          if (
-            (name.includes('phone') &&
-              !name.includes('headphone') &&
-              !name.includes('microphone')) ||
-            name.includes('mobile') ||
-            name === 'smartphones'
-          ) {
-            return 1;
-          }
-          if (
-            name.includes('laptop') ||
-            name.includes('computer') ||
-            name.includes('macbook')
-          ) {
-            return 2;
-          }
-          if (name.includes('tablet') || name.includes('ipad')) return 3;
-          if (
-            name.includes('accessories') ||
-            name.includes('watch') ||
-            name.includes('audio') ||
-            name.includes('headphone')
-          ) {
-            return 4;
-          }
-          return 100;
-        };
-
-        const aPriority = getPriority(aName);
-        const bPriority = getPriority(bName);
-
-        if (aPriority !== bPriority) {
-          return aPriority - bPriority;
-        }
-
-        return a.localeCompare(b);
-      });
+      const allCats = (categoriesData as Category[]).map((category) => category.name);
+      const sorted = sortCategoriesByPriority(allCats);
 
       return ['All', ...sorted];
     }
@@ -153,6 +112,30 @@ export default function ProductGrid({
   };
 
   const currentVariant = viewMode === 'list' ? 'list' : variant;
+
+  if (isError && !isLoading) {
+    return (
+      <View style={styles.section}>
+        {block.props.title && (
+          <Text style={styles.sectionTitle}>{block.props.title}</Text>
+        )}
+        <View style={styles.emptyState}>
+          <Text style={[styles.emptyText, { color: palette.gray[400] }]}>
+            Failed to load products. Please try again.
+          </Text>
+          <Pressable
+            style={styles.retryButton}
+            onPress={() => void refetch()}
+            disabled={isFetching}
+          >
+            <Text style={styles.retryButtonText}>
+              {isFetching ? 'Retrying...' : 'Try Again'}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   if (isLoading) return <ProductGridSkeleton count={4} />;
 
@@ -251,5 +234,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
     textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: SPACING.sm,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: palette.gray[300],
+  },
+  retryButtonText: {
+    color: palette.gray[700],
+    fontFamily: 'Inter_700Bold',
+    fontSize: 12,
   },
 });
