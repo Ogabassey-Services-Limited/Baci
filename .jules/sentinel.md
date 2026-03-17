@@ -21,3 +21,9 @@
 **Vulnerability:** The `PUT /api/admin/settings` route lacked explicit CSRF protection, allowing cross-site request forgery attacks on platform settings. Also, the route over-fetched data using `select('*')`.
 **Learning:** Administrative endpoints managing platform configurations are highly sensitive and require explicit CSRF protection to guard against unauthorized state changes.
 **Prevention:** Always use the `checkCsrfProtection` utility at the beginning of `POST`, `PATCH`, `PUT`, and `DELETE` handlers, and use explicit column selection instead of `select('*')` to avoid over-fetching.
+
+## 2024-03-24 - Missing CSRF validation in Admin Settings API
+
+**Vulnerability:** The API route for updating platform settings (`PUT /api/admin/settings`) lacked CSRF protection. An attacker could forge requests to maliciously modify global platform configurations (fees, tracking IDs, feature flags) on behalf of an authenticated platform admin.
+**Learning:** Administrative routes often contain authorization checks (e.g. `checkPlatformAdmin`), but these alone do not mitigate CSRF. The double submit cookie pattern must be actively enforced to prove request origin.
+**Prevention:** Always use the `checkCsrfProtection` utility at the beginning of state-changing (`POST`, `PUT`, `PATCH`, `DELETE`) API routes, especially for highly privileged endpoints that alter global application state.
