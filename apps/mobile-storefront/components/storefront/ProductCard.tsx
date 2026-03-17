@@ -240,6 +240,7 @@ export function ProductCard({
         cartItemCount={cartItemCount}
         animatedStyle={animatedStyle}
         heartAnimatedStyle={heartAnimatedStyle}
+        colors={colors}
       />
     );
   }

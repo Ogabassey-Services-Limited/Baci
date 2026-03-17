@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { type Category, useCategories } from '@/hooks/use-products';
+import { type Category, useCategories } from '@/hooks';
 import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
 
 interface UtilityPanelProps {

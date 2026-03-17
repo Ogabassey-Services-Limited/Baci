@@ -267,7 +267,6 @@ export default function CartScreen() {
       );
       return;
     }
-    triggerHaptic();
     openNegotiation({
       type: 'total',
       productName: 'Total Cart',
@@ -479,7 +478,10 @@ export default function CartScreen() {
               items.some((i) => i.negotiationStatus === 'accepted') &&
                 styles.bulkButtonDisabled,
             ]}
-            onPress={openTotalNegotiation}
+            onPress={() => {
+              triggerHaptic();
+              openTotalNegotiation();
+            }}
           >
             <View style={styles.bulkButtonContent}>
               <Ionicons

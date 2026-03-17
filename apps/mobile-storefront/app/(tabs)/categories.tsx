@@ -19,7 +19,7 @@ import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useNetworkState } from '@/hooks/use-network-state';
-import { useCategories } from '@/hooks/use-products';
+import { useCategories } from '@/hooks';
 
 export default function CategoriesScreen() {
   const colorScheme = useColorScheme();

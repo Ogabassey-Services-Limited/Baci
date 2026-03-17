@@ -41,7 +41,7 @@ jest.mock('@/hooks/use-search-storage', () => ({
   }),
 }));
 
-jest.mock('@/hooks/use-products', () => ({
+jest.mock('@/hooks', () => ({
   useProducts: () => ({ products: [], isLoading: false }),
   useCategories: () => ({ data: [] }),
 }));

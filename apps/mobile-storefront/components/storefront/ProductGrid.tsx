@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SPACING, TYPOGRAPHY, palette } from '@/constants/Colors';
-import { useCategories, useProducts } from '@/hooks/use-products';
+import { useCategories, useProducts } from '@/hooks';
 import { sortCategoriesByPriority } from '@/lib/category-utils';
 import type { ProductGridBlock } from '@/types/blocks';
 import { FilterBar } from './FilterBar';
@@ -38,7 +38,11 @@ export default function ProductGrid({
   const [minRating, setMinRating] = useState(0);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  const { data: categoriesData = [] } = useCategories();
+  const {
+    data: categoriesData = [],
+    isLoading: isCategoriesLoading,
+    isError: isCategoriesError,
+  } = useCategories();
 
   const selectedCategoryIdFromFilter = (() => {
     if (selectedCategoryName === 'All') return undefined;
@@ -113,13 +117,13 @@ export default function ProductGrid({
 
   const currentVariant = viewMode === 'list' ? 'list' : variant;
 
-  if (isError && !isLoading) {
+  if ((isCategoriesError && !isCategoriesLoading) || (isError && !isLoading)) {
     return (
       <View style={styles.section}>
         {block.props.title && (
           <Text style={styles.sectionTitle}>{block.props.title}</Text>
         )}
-        <View style={styles.emptyState}>
+        <View style={styles.emptyState} testID="product-grid-error">
           <Text style={[styles.emptyText, { color: palette.gray[400] }]}>
             Failed to load products. Please try again.
           </Text>

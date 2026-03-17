@@ -50,6 +50,7 @@ export default function GridProductCard({
         <Pressable
           onPress={handleWishlistPress}
           style={styles.wishlistBtn}
+          pointerEvents="box-only"
           hitSlop={8}
           accessibilityLabel={
             isSaved
@@ -91,6 +92,7 @@ export default function GridProductCard({
         <Pressable
           onPress={handleAddToCart}
           style={styles.floatingCartBtn}
+          pointerEvents="box-only"
           accessibilityLabel={`Add ${product.name} to cart`}
           accessibilityRole="button"
         >

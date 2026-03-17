@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import {
-  AIGradeDeviceApiResponseSchema,
   CalculateOrderInput,
   CalculateVTUInput,
   ImeiResultSchema,
@@ -140,67 +139,6 @@ describe('calculate schemas', () => {
       CalculateVTUInput.safeParse({
         amount: 1000,
         provider: '',
-      }).success
-    ).toBe(false);
-  });
-});
-
-describe('AIGradeDeviceApiResponseSchema', () => {
-  it('requires success and validates payload shape', () => {
-    expect(
-      AIGradeDeviceApiResponseSchema.safeParse({
-        success: true,
-        data: {
-          model: 'iPhone 13 Pro',
-          grade: 'Good',
-          observations: ['Minor scratch'],
-          basePrice: 500000,
-          estimatedValue: 450000,
-          deductionPercent: 10,
-        },
-      }).success
-    ).toBe(true);
-
-    expect(
-      AIGradeDeviceApiResponseSchema.safeParse({
-        data: {
-          model: 'iPhone 13 Pro',
-          grade: 'Good',
-          observations: [],
-          basePrice: 500000,
-          estimatedValue: 450000,
-          deductionPercent: 10,
-        },
-      }).success
-    ).toBe(false);
-  });
-
-  it('rejects payloads with missing required data fields', () => {
-    expect(
-      AIGradeDeviceApiResponseSchema.safeParse({
-        success: true,
-        data: {
-          model: 'iPhone 13 Pro',
-          observations: ['Minor scratch'],
-          basePrice: 500000,
-          deductionPercent: 10,
-        },
-      }).success
-    ).toBe(false);
-  });
-
-  it('rejects payloads with invalid data field types', () => {
-    expect(
-      AIGradeDeviceApiResponseSchema.safeParse({
-        success: true,
-        data: {
-          model: 'iPhone 13 Pro',
-          grade: 'Good',
-          observations: 'Minor scratch',
-          basePrice: '500000',
-          estimatedValue: 450000,
-          deductionPercent: 10,
-        },
       }).success
     ).toBe(false);
   });

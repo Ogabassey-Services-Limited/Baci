@@ -1,7 +1,7 @@
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useIsFocused } from '@react-navigation/native';
-import { act, render } from '@testing-library/react-native';
-import { useCategories, useProducts } from '@/hooks/use-products';
+import { act, render, screen } from '@testing-library/react-native';
+import { useCategories, useProducts } from '@/hooks';
 import { sortCategoriesByPriority } from '@/lib/category-utils';
 import type { Product } from '@/types/product';
 import type { ProductGridBlock } from '@/types/blocks';
@@ -32,7 +32,7 @@ jest.mock('@/lib/category-utils', () => ({
   sortCategoriesByPriority: jest.fn((categories: string[]) => categories),
 }));
 
-jest.mock('@/hooks/use-products', () => ({
+jest.mock('@/hooks', () => ({
   useCategories: jest.fn(),
   useProducts: jest.fn(),
 }));
@@ -129,7 +129,8 @@ describe('ProductGrid', () => {
         { id: 'cat-phones', name: 'Phones', slug: 'phones' },
         { id: 'cat-laptops', name: 'Laptops', slug: 'laptops' },
       ],
-    } as ReturnType<typeof useCategories>);
+      isError: false,
+    } as unknown as ReturnType<typeof useCategories>);
     mockProductsHook();
   });
 
@@ -205,5 +206,39 @@ describe('ProductGrid', () => {
     rerender(<ProductGrid block={block} selectedCategoryId={null} variant="grid" />);
 
     expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders fallback UI when categories query errors', () => {
+    mockUseCategories.mockReturnValue({
+      data: [],
+      isError: true,
+      error: new Error('cats'),
+    } as unknown as ReturnType<typeof useCategories>);
+    mockProductsHook({ isLoading: false, isError: false });
+
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    expect(screen.getByTestId('product-grid-error')).toBeTruthy();
+    expect(mockProductCard).not.toHaveBeenCalled();
+    expect(mockProductGridSkeleton).not.toHaveBeenCalled();
+  });
+
+  it('renders fallback UI when products query errors', () => {
+    mockProductsHook({
+      products: [],
+      isLoading: false,
+      isError: true,
+      error: 'prods',
+    });
+
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    expect(screen.getByTestId('product-grid-error')).toBeTruthy();
+    expect(mockProductCard).not.toHaveBeenCalled();
+    expect(mockProductGridSkeleton).not.toHaveBeenCalled();
   });
 });

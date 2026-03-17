@@ -47,7 +47,7 @@ export interface ProductsPage {
 
 export const PRODUCT_SELECT = `
   id, name, slug, description, price, compare_at_price,
-  images, brand, condition, status, specifications,
+  images, brand, condition, average_rating, review_count, status, specifications,
   has_variants, variant_attributes, manage_stock, stock_quantity,
   categories (id, name, slug)
 `;
@@ -141,6 +141,12 @@ export function transformProduct(item: unknown): Product | null {
   }
   const product = validated.data;
   const images = normalizeProductImages(product.images);
+  const rating = Number.isFinite(product.average_rating)
+    ? (product.average_rating as number)
+    : undefined;
+  const reviewCount = Number.isFinite(product.review_count)
+    ? Math.max(0, Math.trunc(product.review_count as number))
+    : 0;
 
   return {
     id: String(product.id ?? ''),
@@ -160,8 +166,8 @@ export function transformProduct(item: unknown): Product | null {
         ? (product.categories as unknown as Category).name
         : '',
     condition: product.condition as Product['condition'],
-    rating: 4.5,
-    review_count: 0,
+    rating,
+    review_count: reviewCount,
     manage_stock: (product.manage_stock as boolean) ?? false,
     in_stock:
       !(product.manage_stock as boolean) ||
