@@ -40,7 +40,9 @@ export default async function DomainsPage({
 
   const { data: domains, error: domainsError } = await supabase
     .from('domains')
-    .select('*')
+    .select(
+      'id, domain, tld, domain_type, status, is_primary, verification_token, verified_at, ssl_status, purchase_info, created_at'
+    )
     .eq('merchant_id', merchant.id)
     .order('is_primary', { ascending: false }) // Primary first
     .order('created_at', { ascending: false }); // Then newest
