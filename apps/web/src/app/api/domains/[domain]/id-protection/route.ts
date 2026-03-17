@@ -55,9 +55,10 @@ export async function GET(
     }
 
     // Verify domain ownership through merchant access context
+    // PERFORMANCE: Use .select('id') instead of .select('*') for existence checks to prevent overfetching full rows
     const { data: domainData, error: domainError } = await supabase
       .from('domains')
-      .select('*')
+      .select('id')
       .eq('domain', domain)
       .eq('merchant_id', access.merchantId)
       .single();
