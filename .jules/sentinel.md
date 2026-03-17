@@ -16,3 +16,9 @@
 **Vulnerability:** The API routes for managing loyalty points, settings, and rewards (`POST /api/loyalty/points`, `POST /api/loyalty/settings`, `POST /api/loyalty/rewards`, `PATCH /api/loyalty/rewards/[id]`, `DELETE /api/loyalty/rewards/[id]`) did not have CSRF protection. This could allow an attacker to forge requests from a malicious site on behalf of an authenticated admin to arbitrarily modify loyalty settings, issue points, or create/delete rewards.
 **Learning:** Checking for user authorization and role (e.g., `hasPermission`) ensures the user has rights, but it does not verify the *intent* of the request or its origin. Explicit CSRF protection is strictly required for all state-changing endpoints, even administrative ones.
 **Prevention:** Always use the `checkCsrfProtection` utility at the beginning of `POST`, `PATCH`, `PUT`, and `DELETE` API handlers to ensure defense against cross-site request forgery attacks.
+
+## 2024-03-24 - Missing CSRF validation in Admin Settings API
+
+**Vulnerability:** The API route for updating platform settings (`PUT /api/admin/settings`) lacked CSRF protection. An attacker could forge requests to maliciously modify global platform configurations (fees, tracking IDs, feature flags) on behalf of an authenticated platform admin.
+**Learning:** Administrative routes often contain authorization checks (e.g. `checkPlatformAdmin`), but these alone do not mitigate CSRF. The double submit cookie pattern must be actively enforced to prove request origin.
+**Prevention:** Always use the `checkCsrfProtection` utility at the beginning of state-changing (`POST`, `PUT`, `PATCH`, `DELETE`) API routes, especially for highly privileged endpoints that alter global application state.
