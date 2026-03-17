@@ -197,8 +197,11 @@ export async function generateMetadata(
 
     // Preserve ?variant= query param for GMC feed deep links
     const variantParam = resolvedSearchParams?.variant;
-    const qs = variantParam
-      ? `?variant=${encodeURIComponent(String(variantParam))}`
+    const variantValue = Array.isArray(variantParam)
+      ? variantParam[0]
+      : variantParam;
+    const qs = variantValue
+      ? `?variant=${encodeURIComponent(variantValue)}`
       : '';
 
     // biome-ignore lint/suspicious/noExplicitAny: Dynamic route path requires type assertion
@@ -237,7 +240,7 @@ export async function generateMetadata(
   });
   const metadataDescription =
     descriptionContent.snippet ||
-    `Buy ${product.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`;
+    `Buy ${product.name} at ${merchant?.business_name || 'Baci Store'}. Best price and fast delivery.`;
 
   return {
     title:
@@ -285,7 +288,7 @@ export async function generateMetadata(
 
 export default async function ProductPage({ params, searchParams }: PageProps) {
   const { slug, productSlug } = await params;
-  const _resolvedSearchParams = await searchParams;
+  const resolvedSearchParams = await searchParams;
 
   // SEO: Enforce lowercase URLs using x-pathname header (works even if params are normalized)
   const headersList = await headers();
@@ -293,9 +296,12 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
 
   if (pathname && pathname !== pathname.toLowerCase()) {
     // Preserve ?variant= query param for GMC feed deep links
-    const variantParam = _resolvedSearchParams?.variant;
-    const qs = variantParam
-      ? `?variant=${encodeURIComponent(String(variantParam))}`
+    const variantParam = resolvedSearchParams?.variant;
+    const variantValue = Array.isArray(variantParam)
+      ? variantParam[0]
+      : variantParam;
+    const qs = variantValue
+      ? `?variant=${encodeURIComponent(variantValue)}`
       : '';
     // biome-ignore lint/suspicious/noExplicitAny: Redirecting to lowercase string is valid
     return permanentRedirect(`${pathname.toLowerCase()}${qs}` as any);

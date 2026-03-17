@@ -111,7 +111,6 @@ const SPEC_SECTIONS: Array<{
 function escapeXmlValue(unsafe: string): string {
   if (!unsafe) return '';
   return unsafe
-    .toString()
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

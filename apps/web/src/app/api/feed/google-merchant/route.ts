@@ -13,6 +13,25 @@ import {
 import { buildMerchantBaseUrl } from './route-utils';
 import type { FeedKeySpecs } from './variant-mapping';
 
+type VariantRow = {
+  id: string;
+  product_id: string;
+  sku?: string;
+  attributes: Record<string, string>;
+  price_override?: number;
+  stock_quantity: number;
+};
+
+type SpecsRow = {
+  product_id: string;
+  ram_gb?: number;
+  storage_gb?: number;
+  screen_size_inches?: number;
+  chipset?: string;
+  battery_mah?: number;
+  main_camera_mp?: number;
+};
+
 /**
  * Module-level anon-key client is intentional: this is a public feed endpoint
  * hit by Google's crawler — no auth cookies exist. Using `@/lib/supabase/server`
@@ -122,8 +141,8 @@ function createCachedFeedDataFetcher(
       const productIds = (products || []).map((p: { id: string }) => p.id);
 
       // Fetch variants and key_specs in parallel (only if flag is on)
-      let variantRows: unknown[] = [];
-      let specsRows: unknown[] = [];
+      let variantRows: VariantRow[] = [];
+      let specsRows: SpecsRow[] = [];
 
       if (gmcVariantsEnabled && productIds.length > 0) {
         const [variantResult, specsResult] = await Promise.all([
@@ -153,14 +172,7 @@ function createCachedFeedDataFetcher(
 
       // Group variants by product_id
       const variantsByProduct: Record<string, FeedVariant[]> = {};
-      for (const row of variantRows as Array<{
-        id: string;
-        product_id: string;
-        sku?: string;
-        attributes: Record<string, string>;
-        price_override?: number;
-        stock_quantity: number;
-      }>) {
+      for (const row of variantRows) {
         if (!variantsByProduct[row.product_id]) {
           variantsByProduct[row.product_id] = [];
         }
@@ -175,15 +187,7 @@ function createCachedFeedDataFetcher(
 
       // Index key_specs by product_id
       const specsByProduct: Record<string, FeedKeySpecs> = {};
-      for (const row of specsRows as Array<{
-        product_id: string;
-        ram_gb?: number;
-        storage_gb?: number;
-        screen_size_inches?: number;
-        chipset?: string;
-        battery_mah?: number;
-        main_camera_mp?: number;
-      }>) {
+      for (const row of specsRows) {
         specsByProduct[row.product_id] = {
           ram_gb: row.ram_gb ?? undefined,
           storage_gb: row.storage_gb ?? undefined,
