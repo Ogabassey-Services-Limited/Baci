@@ -1,0 +1,244 @@
+import { z } from 'zod';
+import { NigerianPhoneSchema } from './auth-schemas';
+
+export const ShippingAddressSchema = z.object({
+  email: z
+    .string()
+    .min(1, 'Email address is required')
+    .email('Please enter a valid email address')
+    .max(255, 'Email is too long'),
+  firstName: z
+    .string()
+    .min(1, 'Please enter your first name')
+    .min(2, 'First name must be at least 2 characters')
+    .max(50, 'First name is too long (max 50 characters)')
+    .refine((value) => !/\d/.test(value), {
+      message: 'First name cannot contain numbers',
+    }),
+  lastName: z
+    .string()
+    .min(1, 'Please enter your last name')
+    .min(2, 'Last name must be at least 2 characters')
+    .max(50, 'Last name is too long (max 50 characters)')
+    .refine((value) => !/\d/.test(value), {
+      message: 'Last name cannot contain numbers',
+    }),
+  phone: NigerianPhoneSchema,
+  address: z
+    .string()
+    .min(1, 'Please enter your delivery address')
+    .min(5, 'Please provide a more detailed address')
+    .max(255, 'Address is too long (max 255 characters)'),
+  city: z
+    .string()
+    .min(1, 'Please enter your city')
+    .min(2, 'City name must be at least 2 characters')
+    .max(100, 'City name is too long (max 100 characters)'),
+  state: z.string().min(1, 'Please select your state'),
+  notes: z
+    .string()
+    .max(500, 'Delivery notes are too long (max 500 characters)')
+    .optional(),
+});
+
+export type ShippingAddressInput = z.infer<typeof ShippingAddressSchema>;
+
+export const QuantitySchema = z
+  .number()
+  .int('Quantity must be a whole number')
+  .min(1, 'Quantity must be at least 1')
+  .max(99, 'Maximum quantity is 99');
+
+export function isValidIMEI(imei: string): boolean {
+  if (!/^\d{15}$/.test(imei)) return false;
+  let sum = 0;
+  for (let i = 0; i < 15; i++) {
+    let digit = Number.parseInt(imei[i], 10);
+    if (i % 2 === 1) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
+  }
+  return sum % 10 === 0;
+}
+
+export function validateWithSchema<T>(
+  schema: z.ZodSchema<T>,
+  data: unknown
+):
+  | { success: true; data: T }
+  | { success: false; errors: Record<string, string> } {
+  const result = schema.safeParse(data);
+
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+
+  const errors: Record<string, string> = {};
+  result.error.issues.forEach((issue) => {
+    const path = issue.path.join('.');
+    if (!errors[path]) {
+      errors[path] = issue.message;
+    }
+  });
+
+  return { success: false, errors };
+}
+
+export function getFirstError<T>(
+  result: z.ZodSafeParseResult<T>
+): string | null {
+  if (result.success) return null;
+  return result.error.issues[0]?.message || 'Validation failed';
+}
+
+export const CalculateOrderInput = z.object({
+  subtotal: z.number().positive(),
+  shippingFee: z.number().min(0).optional(),
+  taxRate: z.number().min(0).max(1).optional(),
+  assuranceFee: z.number().min(0).optional(),
+});
+
+export const CalculateOrderOutput = z.object({
+  taxAmount: z.number(),
+  total: z.number(),
+});
+
+export const CalculateVTUInput = z.object({
+  amount: z.number().positive(),
+  provider: z.string(),
+  category: z.enum(['AIRTIME', 'DATA']).optional(),
+  merchantSplit: z.number().min(0).max(100).optional(),
+});
+
+export const CalculateVTUOutput = z.object({
+  platformEarning: z.number(),
+  merchantEarning: z.number(),
+  totalCommission: z.number(),
+  commissionRate: z.number(),
+});
+
+export const RedeemLoyaltyInput = z.object({
+  points: z.number().int().positive(),
+  currentPoints: z.number().int().min(0),
+  pointsToNairaRate: z.number().positive().optional(),
+});
+
+export const RedeemLoyaltyOutput = z.object({
+  success: z.boolean(),
+  error: z.string().optional(),
+  pointsRedeemed: z.number().optional(),
+  walletCredit: z.number().optional(),
+  remainingPoints: z.number().optional(),
+  conversionRate: z.number().optional(),
+  minRedeemPoints: z.number().optional(),
+});
+
+export type CalculateOrderInputType = z.infer<typeof CalculateOrderInput>;
+export type CalculateOrderOutputType = z.infer<typeof CalculateOrderOutput>;
+export type CalculateVTUInputType = z.infer<typeof CalculateVTUInput>;
+export type CalculateVTUOutputType = z.infer<typeof CalculateVTUOutput>;
+export type RedeemLoyaltyInputType = z.infer<typeof RedeemLoyaltyInput>;
+export type RedeemLoyaltyOutputType = z.infer<typeof RedeemLoyaltyOutput>;
+
+export const ReviewSchema = z.object({
+  id: z.string(),
+  rating: z.number().min(1).max(5),
+  title: z.string().optional(),
+  body: z.string().optional(),
+  customer_name: z.string(),
+  verified_purchase: z.boolean(),
+  helpful_count: z.number().default(0),
+  created_at: z.string(),
+});
+
+export const ReviewStatsSchema = z.object({
+  average_rating: z.number(),
+  review_count: z.number(),
+  rating_distribution: z.record(z.string(), z.number()),
+});
+
+export const ReviewsApiResponseSchema = z.object({
+  reviews: z.array(ReviewSchema).default([]),
+  stats: ReviewStatsSchema.optional(),
+  pagination: z
+    .object({
+      page: z.number(),
+      limit: z.number(),
+      totalPages: z.number(),
+      totalCount: z.number(),
+    })
+    .optional(),
+});
+
+export type Review = z.infer<typeof ReviewSchema>;
+export type ReviewStats = z.infer<typeof ReviewStatsSchema>;
+export type ReviewsApiResponse = z.infer<typeof ReviewsApiResponseSchema>;
+
+export const MarkReviewHelpfulResponseSchema = z.object({
+  success: z.boolean(),
+  helpfulCount: z.number(),
+});
+
+export type MarkReviewHelpfulResponse = z.infer<
+  typeof MarkReviewHelpfulResponseSchema
+>;
+
+export const ImeiResultSchema = z.object({
+  imei: z.string().min(1),
+  device: z.string().min(1),
+  modelNumber: z.string(),
+  status: z.enum(['Clean', 'Blacklisted', 'Unknown']),
+  icloud: z.string().min(1),
+  icloudLock: z.string().min(1),
+  simLock: z.string().min(1),
+  blacklistStatus: z.string().min(1),
+  carrier: z.string().min(1),
+  deviceImage: z.string(),
+  score: z.number(),
+  deviceType: z.enum(['apple', 'android', 'other']),
+  verdict: z.string().min(1),
+  verdictType: z.enum(['safe', 'caution', 'danger']),
+});
+
+export const ImeiCheckApiResponseSchema = z.object({
+  success: z.boolean(),
+  data: ImeiResultSchema.optional(),
+  error: z.string().optional(),
+});
+
+export type ImeiResult = z.infer<typeof ImeiResultSchema>;
+export type ImeiCheckApiResponse = z.infer<typeof ImeiCheckApiResponseSchema>;
+
+export const AIAnalysisResultSchema = z.object({
+  model: z.string(),
+  grade: z.enum(['Excellent', 'Good', 'Fair', 'Poor']),
+  observations: z.array(z.string()),
+  basePrice: z.number(),
+  estimatedValue: z.number(),
+  deductionPercent: z.number(),
+});
+
+export const AIGradeDeviceApiResponseSchema = z.object({
+  success: z.boolean().optional(),
+  data: AIAnalysisResultSchema.optional(),
+  error: z.string().optional(),
+});
+
+export type AIAnalysisResult = z.infer<typeof AIAnalysisResultSchema>;
+export type AIGradeDeviceApiResponse = z.infer<
+  typeof AIGradeDeviceApiResponseSchema
+>;
+
+export const NegotiationResultSchema = z.object({
+  status: z.enum(['accepted', 'counter', 'rejected', 'final']),
+  counterOffer: z.number().optional(),
+  originalPrice: z.number(),
+  offeredPrice: z.number(),
+  message: z.string(),
+  attemptNumber: z.number(),
+  canContinue: z.boolean(),
+});
+
+export type NegotiationResult = z.infer<typeof NegotiationResultSchema>;

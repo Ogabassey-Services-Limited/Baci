@@ -18,6 +18,20 @@ function createProduct(overrides: Partial<Product>): Product {
 }
 
 describe('removeProductSlugFromProductsCache', () => {
+  it('returns the original value for falsy or non-products cache inputs', () => {
+    const nonCache = { foo: 'bar' };
+
+    expect(removeProductSlugFromProductsCache(undefined, 'iphone-13-pro')).toBe(
+      undefined
+    );
+    expect(removeProductSlugFromProductsCache(null, 'iphone-13-pro')).toBe(
+      null
+    );
+    expect(removeProductSlugFromProductsCache(nonCache, 'iphone-13-pro')).toBe(
+      nonCache
+    );
+  });
+
   it('removes a deleted slug from every cached page and adjusts totals', () => {
     const cache = {
       pages: [
@@ -75,5 +89,20 @@ describe('removeProductSlugFromProductsCache', () => {
     };
 
     expect(removeProductSlugFromProductsCache(cache, 'missing-slug')).toBe(cache);
+  });
+
+  it('returns the original cache when slug is empty', () => {
+    const cache = {
+      pages: [
+        {
+          products: [createProduct({ id: '1', slug: 'iphone-13-pro' })],
+          nextOffset: null,
+          total: 1,
+        },
+      ],
+      pageParams: [0],
+    };
+
+    expect(removeProductSlugFromProductsCache(cache, '')).toBe(cache);
   });
 });

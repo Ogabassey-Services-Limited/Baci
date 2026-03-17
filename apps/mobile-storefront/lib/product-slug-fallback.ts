@@ -35,7 +35,7 @@ export function getProductSlugFallbackCandidates(slug: string): string[] {
 
   while (true) {
     const next = stripKnownSuffix(current);
-    if (!next || seen.has(next) || !next) {
+    if (!next || seen.has(next)) {
       break;
     }
 

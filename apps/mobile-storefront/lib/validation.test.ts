@@ -71,4 +71,24 @@ describe('ProductRowSchema', () => {
 
     expect(result.success).toBe(true);
   });
+
+  it('rejects malformed array-based variant attributes', () => {
+    const result = ProductRowSchema.safeParse({
+      id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+      name: 'iPhone 13 Pro',
+      slug: 'iphone-13-pro',
+      price: 825000,
+      images: ['https://cdn.example.com/iphone-13-pro-gold.avif'],
+      has_variants: true,
+      variant_attributes: [
+        {
+          param: 123,
+          options: '128GB',
+        },
+      ],
+      status: 'active',
+    });
+
+    expect(result.success).toBe(false);
+  });
 });

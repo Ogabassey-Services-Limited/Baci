@@ -226,7 +226,11 @@ export function ProductCard({
 
   // Calculate discount percentage for potential use in badges/promotions
 
-  const imageCandidates = normalizeProductImages(product.images);
+  const imageCandidates = normalizeProductImages(
+    product.image
+      ? [product.image, ...(Array.isArray(product.images) ? product.images : [])]
+      : product.images
+  );
   const [imageAttempt, setImageAttempt] = useState(0);
   const [showLocalPlaceholder, setShowLocalPlaceholder] = useState(false);
 
@@ -259,7 +263,7 @@ export function ProductCard({
   };
 
   const imageSource = {
-    uri: getProductCardImageAttempt(product.images, imageAttempt),
+    uri: getProductCardImageAttempt(imageCandidates, imageAttempt),
   };
 
   // --- RENDER: Editorial Variant (Fashion) ---
