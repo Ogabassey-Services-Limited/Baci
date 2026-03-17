@@ -4,7 +4,6 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
-import type { FeedImageManifestEntry } from '@/lib/gmc-feed-images';
 import {
   type FeedProduct,
   generateGoogleMerchantFeed,
@@ -108,7 +107,7 @@ function createCachedFeedDataFetcher(
         imageManifest[row.product_id].push({
           verified_url: row.verified_url,
           verified_format: row.verified_format,
-          status: row.status as FeedImageManifestEntry['status'],
+          status: 'verified' as const, // Query filters .eq('status', 'verified')
           is_primary: row.is_primary,
           position: row.position,
         });

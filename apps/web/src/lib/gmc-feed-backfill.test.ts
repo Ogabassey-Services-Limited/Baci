@@ -177,6 +177,19 @@ describe('classifyFeedImageCandidate', () => {
     expect(result.status).toBe('pending_verification');
   });
 
+  it('marks relative path as invalid when storefrontBaseUrl is empty', () => {
+    const candidate: BackfillImageCandidate = {
+      product_id: 'prod-1',
+      source_url: '/images/phone.jpg',
+      is_primary: true,
+      position: 0,
+    };
+    const result = classifyFeedImageCandidate(candidate, '');
+    expect(result.status).toBe('invalid');
+    expect(result.verified_url).toBeNull();
+    expect(result.failure_reason).toContain('storefrontBaseUrl is empty');
+  });
+
   it('marks empty source_url as invalid', () => {
     const candidate: BackfillImageCandidate = {
       product_id: 'prod-1',

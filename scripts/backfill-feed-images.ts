@@ -271,6 +271,7 @@ async function main() {
   const MAX_RETRIES = 3;
   let upserted = 0;
   let persistErrors = 0;
+  let failedRows = 0;
 
   for (let i = 0; i < upsertRows.length; i += BATCH_SIZE) {
     const batch = upsertRows.slice(i, i + BATCH_SIZE);
@@ -295,11 +296,12 @@ async function main() {
       } else {
         console.error(`Batch ${batchNum} failed after ${MAX_RETRIES} attempts: ${upsertError.message}`);
         persistErrors++;
+        failedRows += batch.length;
       }
     }
   }
 
-  console.log(`\nUpserted ${upserted}/${upsertRows.length} rows into product_feed_images`);
+  console.log(`\nUpserted ${upserted}/${upsertRows.length} rows into product_feed_images (${failedRows} failed)`);
 
   // 7. Mark stale rows — (product_id, source_url) pairs no longer in current set
   const existingRows: { id: string; product_id: string; source_url: string }[] = [];
@@ -334,7 +336,7 @@ async function main() {
     persistErrors++;
   } else {
     const staleIds: string[] = [];
-    for (const row of existingRows || []) {
+    for (const row of existingRows) {
       const key = `${row.product_id}::${row.source_url}`;
       if (!currentPairs.has(key)) {
         staleIds.push(row.id);

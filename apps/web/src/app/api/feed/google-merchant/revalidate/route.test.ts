@@ -72,6 +72,14 @@ describe('POST /api/feed/google-merchant/revalidate', () => {
     expect(mockRevalidateMerchantFeed).not.toHaveBeenCalled();
   });
 
+  it('returns 400 when identifier is an empty string', async () => {
+    const res = await POST(
+      makeRequest({ identifier: '' }, 'Bearer test-secret')
+    );
+    expect(res.status).toBe(400);
+    expect(mockRevalidateMerchantFeed).not.toHaveBeenCalled();
+  });
+
   it('calls revalidateMerchantFeed and returns 200 on valid request', async () => {
     const res = await POST(
       makeRequest({ identifier: 'ogabassey' }, 'Bearer test-secret')

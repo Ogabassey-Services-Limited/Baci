@@ -135,6 +135,16 @@ export function classifyFeedImageCandidate(
 
   // Handle relative paths
   if (candidate.source_url.startsWith('/')) {
+    if (!storefrontBaseUrl || !storefrontBaseUrl.trim()) {
+      return {
+        ...base,
+        verified_url: null,
+        verified_format: null,
+        status: 'invalid',
+        failure_reason:
+          'Cannot resolve relative path: storefrontBaseUrl is empty',
+      };
+    }
     let baseWithoutTrailingSlash = storefrontBaseUrl;
     while (baseWithoutTrailingSlash.endsWith('/')) {
       baseWithoutTrailingSlash = baseWithoutTrailingSlash.slice(0, -1);

@@ -1,18 +1,27 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  type VerificationResult,
+  type FetchFn,
   verifyCdnImage,
   verifyRemoteImage,
 } from './gmc-feed-verifier';
+
+/** Builds a partial Response matching only what verifyRemoteImage inspects. */
+function fakeResponse(props: {
+  ok: boolean;
+  status: number;
+  headers: Headers;
+}): Response {
+  return props as unknown as Response;
+}
 
 // ---------- verifyCdnImage ----------
 describe('verifyCdnImage', () => {
   const cdnBasePath = '/home/bassey/baci-cdn/public';
 
-  let existsSyncMock: ReturnType<typeof vi.fn>;
+  let existsSyncMock: Mock<(path: string) => boolean>;
 
   beforeEach(() => {
-    existsSyncMock = vi.fn();
+    existsSyncMock = vi.fn<(path: string) => boolean>();
   });
 
   afterEach(() => {
@@ -162,10 +171,10 @@ describe('verifyCdnImage', () => {
 
 // ---------- verifyRemoteImage ----------
 describe('verifyRemoteImage', () => {
-  let fetchMock: ReturnType<typeof vi.fn>;
+  let fetchMock: Mock<FetchFn>;
 
   beforeEach(() => {
-    fetchMock = vi.fn();
+    fetchMock = vi.fn<FetchFn>();
   });
 
   afterEach(() => {
@@ -173,11 +182,11 @@ describe('verifyRemoteImage', () => {
   });
 
   it('marks as verified when HEAD returns 200 with image/jpeg content-type', async () => {
-    fetchMock.mockResolvedValue({
+    fetchMock.mockResolvedValue(fakeResponse({
       ok: true,
       status: 200,
       headers: new Headers({ 'content-type': 'image/jpeg' }),
-    });
+    }));
     const result = await verifyRemoteImage(
       'https://ogabassey.com/game-covers/cyberpunk-2077.png',
       fetchMock
@@ -194,11 +203,11 @@ describe('verifyRemoteImage', () => {
   });
 
   it('marks as verified with png format for image/png', async () => {
-    fetchMock.mockResolvedValue({
+    fetchMock.mockResolvedValue(fakeResponse({
       ok: true,
       status: 200,
       headers: new Headers({ 'content-type': 'image/png' }),
-    });
+    }));
     const result = await verifyRemoteImage(
       'https://ogabassey.com/game-covers/cyberpunk-2077.png',
       fetchMock
@@ -208,11 +217,11 @@ describe('verifyRemoteImage', () => {
   });
 
   it('marks as verified with webp format for image/webp', async () => {
-    fetchMock.mockResolvedValue({
+    fetchMock.mockResolvedValue(fakeResponse({
       ok: true,
       status: 200,
       headers: new Headers({ 'content-type': 'image/webp' }),
-    });
+    }));
     const result = await verifyRemoteImage(
       'https://example.com/photo.webp',
       fetchMock
@@ -222,11 +231,11 @@ describe('verifyRemoteImage', () => {
   });
 
   it('marks as missing when HEAD returns 404', async () => {
-    fetchMock.mockResolvedValue({
+    fetchMock.mockResolvedValue(fakeResponse({
       ok: false,
       status: 404,
       headers: new Headers(),
-    });
+    }));
     const result = await verifyRemoteImage(
       'https://ogabassey.com/missing-image.jpg',
       fetchMock
@@ -236,11 +245,11 @@ describe('verifyRemoteImage', () => {
   });
 
   it('marks as pending_verification on 5xx server error', async () => {
-    fetchMock.mockResolvedValue({
+    fetchMock.mockResolvedValue(fakeResponse({
       ok: false,
       status: 503,
       headers: new Headers(),
-    });
+    }));
     const result = await verifyRemoteImage(
       'https://ogabassey.com/game-covers/temp-error.png',
       fetchMock
@@ -250,11 +259,11 @@ describe('verifyRemoteImage', () => {
   });
 
   it('marks as pending_verification on 429 rate limit', async () => {
-    fetchMock.mockResolvedValue({
+    fetchMock.mockResolvedValue(fakeResponse({
       ok: false,
       status: 429,
       headers: new Headers(),
-    });
+    }));
     const result = await verifyRemoteImage(
       'https://example.com/photo.jpg',
       fetchMock
@@ -264,11 +273,11 @@ describe('verifyRemoteImage', () => {
   });
 
   it('marks as missing on 403 forbidden (permanent denial)', async () => {
-    fetchMock.mockResolvedValue({
+    fetchMock.mockResolvedValue(fakeResponse({
       ok: false,
       status: 403,
       headers: new Headers(),
-    });
+    }));
     const result = await verifyRemoteImage(
       'https://example.com/photo.jpg',
       fetchMock
@@ -288,11 +297,11 @@ describe('verifyRemoteImage', () => {
   });
 
   it('marks as invalid when content-type is not an image', async () => {
-    fetchMock.mockResolvedValue({
+    fetchMock.mockResolvedValue(fakeResponse({
       ok: true,
       status: 200,
       headers: new Headers({ 'content-type': 'text/html' }),
-    });
+    }));
     const result = await verifyRemoteImage(
       'https://ogabassey.com/not-an-image',
       fetchMock
@@ -303,16 +312,16 @@ describe('verifyRemoteImage', () => {
 
   it('falls back to GET when HEAD returns 405', async () => {
     fetchMock
-      .mockResolvedValueOnce({
+      .mockResolvedValueOnce(fakeResponse({
         ok: false,
         status: 405,
         headers: new Headers(),
-      })
-      .mockResolvedValueOnce({
+      }))
+      .mockResolvedValueOnce(fakeResponse({
         ok: true,
         status: 200,
         headers: new Headers({ 'content-type': 'image/jpeg' }),
-      });
+      }));
     const result = await verifyRemoteImage(
       'https://example.com/photo.jpg',
       fetchMock
@@ -336,11 +345,11 @@ describe('verifyRemoteImage', () => {
   });
 
   it('marks as invalid for unsupported image types like image/avif', async () => {
-    fetchMock.mockResolvedValue({
+    fetchMock.mockResolvedValue(fakeResponse({
       ok: true,
       status: 200,
       headers: new Headers({ 'content-type': 'image/avif' }),
-    });
+    }));
     const result = await verifyRemoteImage(
       'https://example.com/photo.avif',
       fetchMock

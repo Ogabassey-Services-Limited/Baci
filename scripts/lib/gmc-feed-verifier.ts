@@ -111,6 +111,12 @@ export function verifyCdnImage(
   };
 }
 
+/** Single-overload fetch signature for easy mock injection. */
+export type FetchFn = (
+  input: string,
+  init?: RequestInit
+) => Promise<Response>;
+
 /**
  * Verify a remote image URL via HTTP HEAD (with GET fallback on 405).
  *
@@ -118,7 +124,7 @@ export function verifyCdnImage(
  */
 export async function verifyRemoteImage(
   url: string,
-  fetchFn: typeof fetch = globalThis.fetch
+  fetchFn: FetchFn = globalThis.fetch
 ): Promise<VerificationResult> {
   try {
     let response = await fetchFn(url, {
@@ -132,6 +138,8 @@ export async function verifyRemoteImage(
         method: 'GET',
         signal: AbortSignal.timeout(10_000),
       });
+      // Cancel body consumption since we only need status and headers
+      await response.body?.cancel();
     }
 
     if (!response.ok) {

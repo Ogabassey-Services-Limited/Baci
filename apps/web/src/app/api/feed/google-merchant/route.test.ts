@@ -255,6 +255,19 @@ describe('GET /api/feed/google-merchant', () => {
     expect(mockGenerateGoogleMerchantFeed).not.toHaveBeenCalled();
   });
 
+  it('returns 200 when using merchant_id parameter', async () => {
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      makeRequest(
+        '/api/feed/google-merchant?merchant_id=00000000-0000-4000-8000-000000000001'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGenerateGoogleMerchantFeed).toHaveBeenCalled();
+  });
+
   it('passes an empty product list through to the feed builder', async () => {
     productsResult = {
       data: [],

@@ -21,6 +21,12 @@ export interface FeedImageManifestEntry {
   position: number;
 }
 
+type VerifiedEntry = FeedImageManifestEntry & { verified_url: string };
+
+function isVerifiedWithUrl(e: FeedImageManifestEntry): e is VerifiedEntry {
+  return e.status === 'verified' && !!e.verified_url;
+}
+
 /**
  * Resolve the primary feed image from manifest entries.
  * Returns the verified URL or null if no valid primary image exists.
@@ -30,7 +36,7 @@ export function resolveGmcPrimaryImage(
   entries: FeedImageManifestEntry[]
 ): string | null {
   const primary = entries
-    .filter((e) => e.is_primary && e.status === 'verified' && !!e.verified_url)
+    .filter((e): e is VerifiedEntry => e.is_primary && isVerifiedWithUrl(e))
     .sort((a, b) => a.position - b.position)[0];
   return primary?.verified_url ?? null;
 }
@@ -43,8 +49,8 @@ export function resolveGmcAdditionalImages(
   entries: FeedImageManifestEntry[]
 ): string[] {
   return entries
-    .filter((e) => !e.is_primary && e.status === 'verified' && !!e.verified_url)
+    .filter((e): e is VerifiedEntry => !e.is_primary && isVerifiedWithUrl(e))
     .sort((a, b) => a.position - b.position)
     .slice(0, GMC_ADDITIONAL_IMAGES_MAX)
-    .map((e) => e.verified_url as string);
+    .map((e) => e.verified_url);
 }
