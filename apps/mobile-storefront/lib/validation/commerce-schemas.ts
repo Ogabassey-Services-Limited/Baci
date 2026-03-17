@@ -107,7 +107,7 @@ export const CalculateOrderOutput = z.object({
 
 export const CalculateVTUInput = z.object({
   amount: z.number().positive(),
-  provider: z.string(),
+  provider: z.string().min(1, 'Provider is required'),
   category: z.enum(['AIRTIME', 'DATA']).optional(),
   merchantSplit: z.number().min(0).max(100).optional(),
 });
@@ -221,7 +221,7 @@ export const AIAnalysisResultSchema = z.object({
 });
 
 export const AIGradeDeviceApiResponseSchema = z.object({
-  success: z.boolean().optional(),
+  success: z.boolean(),
   data: AIAnalysisResultSchema.optional(),
   error: z.string().optional(),
 });

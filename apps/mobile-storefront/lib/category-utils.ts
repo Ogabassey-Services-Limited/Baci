@@ -42,8 +42,9 @@ function getCategoryPriority(categoryName: string): number {
   return DEFAULT_CATEGORY_PRIORITY;
 }
 
-export function sortCategoriesByPriority(categories: string[]): string[] {
+export function sortCategoriesByPriority(categories: ReadonlyArray<unknown>): string[] {
   return [...categories]
+    .filter((category): category is string => typeof category === 'string')
     .map((category) => category.trim())
     .filter((category) => category.length > 0)
     .sort((a, b) => {
