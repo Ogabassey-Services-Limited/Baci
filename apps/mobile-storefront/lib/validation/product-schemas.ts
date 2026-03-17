@@ -53,6 +53,8 @@ export const ProductRowSchema = z.object({
   images: z.array(z.string()).nullable().optional(),
   brand: z.string().nullable().optional(),
   condition: z.string().nullable().optional(),
+  average_rating: z.number().nullable().optional(),
+  review_count: z.number().int().nonnegative().nullable().optional(),
   manage_stock: z.boolean().nullable().optional(),
   stock_quantity: z.number().nullable().optional(),
   status: z.string().optional(),

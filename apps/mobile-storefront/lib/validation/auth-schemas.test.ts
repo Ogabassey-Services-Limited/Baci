@@ -87,4 +87,12 @@ describe('OptionalNigerianPhoneSchema', () => {
     );
     expect(OptionalNigerianPhoneSchema.safeParse(undefined).success).toBe(true);
   });
+
+  it('rejects invalid phone values', () => {
+    const result = OptionalNigerianPhoneSchema.safeParse('not-a-phone');
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeDefined();
+    }
+  });
 });

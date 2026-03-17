@@ -13,18 +13,18 @@ import { ProductRowSchema } from '@/lib/validation';
 import type { Product } from '@/types/product';
 
 function augmentProduct(item: z.infer<typeof ProductRowSchema>): Product {
-  const transformed = transformProduct(item);
-  if (!transformed) {
+  const baseProduct = transformProduct(item);
+  if (!baseProduct) {
     throw new Error('Product transformation failed for validated row');
   }
 
   return {
-    ...transformed,
-    specifications: item.specifications,
-    has_variants: item.has_variants || false,
+    ...baseProduct,
+    specifications: item.specifications ?? undefined,
+    has_variants: item.has_variants ?? false,
     variant_attributes: normalizeVariantAttributes(item.variant_attributes),
     variants: [],
-  } as Product;
+  };
 }
 
 export function useProduct(slug: string) {
@@ -56,13 +56,9 @@ export function useProduct(slug: string) {
         { queryKey: ['products', merchantId] }
       );
 
-      const allPages: ProductsPage[] = [];
-      for (const [, cache] of productsCaches) {
-        if (!cache || !Array.isArray(cache.pages)) {
-          continue;
-        }
-        allPages.push(...cache.pages);
-      }
+      const allPages = productsCaches.flatMap(([, cache]) =>
+        cache && Array.isArray(cache.pages) ? cache.pages : []
+      );
 
       for (const page of allPages) {
         const found = page.products.find((product) => product.slug === slug);
@@ -74,7 +70,7 @@ export function useProduct(slug: string) {
               found.variant_attributes
             ),
             variants: found.variants || [],
-          } as Product;
+          };
         }
       }
 
@@ -96,8 +92,8 @@ export function usePrefetchProduct() {
   const merchantId = merchant?.id || CONSTANT_MERCHANT_ID;
 
   return (slug: string) => {
-    if (!merchantId) return;
-    queryClient.prefetchQuery({
+    if (!merchantId) return Promise.resolve();
+    return queryClient.prefetchQuery({
       queryKey: ['product', slug, merchantId],
       queryFn: async () => {
         const data = await resolveAndEvictProduct(merchantId, slug, queryClient);

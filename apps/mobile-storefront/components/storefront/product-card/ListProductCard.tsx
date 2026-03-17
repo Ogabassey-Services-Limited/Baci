@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { BRAND } from '@/constants/Colors';
+import Colors, { BRAND } from '@/constants/Colors';
 import { sanitizeDescriptionPlainText } from '@/components/storefront/utils/text';
 import { formatPrice } from '@/types/product';
 import styles from '../ProductCard.styles';
@@ -23,6 +23,7 @@ export default function ListProductCard({
   isSaved,
   cartItemCount,
   animatedStyle,
+  colors = Colors.light,
 }: ListProductCardProps) {
   return (
     <AnimatedPressable
@@ -31,18 +32,26 @@ export default function ListProductCard({
       onPressOut={handleAnimateOut}
       style={[
         styles.listContainer,
-        { backgroundColor: '#FFF', borderColor: '#F3F4F6' },
+        { backgroundColor: colors.card, borderColor: colors.border },
         animatedStyle,
       ]}
       accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
       accessibilityRole="button"
     >
       {showLocalPlaceholder ? (
-        <View style={[styles.listImage, styles.imagePlaceholder]}>
-          <Ionicons name="image-outline" size={32} color="#9CA3AF" />
+        <View
+          style={[styles.listImage, styles.imagePlaceholder]}
+          testID="list-product-placeholder"
+        >
+          <Ionicons name="image-outline" size={32} color={colors.mutedForeground} />
         </View>
       ) : (
-        <Image {...imageProps} source={imageSource} style={styles.listImage} />
+        <Image
+          {...imageProps}
+          source={imageSource}
+          style={styles.listImage}
+          testID="list-product-image"
+        />
       )}
       <View style={styles.listContent}>
         <View style={styles.ratingRowMini}>
@@ -53,12 +62,12 @@ export default function ListProductCard({
                 star <= Math.floor(product.rating || 0) ? 'star' : 'star-outline'
               }
               size={10}
-              color="#F59E0B"
+              color={BRAND.secondary}
             />
           ))}
         </View>
 
-        <Text style={[styles.listName, { color: '#111827' }]} numberOfLines={1}>
+        <Text style={[styles.listName, { color: colors.text }]} numberOfLines={1}>
           {product.name}
         </Text>
 
@@ -80,7 +89,7 @@ export default function ListProductCard({
             accessibilityRole="button"
           >
             <View style={{ position: 'relative' }}>
-              <Ionicons name="cart" size={16} color="#FFF" />
+              <Ionicons name="cart" size={16} color={colors.primaryForeground} />
               {cartItemCount > 0 && (
                 <View style={styles.listBadge}>
                   <Text style={styles.badgeTextMini}>{cartItemCount}</Text>
@@ -106,7 +115,7 @@ export default function ListProductCard({
         <Ionicons
           name={isSaved ? 'heart' : 'heart-outline'}
           size={18}
-          color={isSaved ? '#EF4444' : '#9CA3AF'}
+          color={isSaved ? colors.secondary : colors.mutedForeground}
         />
       </Pressable>
     </AnimatedPressable>

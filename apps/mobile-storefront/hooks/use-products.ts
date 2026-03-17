@@ -73,14 +73,3 @@ export function usePrefetchProducts() {
     });
   };
 }
-
-export type {
-  Category,
-  ProductsPage,
-  UseProductsOptions,
-} from '@/hooks/product-utils';
-export { useCategories } from '@/hooks/use-categories';
-export { useMerchant } from '@/hooks/use-merchant';
-export type { Merchant } from '@/hooks/use-merchant';
-export { usePageConfig } from '@/hooks/use-page-config';
-export { usePrefetchProduct, useProduct } from '@/hooks/use-product';

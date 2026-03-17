@@ -1,7 +1,7 @@
 import type React from 'react';
 import { View } from 'react-native';
 import { HeroSkeleton } from '@/components/ui/Skeleton';
-import { useCategories } from '@/hooks/use-products';
+import { useCategories } from '@/hooks';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 import type { Block, HeroCarouselBlock, ProductGridBlock } from '@/types/blocks';

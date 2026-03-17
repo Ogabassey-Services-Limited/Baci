@@ -45,7 +45,7 @@ import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useEffectivePrice } from '@/hooks/use-effective-price';
 import { useHaptics } from '@/hooks/use-haptics';
 import { useNetworkState } from '@/hooks/use-network-state';
-import { useProduct } from '@/hooks/use-products';
+import { useProduct } from '@/hooks';
 import { markReviewHelpful, useReviews } from '@/hooks/use-reviews';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';

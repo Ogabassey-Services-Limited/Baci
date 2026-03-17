@@ -5,11 +5,12 @@ import { SafeImage } from '@/components/ui/SafeImage';
 import Colors, { BRAND } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 import type { CartItem } from '@/stores/cart-store';
+import AssuranceToggle from './AssuranceToggle';
 import CartQuantityInput from './CartQuantityInput';
+import NegotiationButton from './NegotiationButton';
 import styles from './styles';
 
 const DEFAULT_ASSURANCE_RATE = 0.05;
-const DEFAULT_ASSURANCE_PERCENT_LABEL = `${Math.round(DEFAULT_ASSURANCE_RATE * 100)}%`;
 
 interface CartItemCardProps {
   item: CartItem;
@@ -230,76 +231,20 @@ export default function CartItemCard({
       <View style={[styles.solidSeparator, { backgroundColor: colors.border }]} />
 
       <View style={styles.bottomRow}>
-        <Pressable
-          style={styles.assuranceContainer}
-          onPress={() => toggleAssurance(item.id)}
-          accessibilityRole="switch"
-          accessibilityState={{ checked: !!item.hasAssurance }}
-          accessibilityLabel={`Toggle Ogabassey Assurance for ${item.name}`}
-        >
-          <View
-            style={[
-              styles.toggle,
-              {
-                backgroundColor: item.hasAssurance
-                  ? BRAND.primary
-                  : colors.border,
-              },
-            ]}
-          >
-            <View
-              style={[
-                styles.toggleKnob,
-                item.hasAssurance && styles.toggleKnobActive,
-                { backgroundColor: colors.cardForeground },
-              ]}
-            />
-          </View>
-          <View style={styles.assuranceInfo}>
-            <View style={styles.assuranceHeader}>
-              <Ionicons name="shield-checkmark" size={12} color={BRAND.primary} />
-              <Text style={[styles.assuranceTitle, { color: colors.text }]}>
-                Ogabassey Assurance
-              </Text>
-            </View>
-            <Text style={[styles.assuranceDesc, { color: colors.textSecondary }]}>
-              {item.hasAssurance
-                ? `Screen & Liquid Damage +${formatPrice(assuranceCost)}`
-                : `Device Protection (+${DEFAULT_ASSURANCE_PERCENT_LABEL})`}
-            </Text>
-          </View>
-        </Pressable>
-
-        {item.negotiationStatus === 'accepted' ? (
-          <View
-            style={[
-              styles.negotiatedBadge,
-              {
-                backgroundColor: colors.background,
-                borderColor: colors.success,
-              },
-            ]}
-          >
-            <Ionicons name="checkmark" size={12} color={colors.success} />
-            <Text style={[styles.negotiatedBadgeText, { color: colors.success }]}>
-              Matched
-            </Text>
-          </View>
-        ) : (
-          <Pressable
-            style={[
-              styles.negotiateButton,
-              {
-                backgroundColor: negotiateSurface,
-                borderColor: negotiateBorder,
-              },
-            ]}
-            onPress={() => openItemNegotiation(item)}
-          >
-            <Ionicons name="pricetag-outline" size={14} color={BRAND.primary} />
-            <Text style={styles.negotiateButtonText}>Negotiate</Text>
-          </Pressable>
-        )}
+        <AssuranceToggle
+          item={item}
+          assuranceCost={assuranceCost}
+          toggleAssurance={toggleAssurance}
+          formatPrice={formatPrice}
+          colors={colors}
+        />
+        <NegotiationButton
+          item={item}
+          openItemNegotiation={openItemNegotiation}
+          colors={colors}
+          negotiateSurface={negotiateSurface}
+          negotiateBorder={negotiateBorder}
+        />
       </View>
     </View>
   );

@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { useCategories, useProducts } from '@/hooks/use-products';
+import { useCategories, useProducts } from '@/hooks';
 import type { Product } from '@/types/product';
 
 export default function CategoryScreen() {
