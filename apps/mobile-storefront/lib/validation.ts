@@ -411,6 +411,16 @@ export const OrderRowSchema = z.object({
 
 export type OrderRow = z.infer<typeof OrderRowSchema>;
 
+const VariantAttributeEntrySchema = z.object({
+  param: z.string(),
+  options: z.array(z.string()),
+});
+
+const VariantAttributeRecordSchema = z.record(
+  z.string(),
+  z.union([z.array(z.string()), z.string(), z.null()])
+);
+
 // Product row from Supabase query
 export const ProductRowSchema = z.object({
   id: z.string().uuid(),
@@ -428,7 +438,7 @@ export const ProductRowSchema = z.object({
   specifications: z.record(z.string(), z.string()).nullable().optional(),
   has_variants: z.boolean().nullable().optional(),
   variant_attributes: z
-    .array(z.object({ param: z.string(), options: z.array(z.string()) }))
+    .union([z.array(VariantAttributeEntrySchema), VariantAttributeRecordSchema])
     .nullable()
     .optional(),
   categories: z

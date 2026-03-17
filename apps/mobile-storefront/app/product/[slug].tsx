@@ -176,6 +176,17 @@ export default function ProductDetailScreen() {
     setLocalQty(quantityInCart.toString());
   }, [quantityInCart]);
 
+  useEffect(() => {
+    if (
+      isValidSlug &&
+      typeof slug === 'string' &&
+      product?.slug &&
+      product.slug !== slug
+    ) {
+      router.replace(`/product/${product.slug}`);
+    }
+  }, [isValidSlug, product?.slug, slug]);
+
   const handleLocalQtyChange = (text: string) => {
     // Only allow numeric input
     const cleanText = text.replace(/[^0-9]/g, '');

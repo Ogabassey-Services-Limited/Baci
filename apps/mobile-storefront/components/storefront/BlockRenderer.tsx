@@ -1,6 +1,7 @@
 import { prioritizeSmartphoneProducts } from '@baci/shared';
+import { useIsFocused } from '@react-navigation/native';
 import type React from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { HeroSkeleton, ProductGridSkeleton } from '@/components/ui/Skeleton';
 import { SPACING, TYPOGRAPHY } from '@/constants/Colors';
@@ -77,8 +78,10 @@ const ProductGrid = ({
   const fetchLimit = shouldPrioritizeSmartphones
     ? displayLimit * 4
     : displayLimit;
+  const isFocused = useIsFocused();
+  const hasFocusedOnceRef = useRef(false);
 
-  const { products, isLoading, isFetching } = useProducts({
+  const { products, isLoading, isFetching, refetch } = useProducts({
     limit: fetchLimit,
     category: normalizedCategoryId,
     minPrice: minPrice > 0 ? minPrice : undefined,
@@ -86,6 +89,19 @@ const ProductGrid = ({
     brand: selectedBrand !== 'All' ? selectedBrand : undefined,
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
   });
+
+  useEffect(() => {
+    if (!isFocused) {
+      return;
+    }
+
+    if (!hasFocusedOnceRef.current) {
+      hasFocusedOnceRef.current = true;
+      return;
+    }
+
+    void refetch();
+  }, [isFocused, refetch]);
 
   // Derive categories and brands from data
   const categoryNames = (() => {

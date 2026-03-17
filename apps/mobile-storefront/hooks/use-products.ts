@@ -18,6 +18,13 @@ import {
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
+import {
+  getPrimaryProductImage,
+  normalizeProductImages,
+  normalizeVariantAttributes,
+} from '@/lib/product-normalization';
+import { removeProductSlugFromProductsCache } from '@/lib/product-query-cache';
+import { getProductSlugFallbackCandidates } from '@/lib/product-slug-fallback';
 import { supabase } from '@/lib/supabase';
 import { ProductRowSchema } from '@/lib/validation';
 import type { PageConfig } from '@/types/blocks';
@@ -57,16 +64,64 @@ interface ProductsPage {
   total: number;
 }
 
-/** Convert [{param, options}] array to Record<string, string[]> for UI consumption */
-function normalizeVariantAttributes(
-  attrs: { param: string; options: string[] }[] | null | undefined
-): Record<string, string[]> | undefined {
-  if (!attrs || !Array.isArray(attrs)) return undefined;
-  const record: Record<string, string[]> = {};
-  for (const { param, options } of attrs) {
-    record[param] = options;
+const PRODUCT_SELECT = `
+  id, name, slug, description, price, compare_at_price,
+  images, brand, condition, specifications,
+  has_variants, variant_attributes, manage_stock, stock_quantity,
+  categories (id, name, slug)
+`;
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+async function fetchProductRow(
+  merchantId: string,
+  identifier: string,
+  context: string
+) {
+  let supabaseQuery = supabase
+    .from('products')
+    .select(PRODUCT_SELECT)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active');
+
+  if (isUuid(identifier)) {
+    supabaseQuery = supabaseQuery.eq('id', identifier);
+  } else {
+    supabaseQuery = supabaseQuery.eq('slug', identifier);
   }
-  return Object.keys(record).length > 0 ? record : undefined;
+
+  return withSupabaseRetry(async () => await supabaseQuery.maybeSingle(), {
+    maxRetries: 3,
+    onRetry: (attempt, err) => {
+      log.warn(`${context} retry ${attempt}: ${err.message}`);
+    },
+  });
+}
+
+async function resolveProductRow(merchantId: string, slug: string) {
+  const exact = await fetchProductRow(merchantId, slug, 'Product');
+  if (exact.error) throw exact.error;
+  if (exact.data) return exact.data;
+  if (isUuid(slug)) return null;
+
+  for (const fallbackSlug of getProductSlugFallbackCandidates(slug)) {
+    const fallback = await fetchProductRow(
+      merchantId,
+      fallbackSlug,
+      'Product fallback'
+    );
+    if (fallback.error) throw fallback.error;
+    if (fallback.data) {
+      log.warn(`Resolved legacy product slug "${slug}" to "${fallbackSlug}"`);
+      return fallback.data;
+    }
+  }
+
+  return null;
 }
 
 // 2026 Best Practice: Transform database product to app Product type with validation
@@ -76,6 +131,7 @@ function transformProduct(item: unknown): Product {
   const product = validated.success
     ? validated.data
     : (item as Record<string, unknown>);
+  const images = normalizeProductImages(product.images);
 
   return {
     id: String(product.id ?? ''),
@@ -84,8 +140,8 @@ function transformProduct(item: unknown): Product {
     description: product.description as string | undefined,
     price: Number(product.price ?? 0),
     compare_at_price: product.compare_at_price as number | undefined,
-    image: Array.isArray(product.images) ? (product.images[0] ?? '') : '',
-    images: Array.isArray(product.images) ? product.images : [],
+    image: getPrimaryProductImage(product.images),
+    images,
     brand: product.brand as string | undefined,
     category: Array.isArray(product.categories)
       ? product.categories.length > 0
@@ -320,6 +376,7 @@ export function useProducts(options: UseProductsOptions = {}) {
     getNextPageParam: (lastPage) => lastPage.nextOffset,
     initialPageParam: 0,
     staleTime: 1000 * 60 * 2, // 2 minutes
+    refetchOnMount: 'always', // Revalidate hydrated catalog pages so deleted products disappear quickly
     placeholderData: keepPreviousData, // 2026 Best Practice: Keep previous data while fetching new category
     enabled: !!merchantId && options.enabled !== false,
   });
@@ -356,44 +413,16 @@ export function useProduct(slug: string) {
     queryKey: ['product', slug, merchantId],
     queryFn: async () => {
       log.info('Fetching product:', slug);
-
-      // Determine if slug is actually an ID (UUID)
-      const isUuid =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          slug
+      const data = await resolveProductRow(merchantId, slug);
+      if (!data) {
+        queryClient.setQueriesData(
+          { queryKey: ['products', merchantId], exact: false },
+          (cached) => removeProductSlugFromProductsCache(cached, slug)
         );
-
-      let supabaseQuery = supabase
-        .from('products')
-        .select(
-          `
-          id, name, slug, description, price, compare_at_price,
-          images, brand, condition, specifications,
-          has_variants, variant_attributes, manage_stock, stock_quantity,
-          categories (id, name, slug)
-        `
-        )
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active');
-
-      if (isUuid) {
-        supabaseQuery = supabaseQuery.eq('id', slug);
-      } else {
-        supabaseQuery = supabaseQuery.eq('slug', slug);
+        throw new Error(
+          'This product is no longer available. Refresh the app to remove outdated product cards.'
+        );
       }
-
-      const { data, error } = await withSupabaseRetry(
-        async () => await supabaseQuery.single(),
-        {
-          maxRetries: 3,
-          onRetry: (attempt, err) => {
-            log.warn(`Product retry ${attempt}: ${err.message}`);
-          },
-        }
-      );
-
-      if (error) throw error;
-      if (!data) throw new Error('Product not found');
 
       // 2026 Best Practice: Validate data at the edge
       const validated = ProductRowSchema.safeParse(data);
@@ -417,6 +446,7 @@ export function useProduct(slug: string) {
     },
     enabled: !!slug && !!merchantId,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnMount: 'always', // Revalidate hydrated detail pages to catch deletions/slug remaps immediately
     initialData: () => {
       const productsCache = queryClient.getQueryData<{ pages: ProductsPage[] }>(
         ['products', merchantId, {}] // Use correct query key with merchantId
@@ -471,42 +501,16 @@ export function usePrefetchProduct() {
     queryClient.prefetchQuery({
       queryKey: ['product', slug, merchantId],
       queryFn: async () => {
-        // Determine if slug is actually an ID (UUID)
-        const isUuid =
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-            slug
+        const data = await resolveProductRow(merchantId, slug);
+        if (!data) {
+          queryClient.setQueriesData(
+            { queryKey: ['products', merchantId], exact: false },
+            (cached) => removeProductSlugFromProductsCache(cached, slug)
           );
-
-        let supabaseQuery = supabase
-          .from('products')
-          .select(
-            `
-            id, name, slug, description, price, compare_at_price,
-            images, brand, condition, specifications,
-            has_variants, variant_attributes, manage_stock, stock_quantity,
-            categories (id, name, slug)
-          `
-          )
-          .eq('merchant_id', merchantId)
-          .eq('status', 'active');
-
-        if (isUuid) {
-          supabaseQuery = supabaseQuery.eq('id', slug);
-        } else {
-          supabaseQuery = supabaseQuery.eq('slug', slug);
+          throw new Error(
+            'This product is no longer available. Refresh the app to remove outdated product cards.'
+          );
         }
-
-        const { data, error } = await withSupabaseRetry(
-          async () => await supabaseQuery.single(),
-          {
-            maxRetries: 3,
-            onRetry: (attempt, err) => {
-              log.warn(`Prefetch product retry ${attempt}: ${err.message}`);
-            },
-          }
-        );
-
-        if (error) throw error;
 
         // 2026 Best Practice: Validate data at the edge
         const validated = ProductRowSchema.safeParse(data);
