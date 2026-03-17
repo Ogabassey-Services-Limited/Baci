@@ -4,6 +4,7 @@ import { Check, Info, Minus, Plus } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Breadcrumbs } from '@/components/storefront/breadcrumbs';
 import { StickyAddToCart } from '@/components/storefront/sticky-add-to-cart';
@@ -11,14 +12,17 @@ import { ThemedBadge, ThemedButton } from '@/components/themed';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SafeHtml } from '@/components/ui/safe-html';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/hooks/use-cart';
 import { useCurrency } from '@/hooks/use-currency';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useRecentlyViewed } from '@/hooks/use-recently-viewed';
 import { useToast } from '@/hooks/use-toast';
+import { getLocaleForCountry } from '@/lib/currency-utils';
 import { trackEvent } from '@/lib/event-tracking';
 import type { Product, ProductVariant } from '@/lib/products';
+import { getRenderableProductDescription } from '@/lib/renderable-product-description';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import type { FAQItem } from '@/types/faq';
@@ -35,27 +39,6 @@ const ReviewsSection = dynamic(
     ),
   {
     loading: () => <Skeleton className="h-[400px] w-full rounded-xl" />,
-  }
-);
-
-// Koray-aligned semantic product sections
-const BrandProducts = dynamic(
-  () =>
-    import('@/components/storefront/brand-products').then(
-      (mod) => mod.BrandProducts
-    ),
-  {
-    loading: () => <Skeleton className="h-[300px] w-full rounded-xl" />,
-  }
-);
-
-const PriceRangeProducts = dynamic(
-  () =>
-    import('@/components/storefront/price-range-products').then(
-      (mod) => mod.PriceRangeProducts
-    ),
-  {
-    loading: () => <Skeleton className="h-[300px] w-full rounded-xl" />,
   }
 );
 
@@ -108,10 +91,12 @@ function isVariantAvailable(
 }
 
 export default function ProductDetailClient({
+  children,
   product,
   // biome-ignore lint/correctness/noUnusedFunctionParameters: Reserved for future FAQ section implementation
   faqs,
 }: {
+  children?: ReactNode;
   product: Product;
   faqs?: FAQItem[];
 }) {
@@ -135,7 +120,7 @@ export default function ProductDetailClient({
     Record<string, string>
   >({});
 
-  // Initialize variant selection - use product.id to prevent re-running on reference changes
+  // Initialize variant selection — pre-select from ?variant= URL param if present
   // biome-ignore lint/correctness/useExhaustiveDependencies: Intentionally using product.id only to prevent re-initialization on object reference changes
   useEffect(() => {
     if (
@@ -143,11 +128,20 @@ export default function ProductDetailClient({
       product.variants &&
       product.variants.length > 0
     ) {
-      const firstVariant = product.variants[0];
-      setSelectedVariant(firstVariant);
-      setSelectedAttributes(firstVariant.attributes);
-      if (firstVariant.primary_image) {
-        setSelectedImage(firstVariant.primary_image);
+      // Check for ?variant=UUID deep link (from GMC feed)
+      const urlParams = new URLSearchParams(window.location.search);
+      const variantIdFromUrl = urlParams.get('variant');
+
+      let targetVariant = product.variants[0];
+      if (variantIdFromUrl) {
+        const match = product.variants.find((v) => v.id === variantIdFromUrl);
+        if (match) targetVariant = match;
+      }
+
+      setSelectedVariant(targetVariant);
+      setSelectedAttributes(targetVariant.attributes);
+      if (targetVariant.primary_image) {
+        setSelectedImage(targetVariant.primary_image);
       }
     }
   }, [product?.id]);
@@ -181,6 +175,12 @@ export default function ProductDetailClient({
   const currentPrice = selectedVariant?.price_override ?? product.price;
   const currentStock = selectedVariant?.stock_quantity ?? product.stock;
   const isOutOfStock = product.manage_stock && currentStock === 0;
+  const renderedDescription = getRenderableProductDescription({
+    description: product.description,
+    price: currentPrice,
+    currency: currencyCode,
+    locale: getLocaleForCountry(merchant?.country || null),
+  });
 
   const handleAttributeChange = (attributeKey: string, value: string) => {
     const newAttributes = { ...selectedAttributes, [attributeKey]: value };
@@ -391,7 +391,7 @@ export default function ProductDetailClient({
               </div>
 
               <div className="prose prose-sm text-muted-foreground text-lg leading-relaxed">
-                <p>{product.description}</p>
+                <SafeHtml html={renderedDescription.html} />
                 {product.condition && product.condition !== 'new' && (
                   <p className="mt-2 text-sm">
                     <strong>Condition:</strong>{' '}
@@ -621,19 +621,9 @@ export default function ProductDetailClient({
             className="mt-8 border-t pt-8 max-w-4xl mx-auto"
           />
 
-          {/* Koray-aligned semantic sections: Same brand, same category */}
-          <BrandProducts
-            product={product}
-            maxProducts={4}
-            className="mt-8 border-t"
-          />
-
-          {/* Koray-aligned semantic sections: Same category, similar price */}
-          <PriceRangeProducts
-            product={product}
-            maxProducts={4}
-            className="border-t"
-          />
+          {children ? (
+            <div className="mt-8 border-t pt-8">{children}</div>
+          ) : null}
 
           {/* Recently Viewed Products - User convenience only, no SEO value */}
           <div data-nosnippet>

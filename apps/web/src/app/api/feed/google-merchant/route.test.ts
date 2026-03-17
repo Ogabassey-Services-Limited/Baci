@@ -28,6 +28,7 @@ type MerchantRecord = {
   country: string;
   payout_currency: string;
   slug: string;
+  gmc_variants_enabled?: boolean;
 };
 
 type ProductRecord = {
@@ -44,9 +45,12 @@ let merchantResult: { data: MerchantRecord | null; error: unknown };
 let domainResult: { data: { domain: string } | null; error: unknown };
 let productsResult: { data: ProductRecord[]; error: unknown };
 let manifestResult: { data: Record<string, unknown>[]; error: unknown };
+let variantRpcResult: { data: unknown[] | null; error: unknown };
+let specsResult: { data: unknown[] | null; error: unknown };
 
 function createMockSupabase() {
   return {
+    rpc: () => Promise.resolve(variantRpcResult),
     from: (table: string) => {
       if (table === 'merchants') {
         return {
@@ -92,6 +96,14 @@ function createMockSupabase() {
             eq: () => ({
               eq: () => Promise.resolve(manifestResult),
             }),
+          }),
+        };
+      }
+
+      if (table === 'product_key_specs') {
+        return {
+          select: () => ({
+            in: () => Promise.resolve(specsResult),
           }),
         };
       }
@@ -150,6 +162,8 @@ beforeEach(() => {
     ],
     error: null,
   };
+  variantRpcResult = { data: [], error: null };
+  specsResult = { data: [], error: null };
   mockCreateClient.mockReturnValue(createMockSupabase());
   mockGenerateGoogleMerchantFeed.mockReturnValue('<rss />');
 });
@@ -295,5 +309,55 @@ describe('GET /api/feed/google-merchant', () => {
       'https://ogabassey.com',
       expect.any(Object)
     );
+  });
+
+  it('returns 500 when variant RPC fails with gmc_variants_enabled', async () => {
+    merchantResult = {
+      data: {
+        id: 'merchant-1',
+        business_name: 'Ogabassey',
+        country: 'NG',
+        payout_currency: 'NGN',
+        slug: 'ogabassey',
+        gmc_variants_enabled: true,
+      },
+      error: null,
+    };
+    variantRpcResult = { data: null, error: { message: 'rpc failed' } };
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey')
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to generate feed');
+    expect(mockGenerateGoogleMerchantFeed).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when key_specs query fails with gmc_variants_enabled', async () => {
+    merchantResult = {
+      data: {
+        id: 'merchant-1',
+        business_name: 'Ogabassey',
+        country: 'NG',
+        payout_currency: 'NGN',
+        slug: 'ogabassey',
+        gmc_variants_enabled: true,
+      },
+      error: null,
+    };
+    specsResult = { data: null, error: { message: 'specs query failed' } };
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey')
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to generate feed');
+    expect(mockGenerateGoogleMerchantFeed).not.toHaveBeenCalled();
   });
 });
