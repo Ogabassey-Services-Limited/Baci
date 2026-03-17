@@ -52,7 +52,6 @@ export function useProductDetailsState(serverProduct: Product) {
   const [selectedCondition, setSelectedCondition] = useState<ConditionType>(
     productData.condition || 'new'
   );
-  const [selectedImage, setSelectedImage] = useState(0);
   // Pre-select variant from ?variant= URL param (for GMC feed deep links)
   const variantIdFromUrl = searchParams.get('variant');
   const matchedVariant = variantIdFromUrl && serverProduct.variants?.length
@@ -70,8 +69,22 @@ export function useProductDetailsState(serverProduct: Product) {
     return idx >= 0 ? idx : null;
   })();
 
+  // Pre-select the image that corresponds to the initially selected color
+  const initialImageIndex = (() => {
+    if (initialColorIndex === null) return 0;
+    const colorName = productData.colors[initialColorIndex]?.name;
+    const colorImage = colorName ? productData.colorImages[colorName]?.[0] : undefined;
+    if (colorImage) {
+      const idx = productData.images.findIndex((image) => image === colorImage);
+      return idx >= 0 ? idx : 0;
+    }
+    return initialColorIndex < productData.images.length ? initialColorIndex : 0;
+  })();
+
+  const [selectedImage, setSelectedImage] = useState(initialImageIndex);
   const [selectedColor, setSelectedColor] = useState<number | null>(initialColorIndex);
   const [secondaryColor, setSecondaryColor] = useState<number | null>(null);
+
 
   const [selectedAttributes, setSelectedAttributes] = useState<
     Record<string, string>

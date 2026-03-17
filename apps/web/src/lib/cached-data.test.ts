@@ -39,34 +39,6 @@ let mockSelect: ReturnType<typeof vi.fn>;
 let mockFrom: ReturnType<typeof vi.fn>;
 let mockCreateClient: (...args: unknown[]) => unknown;
 
-function _getProductVariantsSelect(selectArg: unknown): string {
-  const selectText = String(selectArg);
-  const relationStart = selectText.indexOf('product_variants');
-  if (relationStart === -1) {
-    return '';
-  }
-
-  const openParenIndex = selectText.indexOf('(', relationStart);
-  if (openParenIndex === -1) {
-    return '';
-  }
-
-  let depth = 1;
-  for (let index = openParenIndex + 1; index < selectText.length; index += 1) {
-    const char = selectText[index];
-    if (char === '(') {
-      depth += 1;
-    } else if (char === ')') {
-      depth -= 1;
-      if (depth === 0) {
-        return selectText.slice(openParenIndex + 1, index);
-      }
-    }
-  }
-
-  return '';
-}
-
 vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => {
     // This will be reassigned in beforeEach, but we need a default for hoisting

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Next.js shims
@@ -236,6 +236,18 @@ function buildProduct(overrides: Partial<Product> = {}): Product {
 describe('ProductDetailClient', () => {
   beforeEach(() => {
     window.scrollTo = vi.fn();
+  });
+
+  afterEach(() => {
+    // Restore window.location after tests that override it with URL params
+    Object.defineProperty(window, 'location', {
+      writable: true,
+      value: {
+        ...window.location,
+        search: '',
+        href: 'http://localhost/',
+      },
+    });
   });
 
   it('returns null for archived products', () => {
