@@ -184,6 +184,8 @@ export default function CartItemCard({
             style={styles.quantityButton}
             onPress={() => handleQuantityChange(item, -1)}
             disabled={item.quantity <= 1}
+            accessibilityRole="button"
+            accessibilityLabel={`Decrease quantity for ${item.name}`}
           >
             <Ionicons
               name="remove"
@@ -201,6 +203,8 @@ export default function CartItemCard({
           <Pressable
             style={styles.quantityButton}
             onPress={() => handleQuantityChange(item, 1)}
+            accessibilityRole="button"
+            accessibilityLabel={`Increase quantity for ${item.name}`}
           >
             <Ionicons name="add" size={16} color={colors.textSecondary} />
           </Pressable>

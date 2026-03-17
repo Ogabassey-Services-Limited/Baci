@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Modal,
@@ -59,6 +60,7 @@ export default function CartScreen() {
   const [showNegotiateWarning, setShowNegotiateWarning] = useState(false);
   const [pendingNegotiateItem, setPendingNegotiateItem] =
     useState<CartItem | null>(null);
+  const [isRetryingCartLoad, setIsRetryingCartLoad] = useState(false);
   const pendingOperations = useRef<Set<string>>(new Set());
 
   const cartStore = useCartStore(
@@ -325,17 +327,39 @@ export default function CartScreen() {
           </Text>
           <Pressable
             style={[styles.shopButton, { backgroundColor: colors.text }]}
+            disabled={isRetryingCartLoad}
+            accessibilityState={{ disabled: isRetryingCartLoad, busy: isRetryingCartLoad }}
             onPress={() => {
+              setIsRetryingCartLoad(true);
               const rehydrateResult = useCartStore.persist.rehydrate();
-              void Promise.resolve(rehydrateResult).finally(() => {
-                router.replace('/cart');
-              });
+              void Promise.resolve(rehydrateResult)
+                .catch((error) => {
+                  console.error('[CartScreen] Failed to rehydrate cart store', error);
+                })
+                .finally(() => {
+                  setIsRetryingCartLoad(false);
+                  router.replace('/cart');
+                });
             }}
           >
-            <Text style={[styles.shopButtonText, { color: colors.background }]}>
-              Retry
-            </Text>
-            <Ionicons name="refresh" size={18} color={colors.background} />
+            {isRetryingCartLoad ? (
+              <>
+                <Text style={[styles.shopButtonText, { color: colors.background }]}>
+                  Retrying...
+                </Text>
+                <ActivityIndicator
+                  size="small"
+                  color={colors.background}
+                />
+              </>
+            ) : (
+              <>
+                <Text style={[styles.shopButtonText, { color: colors.background }]}>
+                  Retry
+                </Text>
+                <Ionicons name="refresh" size={18} color={colors.background} />
+              </>
+            )}
           </Pressable>
         </View>
       </View>

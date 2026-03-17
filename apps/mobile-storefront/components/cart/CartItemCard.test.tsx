@@ -1,0 +1,182 @@
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { ComponentProps } from 'react';
+import Colors from '@/constants/Colors';
+import type { CartItem } from '@/stores/cart-store';
+import CartItemCard from './CartItemCard';
+
+const mockPush = jest.fn();
+
+jest.mock('expo-router', () => ({
+  router: {
+    push: (...args: unknown[]) => mockPush(...args),
+  },
+}));
+
+jest.mock('@/components/ui/SafeImage', () => ({
+  SafeImage: function MockSafeImage() {
+    return null;
+  },
+}));
+
+function createItem(overrides: Partial<CartItem> = {}): CartItem {
+  return {
+    id: 'cart-1',
+    product_id: 'product-1',
+    slug: 'iphone-13-pro-128gb',
+    name: 'iPhone 13 Pro',
+    price: 1000,
+    quantity: 2,
+    image_url: 'https://cdn.example.com/iphone-13-pro.jpg',
+    condition: 'NEW',
+    hasAssurance: false,
+    assuranceRate: 0.05,
+    ...overrides,
+  };
+}
+
+const formatPrice = (amount: number) =>
+  `₦${new Intl.NumberFormat('en-NG').format(amount)}`;
+
+function renderCard(
+  item: CartItem,
+  overrides: Partial<ComponentProps<typeof CartItemCard>> = {}
+) {
+  const defaultProps: ComponentProps<typeof CartItemCard> = {
+    item,
+    handleQuantityChange: jest.fn(),
+    handleRemoveItem: jest.fn(),
+    toggleAssurance: jest.fn(),
+    openItemNegotiation: jest.fn(),
+    updateQuantity: jest.fn(),
+    formatPrice,
+    colors: Colors.light,
+    surfaceInset: '#F8FAFC',
+    disabledIconColor: '#94A3B8',
+    negotiateSurface: '#FFFFFF',
+    negotiateBorder: '#FECACA',
+  };
+
+  return render(<CartItemCard {...defaultProps} {...overrides} />);
+}
+
+describe('CartItemCard', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('renders condition badges for new and used items and navigates when image is pressed', () => {
+    const item = createItem({ condition: 'NEW' });
+    const { rerender } = renderCard(item);
+
+    expect(screen.getByText('NEW')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Open product: iPhone 13 Pro'));
+    expect(mockPush).toHaveBeenCalledWith('/product/iphone-13-pro-128gb');
+
+    const usedItem = createItem({ condition: 'USED', id: 'cart-2' });
+    rerender(
+      <CartItemCard
+        item={usedItem}
+        handleQuantityChange={jest.fn()}
+        handleRemoveItem={jest.fn()}
+        toggleAssurance={jest.fn()}
+        openItemNegotiation={jest.fn()}
+        updateQuantity={jest.fn()}
+        formatPrice={formatPrice}
+        colors={Colors.light}
+        surfaceInset="#F8FAFC"
+        disabledIconColor="#94A3B8"
+        negotiateSurface="#FFFFFF"
+        negotiateBorder="#FECACA"
+      />
+    );
+
+    expect(screen.getByText('USED')).toBeTruthy();
+  });
+
+  it('shows negotiated totals when negotiated price is present', () => {
+    const item = createItem({ negotiatedPrice: 800 });
+
+    renderCard(item);
+
+    expect(screen.getByText(formatPrice(item.price * item.quantity))).toBeTruthy();
+    expect(screen.getByText(formatPrice(800 * item.quantity))).toBeTruthy();
+  });
+
+  it('wires quantity controls and quantity input updates', () => {
+    const item = createItem();
+    const handleQuantityChange = jest.fn();
+    const updateQuantity = jest.fn();
+
+    renderCard(item, { handleQuantityChange, updateQuantity });
+
+    fireEvent.press(screen.getByLabelText('Decrease quantity for iPhone 13 Pro'));
+    fireEvent.press(screen.getByLabelText('Increase quantity for iPhone 13 Pro'));
+    expect(handleQuantityChange).toHaveBeenNthCalledWith(1, item, -1);
+    expect(handleQuantityChange).toHaveBeenNthCalledWith(2, item, 1);
+
+    const quantityInput = screen.getByLabelText('Quantity input');
+    fireEvent.changeText(quantityInput, '4');
+    fireEvent(quantityInput, 'blur');
+    expect(updateQuantity).toHaveBeenCalledWith(item.id, 4);
+  });
+
+  it('calls handleRemoveItem when remove button is pressed', () => {
+    const item = createItem();
+    const handleRemoveItem = jest.fn();
+
+    renderCard(item, { handleRemoveItem });
+
+    fireEvent.press(screen.getByLabelText('Remove iPhone 13 Pro from cart'));
+    expect(handleRemoveItem).toHaveBeenCalledWith(item);
+  });
+
+  it('renders assurance pricing and toggles assurance state', () => {
+    const item = createItem({
+      hasAssurance: true,
+      assuranceRate: 0.1,
+      price: 2000,
+      quantity: 2,
+    });
+    const toggleAssurance = jest.fn();
+
+    renderCard(item, { toggleAssurance });
+
+    expect(screen.getByText(`Screen & Liquid Damage +${formatPrice(400)}`)).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Toggle Ogabassey Assurance for iPhone 13 Pro'));
+    expect(toggleAssurance).toHaveBeenCalledWith(item.id);
+  });
+
+  it('shows matched badge for accepted negotiation, otherwise negotiate button', () => {
+    const acceptedItem = createItem({ negotiationStatus: 'accepted' });
+    const openItemNegotiation = jest.fn();
+    const { rerender } = renderCard(acceptedItem, { openItemNegotiation });
+
+    expect(screen.getByText('Matched')).toBeTruthy();
+    expect(screen.queryByText('Negotiate')).toBeNull();
+
+    const pendingItem = createItem({
+      negotiationStatus: undefined,
+      id: 'cart-3',
+      slug: 'iphone-13-pro-256gb',
+    });
+    rerender(
+      <CartItemCard
+        item={pendingItem}
+        handleQuantityChange={jest.fn()}
+        handleRemoveItem={jest.fn()}
+        toggleAssurance={jest.fn()}
+        openItemNegotiation={openItemNegotiation}
+        updateQuantity={jest.fn()}
+        formatPrice={formatPrice}
+        colors={Colors.light}
+        surfaceInset="#F8FAFC"
+        disabledIconColor="#94A3B8"
+        negotiateSurface="#FFFFFF"
+        negotiateBorder="#FECACA"
+      />
+    );
+
+    fireEvent.press(screen.getByText('Negotiate'));
+    expect(openItemNegotiation).toHaveBeenCalledWith(pendingItem);
+  });
+});

@@ -1,0 +1,215 @@
+import { z } from 'zod';
+import {
+  CalculateOrderInput,
+  CalculateVTUInput,
+  ImeiResultSchema,
+  QuantitySchema,
+  ReviewSchema,
+  ShippingAddressSchema,
+  getFirstError,
+  isValidIMEI,
+  validateWithSchema,
+} from './commerce-schemas';
+
+const validShippingAddress = {
+  email: 'customer@example.com',
+  firstName: 'Tolu',
+  lastName: 'Adebayo',
+  phone: '08012345678',
+  address: '42 Admiralty Way',
+  city: 'Lagos',
+  state: 'Lagos',
+};
+
+describe('ShippingAddressSchema', () => {
+  it('accepts valid shipping address input', () => {
+    expect(ShippingAddressSchema.safeParse(validShippingAddress).success).toBe(true);
+  });
+
+  it('rejects invalid values with useful messages', () => {
+    const result = ShippingAddressSchema.safeParse({
+      ...validShippingAddress,
+      firstName: 'T0lu',
+      city: 'L',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((issue) => issue.message);
+      expect(messages).toContain('First name cannot contain numbers');
+      expect(messages).toContain('City name must be at least 2 characters');
+    }
+  });
+});
+
+describe('QuantitySchema', () => {
+  it('accepts valid quantity values', () => {
+    expect(QuantitySchema.safeParse(1).success).toBe(true);
+    expect(QuantitySchema.safeParse(99).success).toBe(true);
+  });
+
+  it('rejects invalid quantity values', () => {
+    const tooLow = QuantitySchema.safeParse(0);
+    const tooHigh = QuantitySchema.safeParse(100);
+
+    expect(tooLow.success).toBe(false);
+    expect(tooHigh.success).toBe(false);
+    if (!tooLow.success) {
+      expect(tooLow.error.issues[0]?.message).toBe('Quantity must be at least 1');
+    }
+    if (!tooHigh.success) {
+      expect(tooHigh.error.issues[0]?.message).toBe('Maximum quantity is 99');
+    }
+  });
+});
+
+describe('isValidIMEI', () => {
+  it('returns true for valid 15-digit IMEIs', () => {
+    expect(isValidIMEI('490154203237518')).toBe(true);
+    expect(isValidIMEI('356938035643809')).toBe(true);
+  });
+
+  it('returns false for invalid length or checksum', () => {
+    expect(isValidIMEI('49015420323751')).toBe(false);
+    expect(isValidIMEI('490154203237519')).toBe(false);
+  });
+});
+
+describe('calculate schemas', () => {
+  it('validates CalculateOrderInput boundaries', () => {
+    expect(
+      CalculateOrderInput.safeParse({
+        subtotal: 1000,
+        shippingFee: 0,
+        taxRate: 0.075,
+        assuranceFee: 0,
+      }).success
+    ).toBe(true);
+
+    expect(CalculateOrderInput.safeParse({ subtotal: 0 }).success).toBe(false);
+    expect(
+      CalculateOrderInput.safeParse({ subtotal: 1000, taxRate: 1.5 }).success
+    ).toBe(false);
+  });
+
+  it('validates CalculateVTUInput boundaries', () => {
+    expect(
+      CalculateVTUInput.safeParse({
+        amount: 1000,
+        provider: 'mtn',
+        category: 'DATA',
+        merchantSplit: 30,
+      }).success
+    ).toBe(true);
+
+    expect(
+      CalculateVTUInput.safeParse({
+        amount: 1000,
+        provider: 'mtn',
+        merchantSplit: 120,
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe('ImeiResultSchema', () => {
+  const validImeiResult = {
+    imei: '490154203237518',
+    device: 'iPhone 13 Pro',
+    modelNumber: 'A2638',
+    status: 'Clean' as const,
+    icloud: 'Off',
+    icloudLock: 'Unlocked',
+    simLock: 'Unlocked',
+    blacklistStatus: 'Not Blacklisted',
+    carrier: 'Unlocked',
+    deviceImage: 'https://cdn.example.com/iphone13pro.jpg',
+    score: 94,
+    deviceType: 'apple' as const,
+    verdict: 'Safe to buy',
+    verdictType: 'safe' as const,
+  };
+
+  it('accepts valid payloads', () => {
+    expect(ImeiResultSchema.safeParse(validImeiResult).success).toBe(true);
+  });
+
+  it('rejects invalid payloads', () => {
+    expect(
+      ImeiResultSchema.safeParse({
+        ...validImeiResult,
+        status: 'UnknownStatus',
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe('ReviewSchema', () => {
+  it('accepts required and optional fields', () => {
+    expect(
+      ReviewSchema.safeParse({
+        id: 'review-1',
+        rating: 5,
+        customer_name: 'Ada',
+        verified_purchase: true,
+        created_at: '2026-03-17T00:00:00Z',
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects invalid ratings', () => {
+    expect(
+      ReviewSchema.safeParse({
+        id: 'review-1',
+        rating: 6,
+        customer_name: 'Ada',
+        verified_purchase: true,
+        created_at: '2026-03-17T00:00:00Z',
+      }).success
+    ).toBe(false);
+
+    expect(
+      ReviewSchema.safeParse({
+        id: 'review-2',
+        rating: 0,
+        customer_name: 'Ada',
+        verified_purchase: true,
+        created_at: '2026-03-17T00:00:00Z',
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe('validateWithSchema', () => {
+  it('returns success data for valid input', () => {
+    const result = validateWithSchema(ShippingAddressSchema, validShippingAddress);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.email).toBe('customer@example.com');
+    }
+  });
+
+  it('returns errors map for invalid input', () => {
+    const result = validateWithSchema(ShippingAddressSchema, {
+      ...validShippingAddress,
+      email: 'invalid-email',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.errors.email).toBe('Please enter a valid email address');
+    }
+  });
+});
+
+describe('getFirstError', () => {
+  it('returns null for successful parse result', () => {
+    const parseResult = z.string().safeParse('ok');
+    expect(getFirstError(parseResult)).toBeNull();
+  });
+
+  it('returns the first issue message for failed parse result', () => {
+    const parseResult = z.string().min(3, 'Too short').safeParse('ab');
+    expect(getFirstError(parseResult)).toBe('Too short');
+  });
+});

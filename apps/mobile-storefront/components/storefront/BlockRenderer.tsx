@@ -1,7 +1,11 @@
 import type React from 'react';
 import { View } from 'react-native';
 import { HeroSkeleton } from '@/components/ui/Skeleton';
-import { useCategories, useMerchant } from '@/hooks/use-products';
+import {
+  type MerchantHeroSlide,
+  useCategories,
+  useMerchant,
+} from '@/hooks/use-products';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 import type { Block, HeroCarouselBlock, ProductGridBlock } from '@/types/blocks';
@@ -20,6 +24,14 @@ interface BlockRendererProps {
   blocks: Block[];
   selectedCategoryId: string | null;
   onCategorySelect: (id: string | null) => void;
+}
+
+function resolveHeroCtaLink(slide: MerchantHeroSlide): HeroSlide['ctaLink'] {
+  const rawLink = slide.link || slide.ctaLink || '/category/all';
+  if (typeof rawLink === 'string' && rawLink.startsWith('/')) {
+    return rawLink;
+  }
+  return '/category/all';
 }
 
 export const BlockRenderer: React.FC<BlockRendererProps> = ({
@@ -59,12 +71,12 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
 
             const slides =
               mobileSlides && mobileSlides.length > 0
-                ? mobileSlides.map((slide: Record<string, string>) => ({
+                ? mobileSlides.map((slide: MerchantHeroSlide): HeroSlide => ({
                     title: slide.headline || slide.title || '',
                     subtitle: slide.description || slide.subtitle || '',
                     image: slide.imageUrl || slide.image || '',
                     ctaText: slide.cta || slide.ctaText || 'Shop Now',
-                    ctaLink: slide.link || slide.ctaLink || '/category/all',
+                    ctaLink: resolveHeroCtaLink(slide),
                   }))
                 : null;
 
@@ -73,7 +85,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             return (
               <Hero
                 key={block.props.id}
-                slides={slides as HeroSlide[]}
+                slides={slides}
                 autoplayDelay={heroBlock.props.autoplayDelay}
               />
             );

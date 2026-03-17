@@ -35,6 +35,16 @@ const NigerianPhoneSchema = z
     }
   );
 
+export const OptionalNigerianPhoneSchema = z.preprocess(
+  (value) => {
+    if (typeof value === 'string' && value.trim() === '') {
+      return undefined;
+    }
+    return value;
+  },
+  NigerianPhoneSchema.optional()
+);
+
 export const ProfileSchema = z.object({
   firstName: z
     .string()
@@ -44,7 +54,7 @@ export const ProfileSchema = z.object({
     .string()
     .min(2, 'Last name must be at least 2 characters')
     .max(50, 'Last name is too long'),
-  phone: NigerianPhoneSchema.optional().or(z.literal('')),
+  phone: OptionalNigerianPhoneSchema,
 });
 
 export { NigerianPhoneSchema };

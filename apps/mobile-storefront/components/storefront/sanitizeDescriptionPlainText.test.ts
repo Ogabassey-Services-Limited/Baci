@@ -1,5 +1,5 @@
 /**
- * Tests for the `sanitizeDescriptionPlainText` utility exported from ProductCard.tsx.
+ * Tests for the `sanitizeDescriptionPlainText` utility.
  *
  * ProductCard imports react-native-reanimated which requires a native runtime that
  * is unavailable in Jest. We mock the animation modules so the pure utility
@@ -83,7 +83,7 @@ jest.mock('@/types/product', () => ({
 
 // --- Import after mocks ---
 
-import { sanitizeDescriptionPlainText } from './ProductCard';
+import { sanitizeDescriptionPlainText } from '@/components/storefront/utils/text';
 
 // ---------------------------------------------------------------------------
 
