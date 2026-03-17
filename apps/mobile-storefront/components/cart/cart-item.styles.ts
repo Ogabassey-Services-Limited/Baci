@@ -48,6 +48,7 @@ const cartItemStyles = {
     borderRadius: 4,
     borderWidth: 1,
   },
+  // Intentionally empty variant slots for runtime condition-tag composition.
   conditionTagNew: {},
   conditionTagUsed: {},
   conditionTagText: {
@@ -56,6 +57,7 @@ const cartItemStyles = {
     textTransform: 'uppercase' as const,
     letterSpacing: 0.5,
   },
+  // Intentionally empty variant slots for runtime condition-tag composition.
   conditionTagTextNew: {},
   conditionTagTextUsed: {},
   colorTag: {

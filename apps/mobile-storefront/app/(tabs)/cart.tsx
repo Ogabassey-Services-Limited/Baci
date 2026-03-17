@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -30,10 +29,12 @@ import Animated, {
 // import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import CartItemCard from '@/components/cart/CartItemCard';
+import NegotiationWarningModal from '@/components/cart/NegotiationWarningModal';
 import styles from '@/components/cart/styles';
 import { CheckoutIdentityModal } from '@/components/checkout/checkout-identity';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette, RADIUS } from '@/constants/Colors';
+import { isValidCartStore } from '@/lib/cart-validation';
 import { useAuthStore } from '@/stores/auth-store';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
@@ -75,30 +76,30 @@ export default function CartScreen() {
     }))
   );
 
-  const hasCartLoadError =
-    !Array.isArray(cartStore.items) ||
-    typeof cartStore.itemCount !== 'function' ||
-    typeof cartStore.subtotal !== 'function' ||
-    typeof cartStore.updateQuantity !== 'function' ||
-    typeof cartStore.removeItem !== 'function' ||
-    typeof cartStore.clearCart !== 'function' ||
-    typeof cartStore.toggleAssurance !== 'function';
+  const cartStoreSnapshot: unknown = cartStore;
+  const isCartStoreValid = isValidCartStore(cartStoreSnapshot);
+  const hasCartLoadError = !isCartStoreValid;
 
   useEffect(() => {
-    if (!hasCartLoadError) {
+    if (isCartStoreValid) {
       return;
     }
 
+    const invalidCartStore =
+      cartStoreSnapshot && typeof cartStoreSnapshot === 'object'
+        ? (cartStoreSnapshot as Record<string, unknown>)
+        : {};
+
     console.error('[CartScreen] Invalid cart store shape', {
-      itemsType: typeof cartStore.items,
-      hasItemCount: typeof cartStore.itemCount === 'function',
-      hasSubtotal: typeof cartStore.subtotal === 'function',
-      hasUpdateQuantity: typeof cartStore.updateQuantity === 'function',
-      hasRemoveItem: typeof cartStore.removeItem === 'function',
-      hasClearCart: typeof cartStore.clearCart === 'function',
-      hasToggleAssurance: typeof cartStore.toggleAssurance === 'function',
+      itemsType: typeof invalidCartStore.items,
+      hasItemCount: typeof invalidCartStore.itemCount === 'function',
+      hasSubtotal: typeof invalidCartStore.subtotal === 'function',
+      hasUpdateQuantity: typeof invalidCartStore.updateQuantity === 'function',
+      hasRemoveItem: typeof invalidCartStore.removeItem === 'function',
+      hasClearCart: typeof invalidCartStore.clearCart === 'function',
+      hasToggleAssurance: typeof invalidCartStore.toggleAssurance === 'function',
     });
-  }, [hasCartLoadError, cartStore]);
+  }, [isCartStoreValid, cartStoreSnapshot]);
 
   const reportUnavailableCartAction = (action: string) => {
     console.error(`[CartScreen] Attempted cart action while unavailable: ${action}`);
@@ -308,12 +309,14 @@ export default function CartScreen() {
               setIsRetryingCartLoad(true);
               const rehydrateResult = useCartStore.persist.rehydrate();
               void Promise.resolve(rehydrateResult)
+                .then(() => {
+                  router.replace('/cart');
+                })
                 .catch((error) => {
                   console.error('[CartScreen] Failed to rehydrate cart store', error);
                 })
                 .finally(() => {
                   setIsRetryingCartLoad(false);
-                  router.replace('/cart');
                 });
             }}
           >
@@ -547,112 +550,20 @@ export default function CartScreen() {
       />
 
       {/* Negotiate Mode Warning Modal */}
-      <Modal
+      <NegotiationWarningModal
         visible={showNegotiateWarning}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
+        pendingItem={pendingNegotiateItem}
+        onClose={() => {
           setShowNegotiateWarning(false);
           setPendingNegotiateItem(null);
         }}
-      >
-        <View style={styles.warningOverlay}>
-          <Pressable
-            style={styles.warningBackdrop}
-            onPress={() => {
-              setShowNegotiateWarning(false);
-              setPendingNegotiateItem(null);
-            }}
-          />
-          <View style={[styles.warningModal, { backgroundColor: colors.card }]}>
-            {/* Header */}
-            <View style={styles.warningHeader}>
-              <View style={[styles.warningIconCircle, { backgroundColor: colors.background }]}>
-                <Ionicons name="cash-outline" size={24} color={colors.warning} />
-              </View>
-              <Text style={[styles.warningTitle, { color: colors.text }]}>
-                Choose Negotiation Mode
-              </Text>
-            </View>
-
-            {/* Description */}
-            <Text
-              style={[styles.warningDescription, { color: colors.textSecondary }]}
-            >
-              Negotiating items individually will disable bulk cart negotiation.
-              <Text style={styles.warningDescriptionBold}>
-                {' '}
-                You can only use one approach.
-              </Text>
-            </Text>
-
-            {/* Buttons */}
-            <View style={styles.warningButtons}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.warningPrimaryButton,
-                  pressed && styles.warningButtonPressed,
-                ]}
-                onPress={() => {
-                  if (pendingNegotiateItem) {
-                    triggerHaptic();
-                    actuallyOpenItemNegotiation(pendingNegotiateItem);
-                  }
-                }}
-              >
-                <Text style={[styles.warningPrimaryButtonText, { color: colors.primaryForeground }]}>
-                  Negotiate This Item
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.warningSecondaryButton,
-                  { backgroundColor: colors.muted, borderColor: colors.border },
-                  pressed && styles.warningButtonPressed,
-                ]}
-                onPress={() => {
-                  triggerHaptic();
-                  setShowNegotiateWarning(false);
-                  setPendingNegotiateItem(null);
-                  openTotalNegotiation();
-                }}
-              >
-                <Ionicons
-                  name="cash-outline"
-                  size={18}
-                  color={colors.text}
-                />
-                <Text
-                  style={[
-                    styles.warningSecondaryButtonText,
-                    { color: colors.text },
-                  ]}
-                >
-                  Bulk Negotiate Entire Cart
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={styles.warningCancelButton}
-                onPress={() => {
-                  setShowNegotiateWarning(false);
-                  setPendingNegotiateItem(null);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.warningCancelButtonText,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  Cancel
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onNegotiateItem={actuallyOpenItemNegotiation}
+        onBulkNegotiate={() => {
+          openTotalNegotiation();
+        }}
+        triggerHaptic={triggerHaptic}
+        colors={colors}
+      />
     </View>
   );
 }

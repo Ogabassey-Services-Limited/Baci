@@ -26,6 +26,8 @@ export default function GridProductCard({
   gridWidth,
   shadowColor,
 }: GridProductCardProps) {
+  const rating = product.rating;
+
   return (
     <AnimatedPressable
       style={[
@@ -102,19 +104,27 @@ export default function GridProductCard({
       </View>
 
       <View style={styles.gridContent}>
-        <View style={styles.ratingRowMini}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Ionicons
-              key={star}
-              name={
-                star <= Math.floor(product.rating || 0) ? 'star' : 'star-outline'
-              }
-              size={10}
-              color="#F59E0B"
-            />
-          ))}
-          <Text style={styles.ratingTextMini}>({product.rating || 0})</Text>
-        </View>
+        {rating != null ? (
+          <View
+            style={styles.ratingRowMini}
+            accessible
+            accessibilityLabel={`${rating} out of 5 stars`}
+          >
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Ionicons
+                key={star}
+                name={star <= Math.floor(rating) ? 'star' : 'star-outline'}
+                size={10}
+                color={BRAND.secondary}
+              />
+            ))}
+            <Text style={styles.ratingTextMini}>({rating})</Text>
+          </View>
+        ) : (
+          <View style={styles.ratingRowMini} accessible accessibilityLabel="No ratings">
+            <Text style={styles.ratingTextMini}>No ratings</Text>
+          </View>
+        )}
 
         <Text style={[styles.gridName, { color: '#111827' }]} numberOfLines={2}>
           {product.name}
