@@ -13,8 +13,13 @@ import { ProductRowSchema } from '@/lib/validation';
 import type { Product } from '@/types/product';
 
 function augmentProduct(item: z.infer<typeof ProductRowSchema>): Product {
+  const transformed = transformProduct(item);
+  if (!transformed) {
+    throw new Error('Product transformation failed for validated row');
+  }
+
   return {
-    ...transformProduct(item),
+    ...transformed,
     specifications: item.specifications,
     has_variants: item.has_variants || false,
     variant_attributes: normalizeVariantAttributes(item.variant_attributes),
@@ -47,14 +52,19 @@ export function useProduct(slug: string) {
     staleTime: 1000 * 60 * 5,
     refetchOnMount: 'always',
     initialData: () => {
-      const productsCache = queryClient.getQueryData<{ pages: ProductsPage[] }>([
-        'products',
-        merchantId,
-        {},
-      ]);
-      if (!productsCache) return undefined;
+      const productsCaches = queryClient.getQueriesData<{ pages: ProductsPage[] }>(
+        { queryKey: ['products', merchantId] }
+      );
 
-      for (const page of productsCache.pages) {
+      const allPages: ProductsPage[] = [];
+      for (const [, cache] of productsCaches) {
+        if (!cache || !Array.isArray(cache.pages)) {
+          continue;
+        }
+        allPages.push(...cache.pages);
+      }
+
+      for (const page of allPages) {
         const found = page.products.find((product) => product.slug === slug);
         if (found) {
           return {

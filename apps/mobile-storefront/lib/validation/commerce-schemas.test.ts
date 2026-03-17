@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  AIGradeDeviceApiResponseSchema,
   CalculateOrderInput,
   CalculateVTUInput,
   ImeiResultSchema,
@@ -24,6 +25,31 @@ const validShippingAddress = {
 describe('ShippingAddressSchema', () => {
   it('accepts valid shipping address input', () => {
     expect(ShippingAddressSchema.safeParse(validShippingAddress).success).toBe(true);
+  });
+
+  it.each([
+    '08012345678',
+    '+2348012345678',
+    '2348012345678',
+    '8012345678',
+    '080-1234-5678',
+    '(080) 1234 5678',
+  ])('accepts multiple valid Nigerian phone formats: %s', (phone) => {
+    expect(
+      ShippingAddressSchema.safeParse({
+        ...validShippingAddress,
+        phone,
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects invalid phone values', () => {
+    expect(
+      ShippingAddressSchema.safeParse({
+        ...validShippingAddress,
+        phone: '12345',
+      }).success
+    ).toBe(false);
   });
 
   it('rejects invalid values with useful messages', () => {
@@ -107,6 +133,74 @@ describe('calculate schemas', () => {
         amount: 1000,
         provider: 'mtn',
         merchantSplit: 120,
+      }).success
+    ).toBe(false);
+
+    expect(
+      CalculateVTUInput.safeParse({
+        amount: 1000,
+        provider: '',
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe('AIGradeDeviceApiResponseSchema', () => {
+  it('requires success and validates payload shape', () => {
+    expect(
+      AIGradeDeviceApiResponseSchema.safeParse({
+        success: true,
+        data: {
+          model: 'iPhone 13 Pro',
+          grade: 'Good',
+          observations: ['Minor scratch'],
+          basePrice: 500000,
+          estimatedValue: 450000,
+          deductionPercent: 10,
+        },
+      }).success
+    ).toBe(true);
+
+    expect(
+      AIGradeDeviceApiResponseSchema.safeParse({
+        data: {
+          model: 'iPhone 13 Pro',
+          grade: 'Good',
+          observations: [],
+          basePrice: 500000,
+          estimatedValue: 450000,
+          deductionPercent: 10,
+        },
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects payloads with missing required data fields', () => {
+    expect(
+      AIGradeDeviceApiResponseSchema.safeParse({
+        success: true,
+        data: {
+          model: 'iPhone 13 Pro',
+          observations: ['Minor scratch'],
+          basePrice: 500000,
+          deductionPercent: 10,
+        },
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects payloads with invalid data field types', () => {
+    expect(
+      AIGradeDeviceApiResponseSchema.safeParse({
+        success: true,
+        data: {
+          model: 'iPhone 13 Pro',
+          grade: 'Good',
+          observations: 'Minor scratch',
+          basePrice: '500000',
+          estimatedValue: 450000,
+          deductionPercent: 10,
+        },
       }).success
     ).toBe(false);
   });

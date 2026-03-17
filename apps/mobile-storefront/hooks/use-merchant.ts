@@ -7,19 +7,6 @@ import {
 import { withSupabaseRetry } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 
-export interface MerchantHeroSlide {
-  headline?: string;
-  title?: string;
-  description?: string;
-  subtitle?: string;
-  imageUrl?: string;
-  image?: string;
-  cta?: string;
-  ctaText?: string;
-  link?: string;
-  ctaLink?: string;
-}
-
 export interface Merchant {
   id: string;
   slug: string;
@@ -28,7 +15,7 @@ export interface Merchant {
   email?: string;
   phone?: string;
   business_address?: string;
-  hero_slides?: MerchantHeroSlide[];
+  hero_image_ids?: string[];
 }
 
 export function useMerchant() {
@@ -42,7 +29,7 @@ export function useMerchant() {
           await supabase
             .from('merchants')
             .select(
-              'id, slug, business_name, social_media, email, phone, business_address, hero_slides'
+              'id, slug, business_name, social_media, email, phone, business_address, hero_image_ids'
             )
             .eq('slug', MERCHANT_SLUG)
             .single(),

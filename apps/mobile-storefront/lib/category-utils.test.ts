@@ -23,4 +23,23 @@ describe('sortCategoriesByPriority', () => {
   it('trims whitespace and removes empty category names', () => {
     expect(sortCategoriesByPriority(['  ', ' Phones ', ''])).toEqual(['Phones']);
   });
+
+  it('ignores malformed entries and returns only valid category names', () => {
+    const malformed = [
+      null,
+      undefined,
+      42,
+      ' Tablets ',
+      'Phones',
+      {},
+      'Accessories',
+    ];
+
+    expect(() => sortCategoriesByPriority(malformed)).not.toThrow();
+    expect(sortCategoriesByPriority(malformed)).toEqual([
+      'Phones',
+      'Tablets',
+      'Accessories',
+    ]);
+  });
 });

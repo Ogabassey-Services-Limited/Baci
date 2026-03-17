@@ -3,7 +3,8 @@ import { CONSTANT_MERCHANT_ID, log } from '@/hooks/product-utils';
 import { useMerchant } from '@/hooks/use-merchant';
 import { withSupabaseRetry } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
-import type { PageConfig } from '@/types/blocks';
+import { PageConfigSchema } from '@/lib/validation/page-config-schema';
+import type { PageConfig } from '@/lib/validation/page-config-schema';
 
 export function usePageConfig(slug: string = 'home') {
   const { data: merchant } = useMerchant();
@@ -30,7 +31,20 @@ export function usePageConfig(slug: string = 'home') {
       );
 
       if (error) throw error;
-      return (data?.published_config ?? null) as PageConfig | null;
+      if (!data?.published_config) {
+        return null;
+      }
+
+      const parsed = PageConfigSchema.safeParse(data.published_config);
+      if (!parsed.success) {
+        log.warn('Invalid published page config payload', {
+          slug,
+          issues: parsed.error.format(),
+        });
+        return null;
+      }
+
+      return parsed.data;
     },
     staleTime: 1000 * 60 * 5,
     enabled: !!merchantId,

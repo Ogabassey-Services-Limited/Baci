@@ -115,6 +115,11 @@ export async function resolveAndEvictProduct(
     return data;
   }
 
+  queryClient.removeQueries({
+    queryKey: ['product', slug, merchantId],
+    exact: true,
+  });
+
   queryClient.setQueriesData(
     { queryKey: ['products', merchantId], exact: false },
     (cached) => removeProductSlugFromProductsCache(cached, slug)
@@ -125,17 +130,16 @@ export async function resolveAndEvictProduct(
   );
 }
 
-export function transformProduct(item: unknown): Product {
+export function transformProduct(item: unknown): Product | null {
   const validated = ProductRowSchema.safeParse(item);
   if (!validated.success) {
     log.error('Product row validation failed during transform', {
       issues: validated.error.format(),
       item,
     });
+    return null;
   }
-  const product = validated.success
-    ? validated.data
-    : (item as Record<string, unknown>);
+  const product = validated.data;
   const images = normalizeProductImages(product.images);
 
   return {
@@ -229,7 +233,9 @@ export async function fetchProductsPage(
 
   if (result.error) throw result.error;
 
-  const products = (result.data || []).map(transformProduct);
+  const products = (result.data || [])
+    .map(transformProduct)
+    .filter((product): product is Product => product !== null);
   const resultWithCount = result as typeof result & { count: number | null };
   const total = resultWithCount.count ?? 0;
   const nextOffset = offset + limit < total ? offset + limit : null;

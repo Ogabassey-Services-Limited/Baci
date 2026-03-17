@@ -77,6 +77,15 @@ describe('getPrimaryProductImage', () => {
 });
 
 describe('getProductCardImageAttempt', () => {
+  it('returns the first image when attempt is 0', () => {
+    expect(
+      getProductCardImageAttempt(
+        ['https://cdn.example.com/redmi-pad-se-working.avif'],
+        0
+      )
+    ).toBe('https://cdn.example.com/redmi-pad-se-working.avif');
+  });
+
   it('returns the next real image before using the placeholder', () => {
     expect(
       getProductCardImageAttempt(
@@ -94,6 +103,24 @@ describe('getProductCardImageAttempt', () => {
       getProductCardImageAttempt(
         ['https://cdn.example.com/redmi-pad-se-broken.avif'],
         1
+      )
+    ).toBe(PRODUCT_PLACEHOLDER_IMAGE);
+  });
+
+  it('returns the placeholder when attempt is negative', () => {
+    expect(
+      getProductCardImageAttempt(
+        ['https://cdn.example.com/redmi-pad-se-working.avif'],
+        -1
+      )
+    ).toBe(PRODUCT_PLACEHOLDER_IMAGE);
+  });
+
+  it('returns the placeholder when attempt is not an integer', () => {
+    expect(
+      getProductCardImageAttempt(
+        ['https://cdn.example.com/redmi-pad-se-working.avif'],
+        1.5
       )
     ).toBe(PRODUCT_PLACEHOLDER_IMAGE);
   });
