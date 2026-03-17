@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
 import type { FeedImageManifestEntry } from '@/lib/gmc-feed-images';
 import {
@@ -10,9 +11,23 @@ import {
 } from './feed-builder';
 import { buildMerchantBaseUrl } from './route-utils';
 
+/**
+ * Module-level anon-key client is intentional: this is a public feed endpoint
+ * hit by Google's crawler — no auth cookies exist. Using `@/lib/supabase/server`
+ * (which reads cookies) would be incorrect here.
+ */
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+const _FeedQuerySchema = z
+  .object({
+    merchant_id: z.string().uuid().optional(),
+    merchant_slug: z.string().min(1).optional(),
+  })
+  .refine((data) => data.merchant_id || data.merchant_slug, {
+    message: 'merchant_id or merchant_slug parameter is required',
+  });
 
 function createCachedFeedDataFetcher(
   merchantIdentifier: string,
@@ -77,13 +92,27 @@ function createCachedFeedDataFetcher(
       }
 
       // Group manifest rows by product_id
+      type ManifestRow = {
+        product_id: string;
+        verified_url: string | null;
+        verified_format: string | null;
+        status: string;
+        is_primary: boolean;
+        position: number;
+      };
+
       const imageManifest: ImageManifestMap = {};
-      for (const row of manifestRows || []) {
-        const productId = row.product_id as string;
-        if (!imageManifest[productId]) {
-          imageManifest[productId] = [];
+      for (const row of (manifestRows || []) as ManifestRow[]) {
+        if (!imageManifest[row.product_id]) {
+          imageManifest[row.product_id] = [];
         }
-        imageManifest[productId].push(row as unknown as FeedImageManifestEntry);
+        imageManifest[row.product_id].push({
+          verified_url: row.verified_url,
+          verified_format: row.verified_format,
+          status: row.status as FeedImageManifestEntry['status'],
+          is_primary: row.is_primary,
+          position: row.position,
+        });
       }
 
       return {
@@ -121,15 +150,20 @@ function createCachedFeedDataFetcher(
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const merchantId = searchParams.get('merchant_id');
-  const merchantSlug = searchParams.get('merchant_slug');
+  const rawParams = {
+    merchant_id: searchParams.get('merchant_id') || undefined,
+    merchant_slug: searchParams.get('merchant_slug') || undefined,
+  };
 
-  if (!merchantId && !merchantSlug) {
+  const parsed = _FeedQuerySchema.safeParse(rawParams);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: 'merchant_id or merchant_slug parameter is required' },
+      { error: parsed.error.errors[0]?.message || 'Invalid query parameters' },
       { status: 400 }
     );
   }
+
+  const { merchant_id: merchantId, merchant_slug: merchantSlug } = parsed.data;
 
   try {
     const identifier = merchantId || merchantSlug || '';

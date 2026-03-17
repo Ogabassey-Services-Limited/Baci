@@ -108,7 +108,7 @@ describe('extractImageCandidates', () => {
 describe('classifyFeedImageCandidate', () => {
   const storefrontBaseUrl = 'https://ogabassey.com';
 
-  it('classifies absolute JPG URL as verified with jpeg format', () => {
+  it('classifies absolute JPG URL as pending_verification', () => {
     const candidate: BackfillImageCandidate = {
       product_id: 'prod-1',
       source_url: 'https://cdn.ogabassey.com/core-assets/products/phone.jpg',
@@ -116,14 +116,12 @@ describe('classifyFeedImageCandidate', () => {
       position: 0,
     };
     const result = classifyFeedImageCandidate(candidate, storefrontBaseUrl);
-    expect(result.verified_url).toBe(
-      'https://cdn.ogabassey.com/core-assets/products/phone.jpg'
-    );
-    expect(result.verified_format).toBe('jpeg');
-    expect(result.status).toBe('verified');
+    expect(result.verified_url).toBeNull();
+    expect(result.verified_format).toBeNull();
+    expect(result.status).toBe('pending_verification');
   });
 
-  it('classifies absolute PNG URL as verified with png format', () => {
+  it('classifies absolute PNG URL as pending_verification', () => {
     const candidate: BackfillImageCandidate = {
       product_id: 'prod-1',
       source_url: 'https://cdn.ogabassey.com/core-assets/products/phone.png',
@@ -131,11 +129,12 @@ describe('classifyFeedImageCandidate', () => {
       position: 0,
     };
     const result = classifyFeedImageCandidate(candidate, storefrontBaseUrl);
-    expect(result.verified_format).toBe('png');
-    expect(result.status).toBe('verified');
+    expect(result.verified_url).toBeNull();
+    expect(result.verified_format).toBeNull();
+    expect(result.status).toBe('pending_verification');
   });
 
-  it('classifies absolute WebP URL as verified with webp format', () => {
+  it('classifies absolute WebP URL as pending_verification', () => {
     const candidate: BackfillImageCandidate = {
       product_id: 'prod-1',
       source_url: 'https://cdn.ogabassey.com/core-assets/products/phone.webp',
@@ -143,8 +142,9 @@ describe('classifyFeedImageCandidate', () => {
       position: 0,
     };
     const result = classifyFeedImageCandidate(candidate, storefrontBaseUrl);
-    expect(result.verified_format).toBe('webp');
-    expect(result.status).toBe('verified');
+    expect(result.verified_url).toBeNull();
+    expect(result.verified_format).toBeNull();
+    expect(result.status).toBe('pending_verification');
   });
 
   it('classifies AVIF URL as pending_derivative', () => {
@@ -211,8 +211,9 @@ describe('classifyFeedImageCandidate', () => {
       position: 0,
     };
     const result = classifyFeedImageCandidate(candidate, storefrontBaseUrl);
-    expect(result.status).toBe('verified');
-    expect(result.verified_format).toBe('jpeg');
+    expect(result.status).toBe('pending_verification');
+    expect(result.verified_url).toBeNull();
+    expect(result.verified_format).toBeNull();
   });
 
   it('prevents double slash when base URL has trailing slash', () => {
@@ -254,8 +255,9 @@ describe('classifyFeedImageCandidate', () => {
       position: 0,
     };
     const result = classifyFeedImageCandidate(candidate, storefrontBaseUrl);
-    expect(result.status).toBe('verified');
-    expect(result.verified_format).toBe('jpeg');
+    expect(result.status).toBe('pending_verification');
+    expect(result.verified_url).toBeNull();
+    expect(result.verified_format).toBeNull();
   });
 
   it('rewrites absolute AVIF URL with query string to JPG (drops query)', () => {

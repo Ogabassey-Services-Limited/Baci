@@ -119,6 +119,33 @@ describe('verifyCdnImage', () => {
     );
   });
 
+  it('returns invalid for malformed CDN URL', () => {
+    const result = verifyCdnImage(
+      'not-a-valid-url',
+      cdnBasePath,
+      existsSyncMock
+    );
+    expect(result.status).toBe('invalid');
+    expect(result.failure_reason).toContain('Invalid URL');
+    expect(existsSyncMock).not.toHaveBeenCalled();
+  });
+
+  it('normalizes path traversal attempts via URL parsing', () => {
+    // new URL() normalizes ../../ — the pathname becomes /etc/passwd
+    // which resolves to cdnBasePath/etc/passwd (within the CDN root)
+    existsSyncMock.mockReturnValue(false);
+    const result = verifyCdnImage(
+      'https://cdn.ogabassey.com/../../etc/passwd',
+      cdnBasePath,
+      existsSyncMock
+    );
+    // URL parser normalizes, so it's treated as a normal missing file
+    expect(result.status).toBe('missing');
+    expect(existsSyncMock).toHaveBeenCalledWith(
+      expect.stringContaining('/home/bassey/baci-cdn/public/')
+    );
+  });
+
   it('handles nested CDN paths correctly', () => {
     existsSyncMock.mockReturnValue(true);
     const result = verifyCdnImage(
@@ -222,6 +249,34 @@ describe('verifyRemoteImage', () => {
     expect(result.failure_reason).toContain('503');
   });
 
+  it('marks as pending_verification on 429 rate limit', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 429,
+      headers: new Headers(),
+    });
+    const result = await verifyRemoteImage(
+      'https://example.com/photo.jpg',
+      fetchMock
+    );
+    expect(result.status).toBe('pending_verification');
+    expect(result.failure_reason).toContain('429');
+  });
+
+  it('marks as pending_verification on 403 forbidden', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 403,
+      headers: new Headers(),
+    });
+    const result = await verifyRemoteImage(
+      'https://example.com/photo.jpg',
+      fetchMock
+    );
+    expect(result.status).toBe('pending_verification');
+    expect(result.failure_reason).toContain('403');
+  });
+
   it('marks as pending_verification on fetch timeout/network error', async () => {
     fetchMock.mockRejectedValue(new Error('fetch failed'));
     const result = await verifyRemoteImage(
@@ -268,6 +323,16 @@ describe('verifyRemoteImage', () => {
       'https://example.com/photo.jpg',
       expect.objectContaining({ method: 'GET' })
     );
+  });
+
+  it('handles non-Error throw gracefully', async () => {
+    fetchMock.mockRejectedValue('string error');
+    const result = await verifyRemoteImage(
+      'https://example.com/photo.jpg',
+      fetchMock
+    );
+    expect(result.status).toBe('pending_verification');
+    expect(result.failure_reason).toContain('string error');
   });
 
   it('marks as invalid for unsupported image types like image/avif', async () => {

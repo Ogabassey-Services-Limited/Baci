@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { FeedImageManifestEntry } from '@/lib/gmc-feed-images';
 import {
   type FeedMerchant,
@@ -313,8 +313,23 @@ describe('generateGoogleMerchantFeed — feed structure', () => {
     expect(xml).toContain('</rss>');
   });
 
-  it('performs zero network calls (no fetch/HEAD in feed generation)', async () => {
-    const { vi } = await import('vitest');
+  it('does not produce double-slash in product URL when baseUrl has trailing slash', () => {
+    const imageManifest: Record<string, FeedImageManifestEntry[]> = {
+      'prod-1': [manifestEntry({ is_primary: true })],
+    };
+    const xml = generateGoogleMerchantFeed(
+      [product()],
+      merchant(),
+      'https://ogabassey.com/',
+      imageManifest
+    );
+    expect(xml).toContain(
+      '<g:link>https://ogabassey.com/products/test-product</g:link>'
+    );
+    expect(xml).not.toContain('//products');
+  });
+
+  it('performs zero network calls (no fetch/HEAD in feed generation)', () => {
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockRejectedValue(new Error('fetch should not be called'));
@@ -363,6 +378,45 @@ describe('generateGoogleMerchantFeed — feed structure', () => {
     const xml = generateGoogleMerchantFeed(
       [product({ gtin: '0123456789012' })],
       merchant(),
+      BASE_URL,
+      imageManifest
+    );
+    expect(xml).toContain('<g:identifier_exists>yes</g:identifier_exists>');
+  });
+
+  it('sets identifier_exists to yes when MPN and brand are both present', () => {
+    const imageManifest: Record<string, FeedImageManifestEntry[]> = {
+      'prod-1': [manifestEntry({ is_primary: true })],
+    };
+    const xml = generateGoogleMerchantFeed(
+      [product({ mpn: 'MPN-123', brand: 'Samsung' })],
+      merchant(),
+      BASE_URL,
+      imageManifest
+    );
+    expect(xml).toContain('<g:identifier_exists>yes</g:identifier_exists>');
+  });
+
+  it('sets identifier_exists to no when only brand is present (no GTIN or MPN)', () => {
+    const imageManifest: Record<string, FeedImageManifestEntry[]> = {
+      'prod-1': [manifestEntry({ is_primary: true })],
+    };
+    const xml = generateGoogleMerchantFeed(
+      [product({ gtin: undefined, mpn: undefined, brand: 'Samsung' })],
+      merchant(),
+      BASE_URL,
+      imageManifest
+    );
+    expect(xml).toContain('<g:identifier_exists>no</g:identifier_exists>');
+  });
+
+  it('sets identifier_exists to yes when MPN is present and brand falls back to business_name', () => {
+    const imageManifest: Record<string, FeedImageManifestEntry[]> = {
+      'prod-1': [manifestEntry({ is_primary: true })],
+    };
+    const xml = generateGoogleMerchantFeed(
+      [product({ gtin: undefined, mpn: 'MPN-456', brand: undefined })],
+      merchant({ business_name: 'Ogabassey' }),
       BASE_URL,
       imageManifest
     );

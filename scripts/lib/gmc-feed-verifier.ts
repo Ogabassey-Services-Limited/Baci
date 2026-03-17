@@ -6,6 +6,7 @@
  */
 
 import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   getImageFormat,
   replaceAvifWithJpg,
@@ -23,7 +24,7 @@ export interface VerificationResult {
   failure_reason: string | null;
 }
 
-const CDN_HOST = 'cdn.ogabassey.com';
+const CDN_HOST = process.env.CDN_HOST || 'cdn.ogabassey.com';
 
 const CONTENT_TYPE_TO_FORMAT: Record<string, string> = {
   'image/jpeg': 'jpeg',
@@ -46,8 +47,29 @@ export function verifyCdnImage(
   cdnBasePath: string,
   fileExistsFn: (path: string) => boolean = existsSync
 ): VerificationResult {
-  const url = new URL(sourceUrl);
-  const localPath = `${cdnBasePath}${url.pathname}`;
+  let url: URL;
+  try {
+    url = new URL(sourceUrl);
+  } catch {
+    return {
+      status: 'invalid',
+      verified_url: null,
+      verified_format: null,
+      failure_reason: `Invalid URL: ${sourceUrl}`,
+    };
+  }
+
+  // Prevent path traversal
+  const localPath = resolve(cdnBasePath, `.${url.pathname}`);
+  if (!localPath.startsWith(resolve(cdnBasePath))) {
+    return {
+      status: 'invalid',
+      verified_url: null,
+      verified_format: null,
+      failure_reason: `Path traversal detected: ${url.pathname}`,
+    };
+  }
+
   const format = getImageFormat(sourceUrl);
 
   // AVIF: check sibling .jpg derivative
@@ -113,7 +135,10 @@ export async function verifyRemoteImage(
     }
 
     if (!response.ok) {
-      const isTransient = response.status >= 500;
+      const isTransient =
+        response.status >= 500 ||
+        response.status === 429 ||
+        response.status === 403;
       return {
         status: isTransient ? 'pending_verification' : 'missing',
         verified_url: null,
@@ -141,11 +166,12 @@ export async function verifyRemoteImage(
       failure_reason: null,
     };
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     return {
       status: 'pending_verification',
       verified_url: null,
       verified_format: null,
-      failure_reason: `${(err as Error).message} for ${url}`,
+      failure_reason: `${message} for ${url}`,
     };
   }
 }

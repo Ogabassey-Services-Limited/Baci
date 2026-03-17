@@ -37,14 +37,18 @@ import {
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const CDN_BASE_PATH = process.env.CDN_BASE_PATH || '/home/bassey/baci-cdn/public';
+const CDN_BASE_PATH = process.env.CDN_BASE_PATH;
 const CONCURRENCY = 10;
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+if (!SUPABASE_URL || !SUPABASE_KEY || !CDN_BASE_PATH) {
+  console.error(
+    'Missing required env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CDN_BASE_PATH'
+  );
   process.exit(1);
 }
 
+// Narrow types after the guard — process.exit never returns
+const cdnBasePath: string = CDN_BASE_PATH;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ---------- Concurrency limiter ----------
@@ -88,7 +92,7 @@ async function verifyClassifiedImage(
 
   // CDN-hosted: verify via filesystem
   if (isCdnUrl(url)) {
-    return verifyCdnImage(classified.source_url, cdnBasePath);
+    return verifyCdnImage(url, cdnBasePath);
   }
 
   // Non-CDN absolute URL or absolutized relative path: verify via HTTP
@@ -149,18 +153,30 @@ async function main() {
 
   console.log(`Backfilling for merchant: ${merchantSlug} (${merchantId})`);
   console.log(`Storefront base URL: ${storefrontBaseUrl}`);
-  console.log(`CDN base path: ${CDN_BASE_PATH}`);
+  console.log(`CDN base path: ${cdnBasePath}`);
 
-  // 2. Load active products
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select('id, images')
-    .eq('merchant_id', merchantId)
-    .eq('status', 'active');
+  // 2. Load active products (paginated — Supabase defaults to 1000 row limit)
+  const PAGE_SIZE = 1000;
+  const products: { id: string; images: unknown }[] = [];
+  let offset = 0;
+  let hasMore = true;
 
-  if (productsError) {
-    console.error('Failed to fetch products:', productsError.message);
-    process.exit(1);
+  while (hasMore) {
+    const { data, error: productsError } = await supabase
+      .from('products')
+      .select('id, images')
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (productsError) {
+      console.error('Failed to fetch products:', productsError.message);
+      process.exit(1);
+    }
+
+    products.push(...(data || []));
+    hasMore = (data?.length ?? 0) === PAGE_SIZE;
+    offset += PAGE_SIZE;
   }
 
   console.log(`Found ${products.length} active products`);
@@ -181,7 +197,7 @@ async function main() {
   // 4. Verify each candidate (I/O)
   console.log(`Verifying images (concurrency: ${CONCURRENCY})...`);
   const verificationTasks = classifiedRows.map(
-    ({ classified }) => () => verifyClassifiedImage(classified, CDN_BASE_PATH)
+    ({ classified }) => () => verifyClassifiedImage(classified, cdnBasePath)
   );
   const verificationResults = await runWithConcurrency(verificationTasks, CONCURRENCY);
 
@@ -205,7 +221,9 @@ async function main() {
     stats.total++;
 
     const finalStatus = verification.status;
-    stats[finalStatus as keyof typeof stats]++;
+    if (finalStatus in stats) {
+      stats[finalStatus]++;
+    }
 
     currentPairs.add(`${classified.product_id}::${classified.source_url}`);
 
@@ -227,7 +245,7 @@ async function main() {
     if (finalStatus === 'pending_derivative' && isCdnUrl(classified.source_url)) {
       try {
         const url = new URL(classified.source_url);
-        pendingDerivativePaths.push(`${CDN_BASE_PATH}${url.pathname}`);
+        pendingDerivativePaths.push(`${cdnBasePath}${url.pathname}`);
       } catch {
         // Skip malformed URLs
       }
@@ -242,37 +260,70 @@ async function main() {
   console.log(`  Missing: ${stats.missing}`);
   console.log(`  Invalid: ${stats.invalid}`);
 
-  // 6. Upsert in batches
+  // 6. Upsert in batches with retry
   const BATCH_SIZE = 100;
+  const MAX_RETRIES = 3;
   let upserted = 0;
   let persistErrors = 0;
+
   for (let i = 0; i < upsertRows.length; i += BATCH_SIZE) {
     const batch = upsertRows.slice(i, i + BATCH_SIZE);
-    const { error: upsertError } = await supabase
-      .from('product_feed_images')
-      .upsert(batch, {
-        onConflict: 'merchant_id,product_id,source_url',
-        ignoreDuplicates: false,
-      });
-    if (upsertError) {
-      console.error(`Upsert error at batch ${i / BATCH_SIZE}:`, upsertError.message);
-      persistErrors++;
-    } else {
-      upserted += batch.length;
+    const batchNum = Math.floor(i / BATCH_SIZE);
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const { error: upsertError } = await supabase
+        .from('product_feed_images')
+        .upsert(batch, {
+          onConflict: 'merchant_id,product_id,source_url',
+          ignoreDuplicates: false,
+        });
+
+      if (!upsertError) {
+        upserted += batch.length;
+        break;
+      }
+
+      if (attempt < MAX_RETRIES - 1) {
+        const delay = 1000 * 2 ** attempt; // 1s, 2s, 4s
+        console.warn(`Batch ${batchNum} attempt ${attempt + 1} failed: ${upsertError.message} — retrying in ${delay}ms`);
+        await new Promise((r) => setTimeout(r, delay));
+      } else {
+        console.error(`Batch ${batchNum} failed after ${MAX_RETRIES} attempts: ${upsertError.message}`);
+        persistErrors++;
+      }
     }
   }
 
   console.log(`\nUpserted ${upserted}/${upsertRows.length} rows into product_feed_images`);
 
   // 7. Mark stale rows — (product_id, source_url) pairs no longer in current set
-  const { data: existingRows, error: existingError } = await supabase
-    .from('product_feed_images')
-    .select('id, product_id, source_url')
-    .eq('merchant_id', merchantId)
-    .neq('status', 'stale');
+  const existingRows: { id: string; product_id: string; source_url: string }[] = [];
+  let staleOffset = 0;
+  let staleHasMore = true;
+  let existingError: unknown = null;
+
+  while (staleHasMore) {
+    const { data, error } = await supabase
+      .from('product_feed_images')
+      .select('id, product_id, source_url')
+      .eq('merchant_id', merchantId)
+      .neq('status', 'stale')
+      .range(staleOffset, staleOffset + PAGE_SIZE - 1);
+
+    if (error) {
+      existingError = error;
+      break;
+    }
+
+    existingRows.push(...(data || []));
+    staleHasMore = (data?.length ?? 0) === PAGE_SIZE;
+    staleOffset += PAGE_SIZE;
+  }
 
   if (existingError) {
-    console.error('Failed to fetch existing rows for stale detection:', existingError.message);
+    console.error(
+      'Failed to fetch existing rows for stale detection:',
+      (existingError as { message: string }).message
+    );
     persistErrors++;
   } else {
     const staleIds: string[] = [];

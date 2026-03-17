@@ -86,12 +86,13 @@ export function generateGoogleMerchantFeed(
 ): string {
   const currency = merchant.payout_currency || 'USD';
   const brandName = merchant.business_name;
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
 
   const validProducts = products.filter(isValidForGmc);
 
   const items = validProducts
     .map((product) => {
-      const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
+      const productUrl = `${normalizedBaseUrl}/products/${product.slug || product.id}`;
       if (!isValidGmcUrl(productUrl)) return null;
 
       // Resolve images from prevalidated manifest only
@@ -124,25 +125,37 @@ export function generateGoogleMerchantFeed(
           ? `        <g:shipping_weight>${product.weight_value} ${product.weight_unit}</g:shipping_weight>`
           : '';
 
-      return `    <item>
-        <g:id>${escapeXml(product.id)}</g:id>
-        <g:title>${escapeXml(product.name)}</g:title>
-        <g:description>${escapeXml(stripHtmlTags(product.description).trim())}</g:description>
-        <g:link>${escapeXml(productUrl)}</g:link>
-        <g:image_link>${escapeXml(primaryImageUrl)}</g:image_link>
-${additionalImagesXml}
-        <g:availability>${availability}</g:availability>
-        <g:quantity>${stockCount}</g:quantity>
-${salePrice}
-        <g:brand>${escapeXml(product.brand || brandName)}</g:brand>
-        <g:condition>${condition}</g:condition>
-${product.gtin ? `        <g:gtin>${escapeXml(product.gtin)}</g:gtin>` : ''}
-${product.mpn ? `        <g:mpn>${escapeXml(product.mpn)}</g:mpn>` : ''}
-${product.gtin || product.mpn || product.brand ? '        <g:identifier_exists>yes</g:identifier_exists>' : '        <g:identifier_exists>no</g:identifier_exists>'}
-${product.google_product_category ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>` : ''}
-${product.category ? `        <g:product_type>${escapeXml(product.category)}</g:product_type>` : ''}
-${shippingWeight}
-    </item>`;
+      const effectiveBrand = product.brand || brandName;
+
+      const lines = [
+        `        <g:id>${escapeXml(product.id)}</g:id>`,
+        `        <g:title>${escapeXml(product.name)}</g:title>`,
+        `        <g:description>${escapeXml(stripHtmlTags(product.description).trim())}</g:description>`,
+        `        <g:link>${escapeXml(productUrl)}</g:link>`,
+        `        <g:image_link>${escapeXml(primaryImageUrl)}</g:image_link>`,
+        additionalImagesXml,
+        `        <g:availability>${availability}</g:availability>`,
+        `        <g:quantity>${stockCount}</g:quantity>`,
+        salePrice,
+        `        <g:brand>${escapeXml(effectiveBrand)}</g:brand>`,
+        `        <g:condition>${condition}</g:condition>`,
+        product.gtin
+          ? `        <g:gtin>${escapeXml(product.gtin)}</g:gtin>`
+          : '',
+        product.mpn ? `        <g:mpn>${escapeXml(product.mpn)}</g:mpn>` : '',
+        product.gtin || (product.mpn && effectiveBrand)
+          ? '        <g:identifier_exists>yes</g:identifier_exists>'
+          : '        <g:identifier_exists>no</g:identifier_exists>',
+        product.google_product_category
+          ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
+          : '',
+        product.category
+          ? `        <g:product_type>${escapeXml(product.category)}</g:product_type>`
+          : '',
+        shippingWeight,
+      ].filter(Boolean);
+
+      return `    <item>\n${lines.join('\n')}\n    </item>`;
     })
     .filter(Boolean)
     .join('\n');
@@ -151,7 +164,7 @@ ${shippingWeight}
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
   <channel>
     <title>${escapeXml(brandName)} - Product Feed</title>
-    <link>${escapeXml(baseUrl)}</link>
+    <link>${escapeXml(normalizedBaseUrl)}</link>
     <description>Product feed for ${escapeXml(brandName)}</description>
 ${items}
   </channel>

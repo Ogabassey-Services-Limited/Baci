@@ -1,5 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
+
+const RevalidateSchema = z.object({
+  identifier: z.string().min(1),
+});
 
 /**
  * On-demand revalidation for the Google Merchant feed cache.
@@ -26,15 +31,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const body = await request.json();
-  const identifier = body?.identifier;
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
 
-  if (!identifier || typeof identifier !== 'string') {
+  const parsed = RevalidateSchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
       { error: 'identifier is required' },
       { status: 400 }
     );
   }
+
+  const { identifier } = parsed.data;
 
   try {
     revalidateMerchantFeed(identifier);

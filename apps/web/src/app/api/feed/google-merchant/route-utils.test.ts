@@ -54,6 +54,22 @@ describe('buildMerchantBaseUrl', () => {
     expect(result).toBe('https://shop.example.com');
   });
 
+  it('falls back to slug when custom_domain contains path segments', () => {
+    const result = buildMerchantBaseUrl({
+      slug: 'ogabassey',
+      custom_domain: 'example.com/../../malicious',
+    });
+    expect(result).toBe('https://ogabassey.baci.app');
+  });
+
+  it('falls back to slug when custom_domain contains a port', () => {
+    const result = buildMerchantBaseUrl({
+      slug: 'ogabassey',
+      custom_domain: 'example.com:8080',
+    });
+    expect(result).toBe('https://ogabassey.baci.app');
+  });
+
   it('throws when slug is blank and no custom_domain is available', () => {
     expect(() =>
       buildMerchantBaseUrl({

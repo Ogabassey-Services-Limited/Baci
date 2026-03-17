@@ -104,7 +104,7 @@ export function replaceAvifWithJpg(url: string): string {
 /**
  * Classify a single image candidate for the feed manifest.
  *
- * - Absolute JPG/PNG/WebP -> verified (ready for feed)
+ * - Absolute JPG/PNG/WebP -> pending_verification (needs reachability check)
  * - Absolute AVIF -> pending_derivative (needs `.jpg` sibling on CDN)
  * - Relative path -> absolutize + pending_verification (needs HTTP check)
  * - Empty/malformed -> invalid
@@ -135,7 +135,10 @@ export function classifyFeedImageCandidate(
 
   // Handle relative paths
   if (candidate.source_url.startsWith('/')) {
-    const baseWithoutTrailingSlash = storefrontBaseUrl.replace(/\/+$/, '');
+    let baseWithoutTrailingSlash = storefrontBaseUrl;
+    while (baseWithoutTrailingSlash.endsWith('/')) {
+      baseWithoutTrailingSlash = baseWithoutTrailingSlash.slice(0, -1);
+    }
     const absoluteUrl = `${baseWithoutTrailingSlash}${candidate.source_url}`;
     const format = getImageFormat(absoluteUrl);
     if (!format) {
@@ -200,13 +203,13 @@ export function classifyFeedImageCandidate(
     };
   }
 
-  // JPG/PNG/WebP -> verified
-  if (format && format !== 'avif') {
+  // JPG/PNG/WebP -> needs verification (reachability/content-type check)
+  if (format) {
     return {
       ...base,
-      verified_url: candidate.source_url,
-      verified_format: format,
-      status: 'verified',
+      verified_url: null,
+      verified_format: null,
+      status: 'pending_verification',
       failure_reason: null,
     };
   }

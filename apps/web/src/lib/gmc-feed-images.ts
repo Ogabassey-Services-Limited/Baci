@@ -6,8 +6,13 @@
  * that were prevalidated by an offline backfill/audit job.
  */
 
-const GMC_ADDITIONAL_IMAGES_MAX = 10;
+export const GMC_ADDITIONAL_IMAGES_MAX = 10;
 
+/**
+ * Manifest entry as returned by the feed route query (status = 'verified' filter).
+ * The full DB enum includes 'pending_derivative' and 'pending_verification',
+ * but those are only used by the offline backfill job and never reach this type.
+ */
 export interface FeedImageManifestEntry {
   verified_url: string | null;
   verified_format: string | null;

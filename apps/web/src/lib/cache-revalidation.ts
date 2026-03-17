@@ -112,7 +112,6 @@ export function revalidatePageConfig(merchantId: string, pageSlug?: string) {
  * or after any mutation that changes feed-relevant product data.
  */
 export function revalidateMerchantFeed(merchantIdentifier: string) {
-  revalidateTag('google-merchant-feed', 'products');
   revalidateTag(`merchant-feed-${merchantIdentifier}`, 'products');
 }
 

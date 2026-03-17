@@ -359,32 +359,33 @@ describe('cache-revalidation utilities', () => {
   });
 
   describe('revalidateMerchantFeed', () => {
-    it('revalidates feed cache tags for a merchant identifier', () => {
+    it('revalidates only the merchant-scoped feed tag', () => {
       revalidateMerchantFeed('ogabassey');
 
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'google-merchant-feed',
-        'products'
-      );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'merchant-feed-ogabassey',
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not flush the global google-merchant-feed tag', () => {
+      revalidateMerchantFeed('ogabassey');
+
+      expect(mockRevalidateTag).not.toHaveBeenCalledWith(
+        'google-merchant-feed',
+        expect.anything()
+      );
     });
 
     it('works with merchant UUID as identifier', () => {
       revalidateMerchantFeed(MERCHANT_ID);
 
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'google-merchant-feed',
-        'products'
-      );
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
         `merchant-feed-${MERCHANT_ID}`,
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
     });
   });
 

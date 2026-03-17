@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockRevalidateMerchantFeed = vi.fn();
 
@@ -29,6 +29,10 @@ describe('POST /api/feed/google-merchant/revalidate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('CRON_SECRET', 'test-secret');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('returns 401 when CRON_SECRET is unset (fail-closed)', async () => {
@@ -77,6 +81,23 @@ describe('POST /api/feed/google-merchant/revalidate', () => {
     expect(body).toEqual({ revalidated: true, identifier: 'ogabassey' });
     expect(mockRevalidateMerchantFeed).toHaveBeenCalledWith('ogabassey');
     expect(mockRevalidateMerchantFeed).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 400 when request body is malformed JSON', async () => {
+    const req = new NextRequest(
+      'http://localhost/api/feed/google-merchant/revalidate',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer test-secret',
+        },
+        body: 'not valid json',
+      }
+    );
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    expect(mockRevalidateMerchantFeed).not.toHaveBeenCalled();
   });
 
   it('returns 500 when revalidation throws', async () => {

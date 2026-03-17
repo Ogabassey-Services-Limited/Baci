@@ -12,12 +12,14 @@ export function buildMerchantBaseUrl(merchant: {
       .replace(/^https?:\/\//i, '')
       .replace(/^\/+|\/+$/g, '');
 
-    if (normalizedDomain) {
+    const hostnamePattern =
+      /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
+    if (normalizedDomain && hostnamePattern.test(normalizedDomain)) {
       return `https://${normalizedDomain}`;
     }
   }
 
-  const slug = merchant.slug?.trim();
+  const slug = merchant.slug.trim();
   if (!slug) {
     throw new Error('Merchant slug is required to build storefront URL');
   }

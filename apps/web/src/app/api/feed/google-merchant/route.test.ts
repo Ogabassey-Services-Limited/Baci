@@ -233,6 +233,23 @@ describe('GET /api/feed/google-merchant', () => {
     expect(mockGenerateGoogleMerchantFeed).not.toHaveBeenCalled();
   });
 
+  it('returns 500 when fetching the image manifest fails', async () => {
+    manifestResult = {
+      data: [],
+      error: { message: 'boom' },
+    };
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey')
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to generate feed');
+    expect(mockGenerateGoogleMerchantFeed).not.toHaveBeenCalled();
+  });
+
   it('passes an empty product list through to the feed builder', async () => {
     productsResult = {
       data: [],
