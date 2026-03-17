@@ -20,4 +20,15 @@ describe('getProductSlugFallbackCandidates', () => {
   it('returns an empty list for a canonical parent slug', () => {
     expect(getProductSlugFallbackCandidates('iphone-13-pro')).toEqual([]);
   });
+
+  it('normalizes uppercase slugs before generating fallback candidates', () => {
+    expect(
+      getProductSlugFallbackCandidates('IPHONE-13-PRO-128GB-USED')
+    ).toEqual(['iphone-13-pro-128gb', 'iphone-13-pro']);
+  });
+
+  it('returns an empty list for empty or whitespace-only input', () => {
+    expect(getProductSlugFallbackCandidates('')).toEqual([]);
+    expect(getProductSlugFallbackCandidates('   ')).toEqual([]);
+  });
 });

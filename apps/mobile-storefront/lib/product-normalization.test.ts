@@ -42,11 +42,15 @@ describe('normalizeProductImages', () => {
       ])
     ).toEqual(['https://cdn.example.com/iphone-13-pro.jpg']);
   });
+});
 
+describe('getPrimaryProductImage', () => {
   it('falls back to the placeholder image when no product image exists', () => {
     expect(getPrimaryProductImage(null)).toBe(PRODUCT_PLACEHOLDER_IMAGE);
   });
+});
 
+describe('getProductCardImageAttempt', () => {
   it('returns the next real image before using the placeholder', () => {
     expect(
       getProductCardImageAttempt(

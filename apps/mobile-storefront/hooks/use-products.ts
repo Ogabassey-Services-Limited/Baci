@@ -11,6 +11,7 @@
 
 import {
   keepPreviousData,
+  type QueryClient,
   useInfiniteQuery,
   useQuery,
   useQueryClient,
@@ -66,7 +67,7 @@ interface ProductsPage {
 
 const PRODUCT_SELECT = `
   id, name, slug, description, price, compare_at_price,
-  images, brand, condition, specifications,
+  images, brand, condition, status, specifications,
   has_variants, variant_attributes, manage_stock, stock_quantity,
   categories (id, name, slug)
 `;
@@ -122,6 +123,25 @@ async function resolveProductRow(merchantId: string, slug: string) {
   }
 
   return null;
+}
+
+async function resolveAndEvictProduct(
+  merchantId: string,
+  slug: string,
+  queryClient: QueryClient
+) {
+  const data = await resolveProductRow(merchantId, slug);
+  if (data) {
+    return data;
+  }
+
+  queryClient.setQueriesData(
+    { queryKey: ['products', merchantId], exact: false },
+    (cached) => removeProductSlugFromProductsCache(cached, slug)
+  );
+  throw new Error(
+    'This product is no longer available. Refresh the app to remove outdated product cards.'
+  );
 }
 
 // 2026 Best Practice: Transform database product to app Product type with validation
@@ -221,7 +241,7 @@ async function fetchProductsPage(
     .select(
       `
       id, name, slug, description, price, compare_at_price,
-      images, brand, condition, manage_stock, stock_quantity,
+      images, brand, condition, status, manage_stock, stock_quantity,
       categories (id, name, slug)
     `,
       { count: 'exact' }
@@ -413,16 +433,7 @@ export function useProduct(slug: string) {
     queryKey: ['product', slug, merchantId],
     queryFn: async () => {
       log.info('Fetching product:', slug);
-      const data = await resolveProductRow(merchantId, slug);
-      if (!data) {
-        queryClient.setQueriesData(
-          { queryKey: ['products', merchantId], exact: false },
-          (cached) => removeProductSlugFromProductsCache(cached, slug)
-        );
-        throw new Error(
-          'This product is no longer available. Refresh the app to remove outdated product cards.'
-        );
-      }
+      const data = await resolveAndEvictProduct(merchantId, slug, queryClient);
 
       // 2026 Best Practice: Validate data at the edge
       const validated = ProductRowSchema.safeParse(data);
@@ -501,16 +512,7 @@ export function usePrefetchProduct() {
     queryClient.prefetchQuery({
       queryKey: ['product', slug, merchantId],
       queryFn: async () => {
-        const data = await resolveProductRow(merchantId, slug);
-        if (!data) {
-          queryClient.setQueriesData(
-            { queryKey: ['products', merchantId], exact: false },
-            (cached) => removeProductSlugFromProductsCache(cached, slug)
-          );
-          throw new Error(
-            'This product is no longer available. Refresh the app to remove outdated product cards.'
-          );
-        }
+        const data = await resolveAndEvictProduct(merchantId, slug, queryClient);
 
         // 2026 Best Practice: Validate data at the edge
         const validated = ProductRowSchema.safeParse(data);
@@ -519,9 +521,12 @@ export function usePrefetchProduct() {
             'Prefetch product validation failed:',
             validated.error.format()
           );
+          throw new Error(
+            `Product validation failed: ${validated.error.message}`
+          );
         }
 
-        return transformProduct(validated.success ? validated.data : data);
+        return transformProduct(validated.data);
       },
     });
   };

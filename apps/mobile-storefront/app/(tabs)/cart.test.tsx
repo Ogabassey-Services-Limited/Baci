@@ -61,7 +61,7 @@ jest.mock('@/components/ui/SafeImage', () => ({
   },
 }));
 
-const mockCartState = {
+const createMockCartState = (overrides: Record<string, unknown> = {}) => ({
   items: [
     {
       id: 'cart-1',
@@ -82,14 +82,16 @@ const mockCartState = {
   removeItem: jest.fn(),
   clearCart: jest.fn(),
   toggleAssurance: jest.fn(),
-};
+  ...overrides,
+});
+
+let mockCartState: Record<string, unknown> = createMockCartState();
 
 jest.mock('@/stores/cart-store', () => ({
   formatPrice: (value: number) =>
     `₦${new Intl.NumberFormat('en-NG').format(value)}`,
-  useCartStore: (
-    selector: (state: typeof mockCartState) => unknown
-  ) => selector(mockCartState),
+  useCartStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector(mockCartState),
 }));
 
 jest.mock('@/stores/auth-store', () => ({
@@ -106,6 +108,7 @@ describe('CartScreen theming', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseColorScheme.mockReturnValue('dark');
+    mockCartState = createMockCartState();
   });
 
   // These assertions intentionally pin design-system token usage so the cart
@@ -139,5 +142,45 @@ describe('CartScreen theming', () => {
     expect(
       StyleSheet.flatten(screen.getByText('Device Protection (+5%)').props.style)
     ).toMatchObject({ color: Colors.light.textSecondary });
+  });
+});
+
+describe('CartScreen state', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseColorScheme.mockReturnValue('dark');
+    mockCartState = createMockCartState();
+  });
+
+  it('renders empty cart state when there are no cart items', () => {
+    mockCartState = createMockCartState({
+      items: [],
+      itemCount: () => 0,
+      subtotal: () => 0,
+    });
+
+    render(<CartScreen />);
+
+    expect(screen.getByText('Your cart is empty 🛒')).toBeTruthy();
+    expect(screen.getByText('Start Shopping')).toBeTruthy();
+    expect(screen.queryByText('Lenovo ThinkPad E16 Gen 2')).toBeNull();
+  });
+
+  it('renders cart error state when cart data is unavailable', () => {
+    mockCartState = {
+      items: undefined,
+      itemCount: undefined,
+      subtotal: undefined,
+      updateQuantity: undefined,
+      removeItem: undefined,
+      clearCart: undefined,
+      toggleAssurance: undefined,
+    };
+
+    render(<CartScreen />);
+
+    expect(screen.getByText('Unable to load cart')).toBeTruthy();
+    expect(screen.getByText('Retry')).toBeTruthy();
+    expect(screen.queryByText('Lenovo ThinkPad E16 Gen 2')).toBeNull();
   });
 });
