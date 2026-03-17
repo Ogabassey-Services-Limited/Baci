@@ -70,6 +70,55 @@ function getServiceRoleSupabaseClient() {
   });
 }
 
+interface PublicStorefrontProductVariant {
+  attributes: Record<string, string> | null;
+  created_at?: string | null;
+  id: string;
+  images?: unknown;
+  price_override?: number | string | null;
+  primary_image?: string | null;
+  product_id: string;
+  sku?: string | null;
+  stock_quantity?: number | null;
+  updated_at?: string | null;
+}
+
+async function getPublicProductVariantsByProductIds(productIds: string[]) {
+  const uniqueProductIds = Array.from(
+    new Set(productIds.filter((id): id is string => Boolean(id)))
+  );
+
+  if (uniqueProductIds.length === 0) {
+    return {} as Record<string, PublicStorefrontProductVariant[]>;
+  }
+
+  const supabase = getPublicSupabaseClient();
+  const { data, error } = await supabase.rpc(
+    'get_storefront_product_variants',
+    {
+      p_product_ids: uniqueProductIds,
+    }
+  );
+
+  if (error) {
+    console.error('Error fetching storefront product variants:', error);
+    return {} as Record<string, PublicStorefrontProductVariant[]>;
+  }
+
+  const variantsByProductId: Record<string, PublicStorefrontProductVariant[]> =
+    {};
+
+  for (const variant of (data || []) as PublicStorefrontProductVariant[]) {
+    if (!variantsByProductId[variant.product_id]) {
+      variantsByProductId[variant.product_id] = [];
+    }
+
+    variantsByProductId[variant.product_id].push(variant);
+  }
+
+  return variantsByProductId;
+}
+
 // Type for merchant data with optional custom_domain
 export interface HeroSlide {
   id: string;
@@ -551,15 +600,6 @@ export async function getCachedProducts(
         color_images,
         brand,
         condition,
-        product_variants (
-          id,
-          sku,
-          attributes,
-          price_override,
-          stock_quantity,
-          images,
-          primary_image
-        ),
         product_categories (
           category_id,
           categories (
@@ -600,7 +640,15 @@ export async function getCachedProducts(
     return [];
   }
 
-  return data || [];
+  const products = data || [];
+  const variantsByProductId = await getPublicProductVariantsByProductIds(
+    products.map((product) => product.id)
+  );
+
+  return products.map((product) => ({
+    ...product,
+    product_variants: variantsByProductId[product.id] || [],
+  }));
 }
 
 /**
@@ -651,15 +699,6 @@ export async function getCachedProduct(
           stock_quantity,
           images
         ),
-        product_variants (
-          id,
-          sku,
-          attributes,
-          price_override,
-          stock_quantity,
-          images,
-          primary_image
-        ),
         product_categories (
           category_id,
           categories (
@@ -685,7 +724,18 @@ export async function getCachedProduct(
     return null;
   }
 
-  return data;
+  if (!data) {
+    return null;
+  }
+
+  const variantsByProductId = await getPublicProductVariantsByProductIds([
+    data.id,
+  ]);
+
+  return {
+    ...data,
+    product_variants: variantsByProductId[data.id] || [],
+  };
 }
 
 const STOREFRONT_PRODUCT_DETAIL_COLUMNS = `
@@ -732,21 +782,6 @@ const STOREFRONT_PRODUCT_DETAIL_COLUMNS = `
   fulfillmentFields:fulfillment_fields
 `;
 
-const STOREFRONT_PRODUCT_DETAIL_VARIANT_COLUMNS = `
-  id,
-  product_id,
-  merchant_id,
-  sku,
-  attributes,
-  price_override,
-  cost_price,
-  stock_quantity,
-  images,
-  primary_image,
-  created_at,
-  updated_at
-`;
-
 const STOREFRONT_PRODUCT_DETAIL_OFFERS_COLUMNS = `
   id,
   condition,
@@ -761,7 +796,8 @@ const STOREFRONT_PRODUCT_DETAIL_OFFERS_COLUMNS = `
 
 /**
  * Comprehensive cached product data with all relations for product pages.
- * Fetches product + key_specs + variants + offers + category in a single query.
+ * Fetches product + key_specs + offers + category in the main query.
+ * Storefront-safe variants are hydrated separately through the public RPC.
  * Uses 'products' cacheLife profile (stale 5min, revalidate 5min, expire 24hr)
  */
 export async function getCachedProductWithDetails(
@@ -843,7 +879,6 @@ export async function getCachedProductWithDetails(
           announced_date,
           release_date
         ),
-        product_variants (${STOREFRONT_PRODUCT_DETAIL_VARIANT_COLUMNS}),
         product_offers (${STOREFRONT_PRODUCT_DETAIL_OFFERS_COLUMNS})
       `)
     .eq('merchant_id', merchantId);
@@ -861,7 +896,18 @@ export async function getCachedProductWithDetails(
     return null;
   }
 
-  return data;
+  if (!data) {
+    return null;
+  }
+
+  const variantsByProductId = await getPublicProductVariantsByProductIds([
+    data.id,
+  ]);
+
+  return {
+    ...data,
+    product_variants: variantsByProductId[data.id] || [],
+  };
 }
 
 /**

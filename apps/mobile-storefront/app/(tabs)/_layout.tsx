@@ -13,6 +13,7 @@ import { BRAND } from '@/constants/Colors';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import { useAuthStore } from '@/stores/auth-store';
+import { useShallow } from 'zustand/react/shallow';
 
 export function ErrorBoundary({
   error,
@@ -56,8 +57,12 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const cartCount = useCartStore((state) => state.itemCount());
   const savedCount = useSavedStore((state) => state.items.length);
-  const user = useAuthStore((state) => state.user);
-  const isInitialized = useAuthStore((state) => state.isInitialized);
+  const { user, isInitialized } = useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      isInitialized: state.isInitialized,
+    }))
+  );
 
   /**
    * 2026 Best Practice: Layout-level auth gating for tabs.

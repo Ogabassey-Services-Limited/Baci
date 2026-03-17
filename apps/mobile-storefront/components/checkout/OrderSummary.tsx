@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import {
   LayoutAnimation,
@@ -41,6 +42,7 @@ export function OrderSummary({
 
   const toggleExpand = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     setIsExpanded(!isExpanded);
   };
 
@@ -51,7 +53,13 @@ export function OrderSummary({
         { backgroundColor: colors.card, borderBottomColor: colors.border },
       ]}
     >
-      <Pressable onPress={toggleExpand} style={styles.header}>
+      <Pressable
+        onPress={toggleExpand}
+        style={({ pressed }) => [styles.header, pressed && { opacity: 0.85 }]}
+        accessibilityRole="button"
+        accessibilityLabel="Toggle order summary"
+        accessibilityState={{ expanded: isExpanded }}
+      >
         <View style={styles.headerLeft}>
           <Ionicons name="cart-outline" size={20} color={BRAND.primary} />
           <Text style={[styles.headerTitle, { color: BRAND.primary }]}>

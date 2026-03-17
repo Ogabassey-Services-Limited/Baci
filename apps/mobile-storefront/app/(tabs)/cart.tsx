@@ -100,16 +100,28 @@ export default function CartScreen() {
     useState<CartItem | null>(null);
   const pendingOperations = useRef<Set<string>>(new Set());
 
-  const items = useCartStore((state) => state.items);
-  const itemCount = useCartStore((state) => state.itemCount());
-  const subtotal = useCartStore((state) => state.subtotal());
-  const updateQuantity = useCartStore((state) => state.updateQuantity);
-  const removeItem = useCartStore((state) => state.removeItem);
-  const clearCart = useCartStore((state) => state.clearCart);
-  const toggleAssurance = useCartStore((state) => state.toggleAssurance);
+  const {
+    items,
+    itemCount,
+    subtotal,
+    updateQuantity,
+    removeItem,
+    clearCart,
+    toggleAssurance,
+  } = useCartStore(
+    useShallow((state) => ({
+      items: state.items,
+      itemCount: state.itemCount(),
+      subtotal: state.subtotal(),
+      updateQuantity: state.updateQuantity,
+      removeItem: state.removeItem,
+      clearCart: state.clearCart,
+      toggleAssurance: state.toggleAssurance,
+    }))
+  );
 
   const { session } = useAuthStore(useShallow((s) => ({ session: s.session })));
-  const openNegotiation = useUIStore((state) => state.openNegotiation);
+  const { openNegotiation } = useUIStore(useShallow((s) => ({ openNegotiation: s.openNegotiation })));
   const hasItems = items.length > 0;
 
   useEffect(() => {
