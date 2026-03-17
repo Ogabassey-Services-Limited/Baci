@@ -52,10 +52,11 @@ const ProductVideo = dynamic(
 );
 
 interface ProductDetailsPageProps {
+  children?: React.ReactNode;
   product: Product;
 }
 
-export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
+export function ProductDetailsPage({ children, product }: ProductDetailsPageProps) {
   const {
     activeTab,
     animatingParticles,
@@ -251,6 +252,7 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
               maxProducts={4}
               className="border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)]"
             />
+            {children}
           </div>
         </div>
       </div>
