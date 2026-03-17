@@ -1,0 +1,359 @@
+#!/usr/bin/env npx tsx
+/**
+ * Backfill script for `product_feed_images` manifest table.
+ *
+ * Run on the VPS or locally to populate/refresh the verified image manifest
+ * used by the Google Merchant Center feed route.
+ *
+ * Usage:
+ *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npx tsx scripts/backfill-feed-images.ts [merchant_slug]
+ *
+ * What it does:
+ * 1. Loads active products for the given merchant
+ * 2. Extracts image candidates from each product's `images` JSONB
+ * 3. Classifies each candidate (pure, extension-based)
+ * 4. Verifies each candidate (CDN filesystem or HTTP probe)
+ * 5. Upserts rows into `product_feed_images` with true statuses
+ * 6. Marks stale rows (no longer in product source set)
+ * 7. Reports summary stats and pending derivative file list
+ */
+
+import { createClient } from '@supabase/supabase-js';
+import {
+  type BackfillImageCandidate,
+  type ClassifiedImage,
+  type ProductImages,
+  classifyFeedImageCandidate,
+  extractImageCandidates,
+} from '../packages/shared/src/gmc-feed/index';
+import {
+  type VerificationResult,
+  isCdnUrl,
+  verifyCdnImage,
+  verifyRemoteImage,
+} from './lib/gmc-feed-verifier';
+
+// ---------- Config ----------
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const CDN_BASE_PATH = process.env.CDN_BASE_PATH || '/home/bassey/baci-cdn/public';
+const CONCURRENCY = 10;
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+  process.exit(1);
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ---------- Concurrency limiter ----------
+
+async function runWithConcurrency<T>(
+  tasks: Array<() => Promise<T>>,
+  limit: number
+): Promise<T[]> {
+  const results: T[] = [];
+  let index = 0;
+
+  async function worker() {
+    while (index < tasks.length) {
+      const i = index++;
+      results[i] = await tasks[i]();
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+// ---------- Verification orchestrator ----------
+
+async function verifyClassifiedImage(
+  classified: ClassifiedImage,
+  cdnBasePath: string
+): Promise<VerificationResult> {
+  const url = classified.verified_url || classified.source_url;
+
+  // Already invalid — no verification needed
+  if (classified.status === 'invalid') {
+    return {
+      status: 'invalid',
+      verified_url: null,
+      verified_format: null,
+      failure_reason: classified.failure_reason,
+    };
+  }
+
+  // CDN-hosted: verify via filesystem
+  if (isCdnUrl(url)) {
+    return verifyCdnImage(classified.source_url, cdnBasePath);
+  }
+
+  // Non-CDN absolute URL or absolutized relative path: verify via HTTP
+  if (url.startsWith('http')) {
+    return verifyRemoteImage(url);
+  }
+
+  return {
+    status: 'invalid',
+    verified_url: null,
+    verified_format: null,
+    failure_reason: `Cannot verify URL: ${url}`,
+  };
+}
+
+// ---------- Main ----------
+
+async function main() {
+  const merchantSlug = process.argv[2];
+
+  if (!merchantSlug) {
+    console.error('Usage: npx tsx scripts/backfill-feed-images.ts <merchant_slug>');
+    process.exit(1);
+  }
+
+  // 1. Resolve merchant
+  const { data: merchant, error } = await supabase
+    .from('merchants')
+    .select('id, slug')
+    .eq('slug', merchantSlug)
+    .single();
+
+  if (error || !merchant) {
+    console.error(`Merchant "${merchantSlug}" not found:`, error?.message);
+    process.exit(1);
+  }
+
+  const { data: primaryDomain, error: domainError } = await supabase
+    .from('domains')
+    .select('domain')
+    .eq('merchant_id', merchant.id)
+    .eq('status', 'active')
+    .eq('is_primary', true)
+    .maybeSingle();
+
+  if (domainError) {
+    console.error(
+      `Failed to resolve primary domain for merchant "${merchantSlug}":`,
+      domainError.message
+    );
+    process.exit(1);
+  }
+
+  const merchantId = merchant.id;
+  const storefrontBaseUrl = primaryDomain?.domain
+    ? `https://${primaryDomain.domain}`
+    : `https://${merchant.slug}.baci.app`;
+
+  console.log(`Backfilling for merchant: ${merchantSlug} (${merchantId})`);
+  console.log(`Storefront base URL: ${storefrontBaseUrl}`);
+  console.log(`CDN base path: ${CDN_BASE_PATH}`);
+
+  // 2. Load active products
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('id, images')
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active');
+
+  if (productsError) {
+    console.error('Failed to fetch products:', productsError.message);
+    process.exit(1);
+  }
+
+  console.log(`Found ${products.length} active products`);
+
+  // 3. Extract and classify (pure)
+  const classifiedRows: Array<{ candidate: BackfillImageCandidate; classified: ClassifiedImage }> = [];
+
+  for (const product of products) {
+    const candidates = extractImageCandidates(product.id, product.images as ProductImages);
+    for (const candidate of candidates) {
+      const classified = classifyFeedImageCandidate(candidate, storefrontBaseUrl);
+      classifiedRows.push({ candidate, classified });
+    }
+  }
+
+  console.log(`\nClassified ${classifiedRows.length} image candidates`);
+
+  // 4. Verify each candidate (I/O)
+  console.log(`Verifying images (concurrency: ${CONCURRENCY})...`);
+  const verificationTasks = classifiedRows.map(
+    ({ classified }) => () => verifyClassifiedImage(classified, CDN_BASE_PATH)
+  );
+  const verificationResults = await runWithConcurrency(verificationTasks, CONCURRENCY);
+
+  // 5. Build upsert rows with true statuses
+  const stats = {
+    verified: 0,
+    pending_derivative: 0,
+    pending_verification: 0,
+    missing: 0,
+    invalid: 0,
+    total: 0,
+  };
+
+  const currentPairs = new Set<string>();
+  const upsertRows: Array<Record<string, unknown>> = [];
+  const pendingDerivativePaths: string[] = [];
+
+  for (let i = 0; i < classifiedRows.length; i++) {
+    const { classified } = classifiedRows[i];
+    const verification = verificationResults[i];
+    stats.total++;
+
+    const finalStatus = verification.status;
+    stats[finalStatus as keyof typeof stats]++;
+
+    currentPairs.add(`${classified.product_id}::${classified.source_url}`);
+
+    upsertRows.push({
+      merchant_id: merchantId,
+      product_id: classified.product_id,
+      source_url: classified.source_url,
+      verified_url: verification.verified_url,
+      verified_format: verification.verified_format,
+      status: finalStatus,
+      is_primary: classified.is_primary,
+      position: classified.position,
+      failure_reason: verification.failure_reason,
+      last_checked_at: new Date().toISOString(),
+      verified_at: finalStatus === 'verified' ? new Date().toISOString() : null,
+    });
+
+    // Track files needing derivative generation
+    if (finalStatus === 'pending_derivative' && isCdnUrl(classified.source_url)) {
+      try {
+        const url = new URL(classified.source_url);
+        pendingDerivativePaths.push(`${CDN_BASE_PATH}${url.pathname}`);
+      } catch {
+        // Skip malformed URLs
+      }
+    }
+  }
+
+  console.log('\nVerification summary:');
+  console.log(`  Total images: ${stats.total}`);
+  console.log(`  Verified: ${stats.verified}`);
+  console.log(`  Pending derivative (AVIF needs JPG): ${stats.pending_derivative}`);
+  console.log(`  Pending verification (needs recheck): ${stats.pending_verification}`);
+  console.log(`  Missing: ${stats.missing}`);
+  console.log(`  Invalid: ${stats.invalid}`);
+
+  // 6. Upsert in batches
+  const BATCH_SIZE = 100;
+  let upserted = 0;
+  let persistErrors = 0;
+  for (let i = 0; i < upsertRows.length; i += BATCH_SIZE) {
+    const batch = upsertRows.slice(i, i + BATCH_SIZE);
+    const { error: upsertError } = await supabase
+      .from('product_feed_images')
+      .upsert(batch, {
+        onConflict: 'merchant_id,product_id,source_url',
+        ignoreDuplicates: false,
+      });
+    if (upsertError) {
+      console.error(`Upsert error at batch ${i / BATCH_SIZE}:`, upsertError.message);
+      persistErrors++;
+    } else {
+      upserted += batch.length;
+    }
+  }
+
+  console.log(`\nUpserted ${upserted}/${upsertRows.length} rows into product_feed_images`);
+
+  // 7. Mark stale rows — (product_id, source_url) pairs no longer in current set
+  const { data: existingRows, error: existingError } = await supabase
+    .from('product_feed_images')
+    .select('id, product_id, source_url')
+    .eq('merchant_id', merchantId)
+    .neq('status', 'stale');
+
+  if (existingError) {
+    console.error('Failed to fetch existing rows for stale detection:', existingError.message);
+    persistErrors++;
+  } else {
+    const staleIds: string[] = [];
+    for (const row of existingRows || []) {
+      const key = `${row.product_id}::${row.source_url}`;
+      if (!currentPairs.has(key)) {
+        staleIds.push(row.id);
+      }
+    }
+
+    if (staleIds.length > 0) {
+      // Batch stale updates
+      for (let i = 0; i < staleIds.length; i += BATCH_SIZE) {
+        const batch = staleIds.slice(i, i + BATCH_SIZE);
+        const { error: staleError } = await supabase
+          .from('product_feed_images')
+          .update({ status: 'stale', is_primary: false, updated_at: new Date().toISOString() })
+          .in('id', batch);
+        if (staleError) {
+          console.error(`Stale update error:`, staleError.message);
+          persistErrors++;
+        }
+      }
+      console.log(`Marked ${staleIds.length} orphaned rows as stale`);
+    } else {
+      console.log('No stale rows found');
+    }
+  }
+
+  // 8. Report pending derivatives
+  if (pendingDerivativePaths.length > 0) {
+    console.log(`\n${pendingDerivativePaths.length} AVIF files need JPG derivatives:`);
+    for (const path of pendingDerivativePaths) {
+      const jpgPath = path.replace(/\.avif$/i, '.jpg');
+      console.log(`  ${path} -> ${jpgPath}`);
+    }
+    console.log('\nGenerate them on the VPS:');
+    console.log('  for f in <paths above>; do jpg="${f%.avif}.jpg"; [ -f "$jpg" ] || convert "$f" "$jpg"; done');
+    console.log('Then re-run this script to promote them to verified.');
+  }
+
+  // 9. Fail loudly if any persist operations failed — before any cache bust
+  if (persistErrors > 0) {
+    console.error(`\n${persistErrors} persist error(s) occurred — manifest may be incomplete.`);
+    console.error('Feed cache NOT revalidated. Fix errors and re-run.');
+    process.exit(1);
+  }
+
+  // 10. Bust the feed cache via the revalidation endpoint so the next
+  //     feed request picks up the fresh manifest immediately.
+  //     Requires CRON_SECRET to match the deployed app's value.
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    console.log('\nRevalidating feed cache...');
+    try {
+      const revalidateUrl = `${storefrontBaseUrl}/api/feed/google-merchant/revalidate`;
+      const res = await fetch(revalidateUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${cronSecret}`,
+        },
+        body: JSON.stringify({ identifier: merchantSlug }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (res.ok) {
+        console.log('  Feed cache revalidated successfully.');
+      } else {
+        console.warn(`  Revalidation returned ${res.status} — cache may be stale for up to 1 hour.`);
+      }
+    } catch (err) {
+      console.warn(`  Could not reach revalidation endpoint: ${(err as Error).message}`);
+      console.warn('  Feed cache may be stale for up to 1 hour.');
+    }
+  } else {
+    console.warn('\nCRON_SECRET not set — skipping feed cache revalidation.');
+    console.warn('Feed cache may be stale for up to 1 hour.');
+  }
+}
+
+main().catch((err) => {
+  console.error('Backfill failed:', err);
+  process.exit(1);
+});

@@ -107,6 +107,16 @@ export function revalidatePageConfig(merchantId: string, pageSlug?: string) {
 }
 
 /**
+ * Revalidate the Google Merchant Center feed cache for a merchant.
+ * Call after the backfill script populates/refreshes `product_feed_images`,
+ * or after any mutation that changes feed-relevant product data.
+ */
+export function revalidateMerchantFeed(merchantIdentifier: string) {
+  revalidateTag('google-merchant-feed', 'products');
+  revalidateTag(`merchant-feed-${merchantIdentifier}`, 'products');
+}
+
+/**
  * Revalidate domain-related caches.
  * Call after custom domain add/remove/verify.
  */

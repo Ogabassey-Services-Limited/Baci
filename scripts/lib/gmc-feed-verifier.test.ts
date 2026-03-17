@@ -1,0 +1,286 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  type VerificationResult,
+  verifyCdnImage,
+  verifyRemoteImage,
+} from './gmc-feed-verifier';
+
+// ---------- verifyCdnImage ----------
+describe('verifyCdnImage', () => {
+  const cdnBasePath = '/home/bassey/baci-cdn/public';
+
+  let existsSyncMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    existsSyncMock = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('marks CDN JPG as verified when file exists', () => {
+    existsSyncMock.mockReturnValue(true);
+    const result = verifyCdnImage(
+      'https://cdn.ogabassey.com/core-assets/products/phone.jpg',
+      cdnBasePath,
+      existsSyncMock
+    );
+    expect(result.status).toBe('verified');
+    expect(result.verified_url).toBe(
+      'https://cdn.ogabassey.com/core-assets/products/phone.jpg'
+    );
+    expect(result.verified_format).toBe('jpeg');
+    expect(existsSyncMock).toHaveBeenCalledWith(
+      '/home/bassey/baci-cdn/public/core-assets/products/phone.jpg'
+    );
+  });
+
+  it('marks CDN JPG as missing when file does not exist', () => {
+    existsSyncMock.mockReturnValue(false);
+    const result = verifyCdnImage(
+      'https://cdn.ogabassey.com/core-assets/products/phone.jpg',
+      cdnBasePath,
+      existsSyncMock
+    );
+    expect(result.status).toBe('missing');
+    expect(result.verified_url).toBeNull();
+    expect(result.failure_reason).toContain('not found');
+  });
+
+  it('marks CDN PNG as verified when file exists', () => {
+    existsSyncMock.mockReturnValue(true);
+    const result = verifyCdnImage(
+      'https://cdn.ogabassey.com/core-assets/products/tablet.png',
+      cdnBasePath,
+      existsSyncMock
+    );
+    expect(result.status).toBe('verified');
+    expect(result.verified_format).toBe('png');
+  });
+
+  it('marks CDN WebP as verified when file exists', () => {
+    existsSyncMock.mockReturnValue(true);
+    const result = verifyCdnImage(
+      'https://cdn.ogabassey.com/core-assets/products/photo.webp',
+      cdnBasePath,
+      existsSyncMock
+    );
+    expect(result.status).toBe('verified');
+    expect(result.verified_format).toBe('webp');
+  });
+
+  it('verifies AVIF by checking sibling .jpg — marks verified when JPG exists', () => {
+    existsSyncMock.mockReturnValue(true);
+    const result = verifyCdnImage(
+      'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+      cdnBasePath,
+      existsSyncMock
+    );
+    expect(result.status).toBe('verified');
+    expect(result.verified_url).toBe(
+      'https://cdn.ogabassey.com/core-assets/products/phone.jpg'
+    );
+    expect(result.verified_format).toBe('jpeg');
+    expect(existsSyncMock).toHaveBeenCalledWith(
+      '/home/bassey/baci-cdn/public/core-assets/products/phone.jpg'
+    );
+  });
+
+  it('marks AVIF as pending_derivative when sibling .jpg does not exist', () => {
+    existsSyncMock.mockReturnValue(false);
+    const result = verifyCdnImage(
+      'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+      cdnBasePath,
+      existsSyncMock
+    );
+    expect(result.status).toBe('pending_derivative');
+    expect(result.verified_url).toBe(
+      'https://cdn.ogabassey.com/core-assets/products/phone.jpg'
+    );
+    expect(result.verified_format).toBe('jpeg');
+  });
+
+  it('handles AVIF CDN URL with query string — checks JPG path, drops query from URL', () => {
+    existsSyncMock.mockReturnValue(true);
+    const result = verifyCdnImage(
+      'https://cdn.ogabassey.com/core-assets/products/phone.avif?v=1',
+      cdnBasePath,
+      existsSyncMock
+    );
+    expect(result.status).toBe('verified');
+    expect(result.verified_url).toBe(
+      'https://cdn.ogabassey.com/core-assets/products/phone.jpg'
+    );
+    expect(result.verified_format).toBe('jpeg');
+    // Should check the filesystem path without query string
+    expect(existsSyncMock).toHaveBeenCalledWith(
+      '/home/bassey/baci-cdn/public/core-assets/products/phone.jpg'
+    );
+  });
+
+  it('handles nested CDN paths correctly', () => {
+    existsSyncMock.mockReturnValue(true);
+    const result = verifyCdnImage(
+      'https://cdn.ogabassey.com/core-assets/products/gaming/controller.jpg',
+      cdnBasePath,
+      existsSyncMock
+    );
+    expect(result.status).toBe('verified');
+    expect(existsSyncMock).toHaveBeenCalledWith(
+      '/home/bassey/baci-cdn/public/core-assets/products/gaming/controller.jpg'
+    );
+  });
+});
+
+// ---------- verifyRemoteImage ----------
+describe('verifyRemoteImage', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('marks as verified when HEAD returns 200 with image/jpeg content-type', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'image/jpeg' }),
+    });
+    const result = await verifyRemoteImage(
+      'https://ogabassey.com/game-covers/cyberpunk-2077.png',
+      fetchMock
+    );
+    expect(result.status).toBe('verified');
+    expect(result.verified_url).toBe(
+      'https://ogabassey.com/game-covers/cyberpunk-2077.png'
+    );
+    expect(result.verified_format).toBe('jpeg');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://ogabassey.com/game-covers/cyberpunk-2077.png',
+      expect.objectContaining({ method: 'HEAD' })
+    );
+  });
+
+  it('marks as verified with png format for image/png', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'image/png' }),
+    });
+    const result = await verifyRemoteImage(
+      'https://ogabassey.com/game-covers/cyberpunk-2077.png',
+      fetchMock
+    );
+    expect(result.status).toBe('verified');
+    expect(result.verified_format).toBe('png');
+  });
+
+  it('marks as verified with webp format for image/webp', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'image/webp' }),
+    });
+    const result = await verifyRemoteImage(
+      'https://example.com/photo.webp',
+      fetchMock
+    );
+    expect(result.status).toBe('verified');
+    expect(result.verified_format).toBe('webp');
+  });
+
+  it('marks as missing when HEAD returns 404', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 404,
+      headers: new Headers(),
+    });
+    const result = await verifyRemoteImage(
+      'https://ogabassey.com/missing-image.jpg',
+      fetchMock
+    );
+    expect(result.status).toBe('missing');
+    expect(result.failure_reason).toContain('404');
+  });
+
+  it('marks as pending_verification on 5xx server error', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 503,
+      headers: new Headers(),
+    });
+    const result = await verifyRemoteImage(
+      'https://ogabassey.com/game-covers/temp-error.png',
+      fetchMock
+    );
+    expect(result.status).toBe('pending_verification');
+    expect(result.failure_reason).toContain('503');
+  });
+
+  it('marks as pending_verification on fetch timeout/network error', async () => {
+    fetchMock.mockRejectedValue(new Error('fetch failed'));
+    const result = await verifyRemoteImage(
+      'https://ogabassey.com/game-covers/timeout.png',
+      fetchMock
+    );
+    expect(result.status).toBe('pending_verification');
+    expect(result.failure_reason).toContain('fetch failed');
+  });
+
+  it('marks as invalid when content-type is not an image', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'text/html' }),
+    });
+    const result = await verifyRemoteImage(
+      'https://ogabassey.com/not-an-image',
+      fetchMock
+    );
+    expect(result.status).toBe('invalid');
+    expect(result.failure_reason).toContain('text/html');
+  });
+
+  it('falls back to GET when HEAD returns 405', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 405,
+        headers: new Headers(),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'image/jpeg' }),
+      });
+    const result = await verifyRemoteImage(
+      'https://example.com/photo.jpg',
+      fetchMock
+    );
+    expect(result.status).toBe('verified');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'https://example.com/photo.jpg',
+      expect.objectContaining({ method: 'GET' })
+    );
+  });
+
+  it('marks as invalid for unsupported image types like image/avif', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'image/avif' }),
+    });
+    const result = await verifyRemoteImage(
+      'https://example.com/photo.avif',
+      fetchMock
+    );
+    expect(result.status).toBe('invalid');
+    expect(result.failure_reason).toContain('image/avif');
+  });
+});

@@ -15,6 +15,7 @@ import {
   revalidateDomains,
   revalidateFeatures,
   revalidateMerchant,
+  revalidateMerchantFeed,
   revalidatePageConfig,
   revalidateProducts,
   revalidateReviews,
@@ -354,6 +355,36 @@ describe('cache-revalidation utilities', () => {
         `page-config-${merchantId}-${pageSlug}`,
         'storefront-page'
       );
+    });
+  });
+
+  describe('revalidateMerchantFeed', () => {
+    it('revalidates feed cache tags for a merchant identifier', () => {
+      revalidateMerchantFeed('ogabassey');
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'google-merchant-feed',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'merchant-feed-ogabassey',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+    });
+
+    it('works with merchant UUID as identifier', () => {
+      revalidateMerchantFeed(MERCHANT_ID);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'google-merchant-feed',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `merchant-feed-${MERCHANT_ID}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
     });
   });
 
