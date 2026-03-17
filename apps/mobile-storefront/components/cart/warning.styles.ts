@@ -88,6 +88,9 @@ const warningStyles = {
     opacity: 0.9,
     transform: [{ scale: 0.98 }],
   },
+  warningButtonDisabled: {
+    opacity: 0.45,
+  },
 } as const;
 
 export default warningStyles;

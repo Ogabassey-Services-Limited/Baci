@@ -64,10 +64,7 @@ export default function ListProductCard({
 
         {product.description && (
           <Text style={styles.listDescription} numberOfLines={2}>
-            {sanitizeDescriptionPlainText(product.description || '').substring(
-              0,
-              100
-            )}
+            {sanitizeDescriptionPlainText(product.description).substring(0, 100)}
           </Text>
         )}
 

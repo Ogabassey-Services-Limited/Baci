@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { SafeImage } from '@/components/ui/SafeImage';
 import Colors, { BRAND } from '@/constants/Colors';
+import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 import type { CartItem } from '@/stores/cart-store';
 import CartQuantityInput from './CartQuantityInput';
 import styles from './styles';
@@ -63,15 +64,13 @@ export default function CartItemCard({
               borderColor: colors.border,
             },
           ]}
-          onPress={() => router.push(`/product/${item.slug || item.product_id}`)}
+          onPress={() => router.push(`/product/${item.slug}`)}
           accessibilityRole="button"
           accessibilityLabel={`Open product: ${item.name || item.slug || item.product_id}`}
         >
           <SafeImage
             source={{
-              uri:
-                item.image_url ||
-                'https://placehold.co/100x100/f8fafc/94a3b8?text=No+Image',
+              uri: item.image_url || PLACEHOLDER_IMAGE_URL,
             }}
             style={styles.productImage}
             contentFit="contain"

@@ -1,11 +1,7 @@
 import type React from 'react';
 import { View } from 'react-native';
 import { HeroSkeleton } from '@/components/ui/Skeleton';
-import {
-  type MerchantHeroSlide,
-  useCategories,
-  useMerchant,
-} from '@/hooks/use-products';
+import { useCategories } from '@/hooks/use-products';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 import type { Block, HeroCarouselBlock, ProductGridBlock } from '@/types/blocks';
@@ -26,14 +22,6 @@ interface BlockRendererProps {
   onCategorySelect: (id: string | null) => void;
 }
 
-function resolveHeroCtaLink(slide: MerchantHeroSlide): HeroSlide['ctaLink'] {
-  const rawLink = slide.link || slide.ctaLink || '/category/all';
-  if (typeof rawLink === 'string' && rawLink.startsWith('/')) {
-    return rawLink;
-  }
-  return '/category/all';
-}
-
 export const BlockRenderer: React.FC<BlockRendererProps> = ({
   blocks,
   selectedCategoryId,
@@ -41,7 +29,6 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
 }) => {
   const template = getTemplateConfig(CONFIG.BUSINESS_TYPE, CONFIG.TEMPLATE_ID);
   const { data: categories = [] } = useCategories();
-  const { data: merchant, isLoading: isMerchantLoading } = useMerchant();
 
   const selectedCategoryName = (() => {
     if (!selectedCategoryId) return 'Airtime';
@@ -62,25 +49,22 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
       {(blocks || []).map((block) => {
         switch (block.type) {
           case 'HeroCarousel': {
-            if (isMerchantLoading) {
+            const heroBlock = block as HeroCarouselBlock;
+            const configuredSlides = Array.isArray(heroBlock.props.slides)
+              ? heroBlock.props.slides
+              : [];
+
+            const slides: HeroSlide[] = configuredSlides.map((slide) => ({
+              title: slide.title,
+              subtitle: slide.subtitle,
+              image: slide.image,
+              ctaText: slide.ctaText,
+              ctaLink: slide.ctaLink,
+            }));
+
+            if (slides.length === 0) {
               return <HeroSkeleton key={block.props.id} />;
             }
-
-            const heroBlock = block as HeroCarouselBlock;
-            const mobileSlides = merchant?.hero_slides;
-
-            const slides =
-              mobileSlides && mobileSlides.length > 0
-                ? mobileSlides.map((slide: MerchantHeroSlide): HeroSlide => ({
-                    title: slide.headline || slide.title || '',
-                    subtitle: slide.description || slide.subtitle || '',
-                    image: slide.imageUrl || slide.image || '',
-                    ctaText: slide.cta || slide.ctaText || 'Shop Now',
-                    ctaLink: resolveHeroCtaLink(slide),
-                  }))
-                : null;
-
-            if (!slides || slides.length === 0) return null;
 
             return (
               <Hero
