@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
 import type { FeedImageManifestEntry } from '@/lib/gmc-feed-images';
 import {
@@ -16,9 +17,7 @@ import { buildMerchantBaseUrl } from './route-utils';
  * hit by Google's crawler — no auth cookies exist. Using `@/lib/supabase/server`
  * (which reads cookies) would be incorrect here.
  */
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(getSupabaseUrl(), getSupabaseAnonKey());
 
 const _FeedQuerySchema = z
   .object({

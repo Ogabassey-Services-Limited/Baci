@@ -8,6 +8,11 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
+vi.mock('@/env', () => ({
+  getSupabaseUrl: () => 'https://test.supabase.co',
+  getSupabaseAnonKey: () => 'test-anon-key',
+}));
+
 vi.mock('next/cache', () => ({
   unstable_cache: (fn: () => Promise<unknown>) => fn,
 }));

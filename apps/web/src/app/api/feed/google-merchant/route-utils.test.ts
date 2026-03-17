@@ -85,4 +85,28 @@ describe('buildMerchantBaseUrl', () => {
       })
     ).toThrow('Merchant slug is required to build storefront URL');
   });
+
+  it('falls back to slug when custom_domain contains @ symbol (SSRF vector)', () => {
+    const result = buildMerchantBaseUrl({
+      slug: 'ogabassey',
+      custom_domain: 'user@evil.com',
+    });
+    expect(result).toBe('https://ogabassey.baci.app');
+  });
+
+  it('falls back to slug when custom_domain contains spaces', () => {
+    const result = buildMerchantBaseUrl({
+      slug: 'ogabassey',
+      custom_domain: 'example .com',
+    });
+    expect(result).toBe('https://ogabassey.baci.app');
+  });
+
+  it('falls back to slug when custom_domain contains unicode homograph', () => {
+    const result = buildMerchantBaseUrl({
+      slug: 'ogabassey',
+      custom_domain: 'exаmple.com', // Cyrillic 'а'
+    });
+    expect(result).toBe('https://ogabassey.baci.app');
+  });
 });

@@ -221,8 +221,14 @@ async function main() {
     stats.total++;
 
     const finalStatus = verification.status;
-    if (finalStatus in stats) {
-      stats[finalStatus]++;
+    switch (finalStatus) {
+      case 'verified':
+      case 'pending_derivative':
+      case 'pending_verification':
+      case 'missing':
+      case 'invalid':
+        stats[finalStatus]++;
+        break;
     }
 
     currentPairs.add(`${classified.product_id}::${classified.source_url}`);
@@ -311,6 +317,7 @@ async function main() {
 
     if (error) {
       existingError = error;
+      existingRows.length = 0;
       break;
     }
 
@@ -322,7 +329,7 @@ async function main() {
   if (existingError) {
     console.error(
       'Failed to fetch existing rows for stale detection:',
-      (existingError as { message: string }).message
+      existingError instanceof Error ? existingError.message : String(existingError)
     );
     persistErrors++;
   } else {

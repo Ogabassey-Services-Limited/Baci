@@ -137,8 +137,7 @@ export async function verifyRemoteImage(
     if (!response.ok) {
       const isTransient =
         response.status >= 500 ||
-        response.status === 429 ||
-        response.status === 403;
+        response.status === 429;
       return {
         status: isTransient ? 'pending_verification' : 'missing',
         verified_url: null,

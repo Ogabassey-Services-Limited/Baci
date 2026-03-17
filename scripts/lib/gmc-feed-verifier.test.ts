@@ -142,7 +142,7 @@ describe('verifyCdnImage', () => {
     // URL parser normalizes, so it's treated as a normal missing file
     expect(result.status).toBe('missing');
     expect(existsSyncMock).toHaveBeenCalledWith(
-      expect.stringContaining('/home/bassey/baci-cdn/public/')
+      '/home/bassey/baci-cdn/public/etc/passwd'
     );
   });
 
@@ -263,7 +263,7 @@ describe('verifyRemoteImage', () => {
     expect(result.failure_reason).toContain('429');
   });
 
-  it('marks as pending_verification on 403 forbidden', async () => {
+  it('marks as missing on 403 forbidden (permanent denial)', async () => {
     fetchMock.mockResolvedValue({
       ok: false,
       status: 403,
@@ -273,7 +273,7 @@ describe('verifyRemoteImage', () => {
       'https://example.com/photo.jpg',
       fetchMock
     );
-    expect(result.status).toBe('pending_verification');
+    expect(result.status).toBe('missing');
     expect(result.failure_reason).toContain('403');
   });
 
