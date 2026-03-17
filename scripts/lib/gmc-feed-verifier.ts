@@ -7,6 +7,8 @@
 
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+// Relative path: scripts/ has no tsconfig and runs via `npx tsx` outside the
+// workspace package graph, so `@baci/shared/gmc-feed` won't resolve here.
 import {
   getImageFormat,
   replaceAvifWithJpg,

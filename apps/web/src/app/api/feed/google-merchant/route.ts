@@ -122,7 +122,7 @@ function createCachedFeedDataFetcher(
         imageManifest,
       };
     },
-    ['google-merchant-feed', merchantIdentifier],
+    ['google-merchant-feed', isBySlug ? 'slug' : 'id', merchantIdentifier],
     {
       revalidate: 3600,
       tags: [

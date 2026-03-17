@@ -3,7 +3,7 @@
  * Used by the feed route to generate deterministic product links.
  */
 export function buildMerchantBaseUrl(merchant: {
-  slug: string;
+  slug: string | null;
   custom_domain?: string | null;
 }): string {
   if (merchant.custom_domain) {
@@ -19,7 +19,7 @@ export function buildMerchantBaseUrl(merchant: {
     }
   }
 
-  const slug = merchant.slug.trim();
+  const slug = merchant.slug?.trim();
   if (!slug) {
     throw new Error('Merchant slug is required to build storefront URL');
   }

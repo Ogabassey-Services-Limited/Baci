@@ -14,6 +14,7 @@ const RevalidateSchema = z.object({
  * the fresh manifest data immediately.
  *
  * Auth: Bearer token must match CRON_SECRET.
+ * CSRF: Exempt — this is a machine-to-machine endpoint (no browser clients).
  *
  * Usage:
  *   POST /api/feed/google-merchant/revalidate
