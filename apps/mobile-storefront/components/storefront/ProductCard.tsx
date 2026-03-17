@@ -28,6 +28,10 @@ import Animated, {
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPRING_CONFIG } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/use-haptics';
+import {
+  getProductCardImageAttempt,
+  normalizeProductImages,
+} from '@/lib/product-normalization';
 import { supabase } from '@/lib/supabase';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
@@ -222,9 +226,14 @@ export function ProductCard({
 
   // Calculate discount percentage for potential use in badges/promotions
 
-  // 2026 Best Practice: Track image load failures for fallback rendering
-  const [imageError, setImageError] = useState(false);
-  const [fallbackError, setFallbackError] = useState(false);
+  const imageCandidates = normalizeProductImages(product.images);
+  const [imageAttempt, setImageAttempt] = useState(0);
+  const [showLocalPlaceholder, setShowLocalPlaceholder] = useState(false);
+
+  useEffect(() => {
+    setImageAttempt(0);
+    setShowLocalPlaceholder(false);
+  }, [product.id, product.image, product.images]);
 
   // Common image props for all variants
   // 2026 Best Practice: iOS 26 CoreGraphics has stricter image format requirements
@@ -239,24 +248,19 @@ export function ProductCard({
     recyclingKey: product.id,
     allowDownscaling: true,
     onError: () => {
-      // Silently handle image decode failures (iOS 26 24-bpp bug)
-      if (!imageError) {
-        setImageError(true);
-      } else if (!fallbackError) {
-        // Fallback URL also failed; stop trying remote URLs
-        setFallbackError(true);
+      // Prefer every real product image before using placeholders.
+      if (imageAttempt < imageCandidates.length) {
+        setImageAttempt((current) => current + 1);
+        return;
       }
+
+      setShowLocalPlaceholder(true);
     },
   };
 
-  // Fallback to blurhash placeholder if image fails to load
-  // If the fallback URL also fails, skip the Image entirely (render a local placeholder)
-  const imageSource =
-    imageError && !fallbackError
-      ? {
-          uri: `https://placehold.co/400x400/1a1a1a/ffffff?text=${encodeURIComponent(product.name?.charAt(0) || 'P')}`,
-        }
-      : { uri: product.image };
+  const imageSource = {
+    uri: getProductCardImageAttempt(product.images, imageAttempt),
+  };
 
   // --- RENDER: Editorial Variant (Fashion) ---
   if (variant === 'editorial') {
@@ -273,7 +277,7 @@ export function ProductCard({
         accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
         accessibilityRole="button"
       >
-        {fallbackError ? (
+        {showLocalPlaceholder ? (
           <View style={[styles.editorialImage, styles.imagePlaceholder]}>
             <Ionicons name="image-outline" size={40} color="#9CA3AF" />
           </View>
@@ -311,7 +315,7 @@ export function ProductCard({
         accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
         accessibilityRole="button"
       >
-        {fallbackError ? (
+        {showLocalPlaceholder ? (
           <View style={[styles.listImage, styles.imagePlaceholder]}>
             <Ionicons name="image-outline" size={32} color="#9CA3AF" />
           </View>
@@ -454,7 +458,7 @@ export function ProductCard({
           </View>
         )}
 
-        {fallbackError ? (
+        {showLocalPlaceholder ? (
           <View style={[styles.gridImage, styles.imagePlaceholder]}>
             <Ionicons name="image-outline" size={40} color="#9CA3AF" />
           </View>

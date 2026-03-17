@@ -1,4 +1,4 @@
-import { isValidIMEI } from './validation';
+import { isValidIMEI, ProductRowSchema } from './validation';
 
 describe('isValidIMEI', () => {
   it('accepts a valid IMEI (Luhn check passes)', () => {
@@ -33,5 +33,42 @@ describe('isValidIMEI', () => {
 
   it('rejects a string with spaces', () => {
     expect(isValidIMEI('490 154 203 237')).toBe(false);
+  });
+});
+
+describe('ProductRowSchema', () => {
+  it('accepts legacy object-map variant attributes', () => {
+    const result = ProductRowSchema.safeParse({
+      id: '4bfca2e0-5d93-4cdf-b9fc-0b0fd3753e0f',
+      name: 'Iphone 13 Pro 128gb Premium Used',
+      slug: 'iphone-13-pro-128gb-premium-used',
+      price: 552000,
+      images: null,
+      has_variants: false,
+      variant_attributes: {},
+      status: 'active',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts array-based variant attributes', () => {
+    const result = ProductRowSchema.safeParse({
+      id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+      name: 'iPhone 13 Pro',
+      slug: 'iphone-13-pro',
+      price: 825000,
+      images: ['https://cdn.example.com/iphone-13-pro-gold.avif'],
+      has_variants: true,
+      variant_attributes: [
+        {
+          param: 'storage',
+          options: ['128GB', '256GB', '512GB'],
+        },
+      ],
+      status: 'active',
+    });
+
+    expect(result.success).toBe(true);
   });
 });
