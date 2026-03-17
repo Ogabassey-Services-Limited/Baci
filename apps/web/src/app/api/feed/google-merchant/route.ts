@@ -6,10 +6,12 @@ import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
 import {
   type FeedProduct,
+  type FeedVariant,
   generateGoogleMerchantFeed,
   type ImageManifestMap,
 } from './feed-builder';
 import { buildMerchantBaseUrl } from './route-utils';
+import type { FeedKeySpecs } from './variant-mapping';
 
 /**
  * Module-level anon-key client is intentional: this is a public feed endpoint
@@ -35,7 +37,9 @@ function createCachedFeedDataFetcher(
     async () => {
       const merchantQuery = supabase
         .from('merchants')
-        .select('id, business_name, country, payout_currency, slug');
+        .select(
+          'id, business_name, country, payout_currency, slug, gmc_variants_enabled'
+        );
 
       const { data: merchant, error: merchantError } = isBySlug
         ? await merchantQuery.eq('slug', merchantIdentifier).single()
@@ -63,6 +67,7 @@ function createCachedFeedDataFetcher(
         .select(
           `id, name, description, slug, price, compare_at_price,
            brand, gtin, mpn, sku, stock, condition, google_product_category, category,
+           categories:category_id(name, slug),
            weight_value, weight_unit, updated_at`
         )
         .eq('merchant_id', merchant.id)
@@ -113,12 +118,96 @@ function createCachedFeedDataFetcher(
         });
       }
 
+      const gmcVariantsEnabled = merchant.gmc_variants_enabled === true;
+      const productIds = (products || []).map((p: { id: string }) => p.id);
+
+      // Fetch variants and key_specs in parallel (only if flag is on)
+      let variantRows: unknown[] = [];
+      let specsRows: unknown[] = [];
+
+      if (gmcVariantsEnabled && productIds.length > 0) {
+        const [variantResult, specsResult] = await Promise.all([
+          supabase.rpc('get_storefront_product_variants', {
+            p_product_ids: productIds,
+          }),
+          supabase
+            .from('product_key_specs')
+            .select(
+              'product_id, ram_gb, storage_gb, screen_size_inches, chipset, battery_mah, main_camera_mp'
+            )
+            .in('product_id', productIds),
+        ]);
+
+        if (variantResult.error) {
+          console.error('DB_VARIANT_ERROR:', variantResult.error);
+          throw new Error('Failed to fetch product variants');
+        }
+        if (specsResult.error) {
+          console.error('DB_SPECS_ERROR:', specsResult.error);
+          throw new Error('Failed to fetch product key specs');
+        }
+
+        variantRows = variantResult.data || [];
+        specsRows = specsResult.data || [];
+      }
+
+      // Group variants by product_id
+      const variantsByProduct: Record<string, FeedVariant[]> = {};
+      for (const row of variantRows as Array<{
+        id: string;
+        product_id: string;
+        sku?: string;
+        attributes: Record<string, string>;
+        price_override?: number;
+        stock_quantity: number;
+      }>) {
+        if (!variantsByProduct[row.product_id]) {
+          variantsByProduct[row.product_id] = [];
+        }
+        variantsByProduct[row.product_id].push({
+          id: row.id,
+          sku: row.sku,
+          attributes: row.attributes || {},
+          price_override: row.price_override ?? undefined,
+          stock_quantity: row.stock_quantity ?? 0,
+        });
+      }
+
+      // Index key_specs by product_id
+      const specsByProduct: Record<string, FeedKeySpecs> = {};
+      for (const row of specsRows as Array<{
+        product_id: string;
+        ram_gb?: number;
+        storage_gb?: number;
+        screen_size_inches?: number;
+        chipset?: string;
+        battery_mah?: number;
+        main_camera_mp?: number;
+      }>) {
+        specsByProduct[row.product_id] = {
+          ram_gb: row.ram_gb ?? undefined,
+          storage_gb: row.storage_gb ?? undefined,
+          screen_size_inches: row.screen_size_inches ?? undefined,
+          chipset: row.chipset ?? undefined,
+          battery_mah: row.battery_mah ?? undefined,
+          main_camera_mp: row.main_camera_mp ?? undefined,
+        };
+      }
+
+      // Merge variants and specs onto products
+      const enrichedProducts: FeedProduct[] = (products || []).map((p) => ({
+        ...(p as unknown as FeedProduct),
+        variants:
+          variantsByProduct[(p as Record<string, unknown>).id as string],
+        key_specs: specsByProduct[(p as Record<string, unknown>).id as string],
+      }));
+
       return {
         merchant: {
           ...merchant,
           custom_domain: primaryDomain?.domain ?? null,
         },
-        products: (products || []) as FeedProduct[],
+        products: enrichedProducts,
         imageManifest,
       };
     },

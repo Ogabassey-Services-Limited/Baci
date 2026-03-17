@@ -53,11 +53,29 @@ export function useProductDetailsState(serverProduct: Product) {
     productData.condition || 'new'
   );
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedColor, setSelectedColor] = useState<number | null>(null);
+  // Pre-select variant from ?variant= URL param (for GMC feed deep links)
+  const variantIdFromUrl = searchParams.get('variant');
+  const matchedVariant = variantIdFromUrl && serverProduct.variants?.length
+    ? serverProduct.variants.find((v) => v.id === variantIdFromUrl)
+    : undefined;
+  const initialAttributes = matchedVariant?.attributes ?? {};
+
+  // Pre-select color index if the matched variant specifies a color
+  const initialColorIndex = (() => {
+    const colorName = initialAttributes.color;
+    if (!colorName || !productData.colors.length) return null;
+    const idx = productData.colors.findIndex(
+      (c) => c.name.toLowerCase() === colorName.toLowerCase()
+    );
+    return idx >= 0 ? idx : null;
+  })();
+
+  const [selectedColor, setSelectedColor] = useState<number | null>(initialColorIndex);
   const [secondaryColor, setSecondaryColor] = useState<number | null>(null);
+
   const [selectedAttributes, setSelectedAttributes] = useState<
     Record<string, string>
-  >({});
+  >(initialAttributes);
   const [activeTab, setActiveTab] =
     useState<ProductDetailsActiveTab>('description');
   const [deliveryLocation, setDeliveryLocation] = useState<

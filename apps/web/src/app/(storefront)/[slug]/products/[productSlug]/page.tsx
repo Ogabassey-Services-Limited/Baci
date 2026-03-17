@@ -2,6 +2,7 @@ import type { Metadata, ResolvingMetadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
+import { ProductPageRelatedContent } from '@/components/storefront/product-page-related-content';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
   getCachedMerchant,
@@ -10,7 +11,9 @@ import {
   getCachedProductRatingStats,
   getCachedProductReviews,
 } from '@/lib/cached-data';
+import { getLocaleForCountry } from '@/lib/currency-utils';
 import type { Product } from '@/lib/products';
+import { getRenderableProductDescription } from '@/lib/renderable-product-description';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -77,13 +80,6 @@ async function getProductCached(
     };
   });
   const firstImage = normalizedImages?.[0]?.url || '';
-  const normalizedVariants = normalizeStorefrontProductVariants(
-    cachedProduct.product_variants,
-    {
-      merchantId: merchant.id,
-      productId: cachedProduct.id,
-    }
-  );
 
   const product: Product = {
     id: cachedProduct.id,
@@ -124,8 +120,14 @@ async function getProductCached(
         } | null
       )?.slug || undefined,
     // Variants
-    has_variants: normalizedVariants.length > 0,
-    variants: normalizedVariants,
+    has_variants: (cachedProduct.product_variants?.length ?? 0) > 0,
+    variants: normalizeStorefrontProductVariants(
+      cachedProduct.product_variants,
+      {
+        merchantId: merchant.id,
+        productId: cachedProduct.id,
+      }
+    ),
     // Specs for SEO Schema
     // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
     specifications: cachedProduct.specifications as any,
@@ -193,8 +195,14 @@ export async function generateMetadata(
       ? `/${slug}/${effectiveCategorySlug}/${cleanSlug}`
       : `/${effectiveCategorySlug}/${cleanSlug}`;
 
+    // Preserve ?variant= query param for GMC feed deep links
+    const variantParam = resolvedSearchParams?.variant;
+    const qs = variantParam
+      ? `?variant=${encodeURIComponent(String(variantParam))}`
+      : '';
+
     // biome-ignore lint/suspicious/noExplicitAny: Dynamic route path requires type assertion
-    permanentRedirect(targetPath as any);
+    permanentRedirect(`${targetPath}${qs}` as any);
   }
 
   const urlPrefix = isLocalhost ? `/${slug}` : '';
@@ -220,22 +228,29 @@ export async function generateMetadata(
   const socialMedia = merchant?.social_media as
     | Record<string, string>
     | undefined;
+  const currency = merchant?.payout_currency || 'USD';
+  const descriptionContent = getRenderableProductDescription({
+    description: product.meta_description || product.description,
+    price: product.price,
+    currency,
+    locale: getLocaleForCountry(merchant?.country || null),
+  });
+  const metadataDescription =
+    descriptionContent.snippet ||
+    `Buy ${product.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`;
 
   return {
     title:
       product.meta_title ||
       `${product.name} | ${merchant?.business_name || 'Baci Store'}`,
-    description:
-      product.meta_description ||
-      product.description ||
-      `Buy ${product.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`,
+    description: metadataDescription,
     keywords: product.keywords,
     alternates: {
       canonical: canonicalUrl,
     },
     openGraph: {
       title: product.meta_title || product.name,
-      description: product.meta_description || product.description,
+      description: metadataDescription,
       images: product.images?.map((img) => ({
         url: img.url,
         alt: img.alt,
@@ -254,7 +269,7 @@ export async function generateMetadata(
     twitter: {
       card: 'summary_large_image',
       title: product.meta_title || product.name,
-      description: product.meta_description || product.description,
+      description: metadataDescription,
       images: [product.imageLarge || product.image],
       ...(socialMedia?.twitter && {
         site: socialMedia.twitter.startsWith('@')
@@ -268,16 +283,22 @@ export async function generateMetadata(
   };
 }
 
-export default async function ProductPage({ params }: PageProps) {
+export default async function ProductPage({ params, searchParams }: PageProps) {
   const { slug, productSlug } = await params;
+  const _resolvedSearchParams = await searchParams;
 
   // SEO: Enforce lowercase URLs using x-pathname header (works even if params are normalized)
   const headersList = await headers();
   const pathname = headersList.get('x-pathname');
 
   if (pathname && pathname !== pathname.toLowerCase()) {
+    // Preserve ?variant= query param for GMC feed deep links
+    const variantParam = _resolvedSearchParams?.variant;
+    const qs = variantParam
+      ? `?variant=${encodeURIComponent(String(variantParam))}`
+      : '';
     // biome-ignore lint/suspicious/noExplicitAny: Redirecting to lowercase string is valid
-    return permanentRedirect(pathname.toLowerCase() as any);
+    return permanentRedirect(`${pathname.toLowerCase()}${qs}` as any);
   }
 
   const product = await getProductCached(slug, productSlug);
@@ -404,7 +425,14 @@ export default async function ProductPage({ params }: PageProps) {
       )}
 
       <Suspense fallback={<ProductDetailSkeleton />}>
-        <ProductDetailClient product={product} faqs={productFaqs} />
+        <ProductDetailClient product={product} faqs={productFaqs}>
+          <ProductPageRelatedContent
+            basePath={urlPrefix}
+            className="space-y-12"
+            country={merchant?.country || 'NG'}
+            currentProduct={product}
+          />
+        </ProductDetailClient>
       </Suspense>
     </>
   );
