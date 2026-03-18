@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update order with shipment info
-    await supabase
+    const { error: orderUpdateError } = await supabase
       .from('orders')
       .update({
         shipment_id: shipment?.id,
@@ -209,13 +209,28 @@ export async function POST(request: NextRequest) {
         selected_quote_id: data.quoteId,
         fulfillment_type: 'provider',
       })
-      .eq('id', data.orderId);
+      .eq('id', data.orderId)
+      .eq('merchant_id', merchantId);
+
+    if (orderUpdateError) {
+      console.error('Error updating order:', orderUpdateError);
+      return NextResponse.json(
+        { error: 'Failed to update order with shipment info' },
+        { status: 500 }
+      );
+    }
 
     // Mark quote as used
-    await supabase
+    const { error: quoteUpdateError } = await supabase
       .from('shipping_quotes')
       .update({ used: true })
-      .eq('id', data.quoteId);
+      .eq('id', data.quoteId)
+      .eq('merchant_id', merchantId);
+
+    if (quoteUpdateError) {
+      console.error('Error marking quote as used:', quoteUpdateError);
+      // Don't fail the request if this fails, but log it
+    }
 
     return NextResponse.json(
       {
