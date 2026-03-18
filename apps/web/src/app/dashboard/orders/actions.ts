@@ -139,7 +139,10 @@ export async function getOrders(
   if (!filters.paymentStatus && !filters.shippingStatus) {
     const { data: jOrders } = await supabase
       .from('jumia_orders')
-      .select('*')
+      // PERFORMANCE: Replace .select('*') with explicit column selection to reduce data payload
+      .select(
+        'status, jumia_order_id, jumia_order_number, customer_name, total_amount, created_at_jumia, items'
+      )
       .eq('merchant_id', merchantId)
       .order('created_at_jumia', { ascending: false });
     jumiaOrders = jOrders || [];
@@ -310,7 +313,10 @@ export async function getOrder(
   // Fetch transactions
   const { data: transactions } = await supabase
     .from('transactions')
-    .select('*')
+    // PERFORMANCE: Replace .select('*') with explicit column selection to reduce data payload
+    .select(
+      'id, gateway_reference, status, amount, currency, gateway, created_at'
+    )
     .eq('order_id', order.id)
     .order('created_at', { ascending: false });
 
