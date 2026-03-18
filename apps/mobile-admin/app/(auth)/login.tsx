@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -120,6 +120,7 @@ export default function LoginScreen() {
   const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const passwordRef = useRef<TextInput>(null);
 
   useEffect(() => {
     // 2026 Best Practice: Configure native modules only on supported platforms
@@ -322,6 +323,9 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                   textContentType="emailAddress"
                   editable={!isAnyLoading}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => passwordRef.current?.focus()}
                 />
               </View>
             </View>
@@ -343,6 +347,7 @@ export default function LoginScreen() {
                   style={styles.inputIcon}
                 />
                 <TextInput
+                  ref={passwordRef}
                   style={[styles.input, { color: colors.text }]}
                   placeholder="••••••••"
                   placeholderTextColor={colors.textMuted}
@@ -352,6 +357,8 @@ export default function LoginScreen() {
                   autoComplete="password"
                   textContentType="password"
                   editable={!isAnyLoading}
+                  returnKeyType="go"
+                  onSubmitEditing={handleLogin}
                 />
                 <Pressable
                   onPress={() => setShowPassword((prev) => !prev)}
