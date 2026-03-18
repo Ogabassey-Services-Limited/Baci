@@ -1,3 +1,4 @@
+import { type NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---- Mocks ----
@@ -97,10 +98,20 @@ vi.mock('@/lib/supabase/server', () => ({
 
 // ---- Tests ----
 
+type CsrfCheckResult = {
+  valid: boolean;
+  response: Response | null;
+};
+
+let csrfCheckResult: CsrfCheckResult = {
+  valid: true,
+  response: null,
+};
+
+const mockCheckCsrfProtection = vi.fn(() => Promise.resolve(csrfCheckResult));
+
 vi.mock('@/lib/csrf', () => ({
-  checkCsrfProtection: vi.fn(() =>
-    Promise.resolve({ valid: true, response: null })
-  ),
+  checkCsrfProtection: mockCheckCsrfProtection,
 }));
 
 describe('POST /api/products/bulk-publish', () => {
@@ -112,6 +123,7 @@ describe('POST /api/products/bulk-publish', () => {
     deleteError = null;
     updateData = [{ id: 'product-1' }, { id: 'product-2' }];
     updateError = null;
+    csrfCheckResult = { valid: true, response: null };
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -119,7 +131,7 @@ describe('POST /api/products/bulk-publish', () => {
     authUser = null;
 
     const req = new Request('http://localhost');
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as NextRequest);
     const json = await res.json();
 
     expect(res.status).toBe(401);
@@ -131,7 +143,7 @@ describe('POST /api/products/bulk-publish', () => {
     merchant = null;
 
     const req = new Request('http://localhost');
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as NextRequest);
     const json = await res.json();
 
     expect(res.status).toBe(404);
@@ -142,7 +154,7 @@ describe('POST /api/products/bulk-publish', () => {
     const { POST } = await import('./route');
 
     const req = new Request('http://localhost');
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as NextRequest);
     const json = await res.json();
 
     expect(res.status).toBe(200);
@@ -155,7 +167,7 @@ describe('POST /api/products/bulk-publish', () => {
     const { POST } = await import('./route');
 
     const req = new Request('http://localhost');
-    await POST(req as any);
+    await POST(req as unknown as NextRequest);
 
     expect(mockRevalidateProducts).toHaveBeenCalledWith(MERCHANT_ID);
   });
@@ -165,7 +177,7 @@ describe('POST /api/products/bulk-publish', () => {
     updateError = { message: 'DB error' };
 
     const req = new Request('http://localhost');
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as NextRequest);
     const json = await res.json();
 
     expect(res.status).toBe(500);
@@ -177,7 +189,7 @@ describe('POST /api/products/bulk-publish', () => {
     deleteError = { message: 'Delete failed' };
 
     const req = new Request('http://localhost');
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as NextRequest);
     const json = await res.json();
 
     // Delete error is logged but does not fail the request
@@ -191,11 +203,30 @@ describe('POST /api/products/bulk-publish', () => {
     updateData = [];
 
     const req = new Request('http://localhost');
-    const res = await POST(req as any);
+    const res = await POST(req as unknown as NextRequest);
     const json = await res.json();
 
     expect(res.status).toBe(200);
     expect(json.deletedDrafts).toBe(0);
     expect(json.publishedProducts).toBe(0);
+  });
+
+  it('returns 403 when CSRF validation fails', async () => {
+    const { POST } = await import('./route');
+    csrfCheckResult = {
+      valid: false,
+      response: NextResponse.json(
+        { error: 'Invalid CSRF token' },
+        { status: 403 }
+      ),
+    };
+
+    const req = new Request('http://localhost');
+    const res = await POST(req as unknown as NextRequest);
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json.error).toBe('Invalid CSRF token');
+    expect(mockCheckCsrfProtection).toHaveBeenCalled();
   });
 });
