@@ -1,7 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
+import { PLATFORM_SETTINGS_SELECT } from './constants';
+import { PlatformSettingsUpdateSchema } from './schema';
 
 /**
  * Platform Settings API
@@ -98,7 +101,7 @@ export async function GET() {
     // Get platform settings (singleton row)
     const { data: settings, error: settingsError } = await supabase
       .from('platform_settings')
-      .select('*')
+      .select(PLATFORM_SETTINGS_SELECT)
       .single();
 
     if (settingsError) {
@@ -121,6 +124,14 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -134,104 +145,23 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-
-    // Validate and sanitize input
-    const allowedFields = [
-      'google_analytics_id',
-      'ga4_api_secret',
-      'facebook_pixel_id',
-      'facebook_capi_token',
-      'tiktok_pixel_id',
-      'tiktok_access_token',
-      'snapchat_pixel_id',
-      'snapchat_capi_token',
-      'twitter_pixel_id',
-      'platform_fee_percentage',
-      'platform_fee_flat',
-      'payment_processor_fee_percentage',
-      'payment_processor_fee_flat',
-      'platform_name',
-      'platform_logo_url',
-      'support_email',
-      'support_phone',
-      'enable_merchant_signups',
-      'enable_custom_domains',
-      'enable_analytics_export',
-      'maintenance_mode',
-      'maintenance_message',
-    ];
-
-    const updateData: Record<string, unknown> = {};
-    for (const field of allowedFields) {
-      if (field in body) {
-        updateData[field] = body[field];
-      }
-    }
-
-    // Validate numeric fields
-    const numericFields = [
-      'platform_fee_percentage',
-      'platform_fee_flat',
-      'payment_processor_fee_percentage',
-      'payment_processor_fee_flat',
-    ];
-    for (const field of numericFields) {
-      if (field in updateData) {
-        const value = Number(updateData[field]);
-        if (Number.isNaN(value) || value < 0) {
-          return NextResponse.json(
-            { error: `${field} must be a non-negative number` },
-            { status: 400 }
-          );
-        }
-        updateData[field] = value;
-      }
-    }
-
-    // Validate boolean fields
-    const booleanFields = [
-      'enable_merchant_signups',
-      'enable_custom_domains',
-      'enable_analytics_export',
-      'maintenance_mode',
-    ];
-    for (const field of booleanFields) {
-      if (field in updateData && typeof updateData[field] !== 'boolean') {
-        return NextResponse.json(
-          { error: `${field} must be a boolean` },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Validate email format
-    if (
-      'support_email' in updateData &&
-      updateData.support_email &&
-      typeof updateData.support_email === 'string'
-    ) {
-      // Email validation with length limit to prevent ReDoS
-      const email = updateData.support_email;
-      const isValidEmail =
-        email.length <= 254 &&
-        email.includes('@') &&
-        email.indexOf('@') > 0 &&
-        email.lastIndexOf('.') > email.indexOf('@') + 1 &&
-        !/\s/.test(email);
-      if (!isValidEmail) {
-        return NextResponse.json(
-          { error: 'support_email must be a valid email address' },
-          { status: 400 }
-        );
-      }
+    const parseResult = PlatformSettingsUpdateSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid request payload',
+          details: parseResult.error.flatten(),
+        },
+        { status: 400 }
+      );
     }
 
     // Update platform settings
     const { data: settings, error: updateError } = await supabase
       .from('platform_settings')
-      .update(updateData)
+      .update(parseResult.data)
       .eq('singleton_key', true)
-      .select()
+      .select(PLATFORM_SETTINGS_SELECT)
       .single();
 
     if (updateError) {
