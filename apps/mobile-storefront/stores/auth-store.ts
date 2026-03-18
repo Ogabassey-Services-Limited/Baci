@@ -17,6 +17,7 @@ import {
 } from '../lib/account-deletion';
 import { CONFIG } from '../lib/config';
 import { createLogger } from '../lib/logger';
+import { queryClient } from '../lib/query-client';
 import { supabase } from '../lib/supabase';
 import { CustomerRowSchema, MerchantRowSchema } from '../lib/validation';
 import {
@@ -286,6 +287,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               useCartStore.getState().clearCart();
               useSavedStore.getState().clearSaved();
               useComparisonStore.getState().clearComparison();
+              queryClient.clear();
               set({
                 user: null,
                 session: null,
@@ -633,6 +635,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       useCartStore.getState().clearCart();
       useSavedStore.getState().clearSaved();
       useComparisonStore.getState().clearComparison();
+      queryClient.clear();
       set({
         user: null,
         session: null,
@@ -668,6 +671,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       useCartStore.getState().clearCart();
       useSavedStore.getState().clearSaved();
       useComparisonStore.getState().clearComparison();
+      queryClient.clear();
       set({
         user: null,
         session: null,
