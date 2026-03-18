@@ -545,6 +545,34 @@ describe('generateGoogleMerchantFeed — variant emission', () => {
     expect(xml).toContain('<g:price>100.00 NGN</g:price>');
   });
 
+  it.each([
+    0,
+    -25,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ])('falls back to product price when price_override is invalid: %s', (invalidOverride) => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          price: 100,
+          variants: [
+            {
+              id: 'var-1',
+              attributes: { color: 'Blue' },
+              price_override: invalidOverride,
+              stock_quantity: 5,
+            },
+          ],
+        }),
+      ],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+
+    expect(xml).toContain('<g:price>100.00 NGN</g:price>');
+  });
+
   it('sets availability from variant stock_quantity', () => {
     const xml = generateGoogleMerchantFeed(
       [
@@ -563,6 +591,27 @@ describe('generateGoogleMerchantFeed — variant emission', () => {
       defaultManifest
     );
     expect(xml).toContain('<g:availability>out_of_stock</g:availability>');
+  });
+
+  it('clamps invalid variant stock_quantity to zero', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          variants: [
+            {
+              id: 'var-invalid-stock',
+              attributes: { color: 'Red' },
+              stock_quantity: -3,
+            },
+          ],
+        }),
+      ],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+    expect(xml).toContain('<g:availability>out_of_stock</g:availability>');
+    expect(xml).toContain('<g:quantity>0</g:quantity>');
   });
 
   it('emits g:color and g:size from variant attributes', () => {

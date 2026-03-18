@@ -274,7 +274,18 @@ export function generateGoogleMerchantFeed(
 
         const gmcAttrs = mapVariantToGmcAttributes(variant.attributes);
         const variantUrl = `${productUrl}?variant=${encodeURIComponent(variant.id)}`;
-        const variantPrice = variant.price_override ?? product.price;
+        const variantPrice =
+          typeof variant.price_override === 'number' &&
+          Number.isFinite(variant.price_override) &&
+          variant.price_override > 0
+            ? variant.price_override
+            : product.price;
+        const variantStock =
+          typeof variant.stock_quantity === 'number' &&
+          Number.isFinite(variant.stock_quantity) &&
+          variant.stock_quantity > 0
+            ? variant.stock_quantity
+            : 0;
 
         const lines = buildSharedItemLines(
           product,
@@ -290,7 +301,7 @@ export function generateGoogleMerchantFeed(
             link: variantUrl,
             canonicalLink: productUrl,
             price: variantPrice,
-            stock: variant.stock_quantity,
+            stock: variantStock,
             color: gmcAttrs.color,
             size: gmcAttrs.size,
             productDetailXml,

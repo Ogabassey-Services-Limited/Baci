@@ -32,12 +32,45 @@ type SpecsRow = {
   main_camera_mp?: number;
 };
 
+const PRODUCT_KEY_SPECS_SELECT =
+  'product_id, ram_gb, storage_gb, screen_size_inches, chipset, battery_mah, main_camera_mp';
+const PRODUCT_KEY_SPECS_CHUNK_SIZE = 200;
+
 /**
  * Module-level anon-key client is intentional: this is a public feed endpoint
  * hit by Google's crawler — no auth cookies exist. Using `@/lib/supabase/server`
  * (which reads cookies) would be incorrect here.
  */
 const supabase = createClient(getSupabaseUrl(), getSupabaseAnonKey());
+
+async function fetchProductKeySpecs(productIds: string[]): Promise<SpecsRow[]> {
+  const specsChunks: string[][] = [];
+  for (
+    let index = 0;
+    index < productIds.length;
+    index += PRODUCT_KEY_SPECS_CHUNK_SIZE
+  ) {
+    specsChunks.push(
+      productIds.slice(index, index + PRODUCT_KEY_SPECS_CHUNK_SIZE)
+    );
+  }
+
+  const specsResults = await Promise.all(
+    specsChunks.map((chunk) =>
+      supabase
+        .from('product_key_specs')
+        .select(PRODUCT_KEY_SPECS_SELECT)
+        .in('product_id', chunk)
+    )
+  );
+  const specsError = specsResults.find((result) => result.error);
+  if (specsError?.error) {
+    console.error('DB_SPECS_ERROR:', specsError.error);
+    throw new Error('Failed to fetch product key specs');
+  }
+
+  return specsResults.flatMap((result) => result.data || []);
+}
 
 const _FeedQuerySchema = z
   .object({
@@ -140,34 +173,27 @@ function createCachedFeedDataFetcher(
       const gmcVariantsEnabled = merchant.gmc_variants_enabled === true;
       const productIds = (products || []).map((p: { id: string }) => p.id);
 
-      // Fetch variants and key_specs in parallel (only if flag is on)
       let variantRows: VariantRow[] = [];
       let specsRows: SpecsRow[] = [];
 
-      if (gmcVariantsEnabled && productIds.length > 0) {
-        const [variantResult, specsResult] = await Promise.all([
-          supabase.rpc('get_storefront_product_variants', {
-            p_product_ids: productIds,
-          }),
-          supabase
-            .from('product_key_specs')
-            .select(
-              'product_id, ram_gb, storage_gb, screen_size_inches, chipset, battery_mah, main_camera_mp'
-            )
-            .in('product_id', productIds),
+      if (productIds.length > 0) {
+        const variantPromise = gmcVariantsEnabled
+          ? supabase.rpc('get_storefront_product_variants', {
+              p_product_ids: productIds,
+            })
+          : Promise.resolve({ data: [] as VariantRow[], error: null });
+        const [variantResult, fetchedSpecsRows] = await Promise.all([
+          variantPromise,
+          fetchProductKeySpecs(productIds),
         ]);
 
         if (variantResult.error) {
           console.error('DB_VARIANT_ERROR:', variantResult.error);
           throw new Error('Failed to fetch product variants');
         }
-        if (specsResult.error) {
-          console.error('DB_SPECS_ERROR:', specsResult.error);
-          throw new Error('Failed to fetch product key specs');
-        }
 
         variantRows = variantResult.data || [];
-        specsRows = specsResult.data || [];
+        specsRows = fetchedSpecsRows;
       }
 
       // Group variants by product_id

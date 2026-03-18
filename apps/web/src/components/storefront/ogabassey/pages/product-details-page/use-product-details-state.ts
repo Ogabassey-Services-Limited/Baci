@@ -58,6 +58,7 @@ export function useProductDetailsState(serverProduct: Product) {
     ? serverProduct.variants.find((v) => v.id === variantIdFromUrl)
     : undefined;
   const initialAttributes = matchedVariant?.attributes ?? {};
+  const initialAttributesSignature = JSON.stringify(initialAttributes);
 
   // Pre-select color index if the matched variant specifies a color
   const initialColorIndex = (() => {
@@ -118,6 +119,23 @@ export function useProductDetailsState(serverProduct: Product) {
   useEffect(() => {
     setSelectedCondition(productData.condition || 'new');
   }, [productData.id, productData.condition]);
+
+  useEffect(() => {
+    setSelectedImage(initialImageIndex);
+    setSelectedColor(initialColorIndex);
+    setSecondaryColor(null);
+    setSelectedAttributes(
+      initialAttributesSignature === '{}'
+        ? {}
+        : (JSON.parse(initialAttributesSignature) as Record<string, string>)
+    );
+  }, [
+    serverProduct.id,
+    variantIdFromUrl,
+    initialColorIndex,
+    initialImageIndex,
+    initialAttributesSignature,
+  ]);
 
   const currentCartItemId = buildCartItemId(productData.id, {
     color:
