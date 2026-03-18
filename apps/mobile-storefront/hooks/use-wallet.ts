@@ -43,10 +43,10 @@ const RedeemLoyaltyRpcResponseSchema = z.discriminatedUnion('success', [
   z.object({
     success: z.literal(true),
     wallet_credited: z.number().finite(),
-    points_deducted: z.number().optional(),
-    new_points_balance: z.number().optional(),
-    new_wallet_balance: z.number().optional(),
-  }),
+    points_deducted: z.number().finite(),
+    new_points_balance: z.number().finite(),
+    new_wallet_balance: z.number().finite(),
+  }).strict(),
   z.object({
     success: z.literal(false),
     error: z.string().optional(),
@@ -287,9 +287,8 @@ export function useRedeemPoints() {
       return {
         ...result,
         walletCredit,
-        pointsRedeemed: parsedRpc.data.points_deducted ?? result.pointsRedeemed,
-        remainingPoints:
-          parsedRpc.data.new_points_balance ?? result.remainingPoints,
+        pointsRedeemed: parsedRpc.data.points_deducted,
+        remainingPoints: parsedRpc.data.new_points_balance,
       };
     },
 
