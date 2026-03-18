@@ -36,6 +36,10 @@
 - **Status**: ℹ️ Informational only - acceptable for Supabase
 - **Note**: pgvector extension in public schema is standard for Supabase installations
 
+### 4. Dependency Overrides
+- **Status**: ✅ Applied in `package.json` and reflected in `pnpm-lock.yaml`
+- **Implementation**: The `extract-zip>yauzl` override pins `yauzl` to `3.2.1`, which remediates `CVE-2026-31988` in the NTFS timestamp extra-field parser. The branch also includes a `flat-cache>flatted` override to keep the transitive dependency tree on patched versions.
+
 ---
 
 ## Security Audit Results
