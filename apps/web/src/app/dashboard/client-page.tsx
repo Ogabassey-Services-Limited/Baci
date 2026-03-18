@@ -255,7 +255,12 @@ export default function DashboardClientPage({
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="icon" variant="ghost" className="relative h-9 w-9">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="relative h-9 w-9"
+                aria-label="View customers"
+              >
                 <div className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full" />
                 <Users className="h-4 w-4" />
               </Button>
@@ -417,6 +422,7 @@ export default function DashboardClientPage({
               size="icon"
               variant="ghost"
               className="h-8 w-8 shrink-0 -mr-1"
+              aria-label="View insights"
             >
               <ArrowRight className="h-4 w-4 text-muted-foreground" />
             </Button>
