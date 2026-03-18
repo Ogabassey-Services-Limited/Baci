@@ -39,6 +39,20 @@ interface WalletQueryData {
   transactions: Transaction[];
 }
 
+const RedeemLoyaltyRpcResponseSchema = z.discriminatedUnion('success', [
+  z.object({
+    success: z.literal(true),
+    wallet_credited: z.number().finite(),
+    points_deducted: z.number().finite(),
+    new_points_balance: z.number().finite(),
+    new_wallet_balance: z.number().finite(),
+  }).strict(),
+  z.object({
+    success: z.literal(false),
+    error: z.string().optional(),
+  }),
+]);
+
 // ============================================
 // QUERY KEYS (Centralized for cache management)
 // ============================================
@@ -247,16 +261,35 @@ export function useRedeemPoints() {
       }
 
       // Then execute the RPC
-      const { error } = await supabase.rpc('redeem_loyalty_points', {
-        p_customer_id: customerId,
-        p_merchant_id: currentMerchantId,
-        p_points: points,
-        p_wallet_credit: result.walletCredit,
-      });
+      const { data: rpcData, error } = await supabase.rpc(
+        'redeem_loyalty_points',
+        {
+          p_customer_id: customerId,
+          p_merchant_id: currentMerchantId,
+          p_points: points,
+          p_wallet_credit: result.walletCredit,
+        }
+      );
 
       if (error) throw error;
 
-      return result;
+      const parsedRpc = RedeemLoyaltyRpcResponseSchema.safeParse(rpcData);
+      if (!parsedRpc.success) {
+        throw new Error('Invalid redeem_loyalty_points RPC response');
+      }
+
+      if (!parsedRpc.data.success) {
+        throw new Error(parsedRpc.data.error || 'Redemption failed');
+      }
+
+      const walletCredit = parsedRpc.data.wallet_credited;
+
+      return {
+        ...result,
+        walletCredit,
+        pointsRedeemed: parsedRpc.data.points_deducted,
+        remainingPoints: parsedRpc.data.new_points_balance,
+      };
     },
 
     // 2025 Best Practice: Optimistic updates
