@@ -10,7 +10,25 @@ import {
 } from '@/hooks/product-utils';
 import { useMerchant } from '@/hooks/use-merchant';
 import { ProductRowSchema } from '@/lib/validation';
-import type { Product } from '@/types/product';
+import type { Product, ProductVariant } from '@/types/product';
+
+function normalizeProductVariants(
+  variants: z.infer<typeof ProductRowSchema>['variants']
+): ProductVariant[] {
+  return (
+    variants?.map((variant) => ({
+      ...variant,
+      compare_at_price: variant.compare_at_price ?? undefined,
+      price_override: variant.price_override ?? undefined,
+      price_modifier: variant.price_modifier ?? undefined,
+      image: variant.image ?? undefined,
+      images: variant.images ?? undefined,
+      in_stock: variant.in_stock ?? undefined,
+      stock_quantity: variant.stock_quantity ?? undefined,
+      attributes: variant.attributes ?? undefined,
+    })) ?? []
+  );
+}
 
 function augmentProduct(item: z.infer<typeof ProductRowSchema>): Product {
   const baseProduct = transformProduct(item);
@@ -23,7 +41,7 @@ function augmentProduct(item: z.infer<typeof ProductRowSchema>): Product {
     specifications: item.specifications ?? undefined,
     has_variants: item.has_variants ?? false,
     variant_attributes: normalizeVariantAttributes(item.variant_attributes),
-    variants: [],
+    variants: normalizeProductVariants(item.variants),
   };
 }
 

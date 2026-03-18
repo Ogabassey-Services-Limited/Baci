@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { SafeImage } from '@/components/ui/SafeImage';
+import { DEFAULT_ASSURANCE_RATE } from '@/constants/assurance';
 import Colors, { BRAND } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
 import type { CartItem } from '@/stores/cart-store';
@@ -9,8 +10,6 @@ import AssuranceToggle from './AssuranceToggle';
 import CartQuantityInput from './CartQuantityInput';
 import NegotiationButton from './NegotiationButton';
 import styles from './styles';
-
-const DEFAULT_ASSURANCE_RATE = 0.05;
 
 interface CartItemCardProps {
   item: CartItem;

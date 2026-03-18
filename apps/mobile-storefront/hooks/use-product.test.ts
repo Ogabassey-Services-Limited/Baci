@@ -105,6 +105,14 @@ const validProductRow = {
   specifications: { ram: '6GB' },
   has_variants: true,
   variant_attributes: [{ param: 'Storage', options: ['128GB', '256GB'] }],
+  variants: [
+    {
+      id: 'variant-128gb',
+      name: '128GB',
+      price: 552000,
+      attributes: { storage: '128GB' },
+    },
+  ],
   categories: [{ id: 'cat-1', name: 'Phones', slug: 'phones' }],
 };
 
@@ -152,7 +160,7 @@ describe('useProduct', () => {
       variant_attributes: {
         storage: ['128GB', '256GB'],
       },
-      variants: [],
+      variants: validProductRow.variants,
     });
   });
 
@@ -226,6 +234,7 @@ describe('usePrefetchProduct', () => {
       variant_attributes: {
         storage: ['128GB', '256GB'],
       },
+      variants: validProductRow.variants,
     });
   });
 

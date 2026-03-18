@@ -82,11 +82,21 @@ export default function GridProductCard({
         )}
 
         {showLocalPlaceholder ? (
-          <View style={[styles.gridImage, styles.imagePlaceholder]}>
+          <View
+            style={[styles.gridImage, styles.imagePlaceholder]}
+            accessibilityLabel={`No image available for ${product.name}`}
+            testID="grid-product-placeholder"
+          >
             <Ionicons name="image-outline" size={40} color="#9CA3AF" />
           </View>
         ) : (
-          <Image {...imageProps} source={imageSource} style={styles.gridImage} />
+          <Image
+            {...imageProps}
+            source={imageSource}
+            style={styles.gridImage}
+            accessibilityLabel={`${product.name} image`}
+            testID="grid-product-image"
+          />
         )}
 
         <Pressable

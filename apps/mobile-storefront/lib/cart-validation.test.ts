@@ -139,5 +139,26 @@ describe('isValidCartStore', () => {
         toggleAssurance: () => {},
       })
     ).toBe(false);
+    expect(
+      isValidCartStore({
+        items: [
+          {
+            id: 'cart-item-3',
+            product_id: 'product-3',
+            slug: 'galaxy-s24',
+            name: 'Galaxy S24',
+            price: 640000,
+            quantity: 1,
+            negotiatedPrice: 0,
+          },
+        ],
+        itemCount: () => 0,
+        subtotal: () => 0,
+        updateQuantity: () => {},
+        removeItem: () => {},
+        clearCart: () => {},
+        toggleAssurance: () => {},
+      })
+    ).toBe(false);
   });
 });

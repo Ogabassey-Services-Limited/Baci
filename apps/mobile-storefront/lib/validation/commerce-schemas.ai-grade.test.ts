@@ -1,7 +1,7 @@
 import { AIGradeDeviceApiResponseSchema } from './commerce-schemas';
 
 describe('AIGradeDeviceApiResponseSchema', () => {
-  it('requires success and validates payload shape', () => {
+  it('validates successful AI grade payloads', () => {
     expect(
       AIGradeDeviceApiResponseSchema.safeParse({
         success: true,
@@ -15,7 +15,9 @@ describe('AIGradeDeviceApiResponseSchema', () => {
         },
       }).success
     ).toBe(true);
+  });
 
+  it('requires success on AI grade payloads', () => {
     expect(
       AIGradeDeviceApiResponseSchema.safeParse({
         data: {

@@ -38,6 +38,21 @@ const VariantAttributeEntrySchema = z.object({
   options: z.array(z.string()),
 });
 
+const ProductVariantSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  sku: z.string().optional(),
+  price: z.number(),
+  compare_at_price: z.number().nullable().optional(),
+  price_override: z.number().nullable().optional(),
+  price_modifier: z.number().nullable().optional(),
+  image: z.string().nullable().optional(),
+  images: z.array(z.string()).nullable().optional(),
+  in_stock: z.boolean().nullable().optional(),
+  stock_quantity: z.number().nullable().optional(),
+  attributes: z.record(z.string(), z.string()).nullable().optional(),
+});
+
 const VariantAttributeRecordSchema = z.record(
   z.string(),
   z.union([z.array(z.string()), z.string(), z.null()])
@@ -64,6 +79,7 @@ export const ProductRowSchema = z.object({
     .union([z.array(VariantAttributeEntrySchema), VariantAttributeRecordSchema])
     .nullable()
     .optional(),
+  variants: z.array(ProductVariantSchema).nullable().optional(),
   categories: z
     .union([
       z.array(
@@ -104,7 +120,7 @@ export type TransactionRow = z.infer<typeof TransactionRowSchema>;
 
 export function isOrderRealtimePayload(
   payload: unknown
-): payload is { new: OrderRow; old: OrderRow | null } {
+): payload is { new: OrderRow; old?: OrderRow | null } {
   if (typeof payload !== 'object' || payload === null) return false;
   const p = payload as Record<string, unknown>;
   if (!('new' in p) || typeof p.new !== 'object' || p.new === null)
@@ -117,7 +133,7 @@ export function isOrderRealtimePayload(
 
 export function isWalletRealtimePayload(
   payload: unknown
-): payload is { new: WalletRow; old: WalletRow | null } {
+): payload is { new: WalletRow; old?: WalletRow | null } {
   if (typeof payload !== 'object' || payload === null) return false;
   const p = payload as Record<string, unknown>;
   if (!('new' in p) || typeof p.new !== 'object' || p.new === null)
@@ -130,7 +146,7 @@ export function isWalletRealtimePayload(
 
 export function isCustomerRealtimePayload(
   payload: unknown
-): payload is { new: CustomerRow; old: CustomerRow | null } {
+): payload is { new: CustomerRow; old?: CustomerRow | null } {
   if (typeof payload !== 'object' || payload === null) return false;
   const p = payload as Record<string, unknown>;
   if (!('new' in p) || typeof p.new !== 'object' || p.new === null)
