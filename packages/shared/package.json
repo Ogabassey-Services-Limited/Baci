@@ -9,7 +9,8 @@
     "./types": "./src/types/index.ts",
     "./constants": "./src/constants/index.ts",
     "./schemas": "./src/schemas/index.ts",
-    "./receipt": "./src/receipt/index.ts"
+    "./receipt": "./src/receipt/index.ts",
+    "./gmc-feed": "./src/gmc-feed/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
