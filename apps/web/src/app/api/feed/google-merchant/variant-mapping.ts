@@ -34,15 +34,18 @@ export interface FeedKeySpecs {
 export function mapVariantToGmcAttributes(
   attributes: Record<string, string>
 ): GmcVariantAttributes {
+  const normalizedAttributes = Object.fromEntries(
+    Object.entries(attributes).map(([key, value]) => [key.toLowerCase(), value])
+  ) as Record<string, string>;
   const result: GmcVariantAttributes = {};
 
-  const color = attributes.color?.trim();
+  const color = normalizedAttributes.color?.trim();
   if (color) {
     result.color = color;
   }
 
-  const storage = attributes.storage?.trim();
-  const size = attributes.size?.trim();
+  const storage = normalizedAttributes.storage?.trim();
+  const size = normalizedAttributes.size?.trim();
 
   if (storage && size) {
     result.size = `${storage} / ${size}`;

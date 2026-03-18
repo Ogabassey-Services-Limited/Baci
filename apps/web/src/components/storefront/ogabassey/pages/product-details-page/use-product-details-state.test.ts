@@ -179,4 +179,56 @@ describe('useProductDetailsState', () => {
 
     expect(result.current.selectedAttributes).toEqual({});
   });
+
+  it('re-syncs variant-derived state when the product and query change', () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('variant=var-2'));
+
+    const initialProduct = {
+      ...baseProduct,
+      variants: [
+        { id: 'var-1', attributes: { color: 'Black', storage: '128GB' } },
+        { id: 'var-2', attributes: { color: 'Silver', storage: '256GB' } },
+      ],
+    } as Product;
+    const nextProduct = {
+      ...baseProduct,
+      id: 'product-2',
+      name: 'Pixel Fold',
+      image: 'https://example.com/fold-default.jpg',
+      images: [
+        'https://example.com/fold-default.jpg',
+        'https://example.com/purple.jpg',
+      ],
+      colors: ['Purple'],
+      color_images: {
+        Purple: ['https://example.com/purple.jpg'],
+      },
+      variants: [
+        { id: 'var-3', attributes: { color: 'Purple', storage: '512GB' } },
+      ],
+    } as Product;
+
+    const { result, rerender } = renderHook(
+      ({ product }) => useProductDetailsState(product),
+      {
+        initialProps: { product: initialProduct },
+      }
+    );
+
+    act(() => {
+      result.current.handleColorDoubleClick(0);
+    });
+    expect(result.current.secondaryColor).toBe(0);
+
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('variant=var-3'));
+    rerender({ product: nextProduct });
+
+    expect(result.current.selectedAttributes).toEqual({
+      color: 'Purple',
+      storage: '512GB',
+    });
+    expect(result.current.selectedColor).toBe(0);
+    expect(result.current.selectedImage).toBe(1);
+    expect(result.current.secondaryColor).toBeNull();
+  });
 });

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreateClient = vi.fn();
 const mockGenerateGoogleMerchantFeed = vi.fn();
+const mockRpc = vi.fn();
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
@@ -47,10 +48,12 @@ let productsResult: { data: ProductRecord[]; error: unknown };
 let manifestResult: { data: Record<string, unknown>[]; error: unknown };
 let variantRpcResult: { data: unknown[] | null; error: unknown };
 let specsResult: { data: unknown[] | null; error: unknown };
+let specsQueryCalls: string[][];
+let specsQueryResults: Array<{ data: unknown[] | null; error: unknown }>;
 
 function createMockSupabase() {
   return {
-    rpc: () => Promise.resolve(variantRpcResult),
+    rpc: (...args: unknown[]) => mockRpc(...args),
     from: (table: string) => {
       if (table === 'merchants') {
         return {
@@ -103,7 +106,10 @@ function createMockSupabase() {
       if (table === 'product_key_specs') {
         return {
           select: () => ({
-            in: () => Promise.resolve(specsResult),
+            in: (_column: string, ids: string[]) => {
+              specsQueryCalls.push(ids);
+              return Promise.resolve(specsQueryResults.shift() ?? specsResult);
+            },
           }),
         };
       }
@@ -164,7 +170,10 @@ beforeEach(() => {
   };
   variantRpcResult = { data: [], error: null };
   specsResult = { data: [], error: null };
+  specsQueryCalls = [];
+  specsQueryResults = [];
   mockCreateClient.mockReturnValue(createMockSupabase());
+  mockRpc.mockImplementation(() => Promise.resolve(variantRpcResult));
   mockGenerateGoogleMerchantFeed.mockReturnValue('<rss />');
 });
 
@@ -359,5 +368,102 @@ describe('GET /api/feed/google-merchant', () => {
     expect(response.status).toBe(500);
     expect(body.error).toBe('Failed to generate feed');
     expect(mockGenerateGoogleMerchantFeed).not.toHaveBeenCalled();
+  });
+
+  it('fetches key_specs even when gmc_variants_enabled is disabled', async () => {
+    specsResult = {
+      data: [{ product_id: 'product-1', ram_gb: 8 }],
+      error: null,
+    };
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey')
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(specsQueryCalls).toEqual([['product-1']]);
+    expect(mockGenerateGoogleMerchantFeed).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          id: 'product-1',
+          key_specs: { ram_gb: 8 },
+        }),
+      ],
+      expect.any(Object),
+      'https://ogabassey.com',
+      expect.any(Object)
+    );
+  });
+
+  it('returns 500 when key_specs query fails without gmc_variants_enabled', async () => {
+    specsResult = { data: null, error: { message: 'specs query failed' } };
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey')
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to generate feed');
+    expect(mockGenerateGoogleMerchantFeed).not.toHaveBeenCalled();
+  });
+
+  it('batches product_key_specs lookups for large catalogs', async () => {
+    productsResult = {
+      data: Array.from({ length: 450 }, (_, index) => ({
+        id: `product-${index + 1}`,
+        name: `Phone ${index + 1}`,
+        description: 'Good phone',
+        slug: `phone-${index + 1}`,
+        price: 100,
+        stock: 2,
+        updated_at: '2026-03-17T00:00:00.000Z',
+      })),
+      error: null,
+    };
+    specsQueryResults = [
+      {
+        data: [{ product_id: 'product-1', ram_gb: 8 }],
+        error: null,
+      },
+      {
+        data: [{ product_id: 'product-201', battery_mah: 5000 }],
+        error: null,
+      },
+      {
+        data: [{ product_id: 'product-401', storage_gb: 256 }],
+        error: null,
+      },
+    ];
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey')
+    );
+
+    expect(response.status).toBe(200);
+    expect(specsQueryCalls.map((ids) => ids.length)).toEqual([200, 200, 50]);
+    expect(mockGenerateGoogleMerchantFeed).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'product-1',
+          key_specs: { ram_gb: 8 },
+        }),
+        expect.objectContaining({
+          id: 'product-201',
+          key_specs: { battery_mah: 5000 },
+        }),
+        expect.objectContaining({
+          id: 'product-401',
+          key_specs: { storage_gb: 256 },
+        }),
+      ]),
+      expect.any(Object),
+      'https://ogabassey.com',
+      expect.any(Object)
+    );
   });
 });

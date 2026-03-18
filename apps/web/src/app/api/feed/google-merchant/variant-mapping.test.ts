@@ -25,6 +25,12 @@ describe('mapVariantToGmcAttributes', () => {
     });
   });
 
+  it('maps mixed-case keys to GMC fields', () => {
+    expect(
+      mapVariantToGmcAttributes({ Color: 'Blue', Storage: '128GB' })
+    ).toEqual({ color: 'Blue', size: '128GB' });
+  });
+
   it('returns empty for non-GMC attributes only', () => {
     expect(
       mapVariantToGmcAttributes({ ram: '12GB', sim_type: 'eSIM' })
@@ -69,6 +75,14 @@ describe('hasGmcVariantAxis', () => {
 
   it('returns false when only non-GMC attributes exist', () => {
     expect(hasGmcVariantAxis({ ram: '12GB', sim_type: 'eSIM' })).toBe(false);
+  });
+
+  it('returns true for mixed-case GMC axis keys', () => {
+    expect(hasGmcVariantAxis({ Color: 'Blue' })).toBe(true);
+  });
+
+  it('returns true for mixed-case storage axis keys', () => {
+    expect(hasGmcVariantAxis({ Storage: '128GB' })).toBe(true);
   });
 
   it('returns false for empty attributes', () => {
