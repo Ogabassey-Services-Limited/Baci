@@ -157,7 +157,7 @@ BEGIN
 
   INSERT INTO public.customer_wallets (customer_id, merchant_id, available_balance)
   VALUES (p_customer_id, p_merchant_id, p_wallet_credit)
-  ON CONFLICT (customer_id, merchant_id)
+  ON CONFLICT (customer_id)
   DO UPDATE
   SET
     available_balance = customer_wallets.available_balance + p_wallet_credit,
