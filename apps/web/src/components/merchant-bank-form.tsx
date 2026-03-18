@@ -31,6 +31,7 @@ const bankSchema = z.object({
   autoPayoutEnabled: z.boolean().default(false),
 });
 
+export type BankFormInput = z.input<typeof bankSchema>;
 type BankFormValues = z.infer<typeof bankSchema>;
 
 interface MerchantBankFormProps {
@@ -65,9 +66,8 @@ export function MerchantBankForm({
   );
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
-  const form = useForm<BankFormValues>({
-    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
-    resolver: zodResolver(bankSchema as any),
+  const form = useForm<BankFormInput, unknown, BankFormValues>({
+    resolver: zodResolver(bankSchema),
     defaultValues: {
       accountNumber: initialData?.accountNumber || '',
       bankCode: initialData?.bankCode || '',
