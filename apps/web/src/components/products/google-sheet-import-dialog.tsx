@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fetchGoogleSheet } from '@/app/dashboard/products/actions';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -34,10 +34,9 @@ export function GoogleSheetImportDialog({
   const { toast } = useToast();
 
   // Reset URL if initialUrl changes (e.g. from merchant data)
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useState(() => {
+  useEffect(() => {
     if (initialUrl) setUrl(initialUrl);
-  });
+  }, [initialUrl]);
 
   const handleImport = async () => {
     if (!url) return;
