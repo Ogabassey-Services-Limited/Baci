@@ -269,20 +269,18 @@ export function useNotifications(): UseNotificationsReturn {
    */
   const markAllAsRead = async () => {
     try {
-      // Mark all unread notifications as read
-      const unreadIds = notifications
-        .filter((n) => !n.read_at)
-        .map((n) => n.id);
+      // Check if there are any unread notifications
+      const hasUnread = notifications.some((n) => !n.read_at);
+      if (!hasUnread) return;
 
-      await Promise.all(
-        unreadIds.map((id) =>
-          fetch(`/api/notifications/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ read: true }),
-          })
-        )
-      );
+      const response = await fetch('/api/notifications/mark-all-read', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to mark all as read');
+      }
 
       // Update local state
       setNotifications((prev) =>
