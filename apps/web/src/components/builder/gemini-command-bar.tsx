@@ -69,6 +69,7 @@ export function GeminiCommandBar({
               size="icon"
               className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               disabled={isLoading || !command.trim()}
+              aria-label="Apply Gemini command"
             >
               {isLoading ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -91,6 +92,7 @@ export function GeminiCommandBar({
                     type="button"
                     onClick={() => handleSuggestionClick(suggestion)}
                     className="text-xs px-2.5 py-1.5 rounded-md bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 transition-colors"
+                    aria-label={`Quick suggestion: ${suggestion}`}
                   >
                     {suggestion}
                   </button>
@@ -140,6 +142,7 @@ export function GeminiCommandBar({
               type="submit"
               disabled={isLoading || !command.trim()}
               className="h-12 px-6 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all"
+              aria-label="Apply Gemini command"
             >
               {isLoading ? (
                 <>
@@ -167,6 +170,7 @@ export function GeminiCommandBar({
                     type="button"
                     onClick={() => handleSuggestionClick(suggestion)}
                     className="text-sm px-3 py-1.5 rounded-lg bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 hover:border-purple-300 transition-all shadow-sm hover:shadow"
+                    aria-label={`Quick suggestion: ${suggestion}`}
                   >
                     {suggestion}
                   </button>

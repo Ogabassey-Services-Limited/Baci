@@ -59,6 +59,8 @@ jobs:
         with:
           node-version: "24"
           cache: "pnpm"
+      - name: Prune pnpm store to fix cache issues
+        run: rm -rf "$(pnpm store path)" || true
       - run: pnpm install
       - run: pnpm dlx vercel pull --yes --environment=production --token="${{ env.VERCEL_TOKEN }}"
       - run: pnpm dlx vercel build --yes --prod --token="${{ env.VERCEL_TOKEN }}"
@@ -91,6 +93,8 @@ jobs:
         with:
           node-version: "24"
           cache: "pnpm"
+      - name: Prune pnpm store to fix cache issues
+        run: rm -rf "$(pnpm store path)" || true
       - run: pnpm install
       - name: Pull Vercel Environment Information
         if: ${{ env.VERCEL_TOKEN != '' }}
