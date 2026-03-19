@@ -202,8 +202,8 @@ importers:
         specifier: ~55.0.4
         version: 55.0.4(cb7df74e5e5298d1cb1cd01f9cbdd6bb)
       expo-secure-store:
-        specifier: ~55.0.8
-        version: 55.0.8(expo@55.0.3)
+        specifier: ~55.0.9
+        version: 55.0.9(expo@55.0.3)
       expo-sharing:
         specifier: ~55.0.11
         version: 55.0.11(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0)
@@ -434,8 +434,8 @@ importers:
         specifier: ~55.0.4
         version: 55.0.4(79d20dc92d5881b13fef3961464e043d)
       expo-secure-store:
-        specifier: ~55.0.8
-        version: 55.0.8(expo@55.0.3)
+        specifier: ~55.0.9
+        version: 55.0.9(expo@55.0.3)
       expo-sharing:
         specifier: ~55.0.11
         version: 55.0.11(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0)
@@ -8651,8 +8651,8 @@ packages:
       react-server-dom-webpack:
         optional: true
 
-  expo-secure-store@55.0.8:
-    resolution: {integrity: sha512-8w9tQe8U6oRo5YIzqCqVhRrOnfoODNDoitBtLXEx+zS6WLUnkRq5kH7ViJuOgiM7PzLr9pvAliRiDOKyvFbTuQ==}
+  expo-secure-store@55.0.9:
+    resolution: {integrity: sha512-TIPGjM73LKlebpXwgAu/yL7lNWr6RQYmFw3vgYHOqLFYQMpsBqkQmopovbNX3c/0+RCE9KZlLAkcz8r6detILQ==}
     peerDependencies:
       expo: '*'
 
@@ -24679,7 +24679,7 @@ snapshots:
       - expo-font
       - supports-color
 
-  expo-secure-store@55.0.8(expo@55.0.3):
+  expo-secure-store@55.0.9(expo@55.0.3):
     dependencies:
       expo: 55.0.3(@babel/core@7.29.0)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@6.1.2)(expo-router@55.0.4)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
 
