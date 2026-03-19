@@ -269,10 +269,12 @@ export async function getOrderStats(merchantId: string): Promise<OrderStats> {
   ]);
 
   if (totalError || completedError || unpaidError || urgentError) {
-    console.error(
-      'Error fetching order stats counts:',
-      totalError || completedError || unpaidError || urgentError
-    );
+    console.error('Error fetching order stats counts:', {
+      totalError,
+      completedError,
+      unpaidError,
+      urgentError,
+    });
     return {
       totalOrders: 0,
       completedOrders: 0,
