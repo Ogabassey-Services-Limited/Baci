@@ -16,7 +16,8 @@ import {
 } from 'react-native';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import Colors, { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
+import { useColorScheme } from '@/components/useColorScheme';
 
 interface FilterSheetProps {
   visible: boolean;
@@ -36,6 +37,9 @@ export function FilterSheet({
   const insets = useSafeAreaInsets();
   const [tempMinPrice, setTempMinPrice] = useState(minPrice.toString());
   const [tempMaxPrice, setTempMaxPrice] = useState(maxPrice.toString());
+
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
   // M10 FIX: Sync local state when prop values change from parent
   useEffect(() => {
@@ -82,23 +86,29 @@ export function FilterSheet({
         </TouchableWithoutFeedback>
         <Animated.View
           entering={SlideInDown.duration(300).springify()}
-          style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}
+          style={[
+            styles.sheet,
+            { backgroundColor: colors.card, paddingBottom: insets.bottom + 20 },
+          ]}
           accessible={true}
           accessibilityLabel="Filter by price dialog"
           accessibilityViewIsModal={true}
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title} accessibilityRole="header">
+            <Text
+              style={[styles.title, { color: colors.text }]}
+              accessibilityRole="header"
+            >
               Filter by Price
             </Text>
             <Pressable
               onPress={onClose}
-              style={styles.closeButton}
+              style={[styles.closeButton, { backgroundColor: colors.muted }]}
               accessibilityLabel="Close filter"
               accessibilityRole="button"
             >
-              <Ionicons name="close" size={24} color="#666" />
+              <Ionicons name="close" size={24} color={colors.icon} />
             </Pressable>
           </View>
 
@@ -106,11 +116,25 @@ export function FilterSheet({
           <View style={styles.content}>
             <View style={styles.inputRow}>
               <View style={styles.inputContainer}>
-                <Text style={styles.label} nativeID="minPriceLabel">
+                <Text
+                  style={[styles.label, { color: colors.textSecondary }]}
+                  nativeID="minPriceLabel"
+                >
                   Min Price
                 </Text>
-                <View style={styles.inputWrapper}>
-                  <Text style={styles.currency} importantForAccessibility="no">
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: colors.muted,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.currency, { color: colors.textSecondary }]}
+                    importantForAccessibility="no"
+                  >
                     ₦
                   </Text>
                   <TextInput
@@ -118,8 +142,8 @@ export function FilterSheet({
                     onChangeText={setTempMinPrice}
                     keyboardType="number-pad"
                     placeholder="0"
-                    style={styles.input}
-                    placeholderTextColor="#999"
+                    style={[styles.input, { color: colors.text }]}
+                    placeholderTextColor={colors.placeholder}
                     accessibilityLabel="Minimum price in Naira"
                     accessibilityHint="Enter the minimum price for filtering products"
                     accessibilityLabelledBy="minPriceLabel"
@@ -128,16 +152,33 @@ export function FilterSheet({
                 </View>
               </View>
 
-              <Text style={styles.separator} importantForAccessibility="no">
+              <Text
+                style={[styles.separator, { color: colors.border }]}
+                importantForAccessibility="no"
+              >
                 -
               </Text>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.label} nativeID="maxPriceLabel">
+                <Text
+                  style={[styles.label, { color: colors.textSecondary }]}
+                  nativeID="maxPriceLabel"
+                >
                   Max Price
                 </Text>
-                <View style={styles.inputWrapper}>
-                  <Text style={styles.currency} importantForAccessibility="no">
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    {
+                      backgroundColor: colors.muted,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.currency, { color: colors.textSecondary }]}
+                    importantForAccessibility="no"
+                  >
                     ₦
                   </Text>
                   <TextInput
@@ -145,8 +186,8 @@ export function FilterSheet({
                     onChangeText={setTempMaxPrice}
                     keyboardType="number-pad"
                     placeholder="3000000"
-                    style={styles.input}
-                    placeholderTextColor="#999"
+                    style={[styles.input, { color: colors.text }]}
+                    placeholderTextColor={colors.placeholder}
                     accessibilityLabel="Maximum price in Naira"
                     accessibilityHint="Enter the maximum price for filtering products"
                     accessibilityLabelledBy="maxPriceLabel"
@@ -157,14 +198,24 @@ export function FilterSheet({
 
             {/* Quick Price Presets */}
             <View style={styles.presets}>
-              <Text style={styles.presetsLabel}>Quick Select:</Text>
+              <Text
+                style={[styles.presetsLabel, { color: colors.textSecondary }]}
+              >
+                Quick Select:
+              </Text>
               <View
                 style={styles.presetButtons}
                 accessibilityRole="summary"
                 accessibilityLabel="Quick price range presets"
               >
                 <Pressable
-                  style={styles.presetButton}
+                  style={[
+                    styles.presetButton,
+                    {
+                      backgroundColor: colors.muted,
+                      borderColor: colors.border,
+                    },
+                  ]}
                   onPress={() => {
                     setTempMinPrice('0');
                     setTempMaxPrice('50000');
@@ -172,10 +223,20 @@ export function FilterSheet({
                   accessibilityLabel="Under 50,000 Naira"
                   accessibilityRole="button"
                 >
-                  <Text style={styles.presetText}>Under ₦50k</Text>
+                  <Text
+                    style={[styles.presetText, { color: colors.textSecondary }]}
+                  >
+                    Under ₦50k
+                  </Text>
                 </Pressable>
                 <Pressable
-                  style={styles.presetButton}
+                  style={[
+                    styles.presetButton,
+                    {
+                      backgroundColor: colors.muted,
+                      borderColor: colors.border,
+                    },
+                  ]}
                   onPress={() => {
                     setTempMinPrice('50000');
                     setTempMaxPrice('150000');
@@ -183,10 +244,20 @@ export function FilterSheet({
                   accessibilityLabel="50,000 to 150,000 Naira"
                   accessibilityRole="button"
                 >
-                  <Text style={styles.presetText}>₦50k - ₦150k</Text>
+                  <Text
+                    style={[styles.presetText, { color: colors.textSecondary }]}
+                  >
+                    ₦50k - ₦150k
+                  </Text>
                 </Pressable>
                 <Pressable
-                  style={styles.presetButton}
+                  style={[
+                    styles.presetButton,
+                    {
+                      backgroundColor: colors.muted,
+                      borderColor: colors.border,
+                    },
+                  ]}
                   onPress={() => {
                     setTempMinPrice('150000');
                     setTempMaxPrice('300000');
@@ -194,10 +265,20 @@ export function FilterSheet({
                   accessibilityLabel="150,000 to 300,000 Naira"
                   accessibilityRole="button"
                 >
-                  <Text style={styles.presetText}>₦150k - ₦300k</Text>
+                  <Text
+                    style={[styles.presetText, { color: colors.textSecondary }]}
+                  >
+                    ₦150k - ₦300k
+                  </Text>
                 </Pressable>
                 <Pressable
-                  style={styles.presetButton}
+                  style={[
+                    styles.presetButton,
+                    {
+                      backgroundColor: colors.muted,
+                      borderColor: colors.border,
+                    },
+                  ]}
                   onPress={() => {
                     setTempMinPrice('300000');
                     setTempMaxPrice('3000000');
@@ -205,7 +286,11 @@ export function FilterSheet({
                   accessibilityLabel="Above 300,000 Naira"
                   accessibilityRole="button"
                 >
-                  <Text style={styles.presetText}>Above ₦300k</Text>
+                  <Text
+                    style={[styles.presetText, { color: colors.textSecondary }]}
+                  >
+                    Above ₦300k
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -243,7 +328,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFF',
     borderTopLeftRadius: RADIUS['2xl'],
     borderTopRightRadius: RADIUS['2xl'],
     paddingTop: SPACING.lg,
@@ -258,7 +342,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: TYPOGRAPHY.size.xl,
     fontFamily: 'Inter_700Bold',
-    color: '#1a1a1a',
   },
   closeButton: {
     width: 44,
@@ -266,7 +349,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: RADIUS.full,
-    backgroundColor: '#F5F5F5',
   },
   content: {
     paddingHorizontal: SPACING.lg,
@@ -283,34 +365,28 @@ const styles = StyleSheet.create({
   label: {
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: 'Inter_600SemiBold',
-    color: '#4B5563', // gray-600 for WCAG AA contrast
     marginBottom: SPACING.xs,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
     borderRadius: RADIUS.lg,
     paddingHorizontal: SPACING.md,
     height: 50,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
   },
   currency: {
     fontSize: TYPOGRAPHY.size.base,
     fontFamily: 'Inter_600SemiBold',
-    color: '#4B5563', // gray-600 for WCAG AA contrast
     marginRight: SPACING.xs,
   },
   input: {
     flex: 1,
     fontSize: TYPOGRAPHY.size.base,
     fontFamily: 'Inter_600SemiBold',
-    color: '#1a1a1a',
   },
   separator: {
     fontSize: TYPOGRAPHY.size.lg,
-    color: '#CCC',
     marginBottom: 12,
   },
   presets: {
@@ -319,7 +395,6 @@ const styles = StyleSheet.create({
   presetsLabel: {
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: 'Inter_600SemiBold',
-    color: '#4B5563', // gray-600 for WCAG AA contrast
     marginBottom: SPACING.sm,
   },
   presetButtons: {
@@ -332,15 +407,12 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     minHeight: 44,
     justifyContent: 'center',
-    backgroundColor: '#F5F5F5',
     borderRadius: RADIUS.full,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
   },
   presetText: {
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: 'Inter_600SemiBold',
-    color: '#4B5563', // gray-600 for WCAG AA contrast
   },
   actions: {
     flexDirection: 'row',
