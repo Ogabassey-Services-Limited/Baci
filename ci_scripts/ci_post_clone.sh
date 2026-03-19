@@ -322,18 +322,24 @@ if [ -n "${CI_BUILD_NUMBER:-}" ]; then
   fi
 
   if [ -f "$plist_path" ]; then
+    if ! printf '%s' "$CI_BUILD_NUMBER" | grep -Eq '^[1-9][0-9]*$'; then
+      echo "error: CI_BUILD_NUMBER must be a positive integer. Got '$CI_BUILD_NUMBER'." >&2
+      exit 1
+    fi
+
     # Set CFBundleVersion (build number) to CI_BUILD_NUMBER.
-    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $CI_BUILD_NUMBER" "$plist_path"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion \"${CI_BUILD_NUMBER}\"" "$plist_path"
     echo "info: Set CFBundleVersion to '$CI_BUILD_NUMBER'"
 
     if [ -n "$marketing_version" ]; then
       if printf '%s' "$marketing_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-        if ! /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $marketing_version" "$plist_path" 2>/dev/null; then
-          /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $marketing_version" "$plist_path"
+        if ! /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString \"${marketing_version}\"" "$plist_path" 2>/dev/null; then
+          /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string \"${marketing_version}\"" "$plist_path"
         fi
         echo "info: Set CFBundleShortVersionString to '$marketing_version'"
       else
-        echo "warning: Ignoring invalid marketing version '$marketing_version'. Expected format N.N.N" >&2
+        echo "error: Invalid CI_MARKETING_VERSION '$marketing_version'. Expected format N.N.N." >&2
+        exit 1
       fi
     else
       echo "warning: CI_MARKETING_VERSION / CI_MARKETING_VERSION_BASE not set; keeping existing CFBundleShortVersionString." >&2
