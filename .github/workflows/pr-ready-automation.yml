@@ -1,0 +1,93 @@
+name: PR Ready Automation
+
+on:
+  pull_request_target:
+    types: [labeled, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-ready-automation-${{ github.event.pull_request.number || format('{0}-{1}', github.event_name, github.run_id) }}
+  cancel-in-progress: true
+
+jobs:
+  refresh-and-enable-auto-merge:
+    runs-on: ubuntu-24.04
+    # pull_request_target has write token. Ignore fork PRs for safety.
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      GH_TOKEN: ${{ github.token }}
+      READY_LABEL: queue-ready
+    steps:
+      - name: Resolve ready PR list
+        id: ready
+        env:
+          PR_JSON: ${{ toJson(github.event.pull_request) }}
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
+            pr_json="${PR_JSON:-null}"
+            labels=$(echo "$pr_json" | jq -r '.labels // [] | map(.name) | @json')
+            is_draft=$(echo "$pr_json" | jq -r '.draft')
+            pr_number=$(echo "$pr_json" | jq -r '.number')
+
+            if [ "$is_draft" = "false" ] && echo "$labels" | jq -e --arg l "$READY_LABEL" 'index($l) != null' >/dev/null; then
+              echo "prs=[$pr_number]" >> "$GITHUB_OUTPUT"
+              echo "count=1" >> "$GITHUB_OUTPUT"
+            else
+              echo "prs=[]" >> "$GITHUB_OUTPUT"
+              echo "count=0" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+
+          prs_json=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" | jq -s -c --arg l "$READY_LABEL" '[add[] | select(.draft == false) | select((.labels // [] | map(.name) | index($l)) != null) | .number]')
+          echo "prs=$prs_json" >> "$GITHUB_OUTPUT"
+          echo "count=$(echo "$prs_json" | jq 'length')" >> "$GITHUB_OUTPUT"
+
+      - name: No ready PRs
+        if: steps.ready.outputs.count == '0'
+        run: echo "No queue-ready PRs to process."
+
+      - name: Update ready PRs and enable auto-merge
+        if: steps.ready.outputs.count != '0'
+        run: |
+          set -euo pipefail
+          prs='${{ steps.ready.outputs.prs }}'
+
+          for pr in $(echo "$prs" | jq -r '.[]'); do
+            echo "Processing PR #$pr"
+
+            merge_state=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json mergeStateStatus -q '.mergeStateStatus')
+            review_decision=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json reviewDecision -q '.reviewDecision // ""')
+
+            if [ "$merge_state" = "BEHIND" ]; then
+              echo "Updating branch for PR #$pr"
+              if ! update_output=$(gh pr update-branch "$pr" --repo "$GITHUB_REPOSITORY" 2>&1); then
+                echo "Update branch failed for PR #$pr (repo=$GITHUB_REPOSITORY): $update_output"
+              else
+                for _ in 1 2 3 4 5 6; do
+                  sleep 5
+                  merge_state=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json mergeStateStatus -q '.mergeStateStatus')
+                  [ "$merge_state" != "BEHIND" ] && break
+                done
+              fi
+            fi
+
+            # Enable auto-merge only for explicitly approved PRs.
+            if [ "$review_decision" = "APPROVED" ]; then
+              if merge_output=$(gh pr merge "$pr" --repo "$GITHUB_REPOSITORY" --auto --squash 2>&1); then
+                echo "Auto-merge enabled (or already set) for PR #$pr"
+              else
+                echo "Auto-merge failed for PR #$pr: $merge_output"
+              fi
+            else
+              echo "Skipping auto-merge for PR #$pr (reviewDecision=$review_decision)"
+            fi
+          done

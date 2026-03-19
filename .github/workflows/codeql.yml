@@ -6,8 +6,6 @@ name: "CodeQL"
 on:
   push:
     branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
   schedule:
     # Run weekly on Sundays at 2:00 AM UTC
     - cron: '0 2 * * 0'
@@ -15,8 +13,8 @@ on:
 
 concurrency:
   group: codeql-${{ github.ref }}
-  # Only cancel in-progress for PRs, allow scheduled/push scans to complete
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Keep only the latest push-triggered analysis per branch.
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 jobs:
   analyze:
