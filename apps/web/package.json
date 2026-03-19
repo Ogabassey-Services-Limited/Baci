@@ -26,7 +26,7 @@
     "@baci/shared": "workspace:*",
     "@copilotkit/react-core": "^1.51.3",
     "@copilotkit/react-ui": "^1.51.3",
-    "@copilotkit/runtime": "^1.51.3",
+    "@copilotkit/runtime": "^1.54.0",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^5.2.2",
     "@imgly/background-removal": "^1.7.0",
