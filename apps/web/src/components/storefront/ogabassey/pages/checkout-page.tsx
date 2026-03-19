@@ -17,7 +17,6 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
-import { ThumbnailImage } from '@/components/optimized-image';
 import { SmartQuoteLoader } from '../components/SmartQuoteLoader';
 import { PaystackLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, BankTransferLogo } from '../components/PaymentLogos';
 import { MobileOrderSummary } from '../components/MobileCheckoutComponents';
@@ -3016,13 +3015,15 @@ export const CheckoutPage: React.FC = () => {
                 {(cart.length > 0 ? cart : (resumedOrder?.items || [])).map((item: any) => (
                   <div key={item.cartItemId || item.id} className="flex gap-3">
                     <div className="w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 flex-shrink-0">
-                      <ThumbnailImage
+                      <img
                         src={item.image || item.image_url || '/placeholder.png'}
                         alt={item.name || item.product_name}
-                        width={48}
-                        height={48}
+                        loading="lazy"
                         className="w-full h-full object-contain mix-blend-multiply"
-                        fallbackSrc="/placeholder.png"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = '/placeholder.png';
+                        }}
                       />
                     </div>
                     <div className="flex-1 min-w-0">

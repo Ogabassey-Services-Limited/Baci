@@ -130,22 +130,6 @@ vi.mock('../components/MobileCheckoutComponents', () => ({
   MobileOrderSummary: vi.fn(() => null),
 }));
 
-vi.mock('@/components/optimized-image', () => ({
-  ThumbnailImage: vi.fn(
-    ({ alt, className, fallbackSrc, height, src, width }) => (
-      <img
-        data-testid="thumbnail-image"
-        alt={alt}
-        className={className}
-        data-fallback-src={fallbackSrc}
-        data-height={height}
-        data-src={src}
-        data-width={width}
-      />
-    )
-  ),
-}));
-
 import { CheckoutPage } from './checkout-page';
 
 describe('CheckoutPage', () => {
@@ -182,21 +166,5 @@ describe('CheckoutPage', () => {
       screen.queryAllByLabelText(/email/i)[0] ??
       screen.queryByText(/contact/i);
     expect(match).toBeTruthy();
-
-    const thumbnail = screen.getByTestId('thumbnail-image');
-    expect(thumbnail).toHaveAttribute('alt', 'Test Product');
-    expect(thumbnail).toHaveAttribute(
-      'data-src',
-      '/placeholder.png'
-    );
-    expect(thumbnail).toHaveAttribute('data-fallback-src', '/placeholder.png');
-    expect(thumbnail).toHaveAttribute('data-width', '48');
-    expect(thumbnail).toHaveAttribute('data-height', '48');
-    expect(thumbnail).toHaveClass(
-      'w-full',
-      'h-full',
-      'object-contain',
-      'mix-blend-multiply'
-    );
   });
 });
