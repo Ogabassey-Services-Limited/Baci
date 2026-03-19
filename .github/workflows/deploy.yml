@@ -18,6 +18,7 @@ concurrency:
 env:
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
   TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   changes:
@@ -59,6 +60,8 @@ jobs:
         with:
           node-version: "24"
           cache: "pnpm"
+      - name: Clean pnpm store
+        run: pnpm store prune || true
       - run: pnpm install
       - run: pnpm dlx vercel pull --yes --environment=production --token="${{ env.VERCEL_TOKEN }}"
       - run: pnpm dlx vercel build --yes --prod --token="${{ env.VERCEL_TOKEN }}"
@@ -91,6 +94,8 @@ jobs:
         with:
           node-version: "24"
           cache: "pnpm"
+      - name: Clean pnpm store
+        run: pnpm store prune || true
       - run: pnpm install
       - name: Pull Vercel Environment Information
         if: ${{ env.VERCEL_TOKEN != '' }}
