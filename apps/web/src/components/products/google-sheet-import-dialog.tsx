@@ -1,3 +1,5 @@
+'use client';
+
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { fetchGoogleSheet } from '@/app/dashboard/products/actions';
@@ -35,7 +37,7 @@ export function GoogleSheetImportDialog({
 
   // Reset URL if initialUrl changes (e.g. from merchant data)
   useEffect(() => {
-    if (initialUrl) setUrl(initialUrl);
+    setUrl(initialUrl ?? '');
   }, [initialUrl]);
 
   const handleImport = async () => {
