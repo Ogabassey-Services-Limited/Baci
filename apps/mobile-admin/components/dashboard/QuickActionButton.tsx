@@ -36,8 +36,6 @@ export function QuickActionButton({
         pressed && { backgroundColor: colors.cardHover },
       ]}
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
     >
       <View style={[styles.iconContainer, { backgroundColor: finalBgColor }]}>
         <Ionicons name={icon} size={24} color={finalIconColor} />
