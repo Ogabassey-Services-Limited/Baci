@@ -178,11 +178,13 @@ export function useChat(santaMode: boolean) {
       messages.length === 1 &&
       !isLoading
     ) {
+      // Clear synchronously first to prevent double-fire if effect re-evaluates
+      // during the 500ms delay (e.g. from isLoading or messages.length changes)
       const msg = chatInitialMessage;
+      useUIStore.getState().clearChatInitialMessage();
 
       const timer = setTimeout(() => {
         handleSendRef.current(msg);
-        useUIStore.getState().clearChatInitialMessage();
       }, 500);
       return () => clearTimeout(timer);
     }

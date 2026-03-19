@@ -238,15 +238,41 @@ export async function getOrderStats(merchantId: string): Promise<OrderStats> {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  // Fetch all orders for stats calculation
-  // Optimized: Select only needed fields
-  const { data: orders, error } = await supabase
-    .from('orders')
-    .select('payment_status, shipping_status')
-    .eq('merchant_id', merchantId);
+  // Fetch all order counts concurrently for stats calculation
+  // PERFORMANCE: Use .select('id', { count: 'exact', head: true }) instead of fetching all rows
+  // to avoid large memory allocations and slow responses for merchants with many orders
+  const [
+    { count: totalOrders, error: totalError },
+    { count: completedOrders, error: completedError },
+    { count: unpaidOrders, error: unpaidError },
+    { count: urgentOrders, error: urgentError },
+  ] = await Promise.all([
+    supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('merchant_id', merchantId),
+    supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('merchant_id', merchantId)
+      .eq('shipping_status', 'delivered'),
+    supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('merchant_id', merchantId)
+      .eq('payment_status', 'unpaid'),
+    supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('merchant_id', merchantId)
+      .or('payment_status.eq.unpaid,shipping_status.eq.pending'),
+  ]);
 
-  if (error) {
-    console.error('Error fetching order stats:', error);
+  if (totalError || completedError || unpaidError || urgentError) {
+    console.error(
+      'Error fetching order stats counts:',
+      totalError || completedError || unpaidError || urgentError
+    );
     return {
       totalOrders: 0,
       completedOrders: 0,
@@ -255,16 +281,11 @@ export async function getOrderStats(merchantId: string): Promise<OrderStats> {
     };
   }
 
-  const allOrders = orders || [];
-
   return {
-    totalOrders: allOrders.length,
-    completedOrders: allOrders.filter((o) => o.shipping_status === 'delivered')
-      .length,
-    unpaidOrders: allOrders.filter((o) => o.payment_status === 'unpaid').length,
-    urgentOrders: allOrders.filter(
-      (o) => o.payment_status === 'unpaid' || o.shipping_status === 'pending'
-    ).length,
+    totalOrders: totalOrders || 0,
+    completedOrders: completedOrders || 0,
+    unpaidOrders: unpaidOrders || 0,
+    urgentOrders: urgentOrders || 0,
   };
 }
 
