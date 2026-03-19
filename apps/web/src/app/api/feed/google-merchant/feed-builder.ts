@@ -40,6 +40,8 @@ export interface FeedProduct {
   mpn?: string;
   sku?: string;
   stock: number;
+  manage_stock?: boolean;
+  stock_quantity?: number;
   condition?: 'new' | 'used' | 'refurbished';
   google_product_category?: string;
   category?: string;
@@ -133,9 +135,17 @@ function buildSharedItemLines(
   const title = overrides?.title ?? product.name;
   const link = overrides?.link ?? '';
   const price = overrides?.price ?? product.price;
-  const stock =
-    overrides?.stock ?? (typeof product.stock === 'number' ? product.stock : 0);
-  const availability = stock > 0 ? 'in_stock' : 'out_of_stock';
+  const rawStock =
+    overrides?.stock ??
+    (typeof product.stock_quantity === 'number' &&
+    Number.isFinite(product.stock_quantity)
+      ? product.stock_quantity
+      : typeof product.stock === 'number' && Number.isFinite(product.stock)
+        ? product.stock
+        : 0);
+  const stock = rawStock > 0 ? rawStock : 0;
+  const manageStock = product.manage_stock === true;
+  const availability = !manageStock || stock > 0 ? 'in_stock' : 'out_of_stock';
   const condition = product.condition || 'new';
   const formattedPrice = price.toFixed(2);
 
