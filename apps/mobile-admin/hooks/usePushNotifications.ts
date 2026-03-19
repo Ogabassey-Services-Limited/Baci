@@ -7,12 +7,12 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import type {
   EventSubscription,
   Notification as ExpoNotification,
   NotificationResponse as ExpoNotificationResponse,
 } from 'expo-notifications';
-import { Platform } from 'react-native';
 
 // Dynamic imports for native modules to prevent evaluation-time crashes
 let Notifications: typeof import('expo-notifications') | null = null;
@@ -24,7 +24,7 @@ try {
   console.debug('[PushHook] Native module ignored during evaluation');
 }
 
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   clearBadge,
@@ -37,63 +37,6 @@ import { useAuth } from './useAuth';
 import { useMerchant } from './useMerchant';
 
 const PUSH_TOKEN_STORAGE_KEY = '@baci_push_token';
-
-type NotificationScreen =
-  | 'index'
-  | 'notifications'
-  | 'orders'
-  | 'products'
-  | 'order'
-  | 'product';
-
-type NotificationRoute =
-  | '/(admin)/(tabs)'
-  | '/(admin)/notifications'
-  | '/(admin)/(tabs)/orders'
-  | '/(admin)/(tabs)/products'
-  | { pathname: '/(admin)/order/[id]'; params: { id: string } }
-  | { pathname: '/(admin)/product/[id]'; params: { id: string } };
-
-function isNotificationScreen(screen: string): screen is NotificationScreen {
-  return (
-    screen === 'index' ||
-    screen === 'notifications' ||
-    screen === 'orders' ||
-    screen === 'products' ||
-    screen === 'order' ||
-    screen === 'product'
-  );
-}
-
-function buildNotificationRoute(navParams: {
-  screen: string;
-  params?: Record<string, string>;
-}): NotificationRoute | null {
-  if (!isNotificationScreen(navParams.screen)) {
-    return null;
-  }
-
-  switch (navParams.screen) {
-    case 'index':
-      return '/(admin)/(tabs)';
-    case 'notifications':
-      return '/(admin)/notifications';
-    case 'orders':
-      return '/(admin)/(tabs)/orders';
-    case 'products':
-      return '/(admin)/(tabs)/products';
-    case 'order': {
-      const id = navParams.params?.id;
-      return id ? { pathname: '/(admin)/order/[id]', params: { id } } : null;
-    }
-    case 'product': {
-      const id = navParams.params?.id;
-      return id ? { pathname: '/(admin)/product/[id]', params: { id } } : null;
-    }
-    default:
-      return null;
-  }
-}
 
 interface UsePushNotificationsResult {
   token: string | null;
@@ -221,10 +164,14 @@ export function usePushNotifications(): UsePushNotificationsResult {
           // Navigate to appropriate screen
           const navParams = getNotificationNavigationParams(response);
           if (navParams) {
-            const notificationRoute = buildNotificationRoute(navParams);
-
-            if (notificationRoute) {
-              router.push(notificationRoute);
+            // Use router.push for navigation
+            if (navParams.params) {
+              router.push({
+                pathname: `/(admin)/${navParams.screen}` as Href,
+                params: navParams.params,
+              });
+            } else {
+              router.push(`/(admin)/${navParams.screen}` as Href);
             }
           }
         }
