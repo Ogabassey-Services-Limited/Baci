@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
@@ -10,6 +11,14 @@ import { generateHeroImageBatch } from '@/services/hero-image-generator';
  * POST /api/admin/generate-hero-images
  */
 export async function POST(request: NextRequest) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+    );
+  }
+
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);

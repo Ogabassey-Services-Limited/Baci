@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
 import { revalidateProducts } from '@/lib/cache-revalidation';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -14,7 +15,15 @@ import { createClient } from '@/lib/supabase/server';
  * POST - Delete draft products and publish all remaining products
  */
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+    );
+  }
+
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);

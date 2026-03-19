@@ -7,7 +7,9 @@
 // PROVIDER CODES
 // =============================================================================
 
-export type ShippingProviderCode = 'GIGL' | 'TOPSHIP';
+export const SHIPPING_PROVIDER_CODES = ['GIGL', 'TOPSHIP'] as const;
+
+export type ShippingProviderCode = (typeof SHIPPING_PROVIDER_CODES)[number];
 
 // =============================================================================
 // ADDRESS TYPES
