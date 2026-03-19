@@ -40,7 +40,9 @@ export default async function DomainsPage({
 
   const { data: domains, error: domainsError } = await supabase
     .from('domains')
-    .select('*')
+    .select(
+      'id, domain, tld, domain_type, status, is_primary, verification_token, verified_at, ssl_status, created_at, expires_at, auto_renew, purchase_price, renewal_price'
+    )
     .eq('merchant_id', merchant.id)
     .order('is_primary', { ascending: false }) // Primary first
     .order('created_at', { ascending: false }); // Then newest
@@ -50,7 +52,28 @@ export default async function DomainsPage({
     console.error('Error fetching domains:', domainsError);
   }
 
-  const domainsList = domainsError ? [] : (domains as Domain[]) || [];
+  const domainsList: Domain[] = (
+    domainsError || !domains
+      ? []
+      : domains.map((domainRow) => ({
+          id: domainRow.id,
+          domain: domainRow.domain,
+          tld: domainRow.tld,
+          domain_type: domainRow.domain_type,
+          status: domainRow.status,
+          is_primary: domainRow.is_primary,
+          verification_token: domainRow.verification_token,
+          verified_at: domainRow.verified_at,
+          ssl_status: domainRow.ssl_status,
+          created_at: domainRow.created_at,
+          purchase_info: {
+            expires_at: domainRow.expires_at ?? undefined,
+            auto_renew: domainRow.auto_renew ?? undefined,
+            cost_price: domainRow.purchase_price ?? undefined,
+            sell_price: domainRow.renewal_price ?? undefined,
+          },
+        }))
+  ) satisfies Domain[];
 
   // Empty state logic
   const hasDomains = domainsList.length > 0;
