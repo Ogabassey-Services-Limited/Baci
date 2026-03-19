@@ -2394,9 +2394,9 @@ export default function CheckoutScreen() {
                   accessibilityLabel="Change network or coin"
                   accessibilityRole="button"
                 >
-                  <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
+                  <Ionicons name="arrow-back" size={18} color={colors.text} />
                 </Pressable>
-                <Text style={styles.cryptoHeaderTitle}>Pay with Crypto</Text>
+                <Text style={[styles.cryptoHeaderTitle, { color: colors.text }]}>Pay with Crypto</Text>
               </View>
               <Pressable
                 onPress={() => {
@@ -2448,9 +2448,9 @@ export default function CheckoutScreen() {
                     {cryptoPayment.currency}
                   </Text>
                 </Text>
-                <View style={styles.cryptoChainBadge}>
-                  <View style={styles.cryptoPulseDot} />
-                  <Text style={styles.cryptoChainText}>
+                <View style={[styles.cryptoChainBadge, { backgroundColor: colors.muted }]}>
+                  <View style={[styles.cryptoPulseDot, { backgroundColor: colors.success }]} />
+                  <Text style={[styles.cryptoChainText, { color: colors.text }]}>
                     Network:{' '}
                     {{
                       TRX: 'Tron (TRC-20)',
@@ -2469,7 +2469,7 @@ export default function CheckoutScreen() {
                   { backgroundColor: colors.card },
                 ]}
               >
-                <Text style={styles.cryptoFieldLabel}>RECIPIENT ADDRESS</Text>
+                <Text style={[styles.cryptoFieldLabel, { color: colors.textSecondary }]}>RECIPIENT ADDRESS</Text>
                 <View style={styles.cryptoAddressRow}>
                   <Text
                     style={[styles.cryptoAddressText, { color: colors.text }]}
@@ -2512,7 +2512,7 @@ export default function CheckoutScreen() {
                       size={18}
                       color={
                         copiedCryptoField === 'address'
-                          ? '#059669'
+                          ? colors.success
                           : BRAND.primary
                       }
                     />
@@ -2521,9 +2521,9 @@ export default function CheckoutScreen() {
               </View>
 
               {/* Warning */}
-              <View style={styles.cryptoWarning}>
-                <Ionicons name="warning" size={18} color="#F59E0B" />
-                <Text style={styles.cryptoWarningText}>
+              <View style={[styles.cryptoWarning, { backgroundColor: `${colors.warning}15` }]}>
+                <Ionicons name="warning" size={18} color={colors.warning} />
+                <Text style={[styles.cryptoWarningText, { color: colors.warning }]}>
                   Only send {cryptoPayment.currency} on the{' '}
                   {cryptoPayment.chain} network. Using the wrong network will
                   result in permanent loss.
@@ -2598,7 +2598,7 @@ export default function CheckoutScreen() {
                   });
                 }}
               >
-                <Text style={styles.cryptoDoneBtnText}>
+                <Text style={[styles.cryptoDoneBtnText, { color: colors.primaryForeground }]}>
                   I've Sent the Payment
                 </Text>
               </Pressable>
@@ -3103,7 +3103,6 @@ const styles = StyleSheet.create({
   cryptoHeaderTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   cryptoBackBtn: {
     width: 32,
@@ -3142,7 +3141,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F3F4F6',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
@@ -3152,12 +3150,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#22C55E',
   },
   cryptoChainText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#374151',
   },
   cryptoAddressCard: {
     padding: SPACING.lg,
@@ -3167,7 +3163,6 @@ const styles = StyleSheet.create({
   cryptoFieldLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#9CA3AF',
     letterSpacing: 0.5,
   },
   cryptoAddressRow: {
@@ -3193,12 +3188,10 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
     padding: SPACING.md,
     borderRadius: RADIUS.md,
-    backgroundColor: '#FFF8E1',
   },
   cryptoWarningText: {
     flex: 1,
     fontSize: 12,
-    color: '#92400E',
     lineHeight: 18,
   },
   cryptoInfoCard: {
@@ -3228,7 +3221,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cryptoDoneBtnText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
