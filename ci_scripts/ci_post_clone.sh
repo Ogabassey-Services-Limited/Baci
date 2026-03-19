@@ -309,14 +309,35 @@ fi
 
 echo "info: CocoaPods installation finished for '$app_dir'"
 
-# --- Auto-bump version & build number from Xcode Cloud metadata ---
+# --- Auto-bump version metadata from Xcode Cloud ---
+# - CFBundleVersion comes from CI_BUILD_NUMBER.
+# - CFBundleShortVersionString can be supplied explicitly via CI_MARKETING_VERSION
+#   or auto-generated as <CI_MARKETING_VERSION_BASE>.<CI_BUILD_NUMBER>.
 if [ -n "${CI_BUILD_NUMBER:-}" ]; then
   plist_path="$(resolve_info_plist_path "$ios_dir" "$app_dir")"
+  marketing_version="${CI_MARKETING_VERSION:-}"
+
+  if [ -z "$marketing_version" ] && [ -n "${CI_MARKETING_VERSION_BASE:-}" ]; then
+    marketing_version="${CI_MARKETING_VERSION_BASE}.${CI_BUILD_NUMBER}"
+  fi
 
   if [ -f "$plist_path" ]; then
-    # Set CFBundleVersion (build number) to CI_BUILD_NUMBER
+    # Set CFBundleVersion (build number) to CI_BUILD_NUMBER.
     /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $CI_BUILD_NUMBER" "$plist_path"
     echo "info: Set CFBundleVersion to '$CI_BUILD_NUMBER'"
+
+    if [ -n "$marketing_version" ]; then
+      if printf '%s' "$marketing_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        if ! /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $marketing_version" "$plist_path" 2>/dev/null; then
+          /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $marketing_version" "$plist_path"
+        fi
+        echo "info: Set CFBundleShortVersionString to '$marketing_version'"
+      else
+        echo "warning: Ignoring invalid marketing version '$marketing_version'. Expected format N.N.N" >&2
+      fi
+    else
+      echo "warning: CI_MARKETING_VERSION / CI_MARKETING_VERSION_BASE not set; keeping existing CFBundleShortVersionString." >&2
+    fi
   else
     echo "warning: Info.plist not found at '$plist_path', skipping version bump."
   fi
