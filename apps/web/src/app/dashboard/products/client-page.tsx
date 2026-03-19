@@ -19,7 +19,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { AIResponse } from '@/app/dashboard/products/actions';
 import AddProductForm from '@/app/dashboard/products/add/add-product-form';
 import { CSVBulkImportDialog } from '@/components/products/csv-bulk-import-dialog';
@@ -150,8 +150,7 @@ function ProductsPageContent() {
   const { toast } = useToast();
 
   // Auto-open add product dialog if action=new
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useState(() => {
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('action') === 'new') {
@@ -161,7 +160,7 @@ function ProductsPageContent() {
         setTimeout(() => openAddProductDialog(), 100);
       }
     }
-  });
+  }, [openAddProductDialog]);
 
   const handleProductSaved = async (product: Product) => {
     if (editingProduct) {
