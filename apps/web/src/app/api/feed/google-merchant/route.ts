@@ -118,7 +118,7 @@ function createCachedFeedDataFetcher(
         .from('products')
         .select(
           `id, name, description, slug, price, compare_at_price,
-           brand, gtin, mpn, sku, stock, condition, google_product_category, category,
+           brand, gtin, mpn, sku, stock, manage_stock, stock_quantity, condition, google_product_category, category,
            categories:category_id(name, slug),
            weight_value, weight_unit, updated_at`
         )
