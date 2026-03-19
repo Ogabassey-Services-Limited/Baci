@@ -577,6 +577,7 @@ describe('generateGoogleMerchantFeed — variant emission', () => {
     const xml = generateGoogleMerchantFeed(
       [
         product({
+          manage_stock: true,
           variants: [
             {
               id: 'var-oos',
@@ -597,6 +598,7 @@ describe('generateGoogleMerchantFeed — variant emission', () => {
     const xml = generateGoogleMerchantFeed(
       [
         product({
+          manage_stock: true,
           variants: [
             {
               id: 'var-invalid-stock',
@@ -611,6 +613,29 @@ describe('generateGoogleMerchantFeed — variant emission', () => {
       defaultManifest
     );
     expect(xml).toContain('<g:availability>out_of_stock</g:availability>');
+    expect(xml).toContain('<g:quantity>0</g:quantity>');
+  });
+
+  it('treats zero quantity as in_stock when manage_stock is false', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          manage_stock: false,
+          variants: [
+            {
+              id: 'var-unlimited',
+              attributes: { color: 'Red' },
+              stock_quantity: 0,
+            },
+          ],
+        }),
+      ],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+
+    expect(xml).toContain('<g:availability>in_stock</g:availability>');
     expect(xml).toContain('<g:quantity>0</g:quantity>');
   });
 
