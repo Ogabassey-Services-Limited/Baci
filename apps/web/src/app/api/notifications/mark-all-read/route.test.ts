@@ -35,6 +35,7 @@ let merchantContext: {
 let updateError: unknown = null;
 let mockUpdateNotifications = vi.fn();
 let mockEqMerchant = vi.fn();
+let mockIsReadAt = vi.fn();
 
 const mockGetMerchantForApiRequest = vi.fn();
 const mockToUserAccess = vi.fn();
@@ -66,9 +67,9 @@ vi.mock('@/lib/supabase/server', () => ({
         return {
           update: mockUpdateNotifications.mockReturnValue({
             eq: mockEqMerchant.mockReturnValue({
-              is: vi.fn().mockReturnValue({
-                is: vi.fn(() => Promise.resolve({ error: updateError })),
-              }),
+              is: mockIsReadAt.mockImplementation(() =>
+                Promise.resolve({ error: updateError })
+              ),
             }),
           }),
         };
@@ -106,6 +107,7 @@ describe('PATCH /api/notifications/mark-all-read', () => {
     mockGetMerchantForApiRequest.mockResolvedValue(merchantContext);
     mockUpdateNotifications = vi.fn();
     mockEqMerchant = vi.fn();
+    mockIsReadAt = vi.fn();
     mockToUserAccess.mockReturnValue({
       merchantId: MERCHANT_ID,
       isStaff: false,
@@ -202,5 +204,6 @@ describe('PATCH /api/notifications/mark-all-read', () => {
       expect.objectContaining({ read_at: expect.any(String) })
     );
     expect(mockEqMerchant).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
+    expect(mockIsReadAt).toHaveBeenCalledWith('read_at', null);
   });
 });

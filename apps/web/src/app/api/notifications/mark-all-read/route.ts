@@ -51,13 +51,13 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
-    // Update all unread notifications to read
+    // Update all unread notifications to read, including dismissed ones
+    // for parity with the single-notification PATCH behavior.
     const { error: updateError } = await supabase
       .from('merchant_notifications')
       .update({ read_at: new Date().toISOString() })
       .eq('merchant_id', merchantId)
-      .is('read_at', null)
-      .is('dismissed_at', null);
+      .is('read_at', null);
 
     if (updateError) {
       console.error('Error marking all notifications as read:', updateError);
