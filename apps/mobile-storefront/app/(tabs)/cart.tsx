@@ -719,13 +719,13 @@ export default function CartScreen() {
               >
                 {formatPrice(grandTotal || 0)}
               </Text>
-              <Animated.View style={animatedArrowStyle}>
-                <Ionicons
-                  name="arrow-forward"
-                  size={18}
-                  color={colors.background}
-                />
-              </Animated.View>
+	              <Animated.View style={animatedArrowStyle}>
+	                <Ionicons
+	                  name="arrow-forward"
+	                  size={18}
+	                  color={colors.primaryForeground}
+	                />
+	              </Animated.View>
             </View>
           </Pressable>
         </View>
