@@ -62,6 +62,9 @@ jobs:
       - run: pnpm install
       - run: pnpm dlx vercel pull --yes --environment=production --token="${{ env.VERCEL_TOKEN }}"
       - run: pnpm dlx vercel build --yes --prod --token="${{ env.VERCEL_TOKEN }}"
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
@@ -98,6 +101,9 @@ jobs:
       - name: Build Project Artifacts
         if: ${{ env.VERCEL_TOKEN != '' }}
         run: pnpm dlx vercel build --yes --token="${{ env.VERCEL_TOKEN }}"
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)

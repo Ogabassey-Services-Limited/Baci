@@ -22,7 +22,8 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
-    # Skip forked PRs where SEMGREP_APP_TOKEN is unavailable.
+    # Skip for forked PRs where SEMGREP_APP_TOKEN is not available
+    # Forked PRs don't have access to secrets, which would cause Semgrep CI to fail
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: read
@@ -36,17 +37,10 @@ jobs:
       - name: Checkout repository
         # Pin to full SHA for supply chain security
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
 
       - name: Run Semgrep
         id: semgrep
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            semgrep ci --sarif --output=semgrep.sarif --baseline-commit "${{ github.event.pull_request.base.sha }}"
-          else
-            semgrep ci --sarif --output=semgrep.sarif
-          fi
+        run: semgrep ci --sarif --output=semgrep.sarif
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
         continue-on-error: true
@@ -113,8 +107,6 @@ jobs:
   secrets-scan:
     name: Secret Scanning
     runs-on: ubuntu-latest
-    # Skip forked PRs where token access is restricted.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: read
       security-events: write

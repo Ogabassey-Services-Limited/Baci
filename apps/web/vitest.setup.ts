@@ -2,10 +2,6 @@ import { vi } from 'vitest';
 import '@testing-library/jest-dom';
 import React from 'react';
 
-// Setup default environment variables for testing
-process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-anon-key";
-
 type MockImageSrc = string | { src: string } | { default: { src: string } };
 
 type MockNextImageProps = React.ImgHTMLAttributes<HTMLImageElement> & {
