@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -113,15 +114,15 @@ export default function ScanScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
       >
         <View style={styles.centerContent}>
-          <Ionicons name="camera-outline" size={64} color="#EF4444" />
+          <Ionicons name="camera-outline" size={64} color={colors.error} />
           <Text style={[styles.message, { color: colors.text }]}>
             Camera permission denied
           </Text>
           <Text style={[styles.subMessage, { color: colors.text }]}>
             Please enable camera access in settings
           </Text>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Go Back</Text>
+          <Pressable style={[styles.backButton, { backgroundColor: colors.primary }]} onPress={() => router.back()}>
+            <Text style={[styles.backButtonText, { color: '#FFFFFF' }]}>Go Back</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -129,7 +130,7 @@ export default function ScanScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
       <CameraView
         style={styles.camera}
         onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
@@ -166,7 +167,7 @@ export default function ScanScreen() {
           {/* Actions */}
           <View style={styles.actions}>
             <Pressable
-              style={[styles.actionButton, { backgroundColor: '#1E293B' }]}
+              style={[styles.actionButton, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}
               onPress={() => router.back()}
             >
               <Ionicons name="close" size={24} color="#FFFFFF" />
@@ -175,7 +176,7 @@ export default function ScanScreen() {
 
             {scanned && (
               <Pressable
-                style={[styles.actionButton, { backgroundColor: '#3B82F6' }]}
+                style={[styles.actionButton, { backgroundColor: colors.primary }]}
                 onPress={() => setScanned(false)}
               >
                 <Ionicons name="refresh" size={24} color="#FFFFFF" />
@@ -192,36 +193,34 @@ export default function ScanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
   centerContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-    gap: 16,
+    padding: SPACING['3xl'],
+    gap: SPACING.lg,
   },
   message: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: TYPOGRAPHY.size.xl,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
     textAlign: 'center',
   },
   subMessage: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
     textAlign: 'center',
     opacity: 0.7,
   },
   backButton: {
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    backgroundColor: '#3B82F6',
-    borderRadius: 8,
+    marginTop: SPACING.lg,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING['2xl'],
+    borderRadius: RADIUS.sm,
   },
   backButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   camera: {
     flex: 1,
@@ -270,31 +269,31 @@ const styles = StyleSheet.create({
   },
   instructions: {
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: SPACING['3xl'],
   },
   instructionText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.size.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     textAlign: 'center',
   },
   actions: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 32,
+    gap: SPACING.md,
+    paddingHorizontal: SPACING['3xl'],
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    gap: 8,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: RADIUS.md,
+    gap: SPACING.sm,
   },
   actionButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });
