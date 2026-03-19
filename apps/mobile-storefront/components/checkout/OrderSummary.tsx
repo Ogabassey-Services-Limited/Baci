@@ -93,7 +93,7 @@ export function OrderSummary({
                       contentFit="contain"
                     />
                     <View style={[styles.quantityBadge, { borderColor: colors.card }]}>
-                      <Text style={[styles.quantityText, { color: colors.background }]}>{item.quantity}</Text>
+                      <Text style={styles.quantityText}>{item.quantity}</Text>
                     </View>
                   </View>
                   <View style={styles.itemInfo}>
@@ -240,6 +240,7 @@ const styles = StyleSheet.create({
   quantityText: {
     fontSize: 10,
     fontWeight: 'bold',
+    color: palette.white,
   },
   itemInfo: {
     flex: 1,
