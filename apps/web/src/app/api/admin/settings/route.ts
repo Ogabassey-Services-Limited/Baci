@@ -99,10 +99,7 @@ export async function GET() {
     // Get platform settings (singleton row)
     const { data: settings, error: settingsError } = await supabase
       .from('platform_settings')
-      // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full rows
-      .select(
-        'id, google_analytics_id, ga4_api_secret, facebook_pixel_id, facebook_capi_token, tiktok_pixel_id, tiktok_access_token, snapchat_pixel_id, snapchat_capi_token, twitter_pixel_id, platform_fee_percentage, platform_fee_flat, payment_processor_fee_percentage, payment_processor_fee_flat, platform_name, platform_logo_url, support_email, support_phone, enable_merchant_signups, enable_custom_domains, enable_analytics_export, maintenance_mode, maintenance_message, created_at, updated_at'
-      )
+      .select('*')
       .single();
 
     if (settingsError) {
@@ -125,6 +122,14 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -134,15 +139,6 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         { error },
         { status: error === 'Unauthorized' ? 401 : 403 }
-      );
-    }
-
-    // Explicit CSRF Protection for state-changing route
-    const { valid, response } = await checkCsrfProtection(request);
-    if (!valid) {
-      return (
-        response ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
       );
     }
 
@@ -244,10 +240,7 @@ export async function PUT(request: NextRequest) {
       .from('platform_settings')
       .update(updateData)
       .eq('singleton_key', true)
-      // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full rows
-      .select(
-        'id, google_analytics_id, ga4_api_secret, facebook_pixel_id, facebook_capi_token, tiktok_pixel_id, tiktok_access_token, snapchat_pixel_id, snapchat_capi_token, twitter_pixel_id, platform_fee_percentage, platform_fee_flat, payment_processor_fee_percentage, payment_processor_fee_flat, platform_name, platform_logo_url, support_email, support_phone, enable_merchant_signups, enable_custom_domains, enable_analytics_export, maintenance_mode, maintenance_message, created_at, updated_at'
-      )
+      .select()
       .single();
 
     if (updateError) {

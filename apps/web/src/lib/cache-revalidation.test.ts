@@ -15,6 +15,7 @@ import {
   revalidateDomains,
   revalidateFeatures,
   revalidateMerchant,
+  revalidateMerchantFeed,
   revalidatePageConfig,
   revalidateProducts,
   revalidateReviews,
@@ -354,6 +355,37 @@ describe('cache-revalidation utilities', () => {
         `page-config-${merchantId}-${pageSlug}`,
         'storefront-page'
       );
+    });
+  });
+
+  describe('revalidateMerchantFeed', () => {
+    it('revalidates only the merchant-scoped feed tag', () => {
+      revalidateMerchantFeed('ogabassey');
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'merchant-feed-ogabassey',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not flush the global google-merchant-feed tag', () => {
+      revalidateMerchantFeed('ogabassey');
+
+      expect(mockRevalidateTag).not.toHaveBeenCalledWith(
+        'google-merchant-feed',
+        expect.anything()
+      );
+    });
+
+    it('works with merchant UUID as identifier', () => {
+      revalidateMerchantFeed(MERCHANT_ID);
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `merchant-feed-${MERCHANT_ID}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
     });
   });
 
