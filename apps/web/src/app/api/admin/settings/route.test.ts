@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
-import { GET, PUT } from './route';
+import { PUT } from './route';
 
 // Mock dependencies
 vi.mock('next/headers', () => ({
@@ -145,7 +145,9 @@ describe('Admin Settings API', () => {
       const data = await response.json();
 
       expect(response.status).toBe(400);
-      expect(data.error).toBe('platform_fee_percentage must be a non-negative number');
+      expect(data.error).toBe(
+        'platform_fee_percentage must be a non-negative number'
+      );
     });
 
     it('should successfully update settings with valid payload', async () => {
