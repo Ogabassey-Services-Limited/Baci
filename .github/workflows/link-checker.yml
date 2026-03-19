@@ -2,13 +2,18 @@ name: Link Checker
 
 on:
   repository_dispatch:
+    # Prevent noisy external dispatches (for example Vercel deployment events)
+    # from flooding the workflow queue.
+    types: [run-link-checker]
   workflow_dispatch:
   schedule:
     - cron: "0 0 * * 1" # Runs every Monday at midnight
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+
+concurrency:
+  group: link-checker-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   link-checker:
