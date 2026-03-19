@@ -1,32 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
-import {
-  type FeedProduct,
-  generateGoogleMerchantFeed,
-  type ImageManifestMap,
-} from './feed-builder';
-import { buildMerchantBaseUrl } from './route-utils';
+import { stripHtmlTags } from '@/lib/sanitize-core';
 
-/**
- * Module-level anon-key client is intentional: this is a public feed endpoint
- * hit by Google's crawler — no auth cookies exist. Using `@/lib/supabase/server`
- * (which reads cookies) would be incorrect here.
- */
-const supabase = createClient(getSupabaseUrl(), getSupabaseAnonKey());
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-const _FeedQuerySchema = z
-  .object({
-    merchant_id: z.string().uuid().optional(),
-    merchant_slug: z.string().min(1).optional(),
-  })
-  .refine((data) => data.merchant_id || data.merchant_slug, {
-    message: 'merchant_id or merchant_slug parameter is required',
-  });
-
+// Factory function that creates a cached fetcher for each merchant
+// This ensures each merchant gets their own cache entry
 function createCachedFeedDataFetcher(
   merchantIdentifier: string,
   isBySlug: boolean
@@ -45,23 +28,11 @@ function createCachedFeedDataFetcher(
         throw new Error('Merchant not found');
       }
 
-      const { data: primaryDomain, error: domainError } = await supabase
-        .from('domains')
-        .select('domain')
-        .eq('merchant_id', merchant.id)
-        .eq('status', 'active')
-        .eq('is_primary', true)
-        .maybeSingle();
-
-      if (domainError) {
-        console.error('DB_DOMAIN_ERROR:', domainError);
-        throw new Error('Failed to fetch merchant domain');
-      }
-
+      // PERFORMANCE: Select only required fields and add limit
       const { data: products, error: productsError } = await supabase
         .from('products')
         .select(
-          `id, name, description, slug, price, compare_at_price,
+          `id, name, description, slug, price, compare_at_price, images,
            brand, gtin, mpn, sku, stock, condition, google_product_category, category,
            weight_value, weight_unit, updated_at`
         )
@@ -75,56 +46,11 @@ function createCachedFeedDataFetcher(
         throw new Error('Failed to fetch products');
       }
 
-      // Fetch prevalidated image manifest from product_feed_images
-      const { data: manifestRows, error: manifestError } = await supabase
-        .from('product_feed_images')
-        .select(
-          'product_id, verified_url, verified_format, status, is_primary, position'
-        )
-        .eq('merchant_id', merchant.id)
-        .eq('status', 'verified');
-
-      if (manifestError) {
-        console.error('DB_MANIFEST_ERROR:', manifestError);
-        throw new Error('Failed to fetch image manifest');
-      }
-
-      // Group manifest rows by product_id
-      type ManifestRow = {
-        product_id: string;
-        verified_url: string | null;
-        verified_format: string | null;
-        status: string;
-        is_primary: boolean;
-        position: number;
-      };
-
-      const imageManifest: ImageManifestMap = {};
-      for (const row of (manifestRows || []) as ManifestRow[]) {
-        if (!imageManifest[row.product_id]) {
-          imageManifest[row.product_id] = [];
-        }
-        imageManifest[row.product_id].push({
-          verified_url: row.verified_url,
-          verified_format: row.verified_format,
-          status: 'verified' as const, // Query filters .eq('status', 'verified')
-          is_primary: row.is_primary,
-          position: row.position,
-        });
-      }
-
-      return {
-        merchant: {
-          ...merchant,
-          custom_domain: primaryDomain?.domain ?? null,
-        },
-        products: (products || []) as FeedProduct[],
-        imageManifest,
-      };
+      return { merchant, products: products || [] };
     },
-    ['google-merchant-feed', isBySlug ? 'slug' : 'id', merchantIdentifier],
+    ['google-merchant-feed', merchantIdentifier], // Include merchant identifier in cache key
     {
-      revalidate: 3600,
+      revalidate: 3600, // Revalidate every 1 hour
       tags: [
         'google-merchant-feed',
         'products',
@@ -137,10 +63,7 @@ function createCachedFeedDataFetcher(
 /**
  * Google Merchant Center Product Feed API
  *
- * Generates an XML feed compatible with Google Merchant Center.
- * Image URLs are resolved exclusively from the prevalidated
- * `product_feed_images` manifest — zero live network validation.
- *
+ * Generates an XML feed compatible with Google Merchant Center
  * @see https://support.google.com/merchants/answer/7052112
  *
  * Usage: /api/feed/google-merchant?merchant_id=xxx
@@ -148,20 +71,15 @@ function createCachedFeedDataFetcher(
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const rawParams = {
-    merchant_id: searchParams.get('merchant_id') || undefined,
-    merchant_slug: searchParams.get('merchant_slug') || undefined,
-  };
+  const merchantId = searchParams.get('merchant_id');
+  const merchantSlug = searchParams.get('merchant_slug');
 
-  const parsed = _FeedQuerySchema.safeParse(rawParams);
-  if (!parsed.success) {
+  if (!merchantId && !merchantSlug) {
     return NextResponse.json(
-      { error: parsed.error.errors[0]?.message || 'Invalid query parameters' },
+      { error: 'merchant_id or merchant_slug parameter is required' },
       { status: 400 }
     );
   }
-
-  const { merchant_id: merchantId, merchant_slug: merchantSlug } = parsed.data;
 
   try {
     const identifier = merchantId || merchantSlug || '';
@@ -169,22 +87,21 @@ export async function GET(request: NextRequest) {
       identifier,
       !!merchantSlug
     );
-    const { merchant, products, imageManifest } = await getCachedFeedData();
+    const { merchant, products } = await getCachedFeedData();
 
-    const baseUrl = buildMerchantBaseUrl(merchant);
+    // Determine base URL from request headers
+    const host = request.headers.get('host') || `${merchant.slug}.baci.app`;
+    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+    const baseUrl = `${protocol}://${host}`;
 
-    const feedXml = generateGoogleMerchantFeed(
-      products,
-      merchant,
-      baseUrl,
-      imageManifest
-    );
+    // Generate RSS 2.0 feed with Google Merchant Center extensions
+    const feedXml = generateGoogleMerchantFeed(products, merchant, baseUrl);
 
     return new NextResponse(feedXml, {
       status: 200,
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        ...CACHE_HEADERS.LONG,
+        ...CACHE_HEADERS.LONG, // Cache for 1 hour with stale-while-revalidate
       },
     });
   } catch (error) {
@@ -201,4 +118,198 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  slug?: string;
+  price: number;
+  compare_at_price?: number;
+  images?: string[] | Array<{ url: string; alt?: string }>;
+  image?: string;
+  imageLarge?: string;
+  brand?: string;
+  gtin?: string;
+  mpn?: string;
+  sku?: string;
+  stock: number;
+  condition?: 'new' | 'used' | 'refurbished';
+  google_product_category?: string;
+  category?: string;
+  weight_value?: number;
+  weight_unit?: 'kg' | 'lb' | 'g' | 'oz';
+  updated_at?: string;
+}
+
+interface Merchant {
+  id: string;
+  business_name: string;
+  country?: string;
+  payout_currency?: string;
+  slug: string;
+}
+
+/**
+ * Convert AVIF/WebP image URLs to JPG for GMC compatibility
+ * Google Merchant Center only supports: JPEG, PNG, GIF, BMP, TIFF
+ */
+function convertToGmcCompatibleImage(url: string): string {
+  if (!url) return '';
+
+  // Replace AVIF/WebP extensions with JPG
+  // Also try without the extension in case the CDN serves based on Accept header
+  if (url.endsWith('.avif')) {
+    return url.replace(/\.avif$/i, '.jpg');
+  }
+  if (url.endsWith('.webp')) {
+    return url.replace(/\.webp$/i, '.jpg');
+  }
+
+  return url;
+}
+
+/**
+ * Validate if a URL is valid for GMC
+ */
+function isValidGmcUrl(url: string): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if product is valid for GMC feed
+ */
+function isValidForGmc(product: Product): boolean {
+  // Must have price > 0
+  if (!product.price || product.price <= 0) return false;
+
+  // Must have a name
+  if (!product.name || product.name.trim() === '') return false;
+
+  // Must have valid stock (treat null/undefined as 0)
+  // We still include out-of-stock items, GMC handles them
+
+  return true;
+}
+
+function generateGoogleMerchantFeed(
+  products: Product[],
+  merchant: Merchant,
+  baseUrl: string
+): string {
+  const currency = merchant.payout_currency || 'USD';
+  const brandName = merchant.business_name;
+
+  // Filter out invalid products
+  const validProducts = products.filter(isValidForGmc);
+
+  const items = validProducts
+    .map((product) => {
+      const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
+
+      // Validate product URL
+      if (!isValidGmcUrl(productUrl)) return null;
+
+      const firstImage = product.images?.[0];
+      let imageUrl =
+        typeof firstImage === 'string'
+          ? firstImage
+          : firstImage?.url || product.imageLarge || product.image || '';
+
+      // Convert AVIF/WebP to JPG for GMC compatibility
+      imageUrl = convertToGmcCompatibleImage(imageUrl);
+
+      // Skip products without valid images
+      if (!isValidGmcUrl(imageUrl)) {
+        imageUrl = ''; // GMC will flag this, but won't break the feed
+      }
+
+      // Additional images (max 10, converted to JPG)
+      const additionalImages =
+        product.images
+          ?.slice(1, 11)
+          .map((img) => {
+            const url = typeof img === 'string' ? img : img.url;
+            const convertedUrl = convertToGmcCompatibleImage(url);
+            if (!isValidGmcUrl(convertedUrl)) return null;
+            return `        <g:additional_image_link>${escapeXml(convertedUrl)}</g:additional_image_link>`;
+          })
+          .filter(Boolean)
+          .join('\n') || '';
+
+      // Availability - ensure stock is treated as number
+      const stockCount = typeof product.stock === 'number' ? product.stock : 0;
+      const availability = stockCount > 0 ? 'in_stock' : 'out_of_stock';
+
+      // Condition
+      const condition = product.condition || 'new';
+
+      // Price formatting - ensure 2 decimal places
+      const formattedPrice = product.price.toFixed(2);
+
+      // Sale price (if compare_at_price exists and is higher than current price)
+      const salePrice =
+        product.compare_at_price && product.compare_at_price > product.price
+          ? `        <g:sale_price>${formattedPrice} ${currency}</g:sale_price>\n        <g:price>${product.compare_at_price.toFixed(2)} ${currency}</g:price>`
+          : `        <g:price>${formattedPrice} ${currency}</g:price>`;
+
+      // Shipping weight
+      const shippingWeight =
+        product.weight_value && product.weight_unit
+          ? `        <g:shipping_weight>${product.weight_value} ${product.weight_unit}</g:shipping_weight>`
+          : '';
+
+      return `    <item>
+        <g:id>${escapeXml(product.id)}</g:id>
+        <g:title>${escapeXml(product.name)}</g:title>
+        <g:description>${escapeXml(stripHtmlTags(product.description).trim())}</g:description>
+        <g:link>${escapeXml(productUrl)}</g:link>
+        <g:image_link>${escapeXml(imageUrl)}</g:image_link>
+${additionalImages}
+        <g:availability>${availability}</g:availability>
+        <g:quantity>${stockCount}</g:quantity>
+${salePrice}
+        <g:brand>${escapeXml(product.brand || brandName)}</g:brand>
+        <g:condition>${condition}</g:condition>
+${product.gtin ? `        <g:gtin>${escapeXml(product.gtin)}</g:gtin>` : ''}
+${product.mpn ? `        <g:mpn>${escapeXml(product.mpn)}</g:mpn>` : ''}
+${product.sku ? `        <g:identifier_exists>yes</g:identifier_exists>` : '        <g:identifier_exists>no</g:identifier_exists>'}
+${product.google_product_category ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>` : ''}
+${product.category ? `        <g:product_type>${escapeXml(product.category)}</g:product_type>` : ''}
+${shippingWeight}
+    </item>`;
+    })
+    .filter(Boolean)
+    .join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
+  <channel>
+    <title>${escapeXml(brandName)} - Product Feed</title>
+    <link>${escapeXml(baseUrl)}</link>
+    <description>Product feed for ${escapeXml(brandName)}</description>
+${items}
+  </channel>
+</rss>`;
+}
+
+/**
+ * Escape XML special characters
+ */
+function escapeXml(unsafe: string): string {
+  if (!unsafe) return '';
+  return unsafe
+    .toString()
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }

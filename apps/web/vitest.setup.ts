@@ -85,6 +85,9 @@ if (typeof File !== 'undefined' && !File.prototype.arrayBuffer) {
   });
 }
 
+process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
+
 // Mock Next.js Image component
 vi.mock('next/image', () => ({
   default: ({ src, alt, ...props }: MockNextImageProps) => {
