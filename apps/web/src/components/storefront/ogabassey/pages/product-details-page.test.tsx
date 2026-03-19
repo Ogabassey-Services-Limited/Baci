@@ -124,6 +124,10 @@ vi.mock('../components/FlyToCartAnimation', () => ({
   FlyToCartAnimation: () => null,
 }));
 
+vi.mock('../components/BlogSnippet', () => ({
+  BlogSnippet: () => null,
+}));
+
 import { ProductDetailsPage } from './product-details-page';
 
 describe('ProductDetailsPage', () => {
