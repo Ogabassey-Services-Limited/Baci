@@ -194,11 +194,7 @@ export function FilterBar({
         );
       case 'rating':
         return (
-          <View
-            style={styles.ratingRow}
-            accessibilityRole="radiogroup"
-            accessibilityLabel="Filter by rating"
-          >
+          <View style={styles.ratingRow}>
             {[4, 3, 2, 1].map((rating) => (
               <Pressable
                 key={rating}
@@ -210,9 +206,6 @@ export function FilterBar({
                   minRating === rating && styles.ratingChipActive,
                 ]}
                 hitSlop={6}
-                accessibilityRole="radio"
-                accessibilityLabel={`${rating} stars and above`}
-                accessibilityState={{ checked: minRating === rating }}
               >
                 <Text
                   style={[
@@ -229,13 +222,7 @@ export function FilterBar({
                 />
               </Pressable>
             ))}
-            <Pressable
-              onPress={() => onSelectRating(0)}
-              hitSlop={8}
-              accessibilityRole="radio"
-              accessibilityLabel="Any rating"
-              accessibilityState={{ checked: minRating === 0 }}
-            >
+            <Pressable onPress={() => onSelectRating(0)} hitSlop={8}>
               <Text
                 style={[
                   styles.anyText,
@@ -304,9 +291,6 @@ export function FilterBar({
               onPress={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
               style={styles.filterToggle}
               hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Filter options"
-              accessibilityState={{ expanded: isFilterMenuOpen }}
             >
               <Feather name="sliders" size={16} color={BRAND.primary} />
               <Text style={styles.filterLabel}>{getActiveFilterLabel()}</Text>
@@ -381,11 +365,7 @@ export function FilterBar({
           <View style={styles.dynamicArea}>{renderActiveControls()}</View>
 
           {/* View Toggle */}
-          <View
-            style={styles.viewToggle}
-            accessibilityRole="radiogroup"
-            accessibilityLabel="View mode"
-          >
+          <View style={styles.viewToggle}>
             <Pressable
               onPress={() => onViewModeChange('grid')}
               style={[
@@ -393,9 +373,6 @@ export function FilterBar({
                 viewMode === 'grid' && styles.viewBtnActive,
               ]}
               hitSlop={8}
-              accessibilityRole="radio"
-              accessibilityLabel="Grid view"
-              accessibilityState={{ checked: viewMode === 'grid' }}
             >
               <Feather
                 name="grid"
@@ -410,9 +387,6 @@ export function FilterBar({
                 viewMode === 'list' && styles.viewBtnActive,
               ]}
               hitSlop={8}
-              accessibilityRole="radio"
-              accessibilityLabel="List view"
-              accessibilityState={{ checked: viewMode === 'list' }}
             >
               <Feather
                 name="list"

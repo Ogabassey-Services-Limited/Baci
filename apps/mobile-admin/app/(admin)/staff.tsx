@@ -308,9 +308,6 @@ export default function StaffScreen() {
           pressed && { backgroundColor: colors.cardHover },
         ]}
         onPress={() => showStaffActions(item)}
-        accessibilityRole="button"
-        accessibilityLabel={`View actions for ${item.name || item.email.split('@')[0]}`}
-        accessibilityHint="Opens a menu to edit role or remove staff"
       >
         <View
           style={[styles.avatar, { backgroundColor: `${colors.primary}20` }]}
@@ -373,8 +370,6 @@ export default function StaffScreen() {
             <Pressable
               onPress={() => router.back()}
               style={{ marginRight: SPACING.md }}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
             >
               <Ionicons name="arrow-back" size={24} color={colors.text} />
             </Pressable>
@@ -383,8 +378,6 @@ export default function StaffScreen() {
             <Pressable
               onPress={() => setInviteModalVisible(true)}
               style={[styles.headerButton, { backgroundColor: colors.primary }]}
-              accessibilityRole="button"
-              accessibilityLabel="Invite Team Member"
             >
               <Ionicons name="person-add" size={18} color="#FFFFFF" />
             </Pressable>
@@ -486,8 +479,6 @@ export default function StaffScreen() {
                     { backgroundColor: colors.primary },
                   ]}
                   onPress={() => setInviteModalVisible(true)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Invite Team Member"
                 >
                   <Ionicons name="person-add" size={18} color="#FFFFFF" />
                   <Text style={styles.emptyButtonText}>Invite Team Member</Text>
@@ -511,12 +502,7 @@ export default function StaffScreen() {
                 <Text style={[styles.modalTitle, { color: colors.text }]}>
                   Invite Team Member
                 </Text>
-                <Pressable
-                  onPress={() => setInviteModalVisible(false)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Close"
-                  accessibilityHint="Closes the invite modal"
-                >
+                <Pressable onPress={() => setInviteModalVisible(false)}>
                   <Ionicons name="close" size={24} color={colors.textMuted} />
                 </Pressable>
               </View>
@@ -633,12 +619,7 @@ export default function StaffScreen() {
                 <Text style={[styles.modalTitle, { color: colors.text }]}>
                   Change Role
                 </Text>
-                <Pressable
-                  onPress={() => setRoleModalVisible(false)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Close"
-                  accessibilityHint="Closes the role change modal"
-                >
+                <Pressable onPress={() => setRoleModalVisible(false)}>
                   <Ionicons name="close" size={24} color={colors.textMuted} />
                 </Pressable>
               </View>
@@ -654,9 +635,6 @@ export default function StaffScreen() {
                       },
                     ]}
                     onPress={() => setSelectedRole(role)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Select role ${ROLE_LABELS[role]}`}
-                    accessibilityState={{ selected: selectedRole === role }}
                   >
                     <View>
                       <Text
