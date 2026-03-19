@@ -217,7 +217,8 @@ export async function POST(request: NextRequest) {
         lifetime_points: newLifetime,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', loyalty?.id);
+      .eq('id', loyalty?.id)
+      .eq('merchant_id', merchantId);
 
     if (updateError) {
       console.error('Error updating points:', updateError);
