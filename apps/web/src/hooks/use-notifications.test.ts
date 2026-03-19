@@ -566,6 +566,183 @@ describe('useNotifications', () => {
       });
     });
 
+    describe('markAllAsRead', () => {
+      it('calls bulk mark-all endpoint and updates local unread state', async () => {
+        // Arrange
+        const initialNotifications = [
+          {
+            id: 'notif-1',
+            notification_id: 'n1',
+            merchant_id: 'merchant-123',
+            read_at: null,
+            dismissed_at: null,
+            banner_dismissed_at: null,
+            created_at: '2026-02-10T12:00:00Z',
+            notification: {
+              id: 'n1',
+              title: 'Test',
+              message: 'msg',
+              notification_type: 'info',
+              priority: 'medium',
+              channels: ['in_app'],
+            },
+          },
+        ];
+
+        global.fetch = vi
+          .fn()
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              data: initialNotifications,
+              unread_count: 1,
+              has_more: false,
+              cursor: null,
+            }),
+          })
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ success: true, unread_count: 0 }),
+          });
+
+        vi.mocked(useMerchant).mockReturnValue({
+          merchant: { id: 'merchant-123' },
+        } as any);
+        mockSupabase.rpc.mockResolvedValue({ data: [], error: null });
+
+        // Act
+        const { result } = renderHook(() => useNotifications());
+
+        await waitFor(() => {
+          expect(result.current.notifications).toHaveLength(1);
+        });
+
+        await result.current.markAllAsRead();
+
+        // Assert
+        expect(global.fetch).toHaveBeenNthCalledWith(
+          2,
+          '/api/notifications/mark-all-read',
+          expect.objectContaining({
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+          })
+        );
+
+        await waitFor(() => {
+          expect(result.current.unreadCount).toBe(0);
+          expect(result.current.notifications[0].read_at).not.toBeNull();
+        });
+      });
+
+      it('throws when bulk mark-all endpoint fails', async () => {
+        // Arrange
+        const initialNotifications = [
+          {
+            id: 'notif-1',
+            notification_id: 'n1',
+            merchant_id: 'merchant-123',
+            read_at: null,
+            dismissed_at: null,
+            banner_dismissed_at: null,
+            created_at: '2026-02-10T12:00:00Z',
+            notification: {
+              id: 'n1',
+              title: 'Test',
+              message: 'msg',
+              notification_type: 'info',
+              priority: 'medium',
+              channels: ['in_app'],
+            },
+          },
+        ];
+
+        global.fetch = vi
+          .fn()
+          .mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+              data: initialNotifications,
+              unread_count: 1,
+              has_more: false,
+              cursor: null,
+            }),
+          })
+          .mockResolvedValueOnce({
+            ok: false,
+            status: 500,
+            json: async () => ({}),
+          });
+
+        vi.mocked(useMerchant).mockReturnValue({
+          merchant: { id: 'merchant-123' },
+        } as any);
+        mockSupabase.rpc.mockResolvedValue({ data: [], error: null });
+
+        // Act
+        const { result } = renderHook(() => useNotifications());
+
+        await waitFor(() => {
+          expect(result.current.notifications).toHaveLength(1);
+        });
+
+        // Assert
+        await expect(result.current.markAllAsRead()).rejects.toThrow(
+          'Failed to mark all as read'
+        );
+      });
+
+      it('skips network call when there are no unread notifications', async () => {
+        // Arrange
+        const initialNotifications = [
+          {
+            id: 'notif-1',
+            notification_id: 'n1',
+            merchant_id: 'merchant-123',
+            read_at: '2026-02-10T12:00:00Z',
+            dismissed_at: null,
+            banner_dismissed_at: null,
+            created_at: '2026-02-10T12:00:00Z',
+            notification: {
+              id: 'n1',
+              title: 'Test',
+              message: 'msg',
+              notification_type: 'info',
+              priority: 'medium',
+              channels: ['in_app'],
+            },
+          },
+        ];
+
+        global.fetch = vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            data: initialNotifications,
+            unread_count: 0,
+            has_more: false,
+            cursor: null,
+          }),
+        });
+
+        vi.mocked(useMerchant).mockReturnValue({
+          merchant: { id: 'merchant-123' },
+        } as any);
+        mockSupabase.rpc.mockResolvedValue({ data: [], error: null });
+
+        // Act
+        const { result } = renderHook(() => useNotifications());
+
+        await waitFor(() => {
+          expect(result.current.notifications).toHaveLength(1);
+        });
+
+        await result.current.markAllAsRead();
+
+        // Assert
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+      });
+    });
+
     describe('dismiss', () => {
       it('dismisses notification and removes from local state', async () => {
         // Arrange
