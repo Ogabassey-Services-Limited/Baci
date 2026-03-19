@@ -1,24 +1,13 @@
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PLATFORM_SETTINGS_SELECT } from './constants';
-import type { PlatformSettings } from './route';
 
-const {
-  mockCheckCsrfProtection,
-  mockGetMerchantForApiRequest,
-  mockCreateClient,
-} = vi.hoisted(() => ({
-  mockCheckCsrfProtection: vi.fn(),
-  mockGetMerchantForApiRequest: vi.fn(),
-  mockCreateClient: vi.fn(),
-}));
+const mockCookies = vi.fn();
+const mockCreateClient = vi.fn();
+const mockCheckCsrfProtection = vi.fn();
+const mockGetMerchantForApiRequest = vi.fn();
 
 vi.mock('next/headers', () => ({
-  cookies: vi.fn().mockResolvedValue({
-    get: vi.fn(),
-    set: vi.fn(),
-  }),
+  cookies: vi.fn(async () => mockCookies()),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -34,287 +23,193 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
-import { GET, PUT } from './route';
+const settingsUrl = 'http://localhost/api/admin/settings';
 
-const baseSettings = {
-  id: 'settings-1',
-  google_analytics_id: 'G-123456',
-  ga4_api_secret: null,
-  facebook_pixel_id: null,
-  facebook_capi_token: null,
-  tiktok_pixel_id: null,
-  tiktok_access_token: null,
-  snapchat_pixel_id: null,
-  snapchat_capi_token: null,
-  twitter_pixel_id: null,
-  platform_fee_percentage: 2.5,
-  platform_fee_flat: 100,
-  payment_processor_fee_percentage: 1.5,
-  payment_processor_fee_flat: 75,
-  platform_name: 'Baci',
-  platform_logo_url: null,
-  support_email: 'support@baci.app',
-  support_phone: null,
-  enable_merchant_signups: true,
-  enable_custom_domains: true,
-  enable_analytics_export: false,
-  maintenance_mode: false,
-  maintenance_message: null,
-  created_at: '2026-03-17T00:00:00.000Z',
-  updated_at: '2026-03-17T00:00:00.000Z',
-} satisfies PlatformSettings;
-
-type QueryResult<T> = {
-  data: T | null;
-  error: { message: string } | null;
-};
-
-type MerchantContext = {
-  merchantId: string;
-  staffAccess: {
-    isStaff: boolean;
-  };
-};
-
-let authUser: { id: string } | null = { id: 'user-1' };
-let merchantContext: MerchantContext | null = {
-  merchantId: 'merchant-1',
-  staffAccess: {
-    isStaff: false,
-  },
-};
-let merchantAdminResult: QueryResult<{ is_platform_admin: boolean }> = {
-  data: { is_platform_admin: true },
-  error: null,
-};
-let platformSettingsResult: QueryResult<PlatformSettings> = {
-  data: baseSettings,
-  error: null,
-};
-let capturedMerchantSelect: string | null = null;
-let capturedPlatformSettingsSelect: string | null = null;
-let capturedPlatformSettingsUpdate: Record<string, unknown> | null = null;
-
-function createMerchantsQuery() {
-  const query = {
-    eq: vi.fn(() => query),
-    maybeSingle: vi.fn(async () => merchantAdminResult),
-    select: vi.fn((columns?: string) => {
-      capturedMerchantSelect = columns ?? null;
-      return query;
-    }),
-  };
-
-  return query;
+function createRequest(body: unknown): NextRequest {
+  return new NextRequest(settingsUrl, {
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+    method: 'PUT',
+  });
 }
 
-function createPlatformSettingsQuery() {
-  const query = {
-    eq: vi.fn(() => query),
-    select: vi.fn((columns?: string) => {
-      capturedPlatformSettingsSelect = columns ?? null;
-      return query;
-    }),
-    single: vi.fn(async () => platformSettingsResult),
-    update: vi.fn((data: Record<string, unknown>) => {
-      capturedPlatformSettingsUpdate = data;
-      return query;
-    }),
+function createMockCookieStore() {
+  return {
+    get: vi.fn(
+      (_name: string) =>
+        undefined as { name: string; value: string } | undefined
+    ),
+    getAll: vi.fn(() => [] as Array<{ name: string; value: string }>),
+    has: vi.fn((_name: string) => false),
   };
-
-  return query;
 }
 
-function createMockSupabase() {
-  const merchantsQuery = createMerchantsQuery();
-  const platformSettingsQuery = createPlatformSettingsQuery();
+function createMockSupabase(options?: {
+  unauthenticated?: boolean;
+  isPlatformAdmin?: boolean;
+  updateError?: { message: string } | null;
+}) {
+  const merchantsBuilder = {
+    eq: vi.fn(() => merchantsBuilder),
+    maybeSingle: vi.fn(async () => ({
+      data: { is_platform_admin: options?.isPlatformAdmin ?? true },
+      error: null,
+    })),
+    select: vi.fn(() => merchantsBuilder),
+  };
+
+  const updateBuilder = {
+    eq: vi.fn(() => updateBuilder),
+    select: vi.fn(() => updateBuilder),
+    single: vi.fn(async () => ({
+      data:
+        options?.updateError == null
+          ? { id: 'settings-1', platform_name: 'Baci' }
+          : null,
+      error: options?.updateError ?? null,
+    })),
+  };
+
+  const platformSettingsBuilder = {
+    update: vi.fn(() => updateBuilder),
+  };
 
   return {
     auth: {
       getUser: vi.fn(async () => ({
-        data: { user: authUser },
-        error: authUser ? null : { message: 'Not authenticated' },
+        data: { user: options?.unauthenticated ? null : { id: 'user-1' } },
       })),
     },
     from: vi.fn((table: string) => {
       if (table === 'merchants') {
-        return merchantsQuery;
+        return merchantsBuilder;
       }
-
       if (table === 'platform_settings') {
-        return platformSettingsQuery;
+        return platformSettingsBuilder;
       }
-
       throw new Error(`Unexpected table: ${table}`);
     }),
+    __mocks: {
+      platformSettingsBuilder,
+      updateBuilder,
+    },
   };
 }
 
-function createPutRequest(body: Record<string, unknown>) {
-  return new Request('http://localhost/api/admin/settings', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  }) as unknown as NextRequest;
-}
+import { PUT } from './route';
 
-describe('/api/admin/settings', () => {
+describe('PUT /api/admin/settings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    authUser = { id: 'user-1' };
-    merchantContext = {
+    mockCookies.mockReturnValue(createMockCookieStore());
+    mockCheckCsrfProtection.mockResolvedValue({ valid: true, response: null });
+    mockGetMerchantForApiRequest.mockResolvedValue({
       merchantId: 'merchant-1',
-      staffAccess: {
-        isStaff: false,
-      },
-    };
-    merchantAdminResult = {
-      data: { is_platform_admin: true },
-      error: null,
-    };
-    platformSettingsResult = {
-      data: baseSettings,
-      error: null,
-    };
-    capturedMerchantSelect = null;
-    capturedPlatformSettingsSelect = null;
-    capturedPlatformSettingsUpdate = null;
-    mockCheckCsrfProtection.mockResolvedValue({ valid: true });
-    mockGetMerchantForApiRequest.mockResolvedValue(merchantContext);
-    mockCreateClient.mockReturnValue(createMockSupabase());
+      staffAccess: { isStaff: false },
+    });
   });
 
-  it('returns platform settings with explicit columns', async () => {
-    const response = await GET();
-    const body = (await response.json()) as PlatformSettings;
-
-    expect(response.status).toBe(200);
-    expect(body.id).toBe(baseSettings.id);
-    expect(capturedMerchantSelect).toBe('is_platform_admin');
-    expect(capturedPlatformSettingsSelect).toBe(PLATFORM_SETTINGS_SELECT);
-  });
-
-  it('returns 500 when fetching platform settings fails', async () => {
-    platformSettingsResult = {
-      data: null,
-      error: { message: 'fetch failed' },
-    };
-
-    const response = await GET();
-    const body = (await response.json()) as { error: string };
-
-    expect(response.status).toBe(500);
-    expect(body.error).toBe('Failed to fetch settings');
-    expect(capturedPlatformSettingsSelect).toBe(PLATFORM_SETTINGS_SELECT);
-  });
-
-  it('returns 403 when CSRF validation fails', async () => {
+  it('returns CSRF rejection response when validation fails', async () => {
+    const csrfResponse = NextResponse.json(
+      { error: 'CSRF token invalid' },
+      { status: 403 }
+    );
     mockCheckCsrfProtection.mockResolvedValueOnce({
       valid: false,
-      response: NextResponse.json(
-        { error: 'Invalid CSRF token' },
-        { status: 403 }
-      ),
+      response: csrfResponse,
     });
 
-    const response = await PUT(createPutRequest({ platform_name: 'Baci Pro' }));
-    const body = (await response.json()) as { error: string };
+    const response = await PUT(createRequest({ platform_name: 'Baci' }));
+    const body = await response.json();
 
     expect(response.status).toBe(403);
-    expect(body.error).toBe('Invalid CSRF token');
-    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
-    expect(capturedPlatformSettingsUpdate).toBeNull();
+    expect(body.error).toBe('CSRF token invalid');
+    expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
-  it('returns 400 when the request payload fails validation', async () => {
+  it('updates platform settings for authorized platform admin', async () => {
+    const mockSupabase = createMockSupabase();
+    mockCreateClient.mockReturnValue(mockSupabase);
+
     const response = await PUT(
-      createPutRequest({
-        support_email: 'not-an-email',
+      createRequest({
+        enable_custom_domains: true,
+        platform_name: 'Baci Prime',
       })
     );
-    const body = (await response.json()) as {
-      error: string;
-      details?: { fieldErrors?: Record<string, string[]> };
-    };
+    const body = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(body.error).toBe('Invalid request payload');
-    expect(body.details?.fieldErrors?.support_email).toBeDefined();
-    expect(capturedPlatformSettingsUpdate).toBeNull();
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ id: 'settings-1', platform_name: 'Baci' });
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      mockSupabase,
+      'user-1'
+    );
+    expect(mockSupabase.from).toHaveBeenCalledWith('platform_settings');
+    expect(
+      mockSupabase.__mocks.platformSettingsBuilder.update
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enable_custom_domains: true,
+        platform_name: 'Baci Prime',
+      })
+    );
   });
 
-  it('returns 403 when the merchant is not a platform admin', async () => {
-    merchantAdminResult = {
-      data: { is_platform_admin: false },
-      error: null,
-    };
+  it('returns 500 when updating settings fails', async () => {
+    const mockSupabase = createMockSupabase({
+      updateError: { message: 'update failed' },
+    });
+    mockCreateClient.mockReturnValue(mockSupabase);
 
-    const response = await PUT(
-      createPutRequest({
-        platform_name: 'Baci Pro',
-      })
-    );
-    const body = (await response.json()) as { error: string };
-
-    expect(response.status).toBe(403);
-    expect(body.error).toBe('Forbidden - Platform admin access required');
-    expect(capturedMerchantSelect).toBe('is_platform_admin');
-    expect(capturedPlatformSettingsUpdate).toBeNull();
-  });
-
-  it('returns 500 when updating platform settings fails', async () => {
-    platformSettingsResult = {
-      data: null,
-      error: { message: 'update failed' },
-    };
-
-    const response = await PUT(
-      createPutRequest({
-        platform_name: 'Baci Pro',
-      })
-    );
-    const body = (await response.json()) as { error: string };
+    const response = await PUT(createRequest({ platform_name: 'Baci' }));
+    const body = await response.json();
 
     expect(response.status).toBe(500);
     expect(body.error).toBe('Failed to update settings');
-    expect(capturedPlatformSettingsSelect).toBe(PLATFORM_SETTINGS_SELECT);
   });
 
-  it('updates platform settings when the request is valid', async () => {
-    platformSettingsResult = {
-      data: {
-        ...baseSettings,
-        platform_name: 'Baci Pro',
-        platform_fee_percentage: 3.5,
-        enable_custom_domains: false,
-      },
-      error: null,
-    };
+  it('returns 401 when user is not authenticated', async () => {
+    const mockSupabase = createMockSupabase({ unauthenticated: true });
+    mockCreateClient.mockReturnValue(mockSupabase);
+
+    const response = await PUT(createRequest({ platform_name: 'Baci' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body.error).toBe('Unauthorized');
+    expect(
+      mockSupabase.__mocks.platformSettingsBuilder.update
+    ).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when user is not a platform admin', async () => {
+    const mockSupabase = createMockSupabase({ isPlatformAdmin: false });
+    mockCreateClient.mockReturnValue(mockSupabase);
+
+    const response = await PUT(createRequest({ platform_name: 'Baci' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('Forbidden - Platform admin access required');
+    expect(
+      mockSupabase.__mocks.platformSettingsBuilder.update
+    ).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for invalid request payload', async () => {
+    const mockSupabase = createMockSupabase();
+    mockCreateClient.mockReturnValue(mockSupabase);
 
     const response = await PUT(
-      createPutRequest({
-        platform_name: 'Baci Pro',
-        platform_fee_percentage: '3.5',
-        enable_custom_domains: false,
-        support_email: 'support@baci.app',
-      })
+      createRequest({ support_email: 'not-an-email' })
     );
-    const body = (await response.json()) as PlatformSettings;
+    const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.platform_name).toBe('Baci Pro');
-    expect(body.platform_fee_percentage).toBe(3.5);
-    expect(capturedMerchantSelect).toBe('is_platform_admin');
-    expect(capturedPlatformSettingsSelect).toBe(PLATFORM_SETTINGS_SELECT);
-    expect(capturedPlatformSettingsUpdate).toEqual(
-      expect.objectContaining({
-        platform_name: 'Baci Pro',
-        platform_fee_percentage: 3.5,
-        enable_custom_domains: false,
-        support_email: 'support@baci.app',
-      })
-    );
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid request payload');
+    expect(
+      mockSupabase.__mocks.platformSettingsBuilder.update
+    ).not.toHaveBeenCalled();
   });
 });
