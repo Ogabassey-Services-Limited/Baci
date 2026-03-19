@@ -191,6 +191,7 @@ export const ProductDetails: React.FC = () => {
                 <button
                   onClick={() => toggleSaved(productData.id)}
                   className="absolute top-4 right-4 p-3 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-all active:scale-90 z-10"
+                  aria-label={isSaved ? "Remove from saved" : "Save product"}
                 >
                   <Heart
                     size={20}
@@ -209,6 +210,7 @@ export const ProductDetails: React.FC = () => {
                       key={idx}
                       onClick={() => setSelectedImage(idx)}
                       className={`aspect-square rounded-xl border-2 p-2 bg-gray-50 transition-all ${selectedImage === idx ? 'border-red-600 ring-2 ring-red-100' : 'border-transparent hover:border-gray-200'}`}
+                      aria-label={`View image ${idx + 1}`}
                     >
                       <img
                         src={img}
@@ -314,6 +316,7 @@ export const ProductDetails: React.FC = () => {
                                   : 'border border-gray-200 hover:border-gray-400 hover:scale-105'
                               }`}
                               title={color.name}
+                              aria-label={`Select color ${color.name}`}
                             >
                               <div
                                 className="w-9 h-9 rounded-full border border-black/5 shadow-inner"
@@ -378,6 +381,7 @@ export const ProductDetails: React.FC = () => {
                       onClick={() => handleQuantityChange(-1)}
                       className="w-10 h-10 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:text-red-600 disabled:opacity-50"
                       disabled={quantity <= 1}
+                      aria-label="Decrease quantity"
                     >
                       <Minus size={16} />
                     </button>
@@ -387,6 +391,7 @@ export const ProductDetails: React.FC = () => {
                     <button
                       onClick={() => handleQuantityChange(1)}
                       className="w-10 h-10 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:text-red-600"
+                      aria-label="Increase quantity"
                     >
                       <Plus size={16} />
                     </button>
@@ -477,6 +482,7 @@ export const ProductDetails: React.FC = () => {
               <button
                 onClick={() => setIsSelectionModalOpen(false)}
                 className="p-2 hover:bg-gray-100 rounded-full"
+                aria-label="Close modal"
               >
                 <X size={20} className="text-gray-500" />
               </button>
@@ -521,6 +527,7 @@ export const ProductDetails: React.FC = () => {
                                 ? 'border-[3px] border-red-600 scale-110 shadow-lg'
                                 : 'border border-gray-200 md:hover:border-gray-400 md:hover:scale-105 shadow-sm'
                             }`}
+                            aria-label={`Select color ${color.name}`}
                           >
                             <div
                               className="w-11 h-11 rounded-full border border-black/5 shadow-inner"
