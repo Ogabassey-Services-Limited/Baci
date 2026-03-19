@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getSupabaseServiceRoleKey } from '@/env';
 import { hasPermission } from '@/lib/api-auth';
 import { revalidateProducts } from '@/lib/cache-revalidation';
 import { getCountryByCode } from '@/lib/countries';
@@ -506,6 +507,7 @@ export async function PUT(
         brand: updatedProduct.brand,
         category_name: body.category,
       });
+      const serviceRoleKey = getSupabaseServiceRoleKey();
 
       // Fire-and-forget: Call edge function to regenerate embedding
       fetch(
@@ -514,7 +516,7 @@ export async function PUT(
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            Authorization: `Bearer ${serviceRoleKey}`,
           },
           body: JSON.stringify({
             type: 'product',
