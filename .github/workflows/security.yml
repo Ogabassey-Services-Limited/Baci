@@ -126,15 +126,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: TruffleHog OSS (PR delta)
-        if: github.event_name == 'pull_request'
-        # Pin to full SHA for supply-chain security
-        uses: trufflesecurity/trufflehog@6c05c4a00b91aa542267d8e32a8254774799d68d # v3.93.8
-        with:
-          extra_args: --only-verified --since-commit=${{ github.event.pull_request.base.sha }}
-
-      - name: TruffleHog OSS (full scan)
-        if: github.event_name != 'pull_request'
+      - name: TruffleHog OSS
         # Pin to full SHA for supply-chain security
         uses: trufflesecurity/trufflehog@6c05c4a00b91aa542267d8e32a8254774799d68d # v3.93.8
         with:
