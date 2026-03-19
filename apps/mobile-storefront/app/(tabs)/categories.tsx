@@ -39,6 +39,16 @@ export default function CategoriesScreen() {
     router.push(`/category/${slug}` as Href);
   };
 
+  // Performance optimization: getItemLayout for fixed-height list items
+  // ITEM_HEIGHT = 64 (image) + 24 (padding) + 2 (border) = 90
+  const ITEM_HEIGHT = 90;
+  const SEPARATOR_HEIGHT = 12;
+  const getItemLayout = (_: unknown, index: number) => ({
+    length: ITEM_HEIGHT,
+    offset: (ITEM_HEIGHT + SEPARATOR_HEIGHT) * index,
+    index,
+  });
+
   if (isLoading) {
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
@@ -155,6 +165,7 @@ export default function CategoriesScreen() {
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         showsVerticalScrollIndicator={false}
+        getItemLayout={getItemLayout}
       />
     </View>
   );
