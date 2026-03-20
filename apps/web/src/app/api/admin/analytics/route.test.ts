@@ -220,7 +220,7 @@ describe('/api/admin/analytics route', () => {
                 bank_account_number: null,
                 bank_code: null,
                 business_name: 'Mobile Shop',
-                business_type: 'electronics',
+                business_type: 'Church',
                 id: 'merchant-3',
                 is_published: false,
                 kyc_status: 'pending',
@@ -246,13 +246,17 @@ describe('/api/admin/analytics route', () => {
             data: [
               {
                 merchant_id: 'merchant-1',
+                payment_method: 'card',
                 payment_status: 'paid',
+                shipping_status: 'processing',
                 source: 'online_store',
                 total: 700,
               },
               {
                 merchant_id: 'merchant-3',
+                payment_method: 'bank_transfer',
                 payment_status: 'paid',
+                shipping_status: 'delivered',
                 source: 'mobile_app',
                 total: 300,
               },
@@ -324,6 +328,9 @@ describe('/api/admin/analytics route', () => {
     expect(body.summary.totalGmv).toBe(1000);
     expect(body.summary.grossGmv).toBe(1000);
     expect(body.summary.grossOrders).toBe(2);
+    expect(body.summary.orderChange).toBe(150);
+    expect(body.summary.avgOrderValue).toBe(200);
+    expect(body.summary.aovChange).toBe(-20);
     expect(body.growth.newMerchantsThisMonth).toBe(4);
     expect(body.salesByChannel).toHaveLength(2);
     expect(body.salesByChannel[0]).toMatchObject({
@@ -352,12 +359,9 @@ describe('/api/admin/analytics route', () => {
       description: 'Merchants categorized during onboarding',
       key: 'business_type_set',
       label: 'Business Type Set',
-      merchants: 2,
+      merchants: 1,
     });
-    expect(body.merchantActivation[1].completionRate).toBeCloseTo(
-      66.66666666666666,
-      5
-    );
+    expect(body.merchantActivation[1].completionRate).toBeCloseTo(33.333333, 5);
     expect(body.merchantActivation[2]).toMatchObject({
       description: 'Merchants with business name and storefront slug',
       key: 'store_configured',
@@ -430,16 +434,22 @@ describe('/api/admin/analytics route', () => {
     );
     expect(body.businessTypes).toHaveLength(3);
     expect(body.businessTypes[0]).toMatchObject({
-      businessType: 'electronics',
+      businessType: 'fashion',
+      classification: 'configured',
+      label: 'Fashion & Apparel',
       merchants: 1,
+      rawValues: [],
     });
     expect(body.businessTypes[0].shareOfMerchants).toBeCloseTo(
       33.33333333333333,
       5
     );
     expect(body.businessTypes[1]).toMatchObject({
-      businessType: 'fashion',
+      businessType: 'invalid',
+      classification: 'invalid',
+      label: 'Invalid / Legacy Values',
       merchants: 1,
+      rawValues: ['Church'],
     });
     expect(body.businessTypes[1].shareOfMerchants).toBeCloseTo(
       33.33333333333333,
@@ -447,12 +457,61 @@ describe('/api/admin/analytics route', () => {
     );
     expect(body.businessTypes[2]).toMatchObject({
       businessType: 'unspecified',
+      classification: 'unspecified',
+      label: 'Unspecified',
       merchants: 1,
+      rawValues: [],
     });
     expect(body.businessTypes[2].shareOfMerchants).toBeCloseTo(
       33.33333333333333,
       5
     );
+    expect(body.paymentStatuses).toEqual([
+      {
+        amount: 1000,
+        label: 'Paid',
+        orders: 2,
+        shareOfAmount: 100,
+        shareOfOrders: 100,
+        status: 'paid',
+      },
+    ]);
+    expect(body.shippingStatuses).toEqual([
+      {
+        amount: 700,
+        label: 'Processing',
+        orders: 1,
+        shareOfAmount: 70,
+        shareOfOrders: 50,
+        status: 'processing',
+      },
+      {
+        amount: 300,
+        label: 'Delivered',
+        orders: 1,
+        shareOfAmount: 30,
+        shareOfOrders: 50,
+        status: 'delivered',
+      },
+    ]);
+    expect(body.paymentMethods).toEqual([
+      {
+        amount: 700,
+        label: 'Card',
+        method: 'card',
+        orders: 1,
+        shareOfPaidAmount: 70,
+        shareOfPaidOrders: 50,
+      },
+      {
+        amount: 300,
+        label: 'Bank Transfer',
+        method: 'bank_transfer',
+        orders: 1,
+        shareOfPaidAmount: 30,
+        shareOfPaidOrders: 50,
+      },
+    ]);
     expect(body.topMerchants).toEqual([
       {
         gmv: 700,
@@ -650,7 +709,10 @@ describe('/api/admin/analytics route', () => {
     );
     expect(body.businessTypes[0]).toMatchObject({
       businessType: 'unspecified',
+      classification: 'unspecified',
+      label: 'Unspecified',
       merchants: 196,
+      rawValues: [],
     });
     expect(body.businessTypes[0].shareOfMerchants).toBeCloseTo(
       99.49238578680203,

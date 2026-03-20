@@ -41,8 +41,13 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import {
+  formatAdminCompactCurrency,
+  formatAdminCurrency,
+} from '@/lib/admin-currency';
 import { fetchWithCsrf } from '@/lib/api-client';
 import type { PlatformAnalytics } from '@/types/analytics';
+import { OrderPipelineBreakdowns } from './order-pipeline-breakdowns';
 import { PlatformPerformanceBreakdowns } from './platform-performance-breakdowns';
 
 const HEALTH_COLORS = {
@@ -53,19 +58,9 @@ const HEALTH_COLORS = {
 };
 
 function formatCurrency(value: number): string {
-  const formatter = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-
-  if (value >= 1000000) {
-    return `${formatter.format(value / 1000000)}M`;
-  } else if (value >= 1000) {
-    return `${formatter.format(value / 1000)}K`;
-  }
-  return formatter.format(value);
+  return value >= 1000
+    ? formatAdminCompactCurrency(value)
+    : formatAdminCurrency(value);
 }
 
 function formatNumber(value: number): string {
@@ -586,12 +581,22 @@ export default function AdminDashboardPage() {
         signupSources={analytics?.signupSources || []}
       />
 
+      <OrderPipelineBreakdowns
+        loading={loading}
+        paymentMethods={analytics?.paymentMethods || []}
+        paymentStatuses={analytics?.paymentStatuses || []}
+        periodLabel={getPeriodLabel(period)}
+        shippingStatuses={analytics?.shippingStatuses || []}
+      />
+
       {/* Top Merchants */}
       <Card className="glass">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Top Performing Merchants</CardTitle>
-            <CardDescription>By GMV in the last 30 days</CardDescription>
+            <CardDescription>
+              By GMV in the {getPeriodLabel(period)}
+            </CardDescription>
           </div>
           <Link href="/admin/merchants">
             <Button variant="outline" size="sm">
