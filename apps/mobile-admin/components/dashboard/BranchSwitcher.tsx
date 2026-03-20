@@ -32,11 +32,14 @@ export function BranchSwitcher() {
   const { branches, activeBranch, setActiveBranch, hasBranches } =
     useActiveBranch();
   const createBranch = useCreateBranch();
+  const isSubmittingRef = useRef(false);
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [branchName, setBranchName] = useState('');
   const [branchAddress, setBranchAddress] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [nameError, setNameError] = useState('');
+  const isCreateBranchLoading = createBranch.isPending || isSubmitting;
 
   const handleBranchPress = (branchId: string) => {
     // Haptic feedback on selection
@@ -57,6 +60,10 @@ export function BranchSwitcher() {
   };
 
   const handleCreateBranch = async () => {
+    if (isSubmittingRef.current || createBranch.isPending) {
+      return;
+    }
+
     // Validate with Zod
     const input: CreateBranchInput = {
       name: branchName.trim(),
@@ -79,6 +86,9 @@ export function BranchSwitcher() {
       return;
     }
 
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+
     try {
       await createBranch.mutateAsync(result.data);
       Haptics?.notificationAsync?.(Haptics.NotificationFeedbackType.Success);
@@ -88,6 +98,9 @@ export function BranchSwitcher() {
         'Error',
         error instanceof Error ? error.message : 'Failed to create branch'
       );
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -123,7 +136,7 @@ export function BranchSwitcher() {
           nameError={nameError}
           setNameError={setNameError}
           onSubmit={handleCreateBranch}
-          isLoading={createBranch.isPending}
+          isLoading={isCreateBranchLoading}
           colors={colors}
         />
       </View>
@@ -207,7 +220,7 @@ export function BranchSwitcher() {
         nameError={nameError}
         setNameError={setNameError}
         onSubmit={handleCreateBranch}
-        isLoading={createBranch.isPending}
+        isLoading={isCreateBranchLoading}
         colors={colors}
       />
     </View>
