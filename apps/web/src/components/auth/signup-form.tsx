@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useActionState, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import type { z } from 'zod';
 import { type SignupState, signupAction } from '@/app/(auth)/signup/actions';
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
@@ -36,9 +37,8 @@ export default function SignupForm() {
 
   const [state, formAction] = useActionState(signupAction, initialState);
 
-  const form = useForm<SignupValues>({
-    // biome-ignore lint/suspicious/noExplicitAny: zodResolver type compatibility issue
-    resolver: zodResolver(signupSchema as any),
+  const form = useForm<z.input<typeof signupSchema>, unknown, SignupValues>({
+    resolver: zodResolver(signupSchema),
     defaultValues: {
       email: defaultEmail,
       password: '',
