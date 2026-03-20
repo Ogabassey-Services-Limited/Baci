@@ -6,6 +6,7 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 import { adminAnalyticsQuerySchema } from '@/schemas/admin-analytics-query';
+import type { AdminMerchantHealthRow } from '@/types/admin-merchants';
 import type {
   BusinessTypeBreakdown,
   DailyGmvData,
@@ -141,7 +142,7 @@ export async function GET(request: NextRequest) {
         .select('sale_date, platform_gmv, total_orders, active_merchants')
         .gte('sale_date', startDateStr)
         .order('sale_date', { ascending: true }),
-      supabase.from('merchant_health').select('health_status'),
+      supabase.rpc('get_admin_merchant_health'),
       supabase
         .from('platform_growth')
         .select('month, new_merchants')
@@ -244,7 +245,9 @@ export async function GET(request: NextRequest) {
     const gmvChange =
       previousGmv > 0 ? ((totalGmv - previousGmv) / previousGmv) * 100 : 0;
     const dailyData = dailySummaryResult.data || [];
-    const healthData = merchantHealthResult.data || [];
+    const healthData = ((merchantHealthResult.data as
+      | AdminMerchantHealthRow[]
+      | null) ?? []) as AdminMerchantHealthRow[];
     const allPaidOrders = (paidOrdersResult.data ||
       []) as PaidOrderMerchantRow[];
     const periodOrders = (periodOrdersResult.data || []) as OrderChannelRow[];

@@ -50,7 +50,8 @@ function createMockSupabase(
   tableResponses: Record<
     string,
     Array<{ count?: number | null; data?: unknown; error?: unknown }>
-  > = {}
+  > = {},
+  rpcResult: { data?: unknown; error?: unknown } = {}
 ) {
   const queues = Object.fromEntries(
     Object.entries(tableResponses).map(([table, responses]) => [
@@ -69,7 +70,10 @@ function createMockSupabase(
     from: vi.fn((table: string) =>
       createQueryBuilder(queues[table]?.shift() ?? {})
     ),
-    rpc: vi.fn().mockResolvedValue({ error: null }),
+    rpc: vi.fn().mockResolvedValue({
+      data: rpcResult.data ?? [],
+      error: rpcResult.error ?? null,
+    }),
   };
 }
 
@@ -91,7 +95,6 @@ describe('/api/admin/analytics route', () => {
         { data: { is_platform_admin: true }, error: null },
         { data: [], error: null },
       ],
-      merchant_health: [{ data: [], error: null }],
       orders: [
         { data: [], error: null },
         { data: [], error: null },
@@ -154,7 +157,6 @@ describe('/api/admin/analytics route', () => {
         { data: { is_platform_admin: true }, error: null },
         { data: [], error: null },
       ],
-      merchant_health: [{ data: [], error: null }],
       orders: [
         { data: [], error: null },
         { data: [], error: null },
@@ -177,138 +179,141 @@ describe('/api/admin/analytics route', () => {
   });
 
   it('returns shaped analytics data for a valid request', async () => {
-    mockSupabase = createMockSupabase({
-      merchants: [
-        { data: { is_platform_admin: true }, error: null },
-        {
-          data: [
-            {
-              bank_account_name: 'Baci Store',
-              bank_account_number: '0123456789',
-              bank_code: '058',
-              business_name: 'Baci Store',
-              business_type: 'fashion',
-              id: 'merchant-1',
-              is_published: true,
-              kyc_status: 'verified',
-              paystack_subaccount_code: 'ACCT_test',
-              signup_source: 'web',
-              slug: 'baci-store',
-              support_email: 'support@baci.app',
-              support_phone: null,
-            },
-            {
-              bank_account_name: null,
-              bank_account_number: null,
-              bank_code: null,
-              business_name: null,
-              business_type: null,
-              id: 'merchant-2',
-              is_published: false,
-              kyc_status: 'pending',
-              paystack_subaccount_code: null,
-              signup_source: 'ios',
-              slug: null,
-              support_email: null,
-              support_phone: null,
-            },
-            {
-              bank_account_name: null,
-              bank_account_number: null,
-              bank_code: null,
-              business_name: 'Mobile Shop',
-              business_type: 'electronics',
-              id: 'merchant-3',
-              is_published: false,
-              kyc_status: 'pending',
-              paystack_subaccount_code: null,
-              signup_source: 'android',
-              slug: 'mobile-shop',
-              support_email: null,
-              support_phone: '08000000000',
-            },
-          ],
-          error: null,
-        },
-      ],
-      merchant_health: [
-        {
-          data: [
-            { health_status: 'healthy' },
-            { health_status: 'at_risk' },
-            { health_status: 'new' },
-          ],
-          error: null,
-        },
-      ],
-      orders: [
-        {
-          data: [
-            { merchant_id: 'merchant-1', payment_status: 'paid' },
-            { merchant_id: 'merchant-3', payment_status: 'paid' },
-          ],
-          error: null,
-        },
-        {
-          data: [
-            {
-              merchant_id: 'merchant-1',
-              payment_status: 'paid',
-              source: 'online_store',
-              total: 700,
-            },
-            {
-              merchant_id: 'merchant-3',
-              payment_status: 'paid',
-              source: 'mobile_app',
-              total: 300,
-            },
-          ],
-          error: null,
-        },
-      ],
-      products: [
-        {
-          data: [{ merchant_id: 'merchant-1' }, { merchant_id: 'merchant-3' }],
-          error: null,
-        },
-      ],
-      platform_daily_summary: [
-        {
-          data: [
-            {
-              active_merchants: 2,
-              platform_gmv: 700,
-              sale_date: '2026-03-01',
-              total_orders: 4,
-            },
-          ],
-          error: null,
-        },
-      ],
-      platform_growth: [
-        {
-          data: [
-            { month: '2026-03-01', new_merchants: 4 },
-            { month: '2026-02-01', new_merchants: 2 },
-          ],
-          error: null,
-        },
-      ],
-      top_merchants: [
-        {
-          data: [
-            {
-              business_name: 'Baci Store',
-              merchant_id: 'merchant-1',
-              total_gmv: 700,
-              total_orders: 4,
-            },
-          ],
-          error: null,
-        },
-      ],
-    });
+    mockSupabase = createMockSupabase(
+      {
+        merchants: [
+          { data: { is_platform_admin: true }, error: null },
+          {
+            data: [
+              {
+                bank_account_name: 'Baci Store',
+                bank_account_number: '0123456789',
+                bank_code: '058',
+                business_name: 'Baci Store',
+                business_type: 'fashion',
+                id: 'merchant-1',
+                is_published: true,
+                kyc_status: 'verified',
+                paystack_subaccount_code: 'ACCT_test',
+                signup_source: 'web',
+                slug: 'baci-store',
+                support_email: 'support@baci.app',
+                support_phone: null,
+              },
+              {
+                bank_account_name: null,
+                bank_account_number: null,
+                bank_code: null,
+                business_name: null,
+                business_type: null,
+                id: 'merchant-2',
+                is_published: false,
+                kyc_status: 'pending',
+                paystack_subaccount_code: null,
+                signup_source: 'ios',
+                slug: null,
+                support_email: null,
+                support_phone: null,
+              },
+              {
+                bank_account_name: null,
+                bank_account_number: null,
+                bank_code: null,
+                business_name: 'Mobile Shop',
+                business_type: 'electronics',
+                id: 'merchant-3',
+                is_published: false,
+                kyc_status: 'pending',
+                paystack_subaccount_code: null,
+                signup_source: 'android',
+                slug: 'mobile-shop',
+                support_email: null,
+                support_phone: '08000000000',
+              },
+            ],
+            error: null,
+          },
+        ],
+        orders: [
+          {
+            data: [
+              { merchant_id: 'merchant-1', payment_status: 'paid' },
+              { merchant_id: 'merchant-3', payment_status: 'paid' },
+            ],
+            error: null,
+          },
+          {
+            data: [
+              {
+                merchant_id: 'merchant-1',
+                payment_status: 'paid',
+                source: 'online_store',
+                total: 700,
+              },
+              {
+                merchant_id: 'merchant-3',
+                payment_status: 'paid',
+                source: 'mobile_app',
+                total: 300,
+              },
+            ],
+            error: null,
+          },
+        ],
+        products: [
+          {
+            data: [
+              { merchant_id: 'merchant-1' },
+              { merchant_id: 'merchant-3' },
+            ],
+            error: null,
+          },
+        ],
+        platform_daily_summary: [
+          {
+            data: [
+              {
+                active_merchants: 2,
+                platform_gmv: 700,
+                sale_date: '2026-03-01',
+                total_orders: 4,
+              },
+            ],
+            error: null,
+          },
+        ],
+        platform_growth: [
+          {
+            data: [
+              { month: '2026-03-01', new_merchants: 4 },
+              { month: '2026-02-01', new_merchants: 2 },
+            ],
+            error: null,
+          },
+        ],
+        top_merchants: [
+          {
+            data: [
+              {
+                business_name: 'Baci Store',
+                merchant_id: 'merchant-1',
+                total_gmv: 700,
+                total_orders: 4,
+              },
+            ],
+            error: null,
+          },
+        ],
+      },
+      {
+        data: [
+          { health_status: 'healthy' },
+          { health_status: 'at_risk' },
+          { health_status: 'new' },
+        ],
+        error: null,
+      }
+    );
     mockCreateClient.mockReturnValue(mockSupabase);
 
     const response = await GET(createRequest(`${analyticsUrl}?period=7d`));
@@ -456,6 +461,7 @@ describe('/api/admin/analytics route', () => {
         orders: 4,
       },
     ]);
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('get_admin_merchant_health');
     expect(body.dailyGmv).toEqual([
       {
         date: '2026-03-01',
@@ -493,66 +499,66 @@ describe('/api/admin/analytics route', () => {
         merchant_id: `merchant-${index + 3}`,
       })),
     ];
-    mockSupabase = createMockSupabase({
-      merchants: [
-        { data: { is_platform_admin: true }, error: null },
-        {
-          data: healthRows.map((row, index) => ({
-            bank_account_name: null,
-            bank_account_number: null,
-            bank_code: null,
-            business_name: row.business_name,
-            business_type: index === 2 ? 'fashion' : null,
-            id: row.merchant_id,
-            is_published: false,
-            kyc_status: 'pending',
-            paystack_subaccount_code: null,
-            signup_source: 'web',
-            slug: row.business_name ? 'active-store' : null,
-            support_email: null,
-            support_phone: null,
-          })),
-          error: null,
-        },
-      ],
-      merchant_health: [
-        {
-          data: healthRows,
-          error: null,
-        },
-      ],
-      orders: [
-        {
-          data: [{ merchant_id: 'merchant-active', payment_status: 'paid' }],
-          error: null,
-        },
-        {
-          data: [
-            {
-              merchant_id: 'merchant-active',
-              payment_status: 'paid',
-              source: 'online_store',
-              total: 100,
-            },
-          ],
-          error: null,
-        },
-      ],
-      products: [
-        {
-          data: [{ merchant_id: 'merchant-active' }],
-          error: null,
-        },
-      ],
-      platform_daily_summary: [{ data: [], error: null }],
-      platform_growth: [
-        {
-          data: [{ month: '2026-03-01', new_merchants: 12 }],
-          error: null,
-        },
-      ],
-      top_merchants: [{ data: [], error: null }],
-    });
+    mockSupabase = createMockSupabase(
+      {
+        merchants: [
+          { data: { is_platform_admin: true }, error: null },
+          {
+            data: healthRows.map((row, index) => ({
+              bank_account_name: null,
+              bank_account_number: null,
+              bank_code: null,
+              business_name: row.business_name,
+              business_type: index === 2 ? 'fashion' : null,
+              id: row.merchant_id,
+              is_published: false,
+              kyc_status: 'pending',
+              paystack_subaccount_code: null,
+              signup_source: 'web',
+              slug: row.business_name ? 'active-store' : null,
+              support_email: null,
+              support_phone: null,
+            })),
+            error: null,
+          },
+        ],
+        orders: [
+          {
+            data: [{ merchant_id: 'merchant-active', payment_status: 'paid' }],
+            error: null,
+          },
+          {
+            data: [
+              {
+                merchant_id: 'merchant-active',
+                payment_status: 'paid',
+                source: 'online_store',
+                total: 100,
+              },
+            ],
+            error: null,
+          },
+        ],
+        products: [
+          {
+            data: [{ merchant_id: 'merchant-active' }],
+            error: null,
+          },
+        ],
+        platform_daily_summary: [{ data: [], error: null }],
+        platform_growth: [
+          {
+            data: [{ month: '2026-03-01', new_merchants: 12 }],
+            error: null,
+          },
+        ],
+        top_merchants: [{ data: [], error: null }],
+      },
+      {
+        data: healthRows,
+        error: null,
+      }
+    );
     mockCreateClient.mockReturnValue(mockSupabase);
 
     const response = await GET(createRequest(`${analyticsUrl}?period=30d`));

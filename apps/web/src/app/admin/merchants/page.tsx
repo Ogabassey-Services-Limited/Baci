@@ -44,20 +44,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { apiGet } from '@/lib/api-client';
 import { generateSlug } from '@/lib/seo-utils';
-import { createClient } from '@/lib/supabase/client';
-
-interface MerchantHealth {
-  merchant_id: string;
-  business_name: string;
-  email: string | null;
-  joined_at: string;
-  total_gmv: number;
-  total_orders: number;
-  last_order_date: string | null;
-  active_days: number;
-  health_status: 'healthy' | 'at_risk' | 'churned' | 'new';
-}
+import type {
+  AdminMerchantHealthRow,
+  AdminMerchantsResponse,
+} from '@/types/admin-merchants';
 
 function formatCurrency(value: number | string, currency = 'USD'): string {
   // Parse value safely - Supabase returns numeric columns as strings for precision
@@ -139,7 +131,7 @@ export default function MerchantsPage() {
   const searchParams = useSearchParams();
   const initialHealthFilter = searchParams.get('health') || 'all';
 
-  const [merchants, setMerchants] = useState<MerchantHealth[]>([]);
+  const [merchants, setMerchants] = useState<AdminMerchantHealthRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [healthFilter, setHealthFilter] = useState<string>(initialHealthFilter);
@@ -149,56 +141,15 @@ export default function MerchantsPage() {
   const fetchMerchants = async () => {
     try {
       setLoading(true);
-      const supabase = createClient();
-
-      const { data, error } = await supabase
-        .from('merchant_health')
-        .select(
-          'merchant_id, business_name, joined_at, total_gmv, total_orders, last_order_date, active_days, health_status'
-        )
-        .order(
-          sortBy === 'gmv'
-            ? 'total_gmv'
-            : sortBy === 'orders'
-              ? 'total_orders'
-              : 'joined_at',
-          {
-            ascending: sortBy === 'joined',
-          }
-        );
-
-      if (error) throw error;
-      const merchantRows = (data || []) as Omit<MerchantHealth, 'email'>[];
-      const merchantIds = merchantRows.map((merchant) => merchant.merchant_id);
-      const { data: merchantContacts, error: merchantContactsError } =
-        merchantIds.length > 0
-          ? await supabase
-              .from('merchants')
-              .select('id, email')
-              .in('id', merchantIds)
-          : { data: [], error: null };
-
-      if (merchantContactsError) throw merchantContactsError;
-
-      const emailByMerchantId = new Map(
-        (merchantContacts || []).map((merchant) => [
-          merchant.id,
-          merchant.email,
-        ])
+      const response = await apiGet<AdminMerchantsResponse>(
+        `/api/admin/merchants?sortBy=${sortBy}`
       );
-
-      setMerchants(
-        merchantRows.map((merchant) => ({
-          ...merchant,
-          email: emailByMerchantId.get(merchant.merchant_id) ?? null,
-        }))
-      );
+      setMerchants(response.data);
     } catch (error) {
       console.error('Failed to fetch merchants:', error);
       toast({
         title: 'Error',
-        description:
-          'Failed to load merchant data. The analytics views may not be set up yet.',
+        description: 'Failed to load merchant data.',
         variant: 'destructive',
       });
     } finally {
