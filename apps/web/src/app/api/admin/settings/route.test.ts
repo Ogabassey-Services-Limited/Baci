@@ -1,244 +1,320 @@
-import { cookies } from 'next/headers';
-import { type NextRequest, NextResponse } from 'next/server';
-import { describe, expect, it, vi } from 'vitest';
-import { checkCsrfProtection } from '@/lib/csrf';
-import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
-import { createClient } from '@/lib/supabase/server';
-import { PUT } from './route';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PLATFORM_SETTINGS_SELECT } from './constants';
+import type { PlatformSettings } from './route';
 
-// Mock dependencies
+const {
+  mockCheckCsrfProtection,
+  mockGetMerchantForApiRequest,
+  mockCreateClient,
+} = vi.hoisted(() => ({
+  mockCheckCsrfProtection: vi.fn(),
+  mockGetMerchantForApiRequest: vi.fn(),
+  mockCreateClient: vi.fn(),
+}));
+
 vi.mock('next/headers', () => ({
-  cookies: vi.fn(),
+  cookies: vi.fn().mockResolvedValue({
+    get: vi.fn(),
+    set: vi.fn(),
+  }),
 }));
 
 vi.mock('@/lib/csrf', () => ({
-  checkCsrfProtection: vi.fn(),
+  checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
 }));
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
-  getMerchantForApiRequest: vi.fn(),
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mockGetMerchantForApiRequest(...args),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(),
+  createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
-describe('Admin Settings API', () => {
-  const mockSupabase = {
+import { GET, PUT } from './route';
+
+const baseSettings = {
+  id: 'settings-1',
+  google_analytics_id: 'G-123456',
+  ga4_api_secret: null,
+  facebook_pixel_id: null,
+  facebook_capi_token: null,
+  tiktok_pixel_id: null,
+  tiktok_access_token: null,
+  snapchat_pixel_id: null,
+  snapchat_capi_token: null,
+  twitter_pixel_id: null,
+  platform_fee_percentage: 2.5,
+  platform_fee_flat: 100,
+  payment_processor_fee_percentage: 1.5,
+  payment_processor_fee_flat: 75,
+  platform_name: 'Baci',
+  platform_logo_url: null,
+  support_email: 'support@baci.app',
+  support_phone: null,
+  enable_merchant_signups: true,
+  enable_custom_domains: true,
+  enable_analytics_export: false,
+  maintenance_mode: false,
+  maintenance_message: null,
+  created_at: '2026-03-17T00:00:00.000Z',
+  updated_at: '2026-03-17T00:00:00.000Z',
+} satisfies PlatformSettings;
+
+type QueryResult<T> = {
+  data: T | null;
+  error: { message: string } | null;
+};
+
+type MerchantContext = {
+  merchantId: string;
+  staffAccess: {
+    isStaff: boolean;
+  };
+};
+
+let authUser: { id: string } | null = { id: 'user-1' };
+let merchantContext: MerchantContext | null = {
+  merchantId: 'merchant-1',
+  staffAccess: {
+    isStaff: false,
+  },
+};
+let merchantAdminResult: QueryResult<{ is_platform_admin: boolean }> = {
+  data: { is_platform_admin: true },
+  error: null,
+};
+let platformSettingsResult: QueryResult<PlatformSettings> = {
+  data: baseSettings,
+  error: null,
+};
+let capturedMerchantSelect: string | null = null;
+let capturedPlatformSettingsSelect: string | null = null;
+let capturedPlatformSettingsUpdate: Record<string, unknown> | null = null;
+
+function createMerchantsQuery() {
+  const query = {
+    eq: vi.fn(() => query),
+    maybeSingle: vi.fn(async () => merchantAdminResult),
+    select: vi.fn((columns?: string) => {
+      capturedMerchantSelect = columns ?? null;
+      return query;
+    }),
+  };
+
+  return query;
+}
+
+function createPlatformSettingsQuery() {
+  const query = {
+    eq: vi.fn(() => query),
+    select: vi.fn((columns?: string) => {
+      capturedPlatformSettingsSelect = columns ?? null;
+      return query;
+    }),
+    single: vi.fn(async () => platformSettingsResult),
+    update: vi.fn((data: Record<string, unknown>) => {
+      capturedPlatformSettingsUpdate = data;
+      return query;
+    }),
+  };
+
+  return query;
+}
+
+function createMockSupabase() {
+  const merchantsQuery = createMerchantsQuery();
+  const platformSettingsQuery = createPlatformSettingsQuery();
+
+  return {
     auth: {
-      getUser: vi.fn(),
+      getUser: vi.fn(async () => ({
+        data: { user: authUser },
+        error: authUser ? null : { message: 'Not authenticated' },
+      })),
     },
-    from: vi.fn(),
-  };
+    from: vi.fn((table: string) => {
+      if (table === 'merchants') {
+        return merchantsQuery;
+      }
 
-  const mockMerchantContext = {
-    merchantId: 'test-merchant-id',
-    staffAccess: { isStaff: false },
-  };
+      if (table === 'platform_settings') {
+        return platformSettingsQuery;
+      }
 
+      throw new Error(`Unexpected table: ${table}`);
+    }),
+  };
+}
+
+function createPutRequest(body: Record<string, unknown>) {
+  return new Request('http://localhost/api/admin/settings', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  }) as unknown as NextRequest;
+}
+
+describe('/api/admin/settings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (cookies as any).mockResolvedValue({});
-    (createClient as any).mockReturnValue(mockSupabase);
-
-    // Default mock setup for successful auth
-    mockSupabase.auth.getUser.mockResolvedValue({
-      data: { user: { id: 'test-user-id' } },
+    authUser = { id: 'user-1' };
+    merchantContext = {
+      merchantId: 'merchant-1',
+      staffAccess: {
+        isStaff: false,
+      },
+    };
+    merchantAdminResult = {
+      data: { is_platform_admin: true },
       error: null,
-    });
-
-    (getMerchantForApiRequest as any).mockResolvedValue(mockMerchantContext);
-
-    // Default mock setup for admin check
-    mockSupabase.from.mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: { is_platform_admin: true },
-        error: null,
-      }),
-      update: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
-        data: { id: 'settings-id', platform_name: 'Updated Name' },
-        error: null,
-      }),
-    });
+    };
+    platformSettingsResult = {
+      data: baseSettings,
+      error: null,
+    };
+    capturedMerchantSelect = null;
+    capturedPlatformSettingsSelect = null;
+    capturedPlatformSettingsUpdate = null;
+    mockCheckCsrfProtection.mockResolvedValue({ valid: true });
+    mockGetMerchantForApiRequest.mockResolvedValue(merchantContext);
+    mockCreateClient.mockReturnValue(createMockSupabase());
   });
 
-  describe('PUT /api/admin/settings', () => {
-    it('should reject requests that fail CSRF validation', async () => {
-      // Mock CSRF failure
-      const mockResponse = NextResponse.json(
-        { error: 'CSRF validation failed' },
+  it('returns platform settings with explicit columns', async () => {
+    const response = await GET();
+    const body = (await response.json()) as PlatformSettings;
+
+    expect(response.status).toBe(200);
+    expect(body.id).toBe(baseSettings.id);
+    expect(capturedMerchantSelect).toBe('is_platform_admin');
+    expect(capturedPlatformSettingsSelect).toBe(PLATFORM_SETTINGS_SELECT);
+  });
+
+  it('returns 500 when fetching platform settings fails', async () => {
+    platformSettingsResult = {
+      data: null,
+      error: { message: 'fetch failed' },
+    };
+
+    const response = await GET();
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to fetch settings');
+    expect(capturedPlatformSettingsSelect).toBe(PLATFORM_SETTINGS_SELECT);
+  });
+
+  it('returns 403 when CSRF validation fails', async () => {
+    mockCheckCsrfProtection.mockResolvedValueOnce({
+      valid: false,
+      response: NextResponse.json(
+        { error: 'Invalid CSRF token' },
         { status: 403 }
-      );
-      (checkCsrfProtection as any).mockResolvedValue({
-        valid: false,
-        response: mockResponse,
-      });
-
-      const request = {
-        method: 'PUT',
-        json: vi.fn().mockResolvedValue({ platform_name: 'Test' }),
-      } as unknown as NextRequest;
-
-      const response = await PUT(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(403);
-      expect(data.error).toBe('CSRF validation failed');
-      expect(checkCsrfProtection).toHaveBeenCalledWith(request);
-
-      // Ensure business logic is not executed
-      expect(createClient).not.toHaveBeenCalled();
+      ),
     });
 
-    it('should reject unauthenticated requests', async () => {
-      (checkCsrfProtection as any).mockResolvedValue({ valid: true });
-      mockSupabase.auth.getUser.mockResolvedValue({
-        data: { user: null },
-      });
+    const response = await PUT(createPutRequest({ platform_name: 'Baci Pro' }));
+    const body = (await response.json()) as { error: string };
 
-      const request = {
-        method: 'PUT',
-        json: vi.fn().mockResolvedValue({ platform_name: 'Test' }),
-      } as unknown as NextRequest;
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('Invalid CSRF token');
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(capturedPlatformSettingsUpdate).toBeNull();
+  });
 
-      const response = await PUT(request);
-      const data = await response.json();
+  it('returns 400 when the request payload fails validation', async () => {
+    const response = await PUT(
+      createPutRequest({
+        support_email: 'not-an-email',
+      })
+    );
+    const body = (await response.json()) as {
+      error: string;
+      details?: { fieldErrors?: Record<string, string[]> };
+    };
 
-      expect(response.status).toBe(401);
-      expect(data.error).toBe('Unauthorized');
-    });
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid request payload');
+    expect(body.details?.fieldErrors?.support_email).toBeDefined();
+    expect(capturedPlatformSettingsUpdate).toBeNull();
+  });
 
-    it('should reject requests from non-platform admins', async () => {
-      (checkCsrfProtection as any).mockResolvedValue({ valid: true });
-      mockSupabase.from.mockReturnValue({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: { is_platform_admin: false },
-        }),
-      });
+  it('returns 403 when the merchant is not a platform admin', async () => {
+    merchantAdminResult = {
+      data: { is_platform_admin: false },
+      error: null,
+    };
 
-      const request = {
-        method: 'PUT',
-        json: vi.fn().mockResolvedValue({ platform_name: 'Test' }),
-      } as unknown as NextRequest;
+    const response = await PUT(
+      createPutRequest({
+        platform_name: 'Baci Pro',
+      })
+    );
+    const body = (await response.json()) as { error: string };
 
-      const response = await PUT(request);
-      const data = await response.json();
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('Forbidden - Platform admin access required');
+    expect(capturedMerchantSelect).toBe('is_platform_admin');
+    expect(capturedPlatformSettingsUpdate).toBeNull();
+  });
 
-      expect(response.status).toBe(403);
-      expect(data.error).toBe('Forbidden - Platform admin access required');
-    });
+  it('returns 500 when updating platform settings fails', async () => {
+    platformSettingsResult = {
+      data: null,
+      error: { message: 'update failed' },
+    };
 
-    it('should reject requests with invalid numeric fields', async () => {
-      (checkCsrfProtection as any).mockResolvedValue({ valid: true });
+    const response = await PUT(
+      createPutRequest({
+        platform_name: 'Baci Pro',
+      })
+    );
+    const body = (await response.json()) as { error: string };
 
-      const request = {
-        method: 'PUT',
-        json: vi.fn().mockResolvedValue({ platform_fee_percentage: -1 }), // Invalid negative fee
-      } as unknown as NextRequest;
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to update settings');
+    expect(capturedPlatformSettingsSelect).toBe(PLATFORM_SETTINGS_SELECT);
+  });
 
-      const response = await PUT(request);
-      const data = await response.json();
+  it('updates platform settings when the request is valid', async () => {
+    platformSettingsResult = {
+      data: {
+        ...baseSettings,
+        platform_name: 'Baci Pro',
+        platform_fee_percentage: 3.5,
+        enable_custom_domains: false,
+      },
+      error: null,
+    };
 
-      expect(response.status).toBe(400);
-      expect(data.error).toBe(
-        'platform_fee_percentage must be a non-negative number'
-      );
-    });
+    const response = await PUT(
+      createPutRequest({
+        platform_name: 'Baci Pro',
+        platform_fee_percentage: '3.5',
+        enable_custom_domains: false,
+        support_email: 'support@baci.app',
+      })
+    );
+    const body = (await response.json()) as PlatformSettings;
 
-    it('should successfully update settings with valid payload', async () => {
-      (checkCsrfProtection as any).mockResolvedValue({ valid: true });
-
-      const payload = {
-        platform_name: 'New Platform Name',
-        platform_fee_percentage: 5,
-        enable_merchant_signups: false,
-      };
-
-      const request = {
-        method: 'PUT',
-        json: vi.fn().mockResolvedValue(payload),
-      } as unknown as NextRequest;
-
-      const mockUpdateChain = {
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: { ...payload, id: 'settings-id' },
-          error: null,
-        }),
-      };
-
-      // We need to carefully mock the supabase.from chain since 'from' is called twice:
-      // once for the admin check (merchants table), once for the update (platform_settings table)
-      mockSupabase.from.mockImplementation((table: string) => {
-        if (table === 'merchants') {
-          return {
-            select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: { is_platform_admin: true },
-              error: null,
-            }),
-          };
-        }
-        if (table === 'platform_settings') {
-          return {
-            update: vi.fn().mockReturnValue(mockUpdateChain),
-          };
-        }
-      });
-
-      const response = await PUT(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(200);
-      expect(data).toEqual({ ...payload, id: 'settings-id' });
-    });
-
-    it('should handle database errors gracefully', async () => {
-      (checkCsrfProtection as any).mockResolvedValue({ valid: true });
-
-      const request = {
-        method: 'PUT',
-        json: vi.fn().mockResolvedValue({ platform_name: 'Test' }),
-      } as unknown as NextRequest;
-
-      const mockUpdateChain = {
-        eq: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({
-          data: null,
-          error: new Error('DB Error'),
-        }),
-      };
-
-      mockSupabase.from.mockImplementation((table: string) => {
-        if (table === 'merchants') {
-          return {
-            select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            maybeSingle: vi.fn().mockResolvedValue({
-              data: { is_platform_admin: true },
-            }),
-          };
-        }
-        if (table === 'platform_settings') {
-          return {
-            update: vi.fn().mockReturnValue(mockUpdateChain),
-          };
-        }
-      });
-
-      const response = await PUT(request);
-      const data = await response.json();
-
-      expect(response.status).toBe(500);
-      expect(data.error).toBe('Failed to update settings');
-    });
+    expect(response.status).toBe(200);
+    expect(body.platform_name).toBe('Baci Pro');
+    expect(body.platform_fee_percentage).toBe(3.5);
+    expect(capturedMerchantSelect).toBe('is_platform_admin');
+    expect(capturedPlatformSettingsSelect).toBe(PLATFORM_SETTINGS_SELECT);
+    expect(capturedPlatformSettingsUpdate).toEqual(
+      expect.objectContaining({
+        platform_name: 'Baci Pro',
+        platform_fee_percentage: 3.5,
+        enable_custom_domains: false,
+        support_email: 'support@baci.app',
+      })
+    );
   });
 });
