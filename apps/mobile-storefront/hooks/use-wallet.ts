@@ -15,6 +15,7 @@ import { useEffect, useRef } from 'react';
 import { z } from 'zod';
 import { calculateCommerce, supabase } from '@/lib/supabase';
 import { CustomerRowSchema, TransactionRowSchema } from '@/lib/validation';
+import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '@/stores/auth-store';
 
 // ============================================
@@ -147,8 +148,10 @@ async function fetchWalletData(
  */
 export function useWallet() {
   const queryClient = useQueryClient();
-  const customer = useAuthStore((state) => state.customer);
-  const merchantId = useAuthStore((state) => state.merchantId);
+  const { customer, merchantId } = useAuthStore(useShallow((state) => ({
+    customer: state.customer,
+    merchantId: state.merchantId,
+  })));
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   const query = useQuery({
@@ -230,8 +233,10 @@ export function useWallet() {
  */
 export function useRedeemPoints() {
   const queryClient = useQueryClient();
-  const customer = useAuthStore((state) => state.customer);
-  const merchantId = useAuthStore((state) => state.merchantId);
+  const { customer, merchantId } = useAuthStore(useShallow((state) => ({
+    customer: state.customer,
+    merchantId: state.merchantId,
+  })));
 
   return useMutation({
     mutationFn: async (points: number) => {

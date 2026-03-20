@@ -35,6 +35,7 @@ import {
   trackSearch,
   trackSignup,
 } from '@/services/ad-tracking';
+import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '@/stores/auth-store';
 
 interface Product {
@@ -74,9 +75,11 @@ interface Order {
 
 export function useAnalytics() {
   const pathname = usePathname();
-  const user = useAuthStore((state) => state.user);
-  const customer = useAuthStore((state) => state.customer);
-  const merchantId = useAuthStore((state) => state.merchantId);
+  const { user, customer, merchantId } = useAuthStore(useShallow((state) => ({
+    user: state.user,
+    customer: state.customer,
+    merchantId: state.merchantId,
+  })));
 
   // Set merchant ID for analytics attribution
   useEffect(() => {
