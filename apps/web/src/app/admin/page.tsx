@@ -41,8 +41,9 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-
+import { fetchWithCsrf } from '@/lib/api-client';
 import type { PlatformAnalytics } from '@/types/analytics';
+import { PlatformPerformanceBreakdowns } from './platform-performance-breakdowns';
 
 const HEALTH_COLORS = {
   healthy: '#10b981',
@@ -76,6 +77,16 @@ function formatNumber(value: number): string {
   return value.toString();
 }
 
+const PERIOD_LABELS: Record<'7d' | '30d' | '90d', string> = {
+  '7d': 'last 7 days',
+  '30d': 'last 30 days',
+  '90d': 'last 90 days',
+};
+
+function getPeriodLabel(period: '7d' | '30d' | '90d'): string {
+  return PERIOD_LABELS[period];
+}
+
 export default function AdminDashboardPage() {
   const [analytics, setAnalytics] = useState<PlatformAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -83,71 +94,60 @@ export default function AdminDashboardPage() {
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
   const { toast } = useToast();
 
-  const fetchAnalytics = async (showRefreshToast = false) => {
+  const fetchAnalytics = async ({
+    showErrorToast = true,
+    successToast,
+    throwOnError = false,
+  }: {
+    showErrorToast?: boolean;
+    successToast?: {
+      description: string;
+      title: string;
+    };
+    throwOnError?: boolean;
+  } = {}) => {
     try {
-      if (showRefreshToast) setRefreshing(true);
       const response = await fetch(`/api/admin/analytics?period=${period}`);
       if (!response.ok) throw new Error('Failed to fetch analytics');
       const data = await response.json();
       setAnalytics(data);
-      if (showRefreshToast) {
-        toast({
-          title: 'Data Refreshed',
-          description: 'Platform analytics have been updated.',
-        });
+      if (successToast) {
+        toast(successToast);
       }
+      return data;
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load platform analytics.',
-        variant: 'destructive',
-      });
+      if (showErrorToast) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load platform analytics.',
+          variant: 'destructive',
+        });
+      }
+      if (throwOnError) {
+        throw error;
+      }
+      return null;
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
   const handleRefreshViews = async () => {
     try {
       setRefreshing(true);
-      const response = await fetch('/api/admin/analytics', { method: 'POST' });
-      if (!response.ok) throw new Error('Failed to refresh');
-
-      toast({
-        title: 'Views Refreshing',
-        description:
-          'Analytics views are being refreshed. This may take a moment.',
+      const response = await fetchWithCsrf('/api/admin/analytics', {
+        method: 'POST',
       });
-
-      // Poll for completion instead of fixed delay
-      const pollInterval = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/admin/analytics?period=${period}`);
-          if (res.ok) {
-            const data = await res.json();
-            // Check if data is newer than what we have
-            if (data.generatedAt !== analytics?.generatedAt) {
-              setAnalytics(data);
-              clearInterval(pollInterval);
-              setRefreshing(false);
-              toast({
-                title: 'Data Refreshed',
-                description: 'Platform analytics have been updated.',
-              });
-            }
-          }
-        } catch {
-          // Ignore errors during polling
-        }
-      }, 2000);
-
-      // Stop polling after 30 seconds
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        setRefreshing(false);
-      }, 30000);
+      if (!response.ok) throw new Error('Failed to refresh');
+      await fetchAnalytics({
+        showErrorToast: false,
+        successToast: {
+          title: 'Data Refreshed',
+          description: 'Platform analytics have been updated.',
+        },
+        throwOnError: true,
+      });
     } catch (error) {
       console.error('Failed to refresh views:', error);
       toast({
@@ -155,6 +155,7 @@ export default function AdminDashboardPage() {
         description: 'Failed to refresh analytics views.',
         variant: 'destructive',
       });
+    } finally {
       setRefreshing(false);
     }
   };
@@ -252,12 +253,12 @@ export default function AdminDashboardPage() {
         ) : analytics ? (
           <>
             <AnalyticsCard
-              title="Platform GMV"
+              title="Paid GMV"
               value={formatCurrency(analytics.summary.totalGmv)}
               change={Math.abs(analytics.summary.gmvChange)}
               trend={analytics.summary.gmvChange >= 0 ? 'up' : 'down'}
               icon={DollarSign}
-              description={`vs previous ${period}`}
+              description={`Gross order value ${formatCurrency(analytics.summary.grossGmv)}`}
             />
             <AnalyticsCard
               title="Active Merchants"
@@ -268,10 +269,10 @@ export default function AdminDashboardPage() {
               description={`of ${analytics.summary.totalMerchants} total`}
             />
             <AnalyticsCard
-              title="Total Orders"
+              title="Paid Orders"
               value={formatNumber(analytics.summary.totalOrders)}
               icon={Activity}
-              description={`in last ${period}`}
+              description={`Of ${formatNumber(analytics.summary.grossOrders)} created in last ${period}`}
             />
             <AnalyticsCard
               title="Avg GMV/Merchant"
@@ -309,7 +310,7 @@ export default function AdminDashboardPage() {
                     {formatCurrency(analytics.summary.platformRevenue)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Fees collected from GMV
+                    Fees collected from paid orders
                   </p>
                 </div>
               </CardContent>
@@ -359,9 +360,9 @@ export default function AdminDashboardPage() {
         {/* GMV Chart */}
         <Card className="glass lg:col-span-2">
           <CardHeader>
-            <CardTitle>Platform GMV Over Time</CardTitle>
+            <CardTitle>Paid GMV Over Time</CardTitle>
             <CardDescription>
-              Daily gross merchandise value across all merchants
+              Daily paid GMV across non-admin merchants
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -575,6 +576,15 @@ export default function AdminDashboardPage() {
           </Card>
         </Link>
       </div>
+
+      <PlatformPerformanceBreakdowns
+        businessTypes={analytics?.businessTypes || []}
+        loading={loading}
+        merchantActivation={analytics?.merchantActivation || []}
+        periodLabel={getPeriodLabel(period)}
+        salesByChannel={analytics?.salesByChannel || []}
+        signupSources={analytics?.signupSources || []}
+      />
 
       {/* Top Merchants */}
       <Card className="glass">

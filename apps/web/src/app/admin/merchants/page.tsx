@@ -50,7 +50,7 @@ import { createClient } from '@/lib/supabase/client';
 interface MerchantHealth {
   merchant_id: string;
   business_name: string;
-  email: string;
+  email: string | null;
   joined_at: string;
   total_gmv: number;
   total_orders: number;
@@ -153,7 +153,9 @@ export default function MerchantsPage() {
 
       const { data, error } = await supabase
         .from('merchant_health')
-        .select('*')
+        .select(
+          'merchant_id, business_name, joined_at, total_gmv, total_orders, last_order_date, active_days, health_status'
+        )
         .order(
           sortBy === 'gmv'
             ? 'total_gmv'
@@ -166,7 +168,31 @@ export default function MerchantsPage() {
         );
 
       if (error) throw error;
-      setMerchants(data || []);
+      const merchantRows = (data || []) as Omit<MerchantHealth, 'email'>[];
+      const merchantIds = merchantRows.map((merchant) => merchant.merchant_id);
+      const { data: merchantContacts, error: merchantContactsError } =
+        merchantIds.length > 0
+          ? await supabase
+              .from('merchants')
+              .select('id, email')
+              .in('id', merchantIds)
+          : { data: [], error: null };
+
+      if (merchantContactsError) throw merchantContactsError;
+
+      const emailByMerchantId = new Map(
+        (merchantContacts || []).map((merchant) => [
+          merchant.id,
+          merchant.email,
+        ])
+      );
+
+      setMerchants(
+        merchantRows.map((merchant) => ({
+          ...merchant,
+          email: emailByMerchantId.get(merchant.merchant_id) ?? null,
+        }))
+      );
     } catch (error) {
       console.error('Failed to fetch merchants:', error);
       toast({
@@ -438,11 +464,14 @@ export default function MerchantsPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() =>
-                                window.open(
-                                  `mailto:${merchant.email}`,
-                                  '_blank'
-                                )
+                                merchant.email
+                                  ? window.open(
+                                      `mailto:${merchant.email}`,
+                                      '_blank'
+                                    )
+                                  : undefined
                               }
+                              disabled={!merchant.email}
                             >
                               <Mail className="h-4 w-4 mr-2" />
                               Send Email

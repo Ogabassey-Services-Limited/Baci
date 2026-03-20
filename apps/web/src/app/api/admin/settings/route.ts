@@ -1,9 +1,13 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import z from 'zod';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
-import { PLATFORM_SETTINGS_SELECT } from './constants';
+import {
+  PLATFORM_SETTINGS_SELECT,
+  type PlatformSettingsSecretField,
+} from './constants';
 import { PlatformSettingsUpdateSchema } from './schema';
 
 /**
@@ -44,6 +48,55 @@ export interface PlatformSettings {
   // Timestamps
   created_at: string;
   updated_at: string;
+}
+
+export type PlatformSettingsSecretStatus = Record<
+  PlatformSettingsSecretField,
+  boolean
+>;
+
+export interface PlatformSettingsResponse
+  extends Omit<PlatformSettings, PlatformSettingsSecretField> {
+  secretStatus: PlatformSettingsSecretStatus;
+}
+
+const PlatformSettingsRowSchema = PlatformSettingsUpdateSchema.extend({
+  created_at: z.string(),
+  id: z.string(),
+  updated_at: z.string(),
+}).required();
+
+function parsePlatformSettings(settings: unknown): PlatformSettings | null {
+  const result = PlatformSettingsRowSchema.safeParse(settings);
+
+  if (!result.success) {
+    console.error('Invalid platform settings payload:', result.error);
+    return null;
+  }
+
+  return result.data;
+}
+
+function serializePlatformSettings(
+  settings: PlatformSettings
+): PlatformSettingsResponse {
+  const {
+    ga4_api_secret,
+    facebook_capi_token,
+    tiktok_access_token,
+    snapchat_capi_token,
+    ...publicSettings
+  } = settings;
+
+  return {
+    ...publicSettings,
+    secretStatus: {
+      ga4_api_secret: Boolean(ga4_api_secret),
+      facebook_capi_token: Boolean(facebook_capi_token),
+      tiktok_access_token: Boolean(tiktok_access_token),
+      snapchat_capi_token: Boolean(snapchat_capi_token),
+    },
+  };
 }
 
 async function checkPlatformAdmin(supabase: ReturnType<typeof createClient>) {
@@ -112,7 +165,15 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json(settings);
+    const parsedSettings = parsePlatformSettings(settings);
+    if (!parsedSettings) {
+      return NextResponse.json(
+        { error: 'Failed to parse settings' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(serializePlatformSettings(parsedSettings));
   } catch (error) {
     console.error('Platform settings GET error:', error);
     return NextResponse.json(
@@ -173,7 +234,15 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(settings);
+    const parsedSettings = parsePlatformSettings(settings);
+    if (!parsedSettings) {
+      return NextResponse.json(
+        { error: 'Failed to parse settings' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(serializePlatformSettings(parsedSettings));
   } catch (error) {
     console.error('Platform settings PUT error:', error);
     return NextResponse.json(
