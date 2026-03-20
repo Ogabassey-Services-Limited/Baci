@@ -18,6 +18,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useRecentlyViewed } from '@/hooks/use-recently-viewed';
 import { useToast } from '@/hooks/use-toast';
 import { trackEvent } from '@/lib/event-tracking';
+import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product, ProductVariant } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
@@ -97,13 +98,29 @@ function getAttributeOptions(
  */
 function isVariantAvailable(
   variants: ProductVariant[],
-  partialAttributes: Record<string, string>
+  partialAttributes: Record<string, string>,
+  isStockManaged: boolean,
+  fallbackStock: number
 ): boolean {
+  if (!isStockManaged) {
+    return variants.some((variant) =>
+      Object.entries(partialAttributes).every(
+        ([key, value]) => variant.attributes[key] === value
+      )
+    );
+  }
+
   return variants.some((variant) => {
     const matches = Object.entries(partialAttributes).every(
       ([key, value]) => variant.attributes[key] === value
     );
-    return matches && variant.stock_quantity > 0;
+    return (
+      matches &&
+      getEffectiveStock({
+        stock: variant.stock_quantity ?? fallbackStock,
+        stock_quantity: variant.stock_quantity ?? fallbackStock,
+      }) > 0
+    );
   });
 }
 
@@ -176,11 +193,23 @@ export default function ProductDetailClient({
   const attributeOptions = product.has_variants
     ? getAttributeOptions(product.variants || [])
     : [];
+  const isStockManaged = product.manage_stock ?? true;
 
   // Get current price and stock based on variant selection
   const currentPrice = selectedVariant?.price_override ?? product.price;
-  const currentStock = selectedVariant?.stock_quantity ?? product.stock;
-  const isOutOfStock = product.manage_stock && currentStock === 0;
+  const currentStock = isStockManaged
+    ? getEffectiveStock(
+        selectedVariant
+          ? {
+              stock:
+                selectedVariant.stock_quantity ?? product.stock ?? undefined,
+              stock_quantity:
+                selectedVariant.stock_quantity ?? product.stock ?? undefined,
+            }
+          : product
+      )
+    : Number.POSITIVE_INFINITY;
+  const isOutOfStock = isStockManaged ? currentStock === 0 : false;
 
   const handleAttributeChange = (attributeKey: string, value: string) => {
     const newAttributes = { ...selectedAttributes, [attributeKey]: value };
@@ -418,7 +447,9 @@ export default function ProductDetailClient({
                           const isSelected = selectedAttributes[key] === value;
                           const isAvailable = isVariantAvailable(
                             product.variants || [],
-                            { ...selectedAttributes, [key]: value }
+                            { ...selectedAttributes, [key]: value },
+                            isStockManaged,
+                            getEffectiveStock(product)
                           );
 
                           return (
@@ -456,21 +487,27 @@ export default function ProductDetailClient({
                   </ThemedBadge>
                 ) : (
                   <ThemedBadge colorRole="primary" variant="outline">
-                    In Stock
+                    {isStockManaged ? 'In Stock' : 'Unlimited stock'}
                   </ThemedBadge>
                 )}
-                {product.manage_stock && currentStock > 0 && (
-                  <p
-                    className={cn(
-                      'text-sm mt-2',
-                      currentStock <= (product.low_stock_threshold || 5)
-                        ? 'text-amber-600 font-medium'
-                        : 'text-muted-foreground'
-                    )}
-                  >
-                    {currentStock} units available
-                    {currentStock <= (product.low_stock_threshold || 5) &&
-                      ' (Low Stock)'}
+                {isStockManaged ? (
+                  currentStock > 0 ? (
+                    <p
+                      className={cn(
+                        'text-sm mt-2',
+                        currentStock <= (product.low_stock_threshold || 5)
+                          ? 'text-amber-600 font-medium'
+                          : 'text-muted-foreground'
+                      )}
+                    >
+                      {currentStock} units available
+                      {currentStock <= (product.low_stock_threshold || 5) &&
+                        ' (Low Stock)'}
+                    </p>
+                  ) : null
+                ) : (
+                  <p className="text-sm mt-2 text-muted-foreground">
+                    Unlimited stock available
                   </p>
                 )}
               </div>

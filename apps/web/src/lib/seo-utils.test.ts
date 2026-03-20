@@ -1,7 +1,11 @@
 // src/lib/seo-utils.test.ts
 
 import type { Product } from './products';
-import { generateProductSchema, generateSlug } from './seo-utils';
+import {
+  generateProductSchema,
+  generateSlug,
+  getEffectiveProductStock,
+} from './seo-utils';
 
 /** Helper to create a minimal Product for testing */
 function makeProduct(overrides: Partial<Product> = {}): Product {
@@ -321,5 +325,34 @@ describe('generateSlug', () => {
 
   it('should handle an empty string', () => {
     expect(generateSlug('')).toBe('');
+  });
+});
+
+describe('getEffectiveProductStock', () => {
+  it('uses stock_quantity when it reflects the current positive stock', () => {
+    expect(
+      getEffectiveProductStock({
+        stock: 0,
+        stock_quantity: 4,
+      })
+    ).toBe(4);
+  });
+
+  it('falls back to legacy stock when stock_quantity drifted to zero', () => {
+    expect(
+      getEffectiveProductStock({
+        stock: 12,
+        stock_quantity: 0,
+      })
+    ).toBe(12);
+  });
+
+  it('falls back to legacy stock when stock_quantity is missing', () => {
+    expect(
+      getEffectiveProductStock({
+        stock: 7,
+        stock_quantity: null,
+      })
+    ).toBe(7);
   });
 });

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { stripHtmlTags } from '@/lib/sanitize-core';
+import { getEffectiveProductStock } from '@/lib/seo-utils';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     .from('products')
     .select(
       `id, name, description, slug, price, compare_at_price, images, image, imageLarge,
-       brand, gtin, mpn, sku, stock, condition, google_product_category, category`
+       brand, gtin, mpn, sku, stock, stock_quantity, condition, google_product_category, category`
     )
     .eq('merchant_id', merchant.id)
     .eq('status', 'active')
@@ -91,6 +92,7 @@ interface Product {
   mpn?: string;
   sku?: string;
   stock: number;
+  stock_quantity?: number | null;
   condition?: 'new' | 'used' | 'refurbished';
   google_product_category?: string;
   category?: string;
@@ -131,7 +133,9 @@ function generateFacebookFeed(
           .join('\n') || '';
 
       // Availability - Facebook uses different values than Google
-      const availability = product.stock > 0 ? 'in stock' : 'out of stock';
+      const availability = getEffectiveProductStock(product)
+        ? 'in stock'
+        : 'out of stock';
 
       // Condition
       const condition = product.condition || 'new';
