@@ -1,14 +1,21 @@
-import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
-import { GET } from './route';
+import { DELETE, GET, PATCH } from './route';
+
+const mockCreateAdminClient = vi.fn();
+const mockCreateClient = vi.fn();
+const mockCookies = vi.fn();
 
 vi.mock('next/headers', () => ({
-  cookies: vi.fn(),
+  cookies: vi.fn(async () => mockCookies()),
+}));
+
+const mockCheckCsrfProtection = vi.fn();
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
 }));
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
@@ -23,24 +30,116 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(),
+  createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(),
+  createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
-describe('GET /api/admin/notifications/[id]', () => {
-  const mockSupabase = {
-    auth: {
-      getUser: vi.fn(),
-    },
-    from: vi.fn(),
+function createRequest(method: 'DELETE' | 'PATCH'): NextRequest {
+  return new Request('http://localhost/api/admin/notifications/123', {
+    method,
+    body:
+      method === 'PATCH' ? JSON.stringify({ title: 'Updated title' }) : null,
+    headers: method === 'PATCH' ? { 'Content-Type': 'application/json' } : {},
+  }) as NextRequest;
+}
+
+function createMockSupabase(options?: {
+  deleteError?: { message: string } | null;
+  notification?: { id: string; sent_at: string | null; title?: string } | null;
+}) {
+  const notification = options?.notification ?? {
+    id: '123e4567-e89b-12d3-a456-426614174000',
+    sent_at: null,
+    title: 'Launch update',
+  };
+  const deleteError = options?.deleteError ?? null;
+
+  const merchantsQuery = {
+    eq: vi.fn(() => merchantsQuery),
+    maybeSingle: vi.fn(async () => ({
+      data: { is_platform_admin: true },
+      error: null,
+    })),
+    select: vi.fn(() => merchantsQuery),
   };
 
-  const mockAdminSupabase = {
-    from: vi.fn(),
+  const notificationsDeleteQuery = {
+    eq: vi.fn(async () => ({
+      error: deleteError,
+    })),
   };
+
+  const notificationsQuery = {
+    delete: vi.fn(() => notificationsDeleteQuery),
+    eq: vi.fn(() => notificationsQuery),
+    single: vi.fn(async () => ({
+      data: notification,
+      error: notification ? null : { message: 'not found' },
+    })),
+    select: vi.fn(() => notificationsQuery),
+    update: vi.fn(() => notificationsQuery),
+  };
+
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: 'user-1' } },
+        error: null,
+      }),
+    },
+    from: vi.fn((table: string) => {
+      if (table === 'merchants') {
+        return merchantsQuery;
+      }
+
+      if (table === 'notifications') {
+        return notificationsQuery;
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    }),
+  };
+}
+
+function createMockAdminSupabase(options?: {
+  totalCount?: number | null;
+  totalError?: { message: string } | null;
+  readCount?: number | null;
+  readError?: { message: string } | null;
+}) {
+  const totalChain = {
+    eq: vi.fn().mockResolvedValue({
+      count: options?.totalCount === undefined ? 12 : options.totalCount,
+      error: options?.totalError ?? null,
+    }),
+  };
+
+  const readChain = {
+    eq: vi.fn().mockReturnThis(),
+    not: vi.fn().mockResolvedValue({
+      count: options?.readCount === undefined ? 5 : options.readCount,
+      error: options?.readError ?? null,
+    }),
+  };
+
+  return {
+    from: vi
+      .fn()
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnValue(totalChain),
+      })
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnValue(readChain),
+      }),
+  };
+}
+
+describe('/api/admin/notifications/[id]', () => {
+  let mockSupabase = createMockSupabase();
+  let mockAdminSupabase = createMockAdminSupabase();
 
   afterEach(() => {
     vi.restoreAllMocks();
@@ -49,70 +148,18 @@ describe('GET /api/admin/notifications/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValueOnce(1042);
-
-    (cookies as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({});
-    (createClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
-      mockSupabase
-    );
-    (createAdminClient as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
-      mockAdminSupabase
-    );
+    mockSupabase = createMockSupabase();
+    mockAdminSupabase = createMockAdminSupabase();
+    mockCookies.mockReturnValue(new Map());
+    mockCreateClient.mockReturnValue(mockSupabase);
+    mockCreateAdminClient.mockReturnValue(mockAdminSupabase);
     (
       getMerchantForApiRequest as unknown as ReturnType<typeof vi.fn>
     ).mockResolvedValue({
       merchantId: 'merchant-1',
       staffAccess: { isStaff: false },
     });
-
-    mockSupabase.auth.getUser.mockResolvedValue({
-      data: { user: { id: 'user-1' } },
-    });
-
-    mockSupabase.from.mockImplementation((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({
-            data: { is_platform_admin: true },
-            error: null,
-          }),
-        };
-      }
-
-      if (table === 'notifications') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({
-            data: {
-              id: '123e4567-e89b-12d3-a456-426614174000',
-              title: 'Launch update',
-            },
-            error: null,
-          }),
-        };
-      }
-
-      throw new Error(`Unexpected table: ${table}`);
-    });
-
-    const totalChain = {
-      eq: vi.fn().mockResolvedValue({ count: 12, error: null }),
-    };
-
-    const readChain = {
-      eq: vi.fn().mockReturnThis(),
-      not: vi.fn().mockResolvedValue({ count: 5, error: null }),
-    };
-
-    mockAdminSupabase.from
-      .mockReturnValueOnce({
-        select: vi.fn().mockReturnValue(totalChain),
-      })
-      .mockReturnValueOnce({
-        select: vi.fn().mockReturnValue(readChain),
-      });
+    mockCheckCsrfProtection.mockResolvedValue({ valid: true });
   });
 
   it('logs timing telemetry around the parallel stats query', async () => {
@@ -142,27 +189,11 @@ describe('GET /api/admin/notifications/[id]', () => {
   });
 
   it('logs failure flags and falls back counts when a stats query errors', async () => {
-    mockAdminSupabase.from.mockReset();
-
-    const totalChain = {
-      eq: vi.fn().mockResolvedValue({
-        count: null,
-        error: { message: 'boom' },
-      }),
-    };
-
-    const readChain = {
-      eq: vi.fn().mockReturnThis(),
-      not: vi.fn().mockResolvedValue({ count: 5, error: null }),
-    };
-
-    mockAdminSupabase.from
-      .mockReturnValueOnce({
-        select: vi.fn().mockReturnValue(totalChain),
-      })
-      .mockReturnValueOnce({
-        select: vi.fn().mockReturnValue(readChain),
-      });
+    mockAdminSupabase = createMockAdminSupabase({
+      totalCount: null,
+      totalError: { message: 'boom' },
+    });
+    mockCreateAdminClient.mockReturnValue(mockAdminSupabase);
 
     const response = await GET({} as unknown as NextRequest, {
       params: Promise.resolve({
@@ -187,5 +218,57 @@ describe('GET /api/admin/notifications/[id]', () => {
         read_count: 5,
       },
     });
+  });
+
+  it('returns 403 when CSRF validation fails on PATCH', async () => {
+    mockCheckCsrfProtection.mockResolvedValueOnce({
+      valid: false,
+      response: NextResponse.json(
+        { error: 'Invalid CSRF token' },
+        { status: 403 }
+      ),
+    });
+
+    const response = await PATCH(createRequest('PATCH'), {
+      params: Promise.resolve({ id: '123e4567-e89b-12d3-a456-426614174000' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('Invalid CSRF token');
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when CSRF validation fails on DELETE', async () => {
+    mockCheckCsrfProtection.mockResolvedValueOnce({
+      valid: false,
+      response: NextResponse.json(
+        { error: 'Invalid CSRF token' },
+        { status: 403 }
+      ),
+    });
+
+    const response = await DELETE(createRequest('DELETE'), {
+      params: Promise.resolve({ id: '123e4567-e89b-12d3-a456-426614174000' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error).toBe('Invalid CSRF token');
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
+  it('deletes notifications after passing CSRF validation', async () => {
+    const response = await DELETE(createRequest('DELETE'), {
+      params: Promise.resolve({ id: '123e4567-e89b-12d3-a456-426614174000' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      message: 'Scheduled notification cancelled',
+      success: true,
+    });
+    expect(mockCreateClient).toHaveBeenCalled();
   });
 });

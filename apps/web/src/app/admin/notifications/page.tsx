@@ -54,6 +54,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { apiDelete } from '@/lib/api-client';
 // cn is available if needed for conditional classes
 import type {
   AdminNotificationFilters,
@@ -177,13 +178,7 @@ export default function AdminNotificationsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`/api/admin/notifications/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete notification');
-      }
+      await apiDelete(`/api/admin/notifications/${id}`);
 
       toast({
         title: 'Deleted',

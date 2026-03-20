@@ -6,6 +6,7 @@ const mockCheckCsrfProtection = vi.fn();
 const mockCookies = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockCreateClient = vi.fn();
+const mockRevalidateAnalytics = vi.fn();
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => mockCookies()),
@@ -13,6 +14,10 @@ vi.mock('next/headers', () => ({
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedPlatformAnalytics: vi.fn(),
+}));
+
+vi.mock('@/lib/cache-revalidation', () => ({
+  revalidateAnalytics: (...args: unknown[]) => mockRevalidateAnalytics(...args),
 }));
 
 vi.mock('@/lib/csrf', () => ({
@@ -148,5 +153,6 @@ describe('/api/admin/analytics route POST', () => {
     expect(mockSupabase.rpc).toHaveBeenCalledWith(
       'refresh_platform_analytics_views'
     );
+    expect(mockRevalidateAnalytics).toHaveBeenCalledTimes(1);
   });
 });

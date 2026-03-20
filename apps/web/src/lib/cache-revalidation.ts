@@ -126,3 +126,11 @@ export function revalidateDomains(domain?: string) {
     revalidateTag(`domain-${domain.toLowerCase()}`, 'merchant');
   }
 }
+
+/**
+ * Revalidate cached platform analytics data.
+ * Call after platform-level analytics views are refreshed.
+ */
+export function revalidateAnalytics() {
+  revalidateTag('analytics', 'products');
+}
