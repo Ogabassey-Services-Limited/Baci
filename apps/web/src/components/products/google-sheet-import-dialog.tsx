@@ -1,5 +1,7 @@
+'use client';
+
 import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchGoogleSheet } from '@/app/dashboard/products/actions';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -28,16 +30,19 @@ export function GoogleSheetImportDialog({
   onImport,
   initialUrl = '',
 }: GoogleSheetImportDialogProps) {
-  const [url, setUrl] = useState(initialUrl ?? '');
+  const [url, setUrl] = useState(initialUrl);
   const [saveUrl, setSaveUrl] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const wasOpenRef = useRef(open);
   const { toast } = useToast();
 
-  // Reset URL if initialUrl changes (e.g. from merchant data)
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useState(() => {
-    if (initialUrl) setUrl(initialUrl);
-  });
+  // Sync URL when the dialog is opened to avoid clobbering in-progress edits.
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      setUrl(initialUrl);
+    }
+    wasOpenRef.current = open;
+  }, [open, initialUrl]);
 
   const handleImport = async () => {
     if (!url) return;

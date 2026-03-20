@@ -19,7 +19,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AIResponse } from '@/app/dashboard/products/actions';
 import AddProductForm from '@/app/dashboard/products/add/add-product-form';
 import { CSVBulkImportDialog } from '@/components/products/csv-bulk-import-dialog';
@@ -148,20 +148,29 @@ function ProductsPageContent() {
   const [isGoogleSheetImportOpen, setIsGoogleSheetImportOpen] = useState(false);
   const [isCSVBulkImportOpen, setIsCSVBulkImportOpen] = useState(false);
   const { toast } = useToast();
+  const hasAutoOpenedFromQuery = useRef(false);
 
   // Auto-open add product dialog if action=new
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useState(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('action') === 'new') {
-        // We need to wait for context to be ready or just call it
-        // Since useProductContext is available, we can call it immediately
-        // but we might need to wrap in useEffect if strict mode complains
-        setTimeout(() => openAddProductDialog(), 100);
-      }
-    }
-  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || hasAutoOpenedFromQuery.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('action') !== 'new') return;
+
+    hasAutoOpenedFromQuery.current = true;
+    openAddProductDialog();
+
+    // Consume trigger to avoid reopening on subsequent renders.
+    params.delete('action');
+    const nextQuery = params.toString();
+    window.history.replaceState(
+      {},
+      '',
+      nextQuery
+        ? `${window.location.pathname}?${nextQuery}`
+        : window.location.pathname
+    );
+  }, [openAddProductDialog]);
 
   const handleProductSaved = async (product: Product) => {
     if (editingProduct) {

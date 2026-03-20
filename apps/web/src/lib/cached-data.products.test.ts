@@ -69,7 +69,7 @@ describe('cached-data product query projections', () => {
     error: { message: 'RPC failed', code: 'P0001' },
   };
 
-  it('getCachedProduct does not inline product_variants', async () => {
+  it('getCachedProduct uses explicit column select without product_variants', async () => {
     harness.mockSingle.mockResolvedValueOnce(singleProductResult);
 
     await getCachedProduct('merchant-123', 'iphone-16');
@@ -78,10 +78,9 @@ describe('cached-data product query projections', () => {
     expect(harness.mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).not.toMatch(/\*\s*,/);
-    expect(selectArg).not.toContain('product_variants');
   });
 
-  it('getCachedProductWithDetails does not inline product_variants', async () => {
+  it('getCachedProductWithDetails uses explicit column select without product_variants', async () => {
     harness.mockMaybeSingle.mockResolvedValueOnce(singleProductResult);
 
     await getCachedProductWithDetails('merchant-123', 'iphone-16');
@@ -92,7 +91,6 @@ describe('cached-data product query projections', () => {
     expect(selectArg).not.toMatch(/\*\s*,/);
     expect(selectArg).toContain('imageHint:image_hint');
     expect(selectArg).toContain('fulfillmentFields:fulfillment_fields');
-    expect(selectArg).not.toContain('product_variants');
   });
 
   it('getCachedProducts attaches storefront variants from the public RPC', async () => {

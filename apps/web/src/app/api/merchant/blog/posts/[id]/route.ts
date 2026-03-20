@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { getSupabaseServiceRoleKey } from '@/env';
 import {
   authenticateApiRequest,
   getUserAccess,
@@ -182,6 +183,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         content: updatedPost.content,
         category: updatedPost.category,
       });
+      const serviceRoleKey = getSupabaseServiceRoleKey();
 
       // Fire-and-forget: Call edge function to regenerate embedding
       fetch(
@@ -190,7 +192,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            Authorization: `Bearer ${serviceRoleKey}`,
           },
           body: JSON.stringify({
             type: 'blog',

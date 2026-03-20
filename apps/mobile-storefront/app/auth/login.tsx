@@ -282,14 +282,14 @@ export default function LoginScreen() {
             styles.inputContainer,
             {
               backgroundColor: colors.card,
-              borderColor: emailError ? '#EF4444' : colors.border,
+              borderColor: emailError ? colors.error : colors.border,
             },
           ]}
         >
           <Ionicons
             name="mail-outline"
             size={20}
-            color={emailError ? '#EF4444' : colors.textSecondary}
+            color={emailError ? colors.error : colors.textSecondary}
           />
           <TextInput
             style={[styles.input, { color: colors.text }]}
@@ -312,7 +312,7 @@ export default function LoginScreen() {
             blurOnSubmit={false}
           />
         </View>
-        {emailError && <Text style={styles.errorText}>{emailError}</Text>}
+        {emailError && <Text style={[styles.errorText, { color: colors.error }]}>{emailError}</Text>}
       </View>
 
       <Pressable
@@ -325,9 +325,9 @@ export default function LoginScreen() {
         disabled={isLoading}
       >
         {isLoading ? (
-          <ActivityIndicator color="#FFFFFF" />
+          <ActivityIndicator color={colors.primaryForeground} />
         ) : (
-          <Text style={styles.primaryButtonText}>
+          <Text style={[styles.primaryButtonText, { color: colors.primaryForeground }]}>
             {authMethod === 'otp'
               ? 'Continue with Code'
               : 'Continue with Password'}
@@ -434,14 +434,14 @@ export default function LoginScreen() {
             styles.inputContainer,
             {
               backgroundColor: colors.card,
-              borderColor: otpError ? '#EF4444' : colors.border,
+              borderColor: otpError ? colors.error : colors.border,
             },
           ]}
         >
           <Ionicons
             name="keypad-outline"
             size={20}
-            color={otpError ? '#EF4444' : colors.textSecondary}
+            color={otpError ? colors.error : colors.textSecondary}
           />
           <TextInput
             ref={otpInputRef}
@@ -487,7 +487,7 @@ export default function LoginScreen() {
             returnKeyType="done"
           />
         </View>
-        {otpError && <Text style={styles.errorText}>{otpError}</Text>}
+        {otpError && <Text style={[styles.errorText, { color: colors.error }]}>{otpError}</Text>}
       </View>
 
       <Pressable
@@ -524,9 +524,9 @@ export default function LoginScreen() {
         disabled={isLoading}
       >
         {isLoading ? (
-          <ActivityIndicator color="#FFFFFF" />
+          <ActivityIndicator color={colors.primaryForeground} />
         ) : (
-          <Text style={styles.primaryButtonText}>Verify</Text>
+          <Text style={[styles.primaryButtonText, { color: colors.primaryForeground }]}>Verify</Text>
         )}
       </Pressable>
 
@@ -559,14 +559,14 @@ export default function LoginScreen() {
             styles.inputContainer,
             {
               backgroundColor: colors.card,
-              borderColor: passwordError ? '#EF4444' : colors.border,
+              borderColor: passwordError ? colors.error : colors.border,
             },
           ]}
         >
           <Ionicons
             name="lock-closed-outline"
             size={20}
-            color={passwordError ? '#EF4444' : colors.textSecondary}
+            color={passwordError ? colors.error : colors.textSecondary}
           />
           <TextInput
             style={[styles.input, { color: colors.text }]}
@@ -594,7 +594,7 @@ export default function LoginScreen() {
             />
           </Pressable>
         </View>
-        {passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
+        {passwordError && <Text style={[styles.errorText, { color: colors.error }]}>{passwordError}</Text>}
       </View>
 
       <Pressable
@@ -607,9 +607,9 @@ export default function LoginScreen() {
         disabled={isLoading}
       >
         {isLoading ? (
-          <ActivityIndicator color="#FFFFFF" />
+          <ActivityIndicator color={colors.primaryForeground} />
         ) : (
-          <Text style={styles.primaryButtonText}>Sign In</Text>
+          <Text style={[styles.primaryButtonText, { color: colors.primaryForeground }]}>Sign In</Text>
         )}
       </Pressable>
 
@@ -758,7 +758,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
   },
@@ -828,7 +827,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   errorText: {
-    color: '#EF4444',
     fontSize: 13,
     marginTop: 6,
     marginLeft: 4,

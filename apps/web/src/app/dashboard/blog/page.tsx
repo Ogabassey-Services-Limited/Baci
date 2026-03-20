@@ -67,18 +67,23 @@ export default async function BlogPage() {
     const supabase = createClient(cookieStore);
 
     // We fetch from the database directly since we are on the server
-    const { data: posts } = await supabase
+    const { data: posts, error: postsError } = await supabase
       .from('blog_posts')
-      .select('*')
+      .select(
+        'id, title, slug, excerpt, featured_image_url, category, status, author_name, view_count, reading_time_minutes, created_at, updated_at, published_at'
+      )
       .eq('merchant_id', merchant.id)
       .order('created_at', { ascending: false })
       .range(0, 19);
+    if (postsError) {
+      throw postsError;
+    }
 
     const [
-      { count: total },
-      { count: published },
-      { count: draft },
-      { count: archived },
+      { count: total, error: totalError },
+      { count: published, error: publishedError },
+      { count: draft, error: draftError },
+      { count: archived, error: archivedError },
     ] = await Promise.all([
       supabase
         .from('blog_posts')
@@ -104,6 +109,11 @@ export default async function BlogPage() {
         .eq('merchant_id', merchant.id)
         .eq('status', 'archived'),
     ]);
+    const countError =
+      totalError ?? publishedError ?? draftError ?? archivedError;
+    if (countError) {
+      throw countError;
+    }
 
     initialData = {
       posts: posts || [],

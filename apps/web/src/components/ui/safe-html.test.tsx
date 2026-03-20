@@ -43,7 +43,7 @@ describe('SafeHtml', () => {
 
   it('preserves allowed tags and attributes', () => {
     render(
-      <SafeHtml html='<a href="https://example.com" target="_blank">Link</a>' />
+      <SafeHtml html='<a href="https://example.com" target="_blank" rel="noopener noreferrer">Link</a>' />
     );
     const link = screen.getByRole('link', { name: 'Link' });
     expect(link).toHaveAttribute('href', 'https://example.com');

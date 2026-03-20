@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
     let query = supabase
       .from('products')
       .select('id, name, color, images, parent_product_id')
+      .eq('merchant_id', merchantId)
       .eq('status', 'active');
 
     // If parentId is provided, target specifically those variants
@@ -183,7 +184,8 @@ export async function POST(req: NextRequest) {
           const { error: updateError } = await supabase
             .from('products')
             .update({ images: newImages })
-            .eq('id', product.id);
+            .eq('id', product.id)
+            .eq('merchant_id', merchantId);
 
           if (updateError) throw updateError;
 

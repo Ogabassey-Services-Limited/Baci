@@ -6,7 +6,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -80,13 +82,18 @@ export function FilterSheet({
         >
           <View style={StyleSheet.absoluteFill} />
         </TouchableWithoutFeedback>
-        <Animated.View
-          entering={SlideInDown.duration(300).springify()}
-          style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}
-          accessible={true}
-          accessibilityLabel="Filter by price dialog"
-          accessibilityViewIsModal={true}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          pointerEvents="box-none"
+          style={styles.keyboardAvoidingView}
         >
+          <Animated.View
+            entering={SlideInDown.duration(300).springify()}
+            style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}
+            accessible={true}
+            accessibilityLabel="Filter by price dialog"
+            accessibilityViewIsModal={true}
+          >
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title} accessibilityRole="header">
@@ -123,7 +130,8 @@ export function FilterSheet({
                     accessibilityLabel="Minimum price in Naira"
                     accessibilityHint="Enter the minimum price for filtering products"
                     accessibilityLabelledBy="minPriceLabel"
-                    autoFocus // eslint-disable-line jsx-a11y/no-autofocus -- BUG-5-005: focus price input on open
+                    // eslint-disable-next-line jsx-a11y/no-autofocus -- BUG-5-005: focus price input on open
+                    autoFocus
                   />
                 </View>
               </View>
@@ -230,7 +238,8 @@ export function FilterSheet({
               <Text style={styles.applyText}>Apply Filter</Text>
             </Pressable>
           </View>
-        </Animated.View>
+          </Animated.View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -240,6 +249,10 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  keyboardAvoidingView: {
+    width: '100%',
     justifyContent: 'flex-end',
   },
   sheet: {
