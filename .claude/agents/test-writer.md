@@ -90,7 +90,8 @@ When writing tests for mobile-admin (Vitest + jsdom-based render utilities):
   - Business data queries: `merchant_id`
   - Auth or profile queries: `user_id`
   - Staff queries: both `user_id` and `merchant_id`
-- Test React Query invalidation against the app's canonical query keys instead of brittle literal arrays where possible
+- Test React Query invalidation against the app's existing query key conventions instead of brittle literal arrays where possible
+- Prefer patterns already used in the app, for example `['orders', merchantId]`, rather than assuming a centralized query key factory exists
 - Cover Supabase `.error` responses and network failures on hooks and routes
 - Do not rely on jsdom tests to catch native-only runtime issues like bare strings outside `<Text>`; call those out in review instead
 - Ensure native dependencies referenced in tests exist in `apps/mobile-admin/package.json` for autolinking consistency
