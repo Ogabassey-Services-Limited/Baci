@@ -10,6 +10,7 @@ interface GeminiCommandBarProps {
   onCommand: (command: string) => void;
   isLoading: boolean;
   compact?: boolean;
+  disabled?: boolean;
 }
 
 const SUGGESTIONS = [
@@ -31,13 +32,14 @@ export function GeminiCommandBar({
   onCommand,
   isLoading,
   compact = false,
+  disabled = false,
 }: GeminiCommandBarProps) {
   const [command, setCommand] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!command.trim()) return;
+    if (disabled || !command.trim()) return;
 
     onCommand(command);
     setCommand('');
@@ -62,13 +64,13 @@ export function GeminiCommandBar({
               onFocus={() => setShowSuggestions(true)}
               placeholder="Tell Gemini what to change..."
               className="pl-9 pr-10 bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 focus:border-purple-400 focus:ring-purple-400"
-              disabled={isLoading}
+              disabled={isLoading || disabled}
             />
             <Button
               type="submit"
               size="icon"
               className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-              disabled={isLoading || !command.trim()}
+              disabled={isLoading || disabled || !command.trim()}
               aria-label="Apply Gemini command"
             >
               {isLoading ? (
@@ -79,7 +81,7 @@ export function GeminiCommandBar({
             </Button>
           </div>
 
-          {showSuggestions && !isLoading && (
+          {showSuggestions && !isLoading && !disabled && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Lightbulb className="w-3.5 h-3.5" />
@@ -135,12 +137,12 @@ export function GeminiCommandBar({
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 placeholder="Describe what you want to change... (e.g., 'make it blue', 'add testimonials')"
                 className="pl-24 pr-4 h-12 bg-white/80 border-purple-200 focus:border-purple-400 focus:ring-purple-400 text-base"
-                disabled={isLoading}
+                disabled={isLoading || disabled}
               />
             </div>
             <Button
               type="submit"
-              disabled={isLoading || !command.trim()}
+              disabled={isLoading || disabled || !command.trim()}
               className="h-12 px-6 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all"
               aria-label="Apply Gemini command"
             >
@@ -157,7 +159,7 @@ export function GeminiCommandBar({
             </Button>
           </div>
 
-          {showSuggestions && !isLoading && (
+          {showSuggestions && !isLoading && !disabled && (
             <div className="space-y-2 animate-in slide-in-from-bottom-2 duration-200">
               <div className="flex items-center gap-2 text-xs font-medium text-purple-700">
                 <Lightbulb className="w-4 h-4" />

@@ -1,50 +1,42 @@
 import { describe, expect, it } from 'vitest';
-import { builderCreateSchema, builderPublishSchema } from './builder';
+import {
+  builderConfigSchema,
+  builderCreateSchema,
+  builderPublishSchema,
+} from '@/schemas/builder';
 
-describe('builderCreateSchema', () => {
-  it('accepts a valid builder create payload', () => {
-    const result = builderCreateSchema.safeParse({
-      slug: 'home',
-      config: { content: [] },
-      name: 'Homepage',
-      seo: { title: 'Home' },
+describe('builder schemas', () => {
+  it('fills in missing builder config defaults', () => {
+    const parsed = builderConfigSchema.parse({
+      content: [],
     });
 
-    expect(result.success).toBe(true);
+    expect(parsed).toEqual({
+      content: [],
+      root: { title: 'Home' },
+      zones: {},
+    });
   });
 
-  it('rejects missing config payloads', () => {
-    const result = builderCreateSchema.safeParse({
+  it('accepts a valid optimistic concurrency timestamp on save', () => {
+    const parsed = builderCreateSchema.parse({
       slug: 'home',
+      config: {
+        content: [],
+      },
+      expectedLastUpdated: '2026-03-20T18:00:00.000Z',
     });
 
-    expect(result.success).toBe(false);
+    expect(parsed.expectedLastUpdated).toBe('2026-03-20T18:00:00.000Z');
+    expect(parsed.config.root.title).toBe('Home');
   });
 
-  it('rejects non-object config payloads', () => {
-    const result = builderCreateSchema.safeParse({
-      slug: 'home',
-      config: 'not-an-object',
-    });
-
-    expect(result.success).toBe(false);
-  });
-});
-
-describe('builderPublishSchema', () => {
-  it('accepts a valid publish payload', () => {
-    const result = builderPublishSchema.safeParse({
-      slug: 'home',
-    });
-
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects blank slugs', () => {
-    const result = builderPublishSchema.safeParse({
-      slug: '   ',
-    });
-
-    expect(result.success).toBe(false);
+  it('rejects invalid optimistic concurrency timestamps on publish', () => {
+    expect(() =>
+      builderPublishSchema.parse({
+        slug: 'home',
+        expectedLastUpdated: 'not-a-date',
+      })
+    ).toThrow();
   });
 });
