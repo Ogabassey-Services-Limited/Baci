@@ -1487,3 +1487,95 @@ export async function getCachedBlogPost(
     relatedPosts: relatedPosts || [],
   };
 }
+
+/**
+ * Cached blog listing data for storefront markdown mirrors and list pages.
+ * Uses 'merchant' cacheLife profile (revalidate 60s)
+ */
+export async function getCachedBlogListing(
+  identifier: string,
+  options?: {
+    category?: string;
+    page?: number;
+    searchQuery?: string;
+  }
+) {
+  'use cache';
+  const category = options?.category;
+  const page = options?.page || 1;
+  const searchQuery = options?.searchQuery;
+  cacheLife('merchant');
+  cacheTag(
+    'blog-posts',
+    `blog-list-${identifier}-${category || 'all'}-${page}`
+  );
+
+  const limit = 12;
+  const offset = (page - 1) * limit;
+  const lookupKey = identifier.toLowerCase();
+  const merchant =
+    lookupKey.includes('.') && !lookupKey.includes('/')
+      ? await getCachedMerchantByDomain(lookupKey)
+      : await getCachedMerchant(lookupKey);
+
+  if (!merchant) return null;
+
+  const features = await getCachedFeatureSettings(merchant.id);
+  if (!features?.blog_enabled) return null;
+
+  const supabase = getPublicSupabaseClient();
+
+  let query = supabase
+    .from('blog_posts')
+    .select(
+      'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, published_at, reading_time_minutes, view_count',
+      { count: 'exact' }
+    )
+    .eq('merchant_id', merchant.id)
+    .eq('status', 'published')
+    .order('published_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (category) {
+    query = query.eq('category', category);
+  }
+
+  if (searchQuery) {
+    const sanitizedSearch = searchQuery.trim().slice(0, 100);
+
+    if (sanitizedSearch) {
+      query = query.textSearch('search_vector', sanitizedSearch, {
+        type: 'websearch',
+        config: 'english',
+      });
+    }
+  }
+
+  const { data: posts, count } = await query;
+
+  const { data: categories } = await supabase
+    .from('blog_posts')
+    .select('category')
+    .eq('merchant_id', merchant.id)
+    .eq('status', 'published')
+    .not('category', 'is', null);
+
+  const uniqueCategories = [
+    ...new Set(categories?.map((entry) => entry.category).filter(Boolean)),
+  ];
+
+  return {
+    merchant: {
+      id: merchant.id,
+      business_name: merchant.business_name,
+      slug: merchant.slug,
+      logo_url: merchant.logo_url,
+    },
+    posts: posts || [],
+    totalPosts: count || 0,
+    categories: uniqueCategories,
+    currentPage: page,
+    totalPages: Math.ceil((count || 0) / limit),
+    searchQuery,
+  };
+}

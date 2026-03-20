@@ -129,6 +129,7 @@ describe('buildAssetLinks', () => {
     const result = buildAssetLinks(storefrontConfig);
     expect(result[0].relation).toEqual([
       'delegate_permission/common.handle_all_urls',
+      'delegate_permission/common.get_login_creds',
     ]);
   });
 });
