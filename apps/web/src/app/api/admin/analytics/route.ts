@@ -1,5 +1,10 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import {
+  buildBusinessTypeBreakdowns,
+  buildOrderStatusBreakdowns,
+  buildPaymentMethodBreakdowns,
+} from '@/lib/admin-analytics-breakdowns';
 import { getAdminMerchantHealthRows } from '@/lib/admin-merchant-health';
 import { revalidateAnalytics } from '@/lib/cache-revalidation';
 import { getCachedPlatformAnalytics } from '@/lib/cached-data';
@@ -9,9 +14,10 @@ import { createClient } from '@/lib/supabase/server';
 import { adminAnalyticsQuerySchema } from '@/schemas/admin-analytics-query';
 import type { AdminMerchantHealthRow } from '@/types/admin-merchants';
 import type {
-  BusinessTypeBreakdown,
   DailyGmvData,
   MerchantActivationStage,
+  OrderStatusBreakdown,
+  PaymentMethodBreakdown,
   PlatformAnalytics,
   SalesChannelBreakdown,
   SignupSourceBreakdown,
@@ -37,7 +43,9 @@ interface MerchantProfileRow {
 
 interface OrderChannelRow {
   merchant_id: string;
+  payment_method: string | null;
   payment_status: string | null;
+  shipping_status: string | null;
   source: string | null;
   total: number | string | null;
 }
@@ -188,7 +196,9 @@ export async function GET(request: NextRequest) {
               .in('merchant_id', merchantIds),
             supabase
               .from('orders')
-              .select('merchant_id, payment_status, source, total')
+              .select(
+                'merchant_id, payment_method, payment_status, shipping_status, source, total'
+              )
               .in('merchant_id', merchantIds)
               .gte('created_at', startDateStr),
             supabase
@@ -243,8 +253,26 @@ export async function GET(request: NextRequest) {
 
     const totalGmv = Number(currentStats.totalGmv) || 0;
     const previousGmv = Number(prevStats.totalGmv) || 0;
+    const totalOrders = Number(currentStats.totalOrders) || 0;
+    const previousOrders = Number(prevStats.totalOrders) || 0;
+    const avgOrderValue = totalOrders > 0 ? totalGmv / totalOrders : 0;
+    const previousAvgOrderValue =
+      previousOrders > 0 ? previousGmv / previousOrders : 0;
     const gmvChange =
       previousGmv > 0 ? ((totalGmv - previousGmv) / previousGmv) * 100 : 0;
+    const orderChange =
+      previousOrders > 0
+        ? ((totalOrders - previousOrders) / previousOrders) * 100
+        : totalOrders > 0
+          ? 100
+          : 0;
+    const aovChange =
+      previousAvgOrderValue > 0
+        ? ((avgOrderValue - previousAvgOrderValue) / previousAvgOrderValue) *
+          100
+        : avgOrderValue > 0
+          ? 100
+          : 0;
     const dailyData = dailySummaryResult.data || [];
     const healthData = ((merchantHealthResult.data as
       | AdminMerchantHealthRow[]
@@ -307,13 +335,27 @@ export async function GET(request: NextRequest) {
             ? (channel.orders / totalChannelOrders) * 100
             : 0,
       }));
+    const paymentStatuses: OrderStatusBreakdown[] = buildOrderStatusBreakdowns(
+      periodOrders,
+      'payment'
+    );
+    const shippingStatuses: OrderStatusBreakdown[] = buildOrderStatusBreakdowns(
+      periodOrders,
+      'shipping'
+    );
+    const paymentMethods: PaymentMethodBreakdown[] =
+      buildPaymentMethodBreakdowns(periodOrders);
     const totalMerchants =
       merchantProfiles.length > 0 ? merchantProfiles.length : healthData.length;
     const completionRate = (count: number) =>
       totalMerchants > 0 ? (count / totalMerchants) * 100 : 0;
-    const categorizedMerchants = merchantProfiles.filter((merchant) =>
-      merchant.business_type?.trim()
-    ).length;
+    const businessTypes = buildBusinessTypeBreakdowns(
+      merchantProfiles.map((merchant) => merchant.business_type),
+      totalMerchants
+    );
+    const categorizedMerchants = businessTypes
+      .filter((businessType) => businessType.classification === 'configured')
+      .reduce((sum, businessType) => sum + businessType.merchants, 0);
     const configuredMerchants = merchantProfiles.filter(
       (merchant) => merchant.business_name?.trim() && merchant.slug?.trim()
     ).length;
@@ -402,25 +444,6 @@ export async function GET(request: NextRequest) {
         description: 'Merchants with at least one paid order',
       },
     ];
-    const businessTypesMap = new Map<string, number>();
-    for (const merchant of merchantProfiles) {
-      const businessType = merchant.business_type?.trim() || 'unspecified';
-      businessTypesMap.set(
-        businessType,
-        (businessTypesMap.get(businessType) ?? 0) + 1
-      );
-    }
-    const businessTypes: BusinessTypeBreakdown[] = Array.from(
-      businessTypesMap.entries()
-    )
-      .sort(
-        (left, right) => right[1] - left[1] || left[0].localeCompare(right[0])
-      )
-      .map(([businessType, merchants]) => ({
-        businessType,
-        merchants,
-        shareOfMerchants: completionRate(merchants),
-      }));
 
     // Process signup source breakdown
     const signupSourceCounts = new Map<string, number>();
@@ -465,10 +488,13 @@ export async function GET(request: NextRequest) {
         totalGmv,
         grossGmv,
         gmvChange,
+        orderChange,
         activeMerchants: Number(currentStats.activeMerchants) || 0,
         totalMerchants,
-        totalOrders: Number(currentStats.totalOrders) || 0,
+        totalOrders,
         grossOrders: totalChannelOrders,
+        avgOrderValue,
+        aovChange,
         avgGmvPerMerchant:
           Number(currentStats.activeMerchants) > 0
             ? totalGmv / Number(currentStats.activeMerchants)
@@ -486,6 +512,9 @@ export async function GET(request: NextRequest) {
       topMerchants,
       dailyGmv,
       salesByChannel,
+      paymentStatuses,
+      shippingStatuses,
+      paymentMethods,
       merchantActivation,
       businessTypes,
       signupSources,

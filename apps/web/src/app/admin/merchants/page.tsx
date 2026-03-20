@@ -44,6 +44,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import {
+  formatAdminCompactCurrency,
+  formatAdminCurrency,
+} from '@/lib/admin-currency';
 import { apiGet } from '@/lib/api-client';
 import { generateSlug } from '@/lib/seo-utils';
 import type {
@@ -51,24 +55,14 @@ import type {
   AdminMerchantsResponse,
 } from '@/types/admin-merchants';
 
-function formatCurrency(value: number | string, currency = 'USD'): string {
-  // Parse value safely - Supabase returns numeric columns as strings for precision
-  const numValue = typeof value === 'string' ? Number.parseFloat(value) : value;
+function formatCurrency(value: number | string): string {
+  const parsedValue =
+    typeof value === 'string' ? Number.parseFloat(value) : value;
+  const numericValue = Number.isFinite(parsedValue) ? parsedValue : 0;
 
-  // Handle NaN or invalid values
-  if (!Number.isFinite(numValue)) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-    }).format(0);
-  }
-
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    notation: numValue >= 1000000 ? 'compact' : 'standard',
-    maximumFractionDigits: numValue >= 1000 ? 1 : 2,
-  }).format(numValue);
+  return numericValue >= 1000
+    ? formatAdminCompactCurrency(numericValue)
+    : formatAdminCurrency(numericValue);
 }
 
 function formatDate(dateStr: string | null): string {
