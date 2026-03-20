@@ -9,7 +9,7 @@ interface ResolveAccountPayload {
 interface ResolveAccountResponse {
   account_name: string;
   account_number: string;
-  bank_id: number;
+  bank_id: number | null;
 }
 
 interface CreateSubaccountPayload {
@@ -31,7 +31,7 @@ export function usePayouts() {
   // Resolve Bank Account
   const resolveAccountMutation = useMutation({
     mutationFn: (data: ResolveAccountPayload) =>
-      apiClient<ResolveAccountResponse>('/api/merchant/payout/resolve', {
+      apiClient<ResolveAccountResponse>('/api/paystack/resolve', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
