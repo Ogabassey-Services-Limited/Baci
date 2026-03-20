@@ -59,6 +59,23 @@ const builderGeminiRequestSchema = z.object({
   currentConfig: aiBuilderConfigSchema,
 });
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function mergeThemeValue(existingValue: unknown, nextValue: unknown): unknown {
+  if (!isPlainObject(existingValue) || !isPlainObject(nextValue)) {
+    return nextValue;
+  }
+
+  const merged: Record<string, unknown> = { ...existingValue };
+  for (const [key, value] of Object.entries(nextValue)) {
+    merged[key] = mergeThemeValue(existingValue[key], value);
+  }
+
+  return merged;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { valid, response } = await checkCsrfProtection(req);
@@ -156,28 +173,13 @@ Please return the complete updated configuration as valid JSON. Make intelligent
 
     let updatedConfig = result.object;
 
-    // Deep merge theme if it exists
-    let mergedTheme = currentConfig.theme || {};
-    if (updatedConfig.theme) {
-      if (updatedConfig.theme.colors) {
-        const existingColors = mergedTheme.colors || {};
-        mergedTheme = {
-          ...mergedTheme,
-          colors: {
-            ...existingColors,
-            ...updatedConfig.theme.colors,
-            header: {
-              ...(existingColors.header || {}),
-              ...(updatedConfig.theme.colors.header || {}),
-            },
-            footer: {
-              ...(existingColors.footer || {}),
-              ...(updatedConfig.theme.colors.footer || {}),
-            },
-          },
-        };
-      }
-    }
+    // Preserve existing theme sections unless Gemini explicitly changes them.
+    const mergedTheme = updatedConfig.theme
+      ? (mergeThemeValue(
+          currentConfig.theme ?? {},
+          updatedConfig.theme
+        ) as Record<string, unknown>)
+      : (currentConfig.theme ?? {});
 
     // Ensure all components have unique IDs
     if (updatedConfig.content && Array.isArray(updatedConfig.content)) {

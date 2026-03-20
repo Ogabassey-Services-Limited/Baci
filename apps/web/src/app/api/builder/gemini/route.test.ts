@@ -192,4 +192,91 @@ describe('/api/builder/gemini route', () => {
       },
     });
   });
+
+  it('deep-merges non-color theme sections from the generated config', async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      user: { id: 'user-1' },
+      supabase: {},
+    });
+
+    vi.mocked(withRetry).mockImplementation(
+      async (fn: () => Promise<unknown>) => fn()
+    );
+    vi.mocked(generateObject).mockResolvedValue({
+      object: {
+        content: [],
+        root: { title: 'Home' },
+        zones: {},
+        theme: {
+          colors: {
+            primary: '#2563eb',
+          },
+          typography: {
+            heading: {
+              fontFamily: 'Sora',
+            },
+          },
+          spacing: {
+            section: {
+              paddingY: '6rem',
+            },
+          },
+        },
+      },
+    } as Awaited<ReturnType<typeof generateObject>>);
+
+    const request = new NextRequest('http://localhost/api/builder/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: 'Refresh the visual design',
+        currentConfig: {
+          content: [],
+          root: { title: 'Home' },
+          zones: {},
+          theme: {
+            colors: {
+              primary: '#000000',
+              footer: { text: '#ffffff' },
+            },
+            typography: {
+              heading: {
+                fontFamily: 'Inter',
+                fontWeight: '700',
+              },
+            },
+            spacing: {
+              section: {
+                paddingX: '2rem',
+              },
+            },
+          },
+        },
+      }),
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.config.theme).toEqual({
+      colors: {
+        primary: '#2563eb',
+        footer: { text: '#ffffff' },
+      },
+      typography: {
+        heading: {
+          fontFamily: 'Sora',
+          fontWeight: '700',
+        },
+      },
+      spacing: {
+        section: {
+          paddingX: '2rem',
+          paddingY: '6rem',
+        },
+      },
+    });
+  });
 });

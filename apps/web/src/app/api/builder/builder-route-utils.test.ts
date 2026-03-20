@@ -87,6 +87,69 @@ describe('builder-route-utils', () => {
     expect(result.data.degradedReason).toBe('config_load_failed');
   });
 
+  it('falls back to the minimal builder config when generated defaults are invalid', async () => {
+    mockGenerateDefaultConfig.mockResolvedValue('not-a-builder-config');
+
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: {
+                    id: 'merchant-1',
+                    business_name: 'Test Store',
+                    business_type: 'fashion',
+                    brand_colors: null,
+                    logo_url: null,
+                    hero_image_ids: [],
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+
+        if (table === 'page_configs') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: null,
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    };
+
+    const result = await loadBuilderPayload(
+      mockSupabase as never,
+      'merchant-1',
+      'home',
+      true
+    );
+
+    expect(result.response).toBeUndefined();
+    if (result.response) return;
+
+    expect(result.data.degraded).toBe(true);
+    expect(result.data.degradedReason).toBe('default_generation_failed');
+    expect(result.data.config).toEqual({
+      content: [],
+      root: { title: 'Home' },
+      zones: {},
+    });
+  });
+
   it('returns a conflict response when saving against a stale builder draft', async () => {
     const mockSupabase = {
       from: vi.fn(() => ({

@@ -14,6 +14,7 @@ import type {
   BuilderDegradedReason,
   BuilderPublishInput,
 } from '@/schemas/builder';
+import { builderConfigSchema } from '@/schemas/builder';
 
 const MINIMAL_BUILDER_CONFIG: BuilderConfigInput = {
   content: [],
@@ -111,8 +112,21 @@ async function resolveDefaultBuilderConfig(
   degradedReason: BuilderDegradedReason | null;
 }> {
   try {
+    const generatedConfig = await generateDefaultConfig(merchant);
+    const validatedConfig = builderConfigSchema.safeParse(generatedConfig);
+    if (!validatedConfig.success) {
+      console.error(
+        'Generated default builder config failed validation:',
+        validatedConfig.error.flatten()
+      );
+      return {
+        config: MINIMAL_BUILDER_CONFIG,
+        degradedReason: 'default_generation_failed',
+      };
+    }
+
     return {
-      config: (await generateDefaultConfig(merchant)) as BuilderConfigInput,
+      config: validatedConfig.data,
       degradedReason: null,
     };
   } catch (error) {

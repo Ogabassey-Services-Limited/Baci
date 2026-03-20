@@ -44,7 +44,6 @@ export function GeminiCommandBar({
     onCommand(command);
     setCommand('');
     setShowSuggestions(false);
-    if (!compact) setShowSuggestions(false);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
