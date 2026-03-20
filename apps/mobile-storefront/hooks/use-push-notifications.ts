@@ -15,6 +15,7 @@ import {
   removePushTokenFromServer,
   savePushTokenToServer,
 } from '@/services/push-notifications';
+import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('PushNotifications');
@@ -54,8 +55,10 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const user = useAuthStore((state) => state.user);
-  const merchantId = useAuthStore((state) => state.merchantId);
+  const { user, merchantId } = useAuthStore(useShallow((state) => ({
+    user: state.user,
+    merchantId: state.merchantId,
+  })));
   const notificationListener = useRef<EventSubscription | null>(null);
   const responseListener = useRef<EventSubscription | null>(null);
 
