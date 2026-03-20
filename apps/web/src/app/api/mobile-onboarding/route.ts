@@ -188,6 +188,13 @@ export async function POST(req: NextRequest) {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '') ||
       'store';
+    const userAgent = req.headers.get('user-agent')?.toLowerCase() ?? '';
+    const signupSource =
+      userAgent.includes('iphone') ||
+      userAgent.includes('ipad') ||
+      userAgent.includes('ios')
+        ? ('ios' as const)
+        : ('android' as const);
 
     // Check for existing merchant
     const { data: existingMerchant, error: lookupError } = await scopedSupabase
@@ -208,19 +215,24 @@ export async function POST(req: NextRequest) {
     let merchantSlug: string;
 
     if (existingMerchant) {
+      const merchantUpdate = {
+        email,
+        business_name: businessName,
+        business_type: finalBusinessType,
+        logo_url: logoUrl,
+        favicon_png_192_url: logoUrl,
+        brand_colors: brandColors,
+        slug,
+        template_id: 'puck',
+        ...(!existingMerchant.business_name?.trim()
+          ? { signup_source: signupSource }
+          : {}),
+      };
+
       // Update existing
       const { data: updatedMerchant, error: updateError } = await scopedSupabase
         .from('merchants')
-        .update({
-          email,
-          business_name: businessName,
-          business_type: finalBusinessType,
-          logo_url: logoUrl,
-          favicon_png_192_url: logoUrl,
-          brand_colors: brandColors,
-          slug,
-          template_id: 'puck',
-        })
+        .update(merchantUpdate)
         .eq('id', existingMerchant.id)
         .select('id, slug')
         .single();
@@ -241,6 +253,7 @@ export async function POST(req: NextRequest) {
           brand_colors: brandColors,
           slug,
           template_id: 'puck',
+          signup_source: signupSource,
         })
         .select('id, slug')
         .single();
