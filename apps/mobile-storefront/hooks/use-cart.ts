@@ -13,6 +13,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { Alert, Platform, ToastAndroid } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import { type CartItem, useCartStore } from '@/stores/cart-store';
@@ -133,13 +134,25 @@ export function useCart() {
   const queryClient = useQueryClient();
 
   // Get store actions
-  const items = useCartStore((state) => state.items);
-  const addItemToStore = useCartStore((state) => state.addItem);
-  const removeItemFromStore = useCartStore((state) => state.removeItem);
-  const updateQuantityInStore = useCartStore((state) => state.updateQuantity);
-  const itemCount = useCartStore((state) => state.itemCount);
-  const subtotal = useCartStore((state) => state.subtotal);
-  const getItem = useCartStore((state) => state.getItem);
+  const {
+    items,
+    addItem: addItemToStore,
+    removeItem: removeItemFromStore,
+    updateQuantity: updateQuantityInStore,
+    itemCount,
+    subtotal,
+    getItem,
+  } = useCartStore(
+    useShallow((state) => ({
+      items: state.items,
+      addItem: state.addItem,
+      removeItem: state.removeItem,
+      updateQuantity: state.updateQuantity,
+      itemCount: state.itemCount,
+      subtotal: state.subtotal,
+      getItem: state.getItem,
+    }))
+  );
 
   // Track pending operations for rollback
   const pendingRollbacks = useRef<Map<string, () => void>>(new Map());

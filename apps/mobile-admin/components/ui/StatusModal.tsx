@@ -62,6 +62,9 @@ export function StatusModal({ status, onClose }: StatusModalProps) {
               },
             ]}
             onPress={onClose}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss status message"
+            accessibilityHint="Closes the status message"
           >
             <Text style={styles.buttonText}>Okay</Text>
           </Pressable>

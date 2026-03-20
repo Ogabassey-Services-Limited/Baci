@@ -10,7 +10,8 @@
  * - https://docs.peppol.eu/poacc/billing/3.0/
  */
 
-import jsPDF from 'jspdf';
+// Use browser ESM bundle to avoid Turbopack resolving jspdf.node.min.js (fflate dynamic worker error).
+import { jsPDF } from 'jspdf/dist/jspdf.es.min.js';
 import autoTable from 'jspdf-autotable';
 
 // Extended jsPDF type with autotable properties

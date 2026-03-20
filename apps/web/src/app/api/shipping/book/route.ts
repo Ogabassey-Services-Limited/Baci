@@ -15,8 +15,13 @@ import type {
   BookingRequest,
   ShippingProviderCode,
 } from '@/lib/shipping/types';
+import { SHIPPING_PROVIDER_CODES } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 import { BookingRequestSchema } from '@/schemas/shipping';
+
+function isShippingProviderCode(value: string): value is ShippingProviderCode {
+  return (SHIPPING_PROVIDER_CODES as readonly string[]).includes(value);
+}
 
 // =============================================================================
 // POST /api/shipping/book - Book a shipment
@@ -95,7 +100,9 @@ export async function POST(request: NextRequest) {
     // Get the selected quote
     const { data: quote, error: quoteError } = await supabase
       .from('shipping_quotes')
-      .select('*')
+      .select(
+        'id, provider_code, provider_rate_id, expires_at, price, currency, estimated_days'
+      )
       .eq('id', data.quoteId)
       .single();
 
@@ -157,7 +164,13 @@ export async function POST(request: NextRequest) {
     };
 
     // Book the shipment
-    const provider = quote.provider as ShippingProviderCode;
+    if (!isShippingProviderCode(quote.provider_code)) {
+      return NextResponse.json(
+        { error: 'Invalid shipping provider in quote' },
+        { status: 400 }
+      );
+    }
+    const provider: ShippingProviderCode = quote.provider_code;
     const result = await shippingService.bookShipment(provider, bookingRequest);
 
     // Create shipment record in database
@@ -199,7 +212,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update order with shipment info
-    await supabase
+    const { error: orderUpdateError } = await supabase
       .from('orders')
       .update({
         shipment_id: shipment?.id,
@@ -209,13 +222,41 @@ export async function POST(request: NextRequest) {
         selected_quote_id: data.quoteId,
         fulfillment_type: 'provider',
       })
-      .eq('id', data.orderId);
+      .eq('id', data.orderId)
+      .eq('merchant_id', merchantId);
+
+    if (orderUpdateError) {
+      console.error(
+        'Error updating order with shipment info:',
+        orderUpdateError
+      );
+      return NextResponse.json(
+        {
+          error:
+            'Shipment booked with provider but failed to update order. Contact support with tracking number: ' +
+            result.trackingNumber,
+          trackingNumber: result.trackingNumber,
+        },
+        { status: 500 }
+      );
+    }
 
     // Mark quote as used
-    await supabase
+    const { error: quoteUpdateError } = await supabase
       .from('shipping_quotes')
       .update({ used: true })
       .eq('id', data.quoteId);
+
+    if (quoteUpdateError) {
+      console.error(
+        'Error marking quote as used after successful shipment booking:',
+        {
+          error: quoteUpdateError,
+          quoteId: data.quoteId,
+          trackingNumber: result.trackingNumber,
+        }
+      );
+    }
 
     return NextResponse.json(
       {

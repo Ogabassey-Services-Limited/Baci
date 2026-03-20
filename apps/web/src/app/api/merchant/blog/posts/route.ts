@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { getSupabaseServiceRoleKey } from '@/env';
 import {
   authenticateApiRequest,
   getUserAccess,
@@ -303,6 +304,7 @@ export async function POST(request: NextRequest) {
         content: postData.content,
         category: postData.category,
       });
+      const serviceRoleKey = getSupabaseServiceRoleKey();
 
       // Fire-and-forget: Call edge function to generate embedding
       fetch(
@@ -311,7 +313,7 @@ export async function POST(request: NextRequest) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            Authorization: `Bearer ${serviceRoleKey}`,
           },
           body: JSON.stringify({
             type: 'blog',

@@ -99,6 +99,7 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
               size="icon"
               variant="outline"
               type="button"
+              aria-label="Remove link"
               className="flex h-8 w-8 items-center rounded-sm text-red-600 transition-all hover:bg-red-100 dark:hover:bg-red-800"
               onClick={() => {
                 editor.chain().focus().unsetLink().run();
@@ -112,6 +113,7 @@ export const LinkSelector = ({ open, onOpenChange }: LinkSelectorProps) => {
               size="icon"
               variant="outline"
               type="button"
+              aria-label="Save link"
               className="flex h-8 w-8 items-center rounded-sm transition-all"
               onClick={() => {
                 const url = getUrlFromString(value);
