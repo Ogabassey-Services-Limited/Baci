@@ -11,7 +11,10 @@ import {
   Settings2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { PlatformSettings } from '@/app/api/admin/settings/route';
+import type {
+  PlatformSettingsResponse,
+  PlatformSettingsSecretStatus,
+} from '@/app/api/admin/settings/route';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -25,12 +28,44 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { apiPut } from '@/lib/api-client';
+import {
+  buildPlatformSettingsUpdatePayload,
+  EMPTY_PLATFORM_SETTINGS_SECRET_INPUTS,
+  type PlatformSettingsSecretInputs,
+} from './settings-payload';
+
+type EditablePlatformSettings = Omit<
+  PlatformSettingsResponse,
+  'id' | 'created_at' | 'updated_at' | 'secretStatus'
+>;
+
+function getSecretPlaceholder(
+  configured: boolean,
+  emptyPlaceholder: string
+): string {
+  return configured
+    ? 'Stored securely. Enter a new value to replace it.'
+    : emptyPlaceholder;
+}
+
+function getSecretHelperText(configured: boolean, configuredLabel: string) {
+  return configured
+    ? `${configuredLabel} is already stored. Leave this blank to keep the current value.`
+    : `No ${configuredLabel.toLowerCase()} has been configured yet.`;
+}
 
 export default function PlatformSettingsPage() {
-  const [settings, setSettings] = useState<PlatformSettings | null>(null);
+  const [settings, setSettings] = useState<PlatformSettingsResponse | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
+  const [secretInputs, setSecretInputs] =
+    useState<PlatformSettingsSecretInputs>(
+      EMPTY_PLATFORM_SETTINGS_SECRET_INPUTS
+    );
   const { toast } = useToast();
 
   const fetchSettings = async () => {
@@ -61,16 +96,12 @@ export default function PlatformSettingsPage() {
 
     setSaving(true);
     try {
-      const response = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      });
-
-      if (!response.ok) throw new Error('Failed to save settings');
-
-      const updated = await response.json();
+      const updated = await apiPut<PlatformSettingsResponse>(
+        '/api/admin/settings',
+        buildPlatformSettingsUpdatePayload(settings, secretInputs)
+      );
       setSettings(updated);
+      setSecretInputs(EMPTY_PLATFORM_SETTINGS_SECRET_INPUTS);
 
       toast({
         title: 'Settings Saved',
@@ -88,12 +119,19 @@ export default function PlatformSettingsPage() {
     }
   };
 
-  const updateSetting = <K extends keyof PlatformSettings>(
+  const updateSetting = <K extends keyof EditablePlatformSettings>(
     key: K,
-    value: PlatformSettings[K]
+    value: EditablePlatformSettings[K]
   ) => {
     if (!settings) return;
     setSettings({ ...settings, [key]: value });
+  };
+
+  const updateSecretInput = <K extends keyof PlatformSettingsSecretStatus>(
+    key: K,
+    value: string
+  ) => {
+    setSecretInputs((current) => ({ ...current, [key]: value }));
   };
 
   const toggleSecretVisibility = (key: string) => {
@@ -198,10 +236,13 @@ export default function PlatformSettingsPage() {
                     <Input
                       id="ga4_secret"
                       type={showSecrets.ga4_secret ? 'text' : 'password'}
-                      placeholder="xxxxxxxxxxxxxxxx"
-                      value={settings.ga4_api_secret || ''}
+                      placeholder={getSecretPlaceholder(
+                        settings.secretStatus.ga4_api_secret,
+                        'xxxxxxxxxxxxxxxx'
+                      )}
+                      value={secretInputs.ga4_api_secret}
                       onChange={(e) =>
-                        updateSetting('ga4_api_secret', e.target.value || null)
+                        updateSecretInput('ga4_api_secret', e.target.value)
                       }
                       className="pr-10"
                     />
@@ -220,7 +261,10 @@ export default function PlatformSettingsPage() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    GA4 Admin → Data Streams → Measurement Protocol API secrets
+                    {getSecretHelperText(
+                      settings.secretStatus.ga4_api_secret,
+                      'GA4 API secret'
+                    )}
                   </p>
                 </div>
               </div>
@@ -258,13 +302,13 @@ export default function PlatformSettingsPage() {
                     <Input
                       id="fb_capi"
                       type={showSecrets.fb_capi ? 'text' : 'password'}
-                      placeholder="EAAxxxxxxxx..."
-                      value={settings.facebook_capi_token || ''}
+                      placeholder={getSecretPlaceholder(
+                        settings.secretStatus.facebook_capi_token,
+                        'EAAxxxxxxxx...'
+                      )}
+                      value={secretInputs.facebook_capi_token}
                       onChange={(e) =>
-                        updateSetting(
-                          'facebook_capi_token',
-                          e.target.value || null
-                        )
+                        updateSecretInput('facebook_capi_token', e.target.value)
                       }
                       className="pr-10"
                     />
@@ -283,8 +327,10 @@ export default function PlatformSettingsPage() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Server-side tracking - bypasses ad blockers for accurate
-                    attribution.
+                    {getSecretHelperText(
+                      settings.secretStatus.facebook_capi_token,
+                      'Facebook Conversions API token'
+                    )}
                   </p>
                 </div>
               </div>
@@ -328,13 +374,13 @@ export default function PlatformSettingsPage() {
                     <Input
                       id="tiktok_token"
                       type={showSecrets.tiktok_token ? 'text' : 'password'}
-                      placeholder="xxxxxxxx..."
-                      value={settings.tiktok_access_token || ''}
+                      placeholder={getSecretPlaceholder(
+                        settings.secretStatus.tiktok_access_token,
+                        'xxxxxxxx...'
+                      )}
+                      value={secretInputs.tiktok_access_token}
                       onChange={(e) =>
-                        updateSetting(
-                          'tiktok_access_token',
-                          e.target.value || null
-                        )
+                        updateSecretInput('tiktok_access_token', e.target.value)
                       }
                       className="pr-10"
                     />
@@ -352,6 +398,12 @@ export default function PlatformSettingsPage() {
                       )}
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    {getSecretHelperText(
+                      settings.secretStatus.tiktok_access_token,
+                      'TikTok Events API token'
+                    )}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -394,13 +446,13 @@ export default function PlatformSettingsPage() {
                     <Input
                       id="snap_capi"
                       type={showSecrets.snap_capi ? 'text' : 'password'}
-                      placeholder="xxxxxxxx..."
-                      value={settings.snapchat_capi_token || ''}
+                      placeholder={getSecretPlaceholder(
+                        settings.secretStatus.snapchat_capi_token,
+                        'xxxxxxxx...'
+                      )}
+                      value={secretInputs.snapchat_capi_token}
                       onChange={(e) =>
-                        updateSetting(
-                          'snapchat_capi_token',
-                          e.target.value || null
-                        )
+                        updateSecretInput('snapchat_capi_token', e.target.value)
                       }
                       className="pr-10"
                     />
@@ -418,6 +470,12 @@ export default function PlatformSettingsPage() {
                       )}
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    {getSecretHelperText(
+                      settings.secretStatus.snapchat_capi_token,
+                      'Snapchat Conversions API token'
+                    )}
+                  </p>
                 </div>
               </div>
             </CardContent>

@@ -1,10 +1,11 @@
 import { cookies } from 'next/headers';
 import { cache } from 'react';
-import type {
-  MerchantData,
-  StaffAccess,
-  StaffRole,
-} from '@/hooks/use-merchant';
+import {
+  fetchDashboardMerchant,
+  fetchPrimaryDomain,
+  type MerchantData,
+  type StaffAccess,
+} from '@/hooks/merchant';
 import { createClient } from '@/lib/supabase/server';
 
 const defaultStaffAccess: StaffAccess = {
@@ -29,102 +30,14 @@ export const getMerchantForUser = cache(async () => {
   }
 
   try {
-    let merchantData: MerchantData | null = null;
-    let access: StaffAccess = { ...defaultStaffAccess };
-
-    // First, try to find merchant where user is owner
-    const { data: ownedMerchant, error: ownerError } = await supabase
-      .from('merchants')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
-
-    if (ownedMerchant && !ownerError) {
-      merchantData = ownedMerchant as MerchantData;
-      access = {
-        isStaff: false,
-        isOwner: true,
-        role: null,
-        permissions: { full_access: { all: true } },
-      };
-    } else if (ownerError && ownerError.code === 'PGRST116') {
-      // User is not a merchant owner, check if they're staff
-      const { data: staffMember, error: staffError } = await supabase
-        .from('staff_members')
-        .select(`
-          id,
-          role,
-          permissions,
-          status,
-          merchant_id,
-          merchants (*)
-        `)
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .single();
-
-      if (staffMember && !staffError) {
-        // Correctly handle the join which might return an array or single object
-        const merchantInfo = (Array.isArray(staffMember.merchants)
-          ? staffMember.merchants[0]
-          : staffMember.merchants) as unknown as MerchantData;
-
-        if (merchantInfo) {
-          // Get effective permissions (role defaults + custom overrides)
-          const { data: rolePerms } = await supabase
-            .from('role_permissions')
-            .select('permissions')
-            .eq('role', staffMember.role)
-            .single();
-
-          const defaultPerms = (rolePerms?.permissions || {}) as Record<
-            string,
-            Record<string, boolean>
-          >;
-          const customPerms = (staffMember.permissions || {}) as Record<
-            string,
-            Record<string, boolean>
-          >;
-
-          // Merge permissions: custom overrides defaults
-          const mergedPermissions: Record<string, Record<string, boolean>> = {
-            ...defaultPerms,
-          };
-          for (const [resource, actions] of Object.entries(customPerms)) {
-            mergedPermissions[resource] = {
-              ...mergedPermissions[resource],
-              ...actions,
-            };
-          }
-
-          merchantData = merchantInfo;
-          access = {
-            isStaff: true,
-            isOwner: false,
-            role: staffMember.role as StaffRole,
-            permissions: mergedPermissions,
-          };
-        }
-      }
-    }
+    const { merchant: merchantData, staffAccess: access } =
+      await fetchDashboardMerchant(supabase, user.id);
 
     // If we found a merchant, fetch their primary domain
     if (merchantData) {
-      const { data: primaryDomain, error: domainError } = await supabase
-        .from('domains')
-        .select('domain')
-        .eq('merchant_id', merchantData.id)
-        .eq('is_primary', true)
-        .eq('status', 'active')
-        .single();
-
-      // PGRST116 = no rows found, which is expected if merchant has no custom domain
-      if (domainError && domainError.code !== 'PGRST116') {
-        console.error('Error fetching primary domain:', domainError);
-      }
-
+      const primaryDomain = await fetchPrimaryDomain(supabase, merchantData.id);
       if (primaryDomain) {
-        merchantData.custom_domain = primaryDomain.domain;
+        merchantData.custom_domain = primaryDomain;
       }
     }
 
