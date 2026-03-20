@@ -22,6 +22,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { OrderPipelineBreakdowns } from '@/app/admin/order-pipeline-breakdowns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,44 +41,16 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-
-interface AnalyticsData {
-  summary: {
-    totalGmv: number;
-    gmvChange: number;
-    totalOrders: number;
-    orderChange: number;
-    avgOrderValue: number;
-    aovChange: number;
-    conversionRate: number;
-    conversionChange: number;
-  };
-  dailyData: Array<{
-    date: string;
-    gmv: number;
-    orders: number;
-    merchants: number;
-  }>;
-  merchantBreakdown: Array<{
-    name: string;
-    gmv: number;
-    orders: number;
-    percentage: number;
-  }>;
-  paymentMethods: Array<{
-    method: string;
-    count: number;
-    amount: number;
-  }>;
-}
+import {
+  formatAdminCompactCurrency,
+  formatAdminCurrency,
+} from '@/lib/admin-currency';
+import type { PlatformAnalytics } from '@/types/analytics';
 
 function formatCurrency(value: number): string {
-  if (value >= 1000000) {
-    return `₦${(value / 1000000).toFixed(2)}M`;
-  } else if (value >= 1000) {
-    return `₦${(value / 1000).toFixed(1)}K`;
-  }
-  return `₦${value.toFixed(0)}`;
+  return value >= 1000
+    ? formatAdminCompactCurrency(value)
+    : formatAdminCurrency(value);
 }
 
 function formatNumber(value: number): string {
@@ -95,7 +68,7 @@ function formatPercentage(value: number): string {
 }
 
 export default function AnalyticsPage() {
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [analytics, setAnalytics] = useState<PlatformAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
   const { toast } = useToast();
@@ -105,38 +78,8 @@ export default function AnalyticsPage() {
       setLoading(true);
       const response = await fetch(`/api/admin/analytics?period=${period}`);
       if (!response.ok) throw new Error('Failed to fetch analytics');
-      const data = await response.json();
-
-      // Transform the data for this page
-      setAnalytics({
-        summary: {
-          totalGmv: data.summary?.totalGmv || 0,
-          gmvChange: data.summary?.gmvChange || 0,
-          totalOrders: data.summary?.totalOrders || 0,
-          orderChange: 0, // Not in API yet
-          avgOrderValue:
-            data.summary?.totalOrders > 0
-              ? data.summary.totalGmv / data.summary.totalOrders
-              : 0,
-          aovChange: 0,
-          conversionRate: 0,
-          conversionChange: 0,
-        },
-        dailyData: data.dailyGmv || [],
-        merchantBreakdown:
-          data.topMerchants?.map(
-            (m: { name: string; gmv: number; orders: number }) => ({
-              name: m.name,
-              gmv: m.gmv,
-              orders: m.orders,
-              percentage:
-                data.summary?.totalGmv > 0
-                  ? (m.gmv / data.summary.totalGmv) * 100
-                  : 0,
-            })
-          ) || [],
-        paymentMethods: [], // Not in API yet
-      });
+      const data = (await response.json()) as PlatformAnalytics;
+      setAnalytics(data);
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
       toast({
@@ -155,7 +98,7 @@ export default function AnalyticsPage() {
   }, [period, toast]);
 
   const chartData =
-    analytics?.dailyData.map((d) => ({
+    analytics?.dailyGmv.map((d) => ({
       date: new Date(d.date).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -221,7 +164,7 @@ export default function AnalyticsPage() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-muted-foreground">
-                    Total GMV
+                    Paid GMV
                   </p>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </div>
@@ -250,17 +193,28 @@ export default function AnalyticsPage() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-muted-foreground">
-                    Total Orders
+                    Paid Orders
                   </p>
                   <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <p className="text-2xl font-bold mt-2">
                   {formatNumber(analytics?.summary.totalOrders || 0)}
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  in the last{' '}
-                  {period === '7d' ? '7' : period === '30d' ? '30' : '90'} days
-                </p>
+                <div className="flex items-center mt-1">
+                  {(analytics?.summary.orderChange || 0) >= 0 ? (
+                    <ArrowUpRight className="h-4 w-4 text-emerald-500" />
+                  ) : (
+                    <ArrowDownRight className="h-4 w-4 text-red-500" />
+                  )}
+                  <span
+                    className={`text-sm ${(analytics?.summary.orderChange || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}
+                  >
+                    {formatPercentage(analytics?.summary.orderChange || 0)}
+                  </span>
+                  <span className="text-sm text-muted-foreground ml-1">
+                    vs last period
+                  </span>
+                </div>
               </CardContent>
             </Card>
 
@@ -275,9 +229,21 @@ export default function AnalyticsPage() {
                 <p className="text-2xl font-bold mt-2">
                   {formatCurrency(analytics?.summary.avgOrderValue || 0)}
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  per transaction
-                </p>
+                <div className="flex items-center mt-1">
+                  {(analytics?.summary.aovChange || 0) >= 0 ? (
+                    <ArrowUpRight className="h-4 w-4 text-emerald-500" />
+                  ) : (
+                    <ArrowDownRight className="h-4 w-4 text-red-500" />
+                  )}
+                  <span
+                    className={`text-sm ${(analytics?.summary.aovChange || 0) >= 0 ? 'text-emerald-500' : 'text-red-500'}`}
+                  >
+                    {formatPercentage(analytics?.summary.aovChange || 0)}
+                  </span>
+                  <span className="text-sm text-muted-foreground ml-1">
+                    vs last period
+                  </span>
+                </div>
               </CardContent>
             </Card>
 
@@ -290,7 +256,7 @@ export default function AnalyticsPage() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <p className="text-2xl font-bold mt-2">
-                  {analytics?.merchantBreakdown?.length || 0}
+                  {formatNumber(analytics?.summary.activeMerchants || 0)}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
                   with sales this period
@@ -310,7 +276,9 @@ export default function AnalyticsPage() {
               <BarChart3 className="h-5 w-5" />
               GMV Over Time
             </CardTitle>
-            <CardDescription>Daily gross merchandise value</CardDescription>
+            <CardDescription>
+              Daily paid GMV from platform analytics
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -470,10 +438,9 @@ export default function AnalyticsPage() {
                   </div>
                 ))}
               </div>
-            ) : analytics?.merchantBreakdown &&
-              analytics.merchantBreakdown.length > 0 ? (
+            ) : analytics?.topMerchants.length ? (
               <div className="space-y-4">
-                {analytics.merchantBreakdown.map((merchant, index) => (
+                {analytics.topMerchants.map((merchant, index) => (
                   <div key={merchant.name} className="flex items-center gap-4">
                     <div className="flex items-center gap-2 w-32 min-w-0">
                       <Badge variant="outline" className="shrink-0">
@@ -487,7 +454,13 @@ export default function AnalyticsPage() {
                       <div
                         className="h-full bg-primary rounded-full transition-all"
                         style={{
-                          width: `${Math.min(merchant.percentage, 100)}%`,
+                          width: `${Math.min(
+                            analytics.summary.totalGmv > 0
+                              ? (merchant.gmv / analytics.summary.totalGmv) *
+                                  100
+                              : 0,
+                            100
+                          )}%`,
                         }}
                       />
                     </div>
@@ -505,6 +478,20 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <OrderPipelineBreakdowns
+        loading={loading}
+        paymentMethods={analytics?.paymentMethods || []}
+        paymentStatuses={analytics?.paymentStatuses || []}
+        periodLabel={
+          period === '7d'
+            ? 'last 7 days'
+            : period === '30d'
+              ? 'last 30 days'
+              : 'last 90 days'
+        }
+        shippingStatuses={analytics?.shippingStatuses || []}
+      />
     </div>
   );
 }

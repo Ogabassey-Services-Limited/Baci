@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatAdminCompactCurrency } from '@/lib/admin-currency';
 import type {
   BusinessTypeBreakdown,
   MerchantActivationStage,
@@ -43,25 +44,6 @@ const ACTIVATION_SKELETON_IDS = [
   'activation-skeleton-h',
 ];
 
-const BUSINESS_TYPE_LABELS: Record<string, string> = {
-  electronics: 'Electronics & Gadgets',
-  fashion: 'Fashion & Apparel',
-  'food-beverage': 'Food & Beverage',
-  'hair-extensions': 'Hair Extensions',
-  'health-beauty': 'Health & Beauty',
-  'home-goods': 'Home Goods & Decor',
-  pharmaceuticals: 'Pharmaceuticals',
-  unspecified: 'Unspecified',
-};
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
 function formatPercent(value: number): string {
   return `${value.toFixed(value >= 10 ? 0 : 1)}%`;
 }
@@ -85,20 +67,6 @@ function formatSourceLabel(source: string): string {
       .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
       .join(' ')
   );
-}
-
-function formatBusinessTypeLabel(businessType: string): string {
-  const normalized = businessType.trim().toLowerCase();
-  const configuredLabel = BUSINESS_TYPE_LABELS[normalized];
-  if (configuredLabel) {
-    return configuredLabel;
-  }
-
-  return normalized
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ');
 }
 
 const SIGNUP_SOURCE_LABELS: Record<string, string> = {
@@ -130,6 +98,10 @@ export function PlatformPerformanceBreakdowns({
   signupSources,
 }: PlatformPerformanceBreakdownsProps) {
   const totalSignups = signupSources.reduce((sum, s) => sum + s.merchants, 0);
+  const invalidBusinessTypeValues = businessTypes.flatMap((businessType) =>
+    businessType.classification === 'invalid' ? businessType.rawValues : []
+  );
+
   return (
     <div className="grid gap-6 xl:grid-cols-2">
       <Card className="glass">
@@ -165,7 +137,7 @@ export function PlatformPerformanceBreakdowns({
                       </p>
                     </div>
                     <p className="text-sm font-semibold">
-                      {formatCurrency(channel.gmv)}
+                      {formatAdminCompactCurrency(channel.gmv)}
                     </p>
                   </div>
                   <Progress
@@ -251,8 +223,7 @@ export function PlatformPerformanceBreakdowns({
                         key={businessType.businessType}
                         className="rounded-full border bg-muted/50 px-3 py-1 text-xs font-medium"
                       >
-                        {formatBusinessTypeLabel(businessType.businessType)} ·{' '}
-                        {businessType.merchants}
+                        {businessType.label} · {businessType.merchants}
                       </div>
                     ))}
                   </div>
@@ -261,6 +232,12 @@ export function PlatformPerformanceBreakdowns({
                     No business type data yet.
                   </p>
                 )}
+                {invalidBusinessTypeValues.length > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Invalid values found in merchant data:{' '}
+                    {invalidBusinessTypeValues.join(', ')}
+                  </p>
+                ) : null}
               </div>
             </>
           )}

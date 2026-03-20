@@ -9,13 +9,27 @@ describe('PlatformPerformanceBreakdowns', () => {
         businessTypes={[
           {
             businessType: 'fashion',
+            classification: 'configured',
+            label: 'Fashion & Apparel',
             merchants: 4,
+            rawValues: [],
             shareOfMerchants: 40,
           },
           {
+            businessType: 'invalid',
+            classification: 'invalid',
+            label: 'Invalid / Legacy Values',
+            merchants: 1,
+            rawValues: ['Church', 'School'],
+            shareOfMerchants: 10,
+          },
+          {
             businessType: 'unspecified',
-            merchants: 6,
-            shareOfMerchants: 60,
+            classification: 'unspecified',
+            label: 'Unspecified',
+            merchants: 5,
+            rawValues: [],
+            shareOfMerchants: 50,
           },
         ]}
         loading={false}
@@ -65,7 +79,11 @@ describe('PlatformPerformanceBreakdowns', () => {
     expect(screen.getByText('Merchant Readiness')).toBeInTheDocument();
     expect(screen.getByText('First Paid Order')).toBeInTheDocument();
     expect(screen.getByText('Fashion & Apparel · 4')).toBeInTheDocument();
-    expect(screen.getByText('Unspecified · 6')).toBeInTheDocument();
+    expect(screen.getByText('Invalid / Legacy Values · 1')).toBeInTheDocument();
+    expect(screen.getByText('Unspecified · 5')).toBeInTheDocument();
+    expect(
+      screen.getByText('Invalid values found in merchant data: Church, School')
+    ).toBeInTheDocument();
     expect(screen.getByText('Signups by Platform')).toBeInTheDocument();
     expect(screen.getByText('Web Browser')).toBeInTheDocument();
     expect(screen.getByText('iOS App')).toBeInTheDocument();
