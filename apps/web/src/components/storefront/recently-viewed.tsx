@@ -12,6 +12,7 @@ import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useRecentlyViewed } from '@/hooks/use-recently-viewed';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet } from '@/lib/api-client';
+import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
@@ -111,6 +112,9 @@ export function RecentlyViewedProducts({
   if (!isLoading && products.length === 0) {
     return null;
   }
+
+  const isOutOfStock = (product: Product) =>
+    (product.manage_stock ?? true) && getEffectiveStock(product) <= 0;
 
   return (
     <section className={cn('w-full py-8 md:py-12', className)}>
@@ -213,7 +217,7 @@ export function RecentlyViewedProducts({
                       size="sm"
                       className="text-xs px-2 py-1 h-7"
                       onClick={() => handleAddToCart(product)}
-                      disabled={product.manage_stock && product.stock === 0}
+                      disabled={isOutOfStock(product)}
                     >
                       Add
                     </ThemedButton>
