@@ -6,25 +6,38 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  FlatList,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { type SavedItem, useSavedStore } from '@/stores/saved-store';
-import { useShallow } from 'zustand/react/shallow';
 
 export default function SavedTabScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { items, removeItem } = useSavedStore(useShallow((s) => ({ items: s.items, removeItem: s.removeItem })));
+  const { items, removeItem } = useSavedStore(
+    useShallow((s) => ({ items: s.items, removeItem: s.removeItem }))
+  );
   const { isOnline, refresh } = useNetworkState();
 
-  const SAVED_ITEM_HEIGHT = 80 + (SPACING.md * 2) + SPACING.md; // Image height + 2 * padding + gap
-  const getItemLayout = (_data: ArrayLike<SavedItem> | null | undefined, index: number) => ({
+  const SAVED_ITEM_HEIGHT = 80 + SPACING.md * 2; // Image height + 2 * padding
+  const SAVED_ITEM_GAP = SPACING.md;
+  const getItemLayout = (
+    _data: ArrayLike<SavedItem> | null | undefined,
+    index: number
+  ) => ({
     length: SAVED_ITEM_HEIGHT,
-    offset: SAVED_ITEM_HEIGHT * index,
+    offset: (SAVED_ITEM_HEIGHT + SAVED_ITEM_GAP) * index,
     index,
   });
 

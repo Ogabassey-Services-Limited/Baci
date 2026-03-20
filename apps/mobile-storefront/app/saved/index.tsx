@@ -234,11 +234,17 @@ export default function SavedItemsScreen() {
   // actionsRow paddingBottom: SPACING.md (16)
   // actionsRow button height approx: font 13 + paddingVertical SPACING.sm (12) * 2 = 37
   // total item content height = 32 + 100 + 16 + 37 = 185
-  // plus separator height: 16
-  const ITEM_HEIGHT = 185 + SPACING.md;
-  const getItemLayout = (_data: ArrayLike<SavedItem> | null | undefined, index: number) => ({
-    length: ITEM_HEIGHT,
-    offset: ITEM_HEIGHT * index,
+  const ITEM_CONTENT_HEIGHT = 185;
+  const ITEM_SEPARATOR_HEIGHT = SPACING.md;
+  // Header is a single text row with a bottom margin.
+  const HEADER_HEIGHT = 20 + SPACING.md;
+  const getItemLayout = (
+    _data: ArrayLike<SavedItem> | null | undefined,
+    index: number
+  ) => ({
+    length: ITEM_CONTENT_HEIGHT,
+    offset:
+      HEADER_HEIGHT + (ITEM_CONTENT_HEIGHT + ITEM_SEPARATOR_HEIGHT) * index,
     index,
   });
 
