@@ -287,11 +287,16 @@ export default function CartScreen() {
   // Solid separator: 1 + 16 = 17
   // Bottom row: 20 (toggle) + 16 (marginTop) = 36
   // Total approx: 32 + 80 + 33 + 36 + 17 + 36 = 234
-  // Plus gap: 16 => 250
+  // Rounded up for content height. Inter-item gap is tracked separately below.
   const CART_ITEM_HEIGHT = 250;
-  const getItemLayout = (_data: ArrayLike<CartItem> | null | undefined, index: number) => ({
-    length: CART_ITEM_HEIGHT,
-    offset: CART_ITEM_HEIGHT * index,
+  const CART_ITEM_GAP = SPACING.md;
+  const CART_ITEM_FULL_HEIGHT = CART_ITEM_HEIGHT + CART_ITEM_GAP;
+  const getItemLayout = (
+    _data: ArrayLike<CartItem> | null | undefined,
+    index: number
+  ) => ({
+    length: CART_ITEM_FULL_HEIGHT,
+    offset: CART_ITEM_FULL_HEIGHT * index,
     index,
   });
 
