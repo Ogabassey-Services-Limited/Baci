@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -41,6 +41,10 @@ describe('GET /api/admin/notifications/[id]', () => {
   const mockAdminSupabase = {
     from: vi.fn(),
   };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
