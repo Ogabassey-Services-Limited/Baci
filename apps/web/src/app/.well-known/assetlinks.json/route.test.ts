@@ -42,6 +42,20 @@ describe('GET /.well-known/assetlinks.json', () => {
 
     expect(body).toHaveLength(1);
     expect(body[0].target.package_name).toBe('com.ogabassey.store');
+    expect(body[0].relation).toContain(
+      'delegate_permission/common.get_login_creds'
+    );
+  });
+
+  it('returns storefront app for ogabassey subdomain on the root domain', async () => {
+    const res = GET(makeRequest('ogabassey.usebaci.com'));
+    const body = await res.json();
+
+    expect(body).toHaveLength(1);
+    expect(body[0].target.package_name).toBe('com.ogabassey.store');
+    expect(body[0].relation).toContain(
+      'delegate_permission/common.get_login_creds'
+    );
   });
 
   it('returns empty array for unknown merchant domain', async () => {

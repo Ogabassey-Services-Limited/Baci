@@ -411,6 +411,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // ==== LLM DISCOVERY PASSTHROUGH ====
+  // Keep host-scoped llms files available on both the platform domain and
+  // merchant storefront domains without proxy rewrites.
+  if (pathname === '/llms.txt' || pathname === '/llms-full.txt') {
+    return NextResponse.next();
+  }
+
   // ==== SEO: GLOBAL LOWERCASE REDIRECT ====
   // Force all paths to be lowercase to prevent duplicate content crawling
   // Skip: _next (assets), api (backend), static files
