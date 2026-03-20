@@ -6,7 +6,7 @@ description: |
   performance, optimize, slow, bundle size, query optimization, lighthouse,
   core web vitals, speed.
 tools: Read, Glob, Grep, Bash
-model: sonnet
+model: opus
 color: cyan
 memory: project
 ---
@@ -64,3 +64,17 @@ Output per finding:
 5. **Priority**: P0 (blocks users) -> P3 (nice to have)
 
 Update memory with new findings after completing analysis.
+
+
+**React Native Performance (Expo):**
+When analyzing mobile-admin (Expo 55, RN 0.83, FlatList-based):
+- FlatList: use `getItemLayout` only for truly fixed-height items and include separator or gap spacing in the offset
+- Avoid inline objects or styles in `renderItem`
+- Keep list items lightweight: no hooks, no queries inside items, pass pre-computed primitives as props
+- Consider FlashList or LegendList for lists with 100+ items as an improvement, not a default migration
+- Animate only `transform` and `opacity` unless layout change is explicitly intended
+- Never track scroll position in `useState`; use a Reanimated shared value or `useRef`
+- Use `contentInsetAdjustmentBehavior=\"automatic\"` for safe-area-aware scroll containers where supported
+- Hoist `Intl.NumberFormat` and `Intl.DateTimeFormat` creation to module scope
+- Prefer `gap` over ad hoc sibling margins when the target platform supports it
+- Keep recommendations mapped to the existing **P0 -> P3** priority scale

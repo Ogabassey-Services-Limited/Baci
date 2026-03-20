@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import {
   AI_RATE_LIMITS,
@@ -8,13 +8,15 @@ import {
   sanitizePromptInput,
   withRetry,
 } from '@/ai/provider';
+import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
-
-// Puck configuration schema for structured output
-const PuckComponentSchema = z.object({
-  type: z.string(),
-  props: z.record(z.string(), z.any()),
-});
+import { builderConfigSchema } from '@/schemas/builder';
+import { BUILDER_GEMINI_SYSTEM_PROMPT } from '../gemini-system-prompt';
 
 const PuckThemeColorsSchema = z
   .object({
@@ -41,15 +43,8 @@ const PuckThemeColorsSchema = z
   })
   .passthrough();
 
-const PuckConfigSchema = z
-  .object({
-    content: z.array(PuckComponentSchema),
-    root: z
-      .object({
-        title: z.string().optional(),
-      })
-      .passthrough(),
-    zones: z.record(z.string(), z.any()).optional(),
+const aiBuilderConfigSchema = builderConfigSchema
+  .extend({
     theme: z
       .object({
         colors: PuckThemeColorsSchema.optional(),
@@ -59,81 +54,55 @@ const PuckConfigSchema = z
   })
   .passthrough();
 
-// System prompt for the AI builder
-const SYSTEM_PROMPT = `You are an expert website builder AI assistant with deep knowledge of e-commerce storefronts, UX/UI design, and modern web technologies.
+const builderGeminiRequestSchema = z.object({
+  prompt: z.string().trim().min(1, 'Prompt is required'),
+  currentConfig: aiBuilderConfigSchema,
+});
 
-Your role is to help merchants build and customize their online stores by modifying a Puck-based page builder configuration.
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
-## Available Components:
-1. **Header** - Navigation bar with logo, search, cart, menu links, CTA button
-2. **Hero** - Large hero section with title, subtitle, CTA, optional background image
-3. **HeroCarousel** - Automatic rotating hero slides
-4. **Text** - Rich text content blocks
-5. **Image** - Images with optional links and aspect ratios
-6. **Button** - Call-to-action buttons (can be inline)
-7. **ProductGrid** - Product listing with category filters and sorting
-8. **Testimonial** - Customer reviews with ratings and avatars
-9. **Features** - Feature highlights with icons
-10. **Newsletter** - Email signup form
-11. **Spacer** - Vertical spacing control
-12. **Footer** - Footer with links, social media, newsletter
-13. **Video** - YouTube/Vimeo embeds
-14. **Map** - Google Maps embed
-15. **InstagramFeed** - Instagram feed placeholder
-16. **ContactForm** - Contact form with customizable fields
-17. **SocialIcons** - Social media icon links
-18. **CodeEmbed** - Custom HTML/JavaScript
-19. **Search** - Search bar with optional filters
+function mergeThemeValue(existingValue: unknown, nextValue: unknown): unknown {
+  if (!isPlainObject(existingValue) || !isPlainObject(nextValue)) {
+    return nextValue;
+  }
 
-## Theme System:
-The configuration includes a powerful theme system that controls ALL visual styling:
-- **colors.primary**: Primary brand color (buttons, accents)
-- **colors.accent**: Secondary accent color
-- **colors.header**: Header styling (background, text, icons, search bar)
-- **colors.footer**: Footer styling (background, text, links)
-- **typography**: Font families, sizes, line heights
-- **spacing**: Padding, margins, container widths
-- **borders**: Border radius, widths
-- **effects**: Shadows, transitions
+  const merged: Record<string, unknown> = { ...existingValue };
+  for (const [key, value] of Object.entries(nextValue)) {
+    merged[key] = mergeThemeValue(existingValue[key], value);
+  }
 
-## Guidelines:
-1. **Preserve Structure**: Never remove existing content unless explicitly requested
-2. **Theme First**: For visual changes (colors, fonts, spacing), modify the theme object
-3. **Component Props**: For content changes (text, images, links), modify component props
-4. **Smart Defaults**: Use professional, e-commerce appropriate defaults
-5. **Responsive**: Consider mobile users in your suggestions
-6. **Accessibility**: Maintain good contrast ratios and semantic structure
-7. **Performance**: Optimize image sizes and avoid excessive components
-8. **SEO**: Include relevant titles, descriptions, and alt text
-9. **Brand Consistency**: Keep colors and styles consistent across components
-10. **User Intent**: Interpret requests intelligently (e.g., "make it blue" → update theme colors)
+  return merged;
+}
 
-## Common Patterns:
-- **Color changes**: Update theme.colors
-- **Add section**: Insert new component in content array
-- **Reorder**: Move components in content array
-- **Style tweaks**: Update theme properties
-- **Content updates**: Modify component props
-- **Layout changes**: Adjust component positioning and properties
-
-## Examples:
-- "make the site blue" → Update theme.colors.primary to blue, adjust related colors
-- "add a testimonials section" → Insert Testimonial component(s) in logical position
-- "change hero title" → Update Hero component's title prop
-- "make header sticky" → Update Header component's sticky prop to true
-- "add social media icons" → Insert SocialIcons component with platform URLs
-
-Remember: You're helping merchants create beautiful, functional storefronts. Be creative but professional.`;
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(req);
+    if (!valid) {
+      return response as NextResponse;
+    }
+
     // Auth check - supports both cookie (web) and Bearer token (mobile)
     const auth = await getAuthenticatedUser(req);
     if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { user } = auth;
+    const { user, supabase } = auth;
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'builder', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // Rate limiting
     const rateLimit = checkRateLimit(
@@ -156,14 +125,25 @@ export async function POST(req: Request) {
       );
     }
 
-    const { prompt, currentConfig } = await req.json();
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
-    if (!prompt) {
+    const parsed = builderGeminiRequestSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Prompt is required' },
+        {
+          error: 'Invalid request body',
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       );
     }
+
+    const { prompt, currentConfig } = parsed.data;
 
     // Sanitize the user prompt
     const sanitizedPrompt = sanitizePromptInput(prompt, 1000).value;
@@ -176,8 +156,8 @@ export async function POST(req: Request) {
     const result = await withRetry(async () => {
       return await generateObject({
         model: activeTextModel,
-        schema: PuckConfigSchema,
-        system: SYSTEM_PROMPT,
+        schema: aiBuilderConfigSchema,
+        system: BUILDER_GEMINI_SYSTEM_PROMPT,
         prompt: `Current Configuration:
 \`\`\`json
 ${JSON.stringify(currentConfig, null, 2)
@@ -193,28 +173,13 @@ Please return the complete updated configuration as valid JSON. Make intelligent
 
     let updatedConfig = result.object;
 
-    // Deep merge theme if it exists
-    let mergedTheme = currentConfig.theme || {};
-    if (updatedConfig.theme) {
-      if (updatedConfig.theme.colors) {
-        const existingColors = mergedTheme.colors || {};
-        mergedTheme = {
-          ...mergedTheme,
-          colors: {
-            ...existingColors,
-            ...updatedConfig.theme.colors,
-            header: {
-              ...(existingColors.header || {}),
-              ...(updatedConfig.theme.colors.header || {}),
-            },
-            footer: {
-              ...(existingColors.footer || {}),
-              ...(updatedConfig.theme.colors.footer || {}),
-            },
-          },
-        };
-      }
-    }
+    // Preserve existing theme sections unless Gemini explicitly changes them.
+    const mergedTheme = updatedConfig.theme
+      ? (mergeThemeValue(
+          currentConfig.theme ?? {},
+          updatedConfig.theme
+        ) as Record<string, unknown>)
+      : (currentConfig.theme ?? {});
 
     // Ensure all components have unique IDs
     if (updatedConfig.content && Array.isArray(updatedConfig.content)) {
