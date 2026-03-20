@@ -81,6 +81,7 @@ After writing tests:
 2. Check for any skipped or pending tests
 3. Report coverage summary if available
 
+
 **React Native (Expo) Testing:**
 When writing tests for mobile-admin (Vitest + jsdom-based render utilities):
 - This app uses Vitest with web-style testing utilities, not `@testing-library/react-native`

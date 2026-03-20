@@ -65,6 +65,7 @@ Output per finding:
 
 Update memory with new findings after completing analysis.
 
+
 **React Native Performance (Expo):**
 When analyzing mobile-admin (Expo 55, RN 0.83, FlatList-based):
 - FlatList: use `getItemLayout` only for truly fixed-height items and include separator or gap spacing in the offset

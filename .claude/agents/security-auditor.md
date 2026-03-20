@@ -77,6 +77,7 @@ Severity levels:
 - **LOW (P3)**: Hardening recommendation
 - **INFO**: Best practice observation
 
+
 **React Native (Expo) Security:**
 When auditing mobile-admin (Expo 55, Supabase anon-key only):
 - No secrets in `app.config.ts` or EAS build configs; only public keys belong in mobile config
