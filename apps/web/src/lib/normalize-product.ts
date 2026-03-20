@@ -11,6 +11,7 @@
  * - Predictable structures improve SEO signal quality
  */
 
+import { getEffectiveStock } from '@/lib/product-stock';
 import { generateSlug } from '@/lib/seo-utils';
 
 const PLACEHOLDER_IMAGE =
@@ -37,6 +38,7 @@ export interface RawDbProduct {
   compare_at_price?: number;
   condition?: string;
   stock?: number;
+  stock_quantity?: number;
   rating?: number;
   merchant_id?: string;
   status?: string;
@@ -135,7 +137,7 @@ export function normalizeProduct(raw: RawDbProduct): NormalizedProduct {
     (raw.category ? generateSlug(raw.category) : 'general');
 
   // Determine stock availability
-  const stock = raw.stock ?? 0;
+  const stock = getEffectiveStock(raw);
   const availability: 'InStock' | 'OutOfStock' =
     stock > 0 ? 'InStock' : 'OutOfStock';
 

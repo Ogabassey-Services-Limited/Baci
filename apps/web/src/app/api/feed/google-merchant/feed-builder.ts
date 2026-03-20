@@ -11,6 +11,7 @@ import {
   resolveGmcAdditionalImages,
   resolveGmcPrimaryImage,
 } from '@/lib/gmc-feed-images';
+import { getEffectiveStock } from '@/lib/product-stock';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 
 export interface FeedProduct {
@@ -25,6 +26,8 @@ export interface FeedProduct {
   mpn?: string;
   sku?: string;
   stock: number;
+  stock_quantity?: number;
+  manage_stock?: boolean;
   condition?: 'new' | 'used' | 'refurbished';
   google_product_category?: string;
   category?: string;
@@ -43,6 +46,8 @@ export interface FeedMerchant {
 
 /** Map of product_id → manifest entries for that product */
 export type ImageManifestMap = Record<string, FeedImageManifestEntry[]>;
+
+const UNLIMITED_STOCK_QUANTITY = 9999;
 
 function isValidForGmc(product: FeedProduct): boolean {
   if (!product.price || product.price <= 0) return false;
@@ -69,6 +74,14 @@ function escapeXml(unsafe: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+function getFeedStockCount(product: FeedProduct): number {
+  if (product.manage_stock === false) {
+    return UNLIMITED_STOCK_QUANTITY;
+  }
+
+  return getEffectiveStock(product);
 }
 
 /**
@@ -110,7 +123,7 @@ export function generateGoogleMerchantFeed(
         )
         .join('\n');
 
-      const stockCount = typeof product.stock === 'number' ? product.stock : 0;
+      const stockCount = getFeedStockCount(product);
       const availability = stockCount > 0 ? 'in_stock' : 'out_of_stock';
       const condition = product.condition || 'new';
       const formattedPrice = product.price.toFixed(2);

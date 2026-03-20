@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { getEffectiveStock } from '@/lib/product-stock';
 import { createServiceClient } from '@/lib/supabase/service';
 
 /**
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     if (validFormatIds.length > 0) {
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, price, stock, status, manage_stock')
+        .select('id, name, price, stock, stock_quantity, status, manage_stock')
         .in('id', validFormatIds);
 
       if (error) {
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
         validProducts.push({
           id: String(product.id), // Ensure string
           price: product.price,
-          stock: product.stock,
+          stock: getEffectiveStock(product),
           name: product.name,
           manage_stock: product.manage_stock,
         });

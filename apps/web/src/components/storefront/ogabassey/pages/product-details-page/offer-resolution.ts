@@ -1,3 +1,4 @@
+import { getEffectiveStock } from '@/lib/product-stock';
 import type { ConditionType } from './product-condition';
 import type { NormalizedProductDetails } from './product-normalization';
 
@@ -19,7 +20,7 @@ export function resolveCurrentOffer(
       Number.parseInt(productData.price.replace(/[^0-9]/g, ''), 10) || 0;
   }
 
-  let stock = productData.manage_stock ? (productData.stock ?? 0) : 999;
+  let stock = productData.manage_stock ? getEffectiveStock(productData) : 999;
 
   if (
     selectedCondition.toLowerCase() !==
@@ -31,7 +32,7 @@ export function resolveCurrentOffer(
 
     if (offer) {
       price = offer.rawPrice;
-      stock = offer.stock ?? offer.stock_quantity ?? stock;
+      stock = getEffectiveStock(offer);
     }
   }
 
@@ -56,9 +57,7 @@ export function resolveCurrentOffer(
         price = Math.max(0, price);
       }
 
-      if (variant.stock !== undefined) {
-        stock = variant.stock;
-      }
+      stock = getEffectiveStock(variant);
     }
   }
 
