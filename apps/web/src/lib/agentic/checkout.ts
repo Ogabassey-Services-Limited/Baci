@@ -1,5 +1,6 @@
 // --- Interfaces based on Spec ---
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getEffectiveStock } from '@/lib/product-stock';
 
 export interface GPTLineItem {
   id: string; // "line_item_123"
@@ -75,6 +76,7 @@ interface AgenticProduct {
   name: string;
   price: number;
   stock: number;
+  stock_quantity?: number;
   weight_value?: number;
   weight_unit?: string;
 }
@@ -110,7 +112,7 @@ export async function calculateCheckoutSession(
   // Try fetching from products first (parents)
   const { data: products } = await supabase
     .from('products')
-    .select('id, name, price, stock, weight_value, weight_unit')
+    .select('id, name, price, stock, stock_quantity, weight_value, weight_unit')
     .in('id', productIds)
     .returns<AgenticProduct[]>();
 
@@ -152,7 +154,7 @@ export async function calculateCheckoutSession(
       // It's a parent
       price = product.price;
       title = product.name;
-      stock = product.stock;
+      stock = getEffectiveStock(product);
       weight = product.weight_unit === 'kg' ? product.weight_value || 0 : 0; // Simplified
       _shippingWeightTotal += weight * requestedItem.quantity;
     } else {

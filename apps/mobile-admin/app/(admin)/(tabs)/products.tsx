@@ -38,6 +38,10 @@ import {
   useTopSellingProducts,
 } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
+import {
+  getEffectiveProductStock,
+  getProductStockBucket,
+} from '@/lib/product-inventory';
 
 // Item heights for getItemLayout optimization
 const PRODUCT_ITEM_HEIGHT = 96;
@@ -84,10 +88,21 @@ function ProductItem({
   onPress,
 }: ProductItemProps) {
   const getStockStatus = () => {
-    if (!item.manage_stock) return { label: 'In Stock', color: colors.success };
-    const stock = item.stock ?? item.stock_quantity ?? 0;
-    if (stock === 0) return { label: 'Out of stock', color: colors.error };
-    if (stock < 10) return { label: `${stock} left`, color: colors.warning };
+    const stockBucket = getProductStockBucket(item);
+    const stock = getEffectiveProductStock(item);
+
+    if (stockBucket === 'unmanaged') {
+      return { label: 'Unlimited stock', color: colors.success };
+    }
+
+    if (stockBucket === 'out_of_stock') {
+      return { label: 'Out of stock', color: colors.error };
+    }
+
+    if (stockBucket === 'low_stock') {
+      return { label: `${stock} left`, color: colors.warning };
+    }
+
     return { label: `${stock} in stock`, color: colors.success };
   };
 
@@ -371,13 +386,18 @@ export default function ProductsScreen() {
 
     switch (activeTab) {
       case 'in_stock':
-        return filtered.filter((p) => p.stock > 0 || !p.manage_stock);
+        return filtered.filter((product) => {
+          const stockBucket = getProductStockBucket(product);
+          return stockBucket === 'in_stock' || stockBucket === 'unmanaged';
+        });
       case 'low_stock':
         return filtered.filter(
-          (p) => p.stock > 0 && p.stock < 10 && p.manage_stock
+          (product) => getProductStockBucket(product) === 'low_stock'
         );
       case 'out_of_stock':
-        return filtered.filter((p) => p.stock === 0 && p.manage_stock);
+        return filtered.filter(
+          (product) => getProductStockBucket(product) === 'out_of_stock'
+        );
       default:
         return filtered;
     }
@@ -385,7 +405,8 @@ export default function ProductsScreen() {
 
   // Calculate stats
   const stats = {
-    total: inventoryStats?.totalStock ?? 0,
+    total:
+      inventoryStats?.totalProducts ?? data?.pages[0]?.totalCount ?? products.length,
     active: inventoryStats?.activeCount ?? 0,
     lowStock: inventoryStats?.lowStockCount ?? 0,
     outOfStock: inventoryStats?.outOfStockCount ?? 0,

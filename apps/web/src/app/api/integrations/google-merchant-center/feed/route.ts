@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { getEffectiveProductStock } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET(_request: Request) {
@@ -13,7 +14,7 @@ export async function GET(_request: Request) {
       .from('products')
       .select(
         `id, name, description, slug, sku, price, image, images,
-         stock, manage_stock, condition, brand, gtin, mpn,
+         stock, stock_quantity, manage_stock, condition, brand, gtin, mpn,
          google_product_category, weight_value, weight_unit,
          parent_product_id`
       )
@@ -32,7 +33,7 @@ export async function GET(_request: Request) {
         const link = `${siteUrl}/products/${product.slug || product.id}`;
         const imageLink = product.image || '';
         const availability =
-          product.manage_stock && product.stock <= 0
+          product.manage_stock && !getEffectiveProductStock(product)
             ? 'out of stock'
             : 'in stock';
         const price = `${product.price} USD`;

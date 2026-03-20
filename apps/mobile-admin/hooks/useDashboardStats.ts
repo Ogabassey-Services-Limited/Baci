@@ -451,9 +451,14 @@ async function fetchTopProducts(
   merchantId: string,
   limit: number = 5
 ): Promise<TopProduct[]> {
+  const startDate = new Date(0).toISOString();
+  const endDate = new Date().toISOString();
+
   // Get top selling products by quantity sold
   const { data, error } = await supabase.rpc('get_top_products', {
     p_merchant_id: merchantId,
+    p_start_date: startDate,
+    p_end_date: endDate,
     p_limit: limit,
   });
 

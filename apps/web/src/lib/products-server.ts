@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
+import {
+  getEffectiveStock,
+  matchesProductStockFilter,
+} from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 
@@ -68,26 +72,18 @@ export async function getProducts(
   // Sanitize search input
   const search = searchRaw ? sanitizeSearchQuery(searchRaw) : '';
   const offset = (page - 1) * limit;
+  const shouldPaginateInDatabase = stock === 'All';
 
   // Build query
   let query = supabase
     .from('products')
     .select(PRODUCT_WITH_VARIANTS_QUERY, { count: 'exact' })
     .eq('merchant_id', merchantId)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .order('created_at', { ascending: false });
 
   // Apply filters
   if (status !== 'All') {
     query = query.eq('status', status);
-  }
-
-  if (stock !== 'All') {
-    if (stock === 'out_of_stock') {
-      query = query.eq('stock_quantity', 0);
-    } else if (stock === 'in_stock') {
-      query = query.gt('stock_quantity', 0);
-    }
   }
 
   if (search?.trim()) {
@@ -95,6 +91,10 @@ export async function getProducts(
     query = query.or(
       `name.ilike.%${sanitizedPattern}%,sku.ilike.%${sanitizedPattern}%,description.ilike.%${sanitizedPattern}%`
     );
+  }
+
+  if (shouldPaginateInDatabase) {
+    query = query.range(offset, offset + limit - 1);
   }
 
   const { data: productsData, error, count } = await query;
@@ -130,7 +130,7 @@ export async function getProducts(
         status: p.status || (p.is_active ? 'active' : 'draft'),
         price: Number.parseFloat(p.price),
         manage_stock: p.manage_stock ?? true,
-        stock: p.stock_quantity,
+        stock: getEffectiveStock(p),
         minimum_order_quantity: p.min_order_quantity,
 
         // Image handling
@@ -220,6 +220,20 @@ export async function getProducts(
       };
     }) || [];
 
+  const filteredProducts =
+    stock === 'All'
+      ? transformedProducts
+      : transformedProducts.filter((product) =>
+          matchesProductStockFilter(product, stock)
+        );
+  const paginatedProducts = shouldPaginateInDatabase
+    ? filteredProducts
+    : filteredProducts.slice(offset, offset + limit);
+  const totalProducts =
+    stock === 'All'
+      ? (count ?? filteredProducts.length)
+      : filteredProducts.length;
+
   // OPTIMIZED: Use database RPC instead of fetching all products
   let inventoryValue = 0;
   let outOfStockCount = 0;
@@ -250,12 +264,12 @@ export async function getProducts(
   }
 
   return {
-    products: transformedProducts,
+    products: paginatedProducts,
     pagination: {
       page,
       limit,
-      total: count || 0,
-      totalPages: Math.ceil((count || 0) / limit),
+      total: totalProducts,
+      totalPages: Math.ceil(totalProducts / limit),
     },
     stats: {
       inventoryValue,
