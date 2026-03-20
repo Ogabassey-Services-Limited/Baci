@@ -58,11 +58,16 @@ import { ThemeEditor } from '@/components/builder/theme-editor-redesigned';
 import { useCopilotBuilderActions } from '@/components/builder/use-copilot-builder-actions';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
-import { StorefrontProvider } from '@/contexts/storefront-context';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
+import { apiPost, apiPut, fetchWithCsrf } from '@/lib/api-client';
 import { defaultTheme, type ThemeConfiguration } from '@/lib/theme-config';
 import { applyTheme } from '@/lib/theme-manager';
+import type { BuilderDegradedReason } from '@/schemas/builder';
+import type {
+  BuilderLoadResponse,
+  BuilderMutationResponse,
+} from '@/types/builder';
 
 // Component icon mapping - using component functions for dynamic sizing
 const componentIcons: Record<
@@ -89,6 +94,37 @@ const componentIcons: Record<
   CodeEmbed: Code,
   Search: Search,
 };
+
+function getDegradedBuilderDescription(
+  degradedReason: BuilderDegradedReason | null
+) {
+  switch (degradedReason) {
+    case 'config_load_failed':
+      return 'We could not load the latest builder draft from the server. Refresh to resume editing once the connection stabilizes.';
+    case 'default_generation_failed':
+      return 'We could not generate a safe fallback template for this store. Refresh later before making changes.';
+    default:
+      return 'This builder session is read-only until the latest draft can be loaded again.';
+  }
+}
+
+function getBuilderMutationErrorMessage(error: unknown, fallback: string) {
+  if (!(error instanceof Error)) return fallback;
+
+  if (error.message === 'Builder draft is out of date') {
+    return 'This page changed in another session. Refresh the builder to continue with the latest version.';
+  }
+
+  return error.message || fallback;
+}
+
+function getBuilderBootstrapUrl() {
+  if (typeof window === 'undefined') {
+    return '/api/builder?slug=home';
+  }
+
+  return new URL('/api/builder?slug=home', window.location.origin).toString();
+}
 
 export default function BuilderClient() {
   const [data, setData] = useState<Data>({
@@ -156,6 +192,10 @@ export default function BuilderClient() {
   const [publishing, setPublishing] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [showFieldsSidebar, setShowFieldsSidebar] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [canEdit, setCanEdit] = useState(true);
+  const [degradedReason, setDegradedReason] =
+    useState<BuilderDegradedReason | null>(null);
   const { toast } = useToast();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -180,7 +220,7 @@ export default function BuilderClient() {
       }
 
       try {
-        const res = await fetch('/api/builder?slug=home');
+        const res = await fetch(getBuilderBootstrapUrl());
 
         if (!res.ok) {
           if (res.status === 401) {
@@ -190,14 +230,17 @@ export default function BuilderClient() {
           throw new Error(`API error: ${res.status}`);
         }
 
-        const json = await res.json();
+        const json = (await res.json()) as BuilderLoadResponse;
 
         if (json.config) {
-          setData(json.config);
+          setData(json.config as Data);
+          setLastUpdated(json.lastUpdated);
+          setCanEdit(json.canEdit);
+          setDegradedReason(json.degradedReason);
 
           // Load SEO data if it exists
           if (json.seo) {
-            setSeoData(json.seo);
+            setSeoData(json.seo as SEOData);
           } else {
             // Set default SEO from page title
             setSeoData({
@@ -210,20 +253,26 @@ export default function BuilderClient() {
 
           // Load Store Settings if they exist
           if (json.storeSettings) {
-            setStoreSettings(json.storeSettings);
+            setStoreSettings(json.storeSettings as StoreSettings);
           }
 
           // Load Setup Settings if they exist
           if (json.setupSettings) {
-            setSetupSettings(json.setupSettings);
+            setSetupSettings(json.setupSettings as SetupSettings);
           }
 
           if (json.config.theme) {
-            applyTheme(json.config.theme);
+            applyTheme(json.config.theme as ThemeConfiguration);
           } else {
             applyTheme(defaultTheme);
           }
-          if (json.isDefault) {
+          if (json.degraded) {
+            toast({
+              title: 'Builder opened in read-only mode',
+              description: getDegradedBuilderDescription(json.degradedReason),
+              variant: 'destructive',
+            });
+          } else if (json.isDefault) {
             toast({
               title: 'Starting from your template',
               description:
@@ -256,6 +305,9 @@ export default function BuilderClient() {
         };
         setData(defaultData);
         applyTheme(defaultData.theme);
+        setLastUpdated(null);
+        setCanEdit(false);
+        setDegradedReason('config_load_failed');
       } finally {
         setPageLoading(false);
       }
@@ -264,47 +316,70 @@ export default function BuilderClient() {
     loadData();
   }, [user, merchant, authLoading, merchantLoading, router, toast]);
 
-  const handleSave = async (newData: Data) => {
+  const handleSave = async (newData: Data): Promise<string | null> => {
+    if (!canEdit) {
+      toast({
+        title: 'Builder is read-only',
+        description: getDegradedBuilderDescription(degradedReason),
+        variant: 'destructive',
+      });
+      return null;
+    }
+
     setSaving(true);
     try {
-      await fetch('/api/builder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slug: 'home',
-          name: 'Home',
-          config: newData,
-          seo: seoData,
-          storeSettings: storeSettings,
-          setupSettings: setupSettings,
-        }),
+      const result = await apiPost<BuilderMutationResponse>('/api/builder', {
+        slug: 'home',
+        name: 'Home',
+        config: newData,
+        seo: seoData,
+        storeSettings: storeSettings,
+        setupSettings: setupSettings,
+        expectedLastUpdated: lastUpdated,
       });
+      setLastUpdated(result.lastUpdated);
+      return result.lastUpdated;
     } catch (error) {
       console.error('Failed to save:', error);
       toast({
         title: 'Error',
-        description: 'Failed to save changes.',
+        description: getBuilderMutationErrorMessage(
+          error,
+          'Failed to save changes.'
+        ),
         variant: 'destructive',
       });
+      return null;
     } finally {
       setSaving(false);
     }
   };
 
   const handlePublish = async () => {
-    if (!data) return;
+    if (!data || !canEdit) {
+      if (!canEdit) {
+        toast({
+          title: 'Builder is read-only',
+          description: getDegradedBuilderDescription(degradedReason),
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
 
     setPublishing(true);
-    await handleSave(data);
+    const savedLastUpdated = await handleSave(data);
+    if (!savedLastUpdated) {
+      setPublishing(false);
+      return;
+    }
 
     try {
-      const res = await fetch('/api/builder', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: 'home' }),
+      const result = await apiPut<BuilderMutationResponse>('/api/builder', {
+        slug: 'home',
+        expectedLastUpdated: savedLastUpdated,
       });
-
-      if (!res.ok) throw new Error('Failed to publish');
+      setLastUpdated(result.lastUpdated);
 
       toast({
         title: 'Published! 🚀',
@@ -314,7 +389,10 @@ export default function BuilderClient() {
       console.error('Failed to publish:', error);
       toast({
         title: 'Error',
-        description: 'Failed to publish changes.',
+        description: getBuilderMutationErrorMessage(
+          error,
+          'Failed to publish changes.'
+        ),
         variant: 'destructive',
       });
     } finally {
@@ -323,9 +401,18 @@ export default function BuilderClient() {
   };
 
   const handleAiCommand = async (command: string) => {
+    if (!canEdit) {
+      toast({
+        title: 'Builder is read-only',
+        description: getDegradedBuilderDescription(degradedReason),
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsAiLoading(true);
     try {
-      const response = await fetch('/api/builder/gemini', {
+      const response = await fetchWithCsrf('/api/builder/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -363,10 +450,10 @@ export default function BuilderClient() {
       console.error('Gemini AI Command Error:', error);
       toast({
         title: 'Error',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Failed to process AI command. Please try again.',
+        description: getBuilderMutationErrorMessage(
+          error,
+          'Failed to process AI command. Please try again.'
+        ),
         variant: 'destructive',
       });
     } finally {
@@ -391,6 +478,10 @@ export default function BuilderClient() {
   }
 
   const handleDataChange = (newData: Data) => {
+    if (!canEdit) {
+      return;
+    }
+
     // Ensure all components have unique IDs
     if (newData.content) {
       newData.content = newData.content.map((component, index) => {
@@ -412,265 +503,262 @@ export default function BuilderClient() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
-      <StorefrontProvider>
-        <Puck
-          config={builderConfig}
-          data={data}
-          onPublish={handlePublish}
-          onChange={handleDataChange}
-          metadata={{
-            merchantId: merchant.id,
-            merchant: merchant,
-            products: [],
-          }}
-          overrides={{
-            componentOverlay: ({
-              children,
-              componentId,
-              componentType,
-              isSelected,
-            }: {
-              children: React.ReactNode;
-              componentId: string;
-              componentType: string;
-              isSelected: boolean;
-            }) => {
-              // Get component index to determine if it can move up/down
-              const componentIndex =
-                data.content?.findIndex(
-                  (c) => (c.props as DefaultComponentProps)?.id === componentId
-                ) ?? -1;
-              const canMoveUp = componentIndex > 0;
-              const canMoveDown =
-                componentIndex >= 0 &&
-                componentIndex < (data.content?.length ?? 0) - 1;
+      <Puck
+        config={builderConfig}
+        data={data}
+        onPublish={handlePublish}
+        onChange={handleDataChange}
+        metadata={{
+          merchantId: merchant.id,
+          merchant: merchant,
+          products: [],
+        }}
+        overrides={{
+          componentOverlay: ({
+            children,
+            componentId,
+            componentType,
+            isSelected,
+          }: {
+            children: React.ReactNode;
+            componentId: string;
+            componentType: string;
+            isSelected: boolean;
+          }) => {
+            // Get component index to determine if it can move up/down
+            const componentIndex =
+              data.content?.findIndex(
+                (c) => (c.props as DefaultComponentProps)?.id === componentId
+              ) ?? -1;
+            const canMoveUp = componentIndex > 0;
+            const canMoveDown =
+              componentIndex >= 0 &&
+              componentIndex < (data.content?.length ?? 0) - 1;
 
-              // Position menu below for Header component or first component to avoid overlap
-              const menuPosition =
-                componentType === 'Header' || componentIndex === 0
-                  ? 'bottom'
-                  : 'top';
+            // Position menu below for Header component or first component to avoid overlap
+            const menuPosition =
+              componentType === 'Header' || componentIndex === 0
+                ? 'bottom'
+                : 'top';
 
-              return (
-                <div className="relative">
-                  {children}
-                  {isSelected && (
-                    <InlineContextMenu
-                      componentId={componentId}
-                      componentType={componentType}
-                      position={menuPosition}
-                      onEdit={() => {
-                        setShowFieldsSidebar(true);
-                      }}
-                      onDuplicate={() => {
-                        const componentToDuplicate = data.content?.find(
-                          (c) =>
-                            (c.props as DefaultComponentProps)?.id ===
-                            componentId
-                        );
-                        if (componentToDuplicate) {
-                          const newComponent = {
-                            ...componentToDuplicate,
-                            props: {
-                              ...componentToDuplicate.props,
-                              id: `${componentToDuplicate.type}-${Date.now()}`,
-                            },
-                          };
-                          const newContent = [...(data.content || [])];
-                          newContent.splice(
-                            componentIndex + 1,
-                            0,
-                            newComponent
-                          );
-                          setData({ ...data, content: newContent });
-                        }
-                      }}
-                      onDelete={() => {
-                        if (
-                          confirm(`Delete this ${componentType} component?`)
-                        ) {
-                          const newContent =
-                            data.content?.filter(
-                              (c) =>
-                                (c.props as DefaultComponentProps)?.id !==
-                                componentId
-                            ) || [];
-                          setData({ ...data, content: newContent });
-                        }
-                      }}
-                      onMoveUp={() => {
-                        if (canMoveUp) {
-                          const newContent = [...(data.content || [])];
-                          [
-                            newContent[componentIndex - 1],
-                            newContent[componentIndex],
-                          ] = [
-                            newContent[componentIndex],
-                            newContent[componentIndex - 1],
-                          ];
-                          setData({ ...data, content: newContent });
-                        }
-                      }}
-                      onMoveDown={() => {
-                        if (canMoveDown) {
-                          const newContent = [...(data.content || [])];
-                          [
-                            newContent[componentIndex],
-                            newContent[componentIndex + 1],
-                          ] = [
-                            newContent[componentIndex + 1],
-                            newContent[componentIndex],
-                          ];
-                          setData({ ...data, content: newContent });
-                        }
-                      }}
-                      canMoveUp={canMoveUp}
-                      canMoveDown={canMoveDown}
-                    />
-                  )}
-                </div>
-              );
-            },
-            drawer: ({
-              children: _children,
-            }: {
-              children: React.ReactNode;
-            }) => {
-              // Get all components from all categories (deduplicated)
-              const allComponents: string[] = [];
-              const categories = builderConfig.categories || {};
-              Object.values(categories).forEach((category) => {
-                if (category.components && Array.isArray(category.components)) {
-                  allComponents.push(...category.components);
-                }
-              });
-              const uniqueComponents = Array.from(new Set(allComponents));
-
-              return (
-                <div style={{ height: '100%', overflow: 'auto' }}>
-                  <p
-                    style={{
-                      fontSize: '0.875rem',
-                      color: '#6b7280',
-                      marginBottom: '1rem',
+            return (
+              <div className="relative">
+                {children}
+                {isSelected && (
+                  <InlineContextMenu
+                    componentId={componentId}
+                    componentType={componentType}
+                    position={menuPosition}
+                    onEdit={() => {
+                      setShowFieldsSidebar(true);
                     }}
-                  >
-                    Drag and drop elements anywhere on your page
-                  </p>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(2, 1fr)',
-                      gap: '0.75rem',
-                      width: '100%',
+                    onDuplicate={() => {
+                      const componentToDuplicate = data.content?.find(
+                        (c) =>
+                          (c.props as DefaultComponentProps)?.id === componentId
+                      );
+                      if (componentToDuplicate) {
+                        const newComponent = {
+                          ...componentToDuplicate,
+                          props: {
+                            ...componentToDuplicate.props,
+                            id: `${componentToDuplicate.type}-${Date.now()}`,
+                          },
+                        };
+                        const newContent = [...(data.content || [])];
+                        newContent.splice(componentIndex + 1, 0, newComponent);
+                        setData({ ...data, content: newContent });
+                      }
                     }}
-                  >
-                    {uniqueComponents.map((componentName, index) => {
-                      const IconComponent =
-                        componentIcons[componentName] || Box;
-                      return (
-                        <Drawer.Item
-                          // biome-ignore lint/suspicious/noArrayIndexKey: List is static
-                          key={`${componentName}-${index}`}
-                          name={componentName}
-                        >
-                          {({ children: _itemChildren }) => (
+                    onDelete={() => {
+                      if (confirm(`Delete this ${componentType} component?`)) {
+                        const newContent =
+                          data.content?.filter(
+                            (c) =>
+                              (c.props as DefaultComponentProps)?.id !==
+                              componentId
+                          ) || [];
+                        setData({ ...data, content: newContent });
+                      }
+                    }}
+                    onMoveUp={() => {
+                      if (canMoveUp) {
+                        const newContent = [...(data.content || [])];
+                        [
+                          newContent[componentIndex - 1],
+                          newContent[componentIndex],
+                        ] = [
+                          newContent[componentIndex],
+                          newContent[componentIndex - 1],
+                        ];
+                        setData({ ...data, content: newContent });
+                      }
+                    }}
+                    onMoveDown={() => {
+                      if (canMoveDown) {
+                        const newContent = [...(data.content || [])];
+                        [
+                          newContent[componentIndex],
+                          newContent[componentIndex + 1],
+                        ] = [
+                          newContent[componentIndex + 1],
+                          newContent[componentIndex],
+                        ];
+                        setData({ ...data, content: newContent });
+                      }
+                    }}
+                    canMoveUp={canMoveUp}
+                    canMoveDown={canMoveDown}
+                  />
+                )}
+              </div>
+            );
+          },
+          drawer: ({ children: _children }: { children: React.ReactNode }) => {
+            // Get all components from all categories (deduplicated)
+            const allComponents: string[] = [];
+            const categories = builderConfig.categories || {};
+            Object.values(categories).forEach((category) => {
+              if (category.components && Array.isArray(category.components)) {
+                allComponents.push(...category.components);
+              }
+            });
+            const uniqueComponents = Array.from(new Set(allComponents));
+
+            return (
+              <div style={{ height: '100%', overflow: 'auto' }}>
+                <p
+                  style={{
+                    fontSize: '0.875rem',
+                    color: '#6b7280',
+                    marginBottom: '1rem',
+                  }}
+                >
+                  Drag and drop elements anywhere on your page
+                </p>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '0.75rem',
+                    width: '100%',
+                  }}
+                >
+                  {uniqueComponents.map((componentName, index) => {
+                    const IconComponent = componentIcons[componentName] || Box;
+                    return (
+                      <Drawer.Item
+                        // biome-ignore lint/suspicious/noArrayIndexKey: List is static
+                        key={`${componentName}-${index}`}
+                        name={componentName}
+                      >
+                        {({ children: _itemChildren }) => (
+                          <div
+                            style={{
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '0.5rem',
+                              padding: '0.75rem',
+                              minHeight: '80px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'grab',
+                              transition: 'all 0.2s',
+                              background: 'white',
+                              overflow: 'hidden',
+                            }}
+                          >
                             <div
                               style={{
-                                border: '1px solid #e5e7eb',
-                                borderRadius: '0.5rem',
-                                padding: '0.75rem',
-                                minHeight: '80px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'grab',
-                                transition: 'all 0.2s',
-                                background: 'white',
-                                overflow: 'hidden',
+                                color: '#9ca3af',
+                                marginBottom: '0.5rem',
                               }}
                             >
-                              <div
-                                style={{
-                                  color: '#9ca3af',
-                                  marginBottom: '0.5rem',
-                                }}
-                              >
-                                <IconComponent className="w-8 h-8" />
-                              </div>
-                              <span
-                                style={{
-                                  fontSize: '0.7rem',
-                                  fontWeight: 400,
-                                  color: '#6b7280',
-                                  textAlign: 'center',
-                                  lineHeight: '1.2',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                  width: '100%',
-                                }}
-                              >
-                                {componentName}
-                              </span>
+                              <IconComponent className="w-8 h-8" />
                             </div>
-                          )}
-                        </Drawer.Item>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            },
-          }}
-        >
-          <div className="flex flex-col h-screen bg-background">
-            <header className="h-14 border-b flex items-center justify-between px-4 bg-background/95 backdrop-blur z-10 shrink-0">
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" asChild className="h-9 w-9">
-                  <Link href="/dashboard">
-                    <ArrowLeft className="w-4 h-4" />
-                    <span className="sr-only">Back to Dashboard</span>
-                  </Link>
-                </Button>
-                <div className="flex items-center gap-2 ml-2">
-                  <span className="font-semibold text-lg">Website Builder</span>
+                            <span
+                              style={{
+                                fontSize: '0.7rem',
+                                fontWeight: 400,
+                                color: '#6b7280',
+                                textAlign: 'center',
+                                lineHeight: '1.2',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                width: '100%',
+                              }}
+                            >
+                              {componentName}
+                            </span>
+                          </div>
+                        )}
+                      </Drawer.Item>
+                    );
+                  })}
                 </div>
               </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => data && handleSave(data)}
-                  disabled={saving}
-                  className="h-9"
-                >
-                  {saving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  <span className="ml-2 hidden sm:inline">Save Draft</span>
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handlePublish}
-                  disabled={publishing}
-                  className="h-9"
-                >
-                  {publishing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Globe className="w-4 h-4" />
-                  )}
-                  <span className="ml-2 hidden sm:inline">Publish</span>
-                </Button>
+            );
+          },
+        }}
+      >
+        <div className="flex flex-col h-screen bg-background">
+          <header className="h-14 border-b flex items-center justify-between px-4 bg-background/95 backdrop-blur z-10 shrink-0">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" asChild className="h-9 w-9">
+                <Link href="/dashboard">
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="sr-only">Back to Dashboard</span>
+                </Link>
+              </Button>
+              <div className="flex items-center gap-2 ml-2">
+                <span className="font-semibold text-lg">Website Builder</span>
               </div>
-            </header>
+            </div>
 
-            <div className="flex-1 overflow-hidden flex">
+            <div className="flex items-center gap-2">
+              {!canEdit && (
+                <div className="hidden md:flex rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
+                  Read-only recovery mode
+                </div>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => data && handleSave(data)}
+                disabled={saving || !canEdit}
+                className="h-9"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                <span className="ml-2 hidden sm:inline">Save Draft</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={handlePublish}
+                disabled={publishing || !canEdit}
+                className="h-9"
+              >
+                {publishing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Globe className="w-4 h-4" />
+                )}
+                <span className="ml-2 hidden sm:inline">Publish</span>
+              </Button>
+            </div>
+          </header>
+
+          <div className="flex-1 overflow-hidden flex relative">
+            <div
+              className={`flex flex-1 overflow-hidden ${
+                canEdit ? '' : 'pointer-events-none opacity-60 select-none'
+              }`}
+            >
               <BuilderSidebar
                 themeEditor={
                   <ThemeEditor
@@ -712,6 +800,7 @@ export default function BuilderClient() {
                         onCommand={handleAiCommand}
                         isLoading={isAiLoading}
                         compact={true}
+                        disabled={!canEdit}
                       />
                     </div>
                   </div>
@@ -877,6 +966,7 @@ export default function BuilderClient() {
                 <GeminiCommandBar
                   onCommand={handleAiCommand}
                   isLoading={isAiLoading}
+                  disabled={!canEdit}
                 />
               </div>
 
@@ -916,9 +1006,28 @@ export default function BuilderClient() {
                 </div>
               )}
             </div>
+
+            {!canEdit && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/65 backdrop-blur-sm">
+                <div className="max-w-md rounded-xl border bg-background p-6 text-center shadow-lg">
+                  <h2 className="text-lg font-semibold">
+                    Builder is in read-only mode
+                  </h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {getDegradedBuilderDescription(degradedReason)}
+                  </p>
+                  <Button
+                    className="mt-4"
+                    onClick={() => window.location.reload()}
+                  >
+                    Reload Builder
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
-        </Puck>
-      </StorefrontProvider>
+        </div>
+      </Puck>
     </div>
   );
 }

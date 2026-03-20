@@ -2,50 +2,96 @@ import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCheckCsrfProtection = vi.fn();
-const mockGetAuthenticatedUser = vi.fn();
-const mockGetMerchantForApiRequest = vi.fn();
-const mockHasPermission = vi.fn();
-const mockGenerateDefaultConfig = vi.fn();
+const mockGetBuilderRequestContext = vi.fn();
+const mockLoadBuilderPayload = vi.fn();
+const mockSaveBuilderDraft = vi.fn();
+const mockPublishBuilderDraft = vi.fn();
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mockCheckCsrfProtection,
 }));
 
-vi.mock('@/lib/supabase/mobile-auth', () => ({
-  getAuthenticatedUser: mockGetAuthenticatedUser,
-}));
-
-vi.mock('@/lib/get-merchant-for-api-request', () => ({
-  getMerchantForApiRequest: mockGetMerchantForApiRequest,
-  toUserAccess: vi.fn(() => ({ role: 'owner' })),
-}));
-
-vi.mock('@/lib/api-auth', () => ({
-  hasPermission: mockHasPermission,
-}));
-
-vi.mock('@/lib/builder-defaults', () => ({
-  generateDefaultConfig: mockGenerateDefaultConfig,
+vi.mock('./builder-route-utils', () => ({
+  getBuilderRequestContext: mockGetBuilderRequestContext,
+  loadBuilderPayload: mockLoadBuilderPayload,
+  saveBuilderDraft: mockSaveBuilderDraft,
+  publishBuilderDraft: mockPublishBuilderDraft,
 }));
 
 describe('/api/builder route', () => {
-  const mockSupabase = {
-    from: vi.fn(),
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
     mockCheckCsrfProtection.mockResolvedValue({ valid: true });
-    mockGetAuthenticatedUser.mockResolvedValue({
-      user: { id: 'user-1' },
-      supabase: mockSupabase,
+    mockGetBuilderRequestContext.mockResolvedValue({
+      context: {
+        merchantId: 'merchant-1',
+        supabase: {},
+      },
     });
-    mockGetMerchantForApiRequest.mockResolvedValue({
-      merchantId: 'merchant-1',
-      role: 'owner',
+  });
+
+  it('returns the builder payload from the loader helper', async () => {
+    mockLoadBuilderPayload.mockResolvedValue({
+      data: {
+        config: { content: [], root: { title: 'Home' }, zones: {} },
+        seo: null,
+        storeSettings: null,
+        setupSettings: null,
+        publishedConfig: null,
+        isPublished: false,
+        isDefault: true,
+        lastUpdated: null,
+        degraded: false,
+        degradedReason: null,
+        canEdit: true,
+      },
     });
-    mockHasPermission.mockReturnValue(true);
-    mockGenerateDefaultConfig.mockResolvedValue({ content: [] });
+
+    const request = new NextRequest('http://localhost/api/builder?slug=home');
+
+    const { GET } = await import('./route');
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.canEdit).toBe(true);
+    expect(body.degraded).toBe(false);
+    expect(mockGetBuilderRequestContext).toHaveBeenCalledWith(request, 'view');
+    expect(mockLoadBuilderPayload).toHaveBeenCalled();
+  });
+
+  it('returns the helper response when builder context fails', async () => {
+    mockGetBuilderRequestContext.mockResolvedValue({
+      response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+    });
+
+    const request = new NextRequest('http://localhost/api/builder?slug=home');
+
+    const { GET } = await import('./route');
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ error: 'Forbidden' });
+    expect(mockLoadBuilderPayload).not.toHaveBeenCalled();
+  });
+
+  it('returns the loader response directly when loading the builder fails', async () => {
+    mockLoadBuilderPayload.mockResolvedValue({
+      response: NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      ),
+    });
+
+    const request = new NextRequest('http://localhost/api/builder?slug=home');
+
+    const { GET } = await import('./route');
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toEqual({ error: 'Merchant not found' });
   });
 
   it('returns the CSRF response before handling POST mutations', async () => {
@@ -84,55 +130,25 @@ describe('/api/builder route', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('Invalid request body');
+    expect(mockSaveBuilderDraft).not.toHaveBeenCalled();
   });
 
-  it('returns 401 before parsing malformed POST JSON when unauthenticated', async () => {
-    mockGetAuthenticatedUser.mockResolvedValue(null);
-
-    const request = new NextRequest('http://localhost/api/builder', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{invalid-json',
+  it('returns the saved draft payload from the helper', async () => {
+    mockSaveBuilderDraft.mockResolvedValue({
+      data: {
+        id: 'config-1',
+        updated_at: '2026-03-20T18:00:00.000Z',
+      },
+      lastUpdated: '2026-03-20T18:00:00.000Z',
     });
-
-    const { POST } = await import('./route');
-    const response = await POST(request);
-    const body = await response.json();
-
-    expect(response.status).toBe(401);
-    expect(body).toEqual({ error: 'Unauthorized' });
-  });
-
-  it('returns 200 and persists the draft on a valid POST payload', async () => {
-    const upsert = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({
-          data: {
-            id: 'config-1',
-            merchant_id: 'merchant-1',
-            page_slug: 'home',
-            draft_config: { content: [] },
-            draft_seo: { title: 'Home' },
-            draft_store_settings: { layout: 'grid' },
-            draft_setup_settings: { ready: true },
-            updated_at: '2026-03-08T00:00:00.000Z',
-          },
-          error: null,
-        }),
-      }),
-    });
-    mockSupabase.from.mockReturnValue({ upsert });
 
     const request = new NextRequest('http://localhost/api/builder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         slug: 'home',
-        config: { content: [] },
-        name: 'Home',
-        seo: { title: 'Home' },
-        storeSettings: { layout: 'grid' },
-        setupSettings: { ready: true },
+        config: { content: [], root: { title: 'Home' }, zones: {} },
+        expectedLastUpdated: null,
       }),
     });
 
@@ -145,28 +161,39 @@ describe('/api/builder route', () => {
       success: true,
       data: {
         id: 'config-1',
-        merchant_id: 'merchant-1',
-        page_slug: 'home',
-        draft_config: { content: [] },
-        draft_seo: { title: 'Home' },
-        draft_store_settings: { layout: 'grid' },
-        draft_setup_settings: { ready: true },
-        updated_at: '2026-03-08T00:00:00.000Z',
+        updated_at: '2026-03-20T18:00:00.000Z',
       },
+      lastUpdated: '2026-03-20T18:00:00.000Z',
     });
-    expect(mockSupabase.from).toHaveBeenCalledWith('page_configs');
-    expect(upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchant_id: 'merchant-1',
-        page_slug: 'home',
-        page_name: 'Home',
-        draft_config: { content: [] },
-        draft_seo: { title: 'Home' },
-        draft_store_settings: { layout: 'grid' },
-        draft_setup_settings: { ready: true },
+  });
+
+  it('returns the helper response when save detects a conflict', async () => {
+    mockSaveBuilderDraft.mockResolvedValue({
+      response: NextResponse.json(
+        {
+          error: 'Builder draft is out of date',
+          code: 'stale_builder_draft',
+        },
+        { status: 409 }
+      ),
+    });
+
+    const request = new NextRequest('http://localhost/api/builder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        slug: 'home',
+        config: { content: [], root: { title: 'Home' }, zones: {} },
+        expectedLastUpdated: '2026-03-20T18:00:00.000Z',
       }),
-      { onConflict: 'merchant_id,page_slug' }
-    );
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('stale_builder_draft');
   });
 
   it('returns 400 when the PUT body is malformed JSON', async () => {
@@ -197,5 +224,32 @@ describe('/api/builder route', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('Invalid request body');
+    expect(mockPublishBuilderDraft).not.toHaveBeenCalled();
+  });
+
+  it('returns the publish helper response', async () => {
+    mockPublishBuilderDraft.mockResolvedValue({
+      data: { id: 'config-1' },
+      lastUpdated: '2026-03-20T18:05:00.000Z',
+    });
+
+    const request = new NextRequest('http://localhost/api/builder', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        slug: 'home',
+        expectedLastUpdated: '2026-03-20T18:00:00.000Z',
+      }),
+    });
+
+    const { PUT } = await import('./route');
+    const response = await PUT(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      lastUpdated: '2026-03-20T18:05:00.000Z',
+    });
   });
 });
