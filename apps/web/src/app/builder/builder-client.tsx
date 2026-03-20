@@ -61,6 +61,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
+import { apiPost, apiPut, fetchWithCsrf } from '@/lib/api-client';
 import { defaultTheme, type ThemeConfiguration } from '@/lib/theme-config';
 import { applyTheme } from '@/lib/theme-manager';
 
@@ -267,17 +268,13 @@ export default function BuilderClient() {
   const handleSave = async (newData: Data) => {
     setSaving(true);
     try {
-      await fetch('/api/builder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slug: 'home',
-          name: 'Home',
-          config: newData,
-          seo: seoData,
-          storeSettings: storeSettings,
-          setupSettings: setupSettings,
-        }),
+      await apiPost('/api/builder', {
+        slug: 'home',
+        name: 'Home',
+        config: newData,
+        seo: seoData,
+        storeSettings: storeSettings,
+        setupSettings: setupSettings,
       });
     } catch (error) {
       console.error('Failed to save:', error);
@@ -298,13 +295,7 @@ export default function BuilderClient() {
     await handleSave(data);
 
     try {
-      const res = await fetch('/api/builder', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: 'home' }),
-      });
-
-      if (!res.ok) throw new Error('Failed to publish');
+      await apiPut('/api/builder', { slug: 'home' });
 
       toast({
         title: 'Published! 🚀',
@@ -325,7 +316,7 @@ export default function BuilderClient() {
   const handleAiCommand = async (command: string) => {
     setIsAiLoading(true);
     try {
-      const response = await fetch('/api/builder/gemini', {
+      const response = await fetchWithCsrf('/api/builder/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

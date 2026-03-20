@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import {
   AI_RATE_LIMITS,
@@ -8,6 +8,12 @@ import {
   sanitizePromptInput,
   withRetry,
 } from '@/ai/provider';
+import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 
 // Puck configuration schema for structured output
@@ -58,6 +64,11 @@ const PuckConfigSchema = z
       .optional(),
   })
   .passthrough();
+
+const builderGeminiRequestSchema = z.object({
+  prompt: z.string().trim().min(1, 'Prompt is required'),
+  currentConfig: PuckConfigSchema,
+});
 
 // System prompt for the AI builder
 const SYSTEM_PROMPT = `You are an expert website builder AI assistant with deep knowledge of e-commerce storefronts, UX/UI design, and modern web technologies.
@@ -125,15 +136,33 @@ The configuration includes a powerful theme system that controls ALL visual styl
 
 Remember: You're helping merchants create beautiful, functional storefronts. Be creative but professional.`;
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(req);
+    if (!valid) {
+      return response as NextResponse;
+    }
+
     // Auth check - supports both cookie (web) and Bearer token (mobile)
     const auth = await getAuthenticatedUser(req);
     if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { user } = auth;
+    const { user, supabase } = auth;
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'builder', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // Rate limiting
     const rateLimit = checkRateLimit(
@@ -156,14 +185,19 @@ export async function POST(req: Request) {
       );
     }
 
-    const { prompt, currentConfig } = await req.json();
-
-    if (!prompt) {
+    const body = await req.json();
+    const parsed = builderGeminiRequestSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Prompt is required' },
+        {
+          error: 'Invalid request body',
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       );
     }
+
+    const { prompt, currentConfig } = parsed.data;
 
     // Sanitize the user prompt
     const sanitizedPrompt = sanitizePromptInput(prompt, 1000).value;

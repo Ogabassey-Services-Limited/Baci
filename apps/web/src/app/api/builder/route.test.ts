@@ -33,6 +33,40 @@ describe('/api/builder route', () => {
     from: vi.fn(),
   };
 
+  const createMerchantQuery = ({
+    data = {
+      id: 'merchant-1',
+      business_name: 'Test Store',
+      business_type: 'fashion',
+      brand_colors: null,
+      logo_url: null,
+      hero_image_ids: [],
+    },
+    error = null,
+  } = {}) => ({
+    select: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data, error }),
+      }),
+    }),
+  });
+
+  const createPageConfigQuery = ({
+    data = null,
+    error = null,
+  }: {
+    data?: Record<string, unknown> | null;
+    error?: { code?: string; message?: string } | null;
+  } = {}) => ({
+    select: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({ data, error }),
+        }),
+      }),
+    }),
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockCheckCsrfProtection.mockResolvedValue({ valid: true });
@@ -46,6 +80,95 @@ describe('/api/builder route', () => {
     });
     mockHasPermission.mockReturnValue(true);
     mockGenerateDefaultConfig.mockResolvedValue({ content: [] });
+  });
+
+  it('returns a generated default config when no builder config exists', async () => {
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return createMerchantQuery();
+      }
+
+      if (table === 'page_configs') {
+        return createPageConfigQuery();
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const request = new NextRequest('http://localhost/api/builder?slug=home');
+
+    const { GET } = await import('./route');
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      config: { content: [] },
+      seo: null,
+      storeSettings: null,
+      setupSettings: null,
+      publishedConfig: null,
+      isPublished: false,
+      isDefault: true,
+      lastUpdated: null,
+    });
+  });
+
+  it('falls back to the default config when loading page configs fails', async () => {
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return createMerchantQuery();
+      }
+
+      if (table === 'page_configs') {
+        return createPageConfigQuery({
+          error: { code: '57014', message: 'statement timeout' },
+        });
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const request = new NextRequest('http://localhost/api/builder?slug=home');
+
+    const { GET } = await import('./route');
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.isDefault).toBe(true);
+    expect(body.config).toEqual({ content: [] });
+  });
+
+  it('returns the minimal config when default generation fails', async () => {
+    mockGenerateDefaultConfig.mockRejectedValue(
+      new Error('AI provider unavailable')
+    );
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return createMerchantQuery();
+      }
+
+      if (table === 'page_configs') {
+        return createPageConfigQuery();
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const request = new NextRequest('http://localhost/api/builder?slug=home');
+
+    const { GET } = await import('./route');
+    const response = await GET(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.config).toEqual({
+      content: [],
+      root: { title: 'Home' },
+      zones: {},
+    });
+    expect(body.isDefault).toBe(true);
   });
 
   it('returns the CSRF response before handling POST mutations', async () => {

@@ -9,6 +9,21 @@ import {
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 import { builderCreateSchema, builderPublishSchema } from '@/schemas/builder';
 
+const MINIMAL_BUILDER_CONFIG = {
+  content: [],
+  root: { title: 'Home' },
+  zones: {},
+};
+
+async function resolveDefaultBuilderConfig(merchant: Record<string, unknown>) {
+  try {
+    return await generateDefaultConfig(merchant);
+  } catch (error) {
+    console.error('Failed to generate default builder config:', error);
+    return MINIMAL_BUILDER_CONFIG;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const pageSlug = searchParams.get('slug') || 'home';
@@ -56,13 +71,15 @@ export async function GET(request: NextRequest) {
     )
     .eq('merchant_id', merchantId)
     .eq('page_slug', pageSlug)
-    .single();
+    .maybeSingle();
 
   if (configError && configError.code !== 'PGRST116') {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Failed to load page config, falling back to default:', {
+      merchantId,
+      pageSlug,
+      code: configError.code,
+      message: configError.message,
+    });
   }
 
   // Determine which config to load for editing
@@ -77,25 +94,8 @@ export async function GET(request: NextRequest) {
     configToEdit = pageConfig.published_config;
   } else {
     // No draft or published config - use default template
-    configToEdit = await generateDefaultConfig(merchant);
+    configToEdit = await resolveDefaultBuilderConfig(merchant);
     isDefault = true;
-  }
-
-  // If we're loading published config as draft (no draft exists), return it
-  if (
-    !pageConfig ||
-    (!pageConfig.draft_config && !pageConfig.published_config)
-  ) {
-    return NextResponse.json({
-      config: configToEdit,
-      seo: pageConfig?.draft_seo || null,
-      storeSettings: pageConfig?.draft_store_settings || null,
-      setupSettings: pageConfig?.draft_setup_settings || null,
-      publishedConfig: pageConfig?.published_config || null,
-      isPublished: pageConfig?.is_published || false,
-      isDefault: isDefault,
-      lastUpdated: pageConfig?.updated_at || null,
-    });
   }
 
   return NextResponse.json({
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
     publishedConfig: pageConfig?.published_config || null,
     isPublished: pageConfig?.is_published || false,
     isDefault: isDefault,
-    lastUpdated: pageConfig?.updated_at,
+    lastUpdated: pageConfig?.updated_at || null,
   });
 }
 
