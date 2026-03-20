@@ -235,6 +235,7 @@ export async function submitOnboarding(
           brand_colors: brandColors,
           slug,
           template_id: 'puck', // Force Builder Engine for new merchants
+          signup_source: 'web',
         })
         .select()
         .single();

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -94,6 +95,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     // PERFORMANCE: Use Promise.all to fetch independent queries concurrently
     // Get stats
+    const statsQueryStartedAt = Date.now();
     const [
       { count: totalRecipients, error: totalError },
       { count: readCount, error: readError },
@@ -110,6 +112,16 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         .eq('notification_id', id)
         .not('read_at', 'is', null),
     ]);
+    const statsQueryDurationMs = Date.now() - statsQueryStartedAt;
+
+    logger.info({
+      message: 'notification_stats_query_ms',
+      notification_id: id,
+      duration_ms: statsQueryDurationMs,
+      success: !totalError && !readError,
+      total_error: Boolean(totalError),
+      read_error: Boolean(readError),
+    });
 
     if (totalError) {
       logger.error({
@@ -152,6 +164,14 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const { id } = await params;
 
     // Validate ID as a UUID
@@ -291,8 +311,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * Delete/cancel a notification
  * Only accessible to platform administrators
  */
-export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const { id } = await params;
 
     // Validate ID as a UUID

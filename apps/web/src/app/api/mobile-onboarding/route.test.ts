@@ -66,11 +66,14 @@ import { POST } from './route';
 
 // --- Helpers ---
 
-function makeRequest(body: Record<string, unknown>): NextRequest {
+function makeRequest(
+  body: Record<string, unknown>,
+  headers: HeadersInit = {}
+): NextRequest {
   return new NextRequest('http://localhost/api/mobile-onboarding', {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
   });
 }
 
@@ -303,6 +306,127 @@ describe('POST /api/mobile-onboarding', () => {
 
     expect(res.status).toBe(500);
     expect(body.error).toBe('Failed to check existing account.');
+  });
+
+  it('sets signup_source when completing an incomplete merchant on iOS', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'test@example.com' } },
+      error: null,
+    });
+
+    const merchantQuery = {
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+      update: vi.fn(),
+    };
+    merchantQuery.select.mockReturnValue(merchantQuery);
+    merchantQuery.eq.mockReturnValue(merchantQuery);
+    merchantQuery.update.mockReturnValue(merchantQuery);
+    merchantQuery.maybeSingle.mockResolvedValue({
+      data: { id: 'merch-1', business_name: null },
+      error: null,
+    });
+    merchantQuery.single.mockResolvedValue({
+      data: { id: 'merch-1', slug: 'test' },
+      error: null,
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return merchantQuery;
+      }
+      if (table === 'domains') {
+        return {
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      if (table === 'staff_members') {
+        return {
+          upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      return {
+        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    });
+
+    const res = await POST(
+      makeRequest(validBody, {
+        'User-Agent':
+          'BaciMobile/1.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)',
+      })
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(merchantQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signup_source: 'ios',
+      })
+    );
+    expect(mockSignUp).not.toHaveBeenCalled();
+  });
+
+  it('does not overwrite signup_source for an already completed merchant', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'test@example.com' } },
+      error: null,
+    });
+
+    const merchantQuery = {
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+      update: vi.fn(),
+    };
+    merchantQuery.select.mockReturnValue(merchantQuery);
+    merchantQuery.eq.mockReturnValue(merchantQuery);
+    merchantQuery.update.mockReturnValue(merchantQuery);
+    merchantQuery.maybeSingle.mockResolvedValue({
+      data: { id: 'merch-1', business_name: 'Existing Store' },
+      error: null,
+    });
+    merchantQuery.single.mockResolvedValue({
+      data: { id: 'merch-1', slug: 'test' },
+      error: null,
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return merchantQuery;
+      }
+      if (table === 'domains') {
+        return {
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      if (table === 'staff_members') {
+        return {
+          upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      return {
+        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    });
+
+    const res = await POST(
+      makeRequest(validBody, {
+        'User-Agent': 'BaciMobile/1.0 (Linux; Android 15)',
+      })
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(merchantQuery.update).toHaveBeenCalledTimes(1);
+    expect(merchantQuery.update.mock.calls[0]?.[0]).not.toHaveProperty(
+      'signup_source'
+    );
   });
 
   // --- Domain creation ---

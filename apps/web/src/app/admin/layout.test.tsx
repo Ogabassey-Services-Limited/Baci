@@ -1,16 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import AdminLayout from './layout';
 
 const mockPush = vi.fn();
 const mockToast = vi.fn();
 const mockUseAuth = vi.fn();
-const mockSingle = vi.fn();
-
-vi.mock('next/navigation', () => ({
-  usePathname: () => '/admin',
-  useRouter: () => ({ push: mockPush }),
-}));
+const mockCreateClient = vi.fn();
 
 vi.mock('next/link', () => ({
   default: ({
@@ -24,12 +19,72 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/admin',
+  useRouter: () => ({
+    push: mockPush,
+  }),
+}));
+
 vi.mock('@/components/csrf-initializer', () => ({
   CsrfInitializer: () => <div data-testid="csrf-initializer" />,
 }));
 
 vi.mock('@/components/logo', () => ({
-  Logo: () => <div data-testid="logo" />,
+  Logo: () => <span>Logo</span>,
+}));
+
+vi.mock('@/components/ui/button', () => ({
+  Button: ({
+    children,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" {...props}>
+      {children}
+    </button>
+  ),
+}));
+
+vi.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuItem: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuLabel: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuSeparator: () => <hr />,
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
+
+vi.mock('@/components/ui/sheet', () => ({
+  Sheet: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SheetContent: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  SheetTrigger: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
+
+vi.mock('@/components/ui/tooltip', () => ({
+  Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  TooltipContent: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  TooltipProvider: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  TooltipTrigger: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
 }));
 
 vi.mock('@/contexts/auth-context', () => ({
@@ -41,36 +96,38 @@ vi.mock('@/hooks/use-toast', () => ({
 }));
 
 vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: mockSingle,
-        }),
-      }),
-    }),
-  }),
+  createClient: () => mockCreateClient(),
 }));
+
+import AdminLayout from './layout';
 
 describe('AdminLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({
-      user: { id: 'admin-user-id' },
       loading: false,
       signOut: vi.fn(),
+      user: { id: 'user-1', email: 'admin@example.com' },
     });
-    mockSingle.mockResolvedValue({
-      data: { is_platform_admin: true },
-      error: null,
+    mockCreateClient.mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            single: vi.fn().mockResolvedValue({
+              data: { is_platform_admin: true },
+              error: null,
+            }),
+          })),
+        })),
+      })),
     });
   });
 
   it('mounts CsrfInitializer while verifying admin access', () => {
     mockUseAuth.mockReturnValue({
-      user: { id: 'admin-user-id' },
       loading: true,
       signOut: vi.fn(),
+      user: { id: 'user-1', email: 'admin@example.com' },
     });
 
     render(
@@ -80,19 +137,21 @@ describe('AdminLayout', () => {
     );
 
     expect(screen.getByTestId('csrf-initializer')).toBeInTheDocument();
+    expect(screen.getByText('Verifying admin access...')).toBeInTheDocument();
   });
 
-  it('keeps CsrfInitializer mounted after admin access is verified', async () => {
+  it('mounts the CSRF initializer for verified admin sessions', async () => {
     render(
       <AdminLayout>
         <div>Admin content</div>
       </AdminLayout>
     );
 
-    await waitFor(() =>
-      expect(screen.getByText('Admin content')).toBeInTheDocument()
-    );
+    await waitFor(() => {
+      expect(screen.getByText('Admin content')).toBeInTheDocument();
+    });
 
     expect(screen.getByTestId('csrf-initializer')).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });
