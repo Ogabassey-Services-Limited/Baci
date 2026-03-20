@@ -6,7 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -242,6 +242,8 @@ function CreateBranchModal({
   isLoading,
   colors,
 }: CreateBranchModalProps) {
+  const branchAddressRef = useRef<TextInput>(null);
+
   return (
     <Modal
       visible={visible}
@@ -288,6 +290,9 @@ function CreateBranchModal({
               placeholder="e.g. Lagos Main, Lekki Branch"
               placeholderTextColor={colors.textMuted}
               accessibilityLabel="Branch name input"
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => branchAddressRef.current?.focus()}
             />
             {nameError ? (
               <Text style={[styles.errorText, { color: colors.notification }]}>
@@ -301,6 +306,7 @@ function CreateBranchModal({
               Address (Optional)
             </Text>
             <TextInput
+              ref={branchAddressRef}
               style={[
                 styles.input,
                 {
@@ -314,6 +320,8 @@ function CreateBranchModal({
               placeholder="e.g. 123 Main Street, Lekki"
               placeholderTextColor={colors.textMuted}
               accessibilityLabel="Branch address input"
+              returnKeyType="done"
+              onSubmitEditing={onSubmit}
             />
           </View>
 
