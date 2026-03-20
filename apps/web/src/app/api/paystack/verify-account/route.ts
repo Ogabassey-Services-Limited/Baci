@@ -1,60 +1,32 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { resolveAccountNumber } from '@/lib/paystack';
+import { POST as resolveAccount } from '@/app/api/paystack/resolve/route';
 
 /**
- * POST /api/paystack/verify-account
- * Verifies a bank account number using Paystack's resolve endpoint
- * Requires both account number and bank code
+ * Deprecated compatibility wrapper for older web clients.
+ *
+ * Keep this until all callers have moved to /api/paystack/resolve.
+ * The canonical implementation lives in that route.
  */
 export async function POST(request: NextRequest) {
+  const response = await resolveAccount(request);
+
+  if (!response.ok) {
+    return response;
+  }
+
+  let body: { account_name?: string; account_number?: string };
   try {
-    if (!process.env.PAYSTACK_SECRET_KEY) {
-      console.error('PAYSTACK_SECRET_KEY is missing in environment variables');
-      return NextResponse.json(
-        {
-          error: 'Server configuration error: Paystack secret key is missing.',
-        },
-        { status: 500 }
-      );
-    }
-
-    const { accountNumber, bankCode } = await request.json();
-
-    if (!accountNumber || !bankCode) {
-      return NextResponse.json(
-        { error: 'Account number and bank code are required' },
-        { status: 400 }
-      );
-    }
-
-    if (accountNumber.length !== 10) {
-      return NextResponse.json(
-        { error: 'Account number must be 10 digits' },
-        { status: 400 }
-      );
-    }
-
-    // Verify with Paystack
-    const result = await resolveAccountNumber(accountNumber, bankCode);
-
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
-
-    return NextResponse.json({
-      accountName: result.data.account_name,
-      accountNumber: result.data.account_number,
-    });
+    body = await response.json();
   } catch (error) {
-    console.error('Account verification error:', error);
+    console.error('Legacy verify-account wrapper parse error:', error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Could not verify account. Please check the details.',
-      },
-      { status: 400 }
+      { error: 'Failed to verify account' },
+      { status: 502 }
     );
   }
+
+  return NextResponse.json({
+    accountName: body.account_name,
+    accountNumber: body.account_number,
+  });
 }
