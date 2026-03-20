@@ -1,65 +1,117 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { resolveAccountNumber } from '@/lib/paystack';
-import { createClient } from '@/lib/supabase/server';
+import { resolvePaystackAccountSchema } from '@/schemas/paystack-resolve';
 
+function getResolveFailureStatus(code?: string): number {
+  if (!code) return 502;
+  if (code === 'CONFIG_ERROR') return 500;
+  if (code === 'VALIDATION_ERROR') return 400;
+  if (code === 'NETWORK_ERROR') return 502;
+  if (code.startsWith('HTTP_5')) return 502;
+  if (code.startsWith('HTTP_4')) return 400;
+  return 502;
+}
+
+/**
+ * POST /api/paystack/resolve
+ * Resolves a bank account number via Paystack to return the account holder name.
+ * Used by both web dashboard and mobile admin app through one shared handler.
+ *
+ * Accepts both camelCase and snake_case field names, but returns a single
+ * snake_case response shape for all clients.
+ */
 export async function POST(request: NextRequest) {
   try {
-    const { accountNumber, bankCode } = await request.json();
-
-    if (!accountNumber || !bankCode) {
+    const auth = await authenticateApiRequest(request);
+    if (!auth.user || !auth.supabase) {
       return NextResponse.json(
-        { error: 'Account number and bank code are required' },
+        { error: auth.error ?? 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const usingBearerAuth =
+      request.headers.get('Authorization')?.startsWith('Bearer ') ?? false;
+    if (!usingBearerAuth) {
+      const csrf = await checkCsrfProtection(request);
+      if (!csrf.valid) {
+        return (
+          csrf.response ??
+          NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+        );
+      }
+    }
+
+    const merchantContext = await getMerchantForApiRequest(
+      auth.supabase,
+      auth.user.id
+    );
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'integrations', 'manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
         { status: 400 }
       );
     }
 
-    // Auth Check (Support both Cookie and Bearer Token)
-    const authHeader = request.headers.get('Authorization');
-    let user: unknown;
-
-    if (authHeader) {
-      const { createClient: createSupabaseClient } = await import(
-        '@supabase/supabase-js'
+    const parseResult = resolvePaystackAccountSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid input',
+          details: parseResult.error.flatten(),
+        },
+        { status: 400 }
       );
-      const supabase = createSupabaseClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-        { global: { headers: { Authorization: authHeader } } }
-      );
-      const { data } = await supabase.auth.getUser();
-      user = data.user;
-    } else {
-      const cookieStore = await cookies();
-      const supabase = createClient(cookieStore);
-      const { data } = await supabase.auth.getUser();
-      user = data.user;
     }
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Call Paystack
-    const result = await resolveAccountNumber(accountNumber, bankCode);
+    const { account_number, bank_code } = parseResult.data;
+    const result = await resolveAccountNumber(account_number, bank_code);
 
     if (!result.success) {
+      if (result.code === 'CONFIG_ERROR') {
+        console.error('Paystack resolve configuration error:', result.error);
+      }
       return NextResponse.json(
-        { error: result.error || 'Could not resolve account' },
-        { status: 400 }
+        {
+          error:
+            result.code === 'CONFIG_ERROR'
+              ? 'Service configuration error'
+              : (result.error ?? 'Could not resolve account'),
+        },
+        { status: getResolveFailureStatus(result.code) }
       );
     }
 
     return NextResponse.json({
-      success: true,
       account_name: result.data.account_name,
       account_number: result.data.account_number,
-      bank_id: result.data.bank_id,
+      bank_id: result.data.bank_id ?? null,
     });
   } catch (error) {
-    console.error('Resolve Error:', error);
+    console.error('Paystack resolve error:', error);
     return NextResponse.json(
-      { error: 'Internal server error during resolution' },
+      { error: 'Failed to resolve account' },
       { status: 500 }
     );
   }
