@@ -95,6 +95,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     // PERFORMANCE: Use Promise.all to fetch independent queries concurrently
     // Get stats
+    const statsQueryStartedAt = Date.now();
     const [
       { count: totalRecipients, error: totalError },
       { count: readCount, error: readError },
@@ -111,6 +112,16 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         .eq('notification_id', id)
         .not('read_at', 'is', null),
     ]);
+    const statsQueryDurationMs = Date.now() - statsQueryStartedAt;
+
+    logger.info({
+      message: 'notification_stats_query_ms',
+      notification_id: id,
+      duration_ms: statsQueryDurationMs,
+      success: !totalError && !readError,
+      total_error: Boolean(totalError),
+      read_error: Boolean(readError),
+    });
 
     if (totalError) {
       logger.error({
