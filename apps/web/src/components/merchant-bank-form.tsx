@@ -137,25 +137,28 @@ export function MerchantBankForm({
     setVerifiedName(null);
 
     try {
-      const response = await fetch('/api/paystack/verify-account', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountNumber, bankCode: selectedBankCode }),
+      const data = await apiPost<{
+        account_name: string;
+        account_number: string;
+        bank_id: number | null;
+      }>('/api/paystack/resolve', {
+        accountNumber,
+        bankCode: selectedBankCode,
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.accountName) {
-        setVerifiedName(data.accountName);
+      if (data.account_name) {
+        setVerifiedName(data.account_name);
         // Auto-fill business name if empty
         if (!form.getValues('businessName')) {
-          form.setValue('businessName', data.accountName);
+          form.setValue('businessName', data.account_name);
         }
-      } else {
-        setVerificationError(data.error || 'Could not verify account');
       }
-    } catch {
-      setVerificationError('Failed to verify account. Please try again.');
+    } catch (error) {
+      setVerificationError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to verify account. Please try again.'
+      );
     } finally {
       setIsVerifying(false);
     }

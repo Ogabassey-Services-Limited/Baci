@@ -19,12 +19,64 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    name: Detect Semgrep scope
+    runs-on: ubuntu-latest
+    outputs:
+      semgrep_relevant: ${{ steps.scope.outputs.semgrep_relevant }}
+    steps:
+      - if: github.event_name == 'pull_request'
+        name: Checkout repository
+        # Pin to full SHA for supply chain security
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - if: github.event_name == 'pull_request'
+        name: Detect security-relevant file changes
+        id: filter
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        with:
+          filters: |
+            semgrep_relevant:
+              - 'apps/web/src/app/api/**'
+              - 'apps/web/src/lib/**'
+              - 'apps/web/src/schemas/**'
+              - 'apps/mobile-admin/app/**'
+              - 'apps/mobile-admin/hooks/**'
+              - 'apps/mobile-admin/lib/**'
+              - 'apps/mobile-storefront/app/**'
+              - 'apps/mobile-storefront/hooks/**'
+              - 'apps/mobile-storefront/lib/**'
+              - 'apps/mobile-storefront/services/**'
+              - 'apps/mobile-storefront/stores/**'
+              - 'packages/shared/**'
+              - 'supabase/migrations/**'
+              - '.github/workflows/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'turbo.json'
+
+      - name: Resolve Semgrep scope output
+        id: scope
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "semgrep_relevant=${{ steps.filter.outputs.semgrep_relevant }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "semgrep_relevant=true" >> "$GITHUB_OUTPUT"
+          fi
+
   semgrep:
     name: Semgrep SAST
+    needs: [changes]
     runs-on: ubuntu-latest
     # Skip for forked PRs where SEMGREP_APP_TOKEN is not available
     # Forked PRs don't have access to secrets, which would cause Semgrep CI to fail
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: |
+      github.event_name != 'pull_request' ||
+      (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        needs.changes.outputs.semgrep_relevant == 'true'
+      )
+    timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
@@ -37,9 +89,37 @@ jobs:
       - name: Checkout repository
         # Pin to full SHA for supply chain security
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Required to diff against the PR base branch for targeted scans.
+          fetch-depth: 0
 
-      - name: Run Semgrep
-        id: semgrep
+      - name: Run targeted Semgrep for security-relevant PR changes
+        if: github.event_name == 'pull_request'
+        id: semgrep_pr
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git fetch --no-tags --prune origin "${{ github.event.pull_request.base.ref }}"
+          mapfile -t changed_files < <(
+            git diff --name-only "origin/${{ github.event.pull_request.base.ref }}...HEAD" -- \
+              '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' '*.sql' '*.yml' '*.yaml' |
+            grep -E '^(apps/web/src/app/api/|apps/web/src/lib/|apps/web/src/schemas/|apps/mobile-admin/(app|hooks|lib)/|apps/mobile-storefront/(app|hooks|lib|services|stores)/|packages/shared/|supabase/migrations/|\.github/workflows/)' ||
+            true
+          )
+
+          if [ ${#changed_files[@]} -eq 0 ]; then
+            echo "No security-relevant changed files. Skipping Semgrep."
+            exit 0
+          fi
+
+          semgrep scan --config auto --sarif --output=semgrep.sarif "${changed_files[@]}"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        continue-on-error: true
+
+      - name: Run full Semgrep on protected branches and scheduled scans
+        if: github.event_name != 'pull_request'
+        id: semgrep_full
         run: semgrep ci --sarif --output=semgrep.sarif
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
@@ -63,7 +143,7 @@ jobs:
           sarif_file: semgrep.sarif
 
       - name: Fail if Semgrep reported issues
-        if: steps.semgrep.outcome == 'failure'
+        if: steps.semgrep_pr.outcome == 'failure' || steps.semgrep_full.outcome == 'failure'
         run: exit 1
 
   dependency-review:
