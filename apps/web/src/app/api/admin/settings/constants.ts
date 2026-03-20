@@ -1,13 +1,20 @@
+export const PLATFORM_SETTINGS_SECRET_FIELDS = [
+  'ga4_api_secret',
+  'facebook_capi_token',
+  'tiktok_access_token',
+  'snapchat_capi_token',
+] as const;
+
+export type PlatformSettingsSecretField =
+  (typeof PLATFORM_SETTINGS_SECRET_FIELDS)[number];
+
 export const PLATFORM_SETTINGS_SELECT = [
   'id',
   'google_analytics_id',
-  'ga4_api_secret',
+  ...PLATFORM_SETTINGS_SECRET_FIELDS,
   'facebook_pixel_id',
-  'facebook_capi_token',
   'tiktok_pixel_id',
-  'tiktok_access_token',
   'snapchat_pixel_id',
-  'snapchat_capi_token',
   'twitter_pixel_id',
   'platform_fee_percentage',
   'platform_fee_flat',

@@ -32,6 +32,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 interface HealthCheck {
   check_name: string;
@@ -152,7 +153,9 @@ export default function SystemHealthPage() {
   const refreshAnalyticsViews = async () => {
     try {
       setRefreshingViews(true);
-      const response = await fetch('/api/admin/analytics', { method: 'POST' });
+      const response = await fetchWithCsrf('/api/admin/analytics', {
+        method: 'POST',
+      });
       if (!response.ok) throw new Error('Failed to refresh views');
       toast({
         title: 'Success',
@@ -202,7 +205,11 @@ export default function SystemHealthPage() {
             />
             Refresh Status
           </Button>
-          <Button onClick={refreshAnalyticsViews} disabled={refreshingViews}>
+          <Button
+            data-testid="header-refresh-analytics-views"
+            onClick={refreshAnalyticsViews}
+            disabled={refreshingViews}
+          >
             <Zap
               className={`h-4 w-4 mr-2 ${refreshingViews ? 'animate-pulse' : ''}`}
             />
