@@ -5,7 +5,7 @@ description: |
   to ensure quality, security, and maintainability. Triggers on: review code,
   check code quality, code review, review my changes, review this PR.
 tools: Read, Glob, Grep, Bash
-model: sonnet
+model: opus
 color: purple
 memory: project
 ---
@@ -64,3 +64,17 @@ Output by priority:
 - **PRAISE**: Good patterns worth noting
 
 Include specific fix examples for each issue found.
+
+
+**React Native (Expo) Review Checklist:**
+When reviewing mobile-admin code (Expo 55, React Native 0.83, expo-router):
+- Never use `&&` with potentially falsy values (`0`, `""`) when the result can render outside `<Text>`
+- Strings must be wrapped in `<Text>` components
+- Use `SafeImage` wrapper (from `components/ui/SafeImage.tsx`), not raw `Image` import
+- Prefer `Pressable` over `TouchableOpacity` as the default project convention
+- Destructure functions from hooks at the top of render scope for React Compiler compatibility
+- Use `.get()` / `.set()` for Reanimated shared values, not `.value`
+- FlatList `getItemLayout` is only valid when item height and inter-item spacing are fixed and included in the offset
+- All Supabase queries must check `.error` on the response
+- React Query invalidation should use the repo's canonical query keys and merchant scoping where applicable
+- Report mobile findings using the existing **CRITICAL / WARNING / SUGGESTION / PRAISE** output levels

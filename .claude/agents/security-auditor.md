@@ -6,7 +6,7 @@ description: |
   Triggers on: security audit, check security, review security, vulnerability scan,
   audit auth, audit payments, RLS check.
 tools: Read, Glob, Grep, Bash
-model: sonnet
+model: opus
 color: orange
 memory: project
 ---
@@ -30,7 +30,7 @@ Security Checklist:
 - Staff permissions checked via `useMerchant()` hook
 
 **API Security:**
-- Rate limiting via middleware.ts
+- Rate limiting via `proxy.ts` (Next.js 16 rename from middleware)
 - CSRF token validation on POST/PUT/DELETE/PATCH
 - Zod validation on all request bodies
 - Parameterized queries (Supabase client, not raw SQL)
@@ -51,7 +51,7 @@ Security Checklist:
 - Environment variables not leaked to client (`NEXT_PUBLIC_` audit)
 
 **Infrastructure:**
-- middleware.ts chains correctly (rate limiting -> CSRF -> auth -> routing)
+- `proxy.ts` chains correctly (rate limiting -> CSRF -> auth -> routing)
 - No debug endpoints accessible in production
 - Cron endpoints properly authenticated
 - Custom domain routing validated
@@ -76,3 +76,18 @@ Severity levels:
 - **MEDIUM (P2)**: Defense-in-depth gap
 - **LOW (P3)**: Hardening recommendation
 - **INFO**: Best practice observation
+
+
+**React Native (Expo) Security:**
+When auditing mobile-admin (Expo 55, Supabase anon-key only):
+- No secrets in `app.config.ts` or EAS build configs; only public keys belong in mobile config
+- Verify no service-role Supabase client imports exist in mobile code
+- Token storage should use MMKV or the project-approved secure store, not `AsyncStorage`, for auth tokens
+- Tenant isolation scoping rules are nuanced:
+  - Business data (products, orders, inventory, customers, discounts, branches): scope by `merchant_id`
+  - Auth and profile queries: scope by `user_id`
+  - Staff membership: verify both `user_id` and `merchant_id`
+  - RPC calls: verify the RPC itself enforces the tenant boundary server-side
+- Validate deep-link URLs and sanitize deep-link parameters
+- Verify `useMerchant()` or equivalent merchant context is checked before merchant-scoped data access
+- Keep findings mapped to the existing **CRITICAL / HIGH / MEDIUM / LOW / INFO** severity model
