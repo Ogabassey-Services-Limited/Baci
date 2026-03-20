@@ -279,6 +279,27 @@ export default function CartScreen() {
 
   const grandTotal = subtotal + assuranceTotal;
 
+  // Approximate height of cart item:
+  // Padding: 16*2 = 32
+  // Top row: 80
+  // Dashed separator: 1 + 16*2 = 33
+  // Controls row: 36
+  // Solid separator: 1 + 16 = 17
+  // Bottom row: 20 (toggle) + 16 (marginTop) = 36
+  // Total approx: 32 + 80 + 33 + 36 + 17 + 36 = 234
+  // Rounded up for content height. Inter-item gap is tracked separately below.
+  const CART_ITEM_HEIGHT = 250;
+  const CART_ITEM_GAP = SPACING.md;
+  const CART_ITEM_FULL_HEIGHT = CART_ITEM_HEIGHT + CART_ITEM_GAP;
+  const getItemLayout = (
+    _data: ArrayLike<CartItem> | null | undefined,
+    index: number
+  ) => ({
+    length: CART_ITEM_FULL_HEIGHT,
+    offset: CART_ITEM_FULL_HEIGHT * index,
+    index,
+  });
+
   if (items.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -327,6 +348,11 @@ export default function CartScreen() {
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
+        getItemLayout={getItemLayout}
+        removeClippedSubviews={Platform.OS === 'android'}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        initialNumToRender={5}
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 180 }]}
         showsVerticalScrollIndicator={false}
