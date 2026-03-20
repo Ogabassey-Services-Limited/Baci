@@ -1,5 +1,7 @@
+import { generateObject } from 'ai';
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { withRetry } from '@/ai/provider';
 
 const mockCheckCsrfProtection = vi.fn();
 const mockGetAuthenticatedUser = vi.fn();
@@ -116,5 +118,78 @@ describe('/api/builder/gemini route', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('Invalid request body');
+  });
+
+  it('returns 400 when the request body is malformed JSON', async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      user: { id: 'user-1' },
+      supabase: {},
+    });
+
+    const request = new NextRequest('http://localhost/api/builder/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{invalid-json',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: 'Invalid JSON body' });
+  });
+
+  it('returns generated config for a valid request', async () => {
+    mockGetAuthenticatedUser.mockResolvedValue({
+      user: { id: 'user-1' },
+      supabase: {},
+    });
+
+    vi.mocked(withRetry).mockImplementation(
+      async (fn: () => Promise<unknown>) => fn()
+    );
+    vi.mocked(generateObject).mockResolvedValue({
+      object: {
+        content: [{ type: 'Hero', props: { title: 'Updated hero' } }],
+        root: { title: 'Updated home' },
+        zones: {},
+      },
+    } as Awaited<ReturnType<typeof generateObject>>);
+
+    const request = new NextRequest('http://localhost/api/builder/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: 'Update the hero title',
+        currentConfig: {
+          content: [{ type: 'Hero', props: { title: 'Home' } }],
+          root: { title: 'Home' },
+          zones: {},
+        },
+      }),
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      config: {
+        content: [
+          expect.objectContaining({
+            type: 'Hero',
+            props: expect.objectContaining({
+              title: 'Updated hero',
+              id: expect.stringContaining('hero-'),
+            }),
+          }),
+        ],
+        root: { title: 'Updated home' },
+        zones: {},
+        theme: {},
+      },
+    });
   });
 });

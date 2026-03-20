@@ -55,6 +55,7 @@ interface PublishablePageConfigRecord extends PageConfigMetaRecord {
 interface BuilderRequestContext {
   merchantId: string;
   supabase: SupabaseClient;
+  canEdit: boolean;
 }
 
 export interface BuilderLoadPayload {
@@ -219,6 +220,7 @@ export async function getBuilderRequestContext(
     context: {
       merchantId: merchantContext.merchantId,
       supabase,
+      canEdit: hasPermission(access, 'builder', 'edit'),
     },
   };
 }
@@ -226,7 +228,8 @@ export async function getBuilderRequestContext(
 export async function loadBuilderPayload(
   supabase: SupabaseClient,
   merchantId: string,
-  pageSlug: string
+  pageSlug: string,
+  canEdit: boolean
 ): Promise<BuilderLoadResult> {
   const { data: merchant, error: merchantError } =
     await getMerchantTemplateData(supabase, merchantId);
@@ -283,7 +286,7 @@ export async function loadBuilderPayload(
       lastUpdated: pageConfig?.updated_at || null,
       degraded: degradedReason !== null,
       degradedReason,
-      canEdit: degradedReason === null,
+      canEdit: degradedReason === null && canEdit,
     },
   };
 }
@@ -360,20 +363,23 @@ export async function saveBuilderDraft(
 
   const { data, error } = await supabase
     .from('page_configs')
-    .insert({
-      merchant_id: merchantId,
-      page_slug: slug,
-      page_name: name,
-      draft_config: config,
-      draft_seo: seo,
-      draft_store_settings: storeSettings,
-      draft_setup_settings: setupSettings,
-      updated_at: updatedAt,
-    })
+    .upsert(
+      {
+        merchant_id: merchantId,
+        page_slug: slug,
+        page_name: name,
+        draft_config: config,
+        draft_seo: seo,
+        draft_store_settings: storeSettings,
+        draft_setup_settings: setupSettings,
+        updated_at: updatedAt,
+      },
+      { onConflict: 'merchant_id,page_slug', ignoreDuplicates: true }
+    )
     .select(
       'id, merchant_id, page_slug, draft_config, draft_seo, draft_store_settings, draft_setup_settings, updated_at'
     )
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error('Failed to insert builder draft:', {
@@ -384,6 +390,10 @@ export async function saveBuilderDraft(
     return {
       response: createInternalServerErrorResponse(),
     };
+  }
+
+  if (!data) {
+    return { response: createConflictResponse() };
   }
 
   return { data, lastUpdated: data.updated_at ?? null };
@@ -419,25 +429,6 @@ export async function publishBuilderDraft(
     return { response: createConflictResponse() };
   }
 
-  if (currentConfig.published_config) {
-    const { error: historyError } = await supabase
-      .from('page_config_history')
-      .insert({
-        page_config_id: currentConfig.id,
-        config: currentConfig.published_config,
-        version_note: `Published on ${publishedAt}`,
-      });
-
-    if (historyError) {
-      console.error('Failed to save config history:', historyError);
-      return {
-        response: createInternalServerErrorResponse(
-          'Failed to save config history'
-        ),
-      };
-    }
-  }
-
   const { data, error } = await supabase
     .from('page_configs')
     .update({
@@ -462,6 +453,24 @@ export async function publishBuilderDraft(
 
   if (!data) {
     return { response: createConflictResponse() };
+  }
+
+  if (currentConfig.published_config) {
+    const { error: historyError } = await supabase
+      .from('page_config_history')
+      .insert({
+        page_config_id: currentConfig.id,
+        config: currentConfig.published_config,
+        version_note: `Published on ${publishedAt}`,
+      });
+
+    if (historyError) {
+      console.error('Failed to save config history after publish:', {
+        merchantId,
+        slug,
+        error: historyError,
+      });
+    }
   }
 
   return { data, lastUpdated: data.updated_at ?? null };

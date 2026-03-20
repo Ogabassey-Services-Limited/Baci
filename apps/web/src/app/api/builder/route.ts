@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
   const builderPayload = await loadBuilderPayload(
     contextResult.context.supabase,
     contextResult.context.merchantId,
-    pageSlug
+    pageSlug,
+    contextResult.context.canEdit
   );
   if (builderPayload.response) {
     return builderPayload.response;

@@ -170,4 +170,40 @@ describe('BuilderClient', () => {
       })
     );
   });
+
+  it('renders the builder in editable mode when the payload is healthy', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        config: {
+          content: [],
+          root: { title: 'Home' },
+          zones: {},
+        },
+        seo: null,
+        storeSettings: null,
+        setupSettings: null,
+        publishedConfig: null,
+        isPublished: false,
+        isDefault: true,
+        lastUpdated: '2026-03-20T18:00:00.000Z',
+        degraded: false,
+        degradedReason: null,
+        canEdit: true,
+      }),
+    } as Response);
+
+    render(<BuilderClient />);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Builder is in read-only mode')
+      ).not.toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByRole('button', { name: /save draft/i })
+    ).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /publish/i })).not.toBeDisabled();
+  });
 });
