@@ -75,9 +75,12 @@ export default function FulfillmentDialog({
       item.product.fulfillmentFields.length > 0
   );
 
-  const form = useForm<FulfillmentFormValues>({
-    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
-    resolver: zodResolver(fulfillmentFormSchema as any),
+  const form = useForm<
+    z.input<typeof fulfillmentFormSchema>,
+    unknown,
+    FulfillmentFormValues
+  >({
+    resolver: zodResolver(fulfillmentFormSchema),
   });
 
   // Reset form when the dialog opens or items change

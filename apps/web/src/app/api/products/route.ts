@@ -7,6 +7,10 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
+import {
+  getEffectiveStock,
+  matchesProductStockFilter,
+} from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
@@ -83,6 +87,7 @@ export async function GET(request: NextRequest) {
     const ids = searchParams.get('ids');
 
     const offset = (page - 1) * limit;
+    const shouldPaginateInDatabase = !ids && stock === 'All';
 
     // Build query
     // PERFORMANCE: Select only essential variant fields instead of wildcard
@@ -99,19 +104,9 @@ export async function GET(request: NextRequest) {
         query = query.in('id', idList);
       }
     } else {
-      query = query.range(offset, offset + limit - 1);
-
       // Apply filters only if not fetching by ID
       if (status !== 'All') {
         query = query.eq('status', status);
-      }
-
-      if (stock !== 'All') {
-        if (stock === 'out_of_stock') {
-          query = query.eq('stock_quantity', 0);
-        } else if (stock === 'in_stock') {
-          query = query.gt('stock_quantity', 0);
-        }
       }
 
       if (search?.trim()) {
@@ -119,6 +114,10 @@ export async function GET(request: NextRequest) {
         query = query.or(
           `name.ilike.%${sanitizedPattern}%,sku.ilike.%${sanitizedPattern}%`
         );
+      }
+
+      if (shouldPaginateInDatabase) {
+        query = query.range(offset, offset + limit - 1);
       }
     }
 
@@ -158,7 +157,7 @@ export async function GET(request: NextRequest) {
           status: p.status || (p.is_active ? 'active' : 'draft'),
           price: Number.parseFloat(p.price),
           manage_stock: p.manage_stock ?? true,
-          stock: p.stock_quantity,
+          stock: getEffectiveStock(p),
           minimum_order_quantity: p.min_order_quantity,
 
           // Image handling
@@ -243,6 +242,21 @@ export async function GET(request: NextRequest) {
           schema_markup: p.schema_markup,
         };
       }) || [];
+    const filteredProducts =
+      ids || stock === 'All'
+        ? transformedProducts
+        : transformedProducts.filter((product) =>
+            matchesProductStockFilter(product, stock)
+          );
+    const paginatedProducts = shouldPaginateInDatabase
+      ? filteredProducts
+      : ids
+        ? filteredProducts
+        : filteredProducts.slice(offset, offset + limit);
+    const totalProducts =
+      ids || stock === 'All'
+        ? (count ?? filteredProducts.length)
+        : filteredProducts.length;
 
     // Calculate stats
     // OPTIMIZED STATS CALCULATION (2025 Pattern)
@@ -302,12 +316,12 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      products: transformedProducts,
+      products: paginatedProducts,
       pagination: {
         page,
         limit,
-        total: count || 0,
-        totalPages: Math.ceil((count || 0) / limit),
+        total: totalProducts,
+        totalPages: Math.ceil(totalProducts / limit),
       },
       stats: {
         inventoryValue,

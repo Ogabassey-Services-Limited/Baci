@@ -3,6 +3,7 @@ import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { PRODUCT_COLUMNS } from '@/lib/product-queries';
+import { getEffectiveStock } from '@/lib/product-stock';
 
 // Map database product to API response format function
 function mapProduct(p: Record<string, unknown>) {
@@ -22,7 +23,7 @@ function mapProduct(p: Record<string, unknown>) {
     slug: p.slug,
     sku: p.sku,
     manage_stock: p.manage_stock,
-    stock: p.stock_quantity || 0,
+    stock: getEffectiveStock(p),
     low_stock_threshold: p.low_stock_threshold,
     color: p.color || '',
     condition: p.condition || 'new',

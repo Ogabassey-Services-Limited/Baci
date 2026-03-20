@@ -14,6 +14,7 @@ import {
   PRODUCT_COLUMNS,
   PRODUCT_VARIANT_COLUMNS,
 } from '@/lib/product-queries';
+import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product, ProductVariant } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeText } from '@/lib/sanitize-core';
@@ -99,7 +100,7 @@ export async function GET(
       status: product.status || (product.is_active ? 'active' : 'draft'),
       price: Number.parseFloat(product.price),
       manage_stock: product.manage_stock ?? true,
-      stock: product.stock_quantity,
+      stock: getEffectiveStock(product),
       minimum_order_quantity: product.min_order_quantity,
 
       image:

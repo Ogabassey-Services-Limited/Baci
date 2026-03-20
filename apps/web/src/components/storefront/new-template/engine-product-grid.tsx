@@ -8,6 +8,7 @@
 
 import React, { useEffect, useState } from 'react';
 import type { Product as BaciProduct } from '@/lib/products';
+import { getEffectiveStock } from '@/lib/product-stock';
 import { formatCurrency } from '@/lib/utils';
 import { products as mockProducts } from './data';
 import { InteractiveProductGrid } from './interactive-product-grid';
@@ -28,7 +29,7 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
         reviews: p.review_count ?? 0,
         description: p.description,
         brand: p.brand,
-        inStock: !p.manage_stock || p.stock > 0,
+        inStock: p.manage_stock === false || getEffectiveStock(p) > 0,
         isNew: p.condition === 'new',
         colors: p.colors?.map(c => ({ name: c, value: c.toLowerCase() })),
         storage: p.storage_options,

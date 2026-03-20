@@ -75,6 +75,7 @@ export const ProductDbSchema = ProductSchema.transform((data) => {
 
   return {
     ...rest,
+    stock: rest.stock_quantity,
     variant_attributes: attributesRecord,
     // Ensure category_id is null if empty string
     category_id: rest.category_id === '' ? null : rest.category_id,

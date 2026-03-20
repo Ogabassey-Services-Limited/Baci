@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import { getEffectiveStock } from '@/lib/product-stock';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -119,14 +120,16 @@ export async function GET(request: NextRequest) {
     // Get all products with managed stock
     let query = supabase
       .from('products')
-      .select('id, name, image, stock, low_stock_threshold', { count: 'exact' })
+      .select('id, name, image, stock, stock_quantity, low_stock_threshold', {
+        count: 'exact',
+      })
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .eq('manage_stock', true)
       .order('stock', { ascending: true });
 
     if (lowStockOnly) {
-      query = query.lte('stock', 10); // Approximate filter, will be refined
+      query = query.or('stock.lte.10,stock_quantity.lte.10');
     }
 
     const {
@@ -156,8 +159,16 @@ export async function GET(request: NextRequest) {
 
       const forecast = forecastRaw as ForecastData | null;
       const daysOfStock = forecast?.days_of_stock ?? 999;
+      const currentStock =
+        forecast?.current_stock ??
+        getEffectiveStock(
+          product as {
+            stock?: number | string | null;
+            stock_quantity?: number | string | null;
+          }
+        );
       const status = getStockStatus(
-        product.stock,
+        currentStock,
         daysOfStock,
         product.low_stock_threshold || 5
       );
@@ -171,7 +182,7 @@ export async function GET(request: NextRequest) {
         productId: product.id,
         productName: product.name,
         image: product.image,
-        currentStock: product.stock,
+        currentStock,
         lowStockThreshold: product.low_stock_threshold || 5,
         avgDailySales: forecast?.avg_daily_sales || 0,
         daysOfStock: daysOfStock,

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/product-queries', () => ({
   PRODUCT_WITH_VARIANTS_QUERY:
-    'id, name, description, price, stock_quantity, status, is_active, manage_stock, min_order_quantity, sku, slug, compare_at_price, cost_price, low_stock_threshold, brand, category, color, has_variants, images, image_small, image_large, image_hint, weight_value, weight_unit, dimensions, taxable, tax_code, condition, condition_detail, meta_title, meta_description, keywords, canonical_url, schema_markup, gtin, mpn, google_product_category, created_at, updated_at, merchant_id, fulfillment_details, variants:product_variants(id, product_id, merchant_id, attributes, price_override, cost_price, stock_quantity, sku, primary_image, images, created_at, updated_at)',
+    'id, name, description, price, stock, stock_quantity, status, is_active, manage_stock, min_order_quantity, sku, slug, compare_at_price, cost_price, low_stock_threshold, brand, category, color, has_variants, images, image_small, image_large, image_hint, weight_value, weight_unit, dimensions, taxable, tax_code, condition, condition_detail, meta_title, meta_description, keywords, canonical_url, schema_markup, gtin, mpn, google_product_category, created_at, updated_at, merchant_id, fulfillment_details, variants:product_variants(id, product_id, merchant_id, attributes, price_override, cost_price, stock_quantity, sku, primary_image, images, created_at, updated_at)',
 }));
 
 vi.mock('@/lib/sanitize-core', () => ({
@@ -72,6 +72,7 @@ function makeRawProduct(overrides: Record<string, unknown> = {}) {
     name: 'Test Product',
     description: 'A great product',
     price: '2500.00',
+    stock: 10,
     stock_quantity: 10,
     status: 'active',
     is_active: true,
@@ -151,6 +152,19 @@ describe('getProducts', () => {
       total: 1,
       totalPages: 1,
     });
+  });
+
+  it('falls back to legacy stock when stock_quantity drifted to zero', async () => {
+    const raw = makeRawProduct({ stock: 8, stock_quantity: 0 });
+    const { client } = createMockSupabase({
+      data: [raw],
+      error: null,
+      count: 1,
+    });
+
+    const result = await getProducts(client as never, merchantId, {});
+
+    expect(result.products[0].stock).toBe(8);
   });
 
   it('applies page and limit to range correctly', async () => {
@@ -234,34 +248,65 @@ describe('getProducts', () => {
     expect(statusCalls).toHaveLength(0);
   });
 
-  it('filters out_of_stock with stock_quantity = 0', async () => {
-    // Arrange
+  it('filters out_of_stock using effective stock and managed stock semantics', async () => {
     const { client, queryBuilder } = createMockSupabase({
-      data: [],
+      data: [
+        makeRawProduct({ id: 'managed-oos', stock: 0, stock_quantity: 0 }),
+        makeRawProduct({
+          id: 'legacy-drift',
+          stock: 5,
+          stock_quantity: 0,
+        }),
+        makeRawProduct({
+          id: 'unmanaged',
+          manage_stock: false,
+          stock: 0,
+          stock_quantity: 0,
+        }),
+      ],
       error: null,
-      count: 0,
+      count: 3,
     });
 
-    // Act
-    await getProducts(client as never, merchantId, { stock: 'out_of_stock' });
+    const result = await getProducts(client as never, merchantId, {
+      stock: 'out_of_stock',
+    });
 
-    // Assert
-    expect(queryBuilder.eq).toHaveBeenCalledWith('stock_quantity', 0);
+    expect(result.products.map((product) => product.id)).toEqual([
+      'managed-oos',
+    ]);
+    expect(queryBuilder.range).not.toHaveBeenCalled();
   });
 
-  it('filters in_stock with stock_quantity > 0', async () => {
-    // Arrange
+  it('filters in_stock using effective stock and unlimited-stock semantics', async () => {
     const { client, queryBuilder } = createMockSupabase({
-      data: [],
+      data: [
+        makeRawProduct({ id: 'managed-oos', stock: 0, stock_quantity: 0 }),
+        makeRawProduct({
+          id: 'legacy-drift',
+          stock: 5,
+          stock_quantity: 0,
+        }),
+        makeRawProduct({
+          id: 'unmanaged',
+          manage_stock: false,
+          stock: 0,
+          stock_quantity: 0,
+        }),
+      ],
       error: null,
-      count: 0,
+      count: 3,
     });
 
-    // Act
-    await getProducts(client as never, merchantId, { stock: 'in_stock' });
+    const result = await getProducts(client as never, merchantId, {
+      stock: 'in_stock',
+    });
 
-    // Assert
-    expect(queryBuilder.gt).toHaveBeenCalledWith('stock_quantity', 0);
+    expect(result.products.map((product) => product.id)).toEqual([
+      'legacy-drift',
+      'unmanaged',
+    ]);
+    expect(queryBuilder.range).not.toHaveBeenCalled();
   });
 
   it('does not filter stock when "All"', async () => {
@@ -276,11 +321,7 @@ describe('getProducts', () => {
     await getProducts(client as never, merchantId, { stock: 'All' });
 
     // Assert
-    const stockEqCalls = queryBuilder.eq.mock.calls.filter(
-      (c: unknown[]) => c[0] === 'stock_quantity'
-    );
-    expect(stockEqCalls).toHaveLength(0);
-    expect(queryBuilder.gt).not.toHaveBeenCalled();
+    expect(queryBuilder.range).toHaveBeenCalledWith(0, 9);
   });
 
   // --- Search ---

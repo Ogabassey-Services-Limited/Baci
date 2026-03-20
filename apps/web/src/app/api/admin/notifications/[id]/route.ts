@@ -92,12 +92,24 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     // current admin's merchant, undercounting recipients across all merchants.
     const adminSupabase = createAdminClient();
 
+    // PERFORMANCE: Use Promise.all to fetch independent queries concurrently
     // Get stats
-    const { count: totalRecipients, error: totalError } = await adminSupabase
-      .from('merchant_notifications')
-      // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
-      .select('id', { count: 'exact', head: true })
-      .eq('notification_id', id);
+    const [
+      { count: totalRecipients, error: totalError },
+      { count: readCount, error: readError },
+    ] = await Promise.all([
+      adminSupabase
+        .from('merchant_notifications')
+        // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+        .select('id', { count: 'exact', head: true })
+        .eq('notification_id', id),
+      adminSupabase
+        .from('merchant_notifications')
+        // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+        .select('id', { count: 'exact', head: true })
+        .eq('notification_id', id)
+        .not('read_at', 'is', null),
+    ]);
 
     if (totalError) {
       logger.error({
@@ -106,13 +118,6 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
         id,
       });
     }
-
-    const { count: readCount, error: readError } = await adminSupabase
-      .from('merchant_notifications')
-      // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
-      .select('id', { count: 'exact', head: true })
-      .eq('notification_id', id)
-      .not('read_at', 'is', null);
 
     if (readError) {
       logger.error({

@@ -27,6 +27,10 @@ import {
   useProducts,
 } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
+import {
+  getEffectiveProductStock,
+  getProductStockBucket,
+} from '@/lib/product-inventory';
 
 // Item height for getItemLayout optimization
 const INVENTORY_ITEM_HEIGHT = 88;
@@ -61,14 +65,18 @@ function InventoryProductItem({
   currencySymbol,
   onPress,
 }: InventoryProductItemProps) {
-  const threshold = item.low_stock_threshold ?? 5;
-  const isLowStock = item.stock <= threshold && item.stock > 0;
-  const isOutOfStock = item.stock === 0;
-  const stockStatusLabel = isOutOfStock
-    ? 'Out of stock'
-    : isLowStock
-      ? `Low stock: ${item.stock} remaining`
-      : `${item.stock} in stock`;
+  const stock = getEffectiveProductStock(item);
+  const stockBucket = getProductStockBucket(item);
+  const isLowStock = stockBucket === 'low_stock';
+  const isOutOfStock = stockBucket === 'out_of_stock';
+  const isUnmanaged = stockBucket === 'unmanaged';
+  const stockStatusLabel = isUnmanaged
+    ? 'Unlimited stock'
+    : isOutOfStock
+      ? 'Out of stock'
+      : isLowStock
+        ? `Low stock: ${stock} remaining`
+        : `${stock} in stock`;
 
   return (
     <Pressable
@@ -140,11 +148,11 @@ function InventoryProductItem({
               },
             ]}
           >
-            {item.stock}
+            {isUnmanaged ? '∞' : stock}
           </Text>
         </View>
         <Text style={[styles.stockLabel, { color: colors.textSecondary }]}>
-          in stock
+          {isUnmanaged ? 'available' : 'in stock'}
         </Text>
       </View>
     </Pressable>
@@ -175,7 +183,8 @@ export default function InventoryScreen() {
   const products = data?.pages.flatMap((page) => page.products) ?? [];
 
   // Use server-side inventory stats for accurate global counts
-  const totalProducts = inventoryStats?.activeCount ?? 0;
+  const totalProducts =
+    inventoryStats?.totalProducts ?? data?.pages[0]?.totalCount ?? products.length;
   const lowStockCount = inventoryStats?.lowStockCount ?? 0;
   const outOfStockCount = inventoryStats?.outOfStockCount ?? 0;
 
