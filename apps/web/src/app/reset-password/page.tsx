@@ -80,9 +80,12 @@ function ResetPasswordForm() {
   const supabase = createClient();
   const searchParams = useSearchParams();
 
-  const form = useForm<ResetPasswordFormValues>({
-    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
-    resolver: zodResolver(resetPasswordSchema as any),
+  const form = useForm<
+    z.input<typeof resetPasswordSchema>,
+    unknown,
+    ResetPasswordFormValues
+  >({
+    resolver: zodResolver(resetPasswordSchema),
     defaultValues: { password: '', confirmPassword: '' },
   });
 
