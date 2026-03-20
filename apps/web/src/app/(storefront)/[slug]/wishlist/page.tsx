@@ -199,11 +199,14 @@ export default function WishListPage() {
         image: item.products.images?.[0] || '',
         imageLarge: item.products.images?.[0] || '',
         imageHint: item.products.name,
-        stock: item.products.stock_quantity ?? 0,
+        stock:
+          item.products.stock_quantity == null
+            ? 9999
+            : item.products.stock_quantity,
         category: categoryName,
         category_slug: categorySlug,
         status: item.products.status as 'active' | 'draft' | 'archived',
-        manage_stock: false,
+        manage_stock: item.products.stock_quantity != null,
         brand: '',
         gtin: '',
         mpn: '',
