@@ -9,6 +9,7 @@ import { router, Stack } from 'expo-router';
 import {
   Alert,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -227,6 +228,20 @@ export default function SavedItemsScreen() {
     );
   };
 
+  // Approximate height of saved item card:
+  // padding SPACING.md (16) * 2 = 32
+  // image height: 100
+  // actionsRow paddingBottom: SPACING.md (16)
+  // actionsRow button height approx: font 13 + paddingVertical SPACING.sm (12) * 2 = 37
+  // total item content height = 32 + 100 + 16 + 37 = 185
+  // plus separator height: 16
+  const ITEM_HEIGHT = 185 + SPACING.md;
+  const getItemLayout = (_data: ArrayLike<SavedItem> | null | undefined, index: number) => ({
+    length: ITEM_HEIGHT,
+    offset: ITEM_HEIGHT * index,
+    index,
+  });
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen
@@ -242,6 +257,11 @@ export default function SavedItemsScreen() {
         data={items}
         renderItem={renderSavedItem}
         keyExtractor={(item) => item.id}
+        getItemLayout={getItemLayout}
+        removeClippedSubviews={Platform.OS === 'android'}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        initialNumToRender={8}
         contentContainerStyle={[
           styles.listContent,
           items.length === 0 && styles.emptyListContent,
