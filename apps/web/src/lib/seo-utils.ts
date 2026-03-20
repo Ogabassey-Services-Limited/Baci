@@ -1,4 +1,5 @@
 import type { Route } from 'next';
+import { getEffectiveStock } from './product-stock';
 import type { Product, ProductSchemaMarkup, Review } from './products';
 // Import from sanitize-core to avoid loading jsdom on server components
 import { escapeHtml, stripHtmlTags } from './sanitize-core';
@@ -6,6 +7,17 @@ import { sanitizeSchemaMarkup } from './sanitize-json-ld';
 
 // Re-export escapeHtml for use in other modules
 export { escapeHtml };
+
+/**
+ * Returns the effective stock for availability checks.
+ * Prefers `stock_quantity` and only falls back to legacy `stock` when needed.
+ */
+export function getEffectiveProductStock(product: {
+  stock?: number | string | null;
+  stock_quantity?: number | string | null;
+}): number {
+  return getEffectiveStock(product);
+}
 
 /**
  * Generates a URL-friendly slug from a string
@@ -298,10 +310,9 @@ export function generateProductSchema(
             '@type': 'Offer',
             price: product.price,
             priceCurrency: currency,
-            availability:
-              product.stock > 0
-                ? 'https://schema.org/InStock'
-                : 'https://schema.org/OutOfStock',
+            availability: getEffectiveProductStock(product)
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/OutOfStock',
             itemCondition:
               product.condition === 'used'
                 ? 'https://schema.org/UsedCondition'
@@ -1087,10 +1098,9 @@ export function generateCollectionPageSchema(
             '@type': 'Offer',
             price: product.price,
             priceCurrency: data.currency || 'NGN',
-            availability:
-              product.stock > 0
-                ? 'https://schema.org/InStock'
-                : 'https://schema.org/OutOfStock',
+            availability: getEffectiveProductStock(product)
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/OutOfStock',
           },
         },
       })),
