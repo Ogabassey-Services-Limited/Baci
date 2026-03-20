@@ -124,6 +124,29 @@ describe('fetchDashboardMerchant', () => {
     expect(result.staffAccess.isStaff).toBe(false);
   });
 
+  it('treats owner rows without business details as incomplete', async () => {
+    const supabase = createMockSupabase({
+      merchants: mockQueryChain({
+        data: {
+          id: 'merchant-1',
+          user_id: 'user-1',
+          business_name: null,
+          business_type: null,
+          slug: null,
+          feature_settings: null,
+        },
+        error: null,
+      }),
+      staff_members: mockQueryChain({ data: null, error: null }),
+    });
+
+    const result = await fetchDashboardMerchant(supabase, 'user-1');
+
+    expect(result.merchant).toBeNull();
+    expect(result.staffAccess.isOwner).toBe(false);
+    expect(result.staffAccess.isStaff).toBe(false);
+  });
+
   it('returns null merchant when no owner and no staff', async () => {
     const supabase = createMockSupabase({
       merchants: mockQueryChain({ data: null, error: null }),
