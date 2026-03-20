@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
@@ -111,7 +112,7 @@ describe('GET /api/admin/notifications/[id]', () => {
   });
 
   it('logs timing telemetry around the parallel stats query', async () => {
-    const response = await GET({} as Request, {
+    const response = await GET({} as NextRequest, {
       params: Promise.resolve({
         id: '123e4567-e89b-12d3-a456-426614174000',
       }),
