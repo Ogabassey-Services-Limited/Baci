@@ -85,11 +85,13 @@ After writing tests:
 When writing tests for mobile-admin (Vitest + jsdom-based render utilities):
 - This app uses Vitest with web-style testing utilities, not `@testing-library/react-native`
 - React Native primitives may be mocked to DOM-like elements in test setup
-- Typical mocks include `expo-router`, Supabase clients, and merchant context hooks
+- Typical mocks include `expo-router`, Supabase clients, the `useMerchant` React Query hook, and auth dependencies such as `useAuth`
 - Tenant-isolation assertions should verify the intended scope:
   - Business data queries: `merchant_id`
   - Auth or profile queries: `user_id`
-  - Staff queries: both `user_id` and `merchant_id`
+  - Staff list queries: `merchant_id`
+  - Current staff profile queries: `user_id`
+  - Staff-to-entity cross references: both `user_id` and `merchant_id`
 - Test React Query invalidation against the app's existing query key conventions instead of brittle literal arrays where possible
 - Prefer patterns already used in the app, for example `['orders', merchantId]`, rather than assuming a centralized query key factory exists
 - Cover Supabase `.error` responses and network failures on hooks and routes
