@@ -38,7 +38,13 @@ interface PlatformInstructions {
   tips?: string[];
 }
 
-const CopyButton = ({ text }: { text: string }) => {
+const CopyButton = ({
+  text,
+  'aria-label': ariaLabel,
+}: {
+  text: string;
+  'aria-label'?: string;
+}) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -51,6 +57,7 @@ const CopyButton = ({ text }: { text: string }) => {
     <button
       type="button"
       onClick={handleCopy}
+      aria-label={ariaLabel || 'Copy to clipboard'}
       className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
     >
       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
@@ -381,7 +388,10 @@ export function SetupInstructions({
               <code className="bg-muted px-1 py-0.5 rounded">
                 {instructions.pixelIdExample}
               </code>
-              <CopyButton text={instructions.pixelIdExample} />
+              <CopyButton
+                text={instructions.pixelIdExample}
+                aria-label="Copy example format"
+              />
             </p>
           </div>
 
