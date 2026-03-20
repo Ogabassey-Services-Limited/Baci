@@ -6,17 +6,11 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { resolveAccountNumber } from '@/lib/paystack';
+import {
+  getPaystackFailureMessage,
+  getPaystackFailureStatus,
+} from '@/lib/paystack-route-errors';
 import { resolvePaystackAccountSchema } from '@/schemas/paystack-resolve';
-
-function getResolveFailureStatus(code?: string): number {
-  if (!code) return 502;
-  if (code === 'CONFIG_ERROR') return 500;
-  if (code === 'VALIDATION_ERROR') return 400;
-  if (code === 'NETWORK_ERROR') return 502;
-  if (code.startsWith('HTTP_5')) return 502;
-  if (code.startsWith('HTTP_4')) return 400;
-  return 502;
-}
 
 /**
  * POST /api/paystack/resolve
@@ -94,12 +88,9 @@ export async function POST(request: NextRequest) {
       }
       return NextResponse.json(
         {
-          error:
-            result.code === 'CONFIG_ERROR'
-              ? 'Service configuration error'
-              : (result.error ?? 'Could not resolve account'),
+          error: getPaystackFailureMessage(result, 'Could not resolve account'),
         },
-        { status: getResolveFailureStatus(result.code) }
+        { status: getPaystackFailureStatus(result.code) }
       );
     }
 
