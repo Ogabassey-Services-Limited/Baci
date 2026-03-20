@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getAdminMerchantHealthRows } from '@/lib/admin-merchant-health';
 import { revalidateAnalytics } from '@/lib/cache-revalidation';
 import { getCachedPlatformAnalytics } from '@/lib/cached-data';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -142,7 +143,7 @@ export async function GET(request: NextRequest) {
         .select('sale_date, platform_gmv, total_orders, active_merchants')
         .gte('sale_date', startDateStr)
         .order('sale_date', { ascending: true }),
-      supabase.rpc('get_admin_merchant_health'),
+      getAdminMerchantHealthRows(supabase),
       supabase
         .from('platform_growth')
         .select('month, new_merchants')

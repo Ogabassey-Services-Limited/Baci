@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getAdminMerchantHealthRows } from '@/lib/admin-merchant-health';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 import type { AdminMerchantsSortBy } from '@/schemas/admin-merchants-query';
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { data, error } = await supabase.rpc('get_admin_merchant_health');
+    const { data, error } = await getAdminMerchantHealthRows(supabase);
 
     if (error) {
       console.error('Admin merchants RPC error:', error);
