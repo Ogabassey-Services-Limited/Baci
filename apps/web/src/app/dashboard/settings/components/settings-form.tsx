@@ -6,6 +6,7 @@ import a11yPlugin from 'colord/plugins/a11y';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
+import type { z } from 'zod';
 import { FaviconUpload } from '@/app/dashboard/settings/favicon-upload';
 import { DashboardAdUnit } from '@/components/dashboard/dashboard-ad-unit';
 import { Button } from '@/components/ui/button';
@@ -75,9 +76,12 @@ export function SettingsForm({
     }
   }, [initialMerchant, isDirty]);
 
-  const form = useForm<SettingsFormValues>({
-    // biome-ignore lint/suspicious/noExplicitAny: library type mismatch
-    resolver: zodResolver(settingsSchema as any),
+  const form = useForm<
+    z.input<typeof settingsSchema>,
+    unknown,
+    SettingsFormValues
+  >({
+    resolver: zodResolver(settingsSchema),
     defaultValues: {
       business_name: initialMerchant?.business_name || '',
       country: initialMerchant?.country || 'NG',
