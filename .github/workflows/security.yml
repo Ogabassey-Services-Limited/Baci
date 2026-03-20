@@ -97,6 +97,7 @@ jobs:
         if: github.event_name == 'pull_request'
         id: semgrep_pr
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git fetch --no-tags --prune origin "${{ github.event.pull_request.base.ref }}"
           mapfile -t changed_files < <(
             git diff --name-only "origin/${{ github.event.pull_request.base.ref }}...HEAD" -- \
