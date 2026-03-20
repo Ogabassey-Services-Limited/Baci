@@ -9,6 +9,9 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import {
+  normalizeProductInventory,
+} from '@/lib/product-inventory';
 import { sanitizeSearchQuery, sanitizeText } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { getJoinedRecord } from '@/lib/supabase-utils';
@@ -50,6 +53,7 @@ export interface InventoryStats {
   inventoryValue: number;
   inventoryCost: number;
   totalStock: number;
+  totalProducts: number;
   activeCount: number;
   lowStockCount: number;
   outOfStockCount: number;
@@ -154,7 +158,7 @@ async function fetchProducts(
   const hasMore = (count ?? 0) > cursor + PAGE_SIZE;
 
   return {
-    products: data ?? [],
+    products: (data ?? []).map((product) => normalizeProductInventory(product)),
     nextCursor: hasMore ? cursor + PAGE_SIZE : null,
     totalCount: count ?? 0,
   };
@@ -178,7 +182,7 @@ async function updateProductStock(
     .single();
 
   if (error) throw new Error(error.message);
-  return data;
+  return normalizeProductInventory(data);
 }
 
 async function updateProductStatus(
@@ -195,7 +199,7 @@ async function updateProductStatus(
     .single();
 
   if (error) throw new Error(error.message);
-  return data;
+  return normalizeProductInventory(data);
 }
 
 export function useProducts(filters?: {
@@ -258,10 +262,13 @@ export function useProduct(productId: string) {
       const brand = getJoinedRecord(withRelations.brands);
 
       return {
-        ...withRelations,
+        ...normalizeProductInventory(withRelations),
         categories: category ? { name: category.name } : undefined,
         brands: brand ? { name: brand.name } : undefined,
-        variants: (variants as Product[] | null) ?? [],
+        variants:
+          ((variants as Product[] | null) ?? []).map((variant) =>
+            normalizeProductInventory(variant)
+          ),
       } as Product & {
         categories?: { name: string };
         brands?: { name: string };
@@ -319,7 +326,7 @@ export function useUpdateProduct() {
         }
         throw new Error(error.message);
       }
-      return data;
+      return normalizeProductInventory(data);
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['product', data.id] });
@@ -362,7 +369,7 @@ export function useCreateProduct() {
         }
         throw new Error(error.message);
       }
-      return data;
+      return normalizeProductInventory(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -573,7 +580,7 @@ export function useTopSellingProducts(limit: number = 20) {
           const product = productsMap.get(item.id);
           if (!product) return null;
           return {
-            ...product,
+            ...normalizeProductInventory(product),
             totalSold: Number(item.units),
             totalRevenue: Number(item.revenue),
           };
@@ -599,7 +606,18 @@ export function useInventoryStats() {
       );
 
       if (error) throw error;
-      return data as InventoryStats;
+      const rpcStats = (data ?? {}) as Partial<InventoryStats>;
+      return {
+        ...rpcStats,
+        totalProducts: Number(rpcStats.totalProducts || 0),
+        totalStock: Number(rpcStats.totalStock || 0),
+        activeCount: Number(rpcStats.activeCount || 0),
+        lowStockCount: Number(rpcStats.lowStockCount || 0),
+        outOfStockCount: Number(rpcStats.outOfStockCount || 0),
+        categoryCount: Number(rpcStats.categoryCount || 0),
+        inventoryValue: Number(rpcStats.inventoryValue || 0),
+        inventoryCost: Number(rpcStats.inventoryCost || 0),
+      } satisfies InventoryStats;
     },
     enabled: !!merchantId,
     staleTime: 1000 * 60 * 5, // 5 minutes

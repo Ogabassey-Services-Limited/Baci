@@ -16,6 +16,7 @@ import {
   getCachedMerchantByDomain,
   getCachedProductWithDetails,
 } from '@/lib/cached-data';
+import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
@@ -639,20 +640,7 @@ const getProduct = async (
         ? Number.parseFloat(product.compare_at_price) || undefined
         : product.compare_at_price,
     manage_stock: product.manage_stock ?? true,
-    stock: (() => {
-      if (typeof product.stock === 'number') {
-        return product.stock;
-      }
-
-      if (typeof product.stock === 'string') {
-        const parsedStock = Number.parseInt(product.stock, 10);
-        if (!Number.isNaN(parsedStock)) {
-          return parsedStock;
-        }
-      }
-
-      return product.stock_quantity ?? 0;
-    })(),
+    stock: getEffectiveStock(product),
     image: primaryImage,
     imageLarge: primaryImage,
     imageHint: product.imageHint || product.name,

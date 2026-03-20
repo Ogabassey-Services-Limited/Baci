@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { stripHtmlTags } from '@/lib/sanitize-core';
+import { getEffectiveProductStock } from '@/lib/seo-utils';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     .from('products')
     // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full product rows (which include internal metadata or unneeded JSON fields) and reduce memory/bandwidth overhead in large product feeds.
     .select(
-      'id, name, description, slug, price, compare_at_price, images, image, "imageLarge", brand, gtin, mpn, sku, stock, condition, google_product_category, category'
+      'id, name, description, slug, price, compare_at_price, images, image, "imageLarge", brand, gtin, mpn, sku, stock, stock_quantity, condition, google_product_category, category'
     )
     .eq('merchant_id', merchant.id)
     .eq('status', 'active')
@@ -90,6 +91,7 @@ interface Product {
   mpn?: string;
   sku?: string;
   stock: number;
+  stock_quantity?: number | null;
   condition?: 'new' | 'used' | 'refurbished';
   google_product_category?: string;
   category?: string;
@@ -128,7 +130,9 @@ function generateTikTokFeed(
           .join('\n') || '';
 
       // Availability - TikTok uses 'in_stock' / 'out_of_stock'
-      const availability = product.stock > 0 ? 'in_stock' : 'out_of_stock';
+      const availability = getEffectiveProductStock(product)
+        ? 'in_stock'
+        : 'out_of_stock';
 
       // Condition
       const condition = product.condition || 'new';

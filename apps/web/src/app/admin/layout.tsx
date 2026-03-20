@@ -150,17 +150,15 @@ export default function AdminLayout({
   // Loading state
   if (authLoading || adminLoading) {
     return (
-      <>
+      <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <CsrfInitializer />
-        <div className="flex min-h-screen w-full items-center justify-center bg-background">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-8 w-8 motion-safe:animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">
-              Verifying admin access...
-            </p>
-          </div>
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 motion-safe:animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">
+            Verifying admin access...
+          </p>
         </div>
-      </>
+      </div>
     );
   }
 

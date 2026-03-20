@@ -8,8 +8,14 @@ const mockUseAuth = vi.fn();
 const mockCreateClient = vi.fn();
 
 vi.mock('next/link', () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 
@@ -115,6 +121,23 @@ describe('AdminLayout', () => {
         })),
       })),
     });
+  });
+
+  it('mounts CsrfInitializer while verifying admin access', () => {
+    mockUseAuth.mockReturnValue({
+      loading: true,
+      signOut: vi.fn(),
+      user: { id: 'user-1', email: 'admin@example.com' },
+    });
+
+    render(
+      <AdminLayout>
+        <div>Admin content</div>
+      </AdminLayout>
+    );
+
+    expect(screen.getByTestId('csrf-initializer')).toBeInTheDocument();
+    expect(screen.getByText('Verifying admin access...')).toBeInTheDocument();
   });
 
   it('mounts the CSRF initializer for verified admin sessions', async () => {

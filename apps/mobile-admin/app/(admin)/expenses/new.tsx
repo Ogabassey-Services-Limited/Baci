@@ -168,7 +168,7 @@ export default function AddExpenseScreen() {
             {/* Amount Input */}
             <View style={styles.section}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Amount <Text style={{ color: '#EF4444' }}>*</Text>
+                Amount <Text style={{ color: colors.error }}>*</Text>
               </Text>
               <View
                 style={[styles.amountContainer, { borderColor: colors.border }]}
@@ -197,7 +197,7 @@ export default function AddExpenseScreen() {
             {/* Category Selector */}
             <View style={styles.section}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Category <Text style={{ color: '#EF4444' }}>*</Text>
+                Category <Text style={{ color: colors.error }}>*</Text>
               </Text>
               <Pressable
                 style={[

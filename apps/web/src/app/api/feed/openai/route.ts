@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
+import { getEffectiveStock } from '@/lib/product-stock';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
@@ -33,7 +34,7 @@ function createCachedFeedDataFetcher(
         .from('products')
         .select(
           `id, name, description, slug, price, compare_at_price, images,
-           brand, gtin, mpn, sku, stock, condition, google_product_category, category,
+           brand, gtin, mpn, sku, stock, stock_quantity, condition, google_product_category, category,
            weight_value, weight_unit, updated_at,
            variants:product_variants(id, attributes, price_override, stock_quantity, sku, primary_image)`
         )
@@ -356,7 +357,7 @@ function generateOpenAIFeed(
       const imageUrl =
         typeof firstImage === 'string' ? firstImage : firstImage?.url || '';
 
-      const stockCount = typeof product.stock === 'number' ? product.stock : 0;
+      const stockCount = getEffectiveStock(product);
       const availability: OpenAIFeedItem['availability'] =
         stockCount > 0 ? 'in_stock' : 'out_of_stock';
 
