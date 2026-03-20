@@ -21,6 +21,7 @@ import {
 import Link from 'next/link';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import type { z } from 'zod';
 import {
   calculateRepairShipping,
   createRepair,
@@ -82,9 +83,12 @@ export function RepairBookingWizard({
   const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
   const { toast } = useToast();
 
-  const form = useForm<RepairBookingInput>({
-    // biome-ignore lint/suspicious/noExplicitAny: Zod v4 + @hookform/resolvers type incompatibility workaround
-    resolver: zodResolver(repairBookingSchema as any) as any,
+  const form = useForm<
+    z.input<typeof repairBookingSchema>,
+    unknown,
+    RepairBookingInput
+  >({
+    resolver: zodResolver(repairBookingSchema),
     defaultValues: {
       deviceType: 'Smartphone',
       deviceModel: '',
