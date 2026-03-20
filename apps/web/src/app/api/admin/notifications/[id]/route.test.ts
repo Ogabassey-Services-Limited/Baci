@@ -112,7 +112,7 @@ describe('GET /api/admin/notifications/[id]', () => {
   });
 
   it('logs timing telemetry around the parallel stats query', async () => {
-    const response = await GET({} as NextRequest, {
+    const response = await GET({} as unknown as NextRequest, {
       params: Promise.resolve({
         id: '123e4567-e89b-12d3-a456-426614174000',
       }),
@@ -132,6 +132,54 @@ describe('GET /api/admin/notifications/[id]', () => {
       id: '123e4567-e89b-12d3-a456-426614174000',
       stats: {
         total_recipients: 12,
+        read_count: 5,
+      },
+    });
+  });
+
+  it('logs failure flags and falls back counts when a stats query errors', async () => {
+    mockAdminSupabase.from.mockReset();
+
+    const totalChain = {
+      eq: vi.fn().mockResolvedValue({
+        count: null,
+        error: { message: 'boom' },
+      }),
+    };
+
+    const readChain = {
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockResolvedValue({ count: 5, error: null }),
+    };
+
+    mockAdminSupabase.from
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnValue(totalChain),
+      })
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnValue(readChain),
+      });
+
+    const response = await GET({} as unknown as NextRequest, {
+      params: Promise.resolve({
+        id: '123e4567-e89b-12d3-a456-426614174000',
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(logger.info).toHaveBeenCalledWith({
+      message: 'notification_stats_query_ms',
+      notification_id: '123e4567-e89b-12d3-a456-426614174000',
+      duration_ms: 42,
+      success: false,
+      total_error: true,
+      read_error: false,
+    });
+
+    await expect(response.json()).resolves.toMatchObject({
+      id: '123e4567-e89b-12d3-a456-426614174000',
+      stats: {
+        total_recipients: 0,
         read_count: 5,
       },
     });
