@@ -44,39 +44,25 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import {
+  formatAdminCompactCurrency,
+  formatAdminCurrency,
+} from '@/lib/admin-currency';
+import { apiGet } from '@/lib/api-client';
 import { generateSlug } from '@/lib/seo-utils';
-import { createClient } from '@/lib/supabase/client';
+import type {
+  AdminMerchantHealthRow,
+  AdminMerchantsResponse,
+} from '@/types/admin-merchants';
 
-interface MerchantHealth {
-  merchant_id: string;
-  business_name: string;
-  email: string;
-  joined_at: string;
-  total_gmv: number;
-  total_orders: number;
-  last_order_date: string | null;
-  active_days: number;
-  health_status: 'healthy' | 'at_risk' | 'churned' | 'new';
-}
+function formatCurrency(value: number | string): string {
+  const parsedValue =
+    typeof value === 'string' ? Number.parseFloat(value) : value;
+  const numericValue = Number.isFinite(parsedValue) ? parsedValue : 0;
 
-function formatCurrency(value: number | string, currency = 'USD'): string {
-  // Parse value safely - Supabase returns numeric columns as strings for precision
-  const numValue = typeof value === 'string' ? Number.parseFloat(value) : value;
-
-  // Handle NaN or invalid values
-  if (!Number.isFinite(numValue)) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-    }).format(0);
-  }
-
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    notation: numValue >= 1000000 ? 'compact' : 'standard',
-    maximumFractionDigits: numValue >= 1000 ? 1 : 2,
-  }).format(numValue);
+  return numericValue >= 1000
+    ? formatAdminCompactCurrency(numericValue)
+    : formatAdminCurrency(numericValue);
 }
 
 function formatDate(dateStr: string | null): string {
@@ -139,7 +125,7 @@ export default function MerchantsPage() {
   const searchParams = useSearchParams();
   const initialHealthFilter = searchParams.get('health') || 'all';
 
-  const [merchants, setMerchants] = useState<MerchantHealth[]>([]);
+  const [merchants, setMerchants] = useState<AdminMerchantHealthRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [healthFilter, setHealthFilter] = useState<string>(initialHealthFilter);
@@ -149,30 +135,15 @@ export default function MerchantsPage() {
   const fetchMerchants = async () => {
     try {
       setLoading(true);
-      const supabase = createClient();
-
-      const { data, error } = await supabase
-        .from('merchant_health')
-        .select('*')
-        .order(
-          sortBy === 'gmv'
-            ? 'total_gmv'
-            : sortBy === 'orders'
-              ? 'total_orders'
-              : 'joined_at',
-          {
-            ascending: sortBy === 'joined',
-          }
-        );
-
-      if (error) throw error;
-      setMerchants(data || []);
+      const response = await apiGet<AdminMerchantsResponse>(
+        `/api/admin/merchants?sortBy=${sortBy}`
+      );
+      setMerchants(response.data);
     } catch (error) {
       console.error('Failed to fetch merchants:', error);
       toast({
         title: 'Error',
-        description:
-          'Failed to load merchant data. The analytics views may not be set up yet.',
+        description: 'Failed to load merchant data.',
         variant: 'destructive',
       });
     } finally {
@@ -438,11 +409,14 @@ export default function MerchantsPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() =>
-                                window.open(
-                                  `mailto:${merchant.email}`,
-                                  '_blank'
-                                )
+                                merchant.email
+                                  ? window.open(
+                                      `mailto:${merchant.email}`,
+                                      '_blank'
+                                    )
+                                  : undefined
                               }
+                              disabled={!merchant.email}
                             >
                               <Mail className="h-4 w-4 mr-2" />
                               Send Email

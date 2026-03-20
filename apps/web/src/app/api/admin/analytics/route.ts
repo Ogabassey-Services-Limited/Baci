@@ -1,13 +1,62 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import {
+  buildBusinessTypeBreakdowns,
+  buildOrderStatusBreakdowns,
+  buildPaymentMethodBreakdowns,
+} from '@/lib/admin-analytics-breakdowns';
+import { getAdminMerchantHealthRows } from '@/lib/admin-merchant-health';
+import { revalidateAnalytics } from '@/lib/cache-revalidation';
 import { getCachedPlatformAnalytics } from '@/lib/cached-data';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 import { adminAnalyticsQuerySchema } from '@/schemas/admin-analytics-query';
-import type { DailyGmvData, PlatformAnalytics } from '@/types/analytics';
+import type { AdminMerchantHealthRow } from '@/types/admin-merchants';
+import type {
+  DailyGmvData,
+  MerchantActivationStage,
+  OrderStatusBreakdown,
+  PaymentMethodBreakdown,
+  PlatformAnalytics,
+  SalesChannelBreakdown,
+  SignupSourceBreakdown,
+} from '@/types/analytics';
 
 type PlatformAnalyticsResponse = PlatformAnalytics;
+
+interface MerchantProfileRow {
+  bank_account_name: string | null;
+  bank_account_number: string | null;
+  bank_code: string | null;
+  business_name: string | null;
+  business_type: string | null;
+  id: string;
+  is_published: boolean | null;
+  kyc_status: string | null;
+  paystack_subaccount_code: string | null;
+  signup_source: 'web' | 'ios' | 'android';
+  slug: string | null;
+  support_email: string | null;
+  support_phone: string | null;
+}
+
+interface OrderChannelRow {
+  merchant_id: string;
+  payment_method: string | null;
+  payment_status: string | null;
+  shipping_status: string | null;
+  source: string | null;
+  total: number | string | null;
+}
+
+interface PaidOrderMerchantRow {
+  merchant_id: string;
+}
+
+interface ProductMerchantRow {
+  merchant_id: string;
+}
 
 /**
  * GET /api/admin/analytics
@@ -94,37 +143,83 @@ export async function GET(request: NextRequest) {
       dailySummaryResult,
       merchantHealthResult,
       growthResult,
+      merchantProfilesResult,
       topMerchantsResult,
-      totalMerchantsResult,
     ] = await Promise.all([
       supabase
         .from('platform_daily_summary')
         .select('sale_date, platform_gmv, total_orders, active_merchants')
         .gte('sale_date', startDateStr)
         .order('sale_date', { ascending: true }),
-      supabase.from('merchant_health').select('health_status'),
+      getAdminMerchantHealthRows(supabase),
       supabase
         .from('platform_growth')
         .select('month, new_merchants')
         .order('month', { ascending: false })
         .limit(2),
       supabase
+        .from('merchants')
+        .select(
+          [
+            'id',
+            'bank_account_name',
+            'bank_account_number',
+            'bank_code',
+            'business_name',
+            'business_type',
+            'is_published',
+            'kyc_status',
+            'paystack_subaccount_code',
+            'signup_source',
+            'slug',
+            'support_email',
+            'support_phone',
+          ].join(', ')
+        )
+        .not('is_platform_admin', 'is', true),
+      supabase
         .from('top_merchants')
         .select('merchant_id, business_name, total_gmv, total_orders')
         .order('total_gmv', { ascending: false })
         .limit(10),
-      supabase
-        .from('merchants')
-        .select('id', { count: 'exact', head: true })
-        .not('business_name', 'is', null)
-        .not('slug', 'is', null),
     ]);
+    const merchantProfiles = (merchantProfilesResult.data ||
+      []) as unknown as MerchantProfileRow[];
+    const merchantIds = merchantProfiles.map((merchant) => merchant.id);
+    const [paidOrdersResult, periodOrdersResult, productsResult] =
+      merchantIds.length > 0
+        ? await Promise.all([
+            supabase
+              .from('orders')
+              .select('merchant_id')
+              .eq('payment_status', 'paid')
+              .in('merchant_id', merchantIds),
+            supabase
+              .from('orders')
+              .select(
+                'merchant_id, payment_method, payment_status, shipping_status, source, total'
+              )
+              .in('merchant_id', merchantIds)
+              .gte('created_at', startDateStr),
+            supabase
+              .from('products')
+              .select('merchant_id')
+              .in('merchant_id', merchantIds),
+          ])
+        : [
+            { data: [], error: null },
+            { data: [], error: null },
+            { data: [], error: null },
+          ];
     const queryError =
       dailySummaryResult.error ||
       merchantHealthResult.error ||
       growthResult.error ||
-      topMerchantsResult.error ||
-      totalMerchantsResult.error;
+      merchantProfilesResult.error ||
+      productsResult.error ||
+      paidOrdersResult.error ||
+      periodOrdersResult.error ||
+      topMerchantsResult.error;
     if (queryError) {
       console.error('Admin analytics query error:', queryError);
       return NextResponse.json(
@@ -158,16 +253,211 @@ export async function GET(request: NextRequest) {
 
     const totalGmv = Number(currentStats.totalGmv) || 0;
     const previousGmv = Number(prevStats.totalGmv) || 0;
+    const totalOrders = Number(currentStats.totalOrders) || 0;
+    const previousOrders = Number(prevStats.totalOrders) || 0;
+    const avgOrderValue = totalOrders > 0 ? totalGmv / totalOrders : 0;
+    const previousAvgOrderValue =
+      previousOrders > 0 ? previousGmv / previousOrders : 0;
     const gmvChange =
       previousGmv > 0 ? ((totalGmv - previousGmv) / previousGmv) * 100 : 0;
+    const orderChange =
+      previousOrders > 0
+        ? ((totalOrders - previousOrders) / previousOrders) * 100
+        : totalOrders > 0
+          ? 100
+          : 0;
+    const aovChange =
+      previousAvgOrderValue > 0
+        ? ((avgOrderValue - previousAvgOrderValue) / previousAvgOrderValue) *
+          100
+        : avgOrderValue > 0
+          ? 100
+          : 0;
     const dailyData = dailySummaryResult.data || [];
-    const healthData = merchantHealthResult.data || [];
+    const healthData = ((merchantHealthResult.data as
+      | AdminMerchantHealthRow[]
+      | null) ?? []) as AdminMerchantHealthRow[];
+    const allPaidOrders = (paidOrdersResult.data ||
+      []) as PaidOrderMerchantRow[];
+    const periodOrders = (periodOrdersResult.data || []) as OrderChannelRow[];
+    const allProducts = (productsResult.data || []) as ProductMerchantRow[];
     const merchantHealth = {
       healthy: healthData.filter((h) => h.health_status === 'healthy').length,
       atRisk: healthData.filter((h) => h.health_status === 'at_risk').length,
       churned: healthData.filter((h) => h.health_status === 'churned').length,
       new: healthData.filter((h) => h.health_status === 'new').length,
     };
+    const paidMerchantIds = new Set(
+      allPaidOrders.map((order) => order.merchant_id)
+    );
+    const productMerchantIds = new Set(
+      allProducts.map((product) => product.merchant_id)
+    );
+    const totalChannelOrders = periodOrders.length;
+    const grossGmv = periodOrders.reduce(
+      (sum, order) => sum + (Number(order.total) || 0),
+      0
+    );
+    const totalChannelGmv = periodOrders.reduce(
+      (sum, order) =>
+        order.payment_status === 'paid'
+          ? sum + (Number(order.total) || 0)
+          : sum,
+      0
+    );
+    const salesByChannelMap = new Map<
+      string,
+      { channel: string; gmv: number; orders: number }
+    >();
+    for (const order of periodOrders) {
+      const channel = order.source?.trim() || 'unknown';
+      const current = salesByChannelMap.get(channel) ?? {
+        channel,
+        gmv: 0,
+        orders: 0,
+      };
+      current.orders += 1;
+      if (order.payment_status === 'paid') {
+        current.gmv += Number(order.total) || 0;
+      }
+      salesByChannelMap.set(channel, current);
+    }
+    const salesByChannel: SalesChannelBreakdown[] = Array.from(
+      salesByChannelMap.values()
+    )
+      .sort((left, right) => right.gmv - left.gmv || right.orders - left.orders)
+      .map((channel) => ({
+        ...channel,
+        shareOfGmv:
+          totalChannelGmv > 0 ? (channel.gmv / totalChannelGmv) * 100 : 0,
+        shareOfOrders:
+          totalChannelOrders > 0
+            ? (channel.orders / totalChannelOrders) * 100
+            : 0,
+      }));
+    const paymentStatuses: OrderStatusBreakdown[] = buildOrderStatusBreakdowns(
+      periodOrders,
+      'payment'
+    );
+    const shippingStatuses: OrderStatusBreakdown[] = buildOrderStatusBreakdowns(
+      periodOrders,
+      'shipping'
+    );
+    const paymentMethods: PaymentMethodBreakdown[] =
+      buildPaymentMethodBreakdowns(periodOrders);
+    const totalMerchants =
+      merchantProfiles.length > 0 ? merchantProfiles.length : healthData.length;
+    const completionRate = (count: number) =>
+      totalMerchants > 0 ? (count / totalMerchants) * 100 : 0;
+    const businessTypes = buildBusinessTypeBreakdowns(
+      merchantProfiles.map((merchant) => merchant.business_type),
+      totalMerchants
+    );
+    const categorizedMerchants = businessTypes
+      .filter((businessType) => businessType.classification === 'configured')
+      .reduce((sum, businessType) => sum + businessType.merchants, 0);
+    const configuredMerchants = merchantProfiles.filter(
+      (merchant) => merchant.business_name?.trim() && merchant.slug?.trim()
+    ).length;
+    const supportReadyMerchants = merchantProfiles.filter(
+      (merchant) =>
+        merchant.support_email?.trim() || merchant.support_phone?.trim()
+    ).length;
+    const payoutReadyMerchants = merchantProfiles.filter((merchant) => {
+      const hasBankDetails =
+        merchant.bank_account_name?.trim() &&
+        merchant.bank_account_number?.trim() &&
+        merchant.bank_code?.trim();
+
+      return Boolean(
+        hasBankDetails || merchant.paystack_subaccount_code?.trim()
+      );
+    }).length;
+    const publishedMerchants = merchantProfiles.filter(
+      (merchant) => merchant.is_published
+    ).length;
+    const verifiedMerchants = merchantProfiles.filter(
+      (merchant) => merchant.kyc_status === 'verified'
+    ).length;
+    const merchantActivation: MerchantActivationStage[] = [
+      {
+        key: 'signed_up',
+        label: 'Signed Up',
+        merchants: totalMerchants,
+        completionRate: completionRate(totalMerchants),
+        description: 'All non-admin merchant records',
+      },
+      {
+        key: 'business_type_set',
+        label: 'Business Type Set',
+        merchants: categorizedMerchants,
+        completionRate: completionRate(categorizedMerchants),
+        description: 'Merchants categorized during onboarding',
+      },
+      {
+        key: 'store_configured',
+        label: 'Store Configured',
+        merchants: configuredMerchants,
+        completionRate: completionRate(configuredMerchants),
+        description: 'Merchants with business name and storefront slug',
+      },
+      {
+        key: 'support_ready',
+        label: 'Support Ready',
+        merchants: supportReadyMerchants,
+        completionRate: completionRate(supportReadyMerchants),
+        description: 'Merchants with customer-facing support contact details',
+      },
+      {
+        key: 'products_added',
+        label: 'Products Added',
+        merchants: productMerchantIds.size,
+        completionRate: completionRate(productMerchantIds.size),
+        description: 'Merchants with at least one product in catalog',
+      },
+      {
+        key: 'payout_ready',
+        label: 'Payout Ready',
+        merchants: payoutReadyMerchants,
+        completionRate: completionRate(payoutReadyMerchants),
+        description: 'Merchants with payout details configured',
+      },
+      {
+        key: 'published',
+        label: 'Published',
+        merchants: publishedMerchants,
+        completionRate: completionRate(publishedMerchants),
+        description: 'Stores currently live for shoppers',
+      },
+      {
+        key: 'kyc_verified',
+        label: 'KYC Verified',
+        merchants: verifiedMerchants,
+        completionRate: completionRate(verifiedMerchants),
+        description: 'Merchants cleared for compliance review',
+      },
+      {
+        key: 'first_paid_order',
+        label: 'First Paid Order',
+        merchants: paidMerchantIds.size,
+        completionRate: completionRate(paidMerchantIds.size),
+        description: 'Merchants with at least one paid order',
+      },
+    ];
+
+    // Process signup source breakdown
+    const signupSourceCounts = new Map<string, number>();
+    for (const merchant of merchantProfiles) {
+      const source = merchant.signup_source || 'web';
+      signupSourceCounts.set(source, (signupSourceCounts.get(source) ?? 0) + 1);
+    }
+    const signupSources: SignupSourceBreakdown[] = (
+      ['web', 'ios', 'android'] as const
+    ).map((source) => ({
+      source,
+      merchants: signupSourceCounts.get(source) ?? 0,
+      shareOfMerchants: completionRate(signupSourceCounts.get(source) ?? 0),
+    }));
 
     // Process growth metrics
     const growthData = growthResult.data || [];
@@ -196,10 +486,15 @@ export async function GET(request: NextRequest) {
     const response: PlatformAnalyticsResponse = {
       summary: {
         totalGmv,
+        grossGmv,
         gmvChange,
+        orderChange,
         activeMerchants: Number(currentStats.activeMerchants) || 0,
-        totalMerchants: totalMerchantsResult.count || 0,
-        totalOrders: Number(currentStats.totalOrders) || 0,
+        totalMerchants,
+        totalOrders,
+        grossOrders: totalChannelOrders,
+        avgOrderValue,
+        aovChange,
         avgGmvPerMerchant:
           Number(currentStats.activeMerchants) > 0
             ? totalGmv / Number(currentStats.activeMerchants)
@@ -216,6 +511,13 @@ export async function GET(request: NextRequest) {
       },
       topMerchants,
       dailyGmv,
+      salesByChannel,
+      paymentStatuses,
+      shippingStatuses,
+      paymentMethods,
+      merchantActivation,
+      businessTypes,
+      signupSources,
       generatedAt: new Date().toISOString(),
     };
     return NextResponse.json(response);
@@ -294,6 +596,8 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    revalidateAnalytics();
 
     return NextResponse.json({
       success: true,

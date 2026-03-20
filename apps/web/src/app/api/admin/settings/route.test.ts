@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PLATFORM_SETTINGS_SELECT } from './constants';
-import type { PlatformSettings } from './route';
+import type { PlatformSettings, PlatformSettingsResponse } from './route';
 
 const {
   mockCheckCsrfProtection,
@@ -39,13 +39,13 @@ import { GET, PUT } from './route';
 const baseSettings = {
   id: 'settings-1',
   google_analytics_id: 'G-123456',
-  ga4_api_secret: null,
+  ga4_api_secret: 'ga4-secret',
   facebook_pixel_id: null,
-  facebook_capi_token: null,
+  facebook_capi_token: 'fb-secret',
   tiktok_pixel_id: null,
   tiktok_access_token: null,
   snapchat_pixel_id: null,
-  snapchat_capi_token: null,
+  snapchat_capi_token: 'snap-secret',
   twitter_pixel_id: null,
   platform_fee_percentage: 2.5,
   platform_fee_flat: 100,
@@ -188,10 +188,18 @@ describe('/api/admin/settings', () => {
 
   it('returns platform settings with explicit columns', async () => {
     const response = await GET();
-    const body = (await response.json()) as PlatformSettings;
+    const body = (await response.json()) as PlatformSettingsResponse;
 
     expect(response.status).toBe(200);
     expect(body.id).toBe(baseSettings.id);
+    expect(body.secretStatus).toEqual({
+      ga4_api_secret: true,
+      facebook_capi_token: true,
+      tiktok_access_token: false,
+      snapchat_capi_token: true,
+    });
+    expect(body).not.toHaveProperty('ga4_api_secret');
+    expect(body).not.toHaveProperty('facebook_capi_token');
     expect(capturedMerchantSelect).toBe('is_platform_admin');
     expect(capturedPlatformSettingsSelect).toBe(PLATFORM_SETTINGS_SELECT);
   });
@@ -289,6 +297,7 @@ describe('/api/admin/settings', () => {
         platform_name: 'Baci Pro',
         platform_fee_percentage: 3.5,
         enable_custom_domains: false,
+        ga4_api_secret: 'replacement-secret',
       },
       error: null,
     };
@@ -298,14 +307,17 @@ describe('/api/admin/settings', () => {
         platform_name: 'Baci Pro',
         platform_fee_percentage: '3.5',
         enable_custom_domains: false,
+        ga4_api_secret: 'replacement-secret',
         support_email: 'support@baci.app',
       })
     );
-    const body = (await response.json()) as PlatformSettings;
+    const body = (await response.json()) as PlatformSettingsResponse;
 
     expect(response.status).toBe(200);
     expect(body.platform_name).toBe('Baci Pro');
     expect(body.platform_fee_percentage).toBe(3.5);
+    expect(body.secretStatus.ga4_api_secret).toBe(true);
+    expect(body).not.toHaveProperty('ga4_api_secret');
     expect(capturedMerchantSelect).toBe('is_platform_admin');
     expect(capturedPlatformSettingsSelect).toBe(PLATFORM_SETTINGS_SELECT);
     expect(capturedPlatformSettingsUpdate).toEqual(
@@ -313,6 +325,7 @@ describe('/api/admin/settings', () => {
         platform_name: 'Baci Pro',
         platform_fee_percentage: 3.5,
         enable_custom_domains: false,
+        ga4_api_secret: 'replacement-secret',
         support_email: 'support@baci.app',
       })
     );
