@@ -9,6 +9,8 @@ const ROOT_DOMAIN =
  * Android App Links verification endpoint.
  * Returns per-domain Digital Asset Links statements so Android
  * only associates the correct app with each merchant's domain.
+ * This route must remain host-aware because storefront domains and
+ * the root platform domain intentionally advertise different apps.
  * Must NOT redirect — Android rejects 3xx responses.
  */
 export function GET(request: NextRequest): NextResponse {

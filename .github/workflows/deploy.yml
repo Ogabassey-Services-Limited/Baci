@@ -52,6 +52,8 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       # Fix OOM error on runner
       NODE_OPTIONS: "--max_old_space_size=8192"
+      # Keep the pnpm content-addressable store outside the action install dir.
+      PNPM_STORE_DIR: ${{ runner.temp }}/pnpm-store
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Clean stale pnpm setup directory
@@ -61,8 +63,10 @@ jobs:
         with:
           node-version: "24"
           cache: "pnpm"
-      - name: Prune pnpm store to fix cache issues
-        run: rm -rf "$(pnpm store path)" || true
+      - name: Reset pnpm store to fix cross-runner install issues
+        run: |
+          rm -rf "${PNPM_STORE_DIR}" || true
+          pnpm config set store-dir "${PNPM_STORE_DIR}"
       - run: pnpm install
       - run: pnpm dlx vercel pull --yes --environment=production --token="${{ env.VERCEL_TOKEN }}"
       - run: pnpm dlx vercel build --yes --prod --token="${{ env.VERCEL_TOKEN }}"
@@ -88,6 +92,8 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       # Fix OOM error on runner
       NODE_OPTIONS: "--max_old_space_size=8192"
+      # Keep the pnpm content-addressable store outside the action install dir.
+      PNPM_STORE_DIR: ${{ runner.temp }}/pnpm-store
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Clean stale pnpm setup directory
@@ -97,8 +103,10 @@ jobs:
         with:
           node-version: "24"
           cache: "pnpm"
-      - name: Prune pnpm store to fix cache issues
-        run: rm -rf "$(pnpm store path)" || true
+      - name: Reset pnpm store to fix cross-runner install issues
+        run: |
+          rm -rf "${PNPM_STORE_DIR}" || true
+          pnpm config set store-dir "${PNPM_STORE_DIR}"
       - run: pnpm install
       - name: Pull Vercel Environment Information
         if: ${{ env.VERCEL_TOKEN != '' }}
