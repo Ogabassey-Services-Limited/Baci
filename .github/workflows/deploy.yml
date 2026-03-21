@@ -60,7 +60,8 @@ jobs:
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "24"
-          cache: "pnpm"
+          # No cache: "pnpm" — the store is nuked each run to fix cross-runner
+          # issues, so caching it causes Post Run path validation errors.
       - name: Reset pnpm store to fix cross-runner install issues
         run: |
           export PNPM_STORE_DIR="${RUNNER_TEMP}/pnpm-store"
@@ -99,7 +100,8 @@ jobs:
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "24"
-          cache: "pnpm"
+          # No cache: "pnpm" — the store is nuked each run to fix cross-runner
+          # issues, so caching it causes Post Run path validation errors.
       - name: Reset pnpm store to fix cross-runner install issues
         run: |
           export PNPM_STORE_DIR="${RUNNER_TEMP}/pnpm-store"
