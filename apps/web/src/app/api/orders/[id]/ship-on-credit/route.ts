@@ -123,22 +123,43 @@ export async function POST(
           });
 
         if (insertError) {
-          logger.error({
-            message: 'Failed to insert order payment account',
-            error: insertError,
-            orderId,
-          });
-          return NextResponse.json(
-            { error: 'Failed to create payment account' },
-            { status: 500 }
-          );
-        }
+          // Handle duplicate key conflicts as idempotent success
+          const { data: existingAccount } = await supabase
+            .from('order_payment_accounts')
+            .select('account_number, bank_name, account_name')
+            .eq('order_id', orderId)
+            .eq('provider', 'paystack')
+            .maybeSingle();
 
-        virtualAccount = {
-          account_number: dvaResult.data.account_number,
-          bank_name: dvaResult.data.bank_name,
-          account_name: dvaResult.data.account_name,
-        };
+          if (existingAccount) {
+            logger.info({
+              message:
+                'Order payment account already exists, treating as idempotent success',
+              orderId,
+            });
+            virtualAccount = {
+              account_number: existingAccount.account_number,
+              bank_name: existingAccount.bank_name,
+              account_name: existingAccount.account_name,
+            };
+          } else {
+            logger.error({
+              message: 'Failed to insert order payment account',
+              error: insertError,
+              orderId,
+            });
+            return NextResponse.json(
+              { error: 'Failed to create payment account' },
+              { status: 500 }
+            );
+          }
+        } else {
+          virtualAccount = {
+            account_number: dvaResult.data.account_number,
+            bank_name: dvaResult.data.bank_name,
+            account_name: dvaResult.data.account_name,
+          };
+        }
       }
     } catch (vaError) {
       // Non-blocking: Log but don't fail the request
