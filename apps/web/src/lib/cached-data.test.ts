@@ -124,6 +124,7 @@ describe('cached-data utility functions', () => {
       it('returns null for empty string identifier', async () => {
         const result = await getMerchantByIdentifier('');
         expect(result).toBeNull();
+        expect(mockFrom).not.toHaveBeenCalled();
       });
 
       it('returns null for identifier with special characters', async () => {
@@ -131,16 +132,19 @@ describe('cached-data utility functions', () => {
           '<script>alert("xss")</script>'
         );
         expect(result).toBeNull();
+        expect(mockFrom).not.toHaveBeenCalled();
       });
 
       it('returns null for identifier starting with invalid character', async () => {
         const result = await getMerchantByIdentifier('-invalid');
         expect(result).toBeNull();
+        expect(mockFrom).not.toHaveBeenCalled();
       });
 
       it('returns null for identifier ending with invalid character', async () => {
         const result = await getMerchantByIdentifier('invalid-');
         expect(result).toBeNull();
+        expect(mockFrom).not.toHaveBeenCalled();
       });
 
       it('returns null for identifier with consecutive dots', async () => {
@@ -148,22 +152,26 @@ describe('cached-data utility functions', () => {
         // This test verifies invalid start/end only
         const result = await getMerchantByIdentifier('.invalid');
         expect(result).toBeNull();
+        expect(mockFrom).not.toHaveBeenCalled();
       });
 
       it('returns null for identifier that is too long', async () => {
         const tooLong = 'a'.repeat(300);
         const result = await getMerchantByIdentifier(tooLong);
         expect(result).toBeNull();
+        expect(mockFrom).not.toHaveBeenCalled();
       });
 
       it('returns null for identifier with spaces', async () => {
         const result = await getMerchantByIdentifier('my store');
         expect(result).toBeNull();
+        expect(mockFrom).not.toHaveBeenCalled();
       });
 
       it('returns null for identifier with forward slashes', async () => {
         const result = await getMerchantByIdentifier('store/admin');
         expect(result).toBeNull();
+        expect(mockFrom).not.toHaveBeenCalled();
       });
     });
 
@@ -184,7 +192,8 @@ describe('cached-data utility functions', () => {
 
         // Assert
         expect(result).toEqual(mockMerchant);
-        expect(mockFrom).toHaveBeenCalledWith('merchants');
+        expect(mockFrom.mock.calls[0]?.[0]).toBe('merchants');
+        expect(mockFrom).toHaveBeenCalledWith('domains');
         expect(mockEq).toHaveBeenCalledWith('slug', 'my-store');
       });
 
@@ -247,7 +256,8 @@ describe('cached-data utility functions', () => {
 
         // Assert
         expect(result).toEqual(mockDomainMerchant);
-        expect(mockFrom).toHaveBeenCalledWith('domains');
+        expect(mockFrom.mock.calls[0]?.[0]).toBe('domains');
+        expect(mockFrom.mock.calls[1]?.[0]).toBe('merchants');
         expect(mockEq).toHaveBeenCalledWith('domain', 'store.com');
       });
 
@@ -313,7 +323,8 @@ describe('cached-data utility functions', () => {
         await getMerchantByIdentifier('my-store-123');
 
         // Assert - should call slug lookup (merchants table), not domains table
-        expect(mockFrom).toHaveBeenCalledWith('merchants');
+        expect(mockFrom.mock.calls[0]?.[0]).toBe('merchants');
+        expect(mockFrom).toHaveBeenCalledWith('domains');
         expect(mockEq).toHaveBeenCalledWith('slug', 'my-store-123');
       });
     });
@@ -797,7 +808,7 @@ describe('cached-data utility functions', () => {
       expect(mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
 
       const selectArg = String(mockSelect.mock.calls.at(-1)?.[0]);
-      expect(selectArg).not.toMatch(/\*\s*,/);
+      expect(selectArg).not.toMatch(/(^|,)\s*\*(\s*(,|$))/);
       // Variants are fetched via RPC, not inline select — select should NOT contain product_variants
       expect(selectArg).not.toContain('product_variants');
     });
@@ -814,7 +825,7 @@ describe('cached-data utility functions', () => {
       expect(mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
 
       const selectArg = String(mockSelect.mock.calls.at(-1)?.[0]);
-      expect(selectArg).not.toMatch(/\*\s*,/);
+      expect(selectArg).not.toMatch(/(^|,)\s*\*(\s*(,|$))/);
       expect(selectArg).toContain('imageHint:image_hint');
       expect(selectArg).toContain('fulfillmentFields:fulfillment_fields');
       // Variants are fetched via RPC, not inline select — select should NOT contain product_variants
@@ -866,6 +877,30 @@ describe('cached-data utility functions', () => {
       ]);
     });
 
+    it('getCachedProduct returns an empty variant list when the public RPC fails', async () => {
+      mockSingle.mockResolvedValueOnce({
+        data: {
+          id: 'product-123',
+          slug: 'iphone-16',
+          product_variants: [],
+        },
+        error: null,
+      });
+      mockRpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'rpc error', code: 'rpc-1' },
+      });
+
+      const result = await getCachedProduct('merchant-123', 'iphone-16');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: 'product-123',
+          product_variants: [],
+        })
+      );
+    });
+
     it('getCachedProductWithDetails returns null on query error', async () => {
       mockMaybeSingle.mockResolvedValueOnce({
         data: null,
@@ -915,6 +950,33 @@ describe('cached-data utility functions', () => {
           attributes: { storage: '256GB' },
         }),
       ]);
+    });
+
+    it('getCachedProductWithDetails returns an empty variant list when the public RPC fails', async () => {
+      mockMaybeSingle.mockResolvedValueOnce({
+        data: {
+          id: 'product-123',
+          slug: 'iphone-16',
+          product_variants: [],
+        },
+        error: null,
+      });
+      mockRpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'rpc error', code: 'rpc-1' },
+      });
+
+      const result = await getCachedProductWithDetails(
+        'merchant-123',
+        'iphone-16'
+      );
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: 'product-123',
+          product_variants: [],
+        })
+      );
     });
   });
 });
