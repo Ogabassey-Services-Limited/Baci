@@ -20,6 +20,12 @@ vi.mock('@/lib/paystack', () => ({
   createVirtualTerminal: vi.fn(),
 }));
 
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn(() =>
+    Promise.resolve({ valid: true, response: null })
+  ),
+}));
+
 import { createVirtualTerminal } from '@/lib/paystack';
 import { GET, POST } from './route';
 

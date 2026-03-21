@@ -3,6 +3,7 @@ import { generateObject } from 'ai';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import { geminiFlash, withRetry } from '@/ai/provider';
+import { checkCsrfProtection } from '@/lib/csrf';
 
 // Use environment variable to configure job process limit, defaulting to 5
 const DEFAULT_JOB_PROCESS_LIMIT = (() => {
@@ -72,6 +73,16 @@ const PriceListResponseSchema = z.object({
 // POST /api/ai-jobs/worker - Process pending AI jobs (called by cron or manually)
 export async function POST(request: NextRequest) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const supabase = getSupabaseClient();
 
     // Verify authorization (you might want to use a secret token here)
