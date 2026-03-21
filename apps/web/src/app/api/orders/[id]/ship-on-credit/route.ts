@@ -112,13 +112,28 @@ export async function POST(
       });
 
       if (dvaResult.success) {
-        await supabase.from('order_payment_accounts').insert({
-          order_id: orderId,
-          account_number: dvaResult.data.account_number,
-          bank_name: dvaResult.data.bank_name,
-          account_name: dvaResult.data.account_name,
-          provider: 'paystack',
-        });
+        const { error: insertError } = await supabase
+          .from('order_payment_accounts')
+          .insert({
+            order_id: orderId,
+            account_number: dvaResult.data.account_number,
+            bank_name: dvaResult.data.bank_name,
+            account_name: dvaResult.data.account_name,
+            provider: 'paystack',
+          });
+
+        if (insertError) {
+          logger.error({
+            message: 'Failed to insert order payment account',
+            error: insertError,
+            orderId,
+          });
+          return NextResponse.json(
+            { error: 'Failed to create payment account' },
+            { status: 500 }
+          );
+        }
+
         virtualAccount = {
           account_number: dvaResult.data.account_number,
           bank_name: dvaResult.data.bank_name,
