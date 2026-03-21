@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { POST as resolveAccount } from '@/app/api/paystack/resolve/route';
+import { checkCsrfProtection } from '@/lib/csrf';
 
 /**
  * Deprecated compatibility wrapper for older web clients.
@@ -8,6 +9,16 @@ import { POST as resolveAccount } from '@/app/api/paystack/resolve/route';
  * The canonical implementation lives in that route.
  */
 export async function POST(request: NextRequest) {
+  // CSRF protection
+  const { valid: csrfValid, response: csrfResponse } =
+    await checkCsrfProtection(request);
+  if (!csrfValid) {
+    return (
+      csrfResponse ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   const response = await resolveAccount(request);
 
   if (!response.ok) {

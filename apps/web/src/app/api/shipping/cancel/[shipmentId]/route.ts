@@ -5,6 +5,7 @@
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { isValidUuid } from '@/lib/sanitize-core';
 import { shippingService } from '@/lib/shipping';
@@ -20,6 +21,16 @@ export async function POST(
   { params }: { params: Promise<{ shipmentId: string }> }
 ) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(_request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const { shipmentId } = await params;
 
     if (!shipmentId || !isValidUuid(shipmentId)) {
