@@ -69,6 +69,34 @@ describe('getAppConfigForDomain', () => {
       includeAdmin: false,
     });
   });
+
+  it('sanitizes newline-corrupted rootDomain (LF)', () => {
+    const corrupted = 'usebaci.com\ny\n';
+    expect(getAppConfigForDomain('usebaci.com', corrupted)).toEqual({
+      includeStorefront: false,
+      includeAdmin: true,
+    });
+    expect(getAppConfigForDomain('ogabassey.com', corrupted)).toEqual({
+      includeStorefront: true,
+      includeAdmin: false,
+    });
+    expect(getAppConfigForDomain('other.com', corrupted)).toEqual({
+      includeStorefront: false,
+      includeAdmin: false,
+    });
+  });
+
+  it('sanitizes newline-corrupted rootDomain (CRLF)', () => {
+    const corrupted = 'usebaci.com\r\ny\r\n';
+    expect(getAppConfigForDomain('usebaci.com', corrupted)).toEqual({
+      includeStorefront: false,
+      includeAdmin: true,
+    });
+    expect(getAppConfigForDomain('ogabassey.usebaci.com', corrupted)).toEqual({
+      includeStorefront: true,
+      includeAdmin: false,
+    });
+  });
 });
 
 describe('buildAssetLinks', () => {
