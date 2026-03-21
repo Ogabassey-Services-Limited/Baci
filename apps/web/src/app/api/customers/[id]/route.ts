@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -55,6 +56,16 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // CSRF protection
+  const { valid: csrfValid, response: csrfResponse } =
+    await checkCsrfProtection(request as NextRequest);
+  if (!csrfValid) {
+    return (
+      csrfResponse ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   const id = (await params).id;
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
@@ -128,6 +139,16 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // CSRF protection
+  const { valid: csrfValid, response: csrfResponse } =
+    await checkCsrfProtection(_request as NextRequest);
+  if (!csrfValid) {
+    return (
+      csrfResponse ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   const id = (await params).id;
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);

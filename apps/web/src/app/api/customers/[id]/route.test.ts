@@ -108,6 +108,12 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: () => createMockSupabase(),
 }));
 
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn(() =>
+    Promise.resolve({ valid: true, response: null })
+  ),
+}));
+
 // ---- Import handlers AFTER mocks ----
 import { GET, PATCH } from './route';
 

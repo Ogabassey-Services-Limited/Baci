@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { type DomainPricing, getResalePrice } from '@/config/domain-pricing';
 import { authenticateApiRequest } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { type Go54LookupResponse, lookupDomain } from '@/lib/go54';
 
 /**
@@ -9,6 +10,16 @@ import { type Go54LookupResponse, lookupDomain } from '@/lib/go54';
  */
 export async function POST(request: Request) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request as NextRequest);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     // Authenticate request (supports mobile Bearer token + web cookies)
     const { user, error: authError } = await authenticateApiRequest(request);
 

@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { verifyBillCustomer } from '@/lib/kuda-bills';
 import { verifySchema } from '@/schemas/vtu';
 
@@ -9,6 +10,16 @@ import { verifySchema } from '@/schemas/vtu';
  */
 export async function POST(request: Request) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request as NextRequest);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const body = await request.json();
     const parsed = verifySchema.safeParse(body);
 
