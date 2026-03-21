@@ -199,10 +199,9 @@ const nextConfig: NextConfig = {
   // v3 named exports with a legacy default export for Novel
   turbopack: {
     resolveAlias: {
-      '@tiptap/extension-text-style': path.resolve(
-        __dirname,
-        'src/lib/tiptap-extension-text-style-compat.ts'
-      ),
+      // Relative path required — Turbopack doesn't support absolute paths in resolveAlias
+      '@tiptap/extension-text-style':
+        './src/lib/tiptap-extension-text-style-compat.ts',
     },
   },
 
