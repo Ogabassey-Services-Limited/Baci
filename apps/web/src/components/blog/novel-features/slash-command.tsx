@@ -1,3 +1,4 @@
+import type { Editor } from '@tiptap/core';
 import {
   CheckSquare,
   Code,
@@ -14,13 +15,15 @@ import {
 import { Command, createSuggestionItems, renderItems } from 'novel';
 import { uploadFn } from './image-upload';
 
+type CommandProps = { editor: Editor; range: { from: number; to: number } };
+
 export const suggestionItems = createSuggestionItems([
   {
     title: 'Text',
     description: 'Just start typing with plain text.',
     searchTerms: ['p', 'paragraph'],
     icon: <Text size={18} />,
-    command: ({ editor, range }) => {
+    command: ({ editor, range }: CommandProps) => {
       editor
         .chain()
         .focus()
@@ -34,9 +37,8 @@ export const suggestionItems = createSuggestionItems([
     description: 'Track tasks with a to-do list.',
     searchTerms: ['todo', 'task', 'list', 'check', 'checkbox'],
     icon: <CheckSquare size={18} />,
-    command: ({ editor, range }) => {
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
-      (editor as any).chain().focus().deleteRange(range).toggleTaskList().run();
+    command: ({ editor, range }: CommandProps) => {
+      editor.chain().focus().deleteRange(range).toggleTaskList().run();
     },
   },
   {
@@ -44,7 +46,7 @@ export const suggestionItems = createSuggestionItems([
     description: 'Big section heading.',
     searchTerms: ['title', 'big', 'large'],
     icon: <Heading1 size={18} />,
-    command: ({ editor, range }) => {
+    command: ({ editor, range }: CommandProps) => {
       editor
         .chain()
         .focus()
@@ -58,7 +60,7 @@ export const suggestionItems = createSuggestionItems([
     description: 'Medium section heading.',
     searchTerms: ['subtitle', 'medium'],
     icon: <Heading2 size={18} />,
-    command: ({ editor, range }) => {
+    command: ({ editor, range }: CommandProps) => {
       editor
         .chain()
         .focus()
@@ -72,7 +74,7 @@ export const suggestionItems = createSuggestionItems([
     description: 'Small section heading.',
     searchTerms: ['subtitle', 'small'],
     icon: <Heading3 size={18} />,
-    command: ({ editor, range }) => {
+    command: ({ editor, range }: CommandProps) => {
       editor
         .chain()
         .focus()
@@ -86,14 +88,8 @@ export const suggestionItems = createSuggestionItems([
     description: 'Create a simple bullet list.',
     searchTerms: ['unordered', 'point'],
     icon: <List size={18} />,
-    command: ({ editor, range }) => {
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
-      (editor as any)
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .toggleBulletList()
-        .run();
+    command: ({ editor, range }: CommandProps) => {
+      editor.chain().focus().deleteRange(range).toggleBulletList().run();
     },
   },
   {
@@ -101,14 +97,8 @@ export const suggestionItems = createSuggestionItems([
     description: 'Create a list with numbering.',
     searchTerms: ['ordered'],
     icon: <ListOrdered size={18} />,
-    command: ({ editor, range }) => {
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
-      (editor as any)
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .toggleOrderedList()
-        .run();
+    command: ({ editor, range }: CommandProps) => {
+      editor.chain().focus().deleteRange(range).toggleOrderedList().run();
     },
   },
   {
@@ -116,7 +106,7 @@ export const suggestionItems = createSuggestionItems([
     description: 'Capture a quote.',
     searchTerms: ['blockquote'],
     icon: <TextQuote size={18} />,
-    command: ({ editor, range }) =>
+    command: ({ editor, range }: CommandProps) =>
       editor
         .chain()
         .focus()
@@ -130,7 +120,7 @@ export const suggestionItems = createSuggestionItems([
     description: 'Capture a code snippet.',
     searchTerms: ['codeblock'],
     icon: <Code size={18} />,
-    command: ({ editor, range }) =>
+    command: ({ editor, range }: CommandProps) =>
       editor.chain().focus().deleteRange(range).toggleCodeBlock().run(),
   },
   {
@@ -138,7 +128,7 @@ export const suggestionItems = createSuggestionItems([
     description: 'Upload an image from your computer.',
     searchTerms: ['photo', 'picture', 'media'],
     icon: <ImageIcon size={18} />,
-    command: ({ editor, range }) => {
+    command: ({ editor, range }: CommandProps) => {
       editor.chain().focus().deleteRange(range).run();
       // upload image
       const input = document.createElement('input');
@@ -159,14 +149,8 @@ export const suggestionItems = createSuggestionItems([
     description: 'Embed products from your store.',
     searchTerms: ['product', 'shop', 'store', 'embed'],
     icon: <ShoppingBag size={18} />,
-    command: ({ editor, range }) => {
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
-      (editor as any)
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .openProductPicker()
-        .run();
+    command: ({ editor, range }: CommandProps) => {
+      editor.chain().focus().deleteRange(range).openProductPicker().run();
     },
   },
 ]);

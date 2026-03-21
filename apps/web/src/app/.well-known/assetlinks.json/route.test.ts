@@ -71,5 +71,8 @@ describe('GET /.well-known/assetlinks.json', () => {
 
     expect(body).toHaveLength(1);
     expect(body[0].target.package_name).toBe('com.ogabassey.baci');
+    expect(body[0].relation).toContain(
+      'delegate_permission/common.get_login_creds'
+    );
   });
 });
