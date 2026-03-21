@@ -38,8 +38,7 @@ export const suggestionItems = createSuggestionItems([
     searchTerms: ['todo', 'task', 'list', 'check', 'checkbox'],
     icon: <CheckSquare size={18} />,
     command: ({ editor, range }: CommandProps) => {
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
-      (editor as any).chain().focus().deleteRange(range).toggleTaskList().run();
+      editor.chain().focus().deleteRange(range).toggleTaskList().run();
     },
   },
   {
@@ -90,13 +89,7 @@ export const suggestionItems = createSuggestionItems([
     searchTerms: ['unordered', 'point'],
     icon: <List size={18} />,
     command: ({ editor, range }: CommandProps) => {
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
-      (editor as any)
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .toggleBulletList()
-        .run();
+      editor.chain().focus().deleteRange(range).toggleBulletList().run();
     },
   },
   {
@@ -105,13 +98,7 @@ export const suggestionItems = createSuggestionItems([
     searchTerms: ['ordered'],
     icon: <ListOrdered size={18} />,
     command: ({ editor, range }: CommandProps) => {
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
-      (editor as any)
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .toggleOrderedList()
-        .run();
+      editor.chain().focus().deleteRange(range).toggleOrderedList().run();
     },
   },
   {
@@ -163,13 +150,7 @@ export const suggestionItems = createSuggestionItems([
     searchTerms: ['product', 'shop', 'store', 'embed'],
     icon: <ShoppingBag size={18} />,
     command: ({ editor, range }: CommandProps) => {
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types
-      (editor as any)
-        .chain()
-        .focus()
-        .deleteRange(range)
-        .openProductPicker()
-        .run();
+      editor.chain().focus().deleteRange(range).openProductPicker().run();
     },
   },
 ]);
