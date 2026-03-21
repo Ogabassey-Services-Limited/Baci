@@ -48,7 +48,7 @@
       "glob@13": "13.0.6",
       "minimatch": "10.2.3",
       "minimatch>brace-expansion": "^5.0.2",
-      "h3": "1.15.8",
+      "h3": "1.15.9",
       "tar": "^7.5.8",
       "fast-xml-parser": "5.5.7",
       "flatted": "3.4.2",
