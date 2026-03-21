@@ -29,7 +29,7 @@ export function getAppConfigForDomain(
     return { includeStorefront: false, includeAdmin: true };
   }
 
-  // Ogabassey's known domains: associate storefront app
+  // Ogabassey's known storefront domains: associate only the storefront app.
   const ogabasseyDomains = new Set([
     'ogabassey.com',
     `ogabassey.${normalizedRoot}`,
