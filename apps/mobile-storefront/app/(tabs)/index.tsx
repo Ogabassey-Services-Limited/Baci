@@ -17,7 +17,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
-import { usePageConfig } from '@/hooks/use-products';
+import { usePageConfig } from '@/hooks';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 
