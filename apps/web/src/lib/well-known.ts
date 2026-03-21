@@ -19,7 +19,9 @@ export function getAppConfigForDomain(
   rootDomain: string
 ): DomainAppConfig {
   const normalized = hostname.toLowerCase().replace(/^www\./, '');
+  // Defensively strip CR/LF in case the env var is corrupted (e.g. trailing \r\n)
   const normalizedRoot = rootDomain
+    .split(/[\r\n]/)[0]
     .toLowerCase()
     .trim()
     .replace(/^www\./, '');
