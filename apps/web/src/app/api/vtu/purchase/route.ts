@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   formatPhoneNumber,
   generateRequestRef,
@@ -27,6 +28,16 @@ const TYPE_LABELS: Record<string, string> = {
 // client fails for mobile requests since they don't carry Supabase cookies.
 export async function POST(request: Request) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request as NextRequest);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const body = await request.json();
     const parsed = purchaseSchema.safeParse(body);
 

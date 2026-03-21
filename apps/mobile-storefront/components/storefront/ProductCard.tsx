@@ -1,65 +1,40 @@
 /**
  * ProductCard Component - Multi-Tenant Template System
  * Supports 'grid', 'editorial', and 'list' layouts with Reanimated motion
- *
- * 2025 Best Practice: "Lush" Hydration
- * - Blurhash placeholders for instant visual feedback
- * - Memory-disk cache policy for image persistence
- * - 300ms smooth transitions from placeholder to image
  */
 
-import { Ionicons } from '@expo/vector-icons';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+import { useWindowDimensions } from 'react-native';
 import {
-  Pressable,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
-import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPRING_CONFIG } from '@/constants/Colors';
+import Colors, { SPRING_CONFIG } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/use-haptics';
+import {
+  getProductCardImageAttempt,
+  normalizeProductImages,
+} from '@/lib/product-normalization';
 import { supabase } from '@/lib/supabase';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
-import { formatPrice, type Product } from '@/types/product';
+import type { Product } from '@/types/product';
+import EditorialProductCard from './product-card/EditorialProductCard';
+import GridProductCard from './product-card/GridProductCard';
+import ListProductCard from './product-card/ListProductCard';
 
-/**
- * Safely sanitize product descriptions for display as plain text.
- * Escapes angle brackets so HTML-like content cannot be interpreted as markup.
- */
-export function sanitizeDescriptionPlainText(input: string): string {
-  if (!input) return '';
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
-// Default Blurhash for product images (warm neutral)
-// This creates a smooth gradient that works well with most product photos
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
 
-// Alternative blurhash options by category
 export const BLURHASH_VARIANTS = {
   default: 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*',
-  electronics: 'L5H2EC=PM+yV0g-mq.wG9c010J}I', // Cool blue/gray
-  fashion: 'L8N]~R9G.TtQ~B9at7WC02M{9aIA', // Warm cream
-  food: 'L9Ry;S~V.A-;~W9uM{IURiE2E3s:', // Appetizing orange
-  beauty: 'LBP?syt7~pt7~WofM{fQ~ps:9ZWB', // Soft pink
+  electronics: 'L5H2EC=PM+yV0g-mq.wG9c010J}I',
+  fashion: 'L8N]~R9G.TtQ~B9at7WC02M{9aIA',
+  food: 'L9Ry;S~V.A-;~W9uM{IURiE2E3s:',
+  beauty: 'LBP?syt7~pt7~WofM{fQ~ps:9ZWB',
 } as const;
 
 interface ProductCardProps {
@@ -71,13 +46,6 @@ interface ProductCardProps {
   blurhash?: string;
 }
 
-// Scarcity threshold - show badge when stock below this number
-
-/**
- * BUG-2-009 FIX: REMOVE React.memo per ADR-004 (React Compiler handles memoization)
- * React Compiler automatically memoizes components - manual memo is redundant and can
- * interfere with compiler optimizations.
- */
 export function ProductCard({
   product,
   variant = 'grid',
@@ -94,40 +62,28 @@ export function ProductCard({
   const addItem = useCartStore((state) => state.addItem);
   const toggleSaved = useSavedStore((state) => state.toggleSaved);
 
-  // 2026 Best Practice: Reactive selector for store state
-  // This ensures the component re-renders immediately when this specific product's saved status changes
   const isSaved = useSavedStore((state) =>
     state.items.some((item) => String(item.product_id) === String(product.id))
   );
 
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-
-  // BUG-5-018 FIX: Add haptic feedback hook
   const haptics = useHaptics();
 
-  // 2026 Best Practice: Reactive selector for store state
-  // Only subscribe to this specific product's count to prevent O(n) re-renders
-  // when unrelated items are added to the cart
   const cartItemCount = useCartStore((state) =>
     state.items
       .filter((item) => item.product_id === product.id)
       .reduce((total, item) => total + item.quantity, 0)
   );
 
-  // Real-time stock tracking
   const [, setStockQuantity] = useState<number | undefined>(
     product.stock_quantity
   );
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // Subscribe to real-time stock updates
-  // M13 FIX: Only depend on product.id to prevent infinite re-subscribe loop.
-  // product.stock_quantity was causing re-subscription on every stock change.
   const hasStockTracking =
     product.manage_stock === true && product.stock_quantity !== undefined;
   useEffect(() => {
-    // Only subscribe if product has stock tracking
     if (!hasStockTracking) return;
 
     const channel = supabase
@@ -150,7 +106,6 @@ export function ProductCard({
 
     channelRef.current = channel;
 
-    // Cleanup subscription on unmount
     return () => {
       if (channelRef.current) {
         channelRef.current.unsubscribe();
@@ -158,8 +113,6 @@ export function ProductCard({
       }
     };
   }, [product.id, hasStockTracking]);
-
-  // Determine if we should show scarcity badge
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.get() }],
@@ -170,7 +123,6 @@ export function ProductCard({
   }));
 
   const handlePress = () => {
-    // BUG-2-006 FIX: Guard against missing slug
     if (!product.slug) return;
 
     if (onPress) {
@@ -190,22 +142,17 @@ export function ProductCard({
   };
 
   const handleWishlistPress = () => {
-    // Instant feedback - animate heart before callback
     heartScale.set(
       withSpring(1.3, SPRING_CONFIG.snappy, () => {
         heartScale.set(withSpring(1, SPRING_CONFIG.snappy));
       })
     );
 
-    // Toggle in store
     toggleSaved(product);
-
-    // Call legacy prop if exists
     onWishlistToggle?.(product);
   };
 
   const handleAddToCart = () => {
-    // BUG-5-018 FIX: Add light haptic feedback on add-to-cart
     haptics.light();
 
     addItem({
@@ -220,17 +167,20 @@ export function ProductCard({
     });
   };
 
-  // Calculate discount percentage for potential use in badges/promotions
+  const imageCandidates = normalizeProductImages(
+    product.image
+      ? [product.image, ...(Array.isArray(product.images) ? product.images : [])]
+      : product.images
+  );
+  const imageCandidatesKey = imageCandidates.join('|');
+  const [imageAttempt, setImageAttempt] = useState(0);
+  const [showLocalPlaceholder, setShowLocalPlaceholder] = useState(false);
 
-  // 2026 Best Practice: Track image load failures for fallback rendering
-  const [imageError, setImageError] = useState(false);
-  const [fallbackError, setFallbackError] = useState(false);
+  useEffect(() => {
+    setImageAttempt(0);
+    setShowLocalPlaceholder(false);
+  }, [product.id, imageCandidatesKey]);
 
-  // Common image props for all variants
-  // 2026 Best Practice: iOS 26 CoreGraphics has stricter image format requirements
-  // - recyclingKey helps with memory management during list scrolling
-  // - onError gracefully handles corrupt/incompatible images (rdar://143602439)
-  // - allowDownscaling reduces memory pressure on large images
   const imageProps = {
     placeholder: { blurhash },
     transition: 300,
@@ -239,506 +189,79 @@ export function ProductCard({
     recyclingKey: product.id,
     allowDownscaling: true,
     onError: () => {
-      // Silently handle image decode failures (iOS 26 24-bpp bug)
-      if (!imageError) {
-        setImageError(true);
-      } else if (!fallbackError) {
-        // Fallback URL also failed; stop trying remote URLs
-        setFallbackError(true);
+      if (imageAttempt < imageCandidates.length) {
+        setImageAttempt((current) => current + 1);
+        return;
       }
+
+      setShowLocalPlaceholder(true);
     },
   };
 
-  // Fallback to blurhash placeholder if image fails to load
-  // If the fallback URL also fails, skip the Image entirely (render a local placeholder)
-  const imageSource =
-    imageError && !fallbackError
-      ? {
-          uri: `https://placehold.co/400x400/1a1a1a/ffffff?text=${encodeURIComponent(product.name?.charAt(0) || 'P')}`,
-        }
-      : { uri: product.image };
+  const imageSource = {
+    uri: getProductCardImageAttempt(imageCandidates, imageAttempt),
+  };
 
-  // --- RENDER: Editorial Variant (Fashion) ---
   if (variant === 'editorial') {
     return (
-      <AnimatedPressable
-        onPress={handlePress}
-        onPressIn={handleAnimateIn}
-        onPressOut={handleAnimateOut}
-        style={[
-          styles.editorialContainer,
-          { width: screenWidth - 32 },
-          animatedStyle,
-        ]}
-        accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
-        accessibilityRole="button"
-      >
-        {fallbackError ? (
-          <View style={[styles.editorialImage, styles.imagePlaceholder]}>
-            <Ionicons name="image-outline" size={40} color="#9CA3AF" />
-          </View>
-        ) : (
-          <Image
-            source={imageSource}
-            style={styles.editorialImage}
-            {...imageProps}
-          />
-        )}
-        <View style={styles.editorialContent}>
-          <Text style={[styles.editorialName, { color: colors.text }]}>
-            {product.name}
-          </Text>
-          <Text style={[styles.editorialPrice, { color: BRAND.primary }]}>
-            {formatPrice(product.price)}
-          </Text>
-        </View>
-      </AnimatedPressable>
+      <EditorialProductCard
+        product={product}
+        imageSource={imageSource}
+        imageProps={imageProps}
+        showLocalPlaceholder={showLocalPlaceholder}
+        handlePress={handlePress}
+        handleAnimateIn={handleAnimateIn}
+        handleAnimateOut={handleAnimateOut}
+        handleWishlistPress={handleWishlistPress}
+        handleAddToCart={handleAddToCart}
+        isSaved={isSaved}
+        cartItemCount={cartItemCount}
+        animatedStyle={animatedStyle}
+        heartAnimatedStyle={heartAnimatedStyle}
+        textColor={colors.text}
+        screenWidth={screenWidth}
+      />
     );
   }
 
-  // --- RENDER: List Variant (Pharma/B2B/Elite) ---
   if (variant === 'list') {
     return (
-      <AnimatedPressable
-        onPress={handlePress}
-        onPressIn={handleAnimateIn}
-        onPressOut={handleAnimateOut}
-        style={[
-          styles.listContainer,
-          { backgroundColor: '#FFF', borderColor: '#F3F4F6' },
-          animatedStyle,
-        ]}
-        accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
-        accessibilityRole="button"
-      >
-        {fallbackError ? (
-          <View style={[styles.listImage, styles.imagePlaceholder]}>
-            <Ionicons name="image-outline" size={32} color="#9CA3AF" />
-          </View>
-        ) : (
-          <Image
-            source={imageSource}
-            style={styles.listImage}
-            {...imageProps}
-          />
-        )}
-        <View style={styles.listContent}>
-          {/* Rating */}
-          <View style={styles.ratingRowMini}>
-            {[1, 2, 3, 4, 5].map((s) => (
-              <Ionicons
-                key={s}
-                name={
-                  s <= Math.floor(product.rating || 0) ? 'star' : 'star-outline'
-                }
-                size={10}
-                color="#F59E0B"
-              />
-            ))}
-          </View>
-
-          <Text
-            style={[styles.listName, { color: '#111827' }]}
-            numberOfLines={1}
-          >
-            {product.name}
-          </Text>
-
-          {product.description && (
-            <Text style={styles.listDescription} numberOfLines={2}>
-              {sanitizeDescriptionPlainText(
-                product.description || ''
-              ).substring(0, 100)}
-            </Text>
-          )}
-
-          <View style={styles.listFooter}>
-            <Text style={[styles.listPrice, { color: BRAND.primary }]}>
-              {formatPrice(product.price)}
-            </Text>
-            <Pressable
-              onPress={handleAddToCart}
-              style={styles.listCartBtn}
-              hitSlop={8}
-              accessibilityLabel={`Add ${product.name} to cart`}
-              accessibilityRole="button"
-            >
-              <View style={{ position: 'relative' }}>
-                <Ionicons name="cart" size={16} color="#FFF" />
-                {cartItemCount > 0 && (
-                  <View style={styles.listBadge}>
-                    <Text style={styles.badgeTextMini}>{cartItemCount}</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.listCartLabel}>Add</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Wishlist in List View */}
-        <Pressable
-          onPress={handleWishlistPress}
-          style={styles.listWishlistBtn}
-          hitSlop={8}
-          accessibilityLabel={
-            isSaved
-              ? `Remove ${product.name} from saved items`
-              : `Save ${product.name} for later`
-          }
-          accessibilityRole="button"
-        >
-          <Ionicons
-            name={isSaved ? 'heart' : 'heart-outline'}
-            size={18}
-            color={isSaved ? '#EF4444' : '#9CA3AF'}
-          />
-        </Pressable>
-      </AnimatedPressable>
+      <ListProductCard
+        product={product}
+        imageSource={imageSource}
+        imageProps={imageProps}
+        showLocalPlaceholder={showLocalPlaceholder}
+        handlePress={handlePress}
+        handleAnimateIn={handleAnimateIn}
+        handleAnimateOut={handleAnimateOut}
+        handleWishlistPress={handleWishlistPress}
+        handleAddToCart={handleAddToCart}
+        isSaved={isSaved}
+        cartItemCount={cartItemCount}
+        animatedStyle={animatedStyle}
+        heartAnimatedStyle={heartAnimatedStyle}
+        colors={colors}
+      />
     );
   }
 
-  // --- RENDER: Standard Grid Variant ---
   return (
-    <AnimatedPressable
-      style={[
-        styles.gridContainer,
-        {
-          width: gridWidth,
-          backgroundColor: '#FFF',
-          borderColor: '#F3F4F6',
-          shadowColor: colors.black,
-        },
-        animatedStyle,
-      ]}
-      onPress={handlePress}
-      onPressIn={handleAnimateIn}
-      onPressOut={handleAnimateOut}
-      accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
-      accessibilityRole="button"
-    >
-      {/* Image Container */}
-      <View style={[styles.imageWrapper, { backgroundColor: '#F9FAFB' }]}>
-        {/* Wishlist - Top Right */}
-        <Pressable
-          onPress={handleWishlistPress}
-          style={styles.wishlistBtn}
-          hitSlop={8}
-          accessibilityLabel={
-            isSaved
-              ? `Remove ${product.name} from saved items`
-              : `Save ${product.name} for later`
-          }
-          accessibilityRole="button"
-        >
-          <Animated.View style={[heartAnimatedStyle, styles.wishlistBlur]}>
-            <Ionicons
-              name={isSaved ? 'heart' : 'heart-outline'}
-              size={18}
-              color={isSaved ? '#EF4444' : '#9CA3AF'}
-            />
-          </Animated.View>
-        </Pressable>
-
-        {/* Condition Badge */}
-        {product.condition && (
-          <View
-            style={[
-              styles.badgeContainer,
-              product.condition === 'New'
-                ? { backgroundColor: '#111827' }
-                : { backgroundColor: '#4F46E5' },
-            ]}
-          >
-            <Text style={styles.badgeText}>{product.condition}</Text>
-          </View>
-        )}
-
-        {fallbackError ? (
-          <View style={[styles.gridImage, styles.imagePlaceholder]}>
-            <Ionicons name="image-outline" size={40} color="#9CA3AF" />
-          </View>
-        ) : (
-          <Image
-            source={imageSource}
-            style={styles.gridImage}
-            {...imageProps}
-          />
-        )}
-
-        {/* Floating Cart Button */}
-        <Pressable
-          onPress={handleAddToCart}
-          style={styles.floatingCartBtn}
-          accessibilityLabel={`Add ${product.name} to cart`}
-          accessibilityRole="button"
-        >
-          <Ionicons name="cart" size={18} color={BRAND.primary} />
-          {cartItemCount > 0 && (
-            <View style={styles.cartBadge}>
-              <Text style={styles.badgeTextMini}>{cartItemCount}</Text>
-            </View>
-          )}
-        </Pressable>
-      </View>
-
-      {/* Content */}
-      <View style={styles.gridContent}>
-        {/* Rating Row */}
-        <View style={styles.ratingRowMini}>
-          {[1, 2, 3, 4, 5].map((s) => (
-            <Ionicons
-              key={s}
-              name={
-                s <= Math.floor(product.rating || 0) ? 'star' : 'star-outline'
-              }
-              size={10}
-              color="#F59E0B"
-            />
-          ))}
-          <Text style={styles.ratingTextMini}>({product.rating || 0})</Text>
-        </View>
-
-        {/* Title */}
-        <Text style={[styles.gridName, { color: '#111827' }]} numberOfLines={2}>
-          {product.name}
-        </Text>
-
-        {/* Price Row */}
-        <View style={styles.priceRow}>
-          <Text style={[styles.gridPrice, { color: BRAND.primary }]}>
-            {formatPrice(product.price)}
-          </Text>
-          <Text style={styles.detailsText}>Details</Text>
-        </View>
-      </View>
-    </AnimatedPressable>
+    <GridProductCard
+      product={product}
+      imageSource={imageSource}
+      imageProps={imageProps}
+      showLocalPlaceholder={showLocalPlaceholder}
+      handlePress={handlePress}
+      handleAnimateIn={handleAnimateIn}
+      handleAnimateOut={handleAnimateOut}
+      handleWishlistPress={handleWishlistPress}
+      handleAddToCart={handleAddToCart}
+      isSaved={isSaved}
+      cartItemCount={cartItemCount}
+      animatedStyle={animatedStyle}
+      heartAnimatedStyle={heartAnimatedStyle}
+      gridWidth={gridWidth}
+      shadowColor={colors.black}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  gridContainer: {
-    borderRadius: RADIUS.xl,
-    padding: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    backgroundColor: '#FFF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  imageWrapper: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: RADIUS.lg,
-    overflow: 'hidden',
-    marginBottom: 10,
-    position: 'relative',
-  },
-  gridImage: { width: '100%', height: '100%' },
-  imagePlaceholder: {
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeContainer: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    zIndex: 10,
-  },
-  badgeText: {
-    color: '#FFF',
-    fontSize: 9,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  wishlistBtn: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    zIndex: 20,
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  wishlistBlur: {
-    // 2026 Critical Fix: Meet WCAG 2.5.5 minimum touch target size of 44px
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  floatingCartBtn: {
-    position: 'absolute',
-    bottom: 4,
-    right: 4,
-    // 2026 Critical Fix: Meet WCAG 2.5.5 minimum touch target size of 44px
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  gridContent: { paddingHorizontal: 4 },
-  gridName: {
-    fontSize: 13,
-    fontFamily: 'serif',
-    marginBottom: 4,
-    lineHeight: 18,
-    fontWeight: '500',
-  },
-  priceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    paddingTop: 8,
-  },
-  gridPrice: { fontSize: 16, fontFamily: 'serif', fontWeight: 'bold' },
-  detailsText: {
-    fontSize: 11,
-    fontFamily: 'serif',
-    color: '#111827',
-    fontWeight: '600',
-  },
-  ratingRowMini: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    marginBottom: 4,
-  },
-  ratingTextMini: {
-    fontSize: 10,
-    color: '#9CA3AF',
-    marginLeft: 4,
-    fontWeight: '600',
-  },
-
-  // LIST VARIANT
-  listContainer: {
-    flexDirection: 'row',
-    padding: 12,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: RADIUS.xl,
-    borderWidth: 1,
-    gap: 16,
-    alignItems: 'center',
-  },
-  listImage: {
-    width: 100,
-    height: 100,
-    borderRadius: RADIUS.lg,
-    backgroundColor: '#F9FAFB',
-  },
-  listContent: {
-    flex: 1,
-  },
-  listName: {
-    fontSize: 16,
-    fontFamily: 'serif',
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  listDescription: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 8,
-    lineHeight: 16,
-  },
-  listFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  listPrice: {
-    fontSize: 18,
-    fontFamily: 'serif',
-    fontWeight: '800',
-  },
-  listCartBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111827',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 6,
-  },
-  listCartLabel: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  listWishlistBtn: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    padding: 4,
-  },
-  editorialContainer: {
-    marginBottom: 24,
-    marginHorizontal: 16,
-  },
-  editorialImage: { width: '100%', aspectRatio: 0.8, borderRadius: RADIUS.md },
-  editorialContent: { marginTop: 12, alignItems: 'center' },
-  editorialName: {
-    fontSize: 18,
-    fontFamily: 'serif',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  editorialPrice: { fontSize: 16, marginTop: 4, fontWeight: '500' },
-  cartBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: BRAND.primary,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#FFF',
-    paddingHorizontal: 2,
-  },
-  listBadge: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: BRAND.primary,
-    borderRadius: 7,
-    minWidth: 14,
-    height: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#111827',
-  },
-  badgeTextMini: {
-    color: '#FFF',
-    fontSize: 8,
-    fontWeight: '900',
-    fontFamily: 'Inter_900Black',
-  },
-});

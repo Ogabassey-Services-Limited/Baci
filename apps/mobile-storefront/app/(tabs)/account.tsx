@@ -25,7 +25,7 @@ import { SocialLinks } from '@/components/profile/SocialLinks';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
-import { useMerchant } from '@/hooks/use-products';
+import { useMerchant } from '@/hooks';
 import { supabase } from '@/lib/supabase';
 import { type Customer, useAuthStore } from '@/stores/auth-store';
 import { useShallow } from 'zustand/react/shallow';

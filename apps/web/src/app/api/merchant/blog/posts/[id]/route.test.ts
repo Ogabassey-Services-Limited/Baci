@@ -88,6 +88,12 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: () => mockSupabase,
 }));
 
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn(() =>
+    Promise.resolve({ valid: true, response: null })
+  ),
+}));
+
 // Mock global fetch for embedding generation
 global.fetch = vi.fn();
 

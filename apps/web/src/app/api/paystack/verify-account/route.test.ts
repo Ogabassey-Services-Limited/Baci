@@ -9,6 +9,12 @@ vi.mock('@/app/api/paystack/resolve/route', () => ({
   POST: (...args: unknown[]) => mockResolveAccount(...args),
 }));
 
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn(() =>
+    Promise.resolve({ valid: true, response: null })
+  ),
+}));
+
 import { POST } from './route';
 
 describe('POST /api/paystack/verify-account', () => {

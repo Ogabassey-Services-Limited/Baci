@@ -45,7 +45,7 @@ import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { useEffectivePrice } from '@/hooks/use-effective-price';
 import { useHaptics } from '@/hooks/use-haptics';
 import { useNetworkState } from '@/hooks/use-network-state';
-import { useProduct } from '@/hooks/use-products';
+import { useProduct } from '@/hooks';
 import { markReviewHelpful, useReviews } from '@/hooks/use-reviews';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
@@ -176,6 +176,17 @@ export default function ProductDetailScreen() {
   useEffect(() => {
     setLocalQty(quantityInCart.toString());
   }, [quantityInCart]);
+
+  useEffect(() => {
+    if (
+      isValidSlug &&
+      typeof slug === 'string' &&
+      product?.slug &&
+      product.slug !== slug
+    ) {
+      router.replace(`/product/${product.slug}`);
+    }
+  }, [isValidSlug, product?.slug, slug]);
 
   const handleLocalQtyChange = (text: string) => {
     // Only allow numeric input
