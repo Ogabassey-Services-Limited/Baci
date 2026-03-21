@@ -1,5 +1,9 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
@@ -192,6 +196,19 @@ const nextConfig: NextConfig = {
 
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
+
+  webpack(config) {
+    config.resolve ??= {};
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      '@tiptap/extension-text-style$': path.resolve(
+        __dirname,
+        'src/lib/tiptap-extension-text-style-compat.ts'
+      ),
+    };
+
+    return config;
+  },
 
   // SEO redirects - flat URL structure for legal pages + legacy WordPress URLs
   redirects() {
