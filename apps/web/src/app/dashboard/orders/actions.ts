@@ -27,7 +27,8 @@ export type PaymentStatus =
 
 export interface Transaction {
   id: string;
-  reference: string;
+  reference?: string;
+  gateway_reference?: string;
   status: string;
   amount: number;
   currency: string;
@@ -86,6 +87,23 @@ interface OrderItem {
   has_assurance?: boolean;
 }
 
+export interface JumiaOrderItem {
+  id?: string;
+  name?: string;
+  price?: string | number;
+  image_url?: string;
+}
+
+export interface JumiaOrder {
+  jumia_order_id: string;
+  jumia_order_number: string;
+  customer_name: string | null;
+  total_amount: string;
+  status: string;
+  created_at_jumia: string;
+  items?: JumiaOrderItem[];
+}
+
 function formatStatus(status: string): string {
   if (!status) return 'Pending';
   return status
@@ -134,8 +152,7 @@ export async function getOrders(
   // FETCH JUMIA ORDERS (If no specific payment/shipping filter that excludes them)
   // Jumia orders don't have standard payment/shipping statuses in the same way,
   // but we map them.
-  // biome-ignore lint/suspicious/noExplicitAny: Jumia orders are dynamic and mapped here
-  let jumiaOrders: any[] = [];
+  let jumiaOrders: JumiaOrder[] = [];
   if (!filters.paymentStatus && !filters.shippingStatus) {
     const { data: jOrders } = await supabase
       .from('jumia_orders')
@@ -215,8 +232,7 @@ export async function getOrders(
       source: 'jumia',
       tracking_number: undefined,
       shipping_provider: 'Jumia Services',
-      // biome-ignore lint/suspicious/noExplicitAny: Jumia items are dynamic
-      items: (jOrder.items || []).map((item: any, idx: number) => ({
+      items: (jOrder.items || []).map((item: JumiaOrderItem, idx: number) => ({
         id: item.id || `jumia-item-${idx}`,
         name: item.name || 'Jumia Item',
         quantity: 1, // Usually Jumia lines are qty 1 per object in older APIs, check actual data structure.
@@ -369,10 +385,9 @@ export async function getOrder(
       variant: item.variant_name || undefined,
       hasAssurance: item.has_assurance || false,
     })),
-    // biome-ignore lint/suspicious/noExplicitAny: Transaction type mismatch
-    transactions: (transactions || []).map((tx: any) => ({
+    transactions: (transactions || []).map((tx: Transaction) => ({
       id: tx.id,
-      reference: tx.gateway_reference,
+      reference: tx.reference || tx.gateway_reference || '',
       status: tx.status,
       amount: tx.amount,
       currency: tx.currency,
@@ -431,8 +446,7 @@ export async function resendOrderConfirmation(
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
     const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
-    // biome-ignore lint/suspicious/noExplicitAny: items handling
-    const emailItems = (order.order_items || []).map((item: any) => ({
+    const emailItems = (order.order_items || []).map((item: OrderItem) => ({
       name: item.name || 'Product',
       quantity: item.quantity || 1,
       price: item.price || 0,
