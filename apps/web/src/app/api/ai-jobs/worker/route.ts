@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     // Get pending jobs (limit to configurable number at a time to avoid timeout)
     const { data: jobs, error: fetchError } = await supabase
       .from('ai_jobs')
-      .select('*')
+      .select('id, type, status, input, created_at')
       .eq('status', 'pending')
       .order('created_at', { ascending: true })
       .limit(jobProcessLimit);

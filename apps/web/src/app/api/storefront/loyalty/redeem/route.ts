@@ -21,7 +21,9 @@ export async function POST(request: NextRequest) {
     // Get the reward details
     const { data: reward, error: rewardError } = await supabase
       .from('loyalty_rewards')
-      .select('*')
+      .select(
+        'id, name, reward_type, discount_value, discount_type, points_required, min_tier, active'
+      )
       .eq('id', reward_id)
       .eq('merchant_id', merchant_id)
       .eq('active', true)
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
     // Get customer's loyalty data
     const { data: loyalty, error: loyaltyError } = await supabase
       .from('customer_loyalty')
-      .select('*')
+      .select('id, points_balance, tier')
       .eq('merchant_id', merchant_id)
       .eq('customer_id', customer_id)
       .single();
