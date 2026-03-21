@@ -202,17 +202,12 @@ const nextConfig: NextConfig = {
         __dirname,
         'src/lib/tiptap-extension-text-style-compat.ts'
       ),
+      // csrf.ts uses a dynamic import('node:crypto') behind a runtime Node
+      // check. Webpack can't handle the node: URI scheme in client bundles.
+      // Alias to false so it resolves to an empty module on the client side
+      // (the runtime isNodeRuntime guard prevents it from ever being called).
+      ...(!isServer && { 'node:crypto': false }),
     };
-
-    // csrf.ts uses a dynamic import('node:crypto') behind a runtime Node check.
-    // Webpack statically resolves it even in client bundles where it's never called.
-    // Map to false so the import resolves to an empty module on the client.
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...(config.resolve.fallback ?? {}),
-        'node:crypto': false,
-      };
-    }
 
     return config;
   },
