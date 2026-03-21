@@ -20,6 +20,12 @@ vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: () => mockCreateServiceClient(),
 }));
 
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn(() =>
+    Promise.resolve({ valid: true, response: null })
+  ),
+}));
+
 import { POST } from './route';
 
 const originalEnv = process.env;
