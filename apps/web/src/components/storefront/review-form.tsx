@@ -1,7 +1,7 @@
 'use client';
 
 import { CheckCircle, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -105,12 +105,12 @@ export function ReviewForm({
   };
 
   // Load stored email on mount
-  useState(() => {
+  useEffect(() => {
     const storedEmail = localStorage.getItem('customerEmail');
     if (storedEmail) {
       setCustomerEmail(storedEmail);
     }
-  });
+  }, []);
 
   if (isSubmitted) {
     return (
