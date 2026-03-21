@@ -1,9 +1,6 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
@@ -197,6 +194,18 @@ const nextConfig: NextConfig = {
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
 
+  // Turbopack resolve alias (Next.js 16 default bundler)
+  // Maps @tiptap/extension-text-style to compat shim that re-exports
+  // v3 named exports with a legacy default export for Novel
+  turbopack: {
+    resolveAlias: {
+      // Relative path required — Turbopack doesn't support absolute paths in resolveAlias
+      '@tiptap/extension-text-style':
+        './src/lib/tiptap-extension-text-style-compat.ts',
+    },
+  },
+
+  // Webpack fallback alias (used when building with --webpack flag)
   webpack(config) {
     config.resolve ??= {};
     config.resolve.alias = {

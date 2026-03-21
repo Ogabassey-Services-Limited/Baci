@@ -517,6 +517,10 @@ export default function AddressFormScreen() {
         <TouchableOpacity
           style={[styles.defaultToggle, { backgroundColor: colors.card }]}
           onPress={() => updateField('is_default', !form.is_default)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: form.is_default }}
+          accessibilityLabel="Set as default address"
+          accessibilityHint="Use this address for all orders"
         >
           <View style={styles.defaultToggleContent}>
             <Ionicons

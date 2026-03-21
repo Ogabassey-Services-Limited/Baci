@@ -70,22 +70,11 @@ export async function getCsrfToken(): Promise<string | null> {
 
 /**
  * Constant-time string comparison to prevent timing attacks.
- * Uses Node's built-in timing-safe comparison when available.
- * Falls back to HMAC-based comparison for non-Node runtimes.
+ * Uses Web Crypto API (available in Node 18+ and all modern browsers).
+ * HMAC-based: produces fixed-size digests regardless of input length,
+ * so the XOR comparison loop is always constant-time.
  */
 async function timingSafeEqual(a: string, b: string): Promise<boolean> {
-  const isNodeRuntime =
-    typeof process !== 'undefined' && Boolean(process.versions?.node);
-
-  if (isNodeRuntime) {
-    const { createHmac, timingSafeEqual: nodeTimingSafeEqual } = await import(
-      'node:crypto'
-    );
-    const macA = createHmac('sha256', 'csrf-compare').update(a).digest();
-    const macB = createHmac('sha256', 'csrf-compare').update(b).digest();
-    return nodeTimingSafeEqual(macA, macB);
-  }
-
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
@@ -100,9 +89,6 @@ async function timingSafeEqual(a: string, b: string): Promise<boolean> {
     crypto.subtle.sign('HMAC', key, encoder.encode(b)),
   ]);
 
-  // HMAC outputs are always 32 bytes regardless of input length,
-  // so XOR loop is constant-time. Length mismatch produces different
-  // HMACs, which the comparison catches without an early return.
   const viewA = new Uint8Array(macA);
   const viewB = new Uint8Array(macB);
   let result = 0;
