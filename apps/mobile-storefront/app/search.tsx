@@ -24,7 +24,7 @@ import { ProductCard } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useNetworkState } from '@/hooks/use-network-state';
-import { useCategories, useProducts } from '@/hooks/use-products';
+import { useCategories, useProducts } from '@/hooks';
 import { syncStorage as storage } from '@/lib/storage';
 import type { Product } from '@/types/product';
 

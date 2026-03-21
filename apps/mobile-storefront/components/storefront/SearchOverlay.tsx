@@ -40,7 +40,7 @@ import {
   type Category,
   useCategories,
   useProducts,
-} from '@/hooks/use-products';
+} from '@/hooks';
 import { useSearchStorage } from '@/hooks/use-search-storage';
 import type { Product } from '@/types/product';
 
