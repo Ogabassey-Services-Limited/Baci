@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
-import type { ReactNode } from 'react';
 import { Suspense } from 'react';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
 import type { Product as OgabasseyProduct } from '@/components/storefront/ogabassey/types';
@@ -11,17 +10,14 @@ import {
   mergeVariantAxisOptions,
   normalizeVariantAttributes,
 } from '@/components/storefront/ogabassey/variant-attributes';
-import { ProductPageRelatedContent } from '@/components/storefront/product-page-related-content';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
   getCachedProductWithDetails,
 } from '@/lib/cached-data';
-import { getLocaleForCountry } from '@/lib/currency-utils';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
-import { getRenderableProductDescription } from '@/lib/renderable-product-description';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -102,18 +98,12 @@ interface ProductWithKeySpecs {
  */
 function toOgabasseyProduct(
   product: Product,
-  options?: {
-    currency?: string;
-    locale?: string;
-  }
+  currency = 'NGN'
 ): OgabasseyProduct {
-  const currency = options?.currency || 'NGN';
-  const locale = options?.locale || 'en-NG';
-
   // Format price with currency symbol
-  const formatter = new Intl.NumberFormat(locale, {
+  const formatter = new Intl.NumberFormat('en-NG', {
     style: 'currency',
-    currency,
+    currency: currency,
     minimumFractionDigits: 0,
   });
 
@@ -547,35 +537,20 @@ function toOgabasseyProduct(
  * Renders the correct template's product page based on merchant's template_id
  */
 function TemplateProductPage({
-  children,
-  currency,
   product,
-  storeCountry,
   templateId,
 }: {
-  children?: ReactNode;
-  currency?: string;
   product: Product;
-  storeCountry?: string | null;
   templateId?: string;
 }) {
   // Ogabassey template
   if (templateId === 'ogabassey') {
-    const ogabasseyProduct = toOgabasseyProduct(product, {
-      currency: currency || 'USD',
-      locale: getLocaleForCountry(storeCountry || null),
-    });
-    return (
-      <OgabasseyProductPage product={ogabasseyProduct}>
-        {children}
-      </OgabasseyProductPage>
-    );
+    const ogabasseyProduct = toOgabasseyProduct(product);
+    return <OgabasseyProductPage product={ogabasseyProduct} />;
   }
 
   // Default: use the generic product detail client
-  return (
-    <ProductDetailClient product={product}>{children}</ProductDetailClient>
-  );
+  return <ProductDetailClient product={product} />;
 }
 
 interface PageProps {
@@ -725,6 +700,7 @@ export async function generateMetadata({
   const host = headersList.get('host') || 'baci.app';
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   let baseUrl = `${protocol}://${host}`;
+
   const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
 
   // FIX: Ensure canonical URL always points to the production custom domain if it exists
@@ -756,30 +732,22 @@ export async function generateMetadata({
   const socialMedia = merchant?.social_media as
     | Record<string, string>
     | undefined;
-  const currency = merchant?.payout_currency || 'USD';
-  const locale = getLocaleForCountry(merchant?.country || null);
-  const descriptionContent = getRenderableProductDescription({
-    description: product.meta_description || product.description,
-    price: product.price,
-    currency,
-    locale,
-  });
-  const metadataDescription =
-    descriptionContent.snippet ||
-    `Buy ${product.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`;
 
   return {
     title:
       product.meta_title ||
       `${product.name} | ${merchant?.business_name || 'Baci Store'}`,
-    description: metadataDescription,
+    description:
+      product.meta_description ||
+      product.description ||
+      `Buy ${product.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`,
     keywords: product.keywords,
     alternates: {
       canonical: canonicalUrl,
     },
     openGraph: {
       title: product.meta_title || product.name,
-      description: metadataDescription,
+      description: product.meta_description || product.description,
       images: product.images?.length
         ? product.images.map((img) => ({
             url: typeof img === 'string' ? img : img.url,
@@ -801,7 +769,7 @@ export async function generateMetadata({
     twitter: {
       card: 'summary_large_image',
       title: product.meta_title || product.name,
-      description: metadataDescription,
+      description: product.meta_description || product.description,
       images: [product.imageLarge || product.image],
       ...(socialMedia?.twitter && {
         site: socialMedia.twitter.startsWith('@')
@@ -815,12 +783,8 @@ export async function generateMetadata({
   };
 }
 
-export default async function CategoryProductPage({
-  params,
-  searchParams,
-}: PageProps) {
+export default async function CategoryProductPage({ params }: PageProps) {
   const { slug, category, productSlug } = await params;
-  const _resolvedSearchParams = await searchParams;
   const result = await getProduct(slug, category, productSlug);
 
   if (!result?.product) {
@@ -832,7 +796,6 @@ export default async function CategoryProductPage({
   const headersList = await headers();
   const host = headersList.get('host') || 'baci.app';
   const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
-  const urlPrefix = isLocalhost ? `/${slug}` : '';
 
   // Strict Canonical URL Enforcement:
   // 1. If we found via case-insensitive fallback -> Redirect to lowercase canonical
@@ -849,13 +812,7 @@ export default async function CategoryProductPage({
         ? `/${slug}/${correctCategorySlug}/${cleanSlug}`
         : `/${correctCategorySlug}/${cleanSlug}`;
 
-      // Preserve ?variant= query param for GMC feed deep links
-      const variantParam = _resolvedSearchParams?.variant;
-      const qs = variantParam
-        ? `?variant=${encodeURIComponent(String(variantParam))}`
-        : '';
-
-      permanentRedirect(`${targetPath}${qs}` as `/${string}`);
+      permanentRedirect(targetPath as `/${string}`);
     }
   }
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
@@ -877,20 +834,7 @@ export default async function CategoryProductPage({
 
   // Build proper URL for schema
   const productPath = getProductUrl(product);
-  const productUrl = `${baseUrl}${urlPrefix}${productPath}`;
-  const locale = getLocaleForCountry(merchant?.country || null);
-  const currency = merchant?.payout_currency || 'USD';
-  const descriptionContent = getRenderableProductDescription({
-    description: product.description,
-    price: product.price,
-    currency,
-    locale,
-  });
-  const formattedPrice = new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(product.price);
+  const productUrl = `${baseUrl}${productPath}`;
 
   // Set URL on offers — variant products have no top-level offers (each hasVariant entry has its own)
   if (
@@ -909,11 +853,11 @@ export default async function CategoryProductPage({
     (product.category ? generateSlug(product.category) : null);
 
   const categoryUrl = categorySlugForUrl
-    ? `${baseUrl}${urlPrefix}/${categorySlugForUrl}`
-    : `${baseUrl}${urlPrefix}/products`;
+    ? `${baseUrl}/${categorySlugForUrl}`
+    : `${baseUrl}/products`;
 
   const breadcrumbItems = [
-    { name: merchant?.business_name || 'Home', url: `${baseUrl}${urlPrefix}` },
+    { name: merchant?.business_name || 'Home', url: baseUrl },
     { name: product.category || 'All Products', url: categoryUrl },
     { name: product.name, url: productUrl },
   ];
@@ -937,11 +881,12 @@ export default async function CategoryProductPage({
           __html: safeJsonLdStringify(breadcrumbSchema),
         }} // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
       />
-      <section className="sr-only" data-nosnippet>
+      {/* SEO Content - Server-rendered for crawlers, hidden but accessible and indexable */}
+      <article className="sr-only">
         <h1>{product.name}</h1>
         <p>
-          {descriptionContent.plainText ||
-            `Buy ${product.name} at ${merchant?.business_name || 'OgaBassey'}.`}
+          {product.description ||
+            `Buy ${product.name} at the best price in Nigeria. Pay later with flexible options.`}
         </p>
         <dl>
           <dt>Brand</dt>
@@ -951,23 +896,14 @@ export default async function CategoryProductPage({
           <dt>Condition</dt>
           <dd>{product.condition || 'New'}</dd>
           <dt>Price</dt>
-          <dd>{formattedPrice}</dd>
+          <dd>₦{product.price?.toLocaleString() || 'Contact for price'}</dd>
         </dl>
-      </section>
+      </article>
       <Suspense fallback={<ProductDetailSkeleton />}>
         <TemplateProductPage
-          currency={merchant?.payout_currency || 'USD'}
           product={product}
-          storeCountry={merchant?.country || null}
           templateId={merchant?.template_id}
-        >
-          <ProductPageRelatedContent
-            basePath={urlPrefix}
-            className="space-y-12"
-            country={merchant?.country || 'NG'}
-            currentProduct={product}
-          />
-        </TemplateProductPage>
+        />
       </Suspense>
     </>
   );
