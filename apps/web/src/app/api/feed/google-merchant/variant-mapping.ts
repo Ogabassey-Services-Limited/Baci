@@ -32,20 +32,36 @@ export interface FeedKeySpecs {
  *   variant-defining — they go to product_detail if anywhere.
  */
 export function mapVariantToGmcAttributes(
-  attributes: Record<string, string>
+  attributes: Record<string, unknown>
 ): GmcVariantAttributes {
+  const toTrimmedScalarString = (value: unknown): string | undefined => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+
+    return undefined;
+  };
+
   const normalizedAttributes = Object.fromEntries(
-    Object.entries(attributes).map(([key, value]) => [key.toLowerCase(), value])
-  ) as Record<string, string>;
+    Object.entries(attributes).map(([key, value]) => [
+      key.toLowerCase(),
+      toTrimmedScalarString(value),
+    ])
+  ) as Record<string, string | undefined>;
   const result: GmcVariantAttributes = {};
 
-  const color = normalizedAttributes.color?.trim();
+  const color = normalizedAttributes.color;
   if (color) {
     result.color = color;
   }
 
-  const storage = normalizedAttributes.storage?.trim();
-  const size = normalizedAttributes.size?.trim();
+  const storage = normalizedAttributes.storage;
+  const size = normalizedAttributes.size;
 
   if (storage && size) {
     result.size = `${storage} / ${size}`;
@@ -61,7 +77,9 @@ export function mapVariantToGmcAttributes(
 /**
  * Returns true if the attributes contain at least one GMC-mappable variant axis.
  */
-export function hasGmcVariantAxis(attributes: Record<string, string>): boolean {
+export function hasGmcVariantAxis(
+  attributes: Record<string, unknown>
+): boolean {
   const mapped = mapVariantToGmcAttributes(attributes);
   return mapped.color !== undefined || mapped.size !== undefined;
 }

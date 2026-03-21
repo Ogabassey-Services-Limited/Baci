@@ -17,7 +17,7 @@ type VariantRow = {
   id: string;
   product_id: string;
   sku?: string;
-  attributes: Record<string, string>;
+  attributes: Record<string, unknown>;
   price_override?: number;
   stock_quantity: number;
 };

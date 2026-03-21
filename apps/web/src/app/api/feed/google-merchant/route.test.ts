@@ -345,6 +345,67 @@ describe('GET /api/feed/google-merchant', () => {
     expect(mockGenerateGoogleMerchantFeed).not.toHaveBeenCalled();
   });
 
+  it('passes mapped variants to the feed builder when gmc_variants_enabled is true', async () => {
+    merchantResult = {
+      data: {
+        id: 'merchant-1',
+        business_name: 'Ogabassey',
+        country: 'NG',
+        payout_currency: 'NGN',
+        slug: 'ogabassey',
+        gmc_variants_enabled: true,
+      },
+      error: null,
+    };
+    variantRpcResult = {
+      data: [
+        {
+          id: 'variant-1',
+          product_id: 'product-1',
+          sku: 'IP16-128-BLUE',
+          attributes: { color: 'Blue', storage: '128GB' },
+          price_override: 150,
+          stock_quantity: 3,
+        },
+      ],
+      error: null,
+    };
+    specsResult = {
+      data: [{ product_id: 'product-1', ram_gb: 8 }],
+      error: null,
+    };
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey')
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith('get_storefront_product_variants', {
+      p_product_ids: ['product-1'],
+    });
+    expect(mockGenerateGoogleMerchantFeed).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          id: 'product-1',
+          key_specs: { ram_gb: 8 },
+          variants: [
+            expect.objectContaining({
+              id: 'variant-1',
+              sku: 'IP16-128-BLUE',
+              attributes: { color: 'Blue', storage: '128GB' },
+              price_override: 150,
+              stock_quantity: 3,
+            }),
+          ],
+        }),
+      ],
+      expect.any(Object),
+      'https://ogabassey.com',
+      expect.any(Object)
+    );
+  });
+
   it('returns 500 when key_specs query fails with gmc_variants_enabled', async () => {
     merchantResult = {
       data: {

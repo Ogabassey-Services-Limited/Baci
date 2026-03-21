@@ -62,6 +62,17 @@ describe('mapVariantToGmcAttributes', () => {
   it('ignores empty string values', () => {
     expect(mapVariantToGmcAttributes({ color: '', storage: '' })).toEqual({});
   });
+
+  it('coerces primitive JSONB values to strings and ignores non-scalars', () => {
+    expect(
+      mapVariantToGmcAttributes({
+        color: '  Blue  ',
+        storage: 256,
+        size: 10.1,
+        extras: { nested: true },
+      })
+    ).toEqual({ color: 'Blue', size: '256 / 10.1' });
+  });
 });
 
 describe('hasGmcVariantAxis', () => {

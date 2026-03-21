@@ -594,6 +594,24 @@ describe('generateGoogleMerchantFeed — variant emission', () => {
     expect(xml).toContain('<g:availability>out_of_stock</g:availability>');
   });
 
+  it('falls back to legacy stock when product stock_quantity is zero', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          stock: 7,
+          stock_quantity: 0,
+          manage_stock: true,
+        }),
+      ],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+
+    expect(xml).toContain('<g:availability>in_stock</g:availability>');
+    expect(xml).toContain('<g:quantity>7</g:quantity>');
+  });
+
   it('clamps invalid variant stock_quantity to zero', () => {
     const xml = generateGoogleMerchantFeed(
       [

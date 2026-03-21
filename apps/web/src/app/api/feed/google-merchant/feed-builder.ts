@@ -11,6 +11,7 @@ import {
   resolveGmcAdditionalImages,
   resolveGmcPrimaryImage,
 } from '@/lib/gmc-feed-images';
+import { getEffectiveStock } from '@/lib/product-stock';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import { buildProductUrl } from '@/lib/seo-utils';
 import {
@@ -23,7 +24,7 @@ import {
 export interface FeedVariant {
   id: string;
   sku?: string;
-  attributes: Record<string, string>;
+  attributes: Record<string, unknown>;
   price_override?: number;
   stock_quantity: number;
 }
@@ -135,15 +136,13 @@ function buildSharedItemLines(
   const title = overrides?.title ?? product.name;
   const link = overrides?.link ?? '';
   const price = overrides?.price ?? product.price;
-  const rawStock =
-    overrides?.stock ??
-    (typeof product.stock_quantity === 'number' &&
-    Number.isFinite(product.stock_quantity)
-      ? product.stock_quantity
-      : typeof product.stock === 'number' && Number.isFinite(product.stock)
-        ? product.stock
-        : 0);
-  const stock = rawStock > 0 ? rawStock : 0;
+  const stock =
+    typeof overrides?.stock === 'number' && Number.isFinite(overrides.stock)
+      ? Math.max(0, overrides.stock)
+      : getEffectiveStock({
+          stock: product.stock,
+          stock_quantity: product.stock_quantity,
+        });
   const manageStock = product.manage_stock === true;
   const availability = !manageStock || stock > 0 ? 'in_stock' : 'out_of_stock';
   const condition = product.condition || 'new';
