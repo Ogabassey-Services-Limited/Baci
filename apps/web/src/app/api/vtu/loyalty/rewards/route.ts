@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -77,6 +78,16 @@ export async function GET(request: Request) {
 // POST /api/vtu/loyalty/rewards - Create a new airtime reward (merchant only)
 export async function POST(request: Request) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request as NextRequest);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -178,6 +189,16 @@ export async function POST(request: Request) {
 // PATCH /api/vtu/loyalty/rewards - Update an airtime reward
 export async function PATCH(request: Request) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request as NextRequest);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -266,6 +287,16 @@ export async function PATCH(request: Request) {
 // DELETE /api/vtu/loyalty/rewards - Delete an airtime reward
 export async function DELETE(request: Request) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request as NextRequest);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 

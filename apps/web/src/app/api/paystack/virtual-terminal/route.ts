@@ -9,6 +9,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -51,6 +52,16 @@ const CreateTerminalSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
     const {

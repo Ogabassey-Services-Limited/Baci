@@ -1,10 +1,21 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { JumiaClient } from '@/lib/jumia/client';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request as NextRequest);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const body = await request.json();
     const { productId, overrides } = body;
 

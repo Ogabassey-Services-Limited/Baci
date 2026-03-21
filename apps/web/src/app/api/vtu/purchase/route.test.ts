@@ -122,6 +122,12 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => createMockSupabase()),
 }));
 
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn(() =>
+    Promise.resolve({ valid: true, response: null })
+  ),
+}));
+
 // ---- Helpers ----
 
 const MERCHANT_ID = 'merchant-123';

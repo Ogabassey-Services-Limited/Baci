@@ -5,6 +5,7 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   getDomainInformation,
@@ -103,6 +104,16 @@ export async function POST(
   { params }: { params: Promise<{ domain: string }> }
 ) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const { domain } = await params;
     const auth = await authenticateApiRequest(request);
 
@@ -177,6 +188,16 @@ export async function DELETE(
   { params }: { params: Promise<{ domain: string }> }
 ) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const { domain } = await params;
     const auth = await authenticateApiRequest(request);
 

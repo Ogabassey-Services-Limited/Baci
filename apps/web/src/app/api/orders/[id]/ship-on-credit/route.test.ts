@@ -41,6 +41,12 @@ vi.mock('@/lib/logger', () => ({
   logger: mockLogger,
 }));
 
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn(() =>
+    Promise.resolve({ valid: true, response: null })
+  ),
+}));
+
 import { POST } from './route';
 
 const ORDER_ID = 'order-123';

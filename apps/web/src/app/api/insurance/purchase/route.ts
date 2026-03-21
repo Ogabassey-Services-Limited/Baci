@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   createMyCoverClient,
   type ItemDetail,
@@ -56,6 +57,16 @@ interface PurchaseInsuranceRequest {
  */
 export async function POST(request: NextRequest) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const body: PurchaseInsuranceRequest = await request.json();
 
     // Validate required fields

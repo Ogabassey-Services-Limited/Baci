@@ -1,0 +1,127 @@
+import {
+  getProductCardImageAttempt,
+  getPrimaryProductImage,
+  normalizeProductImages,
+  normalizeVariantAttributes,
+  PRODUCT_PLACEHOLDER_IMAGE,
+} from './product-normalization';
+
+describe('normalizeVariantAttributes', () => {
+  it('normalizes array-based variant attributes', () => {
+    expect(
+      normalizeVariantAttributes([
+        { param: 'storage', options: ['128GB', '256GB', '512GB'] },
+      ])
+    ).toEqual({
+      storage: ['128GB', '256GB', '512GB'],
+    });
+  });
+
+  it('normalizes legacy object-map variant attributes', () => {
+    expect(
+      normalizeVariantAttributes({
+        Storage: ['128GB', '256GB'],
+        'SIM Type': 'Physical + eSIM',
+        Color: null,
+      })
+    ).toEqual({
+      sim_type: ['Physical + eSIM'],
+      storage: ['128GB', '256GB'],
+    });
+  });
+});
+
+describe('normalizeProductImages', () => {
+  it('returns same array when all images are valid', () => {
+    const images = [
+      'https://cdn.example.com/iphone-13-pro-front.jpg',
+      'https://cdn.example.com/iphone-13-pro-back.jpg',
+    ];
+
+    expect(normalizeProductImages(images)).toEqual(images);
+  });
+
+  it('returns empty array for empty input', () => {
+    expect(normalizeProductImages([])).toEqual([]);
+  });
+
+  it('handles undefined input', () => {
+    expect(normalizeProductImages(undefined)).toEqual([]);
+  });
+
+  it('filters empty image values', () => {
+    expect(
+      normalizeProductImages([
+        '',
+        '   ',
+        'https://cdn.example.com/iphone-13-pro.jpg',
+        null,
+      ])
+    ).toEqual(['https://cdn.example.com/iphone-13-pro.jpg']);
+  });
+});
+
+describe('getPrimaryProductImage', () => {
+  it('returns the first normalized product image when image array is provided', () => {
+    expect(
+      getPrimaryProductImage([
+        'https://cdn.example.com/image1.jpg',
+        'https://cdn.example.com/image2.jpg',
+      ])
+    ).toBe('https://cdn.example.com/image1.jpg');
+  });
+
+  it('falls back to the placeholder image when no product image exists', () => {
+    expect(getPrimaryProductImage(null)).toBe(PRODUCT_PLACEHOLDER_IMAGE);
+  });
+});
+
+describe('getProductCardImageAttempt', () => {
+  it('returns the first image when attempt is 0', () => {
+    expect(
+      getProductCardImageAttempt(
+        ['https://cdn.example.com/redmi-pad-se-working.avif'],
+        0
+      )
+    ).toBe('https://cdn.example.com/redmi-pad-se-working.avif');
+  });
+
+  it('returns the next real image before using the placeholder', () => {
+    expect(
+      getProductCardImageAttempt(
+        [
+          'https://cdn.example.com/redmi-pad-se-broken.avif',
+          'https://cdn.example.com/redmi-pad-se-working.avif',
+        ],
+        1
+      )
+    ).toBe('https://cdn.example.com/redmi-pad-se-working.avif');
+  });
+
+  it('uses the placeholder once all image attempts are exhausted', () => {
+    expect(
+      getProductCardImageAttempt(
+        ['https://cdn.example.com/redmi-pad-se-broken.avif'],
+        1
+      )
+    ).toBe(PRODUCT_PLACEHOLDER_IMAGE);
+  });
+
+  it('returns the placeholder when attempt is negative', () => {
+    expect(
+      getProductCardImageAttempt(
+        ['https://cdn.example.com/redmi-pad-se-working.avif'],
+        -1
+      )
+    ).toBe(PRODUCT_PLACEHOLDER_IMAGE);
+  });
+
+  it('returns the placeholder when attempt is not an integer', () => {
+    expect(
+      getProductCardImageAttempt(
+        ['https://cdn.example.com/redmi-pad-se-working.avif'],
+        1.5
+      )
+    ).toBe(PRODUCT_PLACEHOLDER_IMAGE);
+  });
+});

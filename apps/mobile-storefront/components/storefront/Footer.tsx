@@ -9,7 +9,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Logo } from '@/components/ui/Logo';
 import { BRAND, SPACING } from '@/constants/Colors';
-import { useMerchant } from '@/hooks/use-products';
+import { useMerchant } from '@/hooks';
 import { createLogger } from '@/lib/logger';
 import { normalizeSocialUrl, type SocialPlatform } from '@/lib/social';
 

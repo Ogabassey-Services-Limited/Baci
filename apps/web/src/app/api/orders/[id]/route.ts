@@ -3,6 +3,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
 import { ORDER_COLUMNS, ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 
@@ -59,6 +60,16 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const { id } = await params;
     const body = await request.json();
 

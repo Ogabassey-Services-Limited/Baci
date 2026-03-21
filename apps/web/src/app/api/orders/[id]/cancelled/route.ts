@@ -3,6 +3,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   generateOrderCancellationEmail,
   generateOrderCancellationText,
@@ -29,6 +30,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const { id } = await params;
     console.log(`[OrderCancelled] Starting for order ${id}`);
 
