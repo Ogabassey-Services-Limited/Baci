@@ -69,7 +69,9 @@ export async function GET() {
     // Fetch preferences
     const { data: preferences, error } = await supabase
       .from('notification_preferences')
-      .select('*')
+      .select(
+        'id, merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end, updated_at'
+      )
       .eq('merchant_id', merchantId)
       .single();
 
