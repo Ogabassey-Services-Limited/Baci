@@ -1,0 +1,232 @@
+import { Platform } from 'react-native';
+import { BRAND, RADIUS, SHADOWS, SPACING, palette } from '@/constants/Colors';
+
+const checkoutStyles = {
+  checkoutStickyFooter: {
+    position: 'absolute' as const,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 20,
+    borderTopWidth: 1,
+    ...SHADOWS.lg,
+    zIndex: 1000,
+  },
+  bulkHint: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    backgroundColor: palette.gray[50],
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.sm,
+    alignSelf: 'stretch' as const,
+    borderWidth: 1,
+    borderColor: palette.gray[100],
+  },
+  footerActions: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 10,
+  },
+  bulkButton: {
+    width: 90,
+    height: 56,
+    backgroundColor: palette.gray[50],
+    borderRadius: RADIUS.xl,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    borderWidth: 1,
+    borderColor: palette.gray[200],
+    marginLeft: 8,
+  },
+  bulkButtonContent: {
+    flexDirection: 'column' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 4,
+  },
+  checkoutButtonContainer: {
+    flex: 1,
+    height: 56,
+  },
+  checkoutButtonContent: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 8,
+  },
+  checkoutBtnLabel: {
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+  },
+  checkoutBtnDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  checkoutBtnPrice: {
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+  },
+  bulkHintText: {
+    fontSize: 9,
+    color: palette.gray[500],
+    fontFamily: 'Inter_500Medium',
+  },
+  bulkButtonDisabled: {
+    opacity: 0.6,
+  },
+  bulkButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.96 }],
+  },
+  bulkButtonText: {
+    fontSize: 11,
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[700],
+    textAlign: 'center' as const,
+  },
+  redCheckoutButton: {
+    height: 56,
+    borderRadius: RADIUS.xl,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    ...SHADOWS.md,
+    zIndex: 100,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  redCheckoutButtonPressed: {
+    transform: [{ scale: 0.98 }],
+  },
+  checkoutButtonInner: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 6,
+  },
+  redCheckoutButtonText: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+  },
+  checkoutDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  redCheckoutPriceText: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+  },
+  summaryCard: {
+    marginTop: SPACING.md,
+    borderRadius: RADIUS['2xl'],
+    padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: palette.gray[100],
+    marginBottom: SPACING.md,
+  },
+  secureBadgeInside: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 6,
+    marginBottom: SPACING.xl,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[900],
+    marginBottom: SPACING.sm,
+  },
+  summaryRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: 8,
+  },
+  summaryLabelWithIcon: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+  },
+  summaryLabel: {
+    fontSize: 13,
+    color: palette.gray[600],
+  },
+  summaryValue: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    color: palette.gray[900],
+  },
+  assurancePercentBadge: {
+    backgroundColor: palette.red[50],
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: palette.red[100],
+  },
+  assurancePercentText: {
+    fontSize: 9,
+    fontFamily: 'Inter_700Bold',
+    color: BRAND.primary,
+  },
+  summaryDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: palette.gray[200],
+    marginVertical: 8,
+    borderStyle: 'dashed' as const,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[900],
+  },
+  totalValue: {
+    fontSize: 18,
+    fontFamily: 'Inter_700Bold',
+    color: palette.gray[900],
+  },
+  checkoutButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: RADIUS.xl,
+    ...SHADOWS.lg,
+  },
+  checkoutButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+  },
+  checkoutButtonDisabled: {
+    opacity: 0.7,
+  },
+  checkoutButtonText: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+  },
+  secureBadge: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 6,
+    marginTop: SPACING.md,
+  },
+  secureBadgeText: {
+    fontSize: 12,
+    color: palette.gray[400],
+  },
+} as const;
+
+export default checkoutStyles;
