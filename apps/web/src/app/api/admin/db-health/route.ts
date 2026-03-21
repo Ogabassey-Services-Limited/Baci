@@ -63,7 +63,9 @@ export async function GET() {
     // Get index recommendations
     const { data: recommendations, error: recError } = await supabase
       .from('index_recommendations')
-      .select('*')
+      .select(
+        'id, table_name, column_name, index_type, reason, priority, created_at'
+      )
       .limit(10);
 
     if (recError) {

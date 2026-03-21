@@ -40,7 +40,9 @@ export async function GET(request: Request) {
     // Get active airtime rewards
     const { data: rewards, error } = await supabase
       .from('loyalty_airtime_rewards')
-      .select('*')
+      .select(
+        'id, name, description, points_required, airtime_amount, network_provider, max_redemptions_per_customer, max_total_redemptions, total_redemptions, is_active'
+      )
       .eq('merchant_id', merchant.id)
       .eq('is_active', true)
       .order('points_required', { ascending: true });

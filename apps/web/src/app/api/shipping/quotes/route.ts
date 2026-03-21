@@ -251,7 +251,9 @@ export async function GET(request: NextRequest) {
 
     const { data: quotes, error } = await supabase
       .from('shipping_quotes')
-      .select('*')
+      .select(
+        'id, session_id, provider, service_tier, carrier_name, estimated_days, min_days, max_days, price, currency, pickup_included, insurance_included, is_station_pickup, station_name, station_address, provider_rate_id, expires_at'
+      )
       .eq('session_id', sessionId)
       .gt('expires_at', new Date().toISOString())
       .order('price', { ascending: true });

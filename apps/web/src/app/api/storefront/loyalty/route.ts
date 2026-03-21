@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
     // Get loyalty settings for this merchant
     const { data: settings, error: settingsError } = await supabase
       .from('loyalty_settings')
-      .select('*')
+      .select(
+        'id, merchant_id, enabled, points_per_naira, naira_per_point, welcome_bonus, referral_bonus_referrer, referral_bonus_referee, silver_threshold, gold_threshold, platinum_threshold'
+      )
       .eq('merchant_id', merchantId)
       .single();
 
@@ -36,7 +38,7 @@ export async function GET(request: NextRequest) {
     // Get customer's loyalty data
     const { data: loyalty, error: loyaltyError } = await supabase
       .from('customer_loyalty')
-      .select('*')
+      .select('id, points_balance, lifetime_points, tier')
       .eq('merchant_id', merchantId)
       .eq('customer_id', customerId)
       .single();
@@ -52,7 +54,9 @@ export async function GET(request: NextRequest) {
     // Get available rewards
     const { data: rewards, error: rewardsError } = await supabase
       .from('loyalty_rewards')
-      .select('*')
+      .select(
+        'id, name, description, reward_type, discount_value, discount_type, points_required, min_tier, active'
+      )
       .eq('merchant_id', merchantId)
       .eq('active', true)
       .order('points_required', { ascending: true });
@@ -64,7 +68,7 @@ export async function GET(request: NextRequest) {
     // Get recent transactions
     const { data: transactions, error: transactionsError } = await supabase
       .from('points_transactions')
-      .select('*')
+      .select('id, points, type, description, created_at')
       .eq('merchant_id', merchantId)
       .eq('customer_id', customerId)
       .order('created_at', { ascending: false })

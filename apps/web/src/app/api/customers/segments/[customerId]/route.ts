@@ -47,7 +47,7 @@ export async function GET(
     // Get customer details
     const { data: customer } = await supabase
       .from('customers')
-      .select('*')
+      .select('id, name, email, phone, store_credit, created_at')
       .eq('id', customerId)
       .single();
 
@@ -61,7 +61,9 @@ export async function GET(
     // Get RFM scores
     const { data: rfm } = await supabase
       .from('customer_rfm_scores')
-      .select('*')
+      .select(
+        'rfm_segment, lifecycle_segment, recency_score, frequency_score, monetary_score, total_orders, total_spent, average_order_value, days_since_last_order, predicted_clv, churn_risk, first_order_date, last_order_date'
+      )
       .eq('customer_id', customerId)
       .eq('merchant_id', merchantId)
       .single();
@@ -69,7 +71,9 @@ export async function GET(
     // Get loyalty data if exists
     const { data: loyalty } = await supabase
       .from('customer_loyalty')
-      .select('*')
+      .select(
+        'points_balance, lifetime_points, current_tier, referral_code, referral_count'
+      )
       .eq('customer_id', customerId)
       .eq('merchant_id', merchantId)
       .single();
@@ -88,7 +92,9 @@ export async function GET(
     if (rfm?.rfm_segment) {
       const { data: definition } = await supabase
         .from('segment_definitions')
-        .select('*')
+        .select(
+          'id, segment_name, display_name, description, color, priority, merchant_id'
+        )
         .eq('segment_name', rfm.rfm_segment)
         .or(`merchant_id.is.null,merchant_id.eq.${merchantId}`)
         .single();

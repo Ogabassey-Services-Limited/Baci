@@ -17,7 +17,9 @@ export async function GET(
     // Fetch policy linked to this order
     const { data: policy, error } = await supabase
       .from('order_insurance_policies')
-      .select('*')
+      .select(
+        'id, order_id, mycover_policy_number, status, policy_start_date, policy_expiry_date, premium_amount, coverage_amount, items_insured, claim_status, certificate_url'
+      )
       .eq('order_id', orderId)
       .single();
 
