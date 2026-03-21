@@ -11,6 +11,8 @@ const ROOT_DOMAIN =
  * only associates the correct app with each merchant's domain.
  * This route must remain host-aware because storefront domains and
  * the root platform domain intentionally advertise different apps.
+ * Keep this file under `apps/web/**` so deploy-path filtering still
+ * catches App Links fixes that need a production rollout.
  * Must NOT redirect — Android rejects 3xx responses.
  */
 export function GET(request: NextRequest): NextResponse {
