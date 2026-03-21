@@ -128,7 +128,9 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('ai_jobs')
-      .select('*')
+      .select(
+        'id, merchant_id, type, status, input, output, error, created_at, started_at, completed_at'
+      )
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false })
       .limit(limit);

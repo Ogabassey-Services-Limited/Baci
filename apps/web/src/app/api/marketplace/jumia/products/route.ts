@@ -37,7 +37,9 @@ export async function GET(request: Request) {
     // Get Jumia mapping
     const { data: mapping, error: mappingError } = await supabase
       .from('jumia_product_mappings')
-      .select('*')
+      .select(
+        'id, product_id, jumia_sku, jumia_product_url, sync_status, last_synced_at, created_at'
+      )
       .eq('product_id', productId)
       .single();
 

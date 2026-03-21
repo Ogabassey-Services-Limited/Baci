@@ -283,7 +283,9 @@ export async function GET(_request: NextRequest) {
     // Fetch payout requests
     const { data: payouts, error: payoutsError } = await supabase
       .from('payout_requests')
-      .select('*')
+      .select(
+        'id, merchant_id, amount, currency, status, bank_name, account_number, account_name, reference, created_at, processed_at'
+      )
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 

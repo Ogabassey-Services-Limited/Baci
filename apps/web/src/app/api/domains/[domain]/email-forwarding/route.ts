@@ -61,7 +61,7 @@ export async function GET(
     // Verify domain ownership through merchant access context
     const { data: domainData, error: domainError } = await supabase
       .from('domains')
-      .select('*')
+      .select('id, domain, merchant_id')
       .eq('domain', domain)
       .eq('merchant_id', access.merchantId)
       .single();
