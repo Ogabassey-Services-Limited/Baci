@@ -10,6 +10,7 @@ import { router } from 'expo-router';
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -103,6 +104,25 @@ export default function CategoriesScreen() {
     image_url?: string;
   }
 
+  // categoryCard height calculation:
+  // padding 12 (top + bottom) = 24
+  // borderWidth 1 (top + bottom) = 2
+  // inner image height = 64
+  // Total item height = 90
+  // Separator height = 12
+  const CATEGORY_ITEM_HEIGHT = 90;
+  const CATEGORY_ITEM_GAP = 12;
+  const CATEGORY_ITEM_FULL_HEIGHT = CATEGORY_ITEM_HEIGHT + CATEGORY_ITEM_GAP;
+
+  const getItemLayout = (
+    _data: ArrayLike<Category> | null | undefined,
+    index: number
+  ) => ({
+    length: CATEGORY_ITEM_FULL_HEIGHT,
+    offset: CATEGORY_ITEM_FULL_HEIGHT * index,
+    index,
+  });
+
   const renderCategory = ({ item }: { item: Category }) => (
     <Pressable
       style={({ pressed }) => [
@@ -152,6 +172,11 @@ export default function CategoriesScreen() {
         data={categories}
         renderItem={renderCategory}
         keyExtractor={(item) => item.id}
+        getItemLayout={getItemLayout}
+        removeClippedSubviews={Platform.OS === 'android'}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        initialNumToRender={8}
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         showsVerticalScrollIndicator={false}
