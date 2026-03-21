@@ -23,6 +23,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { useAuthSafe } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { checkPasswordStrength } from '@/lib/utils';
 import type { OnboardingFormValues } from '@/schemas/onboarding';
@@ -45,6 +46,25 @@ export default function Step3_Account({
   const [magicLinkSubmitting, setMagicLinkSubmitting] =
     useState<boolean>(false);
   const { toast } = useToast();
+  const auth = useAuthSafe();
+
+  /** Sign out via auth context (clears storage) with inline fallback for
+   *  contexts where AuthProvider is not mounted (e.g. onboarding). */
+  const signOut = async () => {
+    if (auth) {
+      await auth.signOut();
+    } else {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      try {
+        sessionStorage.clear();
+        localStorage.clear();
+      } catch {
+        // Storage access may fail in restricted contexts
+      }
+    }
+  };
 
   // Use useWatch for reliable reactivity
   const password = useWatch({ control, name: 'password' }) || '';
@@ -102,9 +122,7 @@ export default function Step3_Account({
               variant="link"
               className="p-0 h-auto text-muted-foreground hover:text-primary underline font-normal"
               onClick={async () => {
-                const { createClient } = await import('@/lib/supabase/client');
-                const supabase = createClient();
-                await supabase.auth.signOut();
+                await signOut();
                 window.location.reload();
               }}
             >
