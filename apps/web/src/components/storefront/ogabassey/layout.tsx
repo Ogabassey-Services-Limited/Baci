@@ -102,12 +102,7 @@ export function OgabasseyLayout({
                 {!shouldHideNavigation && (
                   <Suspense fallback={<div className="h-16 bg-[#0F0F0F]" />}>
                     <Navbar
-                      storeName={merchant?.business_name || 'Ogabassey'}
                       storeSlug={basePath}
-                      showSearch={true}
-                      showCart={true}
-                      showUser={true}
-                      showBell={true}
                     />
                   </Suspense>
                 )}
