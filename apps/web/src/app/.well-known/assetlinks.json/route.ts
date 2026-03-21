@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { buildAssetLinks, getAppConfigForDomain } from '@/lib/well-known';
 
 const ROOT_DOMAIN =
-  process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim() || 'usebaci.com';
+  process.env.NEXT_PUBLIC_ROOT_DOMAIN?.split('\n')[0].trim() || 'usebaci.com';
 
 /**
  * Android App Links verification endpoint.
@@ -25,6 +25,7 @@ export function GET(request: NextRequest): NextResponse {
     status: 200,
     headers: {
       'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+      Vary: 'Host',
     },
   });
 }

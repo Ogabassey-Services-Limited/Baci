@@ -20,6 +20,7 @@ export function getAppConfigForDomain(
 ): DomainAppConfig {
   const normalized = hostname.toLowerCase().replace(/^www\./, '');
   const normalizedRoot = rootDomain
+    .split('\n')[0]
     .toLowerCase()
     .trim()
     .replace(/^www\./, '');

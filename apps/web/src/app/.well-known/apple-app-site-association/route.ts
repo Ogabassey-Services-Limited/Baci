@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { buildAASA, getAppConfigForDomain } from '@/lib/well-known';
 
 const ROOT_DOMAIN =
-  process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim() || 'usebaci.com';
+  process.env.NEXT_PUBLIC_ROOT_DOMAIN?.split('\n')[0].trim() || 'usebaci.com';
 
 /**
  * Apple Universal Links verification endpoint (AASA).
@@ -22,6 +22,7 @@ export function GET(request: NextRequest): NextResponse {
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+      Vary: 'Host',
     },
   });
 }
