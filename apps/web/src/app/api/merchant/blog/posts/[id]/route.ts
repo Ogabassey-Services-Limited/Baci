@@ -7,6 +7,7 @@ import {
 } from '@/lib/api-auth';
 import { calculateReadingTime, calculateWordCount } from '@/lib/blog-utils';
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
 import { blogPostSchema } from '@/lib/validations/blog';
 
@@ -72,6 +73,16 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const { id } = await params;
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
@@ -220,6 +231,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(_request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const { id } = await params;
     const auth = await authenticateApiRequest(_request);
     if (auth.error || !auth.user || !auth.supabase) {

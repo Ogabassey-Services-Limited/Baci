@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createAnonClient } from '@/lib/supabase/anon';
 
 // Initialize Gemini
@@ -9,6 +10,16 @@ const genAI = new GoogleGenerativeAI(
 
 export async function POST(req: NextRequest) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(req);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get('video') as File;
 

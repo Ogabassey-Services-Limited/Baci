@@ -6,6 +6,7 @@ import {
   hasPermission,
 } from '@/lib/api-auth';
 import { revalidateMerchant } from '@/lib/cache-revalidation';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -17,6 +18,16 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(
@@ -163,6 +174,16 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json(

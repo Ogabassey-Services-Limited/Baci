@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   getMerchantForApiRequest,
@@ -62,6 +63,16 @@ export async function POST(
   { params }: { params: Promise<{ domain: string }> }
 ) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(_request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const { domain } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);

@@ -1,11 +1,22 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { type GenerateFAQInput, generateFAQ } from '@/ai/flows/generate-faq';
 import { AI_RATE_LIMITS, checkRateLimit } from '@/ai/provider';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request as NextRequest);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     // Get authenticated user
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);

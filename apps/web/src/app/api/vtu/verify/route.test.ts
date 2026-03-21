@@ -23,6 +23,12 @@ vi.mock('@/lib/kuda-bills', () => ({
   verifyBillCustomer: (...args: unknown[]) => mockVerifyBillCustomer(...args),
 }));
 
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn(() =>
+    Promise.resolve({ valid: true, response: null })
+  ),
+}));
+
 // ---- Helpers ----
 
 function makeRequest(body: Record<string, unknown>): Request {
