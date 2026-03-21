@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -77,8 +78,11 @@ export async function GET(_request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) return response;
+
     const body = await request.json();
     const { layout_config, visible_cards } = body;
 
