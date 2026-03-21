@@ -196,7 +196,9 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line prefer-const
     let { data: settings, error } = await auth.supabase
       .from('merchant_feature_settings')
-      .select('*')
+      .select(
+        'id, merchant_id, loyalty_enabled, reviews_enabled, wishlist_enabled, order_tracking_enabled, discount_codes_enabled, guest_checkout_enabled, paystack_enabled, korapay_enabled, pay_on_delivery_enabled, credit_direct_enabled, credit_direct_public_key, credit_direct_min_amount, credit_direct_max_amount, credpal_enabled, preferred_local_gateway, preferred_international_gateway, shipping_providers, free_shipping_threshold, shipping_markup_percentage, checkout_collect_phone, checkout_require_account, checkout_show_order_notes, about_page_enabled, contact_page_enabled, faq_page_enabled, privacy_page_enabled, terms_page_enabled, rewards_page_enabled, show_recent_purchases, show_stock_levels, low_stock_threshold, google_analytics_id, ga4_api_secret, facebook_pixel_id, facebook_capi_token, tiktok_pixel_id, tiktok_access_token, snapchat_pixel_id, snapchat_capi_token, twitter_pixel_id, auto_generate_schema, custom_robots_txt, email_notifications_enabled, sms_notifications_enabled, blog_enabled, auto_blog_enabled, google_reviews_enabled, google_place_id, vtu_enabled, vtu_airtime_enabled, vtu_data_enabled, vtu_checkout_addon_enabled, vtu_checkout_addon_amounts, vtu_loyalty_reward_enabled, vtu_merchant_commission_rate, custom_settings, offline_conversions_enabled, created_at, updated_at'
+      )
       .eq('merchant_id', access.merchantId)
       .single();
 

@@ -6,10 +6,7 @@ import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { notificationIdSchema } from '@/schemas/notifications';
-import type {
-  NotificationWithStats,
-  UpdateNotificationInput,
-} from '@/types/notifications';
+import type { UpdateNotificationInput } from '@/types/notifications';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -77,7 +74,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     // Fetch notification with delivery stats
     const { data: notification, error: fetchError } = await supabase
       .from('notifications')
-      .select('*')
+      .select(
+        'id, title, message, notification_type, priority, target_type, target_merchant_ids, target_segment, channels, action_url, action_label, scheduled_for, sent_at, expires_at, created_at, created_by'
+      )
       .eq('id', id)
       .single();
 
@@ -139,13 +138,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    const notificationWithStats: NotificationWithStats = {
+    const notificationWithStats = {
       ...notification,
       stats: {
         total_recipients: totalRecipients || 0,
         read_count: readCount || 0,
       },
-    };
+    } satisfies Record<string, unknown>;
 
     return NextResponse.json(notificationWithStats);
   } catch (error) {
@@ -227,7 +226,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Check if notification exists and hasn't been sent
     const { data: existing, error: fetchError } = await supabase
       .from('notifications')
-      .select('*')
+      .select('id, sent_at')
       .eq('id', id)
       .single();
 

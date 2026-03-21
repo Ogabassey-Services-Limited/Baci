@@ -12,7 +12,9 @@ import { agenticCheckoutUpdateSchema } from '@/schemas/agentic-checkout';
 async function getSession(supabase: SupabaseClient, id: string) {
   const { data, error } = await supabase
     .from('checkout_sessions')
-    .select('*')
+    .select(
+      'id, merchant_id, items, fulfillment_option_id, fulfillment_address, currency, status, metadata'
+    )
     .eq('id', id)
     .single();
   return { data, error };

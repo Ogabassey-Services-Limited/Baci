@@ -32,7 +32,9 @@ export async function POST(
     const supabase = createServiceClient();
     const { data: session, error } = await supabase
       .from('checkout_sessions')
-      .select('*')
+      .select(
+        'id, merchant_id, items, fulfillment_option_id, fulfillment_address, currency, status, metadata'
+      )
       .eq('id', params.id)
       .single();
 
