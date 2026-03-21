@@ -3,7 +3,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { buildAASA, getAppConfigForDomain } from '@/lib/well-known';
 
 const ROOT_DOMAIN =
-  process.env.NEXT_PUBLIC_ROOT_DOMAIN?.split('\n')[0].trim() || 'usebaci.com';
+  process.env.NEXT_PUBLIC_ROOT_DOMAIN?.split(/[\r\n]/)[0].trim() ||
+  'usebaci.com';
 
 /**
  * Apple Universal Links verification endpoint (AASA).
