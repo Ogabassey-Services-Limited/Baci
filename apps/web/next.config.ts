@@ -194,7 +194,7 @@ const nextConfig: NextConfig = {
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
 
-  webpack(config, { isServer }) {
+  webpack(config) {
     config.resolve ??= {};
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
@@ -202,11 +202,6 @@ const nextConfig: NextConfig = {
         __dirname,
         'src/lib/tiptap-extension-text-style-compat.ts'
       ),
-      // csrf.ts uses a dynamic import('node:crypto') behind a runtime Node
-      // check. Webpack can't handle the node: URI scheme in client bundles.
-      // Alias to false so it resolves to an empty module on the client side
-      // (the runtime isNodeRuntime guard prevents it from ever being called).
-      ...(!isServer && { 'node:crypto': false }),
     };
 
     return config;
