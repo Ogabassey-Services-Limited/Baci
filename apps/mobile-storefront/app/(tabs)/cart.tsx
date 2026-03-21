@@ -33,7 +33,7 @@ import NegotiationWarningModal from '@/components/cart/NegotiationWarningModal';
 import styles from '@/components/cart/styles';
 import { CheckoutIdentityModal } from '@/components/checkout/checkout-identity';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, palette, RADIUS } from '@/constants/Colors';
+import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
 import { isValidCartStore } from '@/lib/cart-validation';
 import { useAuthStore } from '@/stores/auth-store';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
