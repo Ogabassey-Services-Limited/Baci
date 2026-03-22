@@ -249,26 +249,49 @@ export function buildImportJobRowInserts(
   );
 }
 
-export async function triggerImportWorker(origin: string) {
+export async function triggerImportWorker(origin: string, jobId?: string) {
   const workerSecret = getImportJobWorkerSecret();
 
   if (!workerSecret) {
     return;
   }
 
-  await fetch(`${origin}/api/import-jobs/worker`, {
+  const response = await fetch(`${origin}/api/import-jobs/worker`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${workerSecret}`,
+      ...(jobId ? { 'Content-Type': 'application/json' } : {}),
     },
+    ...(jobId ? { body: JSON.stringify({ jobId }) } : {}),
     cache: 'no-store',
   }).catch((error) => {
     logger.error({
       message: 'Failed to trigger import worker',
       error,
       origin,
+      jobId,
     });
+
+    throw error;
   });
+
+  if (response.ok) {
+    return;
+  }
+
+  const responseBody = await response.text().catch(() => null);
+  logger.error({
+    message: 'Import worker trigger returned non-OK response',
+    origin,
+    jobId,
+    status: response.status,
+    statusText: response.statusText,
+    body: responseBody,
+  });
+
+  throw new Error(
+    `Import worker trigger failed: ${response.status} ${response.statusText}`
+  );
 }
 
 export function mergeImportJobSummary(

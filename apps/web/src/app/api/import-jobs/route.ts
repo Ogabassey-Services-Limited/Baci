@@ -1,4 +1,4 @@
-import { after, type NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   hasImportRoutePermission,
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    after(() => triggerImportWorker(request.nextUrl.origin));
+    await triggerImportWorker(request.nextUrl.origin, job.id);
 
     return NextResponse.json({ job }, { status: 202 });
   } catch (error) {

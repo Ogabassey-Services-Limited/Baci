@@ -1,9 +1,16 @@
 import { timingSafeEqual } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getImportJobWorkerBatchSize, getImportJobWorkerSecret } from '@/env';
-import { processImportJobQueue } from '@/lib/import-jobs/process-import-job';
+import {
+  processImportJobById,
+  processImportJobQueue,
+} from '@/lib/import-jobs/process-import-job';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
+import {
+  type ImportJobWorkerRequest,
+  importJobWorkerRequestSchema,
+} from '@/schemas/import-jobs';
 
 function hasValidWorkerSecret(
   authHeader: string | null,
@@ -40,10 +47,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const results = await processImportJobQueue(
-      createServiceClient(),
-      getImportJobWorkerBatchSize()
-    );
+    let workerRequest: ImportJobWorkerRequest = {};
+    const rawBody = await request.text();
+
+    if (rawBody.length > 0) {
+      try {
+        workerRequest = importJobWorkerRequestSchema.parse(JSON.parse(rawBody));
+      } catch {
+        return NextResponse.json(
+          { error: 'Invalid worker request body', code: 'invalid_request' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const supabase = createServiceClient();
+    const targetedResult = workerRequest.jobId
+      ? await processImportJobById(supabase, workerRequest.jobId)
+      : null;
+    const results = workerRequest.jobId
+      ? targetedResult
+        ? [targetedResult]
+        : []
+      : await processImportJobQueue(supabase, getImportJobWorkerBatchSize());
 
     return NextResponse.json({
       processed: results.length,
