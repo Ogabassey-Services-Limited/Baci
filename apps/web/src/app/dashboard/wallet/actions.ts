@@ -97,7 +97,7 @@ export async function getWalletData(merchantId: string) {
 
   // Fetch pending settlements and wallet summary concurrently
   const [
-    { data: pendingSettlements, error: pendingError },
+    { data: pendingSettlements },
     { data: walletSummary, error: summaryError },
   ] = await Promise.all([
     supabase
@@ -111,10 +111,6 @@ export async function getWalletData(merchantId: string) {
       .limit(10),
     supabase.rpc('get_wallet_summary', { p_merchant_id: merchantId }),
   ]);
-
-  if (pendingError) {
-    console.error('Failed to fetch pending settlements:', pendingError);
-  }
 
   if (summaryError || !walletSummary?.[0]) {
     // Fallback if RPC fails or returns empty

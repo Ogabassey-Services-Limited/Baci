@@ -13,21 +13,6 @@ import {
 } from '@/lib/gmc-feed-images';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { stripHtmlTags } from '@/lib/sanitize-core';
-import { buildProductUrl } from '@/lib/seo-utils';
-import {
-  buildProductDetailXml,
-  type FeedKeySpecs,
-  hasGmcVariantAxis,
-  mapVariantToGmcAttributes,
-} from './variant-mapping';
-
-export interface FeedVariant {
-  id: string;
-  sku?: string;
-  attributes: Record<string, unknown>;
-  price_override?: number;
-  stock_quantity: number;
-}
 
 export interface FeedProduct {
   id: string;
@@ -46,12 +31,9 @@ export interface FeedProduct {
   condition?: 'new' | 'used' | 'refurbished';
   google_product_category?: string;
   category?: string;
-  categories?: { name?: string; slug?: string } | null;
   weight_value?: number;
   weight_unit?: 'kg' | 'lb' | 'g' | 'oz';
   updated_at?: string;
-  variants?: FeedVariant[];
-  key_specs?: FeedKeySpecs;
 }
 
 export interface FeedMerchant {
@@ -64,6 +46,8 @@ export interface FeedMerchant {
 
 /** Map of product_id → manifest entries for that product */
 export type ImageManifestMap = Record<string, FeedImageManifestEntry[]>;
+
+const UNLIMITED_STOCK_QUANTITY = 9999;
 
 function isValidForGmc(product: FeedProduct): boolean {
   if (!product.price || product.price <= 0) return false;
@@ -92,125 +76,12 @@ function escapeXml(unsafe: string): string {
     .replace(/'/g, '&apos;');
 }
 
-/**
- * Build the canonical product URL path using the category slug.
- * Uses buildProductUrl from seo-utils which handles FK join slug → legacy text fallback.
- */
-function buildProductLink(
-  normalizedBaseUrl: string,
-  product: FeedProduct
-): string {
-  const productPath = buildProductUrl(
-    product.slug || product.id,
-    product.categories || product.category || null,
-    null
-  );
-  return `${normalizedBaseUrl}${productPath}`;
-}
-
-/**
- * Build shared XML lines that are common between standalone items and variant items.
- */
-function buildSharedItemLines(
-  product: FeedProduct,
-  primaryImageUrl: string,
-  additionalImagesXml: string,
-  effectiveBrand: string,
-  currency: string,
-  shippingWeight: string,
-  overrides?: {
-    id?: string;
-    title?: string;
-    link?: string;
-    price?: number;
-    stock?: number;
-    itemGroupId?: string;
-    color?: string;
-    size?: string;
-    canonicalLink?: string;
-    productDetailXml?: string;
-    mpn?: string;
+function getFeedStockCount(product: FeedProduct): number {
+  if (product.manage_stock === false) {
+    return UNLIMITED_STOCK_QUANTITY;
   }
-): string[] {
-  const id = overrides?.id ?? product.id;
-  const title = overrides?.title ?? product.name;
-  const link = overrides?.link ?? '';
-  const price = overrides?.price ?? product.price;
-  const stock =
-    typeof overrides?.stock === 'number' && Number.isFinite(overrides.stock)
-      ? Math.max(0, overrides.stock)
-      : getEffectiveStock({
-          stock: product.stock,
-          stock_quantity: product.stock_quantity,
-        });
-  const manageStock = product.manage_stock === true;
-  const availability = !manageStock || stock > 0 ? 'in_stock' : 'out_of_stock';
-  const condition = product.condition || 'new';
-  const formattedPrice = price.toFixed(2);
 
-  const salePrice =
-    product.compare_at_price && product.compare_at_price > price
-      ? `        <g:sale_price>${formattedPrice} ${currency}</g:sale_price>\n        <g:price>${product.compare_at_price.toFixed(2)} ${currency}</g:price>`
-      : `        <g:price>${formattedPrice} ${currency}</g:price>`;
-
-  const lines = [
-    `        <g:id>${escapeXml(id)}</g:id>`,
-    overrides?.itemGroupId
-      ? `        <g:item_group_id>${escapeXml(overrides.itemGroupId)}</g:item_group_id>`
-      : '',
-    `        <g:title>${escapeXml(title)}</g:title>`,
-    `        <g:description>${escapeXml(stripHtmlTags(product.description).trim())}</g:description>`,
-    `        <g:link>${escapeXml(link)}</g:link>`,
-    overrides?.canonicalLink
-      ? `        <g:canonical_link>${escapeXml(overrides.canonicalLink)}</g:canonical_link>`
-      : '',
-    `        <g:image_link>${escapeXml(primaryImageUrl)}</g:image_link>`,
-    additionalImagesXml,
-    `        <g:availability>${availability}</g:availability>`,
-    `        <g:quantity>${stock}</g:quantity>`,
-    salePrice,
-    `        <g:brand>${escapeXml(effectiveBrand)}</g:brand>`,
-    `        <g:condition>${condition}</g:condition>`,
-    overrides?.color
-      ? `        <g:color>${escapeXml(overrides.color)}</g:color>`
-      : '',
-    overrides?.size
-      ? `        <g:size>${escapeXml(overrides.size)}</g:size>`
-      : '',
-    product.gtin ? `        <g:gtin>${escapeXml(product.gtin)}</g:gtin>` : '',
-    overrides?.mpn
-      ? `        <g:mpn>${escapeXml(overrides.mpn)}</g:mpn>`
-      : product.mpn
-        ? `        <g:mpn>${escapeXml(product.mpn)}</g:mpn>`
-        : '',
-    product.gtin || ((overrides?.mpn || product.mpn) && effectiveBrand)
-      ? '        <g:identifier_exists>yes</g:identifier_exists>'
-      : '        <g:identifier_exists>no</g:identifier_exists>',
-    product.google_product_category
-      ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
-      : '',
-    product.category
-      ? `        <g:product_type>${escapeXml(product.category)}</g:product_type>`
-      : '',
-    shippingWeight,
-    overrides?.productDetailXml ?? '',
-  ];
-
-  return lines.filter(Boolean);
-}
-
-/**
- * Build a variant title with differentiators appended.
- * e.g., "iPhone 16 - Blue - 128GB"
- */
-function buildVariantTitle(
-  baseName: string,
-  gmcAttrs: { color?: string; size?: string }
-): string {
-  const parts = [baseName];
-  if (gmcAttrs.color) parts.push(gmcAttrs.color);
-  if (gmcAttrs.size) parts.push(gmcAttrs.size);
-  return parts.join(' - ');
+  return getEffectiveStock(product);
 }
 
 /**
@@ -219,10 +90,6 @@ function buildVariantTitle(
  * Images are resolved exclusively from the prevalidated manifest.
  * Products without a verified primary image are excluded entirely.
  * This function performs zero network calls.
- *
- * When a product has variants with at least one mappable GMC axis (color/size),
- * one <item> is emitted per variant with item_group_id grouping. Products
- * without mappable variants emit a single item (Phase 1 behavior).
  */
 export function generateGoogleMerchantFeed(
   products: FeedProduct[],
@@ -236,108 +103,75 @@ export function generateGoogleMerchantFeed(
 
   const validProducts = products.filter(isValidForGmc);
 
-  const itemXmls: string[] = [];
+  const items = validProducts
+    .map((product) => {
+      const productUrl = `${normalizedBaseUrl}/products/${product.slug || product.id}`;
+      if (!isValidGmcUrl(productUrl)) return null;
 
-  for (const product of validProducts) {
-    const productUrl = buildProductLink(normalizedBaseUrl, product);
-    if (!isValidGmcUrl(productUrl)) continue;
+      // Resolve images from prevalidated manifest only
+      const manifestEntries = imageManifest[product.id] || [];
+      const primaryImageUrl = resolveGmcPrimaryImage(manifestEntries);
 
-    // Resolve images from prevalidated manifest only
-    const manifestEntries = imageManifest[product.id] || [];
-    const primaryImageUrl = resolveGmcPrimaryImage(manifestEntries);
+      // Skip products without a verified primary image — never emit blank g:image_link
+      if (!primaryImageUrl) return null;
 
-    // Skip products without a verified primary image — never emit blank g:image_link
-    if (!primaryImageUrl) continue;
+      const additionalImageUrls = resolveGmcAdditionalImages(manifestEntries);
+      const additionalImagesXml = additionalImageUrls
+        .map(
+          (url) =>
+            `        <g:additional_image_link>${escapeXml(url)}</g:additional_image_link>`
+        )
+        .join('\n');
 
-    const additionalImageUrls = resolveGmcAdditionalImages(manifestEntries);
-    const additionalImagesXml = additionalImageUrls
-      .map(
-        (url) =>
-          `        <g:additional_image_link>${escapeXml(url)}</g:additional_image_link>`
-      )
-      .join('\n');
+      const stockCount = getFeedStockCount(product);
+      const availability = stockCount > 0 ? 'in_stock' : 'out_of_stock';
+      const condition = product.condition || 'new';
+      const formattedPrice = product.price.toFixed(2);
 
-    const effectiveBrand = product.brand || brandName;
-    const shippingWeight =
-      product.weight_value && product.weight_unit
-        ? `        <g:shipping_weight>${product.weight_value} ${product.weight_unit}</g:shipping_weight>`
-        : '';
+      const salePrice =
+        product.compare_at_price && product.compare_at_price > product.price
+          ? `        <g:sale_price>${formattedPrice} ${currency}</g:sale_price>\n        <g:price>${product.compare_at_price.toFixed(2)} ${currency}</g:price>`
+          : `        <g:price>${formattedPrice} ${currency}</g:price>`;
 
-    const productDetailXml = product.key_specs
-      ? buildProductDetailXml(product.key_specs)
-      : '';
+      const shippingWeight =
+        product.weight_value && product.weight_unit
+          ? `        <g:shipping_weight>${product.weight_value} ${product.weight_unit}</g:shipping_weight>`
+          : '';
 
-    // Check if product has variants with at least one mappable GMC axis
-    const variants = product.variants || [];
-    const mappableVariants = variants.filter((v) =>
-      hasGmcVariantAxis(v.attributes)
-    );
+      const effectiveBrand = product.brand || brandName;
 
-    if (mappableVariants.length > 0) {
-      // Emit one <item> per variant — suppress standalone product item
-      const seenVariantIds = new Set<string>();
-
-      for (const variant of mappableVariants) {
-        if (seenVariantIds.has(variant.id)) continue;
-        seenVariantIds.add(variant.id);
-
-        const gmcAttrs = mapVariantToGmcAttributes(variant.attributes);
-        const variantUrl = `${productUrl}?variant=${encodeURIComponent(variant.id)}`;
-        const variantPrice =
-          typeof variant.price_override === 'number' &&
-          Number.isFinite(variant.price_override) &&
-          variant.price_override > 0
-            ? variant.price_override
-            : product.price;
-        const variantStock =
-          typeof variant.stock_quantity === 'number' &&
-          Number.isFinite(variant.stock_quantity) &&
-          variant.stock_quantity > 0
-            ? variant.stock_quantity
-            : 0;
-
-        const lines = buildSharedItemLines(
-          product,
-          primaryImageUrl,
-          additionalImagesXml,
-          effectiveBrand,
-          currency,
-          shippingWeight,
-          {
-            id: variant.id,
-            itemGroupId: product.id,
-            title: buildVariantTitle(product.name, gmcAttrs),
-            link: variantUrl,
-            canonicalLink: productUrl,
-            price: variantPrice,
-            stock: variantStock,
-            color: gmcAttrs.color,
-            size: gmcAttrs.size,
-            productDetailXml,
-            mpn: variant.sku,
-          }
-        );
-
-        itemXmls.push(`    <item>\n${lines.join('\n')}\n    </item>`);
-      }
-    } else {
-      // No mappable variants → single item (Phase 1 behavior)
-      const lines = buildSharedItemLines(
-        product,
-        primaryImageUrl,
+      const lines = [
+        `        <g:id>${escapeXml(product.id)}</g:id>`,
+        `        <g:title>${escapeXml(product.name)}</g:title>`,
+        `        <g:description>${escapeXml(stripHtmlTags(product.description).trim())}</g:description>`,
+        `        <g:link>${escapeXml(productUrl)}</g:link>`,
+        `        <g:image_link>${escapeXml(primaryImageUrl)}</g:image_link>`,
         additionalImagesXml,
-        effectiveBrand,
-        currency,
+        `        <g:availability>${availability}</g:availability>`,
+        `        <g:quantity>${stockCount}</g:quantity>`,
+        salePrice,
+        `        <g:brand>${escapeXml(effectiveBrand)}</g:brand>`,
+        `        <g:condition>${condition}</g:condition>`,
+        product.gtin
+          ? `        <g:gtin>${escapeXml(product.gtin)}</g:gtin>`
+          : '',
+        product.mpn ? `        <g:mpn>${escapeXml(product.mpn)}</g:mpn>` : '',
+        product.gtin || (product.mpn && effectiveBrand)
+          ? '        <g:identifier_exists>yes</g:identifier_exists>'
+          : '        <g:identifier_exists>no</g:identifier_exists>',
+        product.google_product_category
+          ? `        <g:google_product_category>${escapeXml(product.google_product_category)}</g:google_product_category>`
+          : '',
+        product.category
+          ? `        <g:product_type>${escapeXml(product.category)}</g:product_type>`
+          : '',
         shippingWeight,
-        {
-          link: productUrl,
-          productDetailXml,
-        }
-      );
+      ].filter(Boolean);
 
-      itemXmls.push(`    <item>\n${lines.join('\n')}\n    </item>`);
-    }
-  }
+      return `    <item>\n${lines.join('\n')}\n    </item>`;
+    })
+    .filter(Boolean)
+    .join('\n');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
@@ -345,7 +179,7 @@ export function generateGoogleMerchantFeed(
     <title>${escapeXml(brandName)} - Product Feed</title>
     <link>${escapeXml(normalizedBaseUrl)}</link>
     <description>Product feed for ${escapeXml(brandName)}</description>
-${itemXmls.join('\n')}
+${items}
   </channel>
 </rss>`;
 }

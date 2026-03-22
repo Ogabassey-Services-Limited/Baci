@@ -12,7 +12,7 @@ if (!SICKW_API_KEY) {
 }
 
 // Service tiers with pricing (cost to us, we can markup for profit)
-const IMEI_SERVICE_TIERS = {
+export const IMEI_SERVICE_TIERS = {
   basic: {
     id: '1',
     name: 'Basic Check',

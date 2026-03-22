@@ -9,15 +9,6 @@ declare module '@tiptap/core' {
     productExtension: {
       openProductPicker: () => ReturnType;
     };
-    taskList: {
-      toggleTaskList: () => ReturnType;
-    };
-    bulletList: {
-      toggleBulletList: () => ReturnType;
-    };
-    orderedList: {
-      toggleOrderedList: () => ReturnType;
-    };
   }
 }
 

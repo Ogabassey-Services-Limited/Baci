@@ -6,35 +6,10 @@ import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
 import {
   type FeedProduct,
-  type FeedVariant,
   generateGoogleMerchantFeed,
   type ImageManifestMap,
 } from './feed-builder';
 import { buildMerchantBaseUrl } from './route-utils';
-import type { FeedKeySpecs } from './variant-mapping';
-
-type VariantRow = {
-  id: string;
-  product_id: string;
-  sku?: string;
-  attributes: Record<string, unknown>;
-  price_override?: number;
-  stock_quantity: number;
-};
-
-type SpecsRow = {
-  product_id: string;
-  ram_gb?: number;
-  storage_gb?: number;
-  screen_size_inches?: number;
-  chipset?: string;
-  battery_mah?: number;
-  main_camera_mp?: number;
-};
-
-const PRODUCT_KEY_SPECS_SELECT =
-  'product_id, ram_gb, storage_gb, screen_size_inches, chipset, battery_mah, main_camera_mp';
-const PRODUCT_KEY_SPECS_CHUNK_SIZE = 200;
 
 /**
  * Module-level anon-key client is intentional: this is a public feed endpoint
@@ -42,35 +17,6 @@ const PRODUCT_KEY_SPECS_CHUNK_SIZE = 200;
  * (which reads cookies) would be incorrect here.
  */
 const supabase = createClient(getSupabaseUrl(), getSupabaseAnonKey());
-
-async function fetchProductKeySpecs(productIds: string[]): Promise<SpecsRow[]> {
-  const specsChunks: string[][] = [];
-  for (
-    let index = 0;
-    index < productIds.length;
-    index += PRODUCT_KEY_SPECS_CHUNK_SIZE
-  ) {
-    specsChunks.push(
-      productIds.slice(index, index + PRODUCT_KEY_SPECS_CHUNK_SIZE)
-    );
-  }
-
-  const specsResults = await Promise.all(
-    specsChunks.map((chunk) =>
-      supabase
-        .from('product_key_specs')
-        .select(PRODUCT_KEY_SPECS_SELECT)
-        .in('product_id', chunk)
-    )
-  );
-  const specsError = specsResults.find((result) => result.error);
-  if (specsError?.error) {
-    console.error('DB_SPECS_ERROR:', specsError.error);
-    throw new Error('Failed to fetch product key specs');
-  }
-
-  return specsResults.flatMap((result) => result.data || []);
-}
 
 const _FeedQuerySchema = z
   .object({
@@ -89,9 +35,7 @@ function createCachedFeedDataFetcher(
     async () => {
       const merchantQuery = supabase
         .from('merchants')
-        .select(
-          'id, business_name, country, payout_currency, slug, gmc_variants_enabled'
-        );
+        .select('id, business_name, country, payout_currency, slug');
 
       const { data: merchant, error: merchantError } = isBySlug
         ? await merchantQuery.eq('slug', merchantIdentifier).single()
@@ -118,8 +62,7 @@ function createCachedFeedDataFetcher(
         .from('products')
         .select(
           `id, name, description, slug, price, compare_at_price,
-           brand, gtin, mpn, sku, stock, manage_stock, stock_quantity, condition, google_product_category, category,
-           categories:category_id(name, slug),
+           brand, gtin, mpn, sku, stock, condition, google_product_category, category,
            weight_value, weight_unit, updated_at`
         )
         .eq('merchant_id', merchant.id)
@@ -170,74 +113,12 @@ function createCachedFeedDataFetcher(
         });
       }
 
-      const gmcVariantsEnabled = merchant.gmc_variants_enabled === true;
-      const productIds = (products || []).map((p: { id: string }) => p.id);
-
-      let variantRows: VariantRow[] = [];
-      let specsRows: SpecsRow[] = [];
-
-      if (productIds.length > 0) {
-        const variantPromise = gmcVariantsEnabled
-          ? supabase.rpc('get_storefront_product_variants', {
-              p_product_ids: productIds,
-            })
-          : Promise.resolve({ data: [] as VariantRow[], error: null });
-        const [variantResult, fetchedSpecsRows] = await Promise.all([
-          variantPromise,
-          fetchProductKeySpecs(productIds),
-        ]);
-
-        if (variantResult.error) {
-          console.error('DB_VARIANT_ERROR:', variantResult.error);
-          throw new Error('Failed to fetch product variants');
-        }
-
-        variantRows = variantResult.data || [];
-        specsRows = fetchedSpecsRows;
-      }
-
-      // Group variants by product_id
-      const variantsByProduct: Record<string, FeedVariant[]> = {};
-      for (const row of variantRows) {
-        if (!variantsByProduct[row.product_id]) {
-          variantsByProduct[row.product_id] = [];
-        }
-        variantsByProduct[row.product_id].push({
-          id: row.id,
-          sku: row.sku,
-          attributes: row.attributes || {},
-          price_override: row.price_override ?? undefined,
-          stock_quantity: row.stock_quantity ?? 0,
-        });
-      }
-
-      // Index key_specs by product_id
-      const specsByProduct: Record<string, FeedKeySpecs> = {};
-      for (const row of specsRows) {
-        specsByProduct[row.product_id] = {
-          ram_gb: row.ram_gb ?? undefined,
-          storage_gb: row.storage_gb ?? undefined,
-          screen_size_inches: row.screen_size_inches ?? undefined,
-          chipset: row.chipset ?? undefined,
-          battery_mah: row.battery_mah ?? undefined,
-          main_camera_mp: row.main_camera_mp ?? undefined,
-        };
-      }
-
-      // Merge variants and specs onto products
-      const enrichedProducts: FeedProduct[] = (products || []).map((p) => ({
-        ...(p as unknown as FeedProduct),
-        variants:
-          variantsByProduct[(p as Record<string, unknown>).id as string],
-        key_specs: specsByProduct[(p as Record<string, unknown>).id as string],
-      }));
-
       return {
         merchant: {
           ...merchant,
           custom_domain: primaryDomain?.domain ?? null,
         },
-        products: enrichedProducts,
+        products: (products || []) as FeedProduct[],
         imageManifest,
       };
     },

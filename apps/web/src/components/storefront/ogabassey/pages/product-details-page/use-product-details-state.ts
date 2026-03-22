@@ -52,44 +52,12 @@ export function useProductDetailsState(serverProduct: Product) {
   const [selectedCondition, setSelectedCondition] = useState<ConditionType>(
     productData.condition || 'new'
   );
-  // Pre-select variant from ?variant= URL param (for GMC feed deep links)
-  const variantIdFromUrl = searchParams.get('variant');
-  const matchedVariant = variantIdFromUrl && serverProduct.variants?.length
-    ? serverProduct.variants.find((v) => v.id === variantIdFromUrl)
-    : undefined;
-  const initialAttributes = matchedVariant?.attributes ?? {};
-  const initialAttributesSignature = JSON.stringify(initialAttributes);
-
-  // Pre-select color index if the matched variant specifies a color
-  const initialColorIndex = (() => {
-    const colorName = initialAttributes.color;
-    if (!colorName || !productData.colors.length) return null;
-    const idx = productData.colors.findIndex(
-      (c) => c.name.toLowerCase() === colorName.toLowerCase()
-    );
-    return idx >= 0 ? idx : null;
-  })();
-
-  // Pre-select the image that corresponds to the initially selected color
-  const initialImageIndex = (() => {
-    if (initialColorIndex === null) return 0;
-    const colorName = productData.colors[initialColorIndex]?.name;
-    const colorImage = colorName ? productData.colorImages[colorName]?.[0] : undefined;
-    if (colorImage) {
-      const idx = productData.images.findIndex((image) => image === colorImage);
-      return idx >= 0 ? idx : 0;
-    }
-    return initialColorIndex < productData.images.length ? initialColorIndex : 0;
-  })();
-
-  const [selectedImage, setSelectedImage] = useState(initialImageIndex);
-  const [selectedColor, setSelectedColor] = useState<number | null>(initialColorIndex);
+  const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedColor, setSelectedColor] = useState<number | null>(null);
   const [secondaryColor, setSecondaryColor] = useState<number | null>(null);
-
-
   const [selectedAttributes, setSelectedAttributes] = useState<
     Record<string, string>
-  >(initialAttributes);
+  >({});
   const [activeTab, setActiveTab] =
     useState<ProductDetailsActiveTab>('description');
   const [deliveryLocation, setDeliveryLocation] = useState<
@@ -119,23 +87,6 @@ export function useProductDetailsState(serverProduct: Product) {
   useEffect(() => {
     setSelectedCondition(productData.condition || 'new');
   }, [productData.id, productData.condition]);
-
-  useEffect(() => {
-    setSelectedImage(initialImageIndex);
-    setSelectedColor(initialColorIndex);
-    setSecondaryColor(null);
-    setSelectedAttributes(
-      initialAttributesSignature === '{}'
-        ? {}
-        : (JSON.parse(initialAttributesSignature) as Record<string, string>)
-    );
-  }, [
-    serverProduct.id,
-    variantIdFromUrl,
-    initialColorIndex,
-    initialImageIndex,
-    initialAttributesSignature,
-  ]);
 
   const currentCartItemId = buildCartItemId(productData.id, {
     color:
