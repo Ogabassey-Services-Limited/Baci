@@ -152,6 +152,9 @@ describe('CustomerOrdersPage', () => {
 
     expect(await screen.findByText('Purchase history')).toBeInTheDocument();
     expect(screen.getByText('ORD-1001')).toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/storefront/orders?merchantSlug=ogabassey'
+    );
   });
 
   it('shows a retryable error state when fetching orders fails', async () => {
@@ -183,5 +186,17 @@ describe('CustomerOrdersPage', () => {
     render(<CustomerOrdersPage />);
 
     expect(screen.getByText(/store unavailable/i)).toBeInTheDocument();
+  });
+
+  it('shows a loading state while merchant context is still resolving', () => {
+    vi.mocked(useMerchant).mockReturnValue({
+      merchant: null,
+      loading: true,
+      basePath: '/ogabassey',
+    } as ReturnType<typeof useMerchant>);
+
+    render(<CustomerOrdersPage />);
+
+    expect(screen.getByText(/loading orders/i)).toBeInTheDocument();
   });
 });

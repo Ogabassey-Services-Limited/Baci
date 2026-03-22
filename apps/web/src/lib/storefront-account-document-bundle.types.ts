@@ -79,6 +79,7 @@ export interface StorefrontAccountDocumentItemRow {
 }
 
 export interface StorefrontAccountDocumentTransactionRow {
+  id: string | null;
   amount: MoneyValue;
   created_at: string;
   description: string | null;

@@ -210,7 +210,9 @@ export function CustomerOrderDetailsContent({
                 <CardContent className="space-y-3 text-sm">
                   {order.transactions.map((transaction, index) => (
                     <div
-                      key={`${transaction.created_at}-${index}`}
+                      key={
+                        transaction.id || `${transaction.created_at}-${index}`
+                      }
                       className="flex justify-between gap-4"
                     >
                       <div>

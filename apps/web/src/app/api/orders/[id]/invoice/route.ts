@@ -252,7 +252,10 @@ export async function GET(
         (sum, item) => sum + item.line_extension_amount,
         0
       );
-      const taxAmount = items.reduce((sum, item) => sum + item.vat_amount, 0);
+      const taxAmount = items.reduce(
+        (sum, item) => sum + (item.vat_amount ?? 0),
+        0
+      );
       invoiceTaxSubtotals.push({
         vat_category_code: 'S',
         vat_rate: merchant.vat_rate || 7.5,

@@ -36,9 +36,9 @@ function normalizeUtf8FilenameToken(value: string | null | undefined) {
 
 function encodeRFC5987ValueChars(value: string) {
   return encodeURIComponent(value)
+    .replace(/'/g, '%27')
     .replace(/\(/g, '%28')
-    .replace(/\)/g, '%29')
-    .replace(/%27/g, "'");
+    .replace(/\)/g, '%29');
 }
 
 export function sanitizeDownloadFilenamePart(

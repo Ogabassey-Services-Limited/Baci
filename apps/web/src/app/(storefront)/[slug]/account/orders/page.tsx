@@ -109,7 +109,11 @@ export default function CustomerOrdersPage() {
   if (merchantLoading || authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div
+          className="container mx-auto max-w-4xl px-4 py-8"
+          aria-live="polite"
+        >
+          <span className="sr-only">Loading orders</span>
           <Skeleton className="h-8 w-48 mb-8" />
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-40 mb-4" />
@@ -171,7 +175,11 @@ export default function CustomerOrdersPage() {
         </div>
 
         {isLoadingOrders ? (
-          <div className="flex items-center justify-center py-12">
+          <div
+            className="flex items-center justify-center py-12"
+            aria-live="polite"
+          >
+            <span className="sr-only">Loading orders</span>
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : ordersError ? (

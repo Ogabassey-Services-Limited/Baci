@@ -61,12 +61,29 @@ export function buildCustomerAddress(
 export function buildOrderItems(
   itemRows: StorefrontAccountDocumentItemRow[]
 ): StorefrontOrderItem[] {
-  return itemRows.map((item) => ({
-    id: item.id,
-    product_id: item.product_id || '',
-    name: item.name,
-    product_name: item.name,
-    quantity: item.quantity ?? 0,
-    price: asNumber(item.price),
-  }));
+  return itemRows.map((item) => {
+    if (item.quantity == null || !Number.isFinite(item.quantity)) {
+      throw new Error(`Invalid order item quantity for item ${item.id}`);
+    }
+
+    const price =
+      typeof item.price === 'number'
+        ? item.price
+        : typeof item.price === 'string' && item.price.trim()
+          ? Number(item.price)
+          : Number.NaN;
+
+    if (!Number.isFinite(price)) {
+      throw new Error(`Invalid order item price for item ${item.id}`);
+    }
+
+    return {
+      id: item.id,
+      product_id: item.product_id || '',
+      name: item.name,
+      product_name: item.name,
+      quantity: item.quantity,
+      price,
+    };
+  });
 }

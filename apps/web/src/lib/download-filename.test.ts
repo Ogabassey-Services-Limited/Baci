@@ -21,6 +21,10 @@ describe('sanitizeDownloadFilenamePart', () => {
   it('falls back when the value becomes empty', () => {
     expect(sanitizeDownloadFilenamePart('***', 'order')).toBe('order');
   });
+
+  it('falls back to download when both value and fallback sanitize empty', () => {
+    expect(sanitizeDownloadFilenamePart('***', '***')).toBe('download');
+  });
 });
 
 describe('buildPdfContentDisposition', () => {
@@ -52,12 +56,12 @@ describe('buildPdfContentDisposition', () => {
     expect(header).not.toContain('\n');
   });
 
-  it('encodes parentheses while preserving apostrophes in filename*', () => {
+  it('encodes parentheses and apostrophes in filename*', () => {
     const header = buildPdfContentDisposition('receipt', "Kid's Order (VIP)");
 
     expect(header).toContain('filename="receipt-Kid-s-Order-VIP.pdf"');
     expect(header).toContain(
-      "filename*=UTF-8''receipt-Kid's-Order-%28VIP%29.pdf"
+      "filename*=UTF-8''receipt-Kid%27s-Order-%28VIP%29.pdf"
     );
   });
 });

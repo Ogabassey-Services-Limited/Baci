@@ -73,9 +73,9 @@ export interface InvoiceLineItem {
   unit_code: string;
   price: number;
   line_extension_amount: number;
-  vat_category_code: string;
-  vat_rate: number;
-  vat_amount: number;
+  vat_category_code?: string;
+  vat_rate?: number;
+  vat_amount?: number;
   sellers_item_id?: string;
 }
 
@@ -431,11 +431,18 @@ export function generateInvoicePDF(data: InvoiceData): jsPDF {
     String(item.quantity),
     UNIT_CODE_NAMES[item.unit_code] || item.unit_code,
     formatCurrency(item.price, data.currency),
-    item.vat_category_code === 'S'
-      ? `${item.vat_rate}%`
-      : item.vat_category_code,
-    formatCurrency(item.vat_amount, data.currency),
-    formatCurrency(item.line_extension_amount + item.vat_amount, data.currency),
+    item.vat_category_code
+      ? item.vat_category_code === 'S'
+        ? `${item.vat_rate ?? 0}%`
+        : item.vat_category_code
+      : '-',
+    item.vat_amount == null
+      ? '-'
+      : formatCurrency(item.vat_amount, data.currency),
+    formatCurrency(
+      item.line_extension_amount + (item.vat_amount ?? 0),
+      data.currency
+    ),
   ]);
 
   autoTable(doc, {

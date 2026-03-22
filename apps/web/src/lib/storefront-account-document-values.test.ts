@@ -91,13 +91,6 @@ describe('storefront account document values', () => {
           quantity: 2,
           price: 1000,
         },
-        {
-          id: 'item-2',
-          product_id: 'prod-2',
-          name: 'MacBook Air',
-          quantity: null,
-          price: '500' as never,
-        },
       ])
     ).toEqual([
       {
@@ -108,14 +101,32 @@ describe('storefront account document values', () => {
         quantity: 2,
         price: 1000,
       },
-      {
-        id: 'item-2',
-        product_id: 'prod-2',
-        name: 'MacBook Air',
-        product_name: 'MacBook Air',
-        quantity: 0,
-        price: 500,
-      },
     ]);
+  });
+
+  it('throws when an order item has invalid quantity or price data', () => {
+    expect(() =>
+      buildOrderItems([
+        {
+          id: 'item-2',
+          product_id: 'prod-2',
+          name: 'MacBook Air',
+          quantity: null,
+          price: '500' as never,
+        },
+      ])
+    ).toThrow('Invalid order item quantity for item item-2');
+
+    expect(() =>
+      buildOrderItems([
+        {
+          id: 'item-3',
+          product_id: 'prod-3',
+          name: 'iPad Pro',
+          quantity: 1,
+          price: '' as never,
+        },
+      ])
+    ).toThrow('Invalid order item price for item item-3');
   });
 });
