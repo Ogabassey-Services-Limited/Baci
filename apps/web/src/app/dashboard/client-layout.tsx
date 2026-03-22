@@ -22,6 +22,7 @@ import {
   Settings,
   ShoppingCart,
   Store,
+  UploadCloud,
   User,
   UserCog,
   Users,
@@ -337,6 +338,11 @@ export default function DashboardClientLayout({
       label: 'Products',
     },
     {
+      href: '/dashboard/migrations' as Route,
+      icon: UploadCloud,
+      label: 'Migrations',
+    },
+    {
       href: '/dashboard/customers' as Route,
       icon: Users,
       label: 'Customers',
@@ -413,6 +419,14 @@ export default function DashboardClientLayout({
     // Santa Campaign is special (only for ogabassey)
     if (item.label === 'Santa Campaign' && merchant?.slug !== 'ogabassey') {
       return false;
+    }
+
+    if (item.label === 'Migrations') {
+      return (
+        hasPermission('settings', 'edit') ||
+        hasPermission('orders', 'edit') ||
+        hasPermission('products', 'create')
+      );
     }
 
     // Map labels/paths to resources in role_permissions table
