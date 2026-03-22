@@ -513,7 +513,7 @@ export default function ProductEditScreen() {
     const percentage =
       price > 0 ? `${((profit / price) * 100).toFixed(1)}%` : '0.0%';
     const color =
-      profit > 0 ? '#10B981' : profit < 0 ? '#EF4444' : colors.textSecondary;
+      profit > 0 ? colors.success : profit < 0 ? colors.error : colors.textSecondary;
     return { profit, percentage, color, active: true };
   };
 
@@ -706,7 +706,7 @@ export default function ProductEditScreen() {
           </Text>
 
           <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Product Name <Text style={{ color: '#EF4444' }}>*</Text>
+            Product Name <Text style={{ color: colors.error }}>*</Text>
           </Text>
           <TextInput
             style={[
@@ -724,7 +724,7 @@ export default function ProductEditScreen() {
           />
 
           <Text style={[styles.label, { color: colors.textSecondary }]}>
-            SKU <Text style={{ color: '#EF4444' }}>*</Text>
+            SKU <Text style={{ color: colors.error }}>*</Text>
           </Text>
           <TextInput
             style={[
@@ -742,7 +742,7 @@ export default function ProductEditScreen() {
           />
 
           <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Category <Text style={{ color: '#EF4444' }}>*</Text>
+            Category <Text style={{ color: colors.error }}>*</Text>
           </Text>
           <Pressable
             style={[
@@ -1028,7 +1028,7 @@ export default function ProductEditScreen() {
               <View style={styles.row}>
                 <View style={[styles.halfInput, { marginRight: 8 }]}>
                   <Text style={[styles.label, { color: colors.textSecondary }]}>
-                    Selling Price <Text style={{ color: '#EF4444' }}>*</Text>
+                    Selling Price <Text style={{ color: colors.error }}>*</Text>
                   </Text>
                   <PriceInput
                     value={formData.price}
@@ -1245,7 +1245,7 @@ export default function ProductEditScreen() {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Quantity <Text style={{ color: '#EF4444' }}>*</Text>
+                        Quantity <Text style={{ color: colors.error }}>*</Text>
                       </Text>
                       <TextInput
                         style={[
@@ -1279,7 +1279,7 @@ export default function ProductEditScreen() {
                       <Pressable
                         style={[
                           styles.stockButton,
-                          { backgroundColor: '#EF4444' },
+                          { backgroundColor: colors.error },
                         ]}
                         onPress={() => adjustStock(formData.stock_quantity - 1)}
                       >
@@ -1288,7 +1288,7 @@ export default function ProductEditScreen() {
                       <Pressable
                         style={[
                           styles.stockButton,
-                          { backgroundColor: '#10B981' },
+                          { backgroundColor: colors.success },
                         ]}
                         onPress={() => adjustStock(formData.stock_quantity + 1)}
                       >
@@ -1363,7 +1363,7 @@ export default function ProductEditScreen() {
                   onPress={() => setIsCreatingCategory(!isCreatingCategory)}
                   style={{
                     backgroundColor: isCreatingCategory
-                      ? '#EF4444' + '15'
+                      ? colors.error + '15'
                       : `${colors.primary}15`,
                     paddingHorizontal: 12,
                     paddingVertical: 8,
@@ -1376,11 +1376,11 @@ export default function ProductEditScreen() {
                   <Ionicons
                     name={isCreatingCategory ? 'close' : 'add'}
                     size={20}
-                    color={isCreatingCategory ? '#EF4444' : colors.primary}
+                    color={isCreatingCategory ? colors.error : colors.primary}
                   />
                   <Text
                     style={{
-                      color: isCreatingCategory ? '#EF4444' : colors.primary,
+                      color: isCreatingCategory ? colors.error : colors.primary,
                       fontWeight: '700',
                       fontSize: 14,
                     }}
