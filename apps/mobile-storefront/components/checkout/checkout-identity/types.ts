@@ -7,6 +7,8 @@
  * - Reusable across all form components
  */
 
+import type { RefObject } from 'react';
+import type { TextInput, ReturnKeyTypeOptions } from 'react-native';
 import type { Control, FieldErrors, UseFormSetValue } from 'react-hook-form';
 
 /**
@@ -24,6 +26,8 @@ export interface FormInputProps {
   control: Control<SignInFormData>;
   errors: FieldErrors<SignInFormData>;
   isLoading: boolean;
+  returnKeyType?: ReturnKeyTypeOptions;
+  onSubmitEditing?: () => void;
 }
 
 /**
@@ -39,6 +43,7 @@ export interface EmailInputProps extends FormInputProps {
 export interface PasswordInputProps extends FormInputProps {
   onClearError?: () => void;
   onForgotPassword: () => void;
+  inputRef?: RefObject<TextInput | null>;
 }
 
 /**
