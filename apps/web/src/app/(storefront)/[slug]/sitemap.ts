@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
+import { headers } from 'next/headers';
 import { generateSlug } from '@/lib/seo-utils';
 
 // Initialize Supabase client for public data access
@@ -54,10 +55,17 @@ export function generateSitemaps() {
 
 export default async function sitemap(props: {
   id: Promise<string>;
-  params: Promise<{ slug: string }>;
 }): Promise<MetadataRoute.Sitemap> {
   const id = await props.id;
-  const { slug: routeSlug } = await props.params;
+
+  // Next.js 16 with generateSitemaps() only passes { id } — not params.
+  // Read the merchant slug from proxy headers or fall back to the host header.
+  const headersList = await headers();
+  const routeSlug =
+    headersList.get('x-merchant-slug') ??
+    headersList.get('x-custom-domain') ??
+    headersList.get('host')?.split('.')[0] ??
+    '';
   const { merchantSlug, storeUrl } = resolveIdentifier(routeSlug);
 
   const { data: merchant } = await supabase

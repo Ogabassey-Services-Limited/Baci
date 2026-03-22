@@ -135,13 +135,15 @@ async function fetchSlugForDomain(domain: string): Promise<string | null> {
       .limit(1)
       .maybeSingle();
 
-    if (error || !data) {
+    if (error) {
       console.error('[Domain Cache] Failed to fetch slug for domain', {
         domain,
         error,
       });
       return null;
     }
+
+    if (!data) return null;
 
     const merchant = data.merchants as unknown as { slug: string };
     return merchant.slug ?? null;
