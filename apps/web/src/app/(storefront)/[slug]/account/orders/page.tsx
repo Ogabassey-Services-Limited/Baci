@@ -43,7 +43,7 @@ interface Order {
 
 export default function CustomerOrdersPage() {
   const router = useRouter();
-  const { merchant, loading: merchantLoading } = useMerchant();
+  const { merchant, loading: merchantLoading, basePath } = useMerchant();
   const {
     customer,
     isAuthenticated,
@@ -53,13 +53,21 @@ export default function CustomerOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [ordersError, setOrdersError] = useState<string | null>(null);
+  const resolvedBasePath = basePath || '';
+  const getHref = (path: string) => `${resolvedBasePath}${path}`;
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push(asRoute('/account/login?redirect=/account/orders'));
+    if (!merchantLoading && !authLoading && !isAuthenticated) {
+      router.push(
+        asRoute(
+          `${resolvedBasePath}/account/login?redirect=${encodeURIComponent(
+            `${resolvedBasePath}/account/orders`
+          )}`
+        )
+      );
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [merchantLoading, authLoading, isAuthenticated, router, resolvedBasePath]);
 
   // Fetch orders
   const fetchOrders = async () => {
@@ -101,7 +109,11 @@ export default function CustomerOrdersPage() {
   if (merchantLoading || authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-        <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div
+          className="container mx-auto max-w-4xl px-4 py-8"
+          aria-live="polite"
+        >
+          <span className="sr-only">Loading orders</span>
           <Skeleton className="h-8 w-48 mb-8" />
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-40 mb-4" />
@@ -115,13 +127,36 @@ export default function CustomerOrdersPage() {
     return null;
   }
 
+  if (!merchant) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+        <div className="container mx-auto max-w-4xl px-4 py-8">
+          <Card className="border-destructive/50">
+            <CardContent className="p-12 text-center">
+              <AlertCircle className="mx-auto mb-4 h-16 w-16 text-destructive/50" />
+              <h3 className="mb-2 text-lg font-semibold">Store unavailable</h3>
+              <p className="mb-6 text-muted-foreground">
+                We could not load this storefront right now.
+              </p>
+              <Button asChild variant="outline">
+                <Link href={asRoute(getHref('/account'))}>
+                  Go to account home
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center">
           <Link
-            href={asRoute('/account')}
+            href={asRoute(getHref('/account'))}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -140,7 +175,11 @@ export default function CustomerOrdersPage() {
         </div>
 
         {isLoadingOrders ? (
-          <div className="flex items-center justify-center py-12">
+          <div
+            className="flex items-center justify-center py-12"
+            aria-live="polite"
+          >
+            <span className="sr-only">Loading orders</span>
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : ordersError ? (
@@ -161,7 +200,7 @@ export default function CustomerOrdersPage() {
           <OgabasseyV2PurchaseHistory
             orders={orders}
             onViewDetails={(orderId) =>
-              router.push(asRoute(`/account/orders/${orderId}`))
+              router.push(asRoute(getHref(`/account/orders/${orderId}`)))
             }
             onBuyAgain={(productName) => console.log('Buy again:', productName)} // Placeholder
           />

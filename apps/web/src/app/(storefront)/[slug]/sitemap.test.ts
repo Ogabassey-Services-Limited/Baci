@@ -58,7 +58,10 @@ describe('sitemap', () => {
     it('looks up merchant by slug from route params', async () => {
       const { default: sitemap } = await import('./sitemap');
 
-      await sitemap({ id: 'static', params: makeParams('ogabassey') });
+      await sitemap({
+        id: Promise.resolve('static'),
+        params: makeParams('ogabassey'),
+      });
 
       expect(mockFrom).toHaveBeenCalledWith('merchants');
       expect(mockSelect).toHaveBeenCalledWith('id');
@@ -68,7 +71,10 @@ describe('sitemap', () => {
     it('derives slug from custom domain route param (removes .com)', async () => {
       const { default: sitemap } = await import('./sitemap');
 
-      await sitemap({ id: 'static', params: makeParams('ogabassey.com') });
+      await sitemap({
+        id: Promise.resolve('static'),
+        params: makeParams('ogabassey.com'),
+      });
 
       expect(mockFrom).toHaveBeenCalledWith('merchants');
       expect(mockEq).toHaveBeenCalledWith('slug', 'ogabassey');
@@ -77,7 +83,10 @@ describe('sitemap', () => {
     it('derives slug from non-.com TLDs like .ng', async () => {
       const { default: sitemap } = await import('./sitemap');
 
-      await sitemap({ id: 'static', params: makeParams('ogabassey.ng') });
+      await sitemap({
+        id: Promise.resolve('static'),
+        params: makeParams('ogabassey.ng'),
+      });
 
       // .com is removed first (no-op for .ng), then remaining dots become hyphens
       expect(mockEq).toHaveBeenCalledWith('slug', 'ogabassey-ng');
@@ -89,7 +98,7 @@ describe('sitemap', () => {
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({
-        id: 'static',
+        id: Promise.resolve('static'),
         params: makeParams('unknown'),
       });
 
@@ -102,7 +111,7 @@ describe('sitemap', () => {
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({
-        id: 'static',
+        id: Promise.resolve('static'),
         params: makeParams('ogabassey.com'),
       });
 
@@ -113,7 +122,7 @@ describe('sitemap', () => {
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({
-        id: 'static',
+        id: Promise.resolve('static'),
         params: makeParams('ogabassey'),
       });
 
@@ -126,7 +135,7 @@ describe('sitemap', () => {
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({
-        id: 'static',
+        id: Promise.resolve('static'),
         params: makeParams('ogabassey.com'),
       });
 
@@ -165,7 +174,7 @@ describe('sitemap', () => {
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({
-        id: 'products',
+        id: Promise.resolve('products'),
         params: makeParams('ogabassey.com'),
       });
 
@@ -188,7 +197,7 @@ describe('sitemap', () => {
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({
-        id: 'products',
+        id: Promise.resolve('products'),
         params: makeParams('ogabassey'),
       });
 
@@ -201,7 +210,7 @@ describe('sitemap', () => {
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({
-        id: 'unknown',
+        id: Promise.resolve('unknown'),
         params: makeParams('ogabassey'),
       });
 
