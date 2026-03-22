@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getSlugForCustomDomain } from '@/lib/domain-cache-simple';
 import { proxy } from './proxy';
 
 // Mock dependencies
@@ -14,6 +15,11 @@ vi.mock('@/lib/ad-tracking-cookies', () => ({
   CLICK_ID_PARAMS: {},
   extractClickIdsFromUrl: vi.fn().mockReturnValue({}),
   generateClickIdCookies: vi.fn().mockReturnValue([]),
+}));
+
+vi.mock('@/lib/domain-cache-simple', () => ({
+  getCustomDomainForSlug: vi.fn().mockResolvedValue(null),
+  getSlugForCustomDomain: vi.fn().mockResolvedValue('ogabassey'),
 }));
 
 // Mock env
@@ -37,6 +43,10 @@ vi.mock('@/lib/rate-limit', () => ({
 
 describe('Middleware Proxy', () => {
   const ROOT_DOMAIN = 'usebaci.com';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('should apply security headers to API routes', async () => {
     const req = new NextRequest(`https://${ROOT_DOMAIN}/api/products`);
@@ -87,5 +97,17 @@ describe('Middleware Proxy', () => {
     // Verify it didn't redirect (which would happen if /api was in MAIN_APP_ROUTES)
     expect(res.status).not.toBe(307);
     expect(res.status).not.toBe(308);
+  });
+
+  it('should rewrite custom-domain blog sitemaps with the merchant slug', async () => {
+    const req = new NextRequest('https://ogabassey.com/blog/sitemap.xml');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('ogabassey.com');
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/ogabassey/blog/sitemap.xml'
+    );
   });
 });

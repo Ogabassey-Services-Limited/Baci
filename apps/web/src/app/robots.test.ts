@@ -30,12 +30,7 @@ describe('robots()', () => {
 
     const result = await robots();
 
-    expect(result.sitemap).toEqual([
-      'http://localhost:3000/sitemap/static.xml',
-      'http://localhost:3000/sitemap/products.xml',
-      'http://localhost:3000/sitemap/categories.xml',
-      'http://localhost:3000/blog/sitemap.xml',
-    ]);
+    expect(result.sitemap).toBe('http://localhost:3000/sitemap.xml');
     expect(result.rules).toBeDefined();
     expect(Array.isArray(result.rules)).toBe(true);
   });
@@ -46,12 +41,7 @@ describe('robots()', () => {
 
     const result = await robots();
 
-    expect(result.sitemap).toEqual([
-      'http://localhost:3000/sitemap/static.xml',
-      'http://localhost:3000/sitemap/products.xml',
-      'http://localhost:3000/sitemap/categories.xml',
-      'http://localhost:3000/blog/sitemap.xml',
-    ]);
+    expect(result.sitemap).toBe('http://localhost:3000/sitemap.xml');
   });
 
   it('uses https protocol for non-localhost hosts', async () => {
@@ -66,6 +56,16 @@ describe('robots()', () => {
       'https://ogabassey.usebaci.com/sitemap/categories.xml',
       'https://ogabassey.usebaci.com/blog/sitemap.xml',
     ]);
+  });
+
+  it('uses the root sitemap for the platform domain', async () => {
+    const { default: robots } = await import('./robots');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    mockHost = 'usebaci.com';
+
+    const result = await robots();
+
+    expect(result.sitemap).toBe('https://usebaci.com/sitemap.xml');
   });
 
   it('includes platform disallows for platform domain', async () => {
@@ -191,11 +191,6 @@ describe('robots()', () => {
 
     const result = await robots();
 
-    expect(result.sitemap).toEqual([
-      'http://127.0.0.1:3000/sitemap/static.xml',
-      'http://127.0.0.1:3000/sitemap/products.xml',
-      'http://127.0.0.1:3000/sitemap/categories.xml',
-      'http://127.0.0.1:3000/blog/sitemap.xml',
-    ]);
+    expect(result.sitemap).toBe('http://127.0.0.1:3000/sitemap.xml');
   });
 });

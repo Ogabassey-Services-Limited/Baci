@@ -634,10 +634,9 @@ export async function proxy(request: NextRequest) {
         );
       }
 
-      // SEO file paths: rewrite using merchant slug (not domain) to avoid dots in [slug]
-      // which break Next.js file-convention routing (sitemap.ts).
-      // robots.txt is excluded by the middleware matcher so it never reaches here.
-      if (pathname.startsWith('/sitemap')) {
+      // Sitemap file paths: rewrite using merchant slug (not domain) to avoid
+      // dots in [slug], which break Next.js metadata file-convention routing.
+      if (pathname.startsWith('/sitemap') || pathname === '/blog/sitemap.xml') {
         const merchantSlug = await getSlugForCustomDomain(domain);
         const sitemapUrl = request.nextUrl.clone();
         // Use merchant slug if found, otherwise fall through to domain-based rewrite
