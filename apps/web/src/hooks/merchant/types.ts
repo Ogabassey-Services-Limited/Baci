@@ -89,6 +89,11 @@ export interface MerchantData {
     | 'exempt'
     | 'pending';
   vat_rate?: number;
+  // KYC
+  nin?: string;
+  bvn?: string;
+  cac_rc_number?: string;
+  kyc_status?: 'pending' | 'verified' | 'rejected' | null;
   // Hero slides
   hero_slides?: HeroSlide[];
   mobile_hero_slides?: HeroSlide[];
