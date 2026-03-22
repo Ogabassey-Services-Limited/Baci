@@ -1,0 +1,182 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { ORDER_COLUMNS } from '@/lib/order-queries';
+import { buildStorefrontAccountDocumentBundle } from '@/lib/storefront-account-document-bundle';
+import type {
+  StorefrontAccountDocumentCustomerRow,
+  StorefrontAccountDocumentItemRow,
+  StorefrontAccountDocumentMerchantRow,
+  StorefrontAccountDocumentOrderRow,
+  StorefrontAccountDocumentPaymentAccountRow,
+  StorefrontAccountDocumentTaxSubtotalRow,
+  StorefrontAccountDocumentTransactionRow,
+} from '@/lib/storefront-account-document-bundle.types';
+
+const RECEIPT_READY_STATUSES = new Set(['shipped', 'delivered']);
+
+const MERCHANT_COLUMNS =
+  'id, slug, business_name, logo_url, email, phone, support_email, support_phone, business_address, cac_rc_number, tax_identification_number, legal_entity_name, brand_colors, vat_registration_status, vat_rate, bank_code, bank_account_number, bank_name, bank_account_name, social_media, pages, registered_address';
+
+const ORDER_SELECT = `${ORDER_COLUMNS}, is_credit_order, notes, invoice_type_code, invoice_issue_date, tax_point_date, payment_due_date, buyer_reference, purchase_order_reference, tax_exclusive_amount, tax_inclusive_amount, invoice_note, firs_irn, firs_csid, firs_qr_code, payment_terms`;
+
+interface StorefrontAccountDocumentParams {
+  supabase: SupabaseClient;
+  userId: string;
+  merchantSlug: string;
+  orderId: string;
+}
+
+export class StorefrontAccountDocumentError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string
+  ) {
+    super(message);
+    this.name = 'StorefrontAccountDocumentError';
+  }
+}
+
+export function normalizePaymentStatus(status: string | null | undefined) {
+  return status?.trim().toLowerCase().replace(/\s+/g, '_') ?? '';
+}
+
+export function normalizeShippingStatus(status: string | null | undefined) {
+  return status?.trim().toLowerCase().replace(/\s+/g, '_') ?? '';
+}
+
+export function isReceiptEligible(input: {
+  paymentStatus: string | null | undefined;
+  shippingStatus: string | null | undefined;
+}) {
+  return (
+    normalizePaymentStatus(input.paymentStatus) === 'paid' &&
+    RECEIPT_READY_STATUSES.has(normalizeShippingStatus(input.shippingStatus))
+  );
+}
+
+export function getCurrentDocumentKind(input: {
+  paymentStatus: string | null | undefined;
+  shippingStatus: string | null | undefined;
+}) {
+  return isReceiptEligible(input) ? 'receipt' : 'invoice';
+}
+
+export async function getStorefrontAccountDocumentData({
+  supabase,
+  userId,
+  merchantSlug,
+  orderId,
+}: StorefrontAccountDocumentParams) {
+  const { data: merchant, error: merchantError } = await supabase
+    .from('merchants')
+    .select(MERCHANT_COLUMNS)
+    .eq('slug', merchantSlug)
+    .maybeSingle();
+
+  if (merchantError || !merchant) {
+    throw new StorefrontAccountDocumentError(
+      'Store not found',
+      404,
+      'NOT_FOUND'
+    );
+  }
+
+  const { data: customer, error: customerError } = await supabase
+    .from('customers')
+    .select('id, first_name, last_name, email, phone')
+    .eq('merchant_id', merchant.id)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (customerError || !customer) {
+    throw new StorefrontAccountDocumentError(
+      'Customer not found',
+      404,
+      'NOT_FOUND'
+    );
+  }
+
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select(ORDER_SELECT)
+    .eq('id', orderId)
+    .eq('merchant_id', merchant.id)
+    .eq('customer_id', customer.id)
+    .maybeSingle();
+
+  if (orderError || !order) {
+    throw new StorefrontAccountDocumentError(
+      'Order not found',
+      404,
+      'NOT_FOUND'
+    );
+  }
+
+  const [itemsResult, transactionsResult, paymentAccountsResult, taxResult] =
+    await Promise.all([
+      supabase
+        .from('order_items')
+        .select('id, product_id, name, quantity, price')
+        .eq('order_id', orderId),
+      supabase
+        .from('transactions')
+        .select('id, amount, created_at, description, metadata')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('order_payment_accounts')
+        .select('account_number, bank_name, account_name')
+        .eq('order_id', orderId)
+        .limit(1),
+      supabase
+        .from('order_tax_subtotals')
+        .select(
+          'vat_category_code, vat_rate, taxable_amount, tax_amount, exemption_reason'
+        )
+        .eq('order_id', orderId),
+    ]);
+
+  if (
+    itemsResult.error ||
+    transactionsResult.error ||
+    paymentAccountsResult.error ||
+    taxResult.error
+  ) {
+    console.error('Storefront document bundle query failed:', {
+      itemsError: itemsResult.error,
+      transactionsError: transactionsResult.error,
+      paymentAccountsError: paymentAccountsResult.error,
+      taxError: taxResult.error,
+      merchantSlug,
+      orderId,
+    });
+    throw new StorefrontAccountDocumentError(
+      'Failed to load order documents',
+      500,
+      'DOCUMENT_DATA_ERROR'
+    );
+  }
+
+  const paymentStatus = normalizePaymentStatus(order.payment_status);
+  const shippingStatus = normalizeShippingStatus(order.shipping_status);
+  const currentDocumentKind = getCurrentDocumentKind({
+    paymentStatus: order.payment_status,
+    shippingStatus: order.shipping_status,
+  });
+
+  return buildStorefrontAccountDocumentBundle({
+    merchant: merchant as StorefrontAccountDocumentMerchantRow,
+    customer: customer as StorefrontAccountDocumentCustomerRow,
+    order: order as StorefrontAccountDocumentOrderRow,
+    itemRows: (itemsResult.data || []) as StorefrontAccountDocumentItemRow[],
+    transactions: (transactionsResult.data ||
+      []) as StorefrontAccountDocumentTransactionRow[],
+    paymentAccount: (paymentAccountsResult.data?.[0] ||
+      null) as StorefrontAccountDocumentPaymentAccountRow | null,
+    taxRows: (taxResult.data ||
+      []) as StorefrontAccountDocumentTaxSubtotalRow[],
+    paymentStatus,
+    shippingStatus,
+    currentDocumentKind,
+  });
+}

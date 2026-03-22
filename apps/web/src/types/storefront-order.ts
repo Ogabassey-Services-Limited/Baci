@@ -16,6 +16,22 @@ export interface StorefrontOrderItem {
   image?: string;
 }
 
+export interface StorefrontVirtualAccount {
+  account_number: string;
+  bank_name: string;
+  account_name: string;
+}
+
+export interface StorefrontTransaction {
+  id?: string;
+  amount: number;
+  created_at: string;
+  description: string | null;
+  metadata: { payment_method?: string } | null;
+}
+
+export type StorefrontDocumentKind = 'invoice' | 'receipt';
+
 export interface StorefrontShippingAddress {
   address_line1?: string;
   address_line2?: string;
@@ -71,6 +87,20 @@ export interface StorefrontOrder {
    * @deprecated Component uses this but API returns `payment_method`.
    */
   paymentMethod?: string;
+
+  currency?: string;
+  amount_paid?: number;
+  tax_amount?: number;
+  discount_amount?: number;
+  balance?: number;
+  current_document_kind?: StorefrontDocumentKind;
+  receipt_eligible?: boolean;
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string | null;
+  notes?: string | null;
+  virtual_account?: StorefrontVirtualAccount | null;
+  transactions?: StorefrontTransaction[];
 
   items: StorefrontOrderItem[];
 }

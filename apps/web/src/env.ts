@@ -40,6 +40,9 @@ const serverSchema = z.object({
   // Internal
   JUICYWAY_BASE_URL: z.string().default('https://api.spendjuice.com'),
   MYCOVER_WEBHOOK_SECRET: z.string().optional(),
+  CRON_SECRET: z.string().optional(),
+  IMPORT_JOB_WORKER_SECRET: z.string().optional(),
+  IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
 });
 
 const clientSchema = z.object({
@@ -108,6 +111,9 @@ const getEnv = () => {
         NODE_ENV: process.env.NODE_ENV,
         JUICYWAY_BASE_URL: process.env.JUICYWAY_BASE_URL,
         MYCOVER_WEBHOOK_SECRET: process.env.MYCOVER_WEBHOOK_SECRET,
+        CRON_SECRET: process.env.CRON_SECRET,
+        IMPORT_JOB_WORKER_SECRET: process.env.IMPORT_JOB_WORKER_SECRET,
+        IMPORT_JOB_WORKER_BATCH_SIZE: process.env.IMPORT_JOB_WORKER_BATCH_SIZE,
       }
     : {};
 
@@ -212,6 +218,13 @@ export const getMyCoverWebhookSecret = (): string => {
     throw new Error('MYCOVER_WEBHOOK_SECRET is not defined');
   return env.MYCOVER_WEBHOOK_SECRET;
 };
+
+export const getCronSecret = () => env?.CRON_SECRET;
+
+export const getImportJobWorkerSecret = () => env?.IMPORT_JOB_WORKER_SECRET;
+
+export const getImportJobWorkerBatchSize = () =>
+  env?.IMPORT_JOB_WORKER_BATCH_SIZE || 3;
 
 export const isProduction = () => env?.NODE_ENV === 'production';
 

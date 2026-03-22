@@ -1,6 +1,14 @@
 'use client';
 
-import { Heart, LogOut, MapPin, Package, Settings, User } from 'lucide-react';
+import {
+  FileText,
+  Heart,
+  LogOut,
+  MapPin,
+  Package,
+  Settings,
+  User,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -32,6 +40,14 @@ const accountLinks = [
     description: 'Manage your shipping addresses',
   },
   {
+    // This intentionally stays outside /account/* so storefront nav and
+    // account quick links resolve to the same canonical document archive.
+    href: '/receipts',
+    icon: FileText,
+    title: 'Receipts & Invoices',
+    description: 'Download your order documents',
+  },
+  {
     href: '/wishlist',
     icon: Heart,
     title: 'Wishlist',
@@ -47,7 +63,7 @@ const accountLinks = [
 
 export default function AccountPage() {
   const router = useRouter();
-  const { merchant, loading: merchantLoading } = useMerchant();
+  const { merchant, loading: merchantLoading, basePath } = useMerchant();
   const {
     customer,
     isAuthenticated,
@@ -55,26 +71,31 @@ export default function AccountPage() {
     logout,
   } = useCustomerAuth();
   const { currencySymbol } = useCurrency();
+  const resolvedBasePath = basePath || '';
+  const getHref = (path: string) => `${resolvedBasePath}${path}`;
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push(asRoute('/account/login'));
+    if (!merchantLoading && !authLoading && !isAuthenticated) {
+      router.push(asRoute(`${resolvedBasePath}/account/login`));
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [merchantLoading, authLoading, isAuthenticated, router, resolvedBasePath]);
 
   const handleLogout = async () => {
     await logout();
-    router.push(asRoute('/'));
+    router.push(asRoute(getHref('/')));
   };
 
   if (merchantLoading || authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
         <div className="container mx-auto px-4 py-8 max-w-4xl">
+          <output aria-label="Loading account" className="sr-only">
+            Loading account
+          </output>
           <Skeleton className="h-8 w-48 mb-8" />
           <div className="grid gap-4 md:grid-cols-2">
-            {[1, 2, 3, 4].map((i) => (
+            {[1, 2, 3, 4, 5].map((i) => (
               <Skeleton key={i} className="h-32" />
             ))}
           </div>
@@ -92,7 +113,7 @@ export default function AccountPage() {
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href={asRoute('/')} className="font-semibold text-lg">
+          <Link href={asRoute(getHref('/'))} className="font-semibold text-lg">
             {merchant?.business_name || 'Store'}
           </Link>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -162,7 +183,7 @@ export default function AccountPage() {
           {accountLinks.map((link) => {
             const Icon = link.icon;
             return (
-              <Link key={link.href} href={asRoute(link.href)}>
+              <Link key={link.href} href={asRoute(getHref(link.href))}>
                 <Card className="h-full hover:bg-muted/50 transition-colors cursor-pointer">
                   <CardHeader className="flex flex-row items-center gap-4">
                     <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -189,7 +210,7 @@ export default function AccountPage() {
                 Start shopping and your orders will appear here
               </p>
               <Button asChild>
-                <Link href={asRoute('/')}>Browse Products</Link>
+                <Link href={asRoute(getHref('/'))}>Browse Products</Link>
               </Button>
             </CardContent>
           </Card>
