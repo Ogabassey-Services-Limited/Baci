@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { getTemplate } from '@/templates/registry';
 import { PrivacyPageClient } from '../pages/privacy/privacy-page-client';
 
 interface PageProps {
@@ -43,7 +43,10 @@ export default async function PrivacyPage({ params }: PageProps) {
   }
 
   const hasPrivacyContent = merchant.pages?.privacy;
-  const templateHasPrivacyPage = merchant.template_id === 'ogabassey';
+  const templateHasPrivacyPage =
+    !!merchant.template_id &&
+    merchant.template_id !== 'default' &&
+    merchant.template_id !== 'puck';
 
   if (!hasPrivacyContent && !templateHasPrivacyPage) {
     notFound();
@@ -76,22 +79,52 @@ export default async function PrivacyPage({ params }: PageProps) {
     dateModified: merchant.updated_at || new Date().toISOString(),
   };
 
+  const jsonLdScript = (
+    <script
+      type="application/ld+json"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}
+    />
+  );
+
+  // Resolve template component server-side for SEO (H1 in SSR HTML)
+  if (templateHasPrivacyPage) {
+    const template = getTemplate(merchant.template_id);
+    if (template) {
+      try {
+        const components = await template.getComponents();
+        if (components.Privacy) {
+          const PrivacyComponent = components.Privacy;
+          return (
+            <>
+              {jsonLdScript}
+              <PrivacyComponent
+                // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
+                merchant={merchant as any}
+                storeSlug={merchant.slug}
+                isPreview={false}
+              />
+            </>
+          );
+        }
+      } catch (error) {
+        console.error(
+          'Failed to load Privacy component for template',
+          merchant.template_id,
+          ':',
+          error
+        );
+      }
+    }
+  }
+
+  // Fallback to default privacy page
   return (
     <>
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}
-      />
-      <StorefrontPageWrapper
-        pageName="Privacy"
+      {jsonLdScript}
+      <PrivacyPageClient
         merchant={merchant}
-        fallback={
-          <PrivacyPageClient
-            merchant={merchant}
-            content={merchant.pages?.privacy}
-          />
-        }
+        content={merchant.pages?.privacy}
       />
     </>
   );

@@ -3,8 +3,8 @@ import { notFound } from 'next/navigation';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { normalizeSocialUrl } from '@/lib/social';
+import { getTemplate } from '@/templates/registry';
 import { ContactPageClient } from '../pages/contact/contact-page-client';
-import { StorefrontPageWrapper } from '../storefront-page-wrapper';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -95,22 +95,53 @@ export default async function ContactPage({ params }: PageProps) {
     },
   };
 
+  const jsonLdScript = (
+    <script
+      type="application/ld+json"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(contactSchema) }}
+    />
+  );
+
+  // Resolve template component server-side for SEO (H1 in SSR HTML)
+  const templateId = merchant.template_id;
+  if (templateId && templateId !== 'default' && templateId !== 'puck') {
+    const template = getTemplate(templateId);
+    if (template) {
+      try {
+        const components = await template.getComponents();
+        if (components.Contact) {
+          const ContactComponent = components.Contact;
+          return (
+            <>
+              {jsonLdScript}
+              <ContactComponent
+                // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
+                merchant={merchant as any}
+                storeSlug={merchant.slug}
+                isPreview={false}
+              />
+            </>
+          );
+        }
+      } catch (error) {
+        console.error(
+          'Failed to load Contact component for template',
+          templateId,
+          ':',
+          error
+        );
+      }
+    }
+  }
+
+  // Fallback to default contact page
   return (
     <>
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(contactSchema) }}
-      />
-      <StorefrontPageWrapper
-        pageName="Contact"
+      {jsonLdScript}
+      <ContactPageClient
         merchant={merchant}
-        fallback={
-          <ContactPageClient
-            merchant={merchant}
-            legacyContent={merchant.pages?.contact}
-          />
-        }
+        legacyContent={merchant.pages?.contact}
       />
     </>
   );

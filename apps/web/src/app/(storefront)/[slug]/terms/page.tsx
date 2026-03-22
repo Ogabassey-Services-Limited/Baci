@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { getTemplate } from '@/templates/registry';
 import { TermsPageClient } from '../pages/terms/terms-page-client';
 
 interface PageProps {
@@ -43,7 +43,10 @@ export default async function TermsPage({ params }: PageProps) {
   }
 
   const hasTermsContent = merchant.pages?.terms;
-  const templateHasTermsPage = merchant.template_id === 'ogabassey';
+  const templateHasTermsPage =
+    !!merchant.template_id &&
+    merchant.template_id !== 'default' &&
+    merchant.template_id !== 'puck';
 
   if (!hasTermsContent && !templateHasTermsPage) {
     notFound();
@@ -76,23 +79,50 @@ export default async function TermsPage({ params }: PageProps) {
     dateModified: merchant.updated_at || new Date().toISOString(),
   };
 
+  const jsonLdScript = (
+    <script
+      type="application/ld+json"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(termsSchema) }}
+    />
+  );
+
+  // Resolve template component server-side for SEO (H1 in SSR HTML)
+  if (templateHasTermsPage) {
+    const template = getTemplate(merchant.template_id);
+    if (template) {
+      try {
+        const components = await template.getComponents();
+        if (components.Terms) {
+          const TermsComponent = components.Terms;
+          return (
+            <>
+              {jsonLdScript}
+              <TermsComponent
+                // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
+                merchant={merchant as any}
+                storeSlug={merchant.slug}
+                isPreview={false}
+              />
+            </>
+          );
+        }
+      } catch (error) {
+        console.error(
+          'Failed to load Terms component for template',
+          merchant.template_id,
+          ':',
+          error
+        );
+      }
+    }
+  }
+
+  // Fallback to default terms page
   return (
     <>
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(termsSchema) }}
-      />
-      <StorefrontPageWrapper
-        pageName="Terms"
-        merchant={merchant}
-        fallback={
-          <TermsPageClient
-            merchant={merchant}
-            content={merchant.pages?.terms}
-          />
-        }
-      />
+      {jsonLdScript}
+      <TermsPageClient merchant={merchant} content={merchant.pages?.terms} />
     </>
   );
 }
