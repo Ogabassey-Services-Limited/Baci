@@ -4,7 +4,6 @@ import { Suspense } from 'react';
 import './globals.css';
 import { PLATFORM_CONFIG } from '@/config/platform';
 import { RootDynamicBody } from './root-dynamic-body';
-import { RootDynamicHead } from './root-dynamic-head';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -121,9 +120,6 @@ export default function RootLayout({
           Note: Supabase URL is handled via env vars, no hardcoding needed
         */}
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
-        <Suspense fallback={null}>
-          <RootDynamicHead />
-        </Suspense>
       </head>
       <body className={inter.variable} suppressHydrationWarning>
         {/* Skip link for accessibility - allows keyboard users to bypass navigation */}

@@ -51,7 +51,9 @@ function createMockSupabase(
     string,
     Array<{ count?: number | null; data?: unknown; error?: unknown }>
   > = {},
-  rpcResult: { data?: unknown; error?: unknown } = {}
+  rpcResult:
+    | { data?: unknown; error?: unknown }
+    | Record<string, { data?: unknown; error?: unknown }> = {}
 ) {
   const queues = Object.fromEntries(
     Object.entries(tableResponses).map(([table, responses]) => [
@@ -59,6 +61,14 @@ function createMockSupabase(
       [...responses],
     ])
   );
+
+  // Support per-RPC-name responses: if rpcResult has named keys like
+  // { get_admin_platform_daily_summary: {...}, get_admin_top_merchants: {...} }
+  const isNamedRpc =
+    rpcResult &&
+    !('data' in rpcResult) &&
+    !('error' in rpcResult) &&
+    Object.keys(rpcResult).length > 0;
 
   return {
     auth: {
@@ -70,10 +80,22 @@ function createMockSupabase(
     from: vi.fn((table: string) =>
       createQueryBuilder(queues[table]?.shift() ?? {})
     ),
-    rpc: vi.fn().mockResolvedValue({
-      data: rpcResult.data ?? [],
-      error: rpcResult.error ?? null,
-    }),
+    rpc: isNamedRpc
+      ? vi.fn((name: string) => {
+          const result =
+            (rpcResult as Record<string, { data?: unknown; error?: unknown }>)[
+              name
+            ] ?? {};
+          return Promise.resolve({
+            data: result.data ?? [],
+            error: result.error ?? null,
+          });
+        })
+      : vi.fn().mockResolvedValue({
+          data: (rpcResult as { data?: unknown; error?: unknown }).data ?? [],
+          error:
+            (rpcResult as { data?: unknown; error?: unknown }).error ?? null,
+        }),
   };
 }
 
@@ -90,20 +112,25 @@ import { GET } from './route';
 describe('/api/admin/analytics route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSupabase = createMockSupabase({
-      merchants: [
-        { data: { is_platform_admin: true }, error: null },
-        { data: [], error: null },
-      ],
-      orders: [
-        { data: [], error: null },
-        { data: [], error: null },
-      ],
-      products: [{ data: [], error: null }],
-      platform_daily_summary: [{ data: [], error: null }],
-      platform_growth: [{ data: [], error: null }],
-      top_merchants: [{ data: [], error: null }],
-    });
+    mockSupabase = createMockSupabase(
+      {
+        merchants: [
+          { data: { is_platform_admin: true }, error: null },
+          { data: [], error: null },
+        ],
+        orders: [
+          { data: [], error: null },
+          { data: [], error: null },
+        ],
+        products: [{ data: [], error: null }],
+        platform_growth: [{ data: [], error: null }],
+      },
+      {
+        get_admin_merchant_health: { data: [], error: null },
+        get_admin_platform_daily_summary: { data: [], error: null },
+        get_admin_top_merchants: { data: [], error: null },
+      }
+    );
     mockCookies.mockReturnValue(new Map());
     mockCreateClient.mockReturnValue(mockSupabase);
     mockGetMerchantForApiRequest.mockResolvedValue({
@@ -152,22 +179,28 @@ describe('/api/admin/analytics route', () => {
   });
 
   it('returns 500 when any analytics query fails', async () => {
-    mockSupabase = createMockSupabase({
-      merchants: [
-        { data: { is_platform_admin: true }, error: null },
-        { data: [], error: null },
-      ],
-      orders: [
-        { data: [], error: null },
-        { data: [], error: null },
-      ],
-      products: [{ data: [], error: null }],
-      platform_daily_summary: [
-        { data: null, error: { message: 'summary unavailable' } },
-      ],
-      platform_growth: [{ data: [], error: null }],
-      top_merchants: [{ data: [], error: null }],
-    });
+    mockSupabase = createMockSupabase(
+      {
+        merchants: [
+          { data: { is_platform_admin: true }, error: null },
+          { data: [], error: null },
+        ],
+        orders: [
+          { data: [], error: null },
+          { data: [], error: null },
+        ],
+        products: [{ data: [], error: null }],
+        platform_growth: [{ data: [], error: null }],
+      },
+      {
+        get_admin_merchant_health: { data: [], error: null },
+        get_admin_platform_daily_summary: {
+          data: null,
+          error: { message: 'summary unavailable' },
+        },
+        get_admin_top_merchants: { data: [], error: null },
+      }
+    );
     mockCreateClient.mockReturnValue(mockSupabase);
 
     const response = await GET(createRequest(`${analyticsUrl}?period=30d`));
@@ -273,19 +306,6 @@ describe('/api/admin/analytics route', () => {
             error: null,
           },
         ],
-        platform_daily_summary: [
-          {
-            data: [
-              {
-                active_merchants: 2,
-                platform_gmv: 700,
-                sale_date: '2026-03-01',
-                total_orders: 4,
-              },
-            ],
-            error: null,
-          },
-        ],
         platform_growth: [
           {
             data: [
@@ -295,27 +315,38 @@ describe('/api/admin/analytics route', () => {
             error: null,
           },
         ],
-        top_merchants: [
-          {
-            data: [
-              {
-                business_name: 'Baci Store',
-                merchant_id: 'merchant-1',
-                total_gmv: 700,
-                total_orders: 4,
-              },
-            ],
-            error: null,
-          },
-        ],
       },
       {
-        data: [
-          { health_status: 'healthy' },
-          { health_status: 'at_risk' },
-          { health_status: 'new' },
-        ],
-        error: null,
+        get_admin_merchant_health: {
+          data: [
+            { health_status: 'healthy' },
+            { health_status: 'at_risk' },
+            { health_status: 'new' },
+          ],
+          error: null,
+        },
+        get_admin_platform_daily_summary: {
+          data: [
+            {
+              active_merchants: 2,
+              platform_gmv: 700,
+              sale_date: '2026-03-01',
+              total_orders: 4,
+            },
+          ],
+          error: null,
+        },
+        get_admin_top_merchants: {
+          data: [
+            {
+              business_name: 'Baci Store',
+              merchant_id: 'merchant-1',
+              total_gmv: 700,
+              total_orders: 4,
+            },
+          ],
+          error: null,
+        },
       }
     );
     mockCreateClient.mockReturnValue(mockSupabase);
@@ -604,18 +635,17 @@ describe('/api/admin/analytics route', () => {
             error: null,
           },
         ],
-        platform_daily_summary: [{ data: [], error: null }],
         platform_growth: [
           {
             data: [{ month: '2026-03-01', new_merchants: 12 }],
             error: null,
           },
         ],
-        top_merchants: [{ data: [], error: null }],
       },
       {
-        data: healthRows,
-        error: null,
+        get_admin_merchant_health: { data: healthRows, error: null },
+        get_admin_platform_daily_summary: { data: [], error: null },
+        get_admin_top_merchants: { data: [], error: null },
       }
     );
     mockCreateClient.mockReturnValue(mockSupabase);
