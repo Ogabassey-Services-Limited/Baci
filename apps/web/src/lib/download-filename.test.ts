@@ -51,4 +51,13 @@ describe('buildPdfContentDisposition', () => {
     expect(header).not.toContain('\r');
     expect(header).not.toContain('\n');
   });
+
+  it('encodes parentheses while preserving apostrophes in filename*', () => {
+    const header = buildPdfContentDisposition('receipt', "Kid's Order (VIP)");
+
+    expect(header).toContain('filename="receipt-Kid-s-Order-VIP.pdf"');
+    expect(header).toContain(
+      "filename*=UTF-8''receipt-Kid's-Order-%28VIP%29.pdf"
+    );
+  });
 });

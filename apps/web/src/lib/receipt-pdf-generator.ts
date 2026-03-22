@@ -158,7 +158,7 @@ export function generateReceiptPDF(
     },
     headStyles: {
       fillColor: [...brandPrimaryRgb],
-      textColor: '#ffffff',
+      textColor: [255, 255, 255],
     },
     pageBreak: 'auto',
   });
@@ -233,7 +233,7 @@ export function generateReceiptPDF(
       },
       headStyles: {
         fillColor: [31, 41, 55],
-        textColor: '#ffffff',
+        textColor: [255, 255, 255],
       },
       pageBreak: 'auto',
     });

@@ -10,7 +10,7 @@ export function asRecord(value: unknown): JsonRecord | null {
     : null;
 }
 
-export function asNumber(value: unknown) {
+export function asNumber(value: unknown): number {
   return typeof value === 'number'
     ? value
     : typeof value === 'string'

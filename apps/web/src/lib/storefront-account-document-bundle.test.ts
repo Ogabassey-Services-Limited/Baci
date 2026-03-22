@@ -112,6 +112,7 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     expect(result.order.current_document_kind).toBe('receipt');
     expect(result.order.receipt_eligible).toBe(true);
     expect(result.order.customer_name).toBe('Oga Bassey');
+    expect(result.invoiceData.items[0]?.vat_amount).toBe(5000);
     expect(result.receiptOrder.virtual_account?.account_number).toBe(
       '1234567890'
     );
@@ -141,7 +142,7 @@ describe('buildStorefrontAccountDocumentBundle', () => {
         legal_entity_name: null,
         brand_colors: null,
         vat_registration_status: null,
-        vat_rate: null,
+        vat_rate: 0,
         bank_code: null,
         bank_account_number: null,
         bank_name: null,
@@ -206,6 +207,10 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     expect(result.order.receipt_eligible).toBe(false);
     expect(result.order.currency).toBe('NGN');
     expect(result.receiptOrder.customer_name).toBe('Customer');
+    expect(result.invoiceData.items).toEqual([]);
+    expect(result.invoiceData.tax_exclusive_amount).toBe(0);
+    expect(result.invoiceData.tax_inclusive_amount).toBe(0);
+    expect(result.invoiceData.merchant.vat_rate).toBe(0);
     expect(result.invoiceData.customer.address?.street).toBe('Pickup');
   });
 });

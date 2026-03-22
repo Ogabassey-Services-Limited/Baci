@@ -34,6 +34,13 @@ function normalizeUtf8FilenameToken(value: string | null | undefined) {
     .slice(0, 80);
 }
 
+function encodeRFC5987ValueChars(value: string) {
+  return encodeURIComponent(value)
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29')
+    .replace(/%27/g, "'");
+}
+
 export function sanitizeDownloadFilenamePart(
   value: string | null | undefined,
   fallback: string
@@ -56,5 +63,5 @@ export function buildPdfContentDisposition(
   const filename = `${safePrefix}-${safeOrderNumber}.pdf`;
   const utf8Filename = `${safePrefix}-${utf8OrderNumber}.pdf`;
 
-  return `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(utf8Filename)}`;
+  return `attachment; filename="${filename}"; filename*=UTF-8''${encodeRFC5987ValueChars(utf8Filename)}`;
 }

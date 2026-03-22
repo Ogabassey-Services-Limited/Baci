@@ -154,6 +154,25 @@ describe('GET /api/storefront/orders', () => {
     });
   });
 
+  it('returns 400 when merchantSlug is invalid', async () => {
+    const supabase = createSupabaseMock();
+    const authResult = createAuthenticatedAuthResult(supabase);
+    vi.mocked(authenticateApiRequest).mockResolvedValue(authResult);
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/storefront/orders?merchantSlug=bad slug'
+      )
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid request',
+      details: expect.any(Object),
+    });
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
   it('returns 404 when the merchant cannot be found', async () => {
     vi.mocked(authenticateApiRequest).mockResolvedValue(
       createAuthenticatedAuthResult(

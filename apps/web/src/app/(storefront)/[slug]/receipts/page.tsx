@@ -1,18 +1,18 @@
 'use client';
 
 import {
-  AlertCircle,
   ArrowLeft,
   Download,
   FileText,
   Loader2,
   ReceiptText,
-  RefreshCw,
   Search,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { loadArchiveOrders } from '@/app/(storefront)/[slug]/receipts/load-archive-orders';
+import { ReceiptsStateCard } from '@/app/(storefront)/[slug]/receipts/receipts-state-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -41,37 +41,6 @@ function formatArchiveDate(value: string) {
   return ARCHIVE_DATE_FORMATTER.format(date);
 }
 
-async function loadArchiveOrders(input: {
-  merchantSlug: string;
-  setOrders: Dispatch<SetStateAction<StorefrontOrder[]>>;
-  setIsLoadingOrders: Dispatch<SetStateAction<boolean>>;
-  setOrdersError: Dispatch<SetStateAction<string | null>>;
-}) {
-  const { merchantSlug, setOrders, setIsLoadingOrders, setOrdersError } = input;
-
-  setIsLoadingOrders(true);
-  setOrdersError(null);
-  try {
-    const response = await fetch(
-      `/api/storefront/orders?merchantSlug=${encodeURIComponent(merchantSlug)}`
-    );
-    const data = await response.json();
-
-    if (!response.ok) {
-      setOrdersError(data.error || 'Unable to load documents');
-      setOrders([]);
-      return;
-    }
-
-    setOrders(data.orders || []);
-  } catch {
-    setOrdersError('Unable to connect. Please try again.');
-    setOrders([]);
-  } finally {
-    setIsLoadingOrders(false);
-  }
-}
-
 export default function ReceiptsPage() {
   const router = useRouter();
   const { merchant, loading: merchantLoading, basePath } = useMerchant();
@@ -84,7 +53,7 @@ export default function ReceiptsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [ordersError, setOrdersError] = useState<string | null>(null);
-
+  const archiveOrdersControllerRef = useRef<AbortController | null>(null);
   const resolvedBasePath = basePath || '';
   const getHref = (path: string) => `${resolvedBasePath}${path}`;
   const customerId = customer?.id;
@@ -104,13 +73,21 @@ export default function ReceiptsPage() {
 
   useEffect(() => {
     if (!customerId || !merchantSlug) return;
-
+    archiveOrdersControllerRef.current?.abort();
+    const controller = new AbortController();
+    archiveOrdersControllerRef.current = controller;
     void loadArchiveOrders({
       merchantSlug,
       setOrders,
       setIsLoadingOrders,
       setOrdersError,
+      signal: controller.signal,
     });
+
+    return () => {
+      archiveOrdersControllerRef.current?.abort();
+      archiveOrdersControllerRef.current = null;
+    };
   }, [customerId, merchantSlug]);
 
   const archiveOrders = orders.filter((order) =>
@@ -144,8 +121,44 @@ export default function ReceiptsPage() {
     );
   }
 
-  if (!isAuthenticated || !customer || !merchant) {
-    return null;
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+        <div className="container mx-auto max-w-5xl px-4 py-8">
+          <ReceiptsStateCard
+            title="Redirecting to sign in"
+            message="Please sign in to view your receipts and invoices."
+            actionLabel="Go to sign in"
+            onAction={() => {
+              router.push(
+                asRoute(
+                  `${resolvedBasePath}/account/login?redirect=${encodeURIComponent(
+                    `${resolvedBasePath}/receipts`
+                  )}`
+                )
+              );
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (!customer || !merchantSlug) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+        <div className="container mx-auto max-w-5xl px-4 py-8">
+          <ReceiptsStateCard
+            title="Documents unavailable"
+            message="We could not load your account details for this storefront."
+            actionLabel="Reload page"
+            onAction={() => {
+              router.refresh();
+            }}
+          />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -171,13 +184,16 @@ export default function ReceiptsPage() {
         <Card className="mb-6">
           <CardContent className="p-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search
+                aria-hidden="true"
+                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              />
               <Input
-                aria-label="Search receipts and invoices"
+                aria-label="Search orders by number, product, or document type"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search by order number, product, or document type"
                 className="pl-10"
-                onChange={(event) => setSearchQuery(event.target.value)}
-                value={searchQuery}
               />
             </div>
           </CardContent>
@@ -194,31 +210,25 @@ export default function ReceiptsPage() {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : ordersError ? (
-          <Card className="border-destructive/50">
-            <CardContent className="p-10 text-center">
-              <AlertCircle className="mx-auto mb-4 h-14 w-14 text-destructive/60" />
-              <h2 className="mb-2 text-lg font-semibold">
-                Unable to load documents
-              </h2>
-              <p className="mb-6 text-muted-foreground">{ordersError}</p>
-              <Button
-                onClick={() => {
-                  if (!customerId || !merchantSlug) return;
+          <ReceiptsStateCard
+            title="Unable to load documents"
+            message={ordersError}
+            actionLabel="Try Again"
+            onAction={() => {
+              if (!customerId || !merchantSlug) return;
+              archiveOrdersControllerRef.current?.abort();
+              const controller = new AbortController();
+              archiveOrdersControllerRef.current = controller;
 
-                  void loadArchiveOrders({
-                    merchantSlug,
-                    setOrders,
-                    setIsLoadingOrders,
-                    setOrdersError,
-                  });
-                }}
-                variant="outline"
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Try Again
-              </Button>
-            </CardContent>
-          </Card>
+              void loadArchiveOrders({
+                merchantSlug,
+                setOrders,
+                setIsLoadingOrders,
+                setOrdersError,
+                signal: controller.signal,
+              });
+            }}
+          />
         ) : filteredOrders.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
@@ -233,7 +243,7 @@ export default function ReceiptsPage() {
           <div className="space-y-4">
             {filteredOrders.map((order) => {
               const documentKind = order.current_document_kind || 'invoice';
-              const downloadHref = `/api/storefront/account/orders/${order.id}/${documentKind}?merchantSlug=${encodeURIComponent(merchant?.slug || '')}`;
+              const downloadHref = `/api/storefront/account/orders/${order.id}/${documentKind}?merchantSlug=${encodeURIComponent(merchantSlug)}`;
 
               return (
                 <Card key={order.id}>

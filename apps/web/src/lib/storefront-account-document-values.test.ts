@@ -41,6 +41,7 @@ describe('storefront account document values', () => {
 
   it('coerces non-string values with asString', () => {
     expect(asString(42)).toBe('');
+    expect(asString(null)).toBe('');
     expect(asString(undefined)).toBe('');
   });
 

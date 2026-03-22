@@ -14,6 +14,10 @@ import type {
   StorefrontAccountDocumentTransactionRow,
 } from '@/lib/storefront-account-document-bundle.types';
 import {
+  buildReceiptMerchant,
+  buildReceiptOrder,
+} from '@/lib/storefront-account-document-receipt';
+import {
   asNumber,
   asRecord,
   asString,
@@ -34,6 +38,17 @@ interface BuildStorefrontAccountDocumentBundleInput {
   paymentStatus: string;
   shippingStatus: string;
   currentDocumentKind: 'invoice' | 'receipt';
+}
+
+function resolveMoneyValue(
+  value: number | string | null | undefined,
+  fallback: number
+) {
+  return value == null ? fallback : asNumber(value);
+}
+
+function roundCurrency(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 export function buildStorefrontAccountDocumentBundle({
@@ -69,83 +84,78 @@ export function buildStorefrontAccountDocumentBundle({
     asString(order.customer_phone) || customer.phone || null;
   const receiptEligible = currentDocumentKind === 'receipt';
   const registeredAddress = asRecord(merchant.registered_address);
+  const invoiceVatRate = merchant.vat_rate ?? 7.5;
+  const lineExtensionTotal = orderItems.reduce(
+    (totalAmount, item) => totalAmount + item.quantity * item.price,
+    0
+  );
+  const singleTaxSubtotal = taxRows.length === 1 ? taxRows[0] : null;
+  const lineVatCategoryCode =
+    singleTaxSubtotal?.vat_category_code || (taxRows.length === 0 ? 'S' : null);
+  const lineVatRate =
+    singleTaxSubtotal != null
+      ? asNumber(singleTaxSubtotal.vat_rate)
+      : taxRows.length === 0
+        ? invoiceVatRate
+        : null;
+  let allocatedVatAmount = 0;
 
-  const receiptMerchant: ReceiptMerchant = {
-    business_name: merchant.business_name,
-    logo_url: merchant.logo_url,
-    email: merchant.email || '',
-    phone: merchant.phone,
-    support_email: merchant.support_email,
-    support_phone: merchant.support_phone,
-    business_address: merchant.business_address,
-    cac_rc_number: merchant.cac_rc_number,
-    tax_identification_number: merchant.tax_identification_number,
-    legal_entity_name: merchant.legal_entity_name,
-    brand_colors: asRecord(
-      merchant.brand_colors
-    ) as ReceiptMerchant['brand_colors'],
-    vat_registration_status: merchant.vat_registration_status,
-    vat_rate: merchant.vat_rate,
-    bank_code: merchant.bank_code,
-    bank_account_number: merchant.bank_account_number,
-    bank_name: merchant.bank_name,
-    bank_account_name: merchant.bank_account_name,
-    social_media: asRecord(
-      merchant.social_media
-    ) as ReceiptMerchant['social_media'],
-    pages: asRecord(merchant.pages) as ReceiptMerchant['pages'],
-  };
-
-  const receiptOrder: ReceiptOrder = {
-    order_number: order.order_number,
-    created_at: order.created_at,
+  const receiptMerchant: ReceiptMerchant = buildReceiptMerchant(merchant);
+  const receiptOrder: ReceiptOrder = buildReceiptOrder({
+    order,
+    orderItems,
+    transactions,
+    paymentAccount,
+    paymentStatus,
+    shippingAddress,
     currency,
     total,
     subtotal,
-    shipping_fee: shippingFee,
-    tax_amount: taxAmount,
-    discount_amount: discountAmount,
-    amount_paid: amountPaid,
+    shippingFee,
+    taxAmount,
+    discountAmount,
+    amountPaid,
     balance,
-    payment_status: paymentStatus,
-    payment_method: order.payment_method,
-    is_credit_order: Boolean(order.is_credit_order),
-    customer_name: customerName,
-    customer_email: customerEmail,
-    customer_phone: customerPhone,
-    shipping_address: shippingAddress,
-    virtual_account: paymentAccount
-      ? {
-          account_number: paymentAccount.account_number,
-          bank_name: paymentAccount.bank_name || '',
-          account_name: paymentAccount.account_name || '',
-        }
-      : null,
-    items: orderItems.map((item) => ({
-      product_name: item.product_name || item.name,
-      quantity: item.quantity,
-      price: item.price,
-    })),
-    transactions: transactions.map((transaction) => ({
-      amount: asNumber(transaction.amount),
-      created_at: transaction.created_at,
-      description: transaction.description,
-      metadata: transaction.metadata,
-    })),
-  };
+    customerName,
+    customerEmail,
+    customerPhone,
+  });
 
-  const invoiceItems: InvoiceLineItem[] = orderItems.map((item, index) => ({
-    line_id: index + 1,
-    product_id: item.product_id || undefined,
-    name: item.product_name || item.name,
-    quantity: item.quantity,
-    unit_code: 'EA',
-    price: item.price,
-    line_extension_amount: item.quantity * item.price,
-    vat_category_code: 'S',
-    vat_rate: merchant.vat_rate ?? 7.5,
-    vat_amount: 0,
-  }));
+  const invoiceItems: InvoiceLineItem[] = orderItems.map((item, index) => {
+    const lineExtensionAmount = item.quantity * item.price;
+    const vatAmount =
+      lineVatCategoryCode &&
+      lineVatRate != null &&
+      taxAmount > 0 &&
+      lineExtensionTotal > 0
+        ? index === orderItems.length - 1
+          ? roundCurrency(taxAmount - allocatedVatAmount)
+          : roundCurrency(
+              (lineExtensionAmount / lineExtensionTotal) * taxAmount
+            )
+        : null;
+
+    if (vatAmount != null) {
+      allocatedVatAmount += vatAmount;
+    }
+
+    return {
+      line_id: index + 1,
+      product_id: item.product_id || undefined,
+      name: item.product_name || item.name,
+      quantity: item.quantity,
+      unit_code: 'EA',
+      price: item.price,
+      line_extension_amount: lineExtensionAmount,
+      ...(lineVatCategoryCode && lineVatRate != null
+        ? {
+            vat_category_code: lineVatCategoryCode,
+            vat_rate: lineVatRate,
+            vat_amount: vatAmount ?? 0,
+          }
+        : {}),
+    };
+  });
 
   const taxSubtotals: TaxSubtotal[] = taxRows.map((subtotalRow) => ({
     vat_category_code: subtotalRow.vat_category_code,
@@ -158,7 +168,7 @@ export function buildStorefrontAccountDocumentBundle({
   if (taxSubtotals.length === 0 && taxAmount > 0) {
     taxSubtotals.push({
       vat_category_code: 'S',
-      vat_rate: merchant.vat_rate ?? 7.5,
+      vat_rate: invoiceVatRate,
       taxable_amount: subtotal,
       tax_amount: taxAmount,
     });
@@ -193,9 +203,21 @@ export function buildStorefrontAccountDocumentBundle({
     customer_email: customerEmail,
     customer_phone: customerPhone,
     notes: order.notes || null,
-    transactions: receiptOrder.transactions || [],
+    transactions: transactions.map((transaction) => ({
+      id: transaction.id || undefined,
+      amount: asNumber(transaction.amount),
+      created_at: transaction.created_at,
+      description: transaction.description,
+      metadata: transaction.metadata,
+    })),
     virtual_account: receiptOrder.virtual_account || null,
   };
+
+  const taxInclusiveAmount = resolveMoneyValue(
+    order.tax_inclusive_amount,
+    total
+  );
+  const preTaxTotal = Math.max(0, taxInclusiveAmount - taxAmount);
 
   const invoiceData: InvoiceData = {
     invoice_number: order.order_number,
@@ -241,15 +263,12 @@ export function buildStorefrontAccountDocumentBundle({
     items: invoiceItems,
     tax_subtotals: taxSubtotals,
     subtotal,
-    tax_exclusive_amount:
-      order.tax_exclusive_amount == null
-        ? subtotal
-        : asNumber(order.tax_exclusive_amount),
+    tax_exclusive_amount: resolveMoneyValue(
+      order.tax_exclusive_amount,
+      preTaxTotal
+    ),
     tax_amount: taxAmount,
-    tax_inclusive_amount:
-      order.tax_inclusive_amount == null
-        ? total
-        : asNumber(order.tax_inclusive_amount),
+    tax_inclusive_amount: taxInclusiveAmount,
     shipping_fee: shippingFee,
     discount_amount: discountAmount,
     total,
