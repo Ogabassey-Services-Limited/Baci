@@ -186,7 +186,7 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
     );
 
     expect(response.status).toBe(202);
-    expect(triggerImportWorker).toHaveBeenCalledWith('http://localhost');
+    expect(triggerImportWorker).toHaveBeenCalledWith('http://localhost', jobId);
   });
 
   it('returns 409 when the preview_ready transition does not update any rows', async () => {
