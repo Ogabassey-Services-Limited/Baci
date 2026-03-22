@@ -52,14 +52,12 @@ export function generateSitemaps() {
   return [{ id: 'static' }, { id: 'products' }, { id: 'categories' }];
 }
 
-export default async function sitemap({
-  id,
-  params,
-}: {
-  id: string;
+export default async function sitemap(props: {
+  id: Promise<string>;
   params: Promise<{ slug: string }>;
 }): Promise<MetadataRoute.Sitemap> {
-  const { slug: routeSlug } = await params;
+  const id = await props.id;
+  const { slug: routeSlug } = await props.params;
   const { merchantSlug, storeUrl } = resolveIdentifier(routeSlug);
 
   const { data: merchant } = await supabase
