@@ -333,7 +333,8 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
         invitation_expires_at: expiresAt.toISOString(),
         invited_at: new Date().toISOString(),
       })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('merchant_id', merchantId);
 
     if (updateError) {
       console.error('Failed to update invitation:', updateError);
