@@ -24,6 +24,9 @@ export function PasswordInput({
   isLoading,
   onClearError,
   onForgotPassword,
+  inputRef,
+  returnKeyType,
+  onSubmitEditing,
 }: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -57,6 +60,7 @@ export function PasswordInput({
           name="password"
           render={({ field: { onChange, onBlur, value } }) => (
             <TextInput
+              ref={inputRef}
               style={styles.passwordInput}
               placeholder="Enter password"
               placeholderTextColor={palette.gray[400]}
@@ -77,6 +81,8 @@ export function PasswordInput({
                 showPassword ? 'Password is visible' : 'Password is hidden'
               }
               editable={!isLoading}
+              returnKeyType={returnKeyType}
+              onSubmitEditing={onSubmitEditing}
             />
           )}
         />
