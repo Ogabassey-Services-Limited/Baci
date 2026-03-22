@@ -102,8 +102,7 @@ export default function AdminLayout({
 
   const handleSignOut = async () => {
     await signOut();
-    // Use hard navigation to clear all client-side state/cache and avoid stale data
-    window.location.href = '/login';
+    router.push('/login');
   };
 
   const navItems: {
