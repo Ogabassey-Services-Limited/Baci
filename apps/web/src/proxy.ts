@@ -20,7 +20,10 @@ import {
   extractClickIdsFromUrl,
   generateClickIdCookies,
 } from '@/lib/ad-tracking-cookies';
-import { getCustomDomainForSlug } from '@/lib/domain-cache-simple';
+import {
+  getCustomDomainForSlug,
+  getSlugForCustomDomain,
+} from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { updateSession } from '@/lib/supabase/middleware';
 
@@ -632,21 +635,21 @@ export async function proxy(request: NextRequest) {
       }
 
       // SEO file paths: rewrite using merchant slug (not domain) to avoid dots in [slug]
-      // which break Next.js file-convention routing (sitemap.ts, robots.ts)
-      if (pathname.startsWith('/sitemap') || pathname === '/robots.txt') {
-        const merchantSlug = domain
-          .replace(/\.(com|ng|co|shop|store|africa|io|net|org)$/i, '')
-          .replace(/\./g, '-');
-        const url = request.nextUrl.clone();
-        url.pathname = `/${merchantSlug}${pathname}`;
+      // which break Next.js file-convention routing (sitemap.ts).
+      // robots.txt is excluded by the middleware matcher so it never reaches here.
+      if (pathname.startsWith('/sitemap')) {
+        const merchantSlug = await getSlugForCustomDomain(domain);
+        const sitemapUrl = request.nextUrl.clone();
+        // Use merchant slug if found, otherwise fall through to domain-based rewrite
+        sitemapUrl.pathname = `/${merchantSlug ?? domain}${pathname}`;
 
-        const requestHeaders = new Headers(request.headers);
-        requestHeaders.set('x-custom-domain', domain);
-        requestHeaders.set('x-merchant-domain', domain);
+        const sitemapHeaders = new Headers(request.headers);
+        sitemapHeaders.set('x-custom-domain', domain);
+        sitemapHeaders.set('x-merchant-domain', domain);
 
-        const response = NextResponse.rewrite(url, {
+        const response = NextResponse.rewrite(sitemapUrl, {
           request: {
-            headers: requestHeaders,
+            headers: sitemapHeaders,
           },
         });
 
