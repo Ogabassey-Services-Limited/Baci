@@ -23,6 +23,7 @@ export interface StorefrontVirtualAccount {
 }
 
 export interface StorefrontTransaction {
+  id?: string;
   amount: number;
   created_at: string;
   description: string | null;

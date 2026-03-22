@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { CustomerOrderDetailsContent } from '@/app/(storefront)/[slug]/account/orders/[orderId]/customer-order-details-content';
 import type { StorefrontOrder } from '@/types/storefront-order';
-import { CustomerOrderDetailsContent } from './customer-order-details-content';
 
 vi.mock('next/link', () => ({
   default: vi.fn(
@@ -90,6 +90,8 @@ describe('CustomerOrderDetailsContent', () => {
         /receipts become available after the order has been shipped/i
       )
     ).not.toBeInTheDocument();
+    expect(screen.getByText('Shipped')).toBeInTheDocument();
+    expect(screen.getByText('Paid')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /buy again/i })).toHaveAttribute(
       'href',
       '/ogabassey/products/prod-1'

@@ -75,7 +75,7 @@ export async function getStorefrontAccountDocumentData({
 
   if (merchantError || !merchant) {
     throw new StorefrontAccountDocumentError(
-      'Order not found',
+      'Store not found',
       404,
       'NOT_FOUND'
     );
@@ -90,7 +90,7 @@ export async function getStorefrontAccountDocumentData({
 
   if (customerError || !customer) {
     throw new StorefrontAccountDocumentError(
-      'Order not found',
+      'Customer not found',
       404,
       'NOT_FOUND'
     );
@@ -120,7 +120,7 @@ export async function getStorefrontAccountDocumentData({
         .eq('order_id', orderId),
       supabase
         .from('transactions')
-        .select('amount, created_at, description, metadata')
+        .select('id, amount, created_at, description, metadata')
         .eq('order_id', orderId)
         .order('created_at', { ascending: true }),
       supabase
@@ -149,7 +149,6 @@ export async function getStorefrontAccountDocumentData({
       taxError: taxResult.error,
       merchantSlug,
       orderId,
-      userId,
     });
     throw new StorefrontAccountDocumentError(
       'Failed to load order documents',
