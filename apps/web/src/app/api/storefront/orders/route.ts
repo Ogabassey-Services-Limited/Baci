@@ -1,5 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
+import {
+  getCurrentDocumentKind,
+  isReceiptEligible,
+  normalizePaymentStatus,
+  normalizeShippingStatus,
+} from '@/lib/storefront-account-document-data';
+import { storefrontAccountDocumentQuerySchema } from '@/schemas/storefront-account-document';
 
 /**
  * Customer Orders API
@@ -22,15 +29,21 @@ export async function GET(request: NextRequest) {
 
     const { user, supabase } = auth;
 
-    const { searchParams } = new URL(request.url);
-    const merchantSlug = searchParams.get('merchantSlug');
+    const parsedQuery = storefrontAccountDocumentQuerySchema.safeParse({
+      merchantSlug: new URL(request.url).searchParams.get('merchantSlug'),
+    });
 
-    if (!merchantSlug) {
+    if (!parsedQuery.success) {
       return NextResponse.json(
-        { error: 'Merchant slug is required' },
+        {
+          error: 'Invalid request',
+          details: parsedQuery.error.flatten(),
+        },
         { status: 400 }
       );
     }
+
+    const merchantSlug = parsedQuery.data.merchantSlug;
 
     // Get merchant
     const { data: merchant, error: merchantError } = await supabase
@@ -66,12 +79,16 @@ export async function GET(request: NextRequest) {
         total,
         subtotal,
         shipping_fee,
+        tax_amount,
+        discount_amount,
+        amount_paid,
+        currency,
         payment_status,
         shipping_status,
         shipping_address,
         tracking_number,
         shipping_provider,
-        payment_provider,
+        payment_method,
         order_items (
           id,
           name,
@@ -93,10 +110,42 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform to expected format
-    const transformedOrders = orders.map((order) => ({
-      ...order,
-      items: order.order_items || [],
-    }));
+    const transformedOrders = orders.map((order) => {
+      const paymentStatus = normalizePaymentStatus(order.payment_status);
+      const shippingStatus = normalizeShippingStatus(order.shipping_status);
+
+      return {
+        id: order.id,
+        order_number: order.order_number,
+        created_at: order.created_at,
+        total: order.total,
+        subtotal: order.subtotal,
+        shipping_fee: order.shipping_fee,
+        tax_amount: order.tax_amount,
+        discount_amount: order.discount_amount,
+        amount_paid: order.amount_paid,
+        currency: order.currency,
+        payment_status: paymentStatus,
+        shipping_status: shippingStatus,
+        shipping_address: order.shipping_address,
+        tracking_number: order.tracking_number,
+        shipping_provider: order.shipping_provider,
+        payment_method: order.payment_method,
+        balance: Math.max(
+          0,
+          Number(order.total || 0) - Number(order.amount_paid || 0)
+        ),
+        current_document_kind: getCurrentDocumentKind({
+          paymentStatus,
+          shippingStatus,
+        }),
+        receipt_eligible: isReceiptEligible({
+          paymentStatus,
+          shippingStatus,
+        }),
+        items: order.order_items || [],
+      };
+    });
 
     return NextResponse.json({ orders: transformedOrders });
   } catch (error) {

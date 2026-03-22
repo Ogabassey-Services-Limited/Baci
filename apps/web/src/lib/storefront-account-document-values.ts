@@ -1,0 +1,72 @@
+import type { CustomerInfo } from '@/lib/invoice-generator';
+import type { StorefrontAccountDocumentItemRow } from '@/lib/storefront-account-document-bundle.types';
+import type { StorefrontOrderItem } from '@/types/storefront-order';
+
+type JsonRecord = Record<string, unknown>;
+
+export function asRecord(value: unknown): JsonRecord | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as JsonRecord)
+    : null;
+}
+
+export function asNumber(value: unknown) {
+  return typeof value === 'number'
+    ? value
+    : typeof value === 'string'
+      ? Number(value) || 0
+      : 0;
+}
+
+export function asString(value: unknown) {
+  return typeof value === 'string' ? value : '';
+}
+
+export function normalizeShippingAddress(value: unknown) {
+  if (typeof value === 'string') {
+    return value ? { address_line1: value } : null;
+  }
+
+  const record = asRecord(value);
+  if (!record) return null;
+
+  return {
+    address_line1: asString(
+      record.address_line1 || record.address || record.street
+    ),
+    address_line2: asString(record.address_line2),
+    city: asString(record.city),
+    state: asString(record.state),
+    postal_code: asString(record.postal_code),
+    country: asString(record.country),
+  };
+}
+
+export function buildCustomerAddress(
+  shippingAddress: ReturnType<typeof normalizeShippingAddress>
+): CustomerInfo['address'] {
+  if (!shippingAddress) return undefined;
+
+  return {
+    street: [shippingAddress.address_line1, shippingAddress.address_line2]
+      .filter(Boolean)
+      .join(', '),
+    city: shippingAddress.city || undefined,
+    state: shippingAddress.state || undefined,
+    postal_code: shippingAddress.postal_code || undefined,
+    country: shippingAddress.country || undefined,
+  };
+}
+
+export function buildOrderItems(
+  itemRows: StorefrontAccountDocumentItemRow[]
+): StorefrontOrderItem[] {
+  return itemRows.map((item) => ({
+    id: item.id,
+    product_id: item.product_id || '',
+    name: item.name,
+    product_name: item.name,
+    quantity: item.quantity ?? 0,
+    price: asNumber(item.price),
+  }));
+}
