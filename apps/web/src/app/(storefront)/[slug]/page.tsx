@@ -9,7 +9,6 @@ import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateLocalBusinessSchema,
-  generateServiceSchema,
   generateWebSiteSchema,
   type LocalBusinessData,
 } from '@/lib/seo-utils';
@@ -211,90 +210,27 @@ export default async function StorefrontPage({
 
   return (
     <>
-      {/* JSON-LD Schemas - Generated synchronously from cached merchant data */}
-      {localBusinessSchema && (
+      {/* JSON-LD @graph: merchant LocalBusiness + WebSite in one script tag */}
+      {(localBusinessSchema || webSiteSchema) && (
         <script
           type="application/ld+json"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema from sanitized merchant data
           dangerouslySetInnerHTML={{
-            __html: safeJsonLdStringify(localBusinessSchema),
+            __html: safeJsonLdStringify({
+              '@context': 'https://schema.org',
+              '@graph': [localBusinessSchema, webSiteSchema]
+                .filter(Boolean)
+                .map((s) => {
+                  const { '@context': _, ...rest } = s as Record<
+                    string,
+                    unknown
+                  >;
+                  return rest;
+                }),
+            }),
           }}
         />
       )}
-      {webSiteSchema && (
-        <script
-          type="application/ld+json"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema from sanitized merchant data
-          dangerouslySetInnerHTML={{
-            __html: safeJsonLdStringify(webSiteSchema),
-          }}
-        />
-      )}
-
-      {/* Service Schemas */}
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: Static trusted schema
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(
-            generateServiceSchema({
-              name: 'Showmax Subscription Payment',
-              description:
-                'Pay for your Showmax subscription online instantly. Fast, secure, and reliable payment service.',
-              providerName: merchant.business_name,
-              providerUrl: baseUrl,
-              serviceType: 'Streaming Subscription Payment',
-              logo: merchant.logo_url || undefined,
-              offers: [
-                { price: '1200', priceCurrency: 'NGN' },
-                { price: '2500', priceCurrency: 'NGN' },
-              ],
-            })
-          ),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: Static trusted schema
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(
-            generateServiceSchema({
-              name: 'Instant Airtime Top-up',
-              description:
-                'Buy airtime for MTN, Airtel, Glo, and 9mobile instantly. Fast and secure recharge.',
-              providerName: merchant.business_name,
-              providerUrl: baseUrl,
-              serviceType: 'Mobile Phone Top-up',
-              logo: merchant.logo_url || undefined,
-              offers: [
-                { price: '100', priceCurrency: 'NGN' },
-                { price: '1000', priceCurrency: 'NGN' },
-              ],
-            })
-          ),
-        }}
-      />
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: Static trusted schema
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(
-            generateServiceSchema({
-              name: 'Cheap Data Bundles',
-              description:
-                'Buy affordable data bundles for all networks (MTN, Airtel, Glo, 9mobile). Instant activation.',
-              providerName: merchant.business_name,
-              providerUrl: baseUrl,
-              serviceType: 'Internet Data Services',
-              logo: merchant.logo_url || undefined,
-              offers: [
-                { price: '500', priceCurrency: 'NGN' },
-                { price: '5000', priceCurrency: 'NGN' },
-              ],
-            })
-          ),
-        }}
-      />
 
       {/* STREAMING: Heavy data fetching happens here, wrapped in Suspense */}
       <Suspense fallback={<StorefrontPageSkeleton />}>

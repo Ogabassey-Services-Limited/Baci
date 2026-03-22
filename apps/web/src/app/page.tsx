@@ -18,8 +18,53 @@ import { TypingAnimation } from '@/components/landing/typing-animation';
 import { PlatformFooter } from '@/components/platform/footer';
 import { PlatformHeader } from '@/components/platform/header';
 import { Button } from '@/components/ui/button';
+import { PLATFORM_CONFIG } from '@/config/platform';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import {
+  generateOrganizationSchema,
+  generateWebSiteSchema,
+  type OrganizationData,
+} from '@/lib/seo-utils';
 import { getLandingMetrics } from './actions';
+
+/**
+ * Platform-level structured data using @graph pattern.
+ * Only rendered on the Baci homepage — NOT on merchant storefronts.
+ * Includes Organization + WebSite (the two types Google supports without ratings).
+ */
+function PlatformSchemas() {
+  const organizationData: OrganizationData = {
+    name: PLATFORM_CONFIG.name,
+    url: PLATFORM_CONFIG.url,
+    logo: `${PLATFORM_CONFIG.url}${PLATFORM_CONFIG.logo}`,
+    description: PLATFORM_CONFIG.description,
+    socialMedia: PLATFORM_CONFIG.socialMedia,
+  };
+
+  const organizationSchema = generateOrganizationSchema(organizationData);
+  const websiteSchema = generateWebSiteSchema(
+    PLATFORM_CONFIG.name,
+    PLATFORM_CONFIG.url,
+    `${PLATFORM_CONFIG.url}/search?q={search_term_string}`
+  );
+
+  // Remove @context from individual schemas — @graph provides it once
+  const { '@context': _orgCtx, ...orgWithoutContext } = organizationSchema;
+  const { '@context': _wsCtx, ...wsWithoutContext } = websiteSchema;
+
+  return (
+    <script
+      type="application/ld+json"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD structured data sanitized via safeJsonLdStringify
+      dangerouslySetInnerHTML={{
+        __html: safeJsonLdStringify({
+          '@context': 'https://schema.org',
+          '@graph': [orgWithoutContext, wsWithoutContext],
+        }),
+      }}
+    />
+  );
+}
 
 // Interface for metrics
 interface LandingMetrics {
@@ -32,40 +77,8 @@ interface LandingMetrics {
 function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
   return (
     <div className="flex flex-col min-h-screen bg-background font-sans selection:bg-accent/30">
-      {/* Header */}
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify({
-            '@context': 'https://schema.org',
-            '@type': 'HowTo',
-            name: 'How to create your online store with Baci',
-            description:
-              'Create a professional online store in minutes using AI-powered tools.',
-            step: [
-              {
-                '@type': 'HowToStep',
-                name: 'Choose your business type',
-                text: "Tell us about your business and let our AI generate a customized store in seconds. We'll create everything from your logo to product categories.",
-                position: 1,
-              },
-              {
-                '@type': 'HowToStep',
-                name: 'Customize your store',
-                text: 'Add products, adjust colors, upload your logo. Our AI helps you create professional product descriptions and optimize your store for sales.',
-                position: 2,
-              },
-              {
-                '@type': 'HowToStep',
-                name: 'Go live and start selling',
-                text: 'Launch your store with a custom domain or subdomain. Start selling immediately with built-in payments, inventory management, and order processing.',
-                position: 3,
-              },
-            ],
-          }),
-        }}
-      />
+      {/* Platform-level structured data: Organization + WebSite in @graph */}
+      <PlatformSchemas />
       <PlatformHeader />
 
       <main id="main-content" className="flex-1 pt-16">

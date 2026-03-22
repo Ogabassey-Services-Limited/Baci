@@ -39,6 +39,10 @@ export function ProgressCard({
       ]}
       onPress={onPress}
       disabled={!onPress}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !onPress }}
+      accessibilityLabel={`${title}, ${Math.round(progress)}% complete${subtitle ? `, ${subtitle}` : ''}`}
+      accessibilityHint={onPress ? 'View details' : ''}
     >
       <View style={styles.content}>
         <View>
