@@ -9,9 +9,11 @@ const mockRemoveFromCart = vi.fn();
 const mockUpdateQuantity = vi.fn();
 const mockToast = vi.fn();
 
+const mockUseSearchParams = vi.fn(() => new URLSearchParams());
+
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn() })),
-  useSearchParams: vi.fn(() => new URLSearchParams()),
+  useSearchParams: () => mockUseSearchParams(),
 }));
 
 vi.mock('@/hooks/use-cart', () => ({
@@ -133,5 +135,100 @@ describe('useProductDetailsState', () => {
     expect(result.current.isSelectionModalOpen).toBe(true);
     expect(result.current.missingFields).toContain('Color');
     expect(mockApplyNegotiatedPrice).not.toHaveBeenCalled();
+  });
+
+  it('pre-selects variant attributes from ?variant= URL param', () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('variant=var-2'));
+
+    const productWithVariants = {
+      ...baseProduct,
+      variants: [
+        { id: 'var-1', attributes: { color: 'Black', storage: '128GB' } },
+        { id: 'var-2', attributes: { color: 'Silver', storage: '256GB' } },
+      ],
+    } as Product;
+
+    const { result } = renderHook(() =>
+      useProductDetailsState(productWithVariants)
+    );
+
+    // The matching variant's attributes should be pre-selected
+    expect(result.current.selectedAttributes).toEqual({
+      color: 'Silver',
+      storage: '256GB',
+    });
+    // Color index for "Silver" should be pre-selected (index 1 in baseProduct.colors)
+    expect(result.current.selectedColor).toBe(1);
+  });
+
+  it('falls back to empty attributes when ?variant= does not match any variant', () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('variant=nonexistent-id')
+    );
+
+    const productWithVariants = {
+      ...baseProduct,
+      variants: [
+        { id: 'var-1', attributes: { color: 'Black', storage: '128GB' } },
+      ],
+    } as Product;
+
+    const { result } = renderHook(() =>
+      useProductDetailsState(productWithVariants)
+    );
+
+    expect(result.current.selectedAttributes).toEqual({});
+  });
+
+  it('re-syncs variant-derived state when the product and query change', () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('variant=var-2'));
+
+    const initialProduct = {
+      ...baseProduct,
+      variants: [
+        { id: 'var-1', attributes: { color: 'Black', storage: '128GB' } },
+        { id: 'var-2', attributes: { color: 'Silver', storage: '256GB' } },
+      ],
+    } as Product;
+    const nextProduct = {
+      ...baseProduct,
+      id: 'product-2',
+      name: 'Pixel Fold',
+      image: 'https://example.com/fold-default.jpg',
+      images: [
+        'https://example.com/fold-default.jpg',
+        'https://example.com/purple.jpg',
+      ],
+      colors: ['Purple'],
+      color_images: {
+        Purple: ['https://example.com/purple.jpg'],
+      },
+      variants: [
+        { id: 'var-3', attributes: { color: 'Purple', storage: '512GB' } },
+      ],
+    } as Product;
+
+    const { result, rerender } = renderHook(
+      ({ product }) => useProductDetailsState(product),
+      {
+        initialProps: { product: initialProduct },
+      }
+    );
+
+    act(() => {
+      result.current.handleColorDoubleClick(0);
+    });
+    expect(result.current.secondaryColor).toBe(0);
+
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('variant=var-3'));
+    rerender({ product: nextProduct });
+
+    expect(result.current.selectedAttributes).toEqual({
+      color: 'Purple',
+      storage: '512GB',
+    });
+    expect(result.current.selectedColor).toBe(0);
+    expect(result.current.selectedImage).toBe(1);
+    expect(result.current.secondaryColor).toBeNull();
   });
 });
