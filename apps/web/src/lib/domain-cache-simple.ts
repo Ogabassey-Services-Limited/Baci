@@ -93,14 +93,19 @@ async function getFromCacheOrDb(merchantSlug: string): Promise<string | null> {
  * Uses in-memory cache with DB fallback (same pattern as getCustomDomainForSlug).
  * Used by the proxy to rewrite SEO file paths (sitemap, robots) without dots in [slug].
  */
-const reverseDomainCache = new Map<string, CacheEntry>();
+interface ReverseCacheEntry {
+  slug: string | null;
+  timestamp: number;
+}
+
+const reverseDomainCache = new Map<string, ReverseCacheEntry>();
 
 export async function getSlugForCustomDomain(
   domain: string
 ): Promise<string | null> {
   const cached = reverseDomainCache.get(domain);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.customDomain; // reusing CacheEntry shape — stores slug here
+    return cached.slug;
   }
 
   const slug = await fetchSlugForDomain(domain);
@@ -111,7 +116,7 @@ export async function getSlugForCustomDomain(
   }
 
   reverseDomainCache.set(domain, {
-    customDomain: slug, // reusing CacheEntry shape — stores slug here
+    slug,
     timestamp: Date.now(),
   });
 
@@ -124,17 +129,27 @@ async function fetchSlugForDomain(domain: string): Promise<string | null> {
 
     const { data, error } = await supabase
       .from('domains')
-      .select('merchant_id, merchants!inner(slug)')
+      .select('merchants!inner(slug)')
       .eq('domain', domain)
       .eq('status', 'active')
       .limit(1)
       .maybeSingle();
 
-    if (error || !data) return null;
+    if (error || !data) {
+      console.error('[Domain Cache] Failed to fetch slug for domain', {
+        domain,
+        error,
+      });
+      return null;
+    }
 
     const merchant = data.merchants as unknown as { slug: string };
     return merchant.slug ?? null;
-  } catch {
+  } catch (err) {
+    console.error('[Domain Cache] Error fetching slug for domain', {
+      domain,
+      error: err,
+    });
     return null;
   }
 }

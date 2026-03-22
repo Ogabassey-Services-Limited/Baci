@@ -99,6 +99,21 @@ describe('Middleware Proxy', () => {
     expect(res.status).not.toBe(308);
   });
 
+  it('should fall back to domain when slug lookup returns null', async () => {
+    vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
+    const req = new NextRequest(
+      'https://unknown-merchant.com/blog/sitemap.xml'
+    );
+    req.headers.set('host', 'unknown-merchant.com');
+
+    const res = await proxy(req);
+
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('unknown-merchant.com');
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://unknown-merchant.com/unknown-merchant.com/blog/sitemap.xml'
+    );
+  });
+
   it('should rewrite custom-domain blog sitemaps with the merchant slug', async () => {
     const req = new NextRequest('https://ogabassey.com/blog/sitemap.xml');
     req.headers.set('host', 'ogabassey.com');
