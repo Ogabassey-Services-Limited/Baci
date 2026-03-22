@@ -1,46 +1,15 @@
 import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
 import { jsPDF } from 'jspdf/dist/jspdf.es.min.js';
 import autoTable from 'jspdf-autotable';
+import {
+  formatReceiptCurrency,
+  formatReceiptDate,
+} from '@/lib/receipt-pdf-formatters';
 
 interface JsPDFWithAutoTable extends jsPDF {
   lastAutoTable?: {
     finalY: number;
   };
-}
-
-const CURRENCY_LOCALE_MAP: Record<string, string> = {
-  NGN: 'en-NG',
-  GHS: 'en-GH',
-  KES: 'en-KE',
-  USD: 'en-US',
-  GBP: 'en-GB',
-  EUR: 'de-DE',
-  ZAR: 'en-ZA',
-  XAF: 'fr-CM',
-  XOF: 'fr-SN',
-};
-
-function formatCurrency(amount: number, currency: string) {
-  return new Intl.NumberFormat(CURRENCY_LOCALE_MAP[currency] || 'en-NG', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return '-';
-  }
-
-  return date.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 function getBrandPrimaryRgb(merchant: ReceiptMerchant) {
@@ -70,6 +39,32 @@ function getAddressLines(order: ReceiptOrder) {
   ].filter(Boolean) as string[];
 }
 
+function writeWrappedTextLines(input: {
+  doc: jsPDF;
+  lines: Array<string | null | undefined>;
+  x: number;
+  y: number;
+  maxWidth: number;
+  lineHeight?: number;
+}) {
+  const { doc, lines, x, maxWidth, lineHeight = 5 } = input;
+  let currentY = input.y;
+
+  lines.filter(Boolean).forEach((line) => {
+    const wrappedLines = doc.splitTextToSize(String(line), maxWidth);
+    const lineGroup = Array.isArray(wrappedLines)
+      ? wrappedLines
+      : [wrappedLines];
+
+    lineGroup.forEach((wrappedLine) => {
+      doc.text(wrappedLine, x, currentY);
+      currentY += lineHeight;
+    });
+  });
+
+  return currentY;
+}
+
 export function generateReceiptPDF(
   order: ReceiptOrder,
   merchant: ReceiptMerchant
@@ -77,6 +72,9 @@ export function generateReceiptPDF(
   const doc = new jsPDF() as JsPDFWithAutoTable;
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 16;
+  const contentWidth = pageWidth - margin * 2;
+  const columnGap = 12;
+  const columnWidth = (contentWidth - columnGap) / 2;
   const currency = order.currency || 'NGN';
   const isPaid = order.payment_status === 'paid';
   const brandPrimaryRgb = getBrandPrimaryRgb(merchant);
@@ -92,52 +90,62 @@ export function generateReceiptPDF(
   doc.text(`#${order.order_number}`, pageWidth - margin - 8, y + 10, {
     align: 'right',
   });
-  doc.text(formatDate(order.created_at), pageWidth - margin - 8, y + 17, {
-    align: 'right',
-  });
+  doc.text(
+    formatReceiptDate(order.created_at),
+    pageWidth - margin - 8,
+    y + 17,
+    {
+      align: 'right',
+    }
+  );
   y += 34;
 
   doc.setTextColor(17, 24, 39);
   doc.setFontSize(15);
-  doc.text(
-    merchant.legal_entity_name || merchant.business_name || 'Store',
-    margin,
-    y
-  );
-  y += 6;
+  y = writeWrappedTextLines({
+    doc,
+    lines: [merchant.legal_entity_name || merchant.business_name || 'Store'],
+    x: margin,
+    y,
+    maxWidth: columnWidth,
+    lineHeight: 6,
+  });
+  y += 1;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  [
-    merchant.business_address,
-    merchant.support_phone || merchant.phone,
-    merchant.support_email || merchant.email,
-    merchant.tax_identification_number
-      ? `TIN: ${merchant.tax_identification_number}`
-      : null,
-  ]
-    .filter(Boolean)
-    .forEach((line) => {
-      doc.text(String(line), margin, y);
-      y += 5;
-    });
+  y = writeWrappedTextLines({
+    doc,
+    lines: [
+      merchant.business_address,
+      merchant.support_phone || merchant.phone,
+      merchant.support_email || merchant.email,
+      merchant.tax_identification_number
+        ? `TIN: ${merchant.tax_identification_number}`
+        : null,
+    ],
+    x: margin,
+    y,
+    maxWidth: columnWidth,
+  });
 
-  const rightColumnX = pageWidth / 2 + 8;
+  const rightColumnX = margin + columnWidth + columnGap;
   let rightY = margin + 36;
   doc.setFont('helvetica', 'bold');
   doc.text('Billed To', rightColumnX, rightY);
   rightY += 6;
   doc.setFont('helvetica', 'normal');
-  [
-    order.customer_name,
-    order.customer_email,
-    order.customer_phone,
-    ...getAddressLines(order),
-  ]
-    .filter(Boolean)
-    .forEach((line) => {
-      doc.text(String(line), rightColumnX, rightY);
-      rightY += 5;
-    });
+  rightY = writeWrappedTextLines({
+    doc,
+    lines: [
+      order.customer_name,
+      order.customer_email,
+      order.customer_phone,
+      ...getAddressLines(order),
+    ],
+    x: rightColumnX,
+    y: rightY,
+    maxWidth: columnWidth,
+  });
 
   y = Math.max(y, rightY) + 6;
 
@@ -147,8 +155,8 @@ export function generateReceiptPDF(
     body: (order.items || []).map((item) => [
       item.product_name || item.name || 'Item',
       String(item.quantity),
-      formatCurrency(item.price, currency),
-      formatCurrency(item.quantity * item.price, currency),
+      formatReceiptCurrency(item.price, currency),
+      formatReceiptCurrency(item.quantity * item.price, currency),
     ]),
     styles: {
       fontSize: 10,
@@ -158,7 +166,7 @@ export function generateReceiptPDF(
     },
     headStyles: {
       fillColor: [...brandPrimaryRgb],
-      textColor: '#ffffff',
+      textColor: [255, 255, 255],
     },
     pageBreak: 'auto',
   });
@@ -188,7 +196,10 @@ export function generateReceiptPDF(
   };
 
   const formatSummaryAmount = (value: number | null | undefined) =>
-    formatCurrency(typeof value === 'number' ? value : 0, currency);
+    formatReceiptCurrency(
+      typeof value === 'number' && Number.isFinite(value) ? value : 0,
+      currency
+    );
 
   writeSummaryRow('Subtotal', formatSummaryAmount(order.subtotal));
   writeSummaryRow(
@@ -223,9 +234,9 @@ export function generateReceiptPDF(
       startY: y,
       head: [['Payment Date', 'Method', 'Amount']],
       body: order.transactions.map((tx) => [
-        formatDate(tx.created_at),
+        formatReceiptDate(tx.created_at),
         tx.metadata?.payment_method || tx.description || 'Payment',
-        formatCurrency(tx.amount, currency),
+        formatReceiptCurrency(tx.amount, currency),
       ]),
       styles: {
         fontSize: 9,
@@ -233,7 +244,7 @@ export function generateReceiptPDF(
       },
       headStyles: {
         fillColor: [31, 41, 55],
-        textColor: '#ffffff',
+        textColor: [255, 255, 255],
       },
       pageBreak: 'auto',
     });
@@ -262,9 +273,12 @@ export function generateReceiptPDF(
             : null,
         ].filter(Boolean) as string[]);
 
-    bankLines.forEach((line) => {
-      doc.text(line, margin, y);
-      y += 5;
+    y = writeWrappedTextLines({
+      doc,
+      lines: bankLines,
+      x: margin,
+      y,
+      maxWidth: contentWidth,
     });
   }
 

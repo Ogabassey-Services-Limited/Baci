@@ -46,6 +46,15 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         '/account/login/',
       ];
 
+  const sitemap = isPlatformDomain
+    ? `${storeUrl}/sitemap.xml`
+    : [
+        `${storeUrl}/sitemap/static.xml`,
+        `${storeUrl}/sitemap/products.xml`,
+        `${storeUrl}/sitemap/categories.xml`,
+        `${storeUrl}/blog/sitemap.xml`,
+      ];
+
   return {
     rules: [
       // Default rules for all crawlers
@@ -115,6 +124,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         disallow: disallowedPaths,
       },
     ],
-    sitemap: `${storeUrl}/sitemap.xml`,
+    sitemap,
   };
 }
