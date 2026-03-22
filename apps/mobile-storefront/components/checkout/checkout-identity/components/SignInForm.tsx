@@ -9,7 +9,8 @@
  * - Full accessibility support
  */
 
-import React from 'react';
+import React, { useRef } from 'react';
+import type { TextInput } from 'react-native';
 import { useSignInForm } from '../hooks';
 import type { SignInFormProps } from '../types';
 import { EmailInput } from './EmailInput';
@@ -29,6 +30,7 @@ import { SubmitButton } from './SubmitButton';
  * - SocialSignInButtons: Google/Apple sign-in
  */
 export function SignInForm({ onSuccess }: SignInFormProps) {
+  const passwordInputRef = useRef<TextInput>(null);
   const {
     control,
     errors,
@@ -52,6 +54,8 @@ export function SignInForm({ onSuccess }: SignInFormProps) {
         errors={errors}
         isLoading={isLoading}
         onClearError={clearError}
+        returnKeyType="next"
+        onSubmitEditing={() => passwordInputRef.current?.focus()}
       />
 
       {/* Password Input */}
@@ -61,6 +65,9 @@ export function SignInForm({ onSuccess }: SignInFormProps) {
         isLoading={isLoading}
         onClearError={clearError}
         onForgotPassword={handleForgotPassword}
+        inputRef={passwordInputRef}
+        returnKeyType="go"
+        onSubmitEditing={handleSignIn}
       />
 
       {/* Submit Button */}
