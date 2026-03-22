@@ -31,9 +31,11 @@ export const importJobUploadSchema = z.object({
   entityType: importJobEntityTypeSchema,
 });
 
-export const importJobWorkerRequestSchema = z.object({
-  jobId: z.string().uuid().optional(),
-});
+export const importJobWorkerRequestSchema = z
+  .object({
+    jobId: z.string().uuid().optional(),
+  })
+  .strict();
 
 export type ImportJobEntityType = z.infer<typeof importJobEntityTypeSchema>;
 export type ImportJobRowsQuery = z.infer<typeof importJobRowsQuerySchema>;

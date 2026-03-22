@@ -124,6 +124,28 @@ describe('POST /api/import-jobs/worker', () => {
     expect(processImportJobQueue).not.toHaveBeenCalled();
   });
 
+  it('returns 400 when the request body is whitespace only', async () => {
+    const response = await POST(
+      new NextRequest('http://localhost/api/import-jobs/worker', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer worker-secret',
+          'content-type': 'application/json',
+        },
+        body: '   ',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid worker request body',
+      code: 'invalid_request',
+    });
+    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(processImportJobById).not.toHaveBeenCalled();
+    expect(processImportJobQueue).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when targeted job processing fails', async () => {
     const jobId = 'ece4d914-7cc9-443c-9770-342515ecffe7';
     vi.mocked(processImportJobById).mockRejectedValueOnce(new Error('boom'));

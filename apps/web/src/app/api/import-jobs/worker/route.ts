@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     let workerRequest: ImportJobWorkerRequest = {};
     const rawBody = await request.text();
 
-    if (rawBody.trim().length > 0) {
+    if (rawBody.length > 0) {
       try {
         workerRequest = importJobWorkerRequestSchema.parse(JSON.parse(rawBody));
       } catch {

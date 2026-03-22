@@ -220,7 +220,9 @@ describe('processImportJobById', () => {
       status: 'preview_ready',
       processed: 1,
     });
+    expect(supabase.from).toHaveBeenCalledWith('import_jobs');
     expect(loadQuery.eq).toHaveBeenCalledWith('id', 'uploaded-job');
+    expect(claimQuery.eq).toHaveBeenCalledWith('id', 'uploaded-job');
     expect(runClaimedImportJob).toHaveBeenCalledWith(
       supabase,
       expect.objectContaining({ id: 'uploaded-job', status: 'validating' })
