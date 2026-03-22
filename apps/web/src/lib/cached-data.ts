@@ -1042,7 +1042,9 @@ export async function getCachedCategoryPageData(
   if (SPECIAL_COLLECTIONS.includes(categorySlug)) {
     let query = supabase
       .from('products')
-      .select('*')
+      .select(
+        'id, name, slug, description, price, compare_at_price, cost_price, status, stock, stock_quantity, manage_stock, min_order_quantity, low_stock_threshold, is_active, condition, brand, category, color, images, image_small, image_large, image_hint, gtin, mpn, created_at, updated_at'
+      )
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .limit(50);
@@ -1442,7 +1444,9 @@ export async function getCachedBlogPost(
   // Fetch Post
   let query = supabase
     .from('blog_posts')
-    .select('*')
+    .select(
+      'id, title, slug, excerpt, content, featured_image_url, featured_image_alt, category, tags, author_name, author_avatar, author_title, author_bio, published_at, status, meta_title, meta_description, seo_title, seo_description, keywords, reading_time_minutes, word_count, view_count, created_at, updated_at'
+    )
     .eq('merchant_id', merchant.id)
     .eq('slug', postSlug.toLowerCase());
 
