@@ -149,7 +149,6 @@ export async function getStorefrontAccountDocumentData({
       taxError: taxResult.error,
       merchantSlug,
       orderId,
-      userId,
     });
     throw new StorefrontAccountDocumentError(
       'Failed to load order documents',
