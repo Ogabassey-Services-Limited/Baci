@@ -82,8 +82,13 @@ export function AccountPageClient() {
   }, [merchantLoading, authLoading, isAuthenticated, router, resolvedBasePath]);
 
   const handleLogout = async () => {
-    await logout();
-    router.push(asRoute(getHref('/')));
+    try {
+      await logout();
+      router.push(asRoute(getHref('/')));
+    } catch {
+      // Redirect to home even on failure to avoid broken state
+      router.push(asRoute(getHref('/')));
+    }
   };
 
   if (merchantLoading || authLoading) {

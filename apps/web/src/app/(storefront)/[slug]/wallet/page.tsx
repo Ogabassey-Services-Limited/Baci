@@ -53,10 +53,5 @@ export default async function WalletPage({
       ? themeCookie
       : undefined;
 
-  return (
-    <>
-      <h1 className="sr-only">Wallet Balance</h1>
-      <OgabasseyV2Wallet />
-    </>
-  );
+  return <OgabasseyV2Wallet />;
 }

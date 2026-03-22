@@ -43,7 +43,13 @@ interface WishListItem {
   };
 }
 
-export function WishListPageClient() {
+interface WishListPageClientProps {
+  merchantCountry: string | null;
+}
+
+export function WishListPageClient({
+  merchantCountry,
+}: WishListPageClientProps) {
   const params = useParams();
   const { toast } = useToast();
   const { addToCart } = useCart();
@@ -55,84 +61,58 @@ export function WishListPageClient() {
   const [wishListItems, setWishListItems] = useState<WishListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
-  const [merchantCountry, setMerchantCountry] = useState<string | null>(null);
   const [movingToCartId, setMovingToCartId] = useState<string | null>(null);
   const [shareUrlCopied, setShareUrlCopied] = useState(false);
 
-  // Use dynamic currency based on merchant's country
+  // Use dynamic currency based on merchant's country (provided server-side)
   const { formatCurrency } = useCurrencyWithCountry(merchantCountry);
 
-  // Helper to build email query param
-  const buildEmailParam = (email: string) =>
-    email ? `&email=${encodeURIComponent(email)}` : '';
-
-  // Fetch merchant country for currency formatting
+  // Check auth or localStorage and fetch wishlist
   useEffect(() => {
-    const fetchMerchantCountry = async () => {
+    const loadWishList = async (emailForLookup: string) => {
+      if (!emailForLookup) return;
+      setIsLoading(true);
       try {
-        const response = await fetch(
-          `/api/storefront/products?merchant_slug=${merchantSlug}&limit=1`
-        );
+        // The API route resolves identity via Supabase auth cookies.
+        // For authenticated users, no extra params are needed.
+        // Email is used only for local state display, not for API lookup.
+        const response = await fetch('/api/wishlist');
         if (response.ok) {
           const data = await response.json();
-          if (data.merchant?.country) {
-            setMerchantCountry(data.merchant.country);
-          }
+          setWishListItems(data.items || []);
+        } else {
+          throw new Error('Failed to fetch wish list');
         }
       } catch {
-        // Silently fail - will use default USD
+        toast({
+          title: 'Error',
+          description: 'Failed to load your wish list.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
       }
     };
-    fetchMerchantCountry();
-  }, [merchantSlug]);
 
-  const fetchWishList = async (email: string) => {
-    if (!email) return;
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `/api/wishlist?email=${encodeURIComponent(email)}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setWishListItems(data.items || []);
-      } else {
-        throw new Error('Failed to fetch wish list');
-      }
-    } catch (_error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load your wish list.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Check auth or localStorage
-  useEffect(() => {
     if (isAuthenticated && customer?.email) {
       setCustomerEmail(customer.email);
       setIsEmailSubmitted(true);
-      fetchWishList(customer.email);
+      loadWishList(customer.email);
     } else {
       try {
         const storedEmail = localStorage.getItem('customerEmail');
         if (storedEmail) {
           setCustomerEmail(storedEmail);
           setIsEmailSubmitted(true);
-          fetchWishList(storedEmail);
+          loadWishList(storedEmail);
         }
       } catch {
         // localStorage not available
       }
     }
-    // React Compiler handles memoization - fetchWishList is stable
-    // biome-ignore lint/correctness/useExhaustiveDependencies: Function doesn't actually change between renders
-  }, [isAuthenticated, customer?.email, fetchWishList]);
+  }, [isAuthenticated, customer?.email, toast]);
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customerEmail.trim()) {
       toast({
@@ -143,18 +123,36 @@ export function WishListPageClient() {
       return;
     }
 
-    // Store email in localStorage
+    // Store email in localStorage for display purposes
     localStorage.setItem('customerEmail', customerEmail);
     setIsEmailSubmitted(true);
-    fetchWishList(customerEmail);
+
+    // Fetch wishlist - the API resolves identity via auth cookies
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/wishlist');
+      if (response.ok) {
+        const data = await response.json();
+        setWishListItems(data.items || []);
+      } else {
+        throw new Error('Failed to fetch wish list');
+      }
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to load your wish list.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleRemoveItem = async (itemId: string, productName: string) => {
     setRemovingItemId(itemId);
     try {
       const csrfToken = getClientCsrfToken();
-      const emailParam = buildEmailParam(customerEmail);
-      const response = await fetch(`/api/wishlist?id=${itemId}${emailParam}`, {
+      const response = await fetch(`/api/wishlist?id=${itemId}`, {
         method: 'DELETE',
         headers: {
           'x-csrf-token': csrfToken || '',
@@ -216,8 +214,7 @@ export function WishListPageClient() {
 
       // Remove from wishlist
       const csrfToken = getClientCsrfToken();
-      const emailParam = buildEmailParam(customerEmail);
-      const response = await fetch(`/api/wishlist?id=${item.id}${emailParam}`, {
+      const response = await fetch(`/api/wishlist?id=${item.id}`, {
         method: 'DELETE',
         headers: {
           'x-csrf-token': csrfToken || '',
