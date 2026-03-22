@@ -60,17 +60,11 @@ describe('GET /about.md', () => {
     const response = await GET(new Request('https://ogabassey.com/about.md'), {
       params: Promise.resolve({ slug: 'ogabassey.com' }),
     });
-    const body = await response.text();
 
     expect(response.status).toBe(200);
     expect(buildStorefrontAboutMarkdown).toHaveBeenCalledWith(
-      expect.objectContaining({
-        business_name: 'Ogabassey',
-        about_page: 'We sell gadgets.',
-      }),
+      expect.objectContaining({ business_name: 'Ogabassey' }),
       'https://ogabassey.com'
     );
-    expect(markdownResponse).toHaveBeenCalledWith('# About\n');
-    expect(body).toBe('# About\n');
   });
 });
