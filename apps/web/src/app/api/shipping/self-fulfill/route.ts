@@ -135,7 +135,8 @@ export async function POST(request: NextRequest) {
         tracking_number: data.trackingNumber,
         shipping_provider: data.carrierName || 'Self-Delivery',
       })
-      .eq('id', data.orderId);
+      .eq('id', data.orderId)
+      .eq('merchant_id', merchantId);
 
     if (updateError) {
       console.error('Error updating order:', updateError);
@@ -254,7 +255,8 @@ export async function PATCH(request: NextRequest) {
         tracking_number:
           updates.trackingNumber || order.self_fulfillment_data?.trackingNumber,
       })
-      .eq('id', orderId);
+      .eq('id', orderId)
+      .eq('merchant_id', merchantId);
 
     if (updateError) {
       console.error('Error updating self-fulfillment:', updateError);
