@@ -1,42 +1,15 @@
 'use client';
 
-import { AlertCircle, Loader2 } from 'lucide-react';
-import type { Route } from 'next';
-import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { CustomerOrderDetailsContent } from '@/app/(storefront)/[slug]/account/orders/[orderId]/customer-order-details-content';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { OrderStateCard } from '@/app/(storefront)/[slug]/account/orders/[orderId]/order-state-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchant } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 import type { StorefrontOrder } from '@/types/storefront-order';
-
-function OrderStateCard(props: {
-  title: string;
-  message: string;
-  actionLabel: string;
-  actionHref: Route;
-}) {
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-      <div className="container mx-auto max-w-5xl px-4 py-8">
-        <Card className="border-destructive/50">
-          <CardContent className="p-10 text-center">
-            <AlertCircle className="mx-auto mb-4 h-14 w-14 text-destructive/60" />
-            <h1 className="mb-2 text-xl font-semibold">{props.title}</h1>
-            <p className="mb-6 text-muted-foreground">{props.message}</p>
-            <Button asChild variant="outline">
-              <Link href={props.actionHref}>{props.actionLabel}</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
 
 export default function CustomerOrderDetailsPage() {
   const router = useRouter();
@@ -189,24 +162,12 @@ export default function CustomerOrderDetailsPage() {
 
   if (!order || orderError) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-        <div className="container mx-auto max-w-5xl px-4 py-8">
-          <Card className="border-destructive/50">
-            <CardContent className="p-10 text-center">
-              <AlertCircle className="mx-auto mb-4 h-14 w-14 text-destructive/60" />
-              <h1 className="mb-2 text-xl font-semibold">Order unavailable</h1>
-              <p className="mb-6 text-muted-foreground">
-                {orderError || 'We could not load this order.'}
-              </p>
-              <Button asChild variant="outline">
-                <Link href={asRoute(`${resolvedBasePath}/account/orders`)}>
-                  Back to orders
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <OrderStateCard
+        title="Order unavailable"
+        message={orderError || 'We could not load this order.'}
+        actionLabel="Back to orders"
+        actionHref={asRoute(`${resolvedBasePath}/account/orders`)}
+      />
     );
   }
 

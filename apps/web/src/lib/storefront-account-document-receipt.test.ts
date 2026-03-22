@@ -1,0 +1,139 @@
+import { describe, expect, it } from 'vitest';
+import {
+  buildReceiptMerchant,
+  buildReceiptOrder,
+} from '@/lib/storefront-account-document-receipt';
+
+describe('storefront account receipt builders', () => {
+  it('builds receipt merchant metadata from the merchant row', () => {
+    const result = buildReceiptMerchant({
+      business_name: 'Ogabassey',
+      logo_url: 'https://example.com/logo.png',
+      email: 'merchant@example.com',
+      phone: '08000000000',
+      support_email: 'support@example.com',
+      support_phone: '08011111111',
+      business_address: '12 Allen Avenue',
+      cac_rc_number: 'RC123',
+      tax_identification_number: 'TIN123',
+      legal_entity_name: 'Ogabassey Ltd',
+      brand_colors: { primary: '#000000' },
+      vat_registration_status: 'registered',
+      vat_rate: 7.5,
+      bank_code: '999',
+      bank_account_number: '1234567890',
+      bank_name: 'Baci Bank',
+      bank_account_name: 'Ogabassey Ltd',
+      social_media: { instagram: '@ogabassey' },
+      pages: { about: true },
+      registered_address: null,
+    });
+
+    expect(result.business_name).toBe('Ogabassey');
+    expect(result.brand_colors).toEqual({ primary: '#000000' });
+    expect(result.bank_account_number).toBe('1234567890');
+  });
+
+  it('builds receipt order details from normalized document data', () => {
+    const result = buildReceiptOrder({
+      order: {
+        id: 'order-1',
+        order_number: 'ORD-1001',
+        created_at: '2026-03-22T10:00:00.000Z',
+        updated_at: null,
+        payment_status: 'paid',
+        shipping_status: 'shipped',
+        currency: 'NGN',
+        total: 110000,
+        subtotal: 100000,
+        shipping_fee: 5000,
+        tax_amount: 5000,
+        discount_amount: 0,
+        amount_paid: 110000,
+        shipping_address: null,
+        customer_name: null,
+        customer_email: null,
+        customer_phone: null,
+        payment_method: 'card',
+        is_credit_order: false,
+        tracking_number: null,
+        shipping_provider: null,
+        notes: null,
+        invoice_type_code: null,
+        invoice_issue_date: null,
+        tax_point_date: null,
+        payment_due_date: null,
+        buyer_reference: null,
+        purchase_order_reference: null,
+        tax_exclusive_amount: null,
+        tax_inclusive_amount: null,
+        invoice_note: null,
+        firs_irn: null,
+        firs_csid: null,
+        firs_qr_code: null,
+        payment_terms: null,
+      },
+      orderItems: [
+        {
+          id: 'item-1',
+          product_id: 'prod-1',
+          name: 'iPhone 16',
+          product_name: 'iPhone 16',
+          quantity: 1,
+          price: 100000,
+        },
+      ],
+      transactions: [
+        {
+          id: 'tx-1',
+          amount: '110000',
+          created_at: '2026-03-22T10:10:00.000Z',
+          description: 'Card payment',
+          metadata: { payment_method: 'card' },
+        },
+      ],
+      paymentAccount: {
+        account_number: '1234567890',
+        bank_name: 'Baci Bank',
+        account_name: 'Ogabassey Ltd',
+      },
+      paymentStatus: 'paid',
+      shippingAddress: {
+        address_line1: '12 Allen Avenue',
+        city: 'Lagos',
+        state: 'Lagos',
+        postal_code: '100001',
+        country: 'NG',
+      },
+      currency: 'NGN',
+      total: 110000,
+      subtotal: 100000,
+      shippingFee: 5000,
+      taxAmount: 5000,
+      discountAmount: 0,
+      amountPaid: 110000,
+      balance: 0,
+      customerName: 'Oga Bassey',
+      customerEmail: 'customer@example.com',
+      customerPhone: '08022222222',
+    });
+
+    expect(result.customer_name).toBe('Oga Bassey');
+    expect(result.items).toEqual([
+      {
+        product_name: 'iPhone 16',
+        quantity: 1,
+        price: 100000,
+      },
+    ]);
+    expect(result.transactions).toEqual([
+      {
+        amount: 110000,
+        created_at: '2026-03-22T10:10:00.000Z',
+        description: 'Card payment',
+        metadata: { payment_method: 'card' },
+      },
+    ]);
+    expect(result.virtual_account?.account_number).toBe('1234567890');
+  });
+});

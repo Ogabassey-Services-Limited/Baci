@@ -55,7 +55,8 @@ describe('loadArchiveOrders', () => {
     });
 
     expect(fetch).toHaveBeenCalledWith(
-      '/api/storefront/orders?merchantSlug=ogabassey'
+      '/api/storefront/orders?merchantSlug=ogabassey',
+      undefined
     );
     expect(setOrders).toHaveBeenCalledWith([{ id: 'order-1', items: [] }]);
     expect(setOrdersError).toHaveBeenNthCalledWith(1, null);
@@ -95,5 +96,34 @@ describe('loadArchiveOrders', () => {
     );
     expect(setOrders).toHaveBeenLastCalledWith([]);
     expect(setIsLoadingOrders).toHaveBeenLastCalledWith(false);
+  });
+
+  it('does not update error state when an in-flight request is aborted', async () => {
+    const controller = new AbortController();
+
+    vi.mocked(fetch).mockImplementation((_input, init) => {
+      const requestSignal = init && 'signal' in init ? init.signal : undefined;
+      requestSignal?.throwIfAborted?.();
+      controller.abort();
+      return Promise.reject(new DOMException('Aborted', 'AbortError'));
+    });
+
+    await loadArchiveOrders({
+      merchantSlug: 'ogabassey',
+      setOrders,
+      setIsLoadingOrders,
+      setOrdersError,
+      signal: controller.signal,
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/storefront/orders?merchantSlug=ogabassey',
+      expect.objectContaining({ signal: controller.signal })
+    );
+    expect(setOrdersError).toHaveBeenCalledTimes(1);
+    expect(setOrdersError).toHaveBeenCalledWith(null);
+    expect(setOrders).not.toHaveBeenCalled();
+    expect(setIsLoadingOrders).toHaveBeenCalledTimes(1);
+    expect(setIsLoadingOrders).toHaveBeenCalledWith(true);
   });
 });

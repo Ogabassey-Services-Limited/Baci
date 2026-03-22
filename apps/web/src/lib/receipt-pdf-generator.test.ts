@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { generateReceiptBlob } from '@/lib/receipt-pdf-generator';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  generateReceiptBlob,
+  generateReceiptPDF,
+} from '@/lib/receipt-pdf-generator';
 
 const baseMerchant = {
   business_name: 'Ogabassey',
@@ -42,6 +45,10 @@ const baseOrder = {
 };
 
 describe('generateReceiptBlob', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('returns a non-empty PDF blob', () => {
     const blob = generateReceiptBlob(
       {
@@ -200,5 +207,37 @@ describe('generateReceiptBlob', () => {
     expect(blob).toBeInstanceOf(Blob);
     expect(blob.size).toBeGreaterThan(0);
     expect(blob.type).toBe('application/pdf');
+  });
+
+  it('omits the amount paid row for fully paid free orders', () => {
+    const output = generateReceiptPDF(
+      {
+        ...baseOrder,
+        order_number: 'ORD-1004',
+        total: 0,
+        subtotal: 0,
+        shipping_fee: 0,
+        tax_amount: 0,
+        discount_amount: 0,
+        amount_paid: 0,
+        balance: 0,
+        payment_status: 'paid',
+        items: [
+          {
+            product_name: 'Free Gift',
+            quantity: 1,
+            price: 0,
+          },
+        ],
+        transactions: [],
+      },
+      baseMerchant
+    ).output();
+
+    expect(output).toContain('Subtotal');
+    expect(output).toContain('Shipping');
+    expect(output).toContain('Total');
+    expect(output).not.toContain('Amount Paid');
+    expect(output).not.toContain('Balance Due');
   });
 });

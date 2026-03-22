@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
@@ -59,7 +60,6 @@ interface ShippingAddress {
  * GET /api/orders/[id]/invoice
  * Generate and download a Peppol BIS 3.0 compliant invoice PDF
  */
-import { cookies } from 'next/headers';
 
 export async function GET(
   _request: NextRequest,

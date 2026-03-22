@@ -6,6 +6,7 @@ interface LoadArchiveOrdersInput {
   setOrders: Dispatch<SetStateAction<StorefrontOrder[]>>;
   setIsLoadingOrders: Dispatch<SetStateAction<boolean>>;
   setOrdersError: Dispatch<SetStateAction<string | null>>;
+  signal?: AbortSignal;
 }
 
 export async function loadArchiveOrders({
@@ -13,15 +14,30 @@ export async function loadArchiveOrders({
   setOrders,
   setIsLoadingOrders,
   setOrdersError,
+  signal,
 }: LoadArchiveOrdersInput) {
+  if (signal?.aborted) {
+    return;
+  }
+
   setIsLoadingOrders(true);
   setOrdersError(null);
 
   try {
     const response = await fetch(
-      `/api/storefront/orders?merchantSlug=${encodeURIComponent(merchantSlug)}`
+      `/api/storefront/orders?merchantSlug=${encodeURIComponent(merchantSlug)}`,
+      signal ? { signal } : undefined
     );
+
+    if (signal?.aborted) {
+      return;
+    }
+
     const data = await response.json();
+
+    if (signal?.aborted) {
+      return;
+    }
 
     if (!response.ok) {
       setOrdersError(data.error || 'Unable to load documents');
@@ -30,10 +46,20 @@ export async function loadArchiveOrders({
     }
 
     setOrders(data.orders || []);
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return;
+    }
+
+    if (signal?.aborted) {
+      return;
+    }
+
     setOrdersError('Unable to connect. Please try again.');
     setOrders([]);
   } finally {
-    setIsLoadingOrders(false);
+    if (!signal?.aborted) {
+      setIsLoadingOrders(false);
+    }
   }
 }

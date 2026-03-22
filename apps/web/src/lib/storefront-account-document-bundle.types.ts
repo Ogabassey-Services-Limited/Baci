@@ -1,5 +1,6 @@
 type JsonRecord = Record<string, unknown>;
 type MoneyValue = number | string | null;
+export type RateValue = number | string | null;
 type AddressValue = JsonRecord | string | null;
 
 export interface StorefrontAccountDocumentMerchantRow {
@@ -94,7 +95,7 @@ export interface StorefrontAccountDocumentPaymentAccountRow {
 
 export interface StorefrontAccountDocumentTaxSubtotalRow {
   vat_category_code: string;
-  vat_rate: MoneyValue;
+  vat_rate: RateValue;
   taxable_amount: MoneyValue;
   tax_amount: MoneyValue;
   exemption_reason: string | null;

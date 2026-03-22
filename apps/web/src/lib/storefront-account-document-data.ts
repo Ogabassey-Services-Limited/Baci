@@ -75,7 +75,7 @@ export async function getStorefrontAccountDocumentData({
 
   if (merchantError || !merchant) {
     throw new StorefrontAccountDocumentError(
-      'Order not found',
+      'Store not found',
       404,
       'NOT_FOUND'
     );
@@ -90,7 +90,7 @@ export async function getStorefrontAccountDocumentData({
 
   if (customerError || !customer) {
     throw new StorefrontAccountDocumentError(
-      'Order not found',
+      'Customer not found',
       404,
       'NOT_FOUND'
     );
