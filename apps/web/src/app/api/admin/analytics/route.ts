@@ -146,11 +146,10 @@ export async function GET(request: NextRequest) {
       merchantProfilesResult,
       topMerchantsResult,
     ] = await Promise.all([
-      supabase
-        .from('platform_daily_summary')
-        .select('sale_date, platform_gmv, total_orders, active_merchants')
-        .gte('sale_date', startDateStr)
-        .order('sale_date', { ascending: true }),
+      supabase.rpc('get_admin_platform_daily_summary', {
+        p_start_date: startDateStr,
+        p_end_date: new Date().toISOString().split('T')[0],
+      }),
       getAdminMerchantHealthRows(supabase),
       supabase
         .from('platform_growth')
@@ -177,11 +176,7 @@ export async function GET(request: NextRequest) {
           ].join(', ')
         )
         .not('is_platform_admin', 'is', true),
-      supabase
-        .from('top_merchants')
-        .select('merchant_id, business_name, total_gmv, total_orders')
-        .order('total_gmv', { ascending: false })
-        .limit(10),
+      supabase.rpc('get_admin_top_merchants'),
     ]);
     const merchantProfiles = (merchantProfilesResult.data ||
       []) as unknown as MerchantProfileRow[];
@@ -471,13 +466,27 @@ export async function GET(request: NextRequest) {
       : newMerchantsThisMonth > 0
         ? 100
         : 0;
-    const topMerchants = (topMerchantsResult.data || []).map((m) => ({
+    const topMerchants = (
+      (topMerchantsResult.data || []) as Array<{
+        merchant_id: string;
+        business_name: string | null;
+        total_gmv: number;
+        total_orders: number;
+      }>
+    ).map((m) => ({
       id: m.merchant_id,
       name: m.business_name || 'Unnamed Store',
       gmv: Number(m.total_gmv) || 0,
       orders: Number(m.total_orders) || 0,
     }));
-    const dailyGmv: DailyGmvData[] = dailyData.map((d) => ({
+    const dailyGmv: DailyGmvData[] = (
+      dailyData as Array<{
+        sale_date: string;
+        platform_gmv: number;
+        total_orders: number;
+        active_merchants: number;
+      }>
+    ).map((d) => ({
       date: d.sale_date,
       gmv: Number(d.platform_gmv) || 0,
       orders: Number(d.total_orders) || 0,

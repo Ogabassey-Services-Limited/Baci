@@ -50,7 +50,22 @@ describe('robots()', () => {
 
     const result = await robots();
 
-    expect(result.sitemap).toBe('https://ogabassey.usebaci.com/sitemap.xml');
+    expect(result.sitemap).toEqual([
+      'https://ogabassey.usebaci.com/sitemap/static.xml',
+      'https://ogabassey.usebaci.com/sitemap/products.xml',
+      'https://ogabassey.usebaci.com/sitemap/categories.xml',
+      'https://ogabassey.usebaci.com/blog/sitemap.xml',
+    ]);
+  });
+
+  it('uses the root sitemap for the platform domain', async () => {
+    const { default: robots } = await import('./robots');
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+    mockHost = 'usebaci.com';
+
+    const result = await robots();
+
+    expect(result.sitemap).toBe('https://usebaci.com/sitemap.xml');
   });
 
   it('includes platform disallows for platform domain', async () => {

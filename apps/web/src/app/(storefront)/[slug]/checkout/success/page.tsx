@@ -362,8 +362,9 @@ export default function CheckoutSuccessPage() {
                   Your Receipt & Invoice
                 </h3>
                 <p className="text-gray-300 text-sm mb-4">
-                  Once your order is confirmed and processed, you&apos;ll be
-                  able to download your receipt and invoice from your account.
+                  Your invoice is available from your order details in your
+                  account. Your receipt will appear there and in the documents
+                  archive once the order has shipped.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Link
@@ -371,7 +372,7 @@ export default function CheckoutSuccessPage() {
                     className="inline-flex items-center justify-center gap-2 bg-white text-gray-900 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-100 transition-colors"
                   >
                     <Download className="w-4 h-4" />
-                    View Order & Receipt
+                    View Order Documents
                   </Link>
                 </div>
               </div>

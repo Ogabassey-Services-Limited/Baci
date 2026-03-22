@@ -1,5 +1,3 @@
-import type { SoftwareApplicationData } from '@/lib/seo-utils';
-
 export const PLATFORM_CONFIG = {
   name: 'Baci',
   legalName: 'Baci AI E-commerce',
@@ -12,6 +10,12 @@ export const PLATFORM_CONFIG = {
     'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
   version: '2.0.0',
   currency: 'NGN', // Platform base currency (Nigerian Naira)
+  logo: '/baci-logo.svg',
+  socialMedia: {
+    twitter: 'https://twitter.com/usebaci',
+    linkedin: 'https://linkedin.com/company/usebaci',
+    instagram: 'https://instagram.com/usebaci',
+  },
 };
 
 /** Apple Developer Team ID for Universal Links (AASA) */
@@ -51,46 +55,16 @@ export const MOBILE_APPS = {
     playStoreUrl:
       'https://play.google.com/store/apps/details?id=com.ogabassey.store',
     appStoreUrl: '',
-    deepLinkPaths: ['/product/*', '/blog/*', '/category/*', '/cart', '/'],
+    deepLinkPaths: [
+      '/product/*',
+      '/products/*',
+      '/blog/*',
+      '/category/*',
+      '/cart',
+      '/receipts',
+      '/account',
+      '/account/*',
+      '/',
+    ],
   },
 } as const;
-
-export const PLATFORM_PRICING: SoftwareApplicationData = {
-  name: PLATFORM_CONFIG.name,
-  applicationCategory: 'BusinessApplication',
-  operatingSystem: 'Web',
-  description: PLATFORM_CONFIG.description,
-  url: PLATFORM_CONFIG.url,
-  softwareVersion: PLATFORM_CONFIG.version,
-  image: `${PLATFORM_CONFIG.url}/opengraph-image`,
-  featureList: [
-    'AI Store Builder',
-    'Inventory Management',
-    'Payment Processing',
-    'SEO Optimization',
-    'Analytics Dashboard',
-  ],
-  offers: [
-    {
-      name: 'Free Tier',
-      description: 'Perfect for starting out',
-      price: 0,
-      currency: PLATFORM_CONFIG.currency,
-      billingDuration: 'P1M',
-    },
-    {
-      name: 'Pro Tier',
-      description: 'For growing businesses',
-      price: 5000,
-      currency: PLATFORM_CONFIG.currency,
-      billingDuration: 'P1M',
-    },
-    {
-      name: 'Premium Tier',
-      description: 'For scaling enterprises',
-      price: 15000,
-      currency: PLATFORM_CONFIG.currency,
-      billingDuration: 'P1M',
-    },
-  ],
-};

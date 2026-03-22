@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
@@ -59,7 +60,6 @@ interface ShippingAddress {
  * GET /api/orders/[id]/invoice
  * Generate and download a Peppol BIS 3.0 compliant invoice PDF
  */
-import { cookies } from 'next/headers';
 
 export async function GET(
   _request: NextRequest,
@@ -252,7 +252,10 @@ export async function GET(
         (sum, item) => sum + item.line_extension_amount,
         0
       );
-      const taxAmount = items.reduce((sum, item) => sum + item.vat_amount, 0);
+      const taxAmount = items.reduce(
+        (sum, item) => sum + (item.vat_amount ?? 0),
+        0
+      );
       invoiceTaxSubtotals.push({
         vat_category_code: 'S',
         vat_rate: merchant.vat_rate || 7.5,
