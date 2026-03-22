@@ -141,13 +141,6 @@ describe('buildAssetLinks', () => {
     expect(result[0].relation_extensions).toBeUndefined();
   });
 
-  it('includes credential sharing relation for admin app', () => {
-    const result = buildAssetLinks(adminConfig);
-    expect(result[0].relation).toContain(
-      'delegate_permission/common.get_login_creds'
-    );
-  });
-
   it('returns empty array when no apps configured', () => {
     expect(buildAssetLinks(emptyConfig)).toEqual([]);
   });

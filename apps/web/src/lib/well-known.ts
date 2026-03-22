@@ -69,10 +69,7 @@ export function buildAssetLinks(config: DomainAppConfig): AssetLinkStatement[] {
 
   if (config.includeAdmin) {
     statements.push({
-      relation: [
-        'delegate_permission/common.handle_all_urls',
-        'delegate_permission/common.get_login_creds',
-      ],
+      relation: ['delegate_permission/common.handle_all_urls'],
       target: {
         namespace: 'android_app',
         package_name: MOBILE_APPS.admin.androidPackage,

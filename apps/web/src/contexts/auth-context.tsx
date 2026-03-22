@@ -49,16 +49,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-
-    // Clear browser storage to prevent data leakage between users.
-    // sessionStorage holds merchant-specific data and form state;
-    // localStorage holds cart and preference data.
-    try {
-      sessionStorage.clear();
-      localStorage.clear();
-    } catch (_storageError) {
-      // Storage access may fail in restricted contexts (e.g. sandboxed iframes)
-    }
   };
 
   const value = { user, loading, signOut };

@@ -51,9 +51,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.baci',
     buildNumber: '10',
-    // www.usebaci.com excluded: Vercel 308-redirects www → bare domain,
-    // and Apple/Android reject redirects for verification files.
-    associatedDomains: ['applinks:usebaci.com'],
+    associatedDomains: ['applinks:usebaci.com', 'applinks:www.usebaci.com'],
     infoPlist: {
       NSCameraUsageDescription:
         'Allow the app to scan barcodes for inventory management and product lookup.',
@@ -91,14 +89,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         action: 'VIEW',
         autoVerify: true,
-        // www.usebaci.com excluded: Vercel 308-redirects www → bare domain,
-        // so Android can't verify assetlinks.json at www. Users on www get
-        // redirected to usebaci.com which IS verified.
         data: [
           { scheme: 'https', host: 'usebaci.com', pathPrefix: '/dashboard' },
           { scheme: 'https', host: 'usebaci.com', pathPrefix: '/admin' },
           { scheme: 'https', host: 'usebaci.com', pathPrefix: '/store' },
           { scheme: 'https', host: 'usebaci.com', pathPrefix: '/orders' },
+          {
+            scheme: 'https',
+            host: 'www.usebaci.com',
+            pathPrefix: '/dashboard',
+          },
+          { scheme: 'https', host: 'www.usebaci.com', pathPrefix: '/admin' },
+          { scheme: 'https', host: 'www.usebaci.com', pathPrefix: '/store' },
+          { scheme: 'https', host: 'www.usebaci.com', pathPrefix: '/orders' },
         ],
         category: ['BROWSABLE', 'DEFAULT'],
       },
