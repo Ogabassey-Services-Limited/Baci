@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { getTemplate } from '@/templates/registry';
 import {
   generateAboutPageJsonLd,
   type MerchantAboutPage,
@@ -67,6 +67,47 @@ export default async function AboutPage({ params }: PageProps) {
 
   const jsonLd = generateAboutPageJsonLd(merchant, aboutPage, baseUrl);
 
+  // Resolve template component server-side (same pattern as blog/page.tsx)
+  const templateId = merchant.template_id;
+  if (templateId && templateId !== 'default' && templateId !== 'puck') {
+    const template = getTemplate(templateId);
+    if (template) {
+      try {
+        const components = await template.getComponents();
+        if (components.About) {
+          const AboutComponent = components.About;
+          return (
+            <>
+              <script
+                type="application/ld+json"
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
+                dangerouslySetInnerHTML={{
+                  __html: safeJsonLdStringify(
+                    jsonLd as Record<string, unknown>
+                  ),
+                }}
+              />
+              <AboutComponent
+                // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
+                merchant={merchant as any}
+                storeSlug={merchant.slug}
+                isPreview={false}
+              />
+            </>
+          );
+        }
+      } catch (error) {
+        console.error(
+          'Failed to load About component for template',
+          templateId,
+          ':',
+          error
+        );
+      }
+    }
+  }
+
+  // Fallback to default about page
   return (
     <>
       <script
@@ -76,16 +117,10 @@ export default async function AboutPage({ params }: PageProps) {
           __html: safeJsonLdStringify(jsonLd as Record<string, unknown>),
         }}
       />
-      <StorefrontPageWrapper
-        pageName="About"
+      <AboutPageClient
         merchant={merchant}
-        fallback={
-          <AboutPageClient
-            merchant={merchant}
-            aboutPage={aboutPage}
-            legacyContent={legacyAboutContent}
-          />
-        }
+        aboutPage={aboutPage}
+        legacyContent={legacyAboutContent}
       />
     </>
   );

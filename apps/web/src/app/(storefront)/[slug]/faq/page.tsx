@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateFAQSchema } from '@/lib/seo-utils';
+import { getTemplate } from '@/templates/registry';
 import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
 import { FAQPageClient } from '../pages/faq/faq-page-client';
 
@@ -62,25 +62,54 @@ export default async function FAQPage({ params }: PageProps) {
 
   const faqSchema = generateFAQSchema(faqItems);
 
+  const jsonLdScript = (
+    <script
+      type="application/ld+json"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}
+    />
+  );
+
+  // Resolve template component server-side for SEO (H1 in SSR HTML)
+  const templateId = merchant.template_id;
+  if (templateId && templateId !== 'default' && templateId !== 'puck') {
+    const template = getTemplate(templateId);
+    if (template) {
+      try {
+        const components = await template.getComponents();
+        if (components.Help) {
+          const HelpComponent = components.Help;
+          return (
+            <>
+              {jsonLdScript}
+              <HelpComponent
+                // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
+                merchant={merchant as any}
+                storeSlug={merchant.slug}
+                isPreview={false}
+              />
+            </>
+          );
+        }
+      } catch (error) {
+        console.error(
+          'Failed to load Help component for template',
+          templateId,
+          ':',
+          error
+        );
+      }
+    }
+  }
+
+  // Fallback to default FAQ page
   return (
     <>
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}
-      />
-      <StorefrontPageWrapper
-        pageName="Help"
+      {jsonLdScript}
+      <FAQPageClient
         merchant={merchant}
-        fallback={
-          <FAQPageClient
-            merchant={merchant}
-            faqItems={faqItems}
-            legacyContent={
-              !merchant.faq_items ? merchant.pages?.faq : undefined
-            }
-          />
-        }
+        faqItems={faqItems}
+        legacyContent={!merchant.faq_items ? merchant.pages?.faq : undefined}
       />
     </>
   );
