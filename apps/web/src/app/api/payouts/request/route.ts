@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -21,6 +22,16 @@ const MINIMUM_PAYOUT_AMOUNTS: Record<Currency, number> = {
 
 export async function POST(_request: Request) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(_request as NextRequest);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const body = await _request.json();
     const { amount, currency = 'NGN', bank_code, account_number } = body;
 
@@ -272,7 +283,9 @@ export async function GET(_request: NextRequest) {
     // Fetch payout requests
     const { data: payouts, error: payoutsError } = await supabase
       .from('payout_requests')
-      .select('*')
+      .select(
+        'id, merchant_id, amount, currency, status, bank_name, account_number, account_name, reference, created_at, processed_at'
+      )
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 

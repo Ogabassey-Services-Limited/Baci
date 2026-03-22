@@ -36,27 +36,13 @@ import { GadgetPattern } from '../components/GadgetPattern';
 import { EmptyState } from '../components/empty-state';
 
 interface NavbarProps {
-  logo?: string;
-  storeName?: string;
   storeSlug?: string;
-  showSearch?: boolean;
-  showCart?: boolean;
-  showUser?: boolean;
-  showBell?: boolean;
 }
 
 export const OgabasseyNavbar: React.FC<NavbarProps> = ({
-  logo,
-  storeName,
   storeSlug,
-  showSearch = true,
-  showCart = true,
-  showUser = true,
-  showBell = true,
 }) => {
-  /* eslint-disable @typescript-eslint/no-unused-vars */
   const { totalItems, setIsCartOpen } = useCart();
-  /* eslint-enable @typescript-eslint/no-unused-vars */
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
   // const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
@@ -85,13 +71,9 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   const basePath = storeSlug ? (storeSlug.startsWith('/') ? encodeURI(storeSlug) : `/${encodeURIComponent(storeSlug)}`) : '';
 
   // Notification UI State
-  const [showMobileSearch, setShowMobileSearch] = useState(false);
-  // Initialize with false for SSR consistency, then hydrate from localStorage
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [categories, setCategories] = useState<Array<{ name: string; slug: string; icon: any }>>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const [_isSourceModalOpen, setIsSourceModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const categoryRef = useRef<HTMLDivElement>(null);
@@ -120,14 +102,6 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
-
-  // Hydrate notificationsEnabled from localStorage after mount (SSR-safe)
-  useEffect(() => {
-    const stored = localStorage.getItem('notifications-enabled');
-    if (stored === 'true') {
-      setNotificationsEnabled(true);
-    }
   }, []);
 
   // Handle product selection from search autocomplete
@@ -180,11 +154,6 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
     } else {
       router.push(`${basePath}/search?q=${encodeURIComponent(trimmedQuery)}` as `/${string}`);
     }
-  };
-
-  const openSourceModal = () => {
-    // setShowDropdown(false);
-    setIsSourceModalOpen(true);
   };
 
   // Icon mapping for categories

@@ -28,7 +28,7 @@ jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => mockUseColorScheme(),
 }));
 
-jest.mock('@/hooks/use-products', () => ({
+jest.mock('@/hooks', () => ({
   useCategories: () => mockUseCategories(),
 }));
 

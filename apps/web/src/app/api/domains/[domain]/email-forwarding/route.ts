@@ -6,6 +6,7 @@ import {
   hasPermission,
 } from '@/lib/api-auth';
 import { logAudit } from '@/lib/audit-logger';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getDomainEmailForwarding,
   updateDomainEmailForwarding,
@@ -60,7 +61,7 @@ export async function GET(
     // Verify domain ownership through merchant access context
     const { data: domainData, error: domainError } = await supabase
       .from('domains')
-      .select('*')
+      .select('id, domain, merchant_id')
       .eq('domain', domain)
       .eq('merchant_id', access.merchantId)
       .single();
@@ -93,6 +94,16 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ domain: string }> }
 ) {
+  // CSRF protection
+  const { valid: csrfValid, response: csrfResponse } =
+    await checkCsrfProtection(request);
+  if (!csrfValid) {
+    return (
+      csrfResponse ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   let userId: string | null = null;
   let domainData: { merchant_id: string } | null = null;
   let supabase: SupabaseClient | null = null;

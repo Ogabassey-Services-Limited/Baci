@@ -3,6 +3,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { generatePaymentAccount } from '@/lib/paystack';
 
@@ -16,6 +17,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const { id: orderId } = await params;
     const body = await request.json();
 
@@ -112,18 +123,54 @@ export async function POST(
       });
 
       if (dvaResult.success) {
-        await supabase.from('order_payment_accounts').insert({
-          order_id: orderId,
-          account_number: dvaResult.data.account_number,
-          bank_name: dvaResult.data.bank_name,
-          account_name: dvaResult.data.account_name,
-          provider: 'paystack',
-        });
-        virtualAccount = {
-          account_number: dvaResult.data.account_number,
-          bank_name: dvaResult.data.bank_name,
-          account_name: dvaResult.data.account_name,
-        };
+        const { error: insertError } = await supabase
+          .from('order_payment_accounts')
+          .insert({
+            order_id: orderId,
+            account_number: dvaResult.data.account_number,
+            bank_name: dvaResult.data.bank_name,
+            account_name: dvaResult.data.account_name,
+            provider: 'paystack',
+          });
+
+        if (insertError) {
+          // Handle duplicate key conflicts as idempotent success
+          const { data: existingAccount } = await supabase
+            .from('order_payment_accounts')
+            .select('account_number, bank_name, account_name')
+            .eq('order_id', orderId)
+            .eq('provider', 'paystack')
+            .maybeSingle();
+
+          if (existingAccount) {
+            logger.info({
+              message:
+                'Order payment account already exists, treating as idempotent success',
+              orderId,
+            });
+            virtualAccount = {
+              account_number: existingAccount.account_number,
+              bank_name: existingAccount.bank_name,
+              account_name: existingAccount.account_name,
+            };
+          } else {
+            logger.error({
+              message: 'Failed to insert order payment account',
+              error: insertError,
+              orderId,
+            });
+            return NextResponse.json(
+              { error: 'Failed to create payment account' },
+              { status: 500 }
+            );
+          }
+        } else {
+          virtualAccount = {
+            account_number: dvaResult.data.account_number,
+            bank_name: dvaResult.data.bank_name,
+            account_name: dvaResult.data.account_name,
+          };
+        }
       }
     } catch (vaError) {
       // Non-blocking: Log but don't fail the request

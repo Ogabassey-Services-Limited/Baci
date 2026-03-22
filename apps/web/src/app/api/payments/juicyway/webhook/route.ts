@@ -128,7 +128,9 @@ export async function POST(request: NextRequest) {
     // Find transaction record
     const { data: transaction, error: transactionError } = await supabase
       .from('transactions')
-      .select('*')
+      .select(
+        'id, order_id, merchant_id, amount, gateway_fee, platform_fee, status'
+      )
       .eq('gateway_reference', reference)
       .single();
 

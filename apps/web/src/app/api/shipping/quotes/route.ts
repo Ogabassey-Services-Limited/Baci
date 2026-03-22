@@ -14,6 +14,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -79,6 +80,16 @@ const QuoteRequestSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const body = await request.json();
 
     // Validate request
@@ -251,7 +262,9 @@ export async function GET(request: NextRequest) {
 
     const { data: quotes, error } = await supabase
       .from('shipping_quotes')
-      .select('*')
+      .select(
+        'id, session_id, provider, service_tier, carrier_name, estimated_days, min_days, max_days, price, currency, pickup_included, insurance_included, is_station_pickup, station_name, station_address, provider_rate_id, expires_at'
+      )
       .eq('session_id', sessionId)
       .gt('expires_at', new Date().toISOString())
       .order('price', { ascending: true });

@@ -95,22 +95,22 @@ export async function getWalletData(merchantId: string) {
     return null;
   }
 
-  // Get pending settlements
-  const { data: pendingSettlements } = await supabase
-    .from('merchant_settlements')
-    .select(
-      'id, net_amount, gateway, source_type, expected_settlement_date, description'
-    )
-    .eq('merchant_id', merchantId)
-    .eq('status', 'pending')
-    .order('expected_settlement_date', { ascending: true })
-    .limit(10);
-
-  // Get wallet summary
-  const { data: walletSummary, error: summaryError } = await supabase.rpc(
-    'get_wallet_summary',
-    { p_merchant_id: merchantId }
-  );
+  // Fetch pending settlements and wallet summary concurrently
+  const [
+    { data: pendingSettlements },
+    { data: walletSummary, error: summaryError },
+  ] = await Promise.all([
+    supabase
+      .from('merchant_settlements')
+      .select(
+        'id, net_amount, gateway, source_type, expected_settlement_date, description'
+      )
+      .eq('merchant_id', merchantId)
+      .eq('status', 'pending')
+      .order('expected_settlement_date', { ascending: true })
+      .limit(10),
+    supabase.rpc('get_wallet_summary', { p_merchant_id: merchantId }),
+  ]);
 
   if (summaryError || !walletSummary?.[0]) {
     // Fallback if RPC fails or returns empty

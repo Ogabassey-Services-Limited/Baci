@@ -44,7 +44,9 @@ export async function GET() {
 
     const { data: settings, error } = await supabase
       .from('loyalty_settings')
-      .select('*')
+      .select(
+        'id, merchant_id, enabled, program_name, points_per_currency, points_currency_unit, signup_bonus_points, birthday_bonus_points, review_bonus_points, referral_bonus_points, points_to_currency_ratio, minimum_redemption_points, maximum_redemption_percentage, tiers, points_expiry_days, updated_at'
+      )
       .eq('merchant_id', merchantId)
       .single();
 

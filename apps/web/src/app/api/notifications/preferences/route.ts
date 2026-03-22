@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -68,7 +69,9 @@ export async function GET() {
     // Fetch preferences
     const { data: preferences, error } = await supabase
       .from('notification_preferences')
-      .select('*')
+      .select(
+        'id, merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end, updated_at'
+      )
       .eq('merchant_id', merchantId)
       .single();
 
@@ -109,6 +112,16 @@ export async function GET() {
  */
 export async function PATCH(request: NextRequest) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 

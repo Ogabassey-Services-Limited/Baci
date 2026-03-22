@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getEdgeConfigDomainKey,
   getEdgeConfigSlugKey,
@@ -32,6 +33,16 @@ function getEdgeConfigId(): string | null {
  */
 export async function POST(request: Request) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request as NextRequest);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const vercelApiToken = process.env.VERCEL_API_TOKEN?.trim();
 
     // Verify authorization

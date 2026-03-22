@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -57,7 +58,9 @@ export async function GET(request: NextRequest) {
     // Get segment summary
     const { data: summary } = await supabase
       .from('customer_segment_summary')
-      .select('*')
+      .select(
+        'merchant_id, segment_name, customer_count, total_revenue, avg_order_value'
+      )
       .eq('merchant_id', merchantId);
 
     // Get customers with RFM scores
@@ -65,7 +68,7 @@ export async function GET(request: NextRequest) {
       .from('customer_rfm_scores')
       .select(
         `
-        *,
+        customer_id, rfm_segment, lifecycle_segment, recency_score, frequency_score, monetary_score, total_orders, total_spent, average_order_value, days_since_last_order, first_order_date, last_order_date, predicted_clv, churn_risk, updated_at,
         customers (
           id,
           name,
@@ -98,7 +101,9 @@ export async function GET(request: NextRequest) {
     // Get segment definitions
     const { data: definitions } = await supabase
       .from('segment_definitions')
-      .select('*')
+      .select(
+        'id, segment_name, display_name, description, color, priority, merchant_id'
+      )
       .or(`merchant_id.is.null,merchant_id.eq.${merchantId}`)
       .order('priority', { ascending: false });
 
@@ -142,6 +147,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(_request: NextRequest) {
   try {
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(_request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 

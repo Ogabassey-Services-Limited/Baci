@@ -46,7 +46,9 @@ export async function GET(
     // Get job (ensure it belongs to this merchant)
     const { data: job, error: jobError } = await supabase
       .from('ai_jobs')
-      .select('*')
+      .select(
+        'id, merchant_id, type, status, input, output, error, created_at, started_at, completed_at'
+      )
       .eq('id', id)
       .eq('merchant_id', merchantId)
       .single();

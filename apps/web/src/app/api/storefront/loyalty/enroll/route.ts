@@ -21,7 +21,9 @@ export async function POST(request: NextRequest) {
     // Get loyalty settings
     const { data: settings, error: settingsError } = await supabase
       .from('loyalty_settings')
-      .select('*')
+      .select(
+        'id, merchant_id, enabled, welcome_bonus, referral_bonus_referee, referral_bonus_referrer'
+      )
       .eq('merchant_id', merchant_id)
       .single();
 

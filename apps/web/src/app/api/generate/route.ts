@@ -1,8 +1,10 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { generateText, type ModelMessage } from 'ai';
+import { type NextRequest, NextResponse } from 'next/server';
 import { match } from 'ts-pattern';
 import { activeTextModel } from '@/ai/provider';
+import { checkCsrfProtection } from '@/lib/csrf';
 
 // Check if Upstash Redis is configured for rate limiting (optional)
 const ratelimit =
@@ -18,6 +20,16 @@ const ratelimit =
     : null;
 
 export async function POST(req: Request): Promise<Response> {
+  // CSRF protection
+  const { valid: csrfValid, response: csrfResponse } =
+    await checkCsrfProtection(req as NextRequest);
+  if (!csrfValid) {
+    return (
+      csrfResponse ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   const { prompt, option, command } = (await req.json()) as {
     prompt: string;
     option: string;
