@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('@/env', () => ({
+  getImportJobWorkerSecret: vi.fn(() => 'worker-secret'),
+}));
+
 vi.mock('@/lib/imports/csv/parse-csv', () => ({
   parseCsvText: vi.fn(),
 }));
@@ -13,14 +17,22 @@ vi.mock('@/lib/imports/bumpa/build-bumpa-product-preview', () => ({
   buildBumpaProductPreview: vi.fn(),
 }));
 
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: vi.fn(),
+  },
+}));
+
 import { buildBumpaOrderPreview } from '@/lib/imports/bumpa/build-bumpa-order-preview';
 import { buildBumpaProductPreview } from '@/lib/imports/bumpa/build-bumpa-product-preview';
 import { parseCsvText } from '@/lib/imports/csv/parse-csv';
+import { logger } from '@/lib/logger';
 import {
   buildImportJobRowInserts,
   buildImportPreviewForJob,
   createImportStoragePath,
   mergeImportJobSummary,
+  triggerImportWorker,
   validateImportFile,
 } from './import-job-service';
 
@@ -125,6 +137,7 @@ function createSupabaseMock() {
 describe('import-job-service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('sanitizes upload filenames when creating storage paths', () => {
@@ -290,5 +303,53 @@ describe('import-job-service', () => {
       invalidRows: 2,
       createdOrders: 8,
     });
+  });
+
+  it('triggers the worker with a targeted job payload', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 200,
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await triggerImportWorker('https://usebaci.com', 'job-123');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://usebaci.com/api/import-jobs/worker',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer worker-secret',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ jobId: 'job-123' }),
+        cache: 'no-store',
+      }
+    );
+  });
+
+  it('throws when the worker responds with a non-ok status', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response('Unauthorized', {
+        status: 401,
+        statusText: 'Unauthorized',
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      triggerImportWorker('https://usebaci.com', 'job-123')
+    ).rejects.toThrow('Import worker trigger failed: 401 Unauthorized');
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Import worker trigger returned non-OK response',
+        origin: 'https://usebaci.com',
+        jobId: 'job-123',
+        status: 401,
+        statusText: 'Unauthorized',
+        body: 'Unauthorized',
+      })
+    );
   });
 });

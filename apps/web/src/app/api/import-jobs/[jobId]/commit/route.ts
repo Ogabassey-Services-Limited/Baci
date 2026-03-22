@@ -103,7 +103,7 @@ export async function POST(
       );
     }
 
-    after(() => triggerImportWorker(request.nextUrl.origin));
+    after(() => triggerImportWorker(request.nextUrl.origin, job.id));
 
     return NextResponse.json(
       { jobId: job.id, status: 'commit_queued' },

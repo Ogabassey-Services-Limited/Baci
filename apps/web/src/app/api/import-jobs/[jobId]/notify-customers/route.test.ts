@@ -226,7 +226,7 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
       jobId,
       status: 'notify_queued',
     });
-    expect(triggerImportWorker).toHaveBeenCalledWith('http://localhost');
+    expect(triggerImportWorker).toHaveBeenCalledWith('http://localhost', jobId);
   });
 
   it('returns 409 when the committed transition no longer matches a row', async () => {
