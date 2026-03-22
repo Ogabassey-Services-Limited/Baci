@@ -7,7 +7,10 @@ import {
 } from '@/lib/import-jobs/process-import-job';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
-import { importJobWorkerRequestSchema } from '@/schemas/import-jobs';
+import {
+  type ImportJobWorkerRequest,
+  importJobWorkerRequestSchema,
+} from '@/schemas/import-jobs';
 
 function hasValidWorkerSecret(
   authHeader: string | null,
@@ -44,11 +47,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let workerRequest: { jobId?: string } = {};
-    try {
-      workerRequest = importJobWorkerRequestSchema.parse(await request.json());
-    } catch {
-      workerRequest = {};
+    let workerRequest: ImportJobWorkerRequest = {};
+    const rawBody = await request.text();
+
+    if (rawBody.trim().length > 0) {
+      let parsedBody: unknown;
+
+      try {
+        parsedBody = JSON.parse(rawBody);
+      } catch {
+        return NextResponse.json(
+          { error: 'Invalid worker request body', code: 'invalid_request' },
+          { status: 400 }
+        );
+      }
+
+      const parsedRequest = importJobWorkerRequestSchema.safeParse(parsedBody);
+      if (!parsedRequest.success) {
+        return NextResponse.json(
+          { error: 'Invalid worker request body', code: 'invalid_request' },
+          { status: 400 }
+        );
+      }
+
+      workerRequest = parsedRequest.data;
     }
 
     const supabase = createServiceClient();

@@ -74,6 +74,7 @@ describe('POST /api/import-jobs/worker', () => {
   });
 
   it('processes a specific job when jobId is provided', async () => {
+    const jobId = 'ece4d914-7cc9-443c-9770-342515ecffe7';
     vi.mocked(processImportJobById).mockResolvedValueOnce({
       id: 'job-1',
       status: 'preview_ready',
@@ -87,7 +88,7 @@ describe('POST /api/import-jobs/worker', () => {
           authorization: 'Bearer worker-secret',
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ jobId: 'ece4d914-7cc9-443c-9770-342515ecffe7' }),
+        body: JSON.stringify({ jobId }),
       })
     );
 
@@ -97,10 +98,54 @@ describe('POST /api/import-jobs/worker', () => {
       results: [{ id: 'job-1', status: 'preview_ready', processed: 3 }],
     });
     expect(createServiceClient).toHaveBeenCalledTimes(1);
-    expect(processImportJobById).toHaveBeenCalledWith(
-      { service: true },
-      'ece4d914-7cc9-443c-9770-342515ecffe7'
+    expect(processImportJobById).toHaveBeenCalledWith({ service: true }, jobId);
+    expect(processImportJobQueue).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when the targeted jobId is invalid', async () => {
+    const response = await POST(
+      new NextRequest('http://localhost/api/import-jobs/worker', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer worker-secret',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ jobId: 'not-a-uuid' }),
+      })
     );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid worker request body',
+      code: 'invalid_request',
+    });
+    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(processImportJobById).not.toHaveBeenCalled();
+    expect(processImportJobQueue).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when targeted job processing fails', async () => {
+    const jobId = 'ece4d914-7cc9-443c-9770-342515ecffe7';
+    vi.mocked(processImportJobById).mockRejectedValueOnce(new Error('boom'));
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/import-jobs/worker', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer worker-secret',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ jobId }),
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Internal server error',
+      code: 'internal_error',
+    });
+    expect(createServiceClient).toHaveBeenCalledTimes(1);
+    expect(processImportJobById).toHaveBeenCalledWith({ service: true }, jobId);
     expect(processImportJobQueue).not.toHaveBeenCalled();
   });
 

@@ -248,4 +248,27 @@ describe('processImportJobById', () => {
     expect(result).toBeNull();
     expect(runClaimedImportJob).not.toHaveBeenCalled();
   });
+
+  it('returns null when the specific job does not exist', async () => {
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.maybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
+
+    const supabase = {
+      from: vi.fn().mockReturnValue(loadQuery),
+    } as unknown as SupabaseClient;
+
+    const result = await processImportJobById(supabase, 'uploaded-job');
+
+    expect(result).toBeNull();
+    expect(runClaimedImportJob).not.toHaveBeenCalled();
+  });
 });
