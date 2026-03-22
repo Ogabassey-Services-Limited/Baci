@@ -31,6 +31,10 @@ export const importJobUploadSchema = z.object({
   entityType: importJobEntityTypeSchema,
 });
 
+export const importJobWorkerRequestSchema = z.object({
+  jobId: z.string().uuid().optional(),
+});
+
 export type ImportJobEntityType = z.infer<typeof importJobEntityTypeSchema>;
 export type ImportJobRowsQuery = z.infer<typeof importJobRowsQuerySchema>;
 export type ImportJobSourcePlatform = z.infer<

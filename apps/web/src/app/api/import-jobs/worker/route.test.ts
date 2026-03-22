@@ -7,6 +7,7 @@ vi.mock('@/env', () => ({
 }));
 
 vi.mock('@/lib/import-jobs/process-import-job', () => ({
+  processImportJobById: vi.fn(),
   processImportJobQueue: vi.fn(),
 }));
 
@@ -14,7 +15,10 @@ vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: vi.fn(() => ({ service: true })),
 }));
 
-import { processImportJobQueue } from '@/lib/import-jobs/process-import-job';
+import {
+  processImportJobById,
+  processImportJobQueue,
+} from '@/lib/import-jobs/process-import-job';
 import { createServiceClient } from '@/lib/supabase/service';
 import { POST } from './route';
 
@@ -67,6 +71,37 @@ describe('POST /api/import-jobs/worker', () => {
     });
     expect(createServiceClient).toHaveBeenCalledTimes(1);
     expect(processImportJobQueue).toHaveBeenCalledWith({ service: true }, 3);
+  });
+
+  it('processes a specific job when jobId is provided', async () => {
+    vi.mocked(processImportJobById).mockResolvedValueOnce({
+      id: 'job-1',
+      status: 'preview_ready',
+      processed: 3,
+    });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/import-jobs/worker', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer worker-secret',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ jobId: 'ece4d914-7cc9-443c-9770-342515ecffe7' }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      processed: 1,
+      results: [{ id: 'job-1', status: 'preview_ready', processed: 3 }],
+    });
+    expect(createServiceClient).toHaveBeenCalledTimes(1);
+    expect(processImportJobById).toHaveBeenCalledWith(
+      { service: true },
+      'ece4d914-7cc9-443c-9770-342515ecffe7'
+    );
+    expect(processImportJobQueue).not.toHaveBeenCalled();
   });
 
   it('returns 500 when queue processing fails', async () => {

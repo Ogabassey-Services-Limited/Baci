@@ -249,7 +249,7 @@ export function buildImportJobRowInserts(
   );
 }
 
-export async function triggerImportWorker(origin: string) {
+export async function triggerImportWorker(origin: string, jobId?: string) {
   const workerSecret = getImportJobWorkerSecret();
 
   if (!workerSecret) {
@@ -260,13 +260,16 @@ export async function triggerImportWorker(origin: string) {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${workerSecret}`,
+      ...(jobId ? { 'Content-Type': 'application/json' } : {}),
     },
+    ...(jobId ? { body: JSON.stringify({ jobId }) } : {}),
     cache: 'no-store',
   }).catch((error) => {
     logger.error({
       message: 'Failed to trigger import worker',
       error,
       origin,
+      jobId,
     });
   });
 }

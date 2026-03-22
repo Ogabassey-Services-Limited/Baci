@@ -221,7 +221,7 @@ describe('POST /api/import-jobs', () => {
     });
   });
 
-  it('creates an import job and triggers the worker after upload', async () => {
+  it('creates an import job and triggers the worker for that job before returning', async () => {
     const supabaseMock = createSupabaseMock();
     vi.mocked(resolveImportRouteContext).mockResolvedValue({
       context: {
@@ -271,7 +271,10 @@ describe('POST /api/import-jobs', () => {
         storage_path: 'merchant-1/orders/orders.csv',
       })
     );
-    expect(triggerImportWorker).toHaveBeenCalledWith('http://localhost');
+    expect(triggerImportWorker).toHaveBeenCalledWith(
+      'http://localhost',
+      'job-1'
+    );
   });
 
   it('returns 500 when storage upload fails', async () => {
