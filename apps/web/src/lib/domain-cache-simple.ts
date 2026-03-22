@@ -88,6 +88,72 @@ async function getFromCacheOrDb(merchantSlug: string): Promise<string | null> {
   return customDomain;
 }
 
+/**
+ * Reverse lookup: given a custom domain, find the merchant slug.
+ * Uses in-memory cache with DB fallback (same pattern as getCustomDomainForSlug).
+ * Used by the proxy to rewrite SEO file paths (sitemap, robots) without dots in [slug].
+ */
+interface ReverseCacheEntry {
+  slug: string | null;
+  timestamp: number;
+}
+
+const reverseDomainCache = new Map<string, ReverseCacheEntry>();
+
+export async function getSlugForCustomDomain(
+  domain: string
+): Promise<string | null> {
+  const cached = reverseDomainCache.get(domain);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.slug;
+  }
+
+  const slug = await fetchSlugForDomain(domain);
+
+  if (reverseDomainCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = reverseDomainCache.keys().next().value;
+    if (firstKey) reverseDomainCache.delete(firstKey);
+  }
+
+  reverseDomainCache.set(domain, {
+    slug,
+    timestamp: Date.now(),
+  });
+
+  return slug;
+}
+
+async function fetchSlugForDomain(domain: string): Promise<string | null> {
+  try {
+    const supabase = createAdminClient();
+
+    const { data, error } = await supabase
+      .from('domains')
+      .select('merchants!inner(slug)')
+      .eq('domain', domain)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) {
+      console.error('[Domain Cache] Failed to fetch slug for domain', {
+        domain,
+        error,
+      });
+      return null;
+    }
+
+    const merchant = data.merchants as unknown as { slug: string };
+    return merchant.slug ?? null;
+  } catch (err) {
+    console.error('[Domain Cache] Error fetching slug for domain', {
+      domain,
+      error: err,
+    });
+    return null;
+  }
+}
+
 async function fetchCustomDomain(merchantSlug: string): Promise<string | null> {
   try {
     const supabase = createAdminClient();

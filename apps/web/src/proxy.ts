@@ -20,7 +20,10 @@ import {
   extractClickIdsFromUrl,
   generateClickIdCookies,
 } from '@/lib/ad-tracking-cookies';
-import { getCustomDomainForSlug } from '@/lib/domain-cache-simple';
+import {
+  getCustomDomainForSlug,
+  getSlugForCustomDomain,
+} from '@/lib/domain-cache-simple';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { updateSession } from '@/lib/supabase/middleware';
 
@@ -69,7 +72,6 @@ const MAIN_APP_ROUTES = [
   '/_next',
   '/favicon.ico',
   '/robots.txt',
-  '/sitemap.xml',
   '/manifest.webmanifest',
 ];
 
@@ -627,6 +629,39 @@ export async function proxy(request: NextRequest) {
           routeType,
           isLocal,
           undefined, // Storefront doesn't need strict nonce usually, or we can add it if needed
+          request,
+          hostname
+        );
+      }
+
+      // Sitemap file paths: rewrite using merchant slug (not domain) to avoid
+      // dots in [slug], which break Next.js metadata file-convention routing.
+      if (pathname.startsWith('/sitemap') || pathname === '/blog/sitemap.xml') {
+        const merchantSlug = await getSlugForCustomDomain(domain);
+        const sitemapUrl = request.nextUrl.clone();
+        // Use merchant slug if found, otherwise fall through to domain-based rewrite
+        sitemapUrl.pathname = `/${merchantSlug ?? domain}${pathname}`;
+
+        const sitemapHeaders = new Headers(request.headers);
+        sitemapHeaders.set('x-custom-domain', domain);
+        sitemapHeaders.set('x-merchant-domain', domain);
+
+        const response = NextResponse.rewrite(sitemapUrl, {
+          request: {
+            headers: sitemapHeaders,
+          },
+        });
+
+        const routeType = getRouteType(pathname);
+        const isLocal = isLocalhost(hostname);
+
+        return applySecurityHeaders(
+          response,
+          pathname,
+          userAgent,
+          routeType,
+          isLocal,
+          undefined,
           request,
           hostname
         );
