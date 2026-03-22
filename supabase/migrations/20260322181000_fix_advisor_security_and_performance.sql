@@ -156,7 +156,7 @@ COMMENT ON FUNCTION public.get_admin_top_merchants() IS
 --    Merge into one policy scoped to anon + authenticated.
 -- ============================================================
 
-DROP POLICY IF EXISTS "Consolidated: Public can view published or merchant can view ow" ON page_configs;
+DROP POLICY IF EXISTS "Consolidated: Public can view published or merchant can view own configs" ON page_configs;
 DROP POLICY IF EXISTS "Staff can view page configs" ON page_configs;
 
 CREATE POLICY "Select page configs" ON page_configs
