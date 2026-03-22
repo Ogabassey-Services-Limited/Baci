@@ -153,7 +153,10 @@ export default function ReceiptsPage() {
       <div className="container mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6 flex items-center gap-3">
           <Button asChild size="icon" variant="ghost">
-            <Link href={asRoute(getHref('/account'))}>
+            <Link
+              aria-label="Back to account"
+              href={asRoute(getHref('/account'))}
+            >
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -170,10 +173,11 @@ export default function ReceiptsPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
+                aria-label="Search receipts and invoices"
                 placeholder="Search by order number, product, or document type"
                 className="pl-10"
+                onChange={(event) => setSearchQuery(event.target.value)}
+                value={searchQuery}
               />
             </div>
           </CardContent>
@@ -181,6 +185,12 @@ export default function ReceiptsPage() {
 
         {isLoadingOrders ? (
           <div className="flex items-center justify-center py-20">
+            <output
+              aria-label="Loading receipts and invoices"
+              className="sr-only"
+            >
+              Loading receipts and invoices
+            </output>
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : ordersError ? (

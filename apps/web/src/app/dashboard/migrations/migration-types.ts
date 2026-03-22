@@ -1,6 +1,7 @@
 import type {
   ImportJobEntityType,
   ImportJobSourcePlatform,
+  ImportJobStatus,
 } from '@/schemas/import-jobs';
 
 export interface ImportJobListItem {
@@ -13,7 +14,7 @@ export interface ImportJobListItem {
   original_filename: string;
   processed_rows: number;
   source_platform: ImportJobSourcePlatform;
-  status: string;
+  status: ImportJobStatus;
   summary: Record<string, unknown> | null;
   total_rows: number;
 }

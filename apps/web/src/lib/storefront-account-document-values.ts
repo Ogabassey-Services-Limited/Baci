@@ -66,7 +66,7 @@ export function buildOrderItems(
     product_id: item.product_id || '',
     name: item.name,
     product_name: item.name,
-    quantity: item.quantity || 0,
+    quantity: item.quantity ?? 0,
     price: asNumber(item.price),
   }));
 }

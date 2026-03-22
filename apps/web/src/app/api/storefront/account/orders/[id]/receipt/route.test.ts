@@ -27,6 +27,7 @@ vi.mock('@/lib/storefront-account-document-data', async () => {
 });
 
 import { authenticateApiRequest } from '@/lib/api-auth';
+import { logger } from '@/lib/logger';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { generateReceiptBlob } from '@/lib/receipt-pdf-generator';
 import {
@@ -227,8 +228,8 @@ describe('GET /api/storefront/account/orders/[id]/receipt', () => {
   });
 
   it('logs and returns 500 for unexpected failures', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
+    const loggerErrorSpy = vi
+      .spyOn(logger, 'error')
       .mockImplementation(() => undefined);
     try {
       vi.mocked(authenticateApiRequest).mockResolvedValue(
@@ -244,18 +245,21 @@ describe('GET /api/storefront/account/orders/[id]/receipt', () => {
       await expect(response.json()).resolves.toEqual({
         error: 'Internal server error',
       });
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Unexpected storefront receipt download error:',
-        expect.any(Error)
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Unexpected storefront receipt download error',
+          route: 'storefront/account/orders/[id]/receipt',
+          error: expect.any(Error),
+        })
       );
     } finally {
-      consoleErrorSpy.mockRestore();
+      loggerErrorSpy.mockRestore();
     }
   });
 
   it('returns 500 when receipt PDF generation fails', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
+    const loggerErrorSpy = vi
+      .spyOn(logger, 'error')
       .mockImplementation(() => undefined);
 
     try {
@@ -275,12 +279,15 @@ describe('GET /api/storefront/account/orders/[id]/receipt', () => {
       await expect(response.json()).resolves.toEqual({
         error: 'Internal server error',
       });
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Unexpected storefront receipt download error:',
-        expect.any(Error)
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Unexpected storefront receipt download error',
+          route: 'storefront/account/orders/[id]/receipt',
+          error: expect.any(Error),
+        })
       );
     } finally {
-      consoleErrorSpy.mockRestore();
+      loggerErrorSpy.mockRestore();
     }
   });
 });

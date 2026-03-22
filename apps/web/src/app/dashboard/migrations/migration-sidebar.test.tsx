@@ -53,4 +53,48 @@ describe('MigrationSidebar', () => {
     expect(onUpload).toHaveBeenCalled();
     expect(onJobSelect).toHaveBeenCalledWith('job-1');
   });
+
+  it('does not submit when no file is selected', () => {
+    const onUpload = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <MigrationSidebar
+        entityType="orders"
+        jobs={[]}
+        onEntityTypeChange={vi.fn()}
+        onFileChange={vi.fn()}
+        onJobSelect={vi.fn()}
+        onUpload={onUpload}
+        selectedJobId={null}
+        uploading={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /create preview/i }));
+
+    expect(onUpload).not.toHaveBeenCalled();
+  });
+
+  it('disables upload while a job is being uploaded', () => {
+    const onUpload = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <MigrationSidebar
+        entityType="orders"
+        jobs={[]}
+        onEntityTypeChange={vi.fn()}
+        onFileChange={vi.fn()}
+        onJobSelect={vi.fn()}
+        onUpload={onUpload}
+        selectedJobId={null}
+        uploading
+      />
+    );
+
+    const button = screen.getByRole('button', { name: /uploading/i });
+    fireEvent.click(button);
+
+    expect(button).toBeDisabled();
+    expect(onUpload).not.toHaveBeenCalled();
+  });
 });

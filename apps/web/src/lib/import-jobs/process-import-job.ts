@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ImportJobRecord } from '@/lib/import-jobs/import-job-service';
 import { runClaimedImportJob } from '@/lib/import-jobs/run-claimed-import-job';
+import { logger } from '@/lib/logger';
 
 const QUEUED_STATUSES = ['uploaded', 'commit_queued', 'notify_queued'] as const;
 const CLAIMED_STATUS_MAP = {
@@ -54,6 +55,11 @@ export async function processImportJobQueue(
       .single();
 
     if (claimError || !claimedJob) {
+      logger.info({
+        message: 'Skipping import job that could not be claimed',
+        jobId: queuedJob.id,
+        claimError: claimError?.message || null,
+      });
       continue;
     }
 

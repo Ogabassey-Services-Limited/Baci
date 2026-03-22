@@ -1,5 +1,35 @@
 import { z } from 'zod';
 
+const urlSchema = z.string().url();
+
+const optionalUrl = z
+  .string()
+  .trim()
+  .optional()
+  .default('')
+  .refine((value) => value === '' || urlSchema.safeParse(value).success, {
+    message: 'Must be a valid URL',
+  });
+
+const optionalUrlList = z
+  .string()
+  .trim()
+  .optional()
+  .default('')
+  .refine(
+    (value) =>
+      value === '' ||
+      value
+        .split(/[|,]/)
+        .every(
+          (part) =>
+            part.trim() === '' || urlSchema.safeParse(part.trim()).success
+        ),
+    {
+      message: 'Must contain only valid URLs',
+    }
+  );
+
 export const bumpaProductRowSchema = z.object({
   'Product ID': z.string().trim().min(1),
   'Variant ID': z.string().trim().optional().default(''),
@@ -31,8 +61,8 @@ export const bumpaProductRowSchema = z.object({
   Collections: z.string().trim().optional().default(''),
   'Options Names': z.string().trim().optional().default(''),
   'Options Values': z.string().trim().optional().default(''),
-  'Main Image': z.string().trim().optional().default(''),
-  'Additional Images': z.string().trim().optional().default(''),
+  'Main Image': optionalUrl,
+  'Additional Images': optionalUrlList,
   'SEO Title': z.string().trim().optional().default(''),
   'SEO Description': z.string().trim().optional().default(''),
   'Product Type': z.string().trim().optional().default(''),

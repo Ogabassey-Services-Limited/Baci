@@ -655,7 +655,7 @@ export default function DashboardClientLayout({
                     </Link>
                   </div>
                   <nav className="grid gap-2 p-4 overflow-y-auto">
-                    {navItems.map((item) => {
+                    {filteredNavItems.map((item) => {
                       const isActive = pathname === item.href;
                       return (
                         <Link

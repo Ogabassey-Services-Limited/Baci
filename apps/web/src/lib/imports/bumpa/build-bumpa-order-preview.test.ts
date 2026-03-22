@@ -33,7 +33,6 @@ describe('buildBumpaOrderPreview', () => {
   it('builds normalized rows and infers receipt readiness', () => {
     const result = buildBumpaOrderPreview({
       rows: [baseRow],
-      existingCustomers: [],
       existingOrders: [],
       existingProducts: [
         {
@@ -77,7 +76,6 @@ describe('buildBumpaOrderPreview', () => {
   it('marks duplicate external ids in the same file', () => {
     const result = buildBumpaOrderPreview({
       rows: [baseRow, { ...baseRow }],
-      existingCustomers: [],
       existingOrders: [],
       existingProducts: [],
     });
@@ -89,7 +87,6 @@ describe('buildBumpaOrderPreview', () => {
   it('marks conflicting order numbers as invalid', () => {
     const result = buildBumpaOrderPreview({
       rows: [baseRow],
-      existingCustomers: [],
       existingOrders: [
         {
           id: 'existing-order',
@@ -118,7 +115,6 @@ describe('buildBumpaOrderPreview', () => {
           'Shipping Status': '',
         },
       ],
-      existingCustomers: [],
       existingOrders: [],
       existingProducts: [],
     });

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock all external dependencies before importing the module
 vi.mock('@/lib/import-commit/commit-bumpa-orders', () => ({
@@ -142,6 +142,10 @@ function createMockSupabase() {
 }
 
 describe('runClaimedImportJob', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('processes a validating job and returns preview_ready status', async () => {
     const supabase = createMockSupabase();
     const result = await runClaimedImportJob(supabase, makeJob());

@@ -161,8 +161,8 @@ export async function getStorefrontAccountDocumentData({
   const paymentStatus = normalizePaymentStatus(order.payment_status);
   const shippingStatus = normalizeShippingStatus(order.shipping_status);
   const currentDocumentKind = getCurrentDocumentKind({
-    paymentStatus,
-    shippingStatus,
+    paymentStatus: order.payment_status,
+    shippingStatus: order.shipping_status,
   });
 
   return buildStorefrontAccountDocumentBundle({

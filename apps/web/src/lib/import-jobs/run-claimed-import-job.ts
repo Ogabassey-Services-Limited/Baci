@@ -1,18 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { commitBumpaOrders } from '@/lib/import-commit/commit-bumpa-orders';
 import { commitBumpaProducts } from '@/lib/import-commit/commit-bumpa-products';
+import {
+  buildImportJobRowInserts,
+  buildImportPreviewForJob,
+  type ImportJobRecord,
+  mergeImportJobSummary,
+} from '@/lib/import-jobs/import-job-service';
 import { sendImportNotificationCampaign } from '@/lib/import-notifications/send-import-notification-campaign';
 import type {
   NormalizedImportedOrder,
   NormalizedImportedProduct,
 } from '@/lib/imports/bumpa/bumpa-types';
 import { logger } from '@/lib/logger';
-import {
-  buildImportJobRowInserts,
-  buildImportPreviewForJob,
-  type ImportJobRecord,
-  mergeImportJobSummary,
-} from './import-job-service';
 
 function isOrderPayload(value: unknown): value is NormalizedImportedOrder {
   return (
@@ -62,7 +62,7 @@ async function updateJobFailure(
   error: unknown
 ) {
   const errorDetails = toErrorDetails(error);
-  await supabase
+  const { error: updateError } = await supabase
     .from('import_jobs')
     .update({
       status: 'failed',
@@ -71,6 +71,14 @@ async function updateJobFailure(
       completed_at: new Date().toISOString(),
     })
     .eq('id', jobId);
+
+  if (updateError) {
+    logger.error({
+      message: 'Failed to persist import job failure state',
+      jobId,
+      error: updateError,
+    });
+  }
 }
 
 async function processValidatingJob(
@@ -85,7 +93,16 @@ async function processValidatingJob(
     preview.rows
   );
 
-  await supabase.from('import_job_rows').delete().eq('import_job_id', job.id);
+  const { error: deleteError } = await supabase
+    .from('import_job_rows')
+    .delete()
+    .eq('import_job_id', job.id);
+
+  if (deleteError) {
+    throw new Error(
+      `Failed to reset import preview rows: ${deleteError.message}`
+    );
+  }
 
   for (const chunk of chunkArray(insertRows, 250)) {
     const { error } = await supabase.from('import_job_rows').insert(chunk);
@@ -200,11 +217,17 @@ async function processNotifyingJob(
     );
   }
 
-  const { data: featureSettings } = await supabase
+  const { data: featureSettings, error: featureSettingsError } = await supabase
     .from('merchant_feature_settings')
     .select('custom_settings')
     .eq('merchant_id', job.merchant_id)
     .maybeSingle();
+
+  if (featureSettingsError) {
+    throw new Error(
+      `Failed to load merchant feature settings: ${featureSettingsError.message}`
+    );
+  }
 
   const summary = await sendImportNotificationCampaign({
     supabase,

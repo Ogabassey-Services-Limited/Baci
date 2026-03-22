@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2, Mail, RefreshCw } from 'lucide-react';
+import { statusBadgeClass } from '@/app/dashboard/migrations/migration-utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,28 +16,6 @@ interface MigrationJobSummaryProps {
   onNotify: () => Promise<void>;
   onRefresh: () => Promise<void>;
   selectedJob: ImportJobDetail | null;
-}
-
-function statusBadgeClass(status: string) {
-  if (status === 'completed' || status === 'committed') {
-    return 'bg-emerald-500/10 text-emerald-700';
-  }
-  if (status === 'failed') {
-    return 'bg-rose-500/10 text-rose-700';
-  }
-  if (
-    [
-      'uploaded',
-      'validating',
-      'commit_queued',
-      'committing',
-      'notify_queued',
-      'notifying',
-    ].includes(status)
-  ) {
-    return 'bg-blue-500/10 text-blue-700';
-  }
-  return 'bg-muted text-muted-foreground';
 }
 
 export default function MigrationJobSummary({
@@ -95,42 +74,45 @@ export default function MigrationJobSummary({
             </div>
 
             <div className="grid gap-3 md:grid-cols-4">
-              <div className="rounded-xl border p-4" data-testid="rows-summary">
+              <div className="rounded-xl border p-4">
                 <p className="text-xs uppercase text-muted-foreground">Rows</p>
-                <p className="mt-2 text-2xl font-semibold">
+                <output
+                  aria-label="Rows"
+                  className="mt-2 block text-2xl font-semibold"
+                >
                   {selectedJob.total_rows || 0}
-                </p>
+                </output>
               </div>
-              <div
-                className="rounded-xl border p-4"
-                data-testid="valid-rows-summary"
-              >
+              <div className="rounded-xl border p-4">
                 <p className="text-xs uppercase text-muted-foreground">Valid</p>
-                <p className="mt-2 text-2xl font-semibold">
+                <output
+                  aria-label="Valid rows"
+                  className="mt-2 block text-2xl font-semibold"
+                >
                   {Number(selectedJob.summary?.validRows || 0)}
-                </p>
+                </output>
               </div>
-              <div
-                className="rounded-xl border p-4"
-                data-testid="invalid-rows-summary"
-              >
+              <div className="rounded-xl border p-4">
                 <p className="text-xs uppercase text-muted-foreground">
                   Invalid
                 </p>
-                <p className="mt-2 text-2xl font-semibold">
+                <output
+                  aria-label="Invalid rows"
+                  className="mt-2 block text-2xl font-semibold"
+                >
                   {Number(selectedJob.summary?.invalidRows || 0)}
-                </p>
+                </output>
               </div>
-              <div
-                className="rounded-xl border p-4"
-                data-testid="receipt-ready-summary"
-              >
+              <div className="rounded-xl border p-4">
                 <p className="text-xs uppercase text-muted-foreground">
                   Receipt Ready
                 </p>
-                <p className="mt-2 text-2xl font-semibold">
+                <output
+                  aria-label="Receipt ready orders"
+                  className="mt-2 block text-2xl font-semibold"
+                >
                   {Number(selectedJob.summary?.receiptReadyOrders || 0)}
-                </p>
+                </output>
               </div>
             </div>
 

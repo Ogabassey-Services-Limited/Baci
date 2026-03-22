@@ -80,4 +80,20 @@ describe('parseCsvText', () => {
       { name: 'Case', price: '100' },
     ]);
   });
+
+  it('rejects duplicate normalized headers', () => {
+    expect(() => parseCsvText('name, name \nPhone,1000')).toThrow(
+      /duplicate header/i
+    );
+  });
+
+  it('rejects empty headers', () => {
+    expect(() => parseCsvText('name,\nPhone,1000')).toThrow(/empty header/i);
+  });
+
+  it('rejects unterminated quoted fields', () => {
+    expect(() => parseCsvText('name,description\nPhone,"broken')).toThrow(
+      /unterminated quoted field/i
+    );
+  });
 });

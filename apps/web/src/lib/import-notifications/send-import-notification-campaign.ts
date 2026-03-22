@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { MOBILE_APPS } from '@/config/platform';
 import { getRootDomain } from '@/env';
+import { escapeHtml, sanitizeUrl } from '@/lib/sanitize-core';
 import { sendEmail } from '@/lib/zeptomail';
 
 interface MerchantNotificationContext {
@@ -42,6 +43,8 @@ interface SendImportNotificationCampaignResult {
   failedCount: number;
 }
 
+const DEFAULT_NOTIFICATION_SOURCE: DeliveryConfig['accessMode'] = 'site';
+
 function buildStorefrontUrl(merchant: MerchantNotificationContext) {
   if (merchant.custom_domain) {
     return `https://${merchant.custom_domain.replace(/\/$/, '')}`;
@@ -63,9 +66,7 @@ function resolveDeliveryConfig(
   const accessMode =
     configuredAccessMode === 'app_first' || configuredAccessMode === 'site'
       ? configuredAccessMode
-      : merchant.slug === 'ogabassey'
-        ? 'app_first'
-        : 'site';
+      : DEFAULT_NOTIFICATION_SOURCE;
 
   const receiptPath =
     typeof migrationSettings.receipt_path === 'string' &&
@@ -97,6 +98,18 @@ function buildEmailContent(
   delivery: DeliveryConfig
 ) {
   const merchantName = merchant.business_name || 'Your store';
+  const escapedMerchantName = escapeHtml(merchantName);
+  const escapedRecipientName = escapeHtml(recipientName);
+  const supportContact = escapeHtml(
+    merchant.support_email || merchant.email || 'the store team'
+  );
+  const sanitizedReceiptsUrl = sanitizeUrl(delivery.receiptsUrl);
+  const sanitizedPlayStoreUrl = delivery.playStoreUrl
+    ? sanitizeUrl(delivery.playStoreUrl)
+    : '';
+  const sanitizedAppStoreUrl = delivery.appStoreUrl
+    ? sanitizeUrl(delivery.appStoreUrl)
+    : '';
   const fromName =
     merchant.email_sender_name || merchant.business_name || 'Orders';
   const subject =
@@ -104,11 +117,11 @@ function buildEmailContent(
       ? `${merchantName}: your updated receipt is ready`
       : `${merchantName}: your updated order history is ready`;
   const secondaryLinks = [
-    delivery.playStoreUrl
-      ? `<a href="${delivery.playStoreUrl}">Google Play</a>`
+    sanitizedPlayStoreUrl
+      ? `<a href="${sanitizedPlayStoreUrl}">Google Play</a>`
       : '',
-    delivery.appStoreUrl
-      ? `<a href="${delivery.appStoreUrl}">App Store</a>`
+    sanitizedAppStoreUrl
+      ? `<a href="${sanitizedAppStoreUrl}">App Store</a>`
       : '',
   ]
     .filter(Boolean)
@@ -121,16 +134,16 @@ function buildEmailContent(
 
   const htmlContent = `
     <div style="font-family: system-ui, -apple-system, sans-serif; color: #111827; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 24px;">
-      <p>Hello ${recipientName},</p>
-      <p>${merchantName} has moved your previous order history into a new account experience.</p>
-      <p>${actionCopy}</p>
+      <p>Hello ${escapedRecipientName},</p>
+      <p>${escapedMerchantName} has moved your previous order history into a new account experience.</p>
+      <p>${escapeHtml(actionCopy)}</p>
       <p style="margin: 24px 0;">
-        <a href="${delivery.receiptsUrl}" style="display: inline-block; background: #111827; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 8px;">
+        <a href="${sanitizedReceiptsUrl}" style="display: inline-block; background: #111827; color: #ffffff; text-decoration: none; padding: 12px 18px; border-radius: 8px;">
           View My Orders
         </a>
       </p>
       ${secondaryLinks ? `<p>Download options: ${secondaryLinks}</p>` : ''}
-      <p>If you need help, reply to this email or contact ${merchant.support_email || merchant.email || 'the store team'}.</p>
+      <p>If you need help, reply to this email or contact ${supportContact}.</p>
     </div>
   `;
 
@@ -140,7 +153,7 @@ function buildEmailContent(
     `${merchantName} has moved your previous order history into a new account experience.`,
     actionCopy,
     '',
-    `View your orders: ${delivery.receiptsUrl}`,
+    `View your orders: ${sanitizedReceiptsUrl || delivery.receiptsUrl}`,
     secondaryLinks
       ? `Download options: ${secondaryLinks.replace(/<[^>]+>/g, '')}`
       : '',

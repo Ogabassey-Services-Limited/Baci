@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret, getImportJobWorkerBatchSize } from '@/env';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { processImportJobQueue } from '@/lib/import-jobs/process-import-job';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -28,7 +29,24 @@ function hasValidCronSecret(request: Request) {
   );
 }
 
-async function handleCronRequest(request: Request) {
+function summarizeResults(results: Record<string, unknown>[]) {
+  const statusCounts = results.reduce<Record<string, number>>(
+    (counts, result) => {
+      const status =
+        typeof result.status === 'string' ? result.status : 'unknown';
+      counts[status] = (counts[status] || 0) + 1;
+      return counts;
+    },
+    {}
+  );
+
+  return {
+    processed: results.length,
+    statusCounts,
+  };
+}
+
+async function handleCronRequest(request: NextRequest) {
   try {
     if (!hasValidCronSecret(request)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -39,10 +57,7 @@ async function handleCronRequest(request: Request) {
       getImportJobWorkerBatchSize()
     );
 
-    return NextResponse.json({
-      processed: results.length,
-      results,
-    });
+    return NextResponse.json(summarizeResults(results));
   } catch (error) {
     logger.error({
       message: 'Process import jobs cron failed',
@@ -55,10 +70,18 @@ async function handleCronRequest(request: Request) {
   }
 }
 
-export function GET(request: Request) {
+export function GET(request: NextRequest) {
   return handleCronRequest(request);
 }
 
-export function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+    );
+  }
+
   return handleCronRequest(request);
 }

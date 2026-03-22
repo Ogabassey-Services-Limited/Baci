@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -33,6 +33,8 @@ vi.mock('@/hooks/use-merchant', () => ({
   })),
 }));
 
+import { useRouter } from 'next/navigation';
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import CustomerOrderDetailsPage from './page';
 
 function createJsonResponse(body: unknown): Response {
@@ -143,5 +145,80 @@ describe('CustomerOrderDetailsPage', () => {
     expect(
       await screen.findByRole('link', { name: /buy again/i })
     ).toHaveAttribute('href', '/ogabassey/products/prod-1');
+  });
+
+  it('shows error UI when the order request fails', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 404,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => ({ error: 'Order not found' }),
+    } as Response);
+
+    render(<CustomerOrderDetailsPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: /order unavailable/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/order not found/i)).toBeInTheDocument();
+  });
+
+  it('shows a loading state while the order request is pending', async () => {
+    let resolveFetch!: (value: Response) => void;
+    vi.mocked(fetch).mockReturnValue(
+      new Promise<Response>((resolve) => {
+        resolveFetch = resolve;
+      })
+    );
+
+    render(<CustomerOrderDetailsPage />);
+
+    expect(
+      screen.getByRole('status', { name: /loading order/i })
+    ).toBeInTheDocument();
+
+    resolveFetch(
+      createJsonResponse({
+        order: {
+          id: 'order-1',
+          order_number: 'ORD-1001',
+          created_at: '2026-03-22T10:00:00.000Z',
+          shipping_status: 'processing',
+          payment_status: 'paid',
+          payment_method: 'card',
+          subtotal: 100000,
+          total: 100000,
+          shipping_fee: 0,
+          currency: 'NGN',
+          current_document_kind: 'invoice',
+          items: [],
+          transactions: [],
+        },
+      })
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('link', { name: /download invoice/i })
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('redirects unauthenticated customers to login', async () => {
+    const push = vi.fn();
+    vi.mocked(useRouter).mockReturnValue({ push } as never);
+    vi.mocked(useCustomerAuth).mockReturnValue({
+      customer: null,
+      isAuthenticated: false,
+      isLoading: false,
+    } as never);
+
+    render(<CustomerOrderDetailsPage />);
+
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith(
+        '/ogabassey/account/login?redirect=%2Fogabassey%2Faccount%2Forders%2Forder-1'
+      );
+    });
   });
 });

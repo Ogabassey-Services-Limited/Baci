@@ -145,4 +145,29 @@ describe('import-job-route-auth', () => {
     expect(query.eq).toHaveBeenNthCalledWith(2, 'id', 'job-1');
     expect(maybeSingle).toHaveBeenCalledTimes(1);
   });
+
+  it('throws when loading the import job fails', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'boom' },
+    });
+    const query = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle,
+    };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+
+    await expect(
+      getImportJobForMerchant(
+        { from: vi.fn(() => query) } as never,
+        'merchant-1',
+        'job-1'
+      )
+    ).rejects.toThrow('Failed to load import job: boom');
+    expect(query.eq).toHaveBeenNthCalledWith(1, 'merchant_id', 'merchant-1');
+    expect(query.eq).toHaveBeenNthCalledWith(2, 'id', 'job-1');
+    expect(maybeSingle).toHaveBeenCalledTimes(1);
+  });
 });

@@ -6,7 +6,7 @@ import {
   importJobSourcePlatformSchema,
   importJobStatusSchema,
   importJobUploadSchema,
-} from './import-jobs';
+} from '@/schemas/import-jobs';
 
 describe('importJobSourcePlatformSchema', () => {
   it('accepts bumpa', () => {

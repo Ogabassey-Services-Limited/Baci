@@ -196,14 +196,6 @@ describe('import-job-service', () => {
     expect(result.totalRows).toBe(1);
     expect(buildBumpaOrderPreview).toHaveBeenCalledWith({
       rows: [{ id: 'bumpa-1' }],
-      existingCustomers: [
-        {
-          id: 'customer-1',
-          email: 'ada@example.com',
-          phone: '+2347000000000',
-          userId: null,
-        },
-      ],
       existingOrders: [
         {
           id: 'order-1',

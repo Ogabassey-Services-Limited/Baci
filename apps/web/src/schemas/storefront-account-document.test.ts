@@ -39,11 +39,21 @@ describe('storefrontAccountDocumentParamsSchema', () => {
 
 describe('storefrontAccountDocumentQuerySchema', () => {
   it('accepts a valid merchant slug', () => {
-    expect(
-      storefrontAccountDocumentQuerySchema.safeParse({
-        merchantSlug: 'ogabassey',
-      }).success
-    ).toBe(true);
+    const result = storefrontAccountDocumentQuerySchema.safeParse({
+      merchantSlug: 'ogabassey',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('normalizes mixed-case merchant slugs to lowercase', () => {
+    const result = storefrontAccountDocumentQuerySchema.safeParse({
+      merchantSlug: 'OgaBassey',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.merchantSlug).toBe('ogabassey');
+    }
   });
 
   it('rejects blank or missing merchant slugs', () => {

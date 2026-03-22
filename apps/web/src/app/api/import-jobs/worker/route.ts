@@ -1,8 +1,28 @@
+import { timingSafeEqual } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getImportJobWorkerBatchSize, getImportJobWorkerSecret } from '@/env';
 import { processImportJobQueue } from '@/lib/import-jobs/process-import-job';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
+
+function hasValidWorkerSecret(
+  authHeader: string | null,
+  expectedSecret: string | undefined
+) {
+  if (!authHeader || !expectedSecret || !authHeader.startsWith('Bearer ')) {
+    return false;
+  }
+
+  const receivedSecret = authHeader.slice('Bearer '.length);
+  if (receivedSecret.length !== expectedSecret.length) {
+    return false;
+  }
+
+  return timingSafeEqual(
+    Buffer.from(receivedSecret),
+    Buffer.from(expectedSecret)
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +36,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (authHeader !== `Bearer ${expectedSecret}`) {
+    if (!hasValidWorkerSecret(authHeader, expectedSecret)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

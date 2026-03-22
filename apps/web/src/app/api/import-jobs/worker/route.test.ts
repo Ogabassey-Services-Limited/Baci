@@ -1,5 +1,10 @@
 import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/env', () => ({
+  getImportJobWorkerBatchSize: vi.fn(() => 3),
+  getImportJobWorkerSecret: vi.fn(() => 'worker-secret'),
+}));
 
 vi.mock('@/lib/import-jobs/process-import-job', () => ({
   processImportJobQueue: vi.fn(),
@@ -16,11 +21,6 @@ import { POST } from './route';
 describe('POST /api/import-jobs/worker', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv('IMPORT_JOB_WORKER_SECRET', 'worker-secret');
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
   });
 
   it('returns 401 when the worker secret is missing or invalid', async () => {
@@ -67,5 +67,25 @@ describe('POST /api/import-jobs/worker', () => {
     });
     expect(createServiceClient).toHaveBeenCalledTimes(1);
     expect(processImportJobQueue).toHaveBeenCalledWith({ service: true }, 3);
+  });
+
+  it('returns 500 when queue processing fails', async () => {
+    vi.mocked(processImportJobQueue).mockRejectedValueOnce(new Error('boom'));
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/import-jobs/worker', {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer worker-secret',
+        },
+      })
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Internal server error',
+      code: 'internal_error',
+    });
+    expect(createServiceClient).toHaveBeenCalledTimes(1);
   });
 });

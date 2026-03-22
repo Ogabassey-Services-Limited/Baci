@@ -1,6 +1,4 @@
-import { sanitizeText } from '@/lib/sanitize-core';
-import { bumpaOrderRowSchema } from '@/schemas/bumpa-orders';
-import { buildBumpaOrderPreviewSummary } from './build-bumpa-order-preview-summary';
+import { buildBumpaOrderPreviewSummary } from '@/lib/imports/bumpa/build-bumpa-order-preview-summary';
 import {
   buildCustomer,
   buildItems,
@@ -8,25 +6,24 @@ import {
   mapShippingStatus,
   parseIsoDate,
   parseMoney,
-} from './bumpa-order-preview-values';
+} from '@/lib/imports/bumpa/bumpa-order-preview-values';
 import type {
-  ExistingImportedCustomer,
   ExistingImportedOrder,
   ExistingImportedProduct,
   ImportPreviewRow,
   NormalizedImportedOrder,
-} from './bumpa-types';
+} from '@/lib/imports/bumpa/bumpa-types';
+import { sanitizeText } from '@/lib/sanitize-core';
+import { bumpaOrderRowSchema } from '@/schemas/bumpa-orders';
 
 interface BuildBumpaOrderPreviewInput {
   rows: Record<string, string>[];
-  existingCustomers: ExistingImportedCustomer[];
   existingOrders: ExistingImportedOrder[];
   existingProducts: ExistingImportedProduct[];
 }
 
 export function buildBumpaOrderPreview({
   rows,
-  existingCustomers,
   existingOrders,
   existingProducts,
 }: BuildBumpaOrderPreviewInput) {
@@ -36,10 +33,7 @@ export function buildBumpaOrderPreview({
     string,
     ExistingImportedOrder[]
   >();
-  const existingCustomersByPhone = new Map<
-    string,
-    ExistingImportedCustomer[]
-  >();
+  const uploadedOrderNumbers = new Map<string, number>();
 
   existingOrders.forEach((order) => {
     if (order.externalSource === 'bumpa' && order.externalId) {
@@ -51,12 +45,21 @@ export function buildBumpaOrderPreview({
     existingOrdersByOrderNumber.set(order.orderNumber, collection);
   });
 
-  existingCustomers.forEach((customer) => {
-    if (!customer.phone) return;
-    const phoneKey = customer.phone.replace(/[\s()-]+/g, '');
-    const collection = existingCustomersByPhone.get(phoneKey) || [];
-    collection.push(customer);
-    existingCustomersByPhone.set(phoneKey, collection);
+  rows.forEach((rawRow) => {
+    const validationResult = bumpaOrderRowSchema.safeParse(rawRow);
+    if (!validationResult.success) {
+      return;
+    }
+
+    const orderNumber = sanitizeText(validationResult.data['Order Number']);
+    if (!orderNumber) {
+      return;
+    }
+
+    uploadedOrderNumbers.set(
+      orderNumber,
+      (uploadedOrderNumbers.get(orderNumber) || 0) + 1
+    );
   });
 
   const previewRows = rows.map((rawRow, index) => {
@@ -116,7 +119,11 @@ export function buildBumpaOrderPreview({
       errors.push('Created At is invalid');
     }
 
-    const customer = buildCustomer(row, existingCustomersByPhone);
+    if ((uploadedOrderNumbers.get(orderNumber) || 0) > 1) {
+      errors.push(`Order number ${orderNumber} is duplicated in the upload`);
+    }
+
+    const customer = buildCustomer(row);
     const items = buildItems(row, existingProducts);
 
     if (items.some((item) => !item.productName)) {

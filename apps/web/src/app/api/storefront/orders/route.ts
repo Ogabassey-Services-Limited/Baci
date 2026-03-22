@@ -6,6 +6,7 @@ import {
   normalizePaymentStatus,
   normalizeShippingStatus,
 } from '@/lib/storefront-account-document-data';
+import { storefrontAccountDocumentQuerySchema } from '@/schemas/storefront-account-document';
 
 /**
  * Customer Orders API
@@ -28,15 +29,21 @@ export async function GET(request: NextRequest) {
 
     const { user, supabase } = auth;
 
-    const { searchParams } = new URL(request.url);
-    const merchantSlug = searchParams.get('merchantSlug');
+    const parsedQuery = storefrontAccountDocumentQuerySchema.safeParse({
+      merchantSlug: new URL(request.url).searchParams.get('merchantSlug'),
+    });
 
-    if (!merchantSlug) {
+    if (!parsedQuery.success) {
       return NextResponse.json(
-        { error: 'Merchant slug is required' },
+        {
+          error: 'Invalid request',
+          details: parsedQuery.error.flatten(),
+        },
         { status: 400 }
       );
     }
+
+    const merchantSlug = parsedQuery.data.merchantSlug;
 
     // Get merchant
     const { data: merchant, error: merchantError } = await supabase

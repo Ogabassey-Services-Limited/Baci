@@ -1,15 +1,15 @@
 'use client';
 
 import { useEffect, useEffectEvent, useState } from 'react';
-import { buildCsrfHeaders } from '@/lib/csrf';
-import MigrationJobSummary from './migration-job-summary';
-import MigrationPreviewTable from './migration-preview-table';
-import MigrationSidebar from './migration-sidebar';
+import MigrationJobSummary from '@/app/dashboard/migrations/migration-job-summary';
+import MigrationPreviewTable from '@/app/dashboard/migrations/migration-preview-table';
+import MigrationSidebar from '@/app/dashboard/migrations/migration-sidebar';
 import type {
   ImportJobDetail,
   ImportJobListItem,
   ImportJobRowsResponse,
-} from './migration-types';
+} from '@/app/dashboard/migrations/migration-types';
+import { buildCsrfHeaders } from '@/lib/csrf';
 
 const ACTIVE_STATUSES = new Set([
   'uploaded',
@@ -57,15 +57,23 @@ export default function MigrationsClientPage({
         }),
       ]);
       const jobPayload = await jobResponse.json();
-      const rowsPayload =
-        (await rowsResponseData.json()) as ImportJobRowsResponse;
+      const rowsPayload = (await rowsResponseData.json()) as
+        | ImportJobRowsResponse
+        | { error?: string };
 
       if (!jobResponse.ok) {
         throw new Error(jobPayload.error || 'Failed to load import job');
       }
 
+      if (!rowsResponseData.ok) {
+        throw new Error(
+          ('error' in rowsPayload && rowsPayload.error) ||
+            'Failed to load import job rows'
+        );
+      }
+
       setSelectedJob(jobPayload.job as ImportJobDetail);
-      setRowsResponse(rowsPayload);
+      setRowsResponse(rowsPayload as ImportJobRowsResponse);
       setJobs((currentJobs) =>
         mergeJobs(currentJobs, jobPayload.job as ImportJobListItem)
       );

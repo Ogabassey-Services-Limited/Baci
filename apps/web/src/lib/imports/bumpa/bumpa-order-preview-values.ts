@@ -1,3 +1,8 @@
+import type {
+  ExistingImportedProduct,
+  NormalizedImportedCustomer,
+  NormalizedImportedOrderItem,
+} from '@/lib/imports/bumpa/bumpa-types';
 import {
   sanitizeEmail,
   sanitizePhone,
@@ -5,12 +10,6 @@ import {
   sanitizeText,
 } from '@/lib/sanitize-core';
 import type { BumpaOrderRow } from '@/schemas/bumpa-orders';
-import type {
-  ExistingImportedCustomer,
-  ExistingImportedProduct,
-  NormalizedImportedCustomer,
-  NormalizedImportedOrderItem,
-} from './bumpa-types';
 
 function toMoneyCents(value: number) {
   return Math.round(value * 100);
@@ -94,10 +93,7 @@ function splitPipeField(value: string) {
   return value.split('|').map((part) => part.trim());
 }
 
-export function buildCustomer(
-  row: BumpaOrderRow,
-  _existingCustomersByPhone: Map<string, ExistingImportedCustomer[]>
-): NormalizedImportedCustomer {
+export function buildCustomer(row: BumpaOrderRow): NormalizedImportedCustomer {
   const fullName = sanitizeText(row['Customer Name']) || 'Customer';
   const { firstName, lastName } = splitCustomerName(fullName);
   const email = row['Customer Email']

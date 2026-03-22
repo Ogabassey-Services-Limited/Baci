@@ -64,6 +64,7 @@ export async function commitBumpaProducts({
       .from('products')
       .select('id, slug, external_id, external_source')
       .eq('merchant_id', merchantId)
+      .order('id', { ascending: true })
       .range(start, end);
 
     if (error) {

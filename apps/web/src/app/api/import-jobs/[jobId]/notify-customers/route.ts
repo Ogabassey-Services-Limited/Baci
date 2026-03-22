@@ -77,7 +77,7 @@ export async function POST(
       );
     }
 
-    const { error } = await authResult.context.supabase
+    const { data, error } = await authResult.context.supabase
       .from('import_jobs')
       .update({
         status: 'notify_queued',
@@ -85,10 +85,22 @@ export async function POST(
         error_details: null,
       })
       .eq('id', job.id)
-      .eq('status', 'committed');
+      .eq('status', 'committed')
+      .select('id');
 
     if (error) {
       throw new Error(error.message);
+    }
+
+    if (!data || data.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            'Import job status changed before notifications could be queued',
+          code: 'status_changed',
+        },
+        { status: 409 }
+      );
     }
 
     after(() => triggerImportWorker(request.nextUrl.origin));

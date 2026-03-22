@@ -90,4 +90,20 @@ describe('buildBumpaProductPreview', () => {
 
     expect(result.rows[0]?.rowStatus).toBe('update');
   });
+
+  it('marks invalid rows and increments the invalid summary count', () => {
+    const result = buildBumpaProductPreview({
+      rows: [
+        {
+          ...baseRow,
+          'Product ID': '',
+          Title: '',
+        },
+      ],
+      existingProducts: [],
+    });
+
+    expect(result.rows[0]?.rowStatus).toBe('invalid');
+    expect(result.summary.invalidRows).toBe(1);
+  });
 });

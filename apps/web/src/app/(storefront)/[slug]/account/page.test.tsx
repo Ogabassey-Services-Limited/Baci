@@ -46,6 +46,7 @@ vi.mock('@/hooks/use-currency', () => ({
   })),
 }));
 
+import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import AccountPage from './page';
 
 describe('AccountPage', () => {
@@ -54,5 +55,35 @@ describe('AccountPage', () => {
 
     const link = screen.getByRole('link', { name: /receipts & invoices/i });
     expect(link).toHaveAttribute('href', '/ogabassey/receipts');
+  });
+
+  it('does not render customer-only links when the customer is unauthenticated', () => {
+    vi.mocked(useCustomerAuth).mockReturnValue({
+      customer: null,
+      isAuthenticated: false,
+      isLoading: false,
+      logout: vi.fn(),
+    } as never);
+
+    render(<AccountPage />);
+
+    expect(
+      screen.queryByRole('link', { name: /receipts & invoices/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows a loading state while customer auth is loading', () => {
+    vi.mocked(useCustomerAuth).mockReturnValue({
+      customer: null,
+      isAuthenticated: false,
+      isLoading: true,
+      logout: vi.fn(),
+    } as never);
+
+    render(<AccountPage />);
+
+    expect(
+      screen.getByRole('status', { name: /loading account/i })
+    ).toBeInTheDocument();
   });
 });

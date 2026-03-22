@@ -1,5 +1,14 @@
 import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/env', () => ({
+  getCronSecret: vi.fn(() => 'cron-secret'),
+  getImportJobWorkerBatchSize: vi.fn(() => 3),
+}));
+
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn(),
+}));
 
 vi.mock('@/lib/import-jobs/process-import-job', () => ({
   processImportJobQueue: vi.fn(),
@@ -9,6 +18,7 @@ vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: vi.fn(() => ({ service: true })),
 }));
 
+import { checkCsrfProtection } from '@/lib/csrf';
 import { processImportJobQueue } from '@/lib/import-jobs/process-import-job';
 import { createServiceClient } from '@/lib/supabase/service';
 import { GET, POST } from './route';
@@ -16,11 +26,7 @@ import { GET, POST } from './route';
 describe('/api/cron/process-import-jobs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubEnv('CRON_SECRET', 'cron-secret');
-  });
-
-  afterEach(() => {
-    vi.unstubAllEnvs();
+    vi.mocked(checkCsrfProtection).mockResolvedValue({ valid: true });
   });
 
   it('returns 401 when the cron secret is invalid', async () => {
@@ -47,13 +53,18 @@ describe('/api/cron/process-import-jobs', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       processed: 1,
-      results: [{ id: 'job-1', status: 'completed', processed: 2 }],
+      statusCounts: { completed: 1 },
     });
     expect(createServiceClient).toHaveBeenCalledTimes(1);
   });
 
-  it('also supports the legacy x-cron-secret header on POST requests', async () => {
-    vi.mocked(processImportJobQueue).mockResolvedValue([]);
+  it('returns 403 for legacy x-cron-secret POST requests without a CSRF token', async () => {
+    vi.mocked(checkCsrfProtection).mockResolvedValue({
+      valid: false,
+      response: new Response(JSON.stringify({ error: 'Invalid CSRF token' }), {
+        status: 403,
+      }) as never,
+    });
 
     const response = await POST(
       new NextRequest('http://localhost/api/cron/process-import-jobs', {
@@ -64,7 +75,28 @@ describe('/api/cron/process-import-jobs', () => {
       })
     );
 
+    expect(response.status).toBe(403);
+  });
+
+  it('accepts POST requests with x-cron-secret when CSRF validation succeeds', async () => {
+    vi.mocked(processImportJobQueue).mockResolvedValue([]);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/cron/process-import-jobs', {
+        method: 'POST',
+        headers: {
+          'x-cron-secret': 'cron-secret',
+          'x-csrf-token': 'token',
+          cookie: 'csrf-token=token',
+        },
+      })
+    );
+
     expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      processed: 0,
+      statusCounts: {},
+    });
   });
 
   it('returns 500 when queue processing fails', async () => {

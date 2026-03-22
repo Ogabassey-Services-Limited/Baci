@@ -150,4 +150,59 @@ describe('runClaimedImportJob commit flows', () => {
     });
     expect(commitBumpaProducts).toHaveBeenCalledTimes(1);
   });
+
+  it('surfaces order commit failures', async () => {
+    vi.mocked(commitBumpaOrders).mockRejectedValueOnce(
+      new Error('order commit failed')
+    );
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(
+          createRowsQuery({
+            externalSourceId: 'order-1',
+            customer: {},
+            items: [],
+          })
+        )
+        .mockReturnValueOnce(createUpdateQuery()),
+    } as unknown as SupabaseClient;
+
+    const result = await runClaimedImportJob(supabase, createJob('committing'));
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: 'order commit failed',
+    });
+  });
+
+  it('surfaces product commit failures', async () => {
+    vi.mocked(commitBumpaProducts).mockRejectedValueOnce(
+      new Error('product commit failed')
+    );
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(
+          createRowsQuery({
+            externalSourceId: 'product-1',
+            title: 'Phone',
+            price: 1000,
+          })
+        )
+        .mockReturnValueOnce(createUpdateQuery()),
+    } as unknown as SupabaseClient;
+
+    const result = await runClaimedImportJob(supabase, {
+      ...createJob('committing'),
+      entity_type: 'products',
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: 'product commit failed',
+    });
+  });
 });

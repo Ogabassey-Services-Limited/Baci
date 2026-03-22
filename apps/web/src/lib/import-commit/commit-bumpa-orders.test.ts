@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { NormalizedImportedOrder } from '@/lib/imports/bumpa/bumpa-types';
 
 vi.mock('@/lib/import-commit/resolve-import-customer', () => ({
   createImportCustomerResolver: vi.fn(),
@@ -8,7 +9,9 @@ vi.mock('@/lib/import-commit/resolve-import-customer', () => ({
 import { commitBumpaOrders } from '@/lib/import-commit/commit-bumpa-orders';
 import { createImportCustomerResolver } from '@/lib/import-commit/resolve-import-customer';
 
-function createOrder(overrides?: Partial<Record<string, unknown>>) {
+function createOrder(
+  overrides: Partial<NormalizedImportedOrder> = {}
+): NormalizedImportedOrder {
   return {
     sourcePlatform: 'bumpa',
     externalSourceId: 'ext-1',
@@ -19,21 +22,28 @@ function createOrder(overrides?: Partial<Record<string, unknown>>) {
       lastName: 'Lovelace',
       email: 'ada@example.com',
       phone: '+2347000000000',
+      claimable: true,
     },
     shippingStatus: 'delivered',
     paymentStatus: 'paid',
+    sourceOrderStatus: 'fulfilled',
+    sourceShippingStatus: 'delivered',
     total: 25000,
     subtotal: 24000,
     shippingFee: 1000,
     taxAmount: 0,
     discountAmount: 0,
     amountPaid: 25000,
+    amountDue: 0,
     currency: 'NGN',
+    orderDate: '2026-03-20T10:00:00.000Z',
     createdAt: '2026-03-20T10:00:00.000Z',
     updatedAt: '2026-03-21T10:00:00.000Z',
+    couponCode: null,
     shippingOption: 'Door delivery',
     sourceChannel: 'instagram',
     sourceOrigin: 'manual',
+    receiptReady: true,
     importMetadata: {},
     items: [
       {
@@ -48,7 +58,7 @@ function createOrder(overrides?: Partial<Record<string, unknown>>) {
       },
     ],
     ...overrides,
-  } as never;
+  };
 }
 
 describe('commitBumpaOrders', () => {

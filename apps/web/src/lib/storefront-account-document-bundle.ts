@@ -143,7 +143,7 @@ export function buildStorefrontAccountDocumentBundle({
     price: item.price,
     line_extension_amount: item.quantity * item.price,
     vat_category_code: 'S',
-    vat_rate: merchant.vat_rate || 7.5,
+    vat_rate: merchant.vat_rate ?? 7.5,
     vat_amount: 0,
   }));
 
@@ -158,7 +158,7 @@ export function buildStorefrontAccountDocumentBundle({
   if (taxSubtotals.length === 0 && taxAmount > 0) {
     taxSubtotals.push({
       vat_category_code: 'S',
-      vat_rate: merchant.vat_rate || 7.5,
+      vat_rate: merchant.vat_rate ?? 7.5,
       taxable_amount: subtotal,
       tax_amount: taxAmount,
     });
@@ -218,7 +218,7 @@ export function buildStorefrontAccountDocumentBundle({
       cac_rc_number: merchant.cac_rc_number || undefined,
       vat_registration_status:
         merchant.vat_registration_status || 'unregistered',
-      vat_rate: merchant.vat_rate || 0,
+      vat_rate: merchant.vat_rate ?? 0,
       registered_address: registeredAddress
         ? {
             street: asString(registeredAddress.street),
@@ -241,9 +241,15 @@ export function buildStorefrontAccountDocumentBundle({
     items: invoiceItems,
     tax_subtotals: taxSubtotals,
     subtotal,
-    tax_exclusive_amount: asNumber(order.tax_exclusive_amount) || subtotal,
+    tax_exclusive_amount:
+      order.tax_exclusive_amount == null
+        ? subtotal
+        : asNumber(order.tax_exclusive_amount),
     tax_amount: taxAmount,
-    tax_inclusive_amount: asNumber(order.tax_inclusive_amount) || total,
+    tax_inclusive_amount:
+      order.tax_inclusive_amount == null
+        ? total
+        : asNumber(order.tax_inclusive_amount),
     shipping_fee: shippingFee,
     discount_amount: discountAmount,
     total,

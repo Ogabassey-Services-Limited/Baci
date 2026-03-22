@@ -219,33 +219,12 @@ export const getMyCoverWebhookSecret = (): string => {
   return env.MYCOVER_WEBHOOK_SECRET;
 };
 
-const cronSecretSchema = z.object({
-  CRON_SECRET: z.string().optional(),
-});
+export const getCronSecret = () => env?.CRON_SECRET;
 
-const importJobWorkerSecretSchema = z.object({
-  IMPORT_JOB_WORKER_SECRET: z.string().optional(),
-});
-
-const importJobWorkerBatchSizeSchema = z.object({
-  IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
-});
-
-export const getCronSecret = () => {
-  return cronSecretSchema.parse({ CRON_SECRET: process.env.CRON_SECRET })
-    .CRON_SECRET;
-};
-
-export const getImportJobWorkerSecret = () => {
-  return importJobWorkerSecretSchema.parse({
-    IMPORT_JOB_WORKER_SECRET: process.env.IMPORT_JOB_WORKER_SECRET,
-  }).IMPORT_JOB_WORKER_SECRET;
-};
+export const getImportJobWorkerSecret = () => env?.IMPORT_JOB_WORKER_SECRET;
 
 export const getImportJobWorkerBatchSize = () =>
-  importJobWorkerBatchSizeSchema.parse({
-    IMPORT_JOB_WORKER_BATCH_SIZE: process.env.IMPORT_JOB_WORKER_BATCH_SIZE,
-  }).IMPORT_JOB_WORKER_BATCH_SIZE;
+  env?.IMPORT_JOB_WORKER_BATCH_SIZE || 3;
 
 export const isProduction = () => env?.NODE_ENV === 'production';
 

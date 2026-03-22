@@ -38,7 +38,7 @@ describe('sendImportNotificationCampaign', () => {
     vi.clearAllMocks();
   });
 
-  it('deduplicates recipients by email, skips unclaimable customers, and uses Ogabassey app-first copy', async () => {
+  it('deduplicates recipients by email, skips unclaimable customers, and uses configured app-first copy', async () => {
     const supabase = createSupabaseMock({
       data: [
         {
@@ -86,7 +86,11 @@ describe('sendImportNotificationCampaign', () => {
         email_sender_name: 'Ogabassey',
         email: 'hello@ogabassey.com',
       },
-      customSettings: null,
+      customSettings: {
+        migration_imports: {
+          receipt_access_mode: 'app_first',
+        },
+      },
     });
 
     expect(result).toEqual({
@@ -155,6 +159,65 @@ describe('sendImportNotificationCampaign', () => {
         htmlContent: expect.stringContaining(
           'https://futuremerchant.com/receipts'
         ),
+      })
+    );
+  });
+
+  it('sanitizes merchant-provided content before building html email content', async () => {
+    const supabase = createSupabaseMock({
+      data: [
+        {
+          customer_id: 'customer-1',
+          customer_email: 'ada@example.com',
+          customer_name: '<Ada>',
+          order_number: 'ORD-1',
+          payment_status: 'paid',
+          shipping_status: 'delivered',
+        },
+      ],
+      error: null,
+    });
+
+    vi.mocked(sendEmail).mockResolvedValue({
+      success: true,
+      messageId: 'msg-3',
+    });
+
+    await sendImportNotificationCampaign({
+      supabase,
+      importJobId: 'job-6',
+      merchant: {
+        id: 'merchant-6',
+        slug: 'merchant-six',
+        business_name: '<Merchant Six>',
+        custom_domain: null,
+        support_email: 'support@example.com',
+        email_sender_name: null,
+        email: 'hello@example.com',
+      },
+      customSettings: {
+        migration_imports: {
+          receipt_access_mode: 'app_first',
+          app_store_url: 'javascript:alert(1)',
+        },
+      },
+    });
+
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        htmlContent: expect.not.stringContaining('javascript:alert(1)'),
+      })
+    );
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        htmlContent: expect.not.stringContaining(
+          '<Merchant Six> has moved your previous order history'
+        ),
+      })
+    );
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        htmlContent: expect.stringContaining('\\u003cMerchant Six\\u003e'),
       })
     );
   });

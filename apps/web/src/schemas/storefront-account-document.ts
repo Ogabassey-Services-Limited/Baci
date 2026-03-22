@@ -10,8 +10,9 @@ export const storefrontAccountDocumentQuerySchema = z.object({
     .trim()
     .min(1, 'Merchant slug is required')
     .max(100, 'Merchant slug must be 100 characters or fewer')
-    .regex(
-      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+    .transform((value) => value.toLowerCase())
+    .refine(
+      (value) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value),
       'Merchant slug must contain only lowercase letters, numbers, and hyphens'
     ),
 });

@@ -3,7 +3,6 @@ import { getImportJobWorkerSecret } from '@/env';
 import { buildBumpaOrderPreview } from '@/lib/imports/bumpa/build-bumpa-order-preview';
 import { buildBumpaProductPreview } from '@/lib/imports/bumpa/build-bumpa-product-preview';
 import type {
-  ExistingImportedCustomer,
   ExistingImportedOrder,
   ExistingImportedProduct,
   ImportPreviewRow,
@@ -12,6 +11,7 @@ import type {
   NormalizedImportedProduct,
 } from '@/lib/imports/bumpa/bumpa-types';
 import { parseCsvText } from '@/lib/imports/csv/parse-csv';
+import { logger } from '@/lib/logger';
 import type {
   ImportJobEntityType,
   ImportJobStatus,
@@ -66,6 +66,10 @@ interface ImportJobRowInsert {
     | null;
   validation_errors: string[];
   meta: Record<string, unknown>;
+}
+
+function getSourceRowIndex(rowNumber: number) {
+  return rowNumber - 2;
 }
 
 export function canManageImportJob(
@@ -129,31 +133,6 @@ export async function readImportFileText(
   return await data.text();
 }
 
-async function loadExistingCustomers(
-  supabase: SupabaseClient,
-  merchantId: string
-) {
-  const { data, error } = await supabase
-    .from('customers')
-    .select('id, email, phone, user_id')
-    .eq('merchant_id', merchantId)
-    .is('deleted_at', null);
-
-  if (error) {
-    throw new Error(`Failed to load existing customers: ${error.message}`);
-  }
-
-  return (data || []).map(
-    (customer) =>
-      ({
-        id: customer.id,
-        email: customer.email,
-        phone: customer.phone,
-        userId: customer.user_id,
-      }) satisfies ExistingImportedCustomer
-  );
-}
-
 async function loadExistingOrders(
   supabase: SupabaseClient,
   merchantId: string
@@ -211,8 +190,7 @@ export async function buildImportPreviewForJob(
   supabase: SupabaseClient,
   job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>
 ): Promise<PreviewBuildResult> {
-  const [customers, orders, products, fileText] = await Promise.all([
-    loadExistingCustomers(supabase, job.merchant_id),
+  const [orders, products, fileText] = await Promise.all([
     loadExistingOrders(supabase, job.merchant_id),
     loadExistingProducts(supabase, job.merchant_id),
     readImportFileText(supabase, job.storage_path),
@@ -223,7 +201,6 @@ export async function buildImportPreviewForJob(
   if (job.entity_type === 'orders') {
     const preview = buildBumpaOrderPreview({
       rows: rawRows,
-      existingCustomers: customers,
       existingOrders: orders,
       existingProducts: products,
     });
@@ -264,7 +241,7 @@ export function buildImportJobRowInserts(
       row_number: row.rowNumber,
       source_external_id: row.sourceExternalId,
       row_status: row.rowStatus,
-      source_payload: sourceRows[row.rowNumber - 2] || {},
+      source_payload: sourceRows[getSourceRowIndex(row.rowNumber)] || {},
       normalized_payload: row.payload,
       validation_errors: row.errors,
       meta: row.meta,
@@ -285,7 +262,13 @@ export async function triggerImportWorker(origin: string) {
       Authorization: `Bearer ${workerSecret}`,
     },
     cache: 'no-store',
-  }).catch(() => null);
+  }).catch((error) => {
+    logger.error({
+      message: 'Failed to trigger import worker',
+      error,
+      origin,
+    });
+  });
 }
 
 export function mergeImportJobSummary(

@@ -90,6 +90,9 @@ export default function AccountPage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
         <div className="container mx-auto px-4 py-8 max-w-4xl">
+          <output aria-label="Loading account" className="sr-only">
+            Loading account
+          </output>
           <Skeleton className="h-8 w-48 mb-8" />
           <div className="grid gap-4 md:grid-cols-2">
             {[1, 2, 3, 4, 5].map((i) => (

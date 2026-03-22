@@ -3,7 +3,7 @@ import type {
   ImportJobDetail,
   ImportJobListItem,
   ImportJobRowsResponse,
-} from './migration-types';
+} from '@/app/dashboard/migrations/migration-types';
 
 describe('migration-types', () => {
   it('ImportJobListItem has required fields', () => {

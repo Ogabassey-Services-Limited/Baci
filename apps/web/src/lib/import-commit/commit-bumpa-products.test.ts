@@ -1,8 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { commitBumpaProducts } from '@/lib/import-commit/commit-bumpa-products';
+import type { NormalizedImportedProduct } from '@/lib/imports/bumpa/bumpa-types';
 
-function createProduct(overrides?: Partial<Record<string, unknown>>) {
+function createProduct(
+  overrides: Partial<NormalizedImportedProduct> = {}
+): NormalizedImportedProduct {
   return {
     sourcePlatform: 'bumpa',
     externalSourceId: 'prod-1',
@@ -20,7 +23,7 @@ function createProduct(overrides?: Partial<Record<string, unknown>>) {
     sourceUpdatedAt: '2026-02-01T00:00:00.000Z',
     importMetadata: { source: 'bumpa' },
     ...overrides,
-  } as never;
+  };
 }
 
 describe('commitBumpaProducts', () => {
@@ -32,10 +35,12 @@ describe('commitBumpaProducts', () => {
     const loadQuery = {
       select: vi.fn(),
       eq: vi.fn(),
+      order: vi.fn(),
       range: vi.fn(),
     };
     loadQuery.select.mockReturnValue(loadQuery);
     loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.order.mockReturnValue(loadQuery);
     loadQuery.range.mockResolvedValue({
       data: [
         {
@@ -104,5 +109,121 @@ describe('commitBumpaProducts', () => {
         slug: 'fresh-phone-2',
       })
     );
+  });
+
+  it('throws when loading existing products fails', async () => {
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      range: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.order.mockReturnValue(loadQuery);
+    loadQuery.range.mockResolvedValue({
+      data: null,
+      error: { message: 'load failed' },
+    });
+
+    const supabase = {
+      from: vi.fn().mockReturnValue(loadQuery),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      commitBumpaProducts({
+        supabase,
+        merchantId: 'merchant-1',
+        importJobId: 'job-1',
+        products: [createProduct()],
+      })
+    ).rejects.toThrow('Failed to load existing products: load failed');
+  });
+
+  it('throws when updating an imported product fails', async () => {
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      range: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.order.mockReturnValue(loadQuery);
+    loadQuery.range.mockResolvedValue({
+      data: [
+        {
+          id: 'existing-product',
+          slug: 'imported-phone',
+          external_source: 'bumpa',
+          external_id: 'prod-1',
+        },
+      ],
+      error: null,
+    });
+
+    const updateQuery = {
+      update: vi.fn(),
+      eq: vi.fn(),
+    };
+    updateQuery.update.mockReturnValue(updateQuery);
+    updateQuery.eq.mockResolvedValue({
+      error: { message: 'update failed' },
+    });
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(updateQuery),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      commitBumpaProducts({
+        supabase,
+        merchantId: 'merchant-1',
+        importJobId: 'job-1',
+        products: [createProduct()],
+      })
+    ).rejects.toThrow('Failed to update imported product: update failed');
+  });
+
+  it('throws when inserting a new imported product fails', async () => {
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      order: vi.fn(),
+      range: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.order.mockReturnValue(loadQuery);
+    loadQuery.range.mockResolvedValue({
+      data: [],
+      error: null,
+    });
+
+    const insertQuery = {
+      insert: vi.fn(),
+    };
+    insertQuery.insert.mockResolvedValue({
+      error: { message: 'insert failed' },
+    });
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(insertQuery),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      commitBumpaProducts({
+        supabase,
+        merchantId: 'merchant-1',
+        importJobId: 'job-1',
+        products: [createProduct()],
+      })
+    ).rejects.toThrow('Failed to create imported product: insert failed');
   });
 });

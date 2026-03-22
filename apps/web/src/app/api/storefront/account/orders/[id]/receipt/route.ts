@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { buildPdfContentDisposition } from '@/lib/download-filename';
+import { logger } from '@/lib/logger';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { generateReceiptBlob } from '@/lib/receipt-pdf-generator';
 import {
@@ -23,7 +24,11 @@ function toErrorResponse(error: unknown) {
     );
   }
 
-  console.error('Unexpected storefront receipt download error:', error);
+  logger.error({
+    message: 'Unexpected storefront receipt download error',
+    error,
+    route: 'storefront/account/orders/[id]/receipt',
+  });
   return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
 }
 

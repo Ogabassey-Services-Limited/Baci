@@ -1,10 +1,4 @@
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/csrf', () => ({
@@ -84,8 +78,8 @@ describe('MigrationsClientPage', () => {
 
     expect(await screen.findByText(/selected job/i)).toBeInTheDocument();
     expect(
-      within(screen.getByTestId('valid-rows-summary')).getByText('8')
-    ).toBeInTheDocument();
+      screen.getByRole('status', { name: /^valid rows$/i })
+    ).toHaveTextContent('8');
     expect(fetch).toHaveBeenCalledWith('/api/import-jobs/job-1', {
       cache: 'no-store',
     });
@@ -161,5 +155,47 @@ describe('MigrationsClientPage', () => {
       );
     });
     expect(await screen.findByText('products.csv')).toBeInTheDocument();
+  });
+
+  it('shows an error when loading the selected job fails', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({ error: 'Failed to load import job' }),
+      } as Response)
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          rows: [],
+          pagination: { page: 1, pageSize: 25, total: 0 },
+        })
+      );
+
+    render(
+      <MigrationsClientPage
+        initialJobs={[
+          {
+            id: 'job-1',
+            entity_type: 'orders',
+            source_platform: 'bumpa',
+            status: 'uploaded',
+            original_filename: 'orders.csv',
+            processed_rows: 0,
+            total_rows: 0,
+            summary: null,
+            error: null,
+            created_at: '2026-03-22T10:00:00.000Z',
+            committed_at: null,
+            notified_at: null,
+          },
+        ]}
+      />
+    );
+
+    expect(
+      await screen.findByText(/failed to load import job/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/no validation errors/i)).not.toBeInTheDocument();
   });
 });

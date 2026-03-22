@@ -51,10 +51,12 @@ describe('parseMoney', () => {
     expect(parseMoney('')).toBe(0);
   });
 
-  it('delegates to sanitizePrice for formatting', () => {
-    // sanitizePrice handles currency formatting; parseMoney wraps it
-    const result = parseMoney('1500.50');
-    expect(result).toBe(1500.5);
+  it('parses decimal strings', () => {
+    expect(parseMoney('1500.50')).toBe(1500.5);
+  });
+
+  it('supports numeric values with surrounding whitespace', () => {
+    expect(parseMoney(' 1500.50 ')).toBe(1500.5);
   });
 });
 
@@ -183,16 +185,14 @@ describe('splitCustomerName', () => {
 });
 
 describe('buildCustomer', () => {
-  const emptyMap = new Map();
-
   it('creates claimable customer when email is present', () => {
-    const customer = buildCustomer(makeRow(), emptyMap);
+    const customer = buildCustomer(makeRow());
     expect(customer.claimable).toBe(true);
     expect(customer.email).toBeTruthy();
   });
 
   it('creates non-claimable customer with phone only', () => {
-    const customer = buildCustomer(makeRow({ 'Customer Email': '' }), emptyMap);
+    const customer = buildCustomer(makeRow({ 'Customer Email': '' }));
     expect(customer.claimable).toBe(false);
     expect(customer.phone).toBeTruthy();
     expect(customer.email).toBeNull();
@@ -200,8 +200,7 @@ describe('buildCustomer', () => {
 
   it('creates anonymous customer with no email or phone', () => {
     const customer = buildCustomer(
-      makeRow({ 'Customer Email': '', 'Customer Phone': '' }),
-      emptyMap
+      makeRow({ 'Customer Email': '', 'Customer Phone': '' })
     );
     expect(customer.claimable).toBe(false);
     expect(customer.email).toBeNull();
@@ -209,14 +208,14 @@ describe('buildCustomer', () => {
   });
 
   it('uses Customer Name for fullName and splits into parts', () => {
-    const customer = buildCustomer(makeRow(), emptyMap);
+    const customer = buildCustomer(makeRow());
     expect(customer.fullName).toBe('Ada Lovelace');
     expect(customer.firstName).toBe('Ada');
     expect(customer.lastName).toBe('Lovelace');
   });
 
   it('defaults to Customer when name is empty', () => {
-    const customer = buildCustomer(makeRow({ 'Customer Name': '' }), emptyMap);
+    const customer = buildCustomer(makeRow({ 'Customer Name': '' }));
     expect(customer.fullName).toBe('Customer');
   });
 });

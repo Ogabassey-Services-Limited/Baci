@@ -66,6 +66,7 @@ vi.mock('@/components/notifications/notification-center', () => ({
   NotificationCenter: () => null,
 }));
 
+import { useMerchant } from '@/hooks/use-merchant';
 import DashboardClientLayout from './client-layout';
 
 describe('DashboardClientLayout', () => {
@@ -112,5 +113,30 @@ describe('DashboardClientLayout', () => {
     );
 
     expect(screen.getByText('Migration Page Content')).toBeInTheDocument();
+  });
+
+  it('hides the Migrations nav item when the merchant lacks permission', () => {
+    vi.mocked(useMerchant).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        country: 'NG',
+        custom_domain: null,
+      },
+      loading: false,
+      updateMerchant: vi.fn(),
+      hasPermission: vi.fn(() => false),
+      staffAccess: { isOwner: false },
+    } as never);
+
+    render(
+      <DashboardClientLayout>
+        <div>Test Content</div>
+      </DashboardClientLayout>
+    );
+
+    expect(
+      screen.queryByRole('link', { name: 'Migrations' })
+    ).not.toBeInTheDocument();
   });
 });

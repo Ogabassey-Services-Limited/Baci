@@ -155,4 +155,65 @@ describe('createImportCustomerResolver', () => {
       })
     );
   });
+
+  it('throws when loading customers fails', async () => {
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      is: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.is.mockResolvedValue({
+      data: null,
+      error: { message: 'boom' },
+    });
+
+    const supabase = {
+      from: vi.fn().mockReturnValue(loadQuery),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      createImportCustomerResolver(supabase, 'merchant-1')
+    ).rejects.toThrow('Failed to load customers for import: boom');
+  });
+
+  it('throws when creating a new customer fails', async () => {
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      is: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.is.mockResolvedValue({
+      data: [],
+      error: null,
+    });
+
+    const insertQuery = {
+      insert: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    insertQuery.insert.mockReturnValue(insertQuery);
+    insertQuery.select.mockReturnValue(insertQuery);
+    insertQuery.single.mockResolvedValue({
+      data: null,
+      error: { message: 'insert failed' },
+    });
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(insertQuery),
+    } as unknown as SupabaseClient;
+
+    const resolver = await createImportCustomerResolver(supabase, 'merchant-1');
+
+    await expect(
+      resolver.resolveCustomerId(supabase, createOrder())
+    ).rejects.toThrow('Failed to create imported customer: insert failed');
+  });
 });

@@ -187,35 +187,32 @@ export function generateReceiptPDF(
     y += 6;
   };
 
-  writeSummaryRow('Subtotal', formatCurrency(order.subtotal, currency));
+  const formatSummaryAmount = (value: number | null | undefined) =>
+    formatCurrency(typeof value === 'number' ? value : 0, currency);
+
+  writeSummaryRow('Subtotal', formatSummaryAmount(order.subtotal));
   writeSummaryRow(
     'Shipping',
-    order.shipping_fee > 0
-      ? formatCurrency(order.shipping_fee, currency)
-      : 'Free'
+    order.shipping_fee > 0 ? formatSummaryAmount(order.shipping_fee) : 'Free'
   );
 
   if (order.discount_amount > 0) {
     writeSummaryRow(
       'Discount',
-      `-${formatCurrency(order.discount_amount, currency)}`
+      `-${formatSummaryAmount(order.discount_amount)}`
     );
   }
 
   if (order.tax_amount > 0) {
-    writeSummaryRow('Tax', formatCurrency(order.tax_amount, currency));
+    writeSummaryRow('Tax', formatSummaryAmount(order.tax_amount));
   }
 
-  writeSummaryRow('Total', formatCurrency(order.total, currency), true);
+  writeSummaryRow('Total', formatSummaryAmount(order.total), true);
 
   if (!isPaid || order.amount_paid > 0) {
-    writeSummaryRow('Amount Paid', formatCurrency(order.amount_paid, currency));
+    writeSummaryRow('Amount Paid', formatSummaryAmount(order.amount_paid));
     if (order.balance > 0) {
-      writeSummaryRow(
-        'Balance Due',
-        formatCurrency(order.balance, currency),
-        true
-      );
+      writeSummaryRow('Balance Due', formatSummaryAmount(order.balance), true);
     }
   }
 

@@ -39,22 +39,21 @@ import { POST } from './route';
 const jobId = '00000000-0000-4000-8000-000000000001';
 
 function createRouteContext(): ImportRouteContext {
+  const query = {
+    update: vi.fn(),
+    eq: vi.fn(),
+    select: vi.fn(),
+  };
+  query.update.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  query.select.mockResolvedValue({ data: [{ id: jobId }], error: null });
+
   return {
     merchantContext: {
       merchantId: 'merchant-1',
     } as ImportRouteContext['merchantContext'],
     supabase: {
-      from: vi.fn(() => {
-        const query = {
-          update: vi.fn(),
-          eq: vi.fn(),
-        };
-        query.update.mockReturnValue(query);
-        query.eq
-          .mockReturnValueOnce(query)
-          .mockResolvedValueOnce({ error: null });
-        return query;
-      }),
+      from: vi.fn(() => query),
     } as unknown as ImportRouteContext['supabase'],
     userId: 'user-1',
   };
@@ -228,5 +227,28 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
       status: 'notify_queued',
     });
     expect(triggerImportWorker).toHaveBeenCalledWith('http://localhost');
+  });
+
+  it('returns 409 when the committed transition no longer matches a row', async () => {
+    const context = createRouteContext();
+    const query = context.supabase.from('import_jobs') as unknown as {
+      select: ReturnType<typeof vi.fn>;
+    };
+    query.select.mockResolvedValueOnce({ data: [], error: null });
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({ context });
+    vi.mocked(getImportJobForMerchant).mockResolvedValue(createMockImportJob());
+
+    const response = await POST(
+      new NextRequest(
+        `http://localhost/api/import-jobs/${jobId}/notify-customers`,
+        {
+          method: 'POST',
+        }
+      ),
+      { params: Promise.resolve({ jobId }) }
+    );
+
+    expect(response.status).toBe(409);
+    expect(triggerImportWorker).not.toHaveBeenCalled();
   });
 });

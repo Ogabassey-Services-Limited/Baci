@@ -136,4 +136,21 @@ describe('ReceiptsPage', () => {
       '/api/storefront/account/orders/order-delivered/receipt?merchantSlug=ogabassey'
     );
   });
+
+  it('shows error UI when archive loading fails', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 500,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => ({ error: 'Failed to load archive' }),
+    } as Response);
+
+    render(<ReceiptsPage />);
+
+    expect(
+      await screen.findByRole('heading', { name: /unable to load documents/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/failed to load archive/i)).toBeInTheDocument();
+    expect(screen.queryByText('#ORD-1001')).not.toBeInTheDocument();
+  });
 });

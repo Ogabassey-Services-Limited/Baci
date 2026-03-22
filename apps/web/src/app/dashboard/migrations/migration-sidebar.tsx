@@ -1,6 +1,8 @@
 'use client';
 
 import { FileUp, Loader2, UploadCloud } from 'lucide-react';
+import { useState } from 'react';
+import { statusBadgeClass } from '@/app/dashboard/migrations/migration-utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,28 +20,6 @@ interface MigrationSidebarProps {
   uploading: boolean;
 }
 
-function statusBadgeClass(status: string) {
-  if (status === 'completed' || status === 'committed') {
-    return 'bg-emerald-500/10 text-emerald-700';
-  }
-  if (status === 'failed') {
-    return 'bg-rose-500/10 text-rose-700';
-  }
-  if (
-    [
-      'uploaded',
-      'validating',
-      'commit_queued',
-      'committing',
-      'notify_queued',
-      'notifying',
-    ].includes(status)
-  ) {
-    return 'bg-blue-500/10 text-blue-700';
-  }
-  return 'bg-muted text-muted-foreground';
-}
-
 export default function MigrationSidebar({
   entityType,
   jobs,
@@ -50,6 +30,8 @@ export default function MigrationSidebar({
   selectedJobId,
   uploading,
 }: MigrationSidebarProps) {
+  const [hasSelectedFile, setHasSelectedFile] = useState(false);
+
   return (
     <div className="space-y-6">
       <Card>
@@ -60,7 +42,17 @@ export default function MigrationSidebar({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form className="space-y-4" onSubmit={onUpload}>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              if (uploading || !hasSelectedFile) {
+                event.preventDefault();
+                return;
+              }
+
+              void onUpload(event);
+            }}
+          >
             <label className="block text-sm font-medium">
               Import type
               <select
@@ -80,10 +72,14 @@ export default function MigrationSidebar({
             <label className="block text-sm font-medium">
               CSV file
               <input
+                accept=".csv,text/csv"
                 className="mt-2 block w-full rounded-md border px-3 py-2 text-sm"
-                onChange={(event) =>
-                  onFileChange(event.target.files?.[0] || null)
-                }
+                name="csvFile"
+                onChange={(event) => {
+                  const nextFile = event.target.files?.[0] || null;
+                  setHasSelectedFile(Boolean(nextFile));
+                  onFileChange(nextFile);
+                }}
                 type="file"
               />
             </label>

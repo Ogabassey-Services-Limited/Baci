@@ -166,6 +166,7 @@ export default function MigrationPreviewTable({
         </p>
         <div className="flex items-center gap-2">
           <button
+            aria-label={`Previous page, page ${Math.max(1, page - 1)} of ${totalPages}`}
             className="rounded-md border px-3 py-1 disabled:opacity-50"
             disabled={page <= 1}
             onClick={() => onPageChange(page - 1)}
@@ -177,6 +178,7 @@ export default function MigrationPreviewTable({
             Page {page} / {totalPages}
           </span>
           <button
+            aria-label={`Next page, page ${Math.min(totalPages, page + 1)} of ${totalPages}`}
             className="rounded-md border px-3 py-1 disabled:opacity-50"
             disabled={page >= totalPages}
             onClick={() => onPageChange(page + 1)}
