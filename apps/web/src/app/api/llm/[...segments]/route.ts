@@ -20,7 +20,9 @@ import {
 import type { RawDbProduct } from '@/lib/normalize-product';
 import { parseLegacyFAQ } from '@/types/faq';
 
-const NOT_FOUND = notFoundMarkdownResponse('# Not Found\n');
+function notFound() {
+  return notFoundMarkdownResponse('# Not Found\n');
+}
 
 /**
  * Unified LLM markdown endpoint.
@@ -42,18 +44,19 @@ export async function GET(
   context: { params: Promise<{ segments: string[] }> }
 ) {
   const { segments } = await context.params;
-  const url = new URL(request.url);
-  const origin = `${url.protocol}//${url.host}`;
+  const host = request.headers.get('host') ?? new URL(request.url).host;
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const origin = `${protocol}://${host}`;
 
   // Minimum: /api/llm/[slug]
   if (segments.length === 0) {
-    return NOT_FOUND;
+    return notFound();
   }
 
   const slug = segments[0];
   const merchant = await getMerchantByIdentifier(slug);
   if (!merchant) {
-    return NOT_FOUND;
+    return notFound();
   }
 
   // 1 segment: /api/llm/[slug] → storefront home
@@ -67,24 +70,24 @@ export async function GET(
   if (segments.length === 2) {
     switch (page) {
       case 'about':
-        if (!merchant.about_page && !merchant.pages?.about) return NOT_FOUND;
+        if (!merchant.about_page && !merchant.pages?.about) return notFound();
         return markdownResponse(buildStorefrontAboutMarkdown(merchant, origin));
 
       case 'contact':
         if (!merchant.pages?.contact && !merchant.email && !merchant.phone)
-          return NOT_FOUND;
+          return notFound();
         return markdownResponse(
           buildStorefrontContactMarkdown(merchant, origin)
         );
 
       case 'faq': {
-        if (!hasFaqContent(merchant)) return NOT_FOUND;
+        if (!hasFaqContent(merchant)) return notFound();
         return markdownResponse(buildStorefrontFaqMarkdown(merchant, origin));
       }
 
       case 'blog': {
         const data = await getCachedBlogListing(slug);
-        if (!data || data.posts.length === 0) return NOT_FOUND;
+        if (!data || data.posts.length === 0) return notFound();
         return markdownResponse(
           buildBlogIndexMarkdown(
             data.merchant,
@@ -108,7 +111,7 @@ export async function GET(
 
     if (section === 'blog') {
       const data = await getCachedBlogPost(slug, item);
-      if (!data) return NOT_FOUND;
+      if (!data) return notFound();
       return markdownResponse(
         buildBlogPostMarkdown(data.merchant, origin, data.post)
       );
@@ -116,13 +119,13 @@ export async function GET(
 
     // section = category, item = product slug
     const product = await getCachedProductWithDetails(merchant.id, item);
-    if (!product) return NOT_FOUND;
+    if (!product) return notFound();
     return markdownResponse(
       buildProductMarkdown(merchant, origin, product as unknown as RawDbProduct)
     );
   }
 
-  return NOT_FOUND;
+  return notFound();
 }
 
 async function serveCategoryMarkdown(
@@ -133,7 +136,7 @@ async function serveCategoryMarkdown(
 ) {
   const data = await getCachedCategoryPageData(merchant.id, category, slug);
   if (!data || !Array.isArray(data.products) || data.products.length === 0) {
-    return NOT_FOUND;
+    return notFound();
   }
   return markdownResponse(
     buildCategoryMarkdown(merchant, origin, category, data)

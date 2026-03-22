@@ -44,10 +44,14 @@ vi.mock('@/lib/llms-markdown', () => ({
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-const ORIGIN = 'https://ogabassey.com';
+/** In test env NODE_ENV !== 'production', so protocol resolves to http */
+const HOST = 'ogabassey.com';
+const ORIGIN = `http://${HOST}`;
 
 function makeRequest(path: string): Request {
-  return new Request(`${ORIGIN}${path}`);
+  return new Request(`https://${HOST}${path}`, {
+    headers: { host: HOST },
+  });
 }
 
 function makeParams(segments: string[]) {
