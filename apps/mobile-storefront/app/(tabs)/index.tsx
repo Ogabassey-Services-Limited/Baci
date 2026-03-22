@@ -146,14 +146,14 @@ export default function HomeScreen() {
       } else {
         newContent.unshift(injected);
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      content = newContent as any;
+      content = newContent;
     }
 
     if (isConfigLoading && !pageConfig) return [];
     return content;
   })();
 
+  // biome-ignore lint/suspicious/noExplicitAny: Required for React 18 / FlashList types
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderItem = ({ item }: { item: any }) => (
     <BlockRenderer
@@ -229,9 +229,9 @@ export default function HomeScreen() {
       </View>
 
       <FlashList
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data={blocks as any}
+        data={blocks}
         renderItem={renderItem}
+        // biome-ignore lint/suspicious/noExplicitAny: Required for React 18 / FlashList types
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         keyExtractor={(item: any, index: number) =>
           item.props?.id || `block-${index}`
