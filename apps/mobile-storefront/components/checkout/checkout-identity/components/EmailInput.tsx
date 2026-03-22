@@ -23,6 +23,8 @@ export function EmailInput({
   errors,
   isLoading,
   onClearError,
+  returnKeyType,
+  onSubmitEditing,
 }: EmailInputProps) {
   return (
     <View style={styles.inputGroup}>
@@ -58,6 +60,9 @@ export function EmailInput({
             accessibilityLabelledBy="email-label"
             accessibilityHint="Enter your account email"
             editable={!isLoading}
+            returnKeyType={returnKeyType}
+            blurOnSubmit={false}
+            onSubmitEditing={onSubmitEditing}
           />
         )}
       />
