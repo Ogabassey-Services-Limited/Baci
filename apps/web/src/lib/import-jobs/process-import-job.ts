@@ -10,15 +10,49 @@ const CLAIMED_STATUS_MAP = {
   notify_queued: 'notifying',
 } as const;
 
+const IMPORT_JOB_SELECT =
+  'id, merchant_id, created_by, source_platform, entity_type, status, original_filename, storage_path, content_type, file_size_bytes, total_rows, processed_rows, summary, error, started_at, created_at, committed_at, notified_at, completed_at';
+
+async function claimQueuedJob(
+  supabase: SupabaseClient,
+  queuedJob: ImportJobRecord
+) {
+  const claimedStatus =
+    CLAIMED_STATUS_MAP[queuedJob.status as keyof typeof CLAIMED_STATUS_MAP];
+  if (!claimedStatus) {
+    return null;
+  }
+
+  const { data: claimedJob, error: claimError } = await supabase
+    .from('import_jobs')
+    .update({
+      status: claimedStatus,
+      started_at: new Date().toISOString(),
+    })
+    .eq('id', queuedJob.id)
+    .eq('status', queuedJob.status)
+    .select(IMPORT_JOB_SELECT)
+    .single();
+
+  if (claimError || !claimedJob) {
+    logger.info({
+      message: 'Skipping import job that could not be claimed',
+      jobId: queuedJob.id,
+      claimError: claimError?.message || null,
+    });
+    return null;
+  }
+
+  return claimedJob as ImportJobRecord;
+}
+
 export async function processImportJobQueue(
   supabase: SupabaseClient,
   limit = 5
 ) {
   const { data, error } = await supabase
     .from('import_jobs')
-    .select(
-      'id, merchant_id, created_by, source_platform, entity_type, status, original_filename, storage_path, content_type, file_size_bytes, total_rows, processed_rows, summary, error, created_at, committed_at, notified_at, completed_at'
-    )
+    .select(IMPORT_JOB_SELECT)
     .in('status', [...QUEUED_STATUSES])
     .order('created_at', { ascending: true })
     .limit(limit);
@@ -35,38 +69,39 @@ export async function processImportJobQueue(
   const results: Record<string, unknown>[] = [];
 
   for (const queuedJob of jobs) {
-    const claimedStatus =
-      CLAIMED_STATUS_MAP[queuedJob.status as keyof typeof CLAIMED_STATUS_MAP];
-    if (!claimedStatus) {
+    const claimedJob = await claimQueuedJob(supabase, queuedJob);
+    if (!claimedJob) {
       continue;
     }
 
-    const { data: claimedJob, error: claimError } = await supabase
-      .from('import_jobs')
-      .update({
-        status: claimedStatus,
-        started_at: new Date().toISOString(),
-      })
-      .eq('id', queuedJob.id)
-      .eq('status', queuedJob.status)
-      .select(
-        'id, merchant_id, created_by, source_platform, entity_type, status, original_filename, storage_path, content_type, file_size_bytes, total_rows, processed_rows, summary, error, started_at, created_at, committed_at, notified_at, completed_at'
-      )
-      .single();
-
-    if (claimError || !claimedJob) {
-      logger.info({
-        message: 'Skipping import job that could not be claimed',
-        jobId: queuedJob.id,
-        claimError: claimError?.message || null,
-      });
-      continue;
-    }
-
-    results.push(
-      await runClaimedImportJob(supabase, claimedJob as ImportJobRecord)
-    );
+    results.push(await runClaimedImportJob(supabase, claimedJob));
   }
 
   return results;
+}
+
+export async function processImportJobById(
+  supabase: SupabaseClient,
+  jobId: string
+) {
+  const { data, error } = await supabase
+    .from('import_jobs')
+    .select(IMPORT_JOB_SELECT)
+    .eq('id', jobId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load import job: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const claimedJob = await claimQueuedJob(supabase, data as ImportJobRecord);
+  if (!claimedJob) {
+    return null;
+  }
+
+  return await runClaimedImportJob(supabase, claimedJob);
 }

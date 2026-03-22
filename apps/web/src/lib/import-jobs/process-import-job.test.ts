@@ -1,12 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./run-claimed-import-job', () => ({
+vi.mock('@/lib/import-jobs/run-claimed-import-job', () => ({
   runClaimedImportJob: vi.fn(),
 }));
 
-import { processImportJobQueue } from './process-import-job';
-import { runClaimedImportJob } from './run-claimed-import-job';
+import {
+  processImportJobById,
+  processImportJobQueue,
+} from '@/lib/import-jobs/process-import-job';
+import { runClaimedImportJob } from '@/lib/import-jobs/run-claimed-import-job';
 
 function createJob(status: 'uploaded' | 'commit_queued' | 'notify_queued') {
   return {
@@ -159,6 +162,116 @@ describe('processImportJobQueue', () => {
     const result = await processImportJobQueue(supabase, 1);
 
     expect(result).toEqual([]);
+    expect(runClaimedImportJob).not.toHaveBeenCalled();
+  });
+});
+
+describe('processImportJobById', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('claims and runs a specific queued job', async () => {
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.maybeSingle.mockResolvedValue({
+      data: createJob('uploaded'),
+      error: null,
+    });
+
+    const claimQuery = {
+      update: vi.fn(),
+      eq: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    claimQuery.update.mockReturnValue(claimQuery);
+    claimQuery.eq
+      .mockReturnValueOnce(claimQuery)
+      .mockReturnValueOnce(claimQuery);
+    claimQuery.select.mockReturnValue(claimQuery);
+    claimQuery.single.mockResolvedValue({
+      data: { ...createJob('uploaded'), status: 'validating' },
+      error: null,
+    });
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(claimQuery),
+    } as unknown as SupabaseClient;
+
+    vi.mocked(runClaimedImportJob).mockResolvedValueOnce({
+      id: 'uploaded-job',
+      status: 'preview_ready',
+      processed: 1,
+    });
+
+    const result = await processImportJobById(supabase, 'uploaded-job');
+
+    expect(result).toEqual({
+      id: 'uploaded-job',
+      status: 'preview_ready',
+      processed: 1,
+    });
+    expect(supabase.from).toHaveBeenCalledWith('import_jobs');
+    expect(loadQuery.eq).toHaveBeenCalledWith('id', 'uploaded-job');
+    expect(claimQuery.eq).toHaveBeenCalledWith('id', 'uploaded-job');
+    expect(runClaimedImportJob).toHaveBeenCalledWith(
+      supabase,
+      expect.objectContaining({ id: 'uploaded-job', status: 'validating' })
+    );
+  });
+
+  it('returns null when the specific job is not queued', async () => {
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.maybeSingle.mockResolvedValue({
+      data: { ...createJob('uploaded'), status: 'preview_ready' },
+      error: null,
+    });
+
+    const supabase = {
+      from: vi.fn().mockReturnValue(loadQuery),
+    } as unknown as SupabaseClient;
+
+    const result = await processImportJobById(supabase, 'uploaded-job');
+
+    expect(result).toBeNull();
+    expect(runClaimedImportJob).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the specific job does not exist', async () => {
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq.mockReturnValue(loadQuery);
+    loadQuery.maybeSingle.mockResolvedValue({
+      data: null,
+      error: null,
+    });
+
+    const supabase = {
+      from: vi.fn().mockReturnValue(loadQuery),
+    } as unknown as SupabaseClient;
+
+    const result = await processImportJobById(supabase, 'uploaded-job');
+
+    expect(result).toBeNull();
     expect(runClaimedImportJob).not.toHaveBeenCalled();
   });
 });
