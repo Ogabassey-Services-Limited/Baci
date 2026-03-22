@@ -11,7 +11,7 @@ const CLAIMED_STATUS_MAP = {
 } as const;
 
 const IMPORT_JOB_SELECT =
-  'id, merchant_id, created_by, source_platform, entity_type, status, original_filename, storage_path, content_type, file_size_bytes, total_rows, processed_rows, summary, error, created_at, committed_at, notified_at, completed_at';
+  'id, merchant_id, created_by, source_platform, entity_type, status, original_filename, storage_path, content_type, file_size_bytes, total_rows, processed_rows, summary, error, started_at, created_at, committed_at, notified_at, completed_at';
 
 async function claimQueuedJob(
   supabase: SupabaseClient,
@@ -31,9 +31,7 @@ async function claimQueuedJob(
     })
     .eq('id', queuedJob.id)
     .eq('status', queuedJob.status)
-    .select(
-      'id, merchant_id, created_by, source_platform, entity_type, status, original_filename, storage_path, content_type, file_size_bytes, total_rows, processed_rows, summary, error, started_at, created_at, committed_at, notified_at, completed_at'
-    )
+    .select(IMPORT_JOB_SELECT)
     .single();
 
   if (claimError || !claimedJob) {
@@ -54,9 +52,7 @@ export async function processImportJobQueue(
 ) {
   const { data, error } = await supabase
     .from('import_jobs')
-    .select(
-      'id, merchant_id, created_by, source_platform, entity_type, status, original_filename, storage_path, content_type, file_size_bytes, total_rows, processed_rows, summary, error, created_at, committed_at, notified_at, completed_at'
-    )
+    .select(IMPORT_JOB_SELECT)
     .in('status', [...QUEUED_STATUSES])
     .order('created_at', { ascending: true })
     .limit(limit);

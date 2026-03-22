@@ -51,26 +51,14 @@ export async function POST(request: NextRequest) {
     const rawBody = await request.text();
 
     if (rawBody.trim().length > 0) {
-      let parsedBody: unknown;
-
       try {
-        parsedBody = JSON.parse(rawBody);
+        workerRequest = importJobWorkerRequestSchema.parse(JSON.parse(rawBody));
       } catch {
         return NextResponse.json(
           { error: 'Invalid worker request body', code: 'invalid_request' },
           { status: 400 }
         );
       }
-
-      const parsedRequest = importJobWorkerRequestSchema.safeParse(parsedBody);
-      if (!parsedRequest.success) {
-        return NextResponse.json(
-          { error: 'Invalid worker request body', code: 'invalid_request' },
-          { status: 400 }
-        );
-      }
-
-      workerRequest = parsedRequest.data;
     }
 
     const supabase = createServiceClient();

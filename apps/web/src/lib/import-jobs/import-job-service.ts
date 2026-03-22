@@ -256,7 +256,7 @@ export async function triggerImportWorker(origin: string, jobId?: string) {
     return;
   }
 
-  await fetch(`${origin}/api/import-jobs/worker`, {
+  const response = await fetch(`${origin}/api/import-jobs/worker`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${workerSecret}`,
@@ -271,7 +271,27 @@ export async function triggerImportWorker(origin: string, jobId?: string) {
       origin,
       jobId,
     });
+
+    throw error;
   });
+
+  if (response.ok) {
+    return;
+  }
+
+  const responseBody = await response.text().catch(() => null);
+  logger.error({
+    message: 'Import worker trigger returned non-OK response',
+    origin,
+    jobId,
+    status: response.status,
+    statusText: response.statusText,
+    body: responseBody,
+  });
+
+  throw new Error(
+    `Import worker trigger failed: ${response.status} ${response.statusText}`
+  );
 }
 
 export function mergeImportJobSummary(

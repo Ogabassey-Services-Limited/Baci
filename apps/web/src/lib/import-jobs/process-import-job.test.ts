@@ -1,15 +1,15 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./run-claimed-import-job', () => ({
+vi.mock('@/lib/import-jobs/run-claimed-import-job', () => ({
   runClaimedImportJob: vi.fn(),
 }));
 
 import {
   processImportJobById,
   processImportJobQueue,
-} from './process-import-job';
-import { runClaimedImportJob } from './run-claimed-import-job';
+} from '@/lib/import-jobs/process-import-job';
+import { runClaimedImportJob } from '@/lib/import-jobs/run-claimed-import-job';
 
 function createJob(status: 'uploaded' | 'commit_queued' | 'notify_queued') {
   return {
@@ -220,6 +220,7 @@ describe('processImportJobById', () => {
       status: 'preview_ready',
       processed: 1,
     });
+    expect(loadQuery.eq).toHaveBeenCalledWith('id', 'uploaded-job');
     expect(runClaimedImportJob).toHaveBeenCalledWith(
       supabase,
       expect.objectContaining({ id: 'uploaded-job', status: 'validating' })
