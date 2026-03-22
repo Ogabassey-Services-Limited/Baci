@@ -69,7 +69,6 @@ const MAIN_APP_ROUTES = [
   '/_next',
   '/favicon.ico',
   '/robots.txt',
-  '/sitemap.xml',
   '/manifest.webmanifest',
 ];
 
@@ -627,6 +626,40 @@ export async function proxy(request: NextRequest) {
           routeType,
           isLocal,
           undefined, // Storefront doesn't need strict nonce usually, or we can add it if needed
+          request,
+          hostname
+        );
+      }
+
+      // SEO file paths: rewrite using merchant slug (not domain) to avoid dots in [slug]
+      // which break Next.js file-convention routing (sitemap.ts, robots.ts)
+      if (pathname.startsWith('/sitemap') || pathname === '/robots.txt') {
+        const merchantSlug = domain
+          .replace(/\.(com|ng|co|shop|store|africa|io|net|org)$/i, '')
+          .replace(/\./g, '-');
+        const url = request.nextUrl.clone();
+        url.pathname = `/${merchantSlug}${pathname}`;
+
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.set('x-custom-domain', domain);
+        requestHeaders.set('x-merchant-domain', domain);
+
+        const response = NextResponse.rewrite(url, {
+          request: {
+            headers: requestHeaders,
+          },
+        });
+
+        const routeType = getRouteType(pathname);
+        const isLocal = isLocalhost(hostname);
+
+        return applySecurityHeaders(
+          response,
+          pathname,
+          userAgent,
+          routeType,
+          isLocal,
+          undefined,
           request,
           hostname
         );

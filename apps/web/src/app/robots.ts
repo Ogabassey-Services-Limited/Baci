@@ -115,6 +115,11 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         disallow: disallowedPaths,
       },
     ],
-    sitemap: `${storeUrl}/sitemap.xml`,
+    sitemap: [
+      `${storeUrl}/sitemap/static.xml`,
+      `${storeUrl}/sitemap/products.xml`,
+      `${storeUrl}/sitemap/categories.xml`,
+      `${storeUrl}/blog/sitemap.xml`,
+    ],
   };
 }
