@@ -208,7 +208,10 @@ export function generateReceiptPDF(
   );
 
   if (order.discount_amount > 0) {
-    writeSummaryRow('Discount', `-${formatSummaryAmount(order.discount_amount)}`);
+    writeSummaryRow(
+      'Discount',
+      `-${formatSummaryAmount(order.discount_amount)}`
+    );
   }
 
   if (order.tax_amount > 0) {

@@ -11,7 +11,7 @@ import { authenticateApiRequest } from '@/lib/api-auth';
 import { GET } from './route';
 
 interface QueryResult<TData> {
-  data: TData;
+  data: TData | null;
   error: { message: string } | null;
 }
 
