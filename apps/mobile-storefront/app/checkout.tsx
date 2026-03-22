@@ -449,7 +449,7 @@ export default function CheckoutScreen() {
     setValue,
     reset,
   } = useForm<ShippingAddressInput>({
-    // Cast to any for Zod 4 compatibility with @hookform/resolvers
+    // biome-ignore lint/suspicious/noExplicitAny: Cast to any for Zod 4 compatibility with @hookform/resolvers
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(ShippingAddressSchema as any),
     defaultValues: {
@@ -556,7 +556,6 @@ export default function CheckoutScreen() {
     }
   }, [enabledPaymentMethods, selectedPayment, paymentTab]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- React Compiler handles memoization
   const handleBack = () => {
     if (step === 'payment') {
       setStep('address');
@@ -567,6 +566,7 @@ export default function CheckoutScreen() {
     }
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
@@ -597,6 +597,7 @@ export default function CheckoutScreen() {
     );
 
     return () => backHandler.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, handleBack]);
 
   useEffect(() => {
