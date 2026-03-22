@@ -16,6 +16,18 @@ function formatAccountDate(value: string) {
   return new Date(value).toLocaleDateString('en-US');
 }
 
+function formatStatusLabel(status: string | null | undefined) {
+  if (!status) {
+    return 'Unavailable';
+  }
+
+  return status
+    .split('_')
+    .filter(Boolean)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(' ');
+}
+
 export function CustomerOrderDetailsContent({
   order,
   basePath,
@@ -100,8 +112,8 @@ export function CustomerOrderDetailsContent({
                 <div className="flex gap-3">
                   <Truck className="mt-0.5 h-5 w-5 text-muted-foreground" />
                   <div>
-                    <p className="font-medium capitalize">
-                      {order.shipping_status}
+                    <p className="font-medium">
+                      {formatStatusLabel(order.shipping_status)}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {order.shipping_provider ||
@@ -112,8 +124,8 @@ export function CustomerOrderDetailsContent({
                 <div className="flex gap-3">
                   <CreditCard className="mt-0.5 h-5 w-5 text-muted-foreground" />
                   <div>
-                    <p className="font-medium capitalize">
-                      {order.payment_status}
+                    <p className="font-medium">
+                      {formatStatusLabel(order.payment_status)}
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {order.payment_method || 'Payment method unavailable'}
@@ -198,7 +210,9 @@ export function CustomerOrderDetailsContent({
                 <CardContent className="space-y-3 text-sm">
                   {order.transactions.map((transaction, index) => (
                     <div
-                      key={`${transaction.created_at}-${index}`}
+                      key={
+                        transaction.id || `${transaction.created_at}-${index}`
+                      }
                       className="flex justify-between gap-4"
                     >
                       <div>

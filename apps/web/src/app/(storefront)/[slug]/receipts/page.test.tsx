@@ -49,6 +49,22 @@ function createJsonResponse(body: unknown): Response {
   } as Response;
 }
 
+function createErrorResponse(body: unknown, status = 500): Response {
+  const textBody = JSON.stringify(body);
+
+  return {
+    ok: false,
+    status,
+    statusText: 'Error',
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => body,
+    text: async () => textBody,
+    clone() {
+      return createErrorResponse(body, status);
+    },
+  } as Response;
+}
+
 describe('ReceiptsPage', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
@@ -137,20 +153,19 @@ describe('ReceiptsPage', () => {
     );
   });
 
-  it('shows error UI when archive loading fails', async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: false,
-      status: 500,
-      headers: new Headers({ 'content-type': 'application/json' }),
-      json: async () => ({ error: 'Failed to load archive' }),
-    } as Response);
+  it('shows an error state when the archive fetch fails', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      createErrorResponse({ error: 'Failed to load archive' })
+    );
 
     render(<ReceiptsPage />);
 
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(
-      await screen.findByRole('heading', { name: /unable to load documents/i })
+      screen.getByRole('heading', { name: /unable to load documents/i })
     ).toBeInTheDocument();
     expect(screen.getByText(/failed to load archive/i)).toBeInTheDocument();
     expect(screen.queryByText('#ORD-1001')).not.toBeInTheDocument();
+    expect(screen.queryByText('#ORD-1002')).not.toBeInTheDocument();
   });
 });

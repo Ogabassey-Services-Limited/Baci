@@ -92,6 +92,7 @@ describe('buildStorefrontAccountDocumentBundle', () => {
       ],
       transactions: [
         {
+          id: 'tx-1',
           amount: 110000,
           created_at: '2026-03-22T10:10:00.000Z',
           description: 'Card payment',
@@ -112,6 +113,9 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     expect(result.order.current_document_kind).toBe('receipt');
     expect(result.order.receipt_eligible).toBe(true);
     expect(result.order.customer_name).toBe('Oga Bassey');
+    expect(result.invoiceData.items[0]?.vat_amount).toBe(5000);
+    expect(result.invoiceData.items[0]?.vat_category_code).toBe('S');
+    expect(result.order.transactions?.[0]?.id).toBe('tx-1');
     expect(result.receiptOrder.virtual_account?.account_number).toBe(
       '1234567890'
     );
@@ -141,7 +145,7 @@ describe('buildStorefrontAccountDocumentBundle', () => {
         legal_entity_name: null,
         brand_colors: null,
         vat_registration_status: null,
-        vat_rate: null,
+        vat_rate: 0,
         bank_code: null,
         bank_account_number: null,
         bank_name: null,
@@ -206,6 +210,115 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     expect(result.order.receipt_eligible).toBe(false);
     expect(result.order.currency).toBe('NGN');
     expect(result.receiptOrder.customer_name).toBe('Customer');
+    expect(result.invoiceData.items).toEqual([]);
+    expect(result.invoiceData.tax_exclusive_amount).toBe(0);
+    expect(result.invoiceData.tax_inclusive_amount).toBe(0);
+    expect(result.invoiceData.merchant.vat_rate).toBe(0);
     expect(result.invoiceData.customer.address?.street).toBe('Pickup');
+  });
+
+  it('omits blanket line VAT metadata when multiple tax buckets are present', () => {
+    const result = buildStorefrontAccountDocumentBundle({
+      merchant: {
+        business_name: 'Ogabassey',
+        logo_url: null,
+        email: null,
+        phone: null,
+        support_email: null,
+        support_phone: null,
+        business_address: null,
+        cac_rc_number: null,
+        tax_identification_number: null,
+        legal_entity_name: null,
+        brand_colors: null,
+        vat_registration_status: null,
+        vat_rate: 7.5,
+        bank_code: null,
+        bank_account_number: null,
+        bank_name: null,
+        bank_account_name: null,
+        social_media: null,
+        pages: null,
+        registered_address: null,
+      },
+      customer: {
+        first_name: 'Oga',
+        last_name: 'Bassey',
+        email: 'customer@example.com',
+        phone: null,
+      },
+      order: {
+        id: 'order-3',
+        order_number: 'ORD-1003',
+        created_at: '2026-03-22T10:00:00.000Z',
+        updated_at: null,
+        payment_status: 'paid',
+        shipping_status: 'shipped',
+        currency: 'NGN',
+        total: 109000,
+        subtotal: 100000,
+        shipping_fee: 4000,
+        tax_amount: 5000,
+        discount_amount: 0,
+        amount_paid: 109000,
+        shipping_address: null,
+        customer_name: null,
+        customer_email: null,
+        customer_phone: null,
+        payment_method: 'card',
+        is_credit_order: false,
+        tracking_number: null,
+        shipping_provider: null,
+        notes: null,
+        invoice_type_code: null,
+        invoice_issue_date: null,
+        tax_point_date: null,
+        payment_due_date: null,
+        buyer_reference: null,
+        purchase_order_reference: null,
+        tax_exclusive_amount: null,
+        tax_inclusive_amount: 109000,
+        invoice_note: null,
+        firs_irn: null,
+        firs_csid: null,
+        firs_qr_code: null,
+        payment_terms: null,
+      },
+      itemRows: [
+        {
+          id: 'item-1',
+          product_id: 'prod-1',
+          name: 'Mixed Tax Item',
+          quantity: 1,
+          price: 100000,
+        },
+      ],
+      transactions: [],
+      paymentAccount: null,
+      taxRows: [
+        {
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+          taxable_amount: 70000,
+          tax_amount: 3500,
+          exemption_reason: null,
+        },
+        {
+          vat_category_code: 'E',
+          vat_rate: 0,
+          taxable_amount: 30000,
+          tax_amount: 1500,
+          exemption_reason: 'Mixed exemption',
+        },
+      ],
+      paymentStatus: 'paid',
+      shippingStatus: 'shipped',
+      currentDocumentKind: 'receipt',
+    });
+
+    expect(result.invoiceData.items[0]).not.toHaveProperty('vat_category_code');
+    expect(result.invoiceData.items[0]).not.toHaveProperty('vat_rate');
+    expect(result.invoiceData.items[0]).not.toHaveProperty('vat_amount');
+    expect(result.invoiceData.tax_exclusive_amount).toBe(104000);
   });
 });
