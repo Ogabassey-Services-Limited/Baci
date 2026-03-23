@@ -201,7 +201,6 @@ describe('cache-revalidation utilities', () => {
         postSlugs: ['test-post', 'Test-Post'],
       });
 
-      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'blog-list-test-merchant-all-1',
         'merchant'
@@ -239,7 +238,6 @@ describe('cache-revalidation utilities', () => {
     it('supports the legacy identifier + slug signature', () => {
       revalidateBlogPosts('test-merchant', 'test-post');
 
-      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'blog-list-test-merchant-all-1',
         'merchant'
@@ -260,15 +258,13 @@ describe('cache-revalidation utilities', () => {
         postSlugs: ['', null, undefined],
       });
 
-      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidatePath).not.toHaveBeenCalled();
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
+      expect(mockRevalidateTag).not.toHaveBeenCalled();
     });
 
     it('works with a merchant identifier as a single path target', () => {
       revalidateBlogPosts(MERCHANT_ID, 'my-blog-post');
 
-      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         `blog-list-${MERCHANT_ID}-all-1`,
         'merchant'

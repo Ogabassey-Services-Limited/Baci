@@ -150,15 +150,24 @@ export async function POST(request: NextRequest) {
 
   const success = failedTargets.length === 0;
 
+  if (!success) {
+    return NextResponse.json(
+      {
+        error: `Cache purge failed for: ${failedTargets.join(', ')}`,
+        failedTargets,
+        revalidated,
+      },
+      { status: 500 }
+    );
+  }
+
   return NextResponse.json(
     {
-      success,
+      success: true,
       revalidated,
-      failedTargets,
-      message: success
-        ? `Cache purged for: ${revalidated.join(', ')}`
-        : `Cache purge failed for: ${failedTargets.join(', ')}`,
+      failedTargets: [],
+      message: `Cache purged for: ${revalidated.join(', ')}`,
     },
-    { status: success ? 200 : 500 }
+    { status: 200 }
   );
 }

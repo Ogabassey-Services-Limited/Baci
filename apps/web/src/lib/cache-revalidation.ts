@@ -80,8 +80,6 @@ export function revalidateBlogPosts(
   identifierOrOptions: string | BlogRevalidationOptions,
   postSlug?: string
 ) {
-  revalidateTag('blog-posts', 'merchant');
-
   const identifiers =
     typeof identifierOrOptions === 'string'
       ? [identifierOrOptions]

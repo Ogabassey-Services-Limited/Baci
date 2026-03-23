@@ -319,7 +319,6 @@ describe('POST /api/cache/revalidate', () => {
         {},
         MERCHANT_ID
       );
-      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'blog-list-test-store-all-1',
         'merchant'
@@ -424,7 +423,7 @@ describe('POST /api/cache/revalidate', () => {
         const json = await res.json();
 
         expect(res.status).toBe(500);
-        expect(json.success).toBe(false);
+        expect(json.error).toBe('Cache purge failed for: blog');
         expect(json.revalidated).not.toContain('blog');
         expect(json.failedTargets).toEqual(['blog']);
         expect(mockRevalidateTag).not.toHaveBeenCalledWith(
@@ -584,7 +583,6 @@ describe('POST /api/cache/revalidate', () => {
         `merchant-id-${MERCHANT_ID}`,
         'merchant'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'blog-list-test-store-all-1',
         'merchant'
@@ -621,7 +619,10 @@ describe('POST /api/cache/revalidate', () => {
       expect(json.revalidated).toHaveLength(7);
 
       // Should have revalidated all categories
-      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-test-store-all-1',
+        'merchant'
+      );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'page-config',
         'storefront-page'
