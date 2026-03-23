@@ -17,5 +17,10 @@ export default async function WishListPage({
   const merchant = await getMerchantByIdentifier(slug);
   const merchantCountry = merchant?.country ?? null;
 
-  return <WishListPageClient merchantCountry={merchantCountry} />;
+  return (
+    <>
+      <h1 className="sr-only">Your Wish List</h1>
+      <WishListPageClient merchantCountry={merchantCountry} />
+    </>
+  );
 }
