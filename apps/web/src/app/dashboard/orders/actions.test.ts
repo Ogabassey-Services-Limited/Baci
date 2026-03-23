@@ -58,7 +58,36 @@ const { getOrder, resendOrderConfirmation } = await import('./actions');
 const ORDER_ID = '11111111-1111-4111-8111-111111111111';
 const MERCHANT_ID = 'merchant-456';
 
-const mockOrder = {
+type MockOrder = {
+  id: string;
+  merchant_id: string;
+  order_number: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  shipping_status: string;
+  payment_status: string;
+  payment_method: string;
+  created_at: string;
+  source: string;
+  subtotal: string;
+  shipping_fee: string;
+  total: string;
+  shipping_address: {
+    address: string;
+    city: string;
+    state: string;
+  };
+  order_items: Array<{
+    id: string;
+    name: string;
+    product_id: string;
+    quantity: number;
+    price: string | number;
+  }>;
+};
+
+const mockOrder: MockOrder = {
   id: ORDER_ID,
   merchant_id: MERCHANT_ID,
   order_number: '#ORD-001',
