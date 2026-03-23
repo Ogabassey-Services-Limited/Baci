@@ -423,8 +423,20 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        const orderNumber =
-          newOrder.order_number || newOrder.id.slice(0, 8).toUpperCase();
+        if (!newOrder.order_number) {
+          logger.error({
+            message: 'Order created without canonical order number',
+            reference,
+            chatOrderId: chatOrder.id,
+            orderId: newOrder.id,
+          });
+          return NextResponse.json(
+            { error: 'Canonical order number was not generated' },
+            { status: 500 }
+          );
+        }
+
+        const orderNumber = newOrder.order_number;
 
         // Create order items
         const orderItems = chatItems.map((item) => ({

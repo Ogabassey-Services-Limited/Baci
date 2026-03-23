@@ -6,8 +6,10 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { formatPersonName } from '@/lib/format-person-name';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
 import { getOrderNumberLookupCandidates } from '@/lib/order-number-lookup';
+import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
@@ -144,7 +146,7 @@ export async function getOrders(
 
   let query = supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select(ORDER_WITH_ITEMS_QUERY)
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false });
 
@@ -358,7 +360,7 @@ export async function getOrder(
   if (isUuid) {
     const { data, error } = await supabase
       .from('orders')
-      .select('*, order_items(*)')
+      .select(ORDER_WITH_ITEMS_QUERY)
       .eq('merchant_id', merchantId)
       .eq('id', orderIdentifier)
       .maybeSingle();
@@ -372,7 +374,7 @@ export async function getOrder(
     for (const candidateOrderNumber of candidateOrderNumbers) {
       const { data, error } = await supabase
         .from('orders')
-        .select('*, order_items(*)')
+        .select(ORDER_WITH_ITEMS_QUERY)
         .eq('merchant_id', merchantId)
         .ilike('order_number', candidateOrderNumber)
         .maybeSingle();
@@ -467,11 +469,40 @@ export async function resendOrderConfirmation(
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      logger.error({
+        message: 'Resend Notification: Unauthorized',
+        orderId,
+        error: authError,
+      });
+      return {
+        success: false,
+        message: 'Failed to send email. Please try again.',
+      };
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+
+    if (!merchantContext) {
+      logger.error({
+        message: 'Resend Notification: Merchant context not found',
+        orderId,
+        userId: user.id,
+      });
+      return { success: false, message: 'Merchant profile not found' };
+    }
+
     // 1. Fetch Order
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('*, order_items(*)')
+      .select(ORDER_WITH_ITEMS_QUERY)
       .eq('id', orderId)
+      .eq('merchant_id', merchantContext.merchantId)
       .single();
 
     if (orderError || !order) {
@@ -512,7 +543,7 @@ export async function resendOrderConfirmation(
     const emailItems = (order.order_items || []).map((item: OrderItem) => ({
       name: item.name || 'Product',
       quantity: item.quantity || 1,
-      price: item.price || 0,
+      price: Number.isFinite(Number(item.price)) ? Number(item.price) : 0,
     }));
 
     const emailData = {

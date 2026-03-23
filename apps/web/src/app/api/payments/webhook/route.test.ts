@@ -977,6 +977,156 @@ describe('POST /api/payments/webhook', () => {
       );
     });
 
+    it('returns 500 when chat order conversion does not receive a canonical order number', async () => {
+      const body = {
+        reference: 'CHAT-REF124',
+        status: 'success',
+        event: 'charge.success',
+        amount: 11000,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      const { notifyNewOrder, notifyPaymentReceived } = await import(
+        '@/lib/expo-push'
+      );
+      const { sendEmail } = await import('@/lib/zeptomail');
+
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 11000,
+          reference: 'CHAT-REF124',
+          currency: 'NGN',
+          paid_at: '2026-03-23T10:00:00Z',
+          created_at: '2026-03-23T10:00:00Z',
+          customer: { name: 'Jane Doe', email: 'jane@example.com' },
+        },
+      });
+
+      let chatOrdersCallCount = 0;
+
+      const chatOrdersLookupQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: 'chat-order-124',
+            merchant_id: 'merchant-123',
+            customer_id: 'customer-123',
+            customer_name: 'Jane Doe',
+            customer_email: 'jane@example.com',
+            customer_phone: '+2348012345678',
+            shipping_address: {
+              address: '123 Example Street',
+              city: 'Lagos',
+              state: 'Lagos',
+            },
+            session_id: 'session-124',
+            subtotal: '10000',
+            shipping_fee: '1000',
+            items: [
+              {
+                product_id: 'product-1',
+                variant_id: 'variant-1',
+                name: 'Chat Product',
+                quantity: 1,
+                price: 10000,
+                image_url: 'https://example.com/product.png',
+              },
+            ],
+          },
+          error: null,
+        }),
+      };
+
+      const chatOrdersUpdateQuery = {
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockResolvedValue({
+          data: null,
+          error: null,
+        }),
+      };
+
+      const orderItemsQuery = {
+        insert: vi.fn().mockResolvedValue({
+          data: null,
+          error: null,
+        }),
+      };
+
+      const transactionsQuery = {
+        insert: vi.fn().mockResolvedValue({
+          data: null,
+          error: null,
+        }),
+      };
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'chat_orders') {
+          chatOrdersCallCount += 1;
+          return chatOrdersCallCount === 1
+            ? (chatOrdersLookupQuery as any)
+            : (chatOrdersUpdateQuery as any);
+        }
+
+        if (table === 'orders') {
+          return {
+            insert: vi.fn(() => ({
+              select: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'order-124',
+                  order_number: null,
+                },
+                error: null,
+              }),
+            })),
+          } as any;
+        }
+
+        if (table === 'order_items') {
+          return orderItemsQuery as any;
+        }
+
+        if (table === 'transactions') {
+          return transactionsQuery as any;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      vi.mocked(mockServiceClient.rpc).mockResolvedValue({
+        data: null,
+        error: null,
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data).toEqual({
+        error: 'Canonical order number was not generated',
+      });
+      expect(orderItemsQuery.insert).not.toHaveBeenCalled();
+      expect(transactionsQuery.insert).not.toHaveBeenCalled();
+      expect(vi.mocked(notifyNewOrder)).not.toHaveBeenCalled();
+      expect(vi.mocked(notifyPaymentReceived)).not.toHaveBeenCalled();
+      expect(vi.mocked(sendEmail)).not.toHaveBeenCalled();
+    });
+
     it('returns 200 and processes valid webhook successfully', async () => {
       const body = {
         reference: 'REF123',
