@@ -43,6 +43,8 @@ export function getMigrationProgressValue(status: ImportJobStatus) {
       return 92;
     case 'notifying':
       return 97;
+    case 'failed':
+      return 0;
     case 'preview_ready':
     case 'committed':
     case 'completed':

@@ -44,7 +44,7 @@ describe('imageLoader', () => {
 
   it('still optimizes non-root relative paths', () => {
     const result = imageLoader({ src: 'images/logo.png', width: 100 });
-    expect(result).toContain('/_next/image?url=images%2Flogo.png&w=100&q=75');
+    expect(result).toBe('/_next/image?url=images%2Flogo.png&w=100&q=75');
   });
 
   it('treats empty src as a relative path', () => {

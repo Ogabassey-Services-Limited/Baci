@@ -44,8 +44,7 @@ function normalizeSourceValue(value: string | null | undefined) {
       ?.trim()
       .toLowerCase()
       .replace(/[_\s]+/g, ' ')
-      .replace(/\s*-\s*/g, '-')
-      .replace(/\s+/g, ' ') || ''
+      .replace(/\s*-\s*/g, '-') || ''
   );
 }
 
