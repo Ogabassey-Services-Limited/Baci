@@ -10,6 +10,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type {
+  NormalizedImportedOrder,
+  NormalizedImportedProduct,
+} from '@/lib/imports/bumpa/bumpa-types';
 import { cn } from '@/lib/utils';
 
 interface MigrationPreviewTableProps {
@@ -21,13 +25,22 @@ interface MigrationPreviewTableProps {
   rows: Array<{
     id: string;
     meta: Record<string, unknown>;
-    normalized_payload: Record<string, unknown> | null;
+    normalized_payload:
+      | NormalizedImportedOrder
+      | NormalizedImportedProduct
+      | null;
     row_number: number;
     row_status: 'create' | 'update' | 'duplicate' | 'invalid';
     source_external_id: string | null;
     validation_errors: string[];
   }>;
   total: number;
+}
+
+function isNormalizedImportedOrder(
+  payload: NormalizedImportedOrder | NormalizedImportedProduct | null
+): payload is NormalizedImportedOrder {
+  return Boolean(payload && 'orderNumber' in payload && 'customer' in payload);
 }
 
 function statusClassName(status: string) {
@@ -39,15 +52,22 @@ function statusClassName(status: string) {
 
 function formatPrimaryText(
   entityType: 'orders' | 'products',
-  payload: Record<string, unknown> | null
+  payload: NormalizedImportedOrder | NormalizedImportedProduct | null
 ) {
   if (!payload) {
     return 'Invalid row';
   }
 
   if (entityType === 'orders') {
-    const customer = payload.customer as Record<string, unknown> | undefined;
-    return String(customer?.fullName || 'Unknown customer');
+    if (!isNormalizedImportedOrder(payload)) {
+      return 'Unknown customer';
+    }
+
+    return payload.customer.fullName || 'Unknown customer';
+  }
+
+  if (isNormalizedImportedOrder(payload)) {
+    return 'Untitled product';
   }
 
   return `${payload.title || 'Untitled product'}${payload.sku ? ` · ${payload.sku}` : ''}`;
@@ -55,7 +75,7 @@ function formatPrimaryText(
 
 function formatRecordText(
   entityType: 'orders' | 'products',
-  payload: Record<string, unknown> | null,
+  payload: NormalizedImportedOrder | NormalizedImportedProduct | null,
   rowNumber: number
 ) {
   if (!payload) {
@@ -65,15 +85,23 @@ function formatRecordText(
   }
 
   if (entityType === 'orders') {
-    return String(payload.orderNumber || `Order ${rowNumber}`);
+    if (!isNormalizedImportedOrder(payload)) {
+      return `Order ${rowNumber}`;
+    }
+
+    return payload.orderNumber || `Order ${rowNumber}`;
   }
 
-  return String(payload.title || payload.sku || `Product ${rowNumber}`);
+  if (isNormalizedImportedOrder(payload)) {
+    return `Product ${rowNumber}`;
+  }
+
+  return payload.title || payload.sku || `Product ${rowNumber}`;
 }
 
 function formatSecondaryText(
   entityType: 'orders' | 'products',
-  payload: Record<string, unknown> | null,
+  payload: NormalizedImportedOrder | NormalizedImportedProduct | null,
   meta: Record<string, unknown>
 ) {
   if (!payload) {
@@ -81,10 +109,18 @@ function formatSecondaryText(
   }
 
   if (entityType === 'orders') {
-    const items = Array.isArray(payload.items) ? payload.items.length : 0;
+    if (!isNormalizedImportedOrder(payload)) {
+      return 'Validation errors require review';
+    }
+
+    const items = payload.items.length;
     const unmatched = Number(meta.unmatchedItemCount || 0);
     const itemLabel = items === 1 ? 'item' : 'items';
     return `${payload.total || 0} ${payload.currency || 'NGN'} · ${items} ${itemLabel}${unmatched > 0 ? ` · ${unmatched} unmatched` : ''}`;
+  }
+
+  if (isNormalizedImportedOrder(payload)) {
+    return 'Validation errors require review';
   }
 
   return `${payload.price || 0} ${payload.currency || 'NGN'} · ${payload.status || 'draft'}`;
@@ -164,20 +200,10 @@ export default function MigrationPreviewTable({
                   </TableCell>
                   <TableCell className="min-w-[170px]">
                     {entityType === 'orders' ? (
-                      row.normalized_payload ? (
+                      isNormalizedImportedOrder(row.normalized_payload) ? (
                         <MigrationOrderSourceChip
-                          sourceChannel={
-                            row.normalized_payload.sourceChannel as
-                              | string
-                              | null
-                              | undefined
-                          }
-                          sourceOrigin={
-                            row.normalized_payload.sourceOrigin as
-                              | string
-                              | null
-                              | undefined
-                          }
+                          sourceChannel={row.normalized_payload.sourceChannel}
+                          sourceOrigin={row.normalized_payload.sourceOrigin}
                         />
                       ) : (
                         <span className="text-xs text-muted-foreground">

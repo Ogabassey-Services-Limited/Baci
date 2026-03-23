@@ -24,6 +24,10 @@ describe('mapBumpaOrderSource', () => {
     expect(mapBumpaOrderSource(undefined, 'web')).toBe('online_store');
   });
 
+  it('maps physical source channels when origin is empty', () => {
+    expect(mapBumpaOrderSource(null, 'walk-in')).toBe('physical');
+  });
+
   it('preserves unknown origins as normalized custom sources', () => {
     expect(mapBumpaOrderSource('Twitter', 'MOBILE')).toBe('twitter');
     expect(mapBumpaOrderSource('Snap Chat', 'MOBILE')).toBe('snap_chat');

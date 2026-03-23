@@ -27,13 +27,16 @@ export default function imageLoader({
     return src;
   }
 
-  // Local public assets should resolve directly instead of being bounced
-  // through /_next/image by the custom loader.
-  if (src.startsWith('/') && !src.startsWith('//')) {
+  // Local public assets bypass the optimizer in development so local previews
+  // do not depend on the dev image proxy.
+  if (
+    process.env.NODE_ENV === 'development' &&
+    src.startsWith('/') &&
+    !src.startsWith('//')
+  ) {
     return src;
   }
 
-  // Non-root relative paths keep the existing optimization fallback.
   const q = quality || 75;
   return `/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=${q}`;
 }

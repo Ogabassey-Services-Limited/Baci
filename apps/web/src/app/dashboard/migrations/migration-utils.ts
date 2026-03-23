@@ -1,4 +1,6 @@
-const ACTIVE_MIGRATION_STATUSES = new Set([
+import type { ImportJobStatus } from '@/schemas/import-jobs';
+
+const ACTIVE_MIGRATION_STATUSES = new Set<ImportJobStatus>([
   'uploaded',
   'validating',
   'commit_queued',
@@ -7,7 +9,7 @@ const ACTIVE_MIGRATION_STATUSES = new Set([
   'notifying',
 ]);
 
-export function statusBadgeClass(status: string) {
+export function statusBadgeClass(status: ImportJobStatus | string) {
   if (status === 'completed' || status === 'committed') {
     return 'bg-emerald-500/10 text-emerald-700';
   }
@@ -16,27 +18,18 @@ export function statusBadgeClass(status: string) {
     return 'bg-rose-500/10 text-rose-700';
   }
 
-  if (
-    [
-      'uploaded',
-      'validating',
-      'commit_queued',
-      'committing',
-      'notify_queued',
-      'notifying',
-    ].includes(status)
-  ) {
+  if (ACTIVE_MIGRATION_STATUSES.has(status as ImportJobStatus)) {
     return 'bg-blue-500/10 text-blue-700';
   }
 
   return 'bg-muted text-muted-foreground';
 }
 
-export function isMigrationStatusActive(status: string) {
+export function isMigrationStatusActive(status: ImportJobStatus) {
   return ACTIVE_MIGRATION_STATUSES.has(status);
 }
 
-export function getMigrationProgressValue(status: string) {
+export function getMigrationProgressValue(status: ImportJobStatus) {
   switch (status) {
     case 'uploaded':
       return 18;
@@ -59,7 +52,7 @@ export function getMigrationProgressValue(status: string) {
   }
 }
 
-export function getMigrationProgressLabel(status: string) {
+export function getMigrationProgressLabel(status: ImportJobStatus) {
   switch (status) {
     case 'uploaded':
       return 'Upload complete. Preparing preview...';
@@ -78,12 +71,12 @@ export function getMigrationProgressLabel(status: string) {
   }
 }
 
-export function shouldFetchMigrationRows(status: string) {
+export function shouldFetchMigrationRows(status: ImportJobStatus) {
   return status !== 'uploaded' && status !== 'validating';
 }
 
 export function getInitialMigrationSelection(
-  statuses: Array<{ id: string; status: string }>
+  statuses: Array<{ id: string; status: ImportJobStatus }>
 ) {
   return (
     statuses.find((job) => shouldFetchMigrationRows(job.status))?.id ?? null

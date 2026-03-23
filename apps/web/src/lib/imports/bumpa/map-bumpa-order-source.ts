@@ -76,8 +76,8 @@ export function mapBumpaOrderSource(
   }
 
   const normalizedChannel = normalizeSourceValue(channel);
-  if (WEBSITE_SOURCE_VALUES.has(normalizedChannel)) {
-    return 'online_store';
+  if (PHYSICAL_SOURCE_VALUES.has(normalizedChannel)) {
+    return 'physical';
   }
 
   return 'online_store';

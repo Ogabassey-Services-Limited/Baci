@@ -1,7 +1,17 @@
+import type { User } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSlugForCustomDomain } from '@/lib/domain-cache-simple';
+import { updateSession } from '@/lib/supabase/middleware';
 import { proxy } from './proxy';
+
+const AUTHENTICATED_USER: User = {
+  app_metadata: {},
+  aud: 'authenticated',
+  created_at: '2026-03-23T00:00:00.000Z',
+  id: 'merchant-user-id',
+  user_metadata: {},
+};
 
 // Mock dependencies
 vi.mock('@/lib/supabase/middleware', () => ({
@@ -88,6 +98,21 @@ describe('Middleware Proxy', () => {
     const csp = res.headers.get('Content-Security-Policy') || '';
 
     expect(csp).toContain("'unsafe-eval'");
+  });
+
+  it('does not allow unsafe-eval on production dashboard routes', async () => {
+    vi.mocked(updateSession).mockResolvedValueOnce({
+      supabaseResponse: NextResponse.next(),
+      user: AUTHENTICATED_USER,
+    });
+
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/dashboard/orders`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    const csp = res.headers.get('Content-Security-Policy') || '';
+
+    expect(csp).not.toContain("'unsafe-eval'");
   });
 
   it('should not rewrite API routes on subdomains (pass-through)', async () => {
