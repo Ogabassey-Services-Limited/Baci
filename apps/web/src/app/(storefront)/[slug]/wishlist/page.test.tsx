@@ -1,26 +1,49 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+let suspended = false;
 
 vi.mock('./wishlist-content', () => ({
-  WishListContent: () => <div data-testid="wishlist-content">Loaded</div>,
+  WishListContent: () => {
+    if (suspended) {
+      // Throw a pending Promise to trigger Suspense fallback (React protocol)
+      throw new Promise<void>(() => {
+        /* deferred: keep Suspense pending */
+      });
+    }
+    return <div data-testid="wishlist-content">Loaded</div>;
+  },
 }));
 
-// Import after mocks are set up
 const { default: WishListPage } = await import('./page');
 
 describe('WishListPage', () => {
-  const params = Promise.resolve({ slug: 'test-store' });
+  beforeEach(() => {
+    suspended = false;
+  });
 
   it('renders H1 in the initial synchronous output', () => {
-    render(<WishListPage params={params} />);
+    suspended = true;
+
+    render(<WishListPage params={Promise.resolve({ slug: 'test-store' })} />);
 
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toHaveTextContent('Your Wish List');
     expect(h1).toHaveClass('sr-only');
   });
 
-  it('renders H1 alongside content when content resolves', () => {
-    render(<WishListPage params={params} />);
+  it('renders Suspense fallback while content is loading', () => {
+    suspended = true;
+
+    render(<WishListPage params={Promise.resolve({ slug: 'test-store' })} />);
+
+    expect(screen.getByText('Loading wish list...')).toBeInTheDocument();
+  });
+
+  it('renders content when data resolves', () => {
+    suspended = false;
+
+    render(<WishListPage params={Promise.resolve({ slug: 'test-store' })} />);
 
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
     expect(screen.getByTestId('wishlist-content')).toBeInTheDocument();

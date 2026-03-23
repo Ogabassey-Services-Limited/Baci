@@ -21,10 +21,16 @@ export async function generateMetadata({
   const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
-    return { title: 'About Us' };
+    notFound();
   }
 
   const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
+  const legacyAboutContent = merchant.pages?.about;
+
+  if (!aboutPage.story && !aboutPage.mission && !legacyAboutContent) {
+    notFound();
+  }
+
   const description =
     aboutPage.story ||
     aboutPage.mission ||

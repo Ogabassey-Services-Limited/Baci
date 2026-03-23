@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getCachedMerchant } from '@/lib/cached-data';
+import { isValidMerchantIdentifier } from '@/lib/validation';
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedMerchant: vi.fn(async () => null),
+  getCachedMerchant: vi.fn(),
   getCachedMerchantByDomain: vi.fn(async () => null),
 }));
 
@@ -19,19 +21,31 @@ vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => ({ get: () => undefined })),
 }));
 
+const notFound = vi.fn(() => {
+  throw new Error('NEXT_NOT_FOUND');
+});
+
 vi.mock('next/navigation', () => ({
-  notFound: vi.fn(() => {
-    throw new Error('NEXT_NOT_FOUND');
-  }),
+  notFound: () => notFound(),
 }));
 
 const { default: WalletPage } = await import('./page');
 
 describe('WalletPage', () => {
-  const params = Promise.resolve({ slug: 'test-store' });
+  beforeEach(() => {
+    vi.mocked(getCachedMerchant).mockReset();
+    vi.mocked(isValidMerchantIdentifier).mockReturnValue(true);
+    notFound.mockClear();
+  });
 
   it('renders H1 in the initial synchronous output', () => {
-    render(<WalletPage params={params} />);
+    vi.mocked(getCachedMerchant).mockReturnValue(
+      new Promise(() => {
+        /* deferred: keep Suspense pending */
+      })
+    );
+
+    render(<WalletPage params={Promise.resolve({ slug: 'test-store' })} />);
 
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toHaveTextContent('Wallet');
@@ -39,8 +53,35 @@ describe('WalletPage', () => {
   });
 
   it('renders Suspense fallback while content loads', () => {
-    render(<WalletPage params={params} />);
+    vi.mocked(getCachedMerchant).mockReturnValue(
+      new Promise(() => {
+        /* deferred: keep Suspense pending */
+      })
+    );
+
+    render(<WalletPage params={Promise.resolve({ slug: 'test-store' })} />);
 
     expect(screen.getByText('Loading wallet...')).toBeInTheDocument();
+  });
+
+  it('triggers notFound when merchant does not exist', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue(null);
+
+    render(<WalletPage params={Promise.resolve({ slug: 'missing' })} />);
+
+    // Wait for the async WalletContent to resolve and call notFound
+    await vi.waitFor(() => {
+      expect(notFound).toHaveBeenCalled();
+    });
+  });
+
+  it('triggers notFound for invalid slug', async () => {
+    vi.mocked(isValidMerchantIdentifier).mockReturnValue(false);
+
+    render(<WalletPage params={Promise.resolve({ slug: 'invalid!!slug' })} />);
+
+    await vi.waitFor(() => {
+      expect(notFound).toHaveBeenCalled();
+    });
   });
 });

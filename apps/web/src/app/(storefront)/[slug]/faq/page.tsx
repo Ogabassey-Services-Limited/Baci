@@ -19,7 +19,17 @@ export async function generateMetadata({
   const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
-    return { title: 'FAQ' };
+    notFound();
+  }
+
+  const hasFaqItems =
+    merchant.faq_items &&
+    Array.isArray(merchant.faq_items) &&
+    merchant.faq_items.length > 0;
+  const hasLegacyFaq = !!merchant.pages?.faq;
+
+  if (!hasFaqItems && !hasLegacyFaq) {
+    notFound();
   }
 
   return {

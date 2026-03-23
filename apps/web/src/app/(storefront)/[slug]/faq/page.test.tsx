@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getMerchantByIdentifier } from '@/lib/cached-data';
 
 vi.mock('@/lib/cached-data', () => ({
-  getMerchantByIdentifier: vi.fn(async () => null),
+  getMerchantByIdentifier: vi.fn(),
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -25,28 +26,87 @@ vi.mock('../pages/faq/faq-page-client', () => ({
   FAQPageClient: () => <div data-testid="faq-client">FAQ UI</div>,
 }));
 
+const notFound = vi.fn(() => {
+  throw new Error('NEXT_NOT_FOUND');
+});
+
 vi.mock('next/navigation', () => ({
-  notFound: vi.fn(() => {
-    throw new Error('NEXT_NOT_FOUND');
-  }),
+  notFound: () => notFound(),
 }));
 
-const { default: FAQPage } = await import('./page');
+const { default: FAQPage, generateMetadata } = await import('./page');
 
 describe('FAQPage', () => {
-  const params = Promise.resolve({ slug: 'test-store' });
+  beforeEach(() => {
+    vi.mocked(getMerchantByIdentifier).mockReset();
+    notFound.mockClear();
+  });
 
   it('renders H1 in the initial synchronous output', () => {
-    render(<FAQPage params={params} />);
+    vi.mocked(getMerchantByIdentifier).mockReturnValue(
+      new Promise<null>(() => {
+        /* deferred: keep Suspense pending */
+      })
+    );
+
+    render(<FAQPage params={Promise.resolve({ slug: 'test-store' })} />);
 
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toHaveTextContent('Frequently Asked Questions');
     expect(h1).toHaveClass('sr-only');
   });
 
-  it('renders Suspense fallback while content loads', () => {
-    render(<FAQPage params={params} />);
+  it('renders Suspense fallback while content is loading', () => {
+    vi.mocked(getMerchantByIdentifier).mockReturnValue(
+      new Promise<null>(() => {
+        /* deferred: keep Suspense pending */
+      })
+    );
+
+    render(<FAQPage params={Promise.resolve({ slug: 'test-store' })} />);
 
     expect(screen.getByText('Loading FAQ...')).toBeInTheDocument();
+  });
+});
+
+describe('generateMetadata', () => {
+  beforeEach(() => {
+    vi.mocked(getMerchantByIdentifier).mockReset();
+    notFound.mockClear();
+  });
+
+  it('calls notFound when merchant is missing', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue(null);
+
+    await expect(
+      generateMetadata({ params: Promise.resolve({ slug: 'missing' }) })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+  });
+
+  it('calls notFound when no FAQ items exist', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      faq_items: [],
+      pages: {},
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    await expect(
+      generateMetadata({ params: Promise.resolve({ slug: 'test' }) })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+  });
+
+  it('returns metadata when FAQ items exist', async () => {
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      faq_items: [{ question: 'Q?', answer: 'A.' }],
+      pages: {},
+      logo_url: null,
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test' }),
+    });
+
+    expect(metadata.title).toBe('FAQ | Test Store');
   });
 });
