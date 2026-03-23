@@ -7,6 +7,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { getGiglPrice } from '@/lib/gigl';
+import { deriveMerchantLocation } from '@/lib/shipping/order-shipment-booking-utils';
 import { createClient } from '@/lib/supabase/server';
 
 // Fallback shipping fee if GIGL is not configured or fails
@@ -45,6 +46,20 @@ function getCoordinatesForCity(city: string): {
 
   const normalizedCity = city.toLowerCase().trim();
   return cityCoords[normalizedCity] || cityCoords.lagos; // Default to Lagos
+}
+
+function resolveMerchantStationLookup(
+  addressValue: string | null | undefined
+): string {
+  const location = deriveMerchantLocation(addressValue);
+  const candidates = [location.state, location.city];
+
+  return (
+    candidates.find(
+      (candidate) =>
+        CITY_TO_STATION[candidate.toLowerCase().trim()] !== undefined
+    ) || location.state
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -96,13 +111,16 @@ export async function POST(request: NextRequest) {
     if (merchantId) {
       const { data: merchant } = await supabase
         .from('merchants')
-        .select('business_location')
+        .select('business_address')
         .eq('id', merchantId)
         .single();
 
-      if (merchant?.business_location) {
-        senderStationId = getStationIdFromCity(merchant.business_location);
-        senderCoords = getCoordinatesForCity(merchant.business_location);
+      if (merchant?.business_address) {
+        const stationLookup = resolveMerchantStationLookup(
+          merchant.business_address
+        );
+        senderStationId = getStationIdFromCity(stationLookup);
+        senderCoords = getCoordinatesForCity(stationLookup);
       }
     } else if (user) {
       // Fallback to user session if no merchantId provided (legacy support)
@@ -118,17 +136,16 @@ export async function POST(request: NextRequest) {
 
         const { data: merchantDetails } = await supabase
           .from('merchants')
-          .select('business_location')
+          .select('business_address')
           .eq('id', merchantContext.merchantId)
           .single();
 
-        if (merchantDetails?.business_location) {
-          senderStationId = getStationIdFromCity(
-            merchantDetails.business_location
+        if (merchantDetails?.business_address) {
+          const stationLookup = resolveMerchantStationLookup(
+            merchantDetails.business_address
           );
-          senderCoords = getCoordinatesForCity(
-            merchantDetails.business_location
-          );
+          senderStationId = getStationIdFromCity(stationLookup);
+          senderCoords = getCoordinatesForCity(stationLookup);
         }
       }
     }

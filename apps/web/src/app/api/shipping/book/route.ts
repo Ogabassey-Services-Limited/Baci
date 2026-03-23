@@ -12,6 +12,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { shippingService } from '@/lib/shipping';
+import { deriveMerchantLocation } from '@/lib/shipping/order-shipment-booking-utils';
 import type {
   BookingRequest,
   ShippingProviderCode,
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
     const { data: quote, error: quoteError } = await supabase
       .from('shipping_quotes')
       .select(
-        'id, provider_code, provider_rate_id, expires_at, price, currency, estimated_days'
+        'id, provider_code, provider_rate_id, provider_metadata, expires_at, price, currency, estimated_days'
       )
       .eq('id', data.quoteId)
       .single();
@@ -135,25 +136,25 @@ export async function POST(request: NextRequest) {
     // Build sender info
     let senderInfo = data.sender;
     if (!senderInfo) {
-      // Fetch merchant location/phone details for sender fallback
+      // Fetch merchant address/phone details for sender fallback
       const { data: merchantDetails } = await supabase
         .from('merchants')
-        .select('business_name, business_location, phone')
+        .select('business_name, business_address, phone')
         .eq('id', merchantId)
         .single();
 
-      const locationParts = (merchantDetails?.business_location || 'Lagos')
-        .split(',')
-        .map((s: string) => s.trim());
+      const location = deriveMerchantLocation(
+        merchantDetails?.business_address
+      );
       senderInfo = {
         name:
           merchantDetails?.business_name ||
           merchantContext.businessName ||
           'Merchant',
         phone: merchantDetails?.phone || '',
-        address: merchantDetails?.business_location || 'Lagos',
-        city: locationParts[0] || 'Lagos',
-        state: locationParts[1] || locationParts[0] || 'Lagos',
+        address: location.address,
+        city: location.city,
+        state: location.state,
         country: 'Nigeria',
         countryCode: 'NG',
       };
@@ -164,6 +165,7 @@ export async function POST(request: NextRequest) {
       orderId: data.orderId,
       quoteId: data.quoteId,
       providerRateId: quote.provider_rate_id,
+      quoteMetadata: quote.provider_metadata,
       sender: senderInfo,
       receiver: {
         ...data.receiver,

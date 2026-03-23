@@ -54,7 +54,21 @@ interface OrderItemRow {
 }
 
 const PAGE_SIZE = 20;
+const ORDER_STATUS_UPDATE_TIMEOUT_MS = 15000;
 
+function parseResponsePayload(
+  text: string
+): Record<string, unknown> | string | null {
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return text;
+  }
+}
 async function fetchOrders(
   merchantId: string,
   cursor: number = 0,
@@ -145,16 +159,68 @@ async function updateOrderStatus(
   status: ShippingStatus,
   merchantId: string
 ): Promise<Order> {
-  const { data, error } = await supabase
-    .from('orders')
-    .update({ shipping_status: status, updated_at: new Date().toISOString() })
-    .eq('id', orderId)
-    .eq('merchant_id', merchantId)
-    .select(ORDER_COLUMNS);
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (error) throw new Error(error.message);
-  if (!data || data.length === 0) throw new Error('Order not found');
-  return data[0];
+  if (!session?.access_token) {
+    throw new Error('Unauthorized');
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    ORDER_STATUS_UPDATE_TIMEOUT_MS
+  );
+
+  try {
+    const response = await fetch(`${BASE_URL}/api/orders/${orderId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        shipping_status: status,
+        merchant_id: merchantId,
+      }),
+      signal: controller.signal,
+    });
+    const responseText = await response.text();
+    const payload = parseResponsePayload(responseText);
+
+    if (!response.ok) {
+      const errorMessage =
+        payload &&
+        typeof payload === 'object' &&
+        typeof payload.error === 'string'
+          ? payload.error
+          : responseText ||
+            `Request failed: ${response.status} ${response.statusText}`;
+      throw new Error(errorMessage);
+    }
+
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      !('order' in payload) ||
+      !payload.order
+    ) {
+      throw new Error('Failed to update order status');
+    }
+
+    return payload.order as Order;
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(
+        'Request timed out. Please check your connection and try again.'
+      );
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export function useOrders(

@@ -107,6 +107,7 @@ export interface BookingRequest {
   quoteId: string;
   merchantId?: string;
   providerRateId?: string; // Provider-specific rate ID for booking
+  quoteMetadata?: unknown; // Stored provider quote metadata for booking
   sender: ShippingAddress;
   receiver: ShippingAddress;
   items: ShipmentItem[];
