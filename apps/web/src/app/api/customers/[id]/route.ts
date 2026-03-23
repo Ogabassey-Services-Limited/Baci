@@ -232,17 +232,22 @@ export async function DELETE(
   }
   const merchantId = merchantContext.merchantId;
 
-  const { error } = await supabase
+  const { data: deletedCustomers, error } = await supabase
     .from('customers')
     .delete()
     .eq('id', id)
-    .eq('merchant_id', merchantId);
+    .eq('merchant_id', merchantId)
+    .select('id');
 
   if (error) {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
+  }
+
+  if (!deletedCustomers || deletedCustomers.length === 0) {
+    return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
   }
 
   return NextResponse.json({ success: true });

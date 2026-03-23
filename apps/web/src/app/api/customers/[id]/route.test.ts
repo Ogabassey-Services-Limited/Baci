@@ -56,6 +56,8 @@ let customer: unknown = null;
 let customerError: unknown = null;
 let updateResult: unknown = null;
 let updateError: unknown = null;
+let deleteResult: unknown[] | null = null;
+let deleteError: unknown = null;
 
 const createMockSupabase = () => ({
   auth: {
@@ -102,7 +104,14 @@ const createMockSupabase = () => ({
         })),
         delete: vi.fn(() => ({
           eq: vi.fn(() => ({
-            eq: vi.fn(() => Promise.resolve({ error: null })),
+            eq: vi.fn(() => ({
+              select: vi.fn(() =>
+                Promise.resolve({
+                  data: deleteResult,
+                  error: deleteError,
+                })
+              ),
+            })),
           })),
         })),
       };
@@ -122,7 +131,7 @@ vi.mock('@/lib/csrf', () => ({
 }));
 
 // ---- Import handlers AFTER mocks ----
-import { GET, PATCH } from './route';
+import { DELETE, GET, PATCH } from './route';
 
 // ---- Helpers ----
 
@@ -140,6 +149,12 @@ function makePatchRequest(id: string, body: Record<string, unknown>) {
   });
 }
 
+function makeDeleteRequest(id: string) {
+  return new NextRequest(`http://localhost:3000/api/customers/${id}`, {
+    method: 'DELETE',
+  });
+}
+
 function resetMocks() {
   authUser = { id: USER_ID };
   customer = {
@@ -150,6 +165,8 @@ function resetMocks() {
   customerError = null;
   updateResult = null;
   updateError = null;
+  deleteResult = [{ id: CUSTOMER_ID }];
+  deleteError = null;
 }
 
 // ---- Tests ----
@@ -228,5 +245,58 @@ describe('PATCH /api/customers/[id]', () => {
     const json = await res.json();
     expect(res.status).toBe(400);
     expect(json.error).toBe('Validation failed');
+  });
+});
+
+describe('DELETE /api/customers/[id]', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetMocks();
+  });
+
+  it('returns success when a customer row is deleted', async () => {
+    const res = await DELETE(makeDeleteRequest(CUSTOMER_ID), {
+      params: Promise.resolve({ id: CUSTOMER_ID }),
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+  });
+
+  it('returns 404 when no customer row is deleted', async () => {
+    deleteResult = [];
+
+    const res = await DELETE(makeDeleteRequest(CUSTOMER_ID), {
+      params: Promise.resolve({ id: CUSTOMER_ID }),
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(json.error).toBe('Customer not found');
+  });
+
+  it('returns 500 when the delete query fails', async () => {
+    deleteError = { message: 'delete failed' };
+
+    const res = await DELETE(makeDeleteRequest(CUSTOMER_ID), {
+      params: Promise.resolve({ id: CUSTOMER_ID }),
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(json.error).toBe('Internal server error');
+  });
+
+  it('returns 401 when the user is not authenticated', async () => {
+    authUser = null;
+
+    const res = await DELETE(makeDeleteRequest(CUSTOMER_ID), {
+      params: Promise.resolve({ id: CUSTOMER_ID }),
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(json.error).toBe('Unauthorized');
   });
 });
