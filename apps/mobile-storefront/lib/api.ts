@@ -395,7 +395,9 @@ export async function withRetry<T>(
  * }
  * ```
  */
-export async function withSupabaseRetry<R extends { data: any; error: any }>(
+export async function withSupabaseRetry<
+  R extends { data: unknown; error: { message: string } | null },
+>(
   operation: () => Promise<R>,
   options: Omit<RetryOptions, 'timeout'> = {}
 ): Promise<R> {
@@ -458,7 +460,11 @@ export async function withSupabaseRetry<R extends { data: any; error: any }>(
 
       // Notify about retry
       if (onRetry) {
-        onRetry(attempt + 1, result.error, delayMs);
+        // onRetry expects an Error, so we construct one if it's a plain object
+        const retryError = result.error instanceof Error
+          ? result.error
+          : new Error(result.error.message);
+        onRetry(attempt + 1, retryError, delayMs);
       }
 
       log.info(
