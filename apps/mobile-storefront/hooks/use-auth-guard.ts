@@ -48,17 +48,10 @@ export function useAuthGuard() {
   const segments = useSegments();
   const navigationState = useRootNavigationState();
   const previousUser = useRef(user);
-  const isMountedRef = useRef(false);
-
-  // Track mount state to prevent navigation on stale routes
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
     // Wait for auth to initialize and navigation to be ready
     if (!isInitialized || !navigationState?.key) {
       return;
@@ -77,7 +70,7 @@ export function useAuthGuard() {
         (route) => currentSegment === route || segments.includes(route as never)
       );
 
-      if (isOnProtectedRoute && isMountedRef.current) {
+      if (isOnProtectedRoute && isMounted) {
         // Redirect to home tab
         router.replace('/(tabs)');
       }
@@ -85,6 +78,10 @@ export function useAuthGuard() {
 
     // Update ref for next comparison
     previousUser.current = user;
+
+    return () => {
+      isMounted = false;
+    };
     // Bug #8 fix: Use navigationState directly (not ?.key) to ensure the effect
     // runs reliably on mount even when key is initially undefined
   }, [user, isInitialized, segments, navigationState]);
