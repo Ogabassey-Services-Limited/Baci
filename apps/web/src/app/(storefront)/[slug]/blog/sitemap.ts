@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
+import { headers } from 'next/headers';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -10,7 +11,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export const revalidate = 21600; // Cache for 6 hours
+export const dynamic = 'force-dynamic';
 
 /**
  * Derive merchant slug and canonical store URL from the route segment.
@@ -33,12 +34,15 @@ function resolveIdentifier(routeSlug: string) {
  * Blog-specific sitemap for Search Console properties scoped to /blog.
  * Generates ogabassey.com/blog/sitemap.xml
  */
-export default async function sitemap({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<MetadataRoute.Sitemap> {
-  const { slug: routeSlug } = await params;
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Blog sitemap has no generateSitemaps, but Next.js 16 still doesn't
+  // reliably pass params for metadata routes. Read from proxy headers.
+  const headersList = await headers();
+  const routeSlug =
+    headersList.get('x-merchant-slug') ??
+    headersList.get('x-custom-domain') ??
+    headersList.get('host')?.split('.')[0] ??
+    '';
   const { merchantSlug, storeUrl } = resolveIdentifier(routeSlug);
 
   const { data: merchant } = await supabase
