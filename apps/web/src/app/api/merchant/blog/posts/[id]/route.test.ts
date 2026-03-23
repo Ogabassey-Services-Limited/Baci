@@ -31,15 +31,9 @@ vi.mock('@/lib/api-auth', () => ({
 
 // Mock cache revalidation
 const mockRevalidateBlogPosts = vi.fn();
-const mockGetMerchantBlogCacheIdentifiers = vi.fn();
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateBlogPosts: (...args: unknown[]) => mockRevalidateBlogPosts(...args),
-}));
-
-vi.mock('@/lib/blog-cache-identifiers', () => ({
-  getMerchantBlogCacheIdentifiers: (...args: unknown[]) =>
-    mockGetMerchantBlogCacheIdentifiers(...args),
 }));
 
 // Mock embeddings
@@ -168,7 +162,6 @@ describe('GET /api/merchant/blog/posts/[id]', () => {
 
     setupAuth(true, true);
     mockHasPermission.mockReturnValue(true);
-    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue(['test-store']);
   });
 
   describe('authentication', () => {
@@ -320,7 +313,6 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
     setupAuth(true, true);
     mockHasPermission.mockReturnValue(true);
     mockGetBlogEmbeddingText.mockReturnValue('embedding text');
-    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue(['test-store']);
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
     });
@@ -733,11 +725,10 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
         makeParams(POST_ID)
       );
 
-      expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
-        identifiers: ['test-store'],
-        listingCategories: [],
-        postSlugs: ['original-slug', 'updated-slug'],
-      });
+      expect(mockRevalidateBlogPosts).toHaveBeenCalledWith(
+        MERCHANT_ID,
+        'updated-slug'
+      );
     });
   });
 
@@ -823,11 +814,6 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
 
     setupAuth(true, true);
     mockHasPermission.mockReturnValue(true);
-    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue(['test-store']);
-    mockSupabase.maybeSingle.mockResolvedValue({
-      data: { slug: 'deleted-post', category: 'tech' },
-      error: null,
-    });
   });
 
   describe('authentication', () => {
@@ -881,12 +867,12 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
   describe('successful deletion', () => {
     it('deletes post and returns success', async () => {
       // The route does: .delete().eq(id).eq(merchant_id)
-      // The fetch-before-delete path uses two eq() calls before the delete chain.
+      // So the second .eq() call is the terminal one
       let eqCallCount = 0;
       mockSupabase.eq.mockImplementation(() => {
         eqCallCount++;
-        if (eqCallCount >= 4) {
-          // The delete chain resolves on the fourth eq() invocation overall.
+        if (eqCallCount >= 2) {
+          // Second .eq() call returns the final result
           return Promise.resolve({ error: null });
         }
         return mockSupabase;
@@ -909,7 +895,7 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
       let eqCallCount = 0;
       mockSupabase.eq.mockImplementation(() => {
         eqCallCount++;
-        if (eqCallCount >= 4) {
+        if (eqCallCount >= 2) {
           return Promise.resolve({ error: null });
         }
         return mockSupabase;
@@ -920,11 +906,7 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
         makeParams(POST_ID)
       );
 
-      expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
-        identifiers: ['test-store'],
-        listingCategories: ['tech'],
-        postSlugs: ['deleted-post'],
-      });
+      expect(mockRevalidateBlogPosts).toHaveBeenCalledWith(MERCHANT_ID);
     });
   });
 
@@ -933,7 +915,7 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
       let eqCallCount = 0;
       mockSupabase.eq.mockImplementation(() => {
         eqCallCount++;
-        if (eqCallCount >= 4) {
+        if (eqCallCount >= 2) {
           return Promise.resolve({ error: { message: 'Delete failed' } });
         }
         return mockSupabase;

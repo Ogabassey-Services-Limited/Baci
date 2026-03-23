@@ -46,7 +46,7 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
         // Fetch products by ID
         const { data: products, error } = await supabase
           .from('products')
-          .select('*')
+          .select('id, name, description, status, price, manage_stock, stock, image, imageLarge, imageHint, brand, gtin, mpn, merchant_id, is_active')
           .eq('merchant_id', merchantId)
           .in('id', ids)
           .eq('is_active', true);

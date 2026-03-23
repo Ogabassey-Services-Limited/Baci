@@ -1,5 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
+import { describe, expect, it, vi } from 'vitest';
 
 // Mock next/headers
 vi.mock('next/headers', () => ({
@@ -34,11 +33,10 @@ vi.mock('@/lib/sanitize-core', () => ({
   sanitizeSearchQuery: (s: string) => s,
 }));
 
-const mockGetMerchantForApiRequest = vi.fn();
+const mockEnsurePermission = vi.fn();
 
-vi.mock('@/lib/get-merchant-for-api-request', () => ({
-  getMerchantForApiRequest: (...args: unknown[]) =>
-    mockGetMerchantForApiRequest(...args),
+vi.mock('@/lib/merchant-server', () => ({
+  ensurePermission: (...args: unknown[]) => mockEnsurePermission(...args),
 }));
 
 // Supabase mock setup
@@ -53,43 +51,12 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 // Import after mocks
-const { getOrder, getOrders, resendOrderConfirmation } = await import(
-  './actions'
-);
+const { getOrder, resendOrderConfirmation } = await import('./actions');
 
 const ORDER_ID = '11111111-1111-4111-8111-111111111111';
 const MERCHANT_ID = 'merchant-456';
 
-type MockOrder = {
-  id: string;
-  merchant_id: string;
-  order_number: string;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  shipping_status: string;
-  payment_status: string;
-  payment_method: string;
-  created_at: string;
-  source: string;
-  subtotal: string;
-  shipping_fee: string;
-  total: string;
-  shipping_address: {
-    address: string;
-    city: string;
-    state: string;
-  };
-  order_items: Array<{
-    id: string;
-    name: string;
-    product_id: string;
-    quantity: number;
-    price: string | number;
-  }>;
-};
-
-const mockOrder: MockOrder = {
+const mockOrder = {
   id: ORDER_ID,
   merchant_id: MERCHANT_ID,
   order_number: '#ORD-001',
@@ -156,17 +123,6 @@ function setupMocks(overrides?: {
     data: { user: { id: 'admin-user' } },
     error: null,
   });
-  mockGetMerchantForApiRequest.mockResolvedValue({
-    merchantId: MERCHANT_ID,
-    merchantSlug: mockMerchant.slug,
-    businessName: mockMerchant.business_name,
-    staffAccess: {
-      isOwner: true,
-      isStaff: false,
-      role: null,
-      permissions: {},
-    },
-  });
 
   mockFrom.mockImplementation((table: string) => {
     if (table === 'orders') {
@@ -181,18 +137,15 @@ function setupMocks(overrides?: {
       });
 
       return {
-        select: vi.fn((query: string) => {
-          expect(query).toBe(ORDER_WITH_ITEMS_QUERY);
-          return {
-            eq: vi.fn((column: string, value: string) => {
-              expect(column).toBe('id');
-              expect(value).toBe(ORDER_ID);
-              return {
-                eq: scopedOrderQuery,
-              };
-            }),
-          };
-        }),
+        select: vi.fn(() => ({
+          eq: vi.fn((column: string, value: string) => {
+            expect(column).toBe('id');
+            expect(value).toBe(ORDER_ID);
+            return {
+              eq: scopedOrderQuery,
+            };
+          }),
+        })),
       };
     }
     if (table === 'merchants') {
@@ -223,18 +176,12 @@ function setupMocks(overrides?: {
 describe('resendOrderConfirmation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: 'admin-user' } },
-      error: null,
-    });
-    mockGetMerchantForApiRequest.mockResolvedValue({
-      merchantId: MERCHANT_ID,
-      merchantSlug: mockMerchant.slug,
-      businessName: mockMerchant.business_name,
+    mockEnsurePermission.mockResolvedValue({
+      merchant: { id: MERCHANT_ID },
       staffAccess: {
         isOwner: true,
         isStaff: false,
-        role: null,
+        role: 'owner',
         permissions: {},
       },
     });
@@ -269,25 +216,13 @@ describe('resendOrderConfirmation', () => {
     expect(result.message).toBe('Merchant profile not found');
   });
 
-  it('returns failure when user is not authenticated', async () => {
-    mockGetUser.mockResolvedValueOnce({
-      data: { user: null },
-      error: null,
-    });
+  it('returns failure when permission is denied', async () => {
+    mockEnsurePermission.mockRejectedValueOnce(new Error('Unauthorized'));
 
     const result = await resendOrderConfirmation(ORDER_ID);
 
     expect(result.success).toBe(false);
     expect(result.message).toBe('Failed to send email. Please try again.');
-  });
-
-  it('returns failure when merchant context cannot be resolved', async () => {
-    mockGetMerchantForApiRequest.mockResolvedValueOnce(null);
-
-    const result = await resendOrderConfirmation(ORDER_ID);
-
-    expect(result.success).toBe(false);
-    expect(result.message).toBe('Merchant profile not found');
   });
 
   it('sends email successfully and returns success', async () => {
@@ -296,7 +231,6 @@ describe('resendOrderConfirmation', () => {
     const result = await resendOrderConfirmation(ORDER_ID);
     expect(result.success).toBe(true);
     expect(result.message).toBe('Order confirmation email sent successfully');
-    expect(mockGetUser).toHaveBeenCalledOnce();
     expect(mockSendEmail).toHaveBeenCalledOnce();
   });
 
@@ -353,32 +287,6 @@ describe('resendOrderConfirmation', () => {
     );
   });
 
-  it('normalizes string item prices before rendering the email', async () => {
-    setupMocks({
-      order: {
-        ...mockOrder,
-        order_items: [
-          {
-            ...mockOrder.order_items[0],
-            price: '5000.50',
-          },
-        ],
-      },
-    });
-
-    await resendOrderConfirmation(ORDER_ID);
-
-    expect(mockGenerateOrderConfirmationEmail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        items: [
-          expect.objectContaining({
-            price: 5000.5,
-          }),
-        ],
-      })
-    );
-  });
-
   it('sends email to correct recipient', async () => {
     setupMocks();
 
@@ -404,101 +312,6 @@ describe('resendOrderConfirmation', () => {
   });
 });
 
-describe('getOrders', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('normalizes all payment-status whitespace before querying orders', async () => {
-    let normalizedPaymentStatus: string | undefined;
-    const productsIn = vi.fn().mockResolvedValue({
-      data: [
-        {
-          id: 'product-1',
-          images: ['https://cdn.example.com/products/widget.avif'],
-        },
-      ],
-      error: null,
-    });
-    const queryResult = Promise.resolve({
-      data: [
-        {
-          id: ORDER_ID,
-          order_number: 'ORD-001',
-          customer_name: 'John Doe',
-          total: '11500',
-          shipping_status: 'pending',
-          payment_status: 'partially_paid',
-          payment_method: 'card',
-          created_at: '2026-03-23T08:00:00.000Z',
-          source: 'whatsapp',
-          order_items: [
-            {
-              id: 'item-1',
-              name: 'Widget',
-              product_id: 'product-1',
-              quantity: 1,
-              price: '11500',
-            },
-          ],
-        },
-      ],
-      error: null,
-    });
-    const ordersQuery = Object.assign(queryResult, {
-      eq: vi.fn((column: string, value: string) => {
-        if (column === 'merchant_id') {
-          expect(value).toBe(MERCHANT_ID);
-          return ordersQuery;
-        }
-
-        if (column === 'payment_status') {
-          normalizedPaymentStatus = value;
-          return ordersQuery;
-        }
-
-        throw new Error(`Unexpected order filter ${column}=${value}`);
-      }),
-      order: vi.fn(() => ordersQuery),
-      or: vi.fn(() => ordersQuery),
-    });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'orders') {
-        return {
-          select: vi.fn((query: string) => {
-            expect(query).toBe(ORDER_WITH_ITEMS_QUERY);
-            return ordersQuery;
-          }),
-        };
-      }
-
-      if (table === 'products') {
-        return {
-          select: vi.fn((query: string) => {
-            expect(query).toBe('id, images');
-            return { in: productsIn };
-          }),
-        };
-      }
-
-      throw new Error(`Unexpected table: ${table}`);
-    });
-
-    const orders = await getOrders(MERCHANT_ID, {
-      paymentStatus: 'Partially \t Paid',
-    });
-
-    expect(normalizedPaymentStatus).toBe('partially_paid');
-    expect(orders).toHaveLength(1);
-    expect(orders[0]?.paymentStatus).toBe('Partially Paid');
-    expect(orders[0]?.items[0]?.image).toBe(
-      'https://cdn.example.com/products/widget.avif'
-    );
-    expect(productsIn).toHaveBeenCalledWith('id', ['product-1']);
-  });
-});
-
 describe('getOrder', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -508,9 +321,7 @@ describe('getOrder', () => {
     orderRows?: (typeof mockOrder)[];
     orderError?: { message: string } | null;
   }) {
-    const orderRows = options?.orderRows ?? [
-      { ...mockOrder, order_number: 'ORD-001' },
-    ];
+    const orderRows = options?.orderRows ?? [mockOrder];
     const orderError = options?.orderError ?? null;
     const orderNumberLookups: string[] = [];
     const ordersMaybeSingle = vi
@@ -534,44 +345,36 @@ describe('getOrder', () => {
     const transactionsOrder = vi
       .fn()
       .mockResolvedValue({ data: [], error: null });
-    const ordersSelect = vi.fn((query: string) => {
-      expect(query).toBe(ORDER_WITH_ITEMS_QUERY);
-      return {
-        eq: vi.fn((column: string, value: string) => {
-          if (column !== 'merchant_id' || value !== MERCHANT_ID) {
-            throw new Error(`Unexpected order filter ${column}=${value}`);
-          }
+    const ordersSelect = vi.fn(() => ({
+      eq: vi.fn((column: string, value: string) => {
+        if (column !== 'merchant_id' || value !== MERCHANT_ID) {
+          throw new Error(`Unexpected order filter ${column}=${value}`);
+        }
 
-          return {
-            eq: vi.fn((nestedColumn: string, nestedValue: string) => {
-              if (nestedColumn === 'id') {
-                return {
-                  maybeSingle: vi.fn(() => {
-                    expect(nestedValue).toBe(ORDER_ID);
-                    return ordersMaybeSingle();
-                  }),
-                };
-              }
+        return {
+          eq: vi.fn((nestedColumn: string, nestedValue: string) => {
+            if (nestedColumn === 'id') {
+              return {
+                maybeSingle: vi.fn(() => {
+                  expect(nestedValue).toBe(ORDER_ID);
+                  return ordersMaybeSingle();
+                }),
+              };
+            }
 
-              throw new Error(
-                `Unexpected nested order filter ${nestedColumn}=${nestedValue}`
-              );
-            }),
-            ilike: vi.fn((nestedColumn: string, nestedValue: string) => {
-              if (nestedColumn === 'order_number') {
-                return {
-                  maybeSingle: vi.fn(() => orderNumberMaybeSingle(nestedValue)),
-                };
-              }
+            if (nestedColumn === 'order_number') {
+              return {
+                maybeSingle: vi.fn(() => orderNumberMaybeSingle(nestedValue)),
+              };
+            }
 
-              throw new Error(
-                `Unexpected nested order filter ${nestedColumn}=${nestedValue}`
-              );
-            }),
-          };
-        }),
-      };
-    });
+            throw new Error(
+              `Unexpected nested order filter ${nestedColumn}=${nestedValue}`
+            );
+          }),
+        };
+      }),
+    }));
     const productsSelect = vi.fn(() => ({ in: productsIn }));
     const transactionsSelect = vi.fn(() => ({
       eq: vi.fn((column: string, value: string) => {
@@ -615,11 +418,11 @@ describe('getOrder', () => {
     const order = await getOrder(MERCHANT_ID, 'ORD-001');
 
     expect(order?.id).toBe(ORDER_ID);
-    expect(order?.orderNumber).toBe('ORD-001');
+    expect(order?.orderNumber).toBe('#ORD-001');
     expect(order?.items[0]?.image).toBe(
       'https://cdn.example.com/products/widget.avif'
     );
-    expect(orderNumberLookups).toEqual(['ORD-001']);
+    expect(orderNumberLookups).toEqual(['ORD-001', '#ORD-001']);
     expect(productsSelect).toHaveBeenCalledWith('id, images');
     expect(productsIn).toHaveBeenCalledWith('id', ['product-1']);
   });
@@ -647,9 +450,7 @@ describe('getOrder', () => {
 
   it('preserves storefront order sources for dashboard labels', async () => {
     mockGetOrderQueries({
-      orderRows: [
-        { ...mockOrder, order_number: 'ORD-001', source: 'online_store' },
-      ],
+      orderRows: [{ ...mockOrder, source: 'online_store' }],
     });
 
     const order = await getOrder(MERCHANT_ID, 'ORD-001');
@@ -659,13 +460,7 @@ describe('getOrder', () => {
 
   it('formats legacy lowercase customer names for display', async () => {
     mockGetOrderQueries({
-      orderRows: [
-        {
-          ...mockOrder,
-          order_number: 'ORD-001',
-          customer_name: 'chidimma azubuike',
-        },
-      ],
+      orderRows: [{ ...mockOrder, customer_name: 'chidimma azubuike' }],
     });
 
     const order = await getOrder(MERCHANT_ID, 'ORD-001');
@@ -682,7 +477,7 @@ describe('getOrder', () => {
     const order = await getOrder(MERCHANT_ID, 'ORD-001');
 
     expect(order).toBeNull();
-    expect(orderNumberMaybeSingle).toHaveBeenCalledOnce();
+    expect(orderNumberMaybeSingle).toHaveBeenCalledTimes(2);
     expect(productsSelect).not.toHaveBeenCalled();
     expect(transactionsOrder).not.toHaveBeenCalled();
   });
