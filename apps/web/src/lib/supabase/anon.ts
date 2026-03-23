@@ -51,11 +51,17 @@ export function createPublicClient(options: {
       headers: {
         'X-Client-Info': options.clientInfo,
       },
-      fetch: (requestUrl, requestOptions = {}) =>
-        fetch(requestUrl, {
+      fetch: (requestUrl, requestOptions = {}) => {
+        const timeoutSignal = AbortSignal.timeout(options.timeoutMs ?? 10000);
+        const signal = requestOptions.signal
+          ? AbortSignal.any([requestOptions.signal, timeoutSignal])
+          : timeoutSignal;
+
+        return fetch(requestUrl, {
           ...requestOptions,
-          signal: AbortSignal.timeout(options.timeoutMs ?? 10000),
-        }),
+          signal,
+        });
+      },
     },
   });
 }

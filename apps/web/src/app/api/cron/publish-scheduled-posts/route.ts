@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -58,6 +59,9 @@ export async function POST(request: Request) {
 
     // 3. Batch update status to 'published'
     const postIds = scheduledPosts.map((post) => post.id);
+    const merchantIds = Array.from(
+      new Set(scheduledPosts.map((post) => post.merchant_id))
+    );
     const { error: updateError } = await supabase
       .from('blog_posts')
       .update({ status: 'published' })
@@ -71,11 +75,33 @@ export async function POST(request: Request) {
       );
     }
 
+    const publishedPostCountsByMerchant = new Map<string, number>();
+    const { data: publishedPosts, error: publishedPostsError } = await supabase
+      .from('blog_posts')
+      .select('merchant_id')
+      .eq('status', 'published')
+      .in('merchant_id', merchantIds);
+
+    if (publishedPostsError) {
+      console.error(
+        'Cron Error: Failed to load published blog counts for revalidation:',
+        publishedPostsError
+      );
+    } else {
+      for (const post of publishedPosts ?? []) {
+        publishedPostCountsByMerchant.set(
+          post.merchant_id,
+          (publishedPostCountsByMerchant.get(post.merchant_id) ?? 0) + 1
+        );
+      }
+    }
+
     // 4. Revalidate blog caches and storefront paths grouped by merchant
     const postsByMerchant = new Map<
       string,
       {
         categories: Set<string>;
+        listingPages: number[];
         postSlugs: string[];
       }
     >();
@@ -83,6 +109,7 @@ export async function POST(request: Request) {
     for (const post of scheduledPosts) {
       const merchantPosts = postsByMerchant.get(post.merchant_id) ?? {
         categories: new Set<string>(),
+        listingPages: [1],
         postSlugs: [],
       };
 
@@ -98,6 +125,21 @@ export async function POST(request: Request) {
     }
 
     for (const [merchantId, merchantPosts] of postsByMerchant) {
+      const publishedPostCount =
+        publishedPostCountsByMerchant.get(merchantId) ??
+        merchantPosts.postSlugs.length;
+      const totalPages = Math.max(
+        1,
+        Math.ceil(publishedPostCount / BLOG_LISTING_PAGE_SIZE)
+      );
+
+      merchantPosts.listingPages = Array.from(
+        { length: totalPages },
+        (_, index) => index + 1
+      );
+    }
+
+    for (const [merchantId, merchantPosts] of postsByMerchant) {
       try {
         const identifiers = await getMerchantBlogCacheIdentifiers(
           supabase,
@@ -106,6 +148,7 @@ export async function POST(request: Request) {
         revalidateBlogPosts({
           identifiers,
           listingCategories: Array.from(merchantPosts.categories),
+          listingPages: merchantPosts.listingPages,
           postSlugs: merchantPosts.postSlugs,
         });
         console.log(

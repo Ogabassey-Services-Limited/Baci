@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { Badge } from '@/components/ui/badge';
-
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import {
   getCachedFeatureSettings,
   getCachedMerchant,
@@ -35,7 +35,7 @@ const getMerchantAndPosts = cache(
   ) => {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-    const limit = 12;
+    const limit = BLOG_LISTING_PAGE_SIZE;
     const offset = (page - 1) * limit;
 
     // Get merchant - support both slugs and custom domains

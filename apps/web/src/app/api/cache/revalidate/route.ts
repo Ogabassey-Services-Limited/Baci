@@ -16,6 +16,7 @@ import {
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
+import { getMerchantBlogPostCategories } from '@/lib/get-merchant-blog-post-categories';
 import { getMerchantBlogPostSlugs } from '@/lib/get-merchant-blog-post-slugs';
 
 /**
@@ -100,13 +101,15 @@ export async function POST(request: NextRequest) {
 
   if (shouldRevalidate('blog')) {
     try {
-      const [identifiers, postSlugs] = await Promise.all([
+      const [identifiers, postSlugs, listingCategories] = await Promise.all([
         getMerchantBlogCacheIdentifiers(auth.supabase, merchantId),
         getMerchantBlogPostSlugs(auth.supabase, merchantId),
+        getMerchantBlogPostCategories(auth.supabase, merchantId),
       ]);
 
       revalidateBlogPosts({
         identifiers,
+        listingCategories,
         postSlugs,
       });
       revalidated.push('blog');

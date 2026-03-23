@@ -6,6 +6,7 @@ import {
   getSupabaseServiceRoleKey,
   getSupabaseUrl,
 } from '@/env';
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 
 /**
  * Create a Supabase client for cached queries.
@@ -1514,7 +1515,7 @@ export async function getCachedBlogListing(
     `blog-list-${identifier}-${category || 'all'}-${page}`
   );
 
-  const limit = 12;
+  const limit = BLOG_LISTING_PAGE_SIZE;
   const offset = (page - 1) * limit;
   const lookupKey = identifier.toLowerCase();
   const merchant =

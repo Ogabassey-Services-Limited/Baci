@@ -25,6 +25,7 @@ vi.mock('@/lib/api-auth', () => ({
 // Mock CSRF
 const mockCheckCsrfProtection = vi.fn();
 const mockGetMerchantBlogCacheIdentifiers = vi.fn();
+const mockGetMerchantBlogPostCategories = vi.fn();
 const mockGetMerchantBlogPostSlugs = vi.fn();
 
 vi.mock('@/lib/csrf', () => ({
@@ -34,6 +35,11 @@ vi.mock('@/lib/csrf', () => ({
 vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
   getMerchantBlogCacheIdentifiers: (...args: unknown[]) =>
     mockGetMerchantBlogCacheIdentifiers(...args),
+}));
+
+vi.mock('@/lib/get-merchant-blog-post-categories', () => ({
+  getMerchantBlogPostCategories: (...args: unknown[]) =>
+    mockGetMerchantBlogPostCategories(...args),
 }));
 
 vi.mock('@/lib/get-merchant-blog-post-slugs', () => ({
@@ -101,6 +107,7 @@ describe('POST /api/cache/revalidate', () => {
       'test-store',
       'ogabassey.com',
     ]);
+    mockGetMerchantBlogPostCategories.mockResolvedValue(['reviews', 'laptops']);
     mockGetMerchantBlogPostSlugs.mockResolvedValue([
       'apple-studio-display-review',
       'airpods-max-2-2026',
@@ -308,9 +315,29 @@ describe('POST /api/cache/revalidate', () => {
         {},
         MERCHANT_ID
       );
+      expect(mockGetMerchantBlogPostCategories).toHaveBeenCalledWith(
+        {},
+        MERCHANT_ID
+      );
       expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'blog-list-test-store-all-1',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-test-store-reviews-1',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-test-store-laptops-1',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-ogabassey.com-reviews-1',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-ogabassey.com-laptops-1',
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(

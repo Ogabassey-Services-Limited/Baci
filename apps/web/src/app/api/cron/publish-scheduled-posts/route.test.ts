@@ -80,7 +80,14 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       ],
       error: null,
     });
-    mockSupabase.in.mockResolvedValue({ error: null });
+    mockSupabase.in
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({
+        data: Array.from({ length: 13 }, () => ({
+          merchant_id: 'merchant-1',
+        })),
+        error: null,
+      });
     mockGetMerchantBlogCacheIdentifiers.mockResolvedValue([
       'test-store',
       'ogabassey.com',
@@ -106,8 +113,69 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
     expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
       identifiers: ['test-store', 'ogabassey.com'],
       listingCategories: ['reviews', 'laptops'],
+      listingPages: [1, 2],
       postSlugs: ['apple-studio-display-review', 'macbook-air-m4-review'],
     });
     expect(mockRevalidateBlogPosts).toHaveBeenCalledTimes(1);
+  });
+
+  it('continues when merchant cache identifier lookup fails for one merchant', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    mockSupabase.lte.mockResolvedValue({
+      data: [
+        {
+          id: 'post-1',
+          slug: 'apple-studio-display-review',
+          merchant_id: 'merchant-1',
+          category: 'reviews',
+        },
+        {
+          id: 'post-2',
+          slug: 'macbook-air-m4-review',
+          merchant_id: 'merchant-2',
+          category: 'laptops',
+        },
+      ],
+      error: null,
+    });
+    mockSupabase.in
+      .mockResolvedValueOnce({ error: null })
+      .mockResolvedValueOnce({
+        data: [{ merchant_id: 'merchant-1' }, { merchant_id: 'merchant-2' }],
+        error: null,
+      });
+    mockGetMerchantBlogCacheIdentifiers
+      .mockRejectedValueOnce(new Error('fail'))
+      .mockResolvedValueOnce(['merchant-two']);
+
+    const response = await POST(
+      new Request('http://localhost/api/cron/publish-scheduled-posts', {
+        method: 'POST',
+        headers: {
+          'x-cron-secret': 'test-secret',
+        },
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(mockGetMerchantBlogCacheIdentifiers).toHaveBeenCalledTimes(2);
+    expect(mockRevalidateBlogPosts).toHaveBeenCalledTimes(1);
+    expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+      identifiers: ['merchant-two'],
+      listingCategories: ['laptops'],
+      listingPages: [1],
+      postSlugs: ['macbook-air-m4-review'],
+    });
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Cron Warning: Revalidation failed for merchant %s:',
+      'merchant-1',
+      expect.any(Error)
+    );
+    consoleWarnSpy.mockRestore();
   });
 });
