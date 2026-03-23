@@ -18,8 +18,8 @@ import {
   useSegments,
 } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { createLogger } from '@/lib/logger';
 import { useShallow } from 'zustand/react/shallow';
+import { createLogger } from '@/lib/logger';
 import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('AuthGuard');
@@ -50,6 +50,9 @@ export function useAuthGuard() {
   const previousUser = useRef(user);
 
   useEffect(() => {
+    // isMounted guards against stale closures if async operations are added
+    // in the future. Currently all operations are synchronous, so this is
+    // defensive/future-proofing.
     let isMounted = true;
 
     // Wait for auth to initialize and navigation to be ready
