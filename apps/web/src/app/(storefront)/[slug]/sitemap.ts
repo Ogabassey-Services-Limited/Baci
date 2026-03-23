@@ -13,7 +13,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export const revalidate = 21600; // Cache sitemap for 6 hours
+// headers() opts into dynamic rendering — revalidate is incompatible.
+export const dynamic = 'force-dynamic';
 
 interface ProductWithCategory {
   id: string;
