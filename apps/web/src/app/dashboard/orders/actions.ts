@@ -7,6 +7,7 @@ import {
 } from '@/lib/email-templates';
 import { formatPersonName } from '@/lib/format-person-name';
 import { logger } from '@/lib/logger';
+import { ensurePermission } from '@/lib/merchant-server';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
@@ -499,34 +500,22 @@ export async function resendOrderConfirmation(
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      logger.error({
-        message: 'Resend Notification: Unauthorized request',
-        orderId,
-        error: authError,
-      });
-      return { success: false, message: 'Unauthorized' };
-    }
-
-    // 1. Resolve Merchant and tenant scope
+    const { merchant: authorizedMerchant } = await ensurePermission(
+      'orders',
+      'edit'
+    );
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select(
         'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
       )
-      .eq('user_id', user.id)
+      .eq('id', authorizedMerchant.id)
       .single();
 
     if (merchantError || !merchant) {
       logger.error({
         message: 'Resend Notification: Merchant not found',
-        userId: user.id,
+        merchantId: authorizedMerchant.id,
         error: merchantError,
       });
       return { success: false, message: 'Merchant profile not found' };
@@ -613,7 +602,7 @@ export async function resendOrderConfirmation(
     logger.info({
       message: 'Order confirmation email resent manually',
       orderId: order.id,
-      adminUser: user.id,
+      merchantId: merchant.id,
     });
 
     return {

@@ -70,6 +70,7 @@ describe('PATCH /api/merchant/settings', () => {
         })
       )
     );
+    const payload = await response.json();
 
     expect(response.status).toBe(200);
     expect(mockUpdate).toHaveBeenCalledWith(
@@ -79,6 +80,11 @@ describe('PATCH /api/merchant/settings', () => {
       })
     );
     expect(mockEq).toHaveBeenCalledWith('id', 'merchant-1');
+    expect(payload).toEqual({
+      merchant: {
+        id: 'merchant-1',
+      },
+    });
   });
 
   it('rejects users without settings edit permission', async () => {
@@ -108,6 +114,7 @@ describe('PATCH /api/merchant/settings', () => {
     );
 
     expect(response.status).toBe(401);
+    expect(mockCheckCsrfProtection).not.toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
@@ -125,7 +132,7 @@ describe('PATCH /api/merchant/settings', () => {
     );
 
     expect(response.status).toBe(403);
-    expect(mockAuthenticateApiRequest).not.toHaveBeenCalled();
+    expect(mockAuthenticateApiRequest).toHaveBeenCalledOnce();
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 

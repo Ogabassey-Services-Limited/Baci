@@ -13,6 +13,7 @@ import {
   type Control,
   Controller,
   type FieldErrors,
+  type Resolver,
   useForm,
 } from 'react-hook-form';
 import {
@@ -33,7 +34,6 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { z } from 'zod';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
 import {
   PaymentMethodSelector,
@@ -59,7 +59,10 @@ import {
 } from '@/hooks/useMerchantPaymentSettings';
 import { setClipboardString } from '@/lib/clipboard';
 import { calculateCommerce, supabase } from '@/lib/supabase';
-import { ShippingAddressSchema } from '@/lib/validation';
+import {
+  type ShippingAddressInput,
+  ShippingAddressSchema,
+} from '@/lib/validation';
 import {
   trackCheckoutStarted,
   trackCheckoutStep,
@@ -73,13 +76,15 @@ import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
 
 type CheckoutStep = 'address' | 'payment' | 'review';
 
-type ShippingAddressInput = z.infer<typeof ShippingAddressSchema>;
-
 type ThemeColors = (typeof Colors)[keyof typeof Colors];
 
 type TextInputAutoComplete = React.ComponentProps<
   typeof TextInput
 >['autoComplete'];
+
+const shippingAddressResolver = zodResolver(
+  ShippingAddressSchema as unknown as Parameters<typeof zodResolver>[0]
+) as unknown as Resolver<ShippingAddressInput>;
 
 interface ShippingQuote {
   id: string | number;
@@ -449,9 +454,7 @@ export default function CheckoutScreen() {
     setValue,
     reset,
   } = useForm<ShippingAddressInput>({
-    // biome-ignore lint/suspicious/noExplicitAny: Cast to any for Zod 4 compatibility with @hookform/resolvers
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(ShippingAddressSchema as any),
+    resolver: shippingAddressResolver,
     defaultValues: {
       email: customer?.email || '',
       firstName: customer?.first_name || '',
@@ -556,7 +559,7 @@ export default function CheckoutScreen() {
     }
   }, [enabledPaymentMethods, selectedPayment, paymentTab]);
 
-  const handleBack = () => {
+  const performBackTransition = React.useEffectEvent(() => {
     if (step === 'payment') {
       setStep('address');
     } else if (step === 'review') {
@@ -564,6 +567,10 @@ export default function CheckoutScreen() {
     } else {
       router.back();
     }
+  });
+
+  const handleBack = () => {
+    performBackTransition();
   };
 
   useEffect(() => {
@@ -584,19 +591,13 @@ export default function CheckoutScreen() {
               {
                 text: 'Leave',
                 style: 'destructive',
-                onPress: () => router.back(),
+                onPress: () => performBackTransition(),
               },
             ]
           );
           return true;
         }
-        if (step === 'payment') {
-          setStep('address');
-        } else if (step === 'review') {
-          setStep('payment');
-        } else {
-          router.back();
-        }
+        performBackTransition();
         return true;
       }
     );

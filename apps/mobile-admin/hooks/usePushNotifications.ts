@@ -7,12 +7,12 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 import type {
   EventSubscription,
   Notification as ExpoNotification,
   NotificationResponse as ExpoNotificationResponse,
 } from 'expo-notifications';
+import { Platform } from 'react-native';
 
 // Dynamic imports for native modules to prevent evaluation-time crashes
 let Notifications: typeof import('expo-notifications') | null = null;
@@ -37,6 +37,19 @@ import { useAuth } from './useAuth';
 import { useMerchant } from './useMerchant';
 
 const PUSH_TOKEN_STORAGE_KEY = '@baci_push_token';
+
+function encodeAdminEntityId(value: unknown): string | null {
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return null;
+  }
+
+  const trimmedValue = String(value).trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  return encodeURIComponent(trimmedValue);
+}
 
 interface UsePushNotificationsResult {
   token: string | null;
@@ -164,7 +177,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
           // Navigate to appropriate screen
           const navParams = getNotificationNavigationParams(response);
           if (navParams) {
-            const entityId = navParams.params?.id?.toString().trim();
+            const entityId = encodeAdminEntityId(navParams.params?.id);
 
             if (navParams.screen === 'order') {
               router.push(

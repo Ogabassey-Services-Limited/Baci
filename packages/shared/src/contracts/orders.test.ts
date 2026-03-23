@@ -16,6 +16,7 @@ describe('order column constants', () => {
   it('WEB_ORDER_ITEMS_COLUMNS is a non-empty string', () => {
     expect(typeof WEB_ORDER_ITEMS_COLUMNS).toBe('string');
     expect(WEB_ORDER_ITEMS_COLUMNS.length).toBeGreaterThan(0);
+    expect(WEB_ORDER_ITEMS_COLUMNS).toContain('variant_name');
   });
 
   it('WEB_ORDER_WITH_ITEMS_QUERY composes order and item columns', () => {
@@ -115,5 +116,20 @@ describe('extractOrderDeliveryAddress', () => {
     expect(
       extractOrderDeliveryAddress({ address: null, address_line1: 'Fallback' })
     ).toBe('Fallback');
+  });
+
+  it('ignores non-string address fields inside shipping address objects', () => {
+    expect(
+      extractOrderDeliveryAddress({
+        address: 42,
+        address_line1: 'Object fallback',
+      })
+    ).toBe('Object fallback');
+    expect(
+      extractOrderDeliveryAddress({
+        address: false,
+        address_line1: ['bad'],
+      })
+    ).toBeNull();
   });
 });

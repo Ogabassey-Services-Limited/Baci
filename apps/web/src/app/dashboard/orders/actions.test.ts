@@ -33,6 +33,12 @@ vi.mock('@/lib/sanitize-core', () => ({
   sanitizeSearchQuery: (s: string) => s,
 }));
 
+const mockEnsurePermission = vi.fn();
+
+vi.mock('@/lib/merchant-server', () => ({
+  ensurePermission: (...args: unknown[]) => mockEnsurePermission(...args),
+}));
+
 // Supabase mock setup
 const mockGetUser = vi.fn();
 const mockFrom = vi.fn();
@@ -146,8 +152,8 @@ function setupMocks(overrides?: {
       return {
         select: vi.fn(() => ({
           eq: vi.fn((column: string, value: string) => {
-            expect(column).toBe('user_id');
-            expect(value).toBe('admin-user');
+            expect(column).toBe('id');
+            expect(value).toBe(MERCHANT_ID);
             return {
               single: vi.fn(() =>
                 Promise.resolve({ data: merchant, error: merchantError })
@@ -170,6 +176,15 @@ function setupMocks(overrides?: {
 describe('resendOrderConfirmation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEnsurePermission.mockResolvedValue({
+      merchant: { id: MERCHANT_ID },
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        role: 'owner',
+        permissions: {},
+      },
+    });
   });
 
   it('returns failure when order is not found', async () => {
@@ -199,6 +214,15 @@ describe('resendOrderConfirmation', () => {
     const result = await resendOrderConfirmation(ORDER_ID);
     expect(result.success).toBe(false);
     expect(result.message).toBe('Merchant profile not found');
+  });
+
+  it('returns failure when permission is denied', async () => {
+    mockEnsurePermission.mockRejectedValueOnce(new Error('Unauthorized'));
+
+    const result = await resendOrderConfirmation(ORDER_ID);
+
+    expect(result.success).toBe(false);
+    expect(result.message).toBe('Failed to send email. Please try again.');
   });
 
   it('sends email successfully and returns success', async () => {

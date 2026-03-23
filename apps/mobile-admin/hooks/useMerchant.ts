@@ -4,11 +4,13 @@
  * 2025 Best Practice: Uses authenticated user ID
  */
 
-import { useQuery } from '@tanstack/react-query';
-import type {
-  RegisteredAddress,
-  SocialMediaValues,
+import {
+  RegisteredAddressSchema,
+  type RegisteredAddress,
+  SocialMediaSchema,
+  type SocialMediaValues,
 } from '@baci/shared';
+import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
@@ -42,28 +44,14 @@ export const MerchantSchema = z.object({
   support_email: z.string().email().nullable(),
   support_phone: z.string().nullable(),
   business_address: z.string().nullable(),
-  social_media: z
-    .object({
-      instagram: z.string().optional(),
-      facebook: z.string().optional(),
-      twitter: z.string().optional(),
-      tiktok: z.string().optional(),
-      youtube: z.string().optional(),
-      pinterest: z.string().optional(),
-      linkedin: z.string().optional(),
-      snapchat: z.string().optional(),
-    })
-    .nullable(),
-  registered_address: z
-    .object({
-      street: z.string().nullable().optional(),
-      city: z.string().nullable().optional(),
-      state: z.string().nullable().optional(),
-      postal_code: z.string().nullable().optional(),
-      country: z.string().nullable().optional(),
-    })
-    .nullable()
-    .optional(),
+  social_media:
+    SocialMediaSchema.nullable() as unknown as z.ZodType<
+      SocialMediaValues | null
+    >,
+  registered_address:
+    RegisteredAddressSchema.nullable().optional() as unknown as z.ZodType<
+      RegisteredAddress | null | undefined
+    >,
   state_code: z.string().nullable().optional(),
   google_analytics_id: z.string().nullable(),
   facebook_pixel_id: z.string().nullable(),
@@ -91,8 +79,10 @@ export const MerchantSchema = z.object({
 });
 
 export type Merchant = z.infer<typeof MerchantSchema>;
-export type MerchantSocialMedia = SocialMediaValues;
-export type MerchantRegisteredAddress = RegisteredAddress;
+export type MerchantSocialMedia = NonNullable<Merchant['social_media']>;
+export type MerchantRegisteredAddress = NonNullable<
+  Merchant['registered_address']
+>;
 
 export const DomainSchema = z.object({
   id: z.string(),

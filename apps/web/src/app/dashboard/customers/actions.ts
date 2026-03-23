@@ -12,7 +12,6 @@ import { cookies } from 'next/headers';
 import { ensurePermission } from '@/lib/merchant-server';
 import {
   sanitizeEmail,
-  sanitizeLikePattern,
   sanitizePhone,
   sanitizeSearchQuery,
   sanitizeText,
@@ -77,8 +76,7 @@ export async function getCustomers(
     .order('created_at', { ascending: false });
 
   if (search?.trim()) {
-    const sanitizedPattern = sanitizeLikePattern(sanitizeSearchQuery(search));
-    query = query.or(buildCustomerSearchFilter(sanitizedPattern));
+    query = query.or(buildCustomerSearchFilter(sanitizeSearchQuery(search)));
   }
 
   const { data: customers, error } = await query;
@@ -205,7 +203,7 @@ export async function getCustomerOrders(
 
   if (customer.email) {
     orderQuery = orderQuery.or(
-      `customer_id.eq.${customerId},customer_email.eq.${customer.email}`
+      `customer_id.eq.${customerId},and(customer_email.eq.${customer.email},customer_id.is.null)`
     );
   } else {
     orderQuery = orderQuery.eq('customer_id', customerId);

@@ -71,6 +71,13 @@ const createMockSupabase = () => ({
       return {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn(() => {
+          const hasError = customerError != null;
+          return Promise.resolve({
+            data: hasError ? null : customer,
+            error: customerError,
+          });
+        }),
         single: vi.fn(() => {
           const hasError = customerError != null;
           return Promise.resolve({

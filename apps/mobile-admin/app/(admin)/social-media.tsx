@@ -19,10 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import {
-  type MerchantSocialMedia,
-  useMerchant,
-} from '@/hooks/useMerchant';
+import { type MerchantSocialMedia, useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { updateMerchantSettings } from '@/lib/merchant-settings';
 
@@ -172,7 +169,10 @@ export default function SocialMediaScreen() {
                   style={[styles.input, { color: colors.text }]}
                   value={socialMedia.instagram}
                   onChangeText={(t) =>
-                    setSocialMedia((p) => ({ ...p, instagram: t }))
+                    setSocialMedia((previous: MerchantSocialMedia) => ({
+                      ...previous,
+                      instagram: t,
+                    }))
                   }
                   placeholder="@username"
                   placeholderTextColor={colors.textMuted}
@@ -203,7 +203,10 @@ export default function SocialMediaScreen() {
                   style={[styles.input, { color: colors.text }]}
                   value={socialMedia.twitter}
                   onChangeText={(t) =>
-                    setSocialMedia((p) => ({ ...p, twitter: t }))
+                    setSocialMedia((previous: MerchantSocialMedia) => ({
+                      ...previous,
+                      twitter: t,
+                    }))
                   }
                   placeholder="@username"
                   placeholderTextColor={colors.textMuted}
@@ -213,12 +216,25 @@ export default function SocialMediaScreen() {
 
             {/* Snapchat */}
             <View style={styles.inputGroup}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
                 <Text style={[styles.label, { color: colors.textSecondary }]}>
                   Snapchat Handle
                 </Text>
-                <View style={{ backgroundColor: colors.primary, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
-                  <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>NEW</Text>
+                <View
+                  style={{
+                    backgroundColor: colors.primary,
+                    borderRadius: 4,
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                  }}
+                >
+                  <Text
+                    style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}
+                  >
+                    NEW
+                  </Text>
                 </View>
               </View>
               <View
@@ -239,7 +255,10 @@ export default function SocialMediaScreen() {
                   style={[styles.input, { color: colors.text }]}
                   value={socialMedia.snapchat}
                   onChangeText={(t) =>
-                    setSocialMedia((p) => ({ ...p, snapchat: t }))
+                    setSocialMedia((previous: MerchantSocialMedia) => ({
+                      ...previous,
+                      snapchat: t,
+                    }))
                   }
                   placeholder="@username"
                   placeholderTextColor={colors.textMuted}
@@ -271,7 +290,10 @@ export default function SocialMediaScreen() {
                   style={[styles.input, { color: colors.text }]}
                   value={socialMedia.facebook}
                   onChangeText={(t) =>
-                    setSocialMedia((p) => ({ ...p, facebook: t }))
+                    setSocialMedia((previous: MerchantSocialMedia) => ({
+                      ...previous,
+                      facebook: t,
+                    }))
                   }
                   placeholder="https://facebook.com/page"
                   placeholderTextColor={colors.textMuted}
@@ -303,7 +325,10 @@ export default function SocialMediaScreen() {
                   style={[styles.input, { color: colors.text }]}
                   value={socialMedia.tiktok}
                   onChangeText={(t) =>
-                    setSocialMedia((p) => ({ ...p, tiktok: t }))
+                    setSocialMedia((previous: MerchantSocialMedia) => ({
+                      ...previous,
+                      tiktok: t,
+                    }))
                   }
                   placeholder="@username"
                   placeholderTextColor={colors.textMuted}
@@ -334,7 +359,10 @@ export default function SocialMediaScreen() {
                   style={[styles.input, { color: colors.text }]}
                   value={socialMedia.linkedin}
                   onChangeText={(t) =>
-                    setSocialMedia((p) => ({ ...p, linkedin: t }))
+                    setSocialMedia((previous: MerchantSocialMedia) => ({
+                      ...previous,
+                      linkedin: t,
+                    }))
                   }
                   placeholder="https://linkedin.com/company/..."
                   placeholderTextColor={colors.textMuted}
@@ -342,7 +370,6 @@ export default function SocialMediaScreen() {
                 />
               </View>
             </View>
-
           </View>
         </ScrollView>
       </SafeAreaView>

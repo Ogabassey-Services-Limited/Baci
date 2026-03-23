@@ -158,6 +158,23 @@ describe('customer schemas', () => {
           store_credit: -1,
         }).success
       ).toBe(false);
+
+      expect(
+        createCustomerSchema.safeParse({
+          first_name: 'Ada',
+          store_credit: -1,
+        }).success
+      ).toBe(false);
     });
+  });
+
+  it('treats cleared store credit input as unset instead of coercing it to zero', () => {
+    const result = createCustomerSchema.safeParse({
+      first_name: 'Ada',
+      store_credit: '',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.store_credit).toBeUndefined();
   });
 });

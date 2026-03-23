@@ -30,13 +30,13 @@ describe('customer contracts', () => {
   });
 
   it('uses a non-standard email string as the final fallback name', () => {
-    expect(buildCustomerNameFields({ email: 'merchant-without-at-sign' })).toEqual(
-      {
-        first_name: null,
-        last_name: null,
-        full_name: 'merchant-without-at-sign',
-      }
-    );
+    expect(
+      buildCustomerNameFields({ email: 'merchant-without-at-sign' })
+    ).toEqual({
+      first_name: null,
+      last_name: null,
+      full_name: 'merchant-without-at-sign',
+    });
   });
 
   it('splits a legacy full name into first and last names', () => {
@@ -83,9 +83,13 @@ describe('customer contracts', () => {
   });
 
   it('sanitizes reserved characters out of the search filter value', () => {
-    expect(buildCustomerSearchFilter('Ada,%_ King')).toContain(
+    expect(buildCustomerSearchFilter('Ada,%_. King')).toContain(
       'full_name.ilike.%Ada King%'
     );
+  });
+
+  it('returns a non-matching filter when punctuation is stripped entirely', () => {
+    expect(buildCustomerSearchFilter('.,%_')).toBe('id.is.null');
   });
 
   it('builds a full address from populated parts only', () => {

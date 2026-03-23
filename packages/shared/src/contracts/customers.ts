@@ -41,9 +41,7 @@ export function buildCustomerNameFields(input: CustomerNameFields) {
   };
 }
 
-export function splitCustomerFullName(
-  fullName: string | null | undefined
-): {
+export function splitCustomerFullName(fullName: string | null | undefined): {
   first_name: string | null;
   last_name: string | null;
 } {
@@ -76,13 +74,16 @@ function sanitizeCustomerSearchTerm(searchTerm: string): string {
   return searchTerm
     .normalize('NFKC')
     .trim()
-    .replace(/[^\p{L}\p{N}\s@.-]/gu, '')
+    .replace(/[^\p{L}\p{N}\s@-]/gu, '')
     .replace(/\s+/g, ' ')
     .slice(0, 100);
 }
 
 export function buildCustomerSearchFilter(searchTerm: string): string {
   const normalizedSearchTerm = sanitizeCustomerSearchTerm(searchTerm);
+  if (!normalizedSearchTerm) {
+    return 'id.is.null';
+  }
 
   return [
     `full_name.ilike.%${normalizedSearchTerm}%`,

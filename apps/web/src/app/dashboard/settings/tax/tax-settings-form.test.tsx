@@ -80,6 +80,23 @@ describe('TaxSettingsForm', () => {
     });
   });
 
+  it('shows an error toast when VAT save fails', async () => {
+    mockApiPatch.mockRejectedValueOnce(new Error('VAT update failed'));
+
+    render(<TaxSettingsForm {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('switch'));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Update Failed',
+          variant: 'destructive',
+        })
+      );
+    });
+  });
+
   it('renders Tax ID input with initial value', () => {
     render(<TaxSettingsForm {...defaultProps} initialTaxId="1234567890" />);
 

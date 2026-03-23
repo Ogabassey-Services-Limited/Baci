@@ -16,19 +16,19 @@ import {
 } from '@/schemas/merchant-settings';
 
 export async function PATCH(request: NextRequest) {
-  const { valid, response } = await checkCsrfProtection(request);
-  if (!valid) {
-    return (
-      response ??
-      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-    );
-  }
-
   const auth = await authenticateApiRequest(request);
   if (auth.error || !auth.user || !auth.supabase) {
     return NextResponse.json(
       { error: auth.error || 'Unauthorized' },
       { status: 401 }
+    );
+  }
+
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
     );
   }
 

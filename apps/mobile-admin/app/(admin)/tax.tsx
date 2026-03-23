@@ -3,7 +3,7 @@
  * Configure VAT, tax identification, legal entity, and registered address
  */
 
-import { type RegisteredAddress, NIGERIAN_STATES } from '@baci/shared';
+import { NIGERIAN_STATES, type RegisteredAddress } from '@baci/shared';
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
@@ -47,15 +47,40 @@ export default function TaxScreen() {
   const [postalCode, setPostalCode] = useState('');
   const [stateCode, setStateCode] = useState('');
   const [showStateModal, setShowStateModal] = useState(false);
+  const lastSyncedAddressMerchantId = React.useRef<string | null>(null);
+  const lastSyncedTaxMerchantId = React.useRef<string | null>(null);
+  const merchantId = merchant?.id ?? null;
+  const merchantAddress =
+    (merchant?.registered_address as RegisteredAddress | null | undefined) ??
+    null;
+  const merchantStateCode = merchant?.state_code ?? '';
+  const merchantVatRegistrationStatus =
+    merchant?.vat_registration_status ?? 'not_registered';
+  const merchantTaxIdentificationNumber =
+    merchant?.tax_identification_number ?? '';
+  const merchantLegalEntityName = merchant?.legal_entity_name ?? '';
 
-  // Sync address data when merchant context changes
+  // Only rehydrate form state when the merchant identity changes.
   React.useEffect(() => {
-    const addr = merchant?.registered_address as RegisteredAddress | null;
-    setStreet(addr?.street ?? '');
-    setCity(addr?.city ?? '');
-    setPostalCode(addr?.postal_code ?? '');
-    setStateCode(merchant?.state_code ?? '');
-  }, [merchant?.registered_address, merchant?.state_code]);
+    if (!merchantId) {
+      lastSyncedAddressMerchantId.current = null;
+      setStreet('');
+      setCity('');
+      setPostalCode('');
+      setStateCode('');
+      return;
+    }
+
+    if (lastSyncedAddressMerchantId.current === merchantId) {
+      return;
+    }
+
+    lastSyncedAddressMerchantId.current = merchantId;
+    setStreet(merchantAddress?.street ?? '');
+    setCity(merchantAddress?.city ?? '');
+    setPostalCode(merchantAddress?.postal_code ?? '');
+    setStateCode(merchantStateCode);
+  }, [merchantAddress, merchantId, merchantStateCode]);
 
   // Update VAT status mutation
   const updateVatMutation = useMutation({
@@ -65,7 +90,7 @@ export default function TaxScreen() {
       });
       return enabled;
     },
-    onMutate: async (enabled) => {
+    onMutate: (enabled) => {
       // Optimistic update
       setVatEnabled(enabled);
     },
@@ -167,16 +192,27 @@ export default function TaxScreen() {
     NIGERIAN_STATES.find((s) => s.code === stateCode)?.name ?? '';
 
   React.useEffect(() => {
-    if (merchant) {
-      setVatEnabled(merchant.vat_registration_status === 'registered');
-      setTaxId(merchant.tax_identification_number ?? '');
-      setLegalEntityName(merchant.legal_entity_name ?? '');
+    if (!merchantId) {
+      lastSyncedTaxMerchantId.current = null;
+      setVatEnabled(false);
+      setTaxId('');
+      setLegalEntityName('');
+      return;
     }
+
+    if (lastSyncedTaxMerchantId.current === merchantId) {
+      return;
+    }
+
+    lastSyncedTaxMerchantId.current = merchantId;
+    setVatEnabled(merchantVatRegistrationStatus === 'registered');
+    setTaxId(merchantTaxIdentificationNumber);
+    setLegalEntityName(merchantLegalEntityName);
   }, [
-    merchant,
-    merchant?.vat_registration_status,
-    merchant?.tax_identification_number,
-    merchant?.legal_entity_name,
+    merchantId,
+    merchantLegalEntityName,
+    merchantTaxIdentificationNumber,
+    merchantVatRegistrationStatus,
   ]);
 
   if (isLoading) {
@@ -311,7 +347,7 @@ export default function TaxScreen() {
                       style={[
                         styles.toggleThumb,
                         vatEnabled && styles.toggleThumbActive,
-                      { backgroundColor: colors.backgroundLight },
+                        { backgroundColor: colors.backgroundLight },
                       ]}
                     />
                   </View>

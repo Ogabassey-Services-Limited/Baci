@@ -8,7 +8,7 @@ import {
 
 const customerStoreCreditSchema = z.preprocess(
   (value) => (value === '' ? undefined : value),
-  z.coerce.number().min(0).max(1_000_000_000)
+  z.coerce.number().min(0).max(1_000_000_000).optional()
 );
 
 export const createCustomerSchema = z.object({

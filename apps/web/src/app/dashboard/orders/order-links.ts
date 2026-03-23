@@ -9,7 +9,7 @@ export function getDashboardOrderDetailsHref(
     return null;
   }
 
-  const normalizedOrderNumber = order.orderNumber.replace(/#/g, '').trim();
+  const normalizedOrderNumber = order.orderNumber.replace(/^#+/, '').trim();
   if (normalizedOrderNumber.length === 0) {
     return null;
   }

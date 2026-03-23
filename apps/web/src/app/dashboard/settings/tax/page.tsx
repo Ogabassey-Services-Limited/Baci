@@ -28,11 +28,16 @@ export default async function TaxSettingsPage() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const { data: merchantData } = await supabase
+  const { data: merchantData, error: merchantDataError } = await supabase
     .from('merchants')
     .select(MERCHANT_TAX_SETTINGS_COLUMNS)
     .eq('id', merchant.id)
     .single();
+
+  if (merchantDataError) {
+    console.error('Failed to load merchant tax settings:', merchantDataError);
+    throw new Error('Unable to load merchant data');
+  }
 
   const vatEnabled = merchantData?.vat_registration_status === 'registered';
   const vatRate = merchantData?.vat_rate ?? 7.5;

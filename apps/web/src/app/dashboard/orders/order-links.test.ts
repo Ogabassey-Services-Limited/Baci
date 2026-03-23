@@ -29,6 +29,15 @@ describe('getDashboardOrderDetailsHref', () => {
     ).toBe('/dashboard/orders/ORD%2F001%3F');
   });
 
+  it('keeps internal hash characters after removing leading prefixes', () => {
+    expect(
+      getDashboardOrderDetailsHref({
+        orderNumber: '##ORD#001',
+        source: 'instagram',
+      })
+    ).toBe('/dashboard/orders/ORD%23001');
+  });
+
   it('returns null for blank order numbers', () => {
     expect(
       getDashboardOrderDetailsHref({

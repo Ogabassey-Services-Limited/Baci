@@ -34,6 +34,19 @@ describe('extractOrderDeliveryAddress', () => {
 
   it('returns null for unsupported values', () => {
     expect(extractOrderDeliveryAddress(null)).toBeNull();
+    expect(extractOrderDeliveryAddress(undefined)).toBeNull();
     expect(extractOrderDeliveryAddress({})).toBeNull();
+    expect(extractOrderDeliveryAddress(123)).toBeNull();
+    expect(extractOrderDeliveryAddress(true)).toBeNull();
+    expect(extractOrderDeliveryAddress([])).toBeNull();
+  });
+
+  it('falls back to address_line1 when address is an empty string', () => {
+    expect(
+      extractOrderDeliveryAddress({
+        address: '',
+        address_line1: '7 Admiralty Way',
+      })
+    ).toBe('7 Admiralty Way');
   });
 });

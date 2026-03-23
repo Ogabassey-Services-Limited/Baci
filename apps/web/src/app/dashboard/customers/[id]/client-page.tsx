@@ -41,6 +41,31 @@ interface CustomerDetailClientPageProps {
   initialOrders: CustomerOrder[];
 }
 
+type EditableCustomerData = Pick<
+  Customer,
+  | 'address'
+  | 'email'
+  | 'first_name'
+  | 'full_name'
+  | 'last_name'
+  | 'phone'
+  | 'store_credit'
+>;
+
+function toEditableCustomerData(customer: Customer): EditableCustomerData {
+  const initialNameFields = splitCustomerFullName(customer.full_name);
+
+  return {
+    first_name: customer.first_name ?? initialNameFields.first_name,
+    last_name: customer.last_name ?? initialNameFields.last_name,
+    full_name: customer.full_name,
+    email: customer.email,
+    phone: customer.phone,
+    address: customer.address,
+    store_credit: customer.store_credit,
+  };
+}
+
 export default function CustomerDetailClientPage({
   initialCustomer,
   initialOrders,
@@ -56,12 +81,9 @@ export default function CustomerDetailClientPage({
   const [creditAmount, setCreditAmount] = useState('');
   const [isCreditOpen, setIsCreditOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const initialNameFields = splitCustomerFullName(initialCustomer.full_name);
-  const [editData, setEditData] = useState<Partial<Customer>>({
-    ...initialCustomer,
-    first_name: initialCustomer.first_name ?? initialNameFields.first_name,
-    last_name: initialCustomer.last_name ?? initialNameFields.last_name,
-  });
+  const [editData, setEditData] = useState<EditableCustomerData>(
+    toEditableCustomerData(initialCustomer)
+  );
 
   const handleUpdateCredit = async () => {
     if (!customer) return;
@@ -99,6 +121,7 @@ export default function CustomerDetailClientPage({
         editData
       );
       setCustomer(data.customer);
+      setEditData(toEditableCustomerData(data.customer));
       setEditOpen(false);
       toast({
         title: 'Success',
