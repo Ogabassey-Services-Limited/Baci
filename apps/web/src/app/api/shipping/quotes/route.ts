@@ -20,6 +20,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { shippingService } from '@/lib/shipping';
+import { deriveMerchantLocation } from '@/lib/shipping/order-shipment-booking-utils';
 import type { QuoteRequest } from '@/lib/shipping/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -143,27 +144,26 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
           }
 
-          // Fetch location/phone details by merchant id
+          // Fetch address/phone details by merchant id
           const { data: merchantDetails } = await supabase
             .from('merchants')
-            .select('business_name, business_location, phone')
+            .select('business_name, business_address, phone')
             .eq('id', merchantContext.merchantId)
             .single();
 
           if (merchantDetails) {
-            // Parse business location (format: "City, State" or just "City")
-            const locationParts = (merchantDetails.business_location || 'Lagos')
-              .split(',')
-              .map((s: string) => s.trim());
+            const location = deriveMerchantLocation(
+              merchantDetails.business_address
+            );
             senderInfo = {
               name:
                 merchantDetails.business_name ||
                 merchantContext.businessName ||
                 'Merchant',
               phone: merchantDetails.phone || '',
-              address: merchantDetails.business_location || 'Lagos',
-              city: locationParts[0] || 'Lagos',
-              state: locationParts[1] || locationParts[0] || 'Lagos',
+              address: location.address,
+              city: location.city,
+              state: location.state,
               country: 'Nigeria',
               countryCode: 'NG',
             };

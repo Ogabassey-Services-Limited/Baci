@@ -1120,6 +1120,8 @@ export const CheckoutPage: React.FC = () => {
           shipping_address: shippingAddressData,
           source: 'online_store',
           shipping_provider: shippingProvider,
+          selected_quote_id:
+            deliveryMethod === 'door' ? selectedQuoteId || undefined : undefined,
           // Wallet redemption (2025: auto-apply at checkout)
           use_wallet_credit: payWithWallet && walletAmountUsed > 0,
           wallet_amount: walletAmountUsed,
