@@ -17,7 +17,6 @@ import {
   markdownResponse,
   notFoundMarkdownResponse,
 } from '@/lib/llms-markdown';
-import type { RawDbProduct } from '@/lib/normalize-product';
 import { parseLegacyFAQ } from '@/types/faq';
 
 function notFound() {
@@ -132,9 +131,7 @@ async function handleLlmRequest(
     // section = category, item = product slug
     const product = await getCachedProductWithDetails(merchant.id, item);
     if (!product) return notFound();
-    return markdownResponse(
-      buildProductMarkdown(merchant, origin, product as unknown as RawDbProduct)
-    );
+    return markdownResponse(buildProductMarkdown(merchant, origin, product));
   }
 
   return notFound();
