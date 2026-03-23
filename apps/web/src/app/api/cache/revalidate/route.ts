@@ -6,6 +6,10 @@ import {
   hasPermission,
 } from '@/lib/api-auth';
 import {
+  getMerchantBlogCacheIdentifiers,
+  getMerchantBlogPostSlugs,
+} from '@/lib/blog-cache-identifiers';
+import {
   revalidateBlogPosts,
   revalidateCategories,
   revalidateFeatures,
@@ -96,8 +100,23 @@ export async function POST(request: NextRequest) {
   }
 
   if (shouldRevalidate('blog')) {
-    revalidateBlogPosts(merchantId);
-    revalidated.push('blog');
+    try {
+      const [identifiers, postSlugs] = await Promise.all([
+        getMerchantBlogCacheIdentifiers(auth.supabase, merchantId),
+        getMerchantBlogPostSlugs(auth.supabase, merchantId),
+      ]);
+
+      revalidateBlogPosts({
+        identifiers,
+        postSlugs,
+      });
+      revalidated.push('blog');
+    } catch (error) {
+      console.error('Failed to revalidate blog caches:', {
+        merchantId,
+        error,
+      });
+    }
   }
 
   if (shouldRevalidate('reviews')) {

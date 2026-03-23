@@ -24,15 +24,26 @@ vi.mock('@/lib/api-auth', () => ({
 
 // Mock CSRF
 const mockCheckCsrfProtection = vi.fn();
+const mockGetMerchantBlogCacheIdentifiers = vi.fn();
+const mockGetMerchantBlogPostSlugs = vi.fn();
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
 }));
 
+vi.mock('@/lib/blog-cache-identifiers', () => ({
+  getMerchantBlogCacheIdentifiers: (...args: unknown[]) =>
+    mockGetMerchantBlogCacheIdentifiers(...args),
+  getMerchantBlogPostSlugs: (...args: unknown[]) =>
+    mockGetMerchantBlogPostSlugs(...args),
+}));
+
 // Mock next/cache
+const mockRevalidatePath = vi.fn();
 const mockRevalidateTag = vi.fn();
 
 vi.mock('next/cache', () => ({
+  revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
   revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
 }));
 
@@ -83,6 +94,14 @@ describe('POST /api/cache/revalidate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupCsrf(true);
+    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue([
+      'test-store',
+      'ogabassey.com',
+    ]);
+    mockGetMerchantBlogPostSlugs.mockResolvedValue([
+      'apple-studio-display-review',
+      'airpods-max-2-2026',
+    ]);
   });
 
   describe('CSRF protection', () => {
@@ -278,10 +297,64 @@ describe('POST /api/cache/revalidate', () => {
       expect(res.status).toBe(200);
       expect(json.revalidated).toContain('blog');
 
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-posts',
-        'storefront-page'
+      expect(mockGetMerchantBlogCacheIdentifiers).toHaveBeenCalledWith(
+        {},
+        MERCHANT_ID
       );
+      expect(mockGetMerchantBlogPostSlugs).toHaveBeenCalledWith(
+        {},
+        MERCHANT_ID
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-test-store-all-1',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-test-store-apple-studio-display-review',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-ogabassey.com-airpods-max-2-2026',
+        'merchant'
+      );
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/test-store/blog');
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        '/test-store/blog/apple-studio-display-review'
+      );
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/ogabassey.com/blog');
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        '/ogabassey.com/blog/airpods-max-2-2026'
+      );
+    });
+
+    it('skips blog revalidation when blog cache identifiers lookup fails', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+
+      setupAuth(true, true);
+      mockGetMerchantBlogCacheIdentifiers.mockRejectedValueOnce(
+        new Error('lookup failed')
+      );
+
+      const res = await POST(makeRequest({ targets: ['blog'] }));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.revalidated).not.toContain('blog');
+      expect(mockRevalidateTag).not.toHaveBeenCalledWith(
+        'blog-posts',
+        'merchant'
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to revalidate blog caches:',
+        expect.objectContaining({
+          merchantId: MERCHANT_ID,
+          error: expect.any(Error),
+        })
+      );
+      consoleErrorSpy.mockRestore();
     });
 
     it('revalidates reviews cache when reviews target specified', async () => {
@@ -372,7 +445,7 @@ describe('POST /api/cache/revalidate', () => {
       );
       expect(mockRevalidateTag).not.toHaveBeenCalledWith(
         'blog-posts',
-        'storefront-page'
+        'merchant'
       );
       expect(mockRevalidateTag).not.toHaveBeenCalledWith(
         `reviews-${MERCHANT_ID}`,
@@ -425,9 +498,10 @@ describe('POST /api/cache/revalidate', () => {
         `merchant-id-${MERCHANT_ID}`,
         'merchant'
       );
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-posts',
-        'storefront-page'
+        'blog-list-test-store-all-1',
+        'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         `reviews-${MERCHANT_ID}`,
@@ -457,10 +531,7 @@ describe('POST /api/cache/revalidate', () => {
       expect(json.revalidated).toHaveLength(7);
 
       // Should have revalidated all categories
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-posts',
-        'storefront-page'
-      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'page-config',
         'storefront-page'

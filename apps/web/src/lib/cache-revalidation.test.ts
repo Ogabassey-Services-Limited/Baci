@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---- Mocks ----
 
+const mockRevalidatePath = vi.fn();
 const mockRevalidateTag = vi.fn();
 
 vi.mock('next/cache', () => ({
+  revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
   revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
 }));
 
@@ -192,56 +194,92 @@ describe('cache-revalidation utilities', () => {
 
   describe('revalidateBlogPosts', () => {
     it('revalidates blog posts cache', () => {
-      const identifier = 'test-merchant';
+      revalidateBlogPosts({
+        identifiers: ['test-merchant', 'OGABASSEY.COM', 'test-merchant'],
+        listingCategories: ['reviews'],
+        listingPages: [1, 2, 2],
+        postSlugs: ['test-post', 'Test-Post'],
+      });
 
-      revalidateBlogPosts(identifier);
-
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-posts',
-        'storefront-page'
+        'blog-list-test-merchant-all-1',
+        'merchant'
       );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-test-merchant-all-2',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-test-merchant-reviews-1',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-test-merchant-test-post',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-ogabassey.com-all-1',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-ogabassey.com-test-post',
+        'merchant'
+      );
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/test-merchant/blog');
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        '/test-merchant/blog/test-post'
+      );
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/ogabassey.com/blog');
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        '/ogabassey.com/blog/test-post'
+      );
+    });
+
+    it('supports the legacy identifier + slug signature', () => {
+      revalidateBlogPosts('test-merchant', 'test-post');
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-test-merchant-all-1',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-test-merchant-test-post',
+        'merchant'
+      );
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/test-merchant/blog');
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        '/test-merchant/blog/test-post'
+      );
+    });
+
+    it('handles empty identifiers and slugs gracefully', () => {
+      revalidateBlogPosts({
+        identifiers: [' ', null, undefined],
+        postSlugs: ['', null, undefined],
+      });
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
+      expect(mockRevalidatePath).not.toHaveBeenCalled();
       expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
     });
 
-    it('revalidates specific blog post when slug provided', () => {
-      const identifier = 'test-merchant';
-      const postSlug = 'test-post';
-
-      revalidateBlogPosts(identifier, postSlug);
-
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-posts',
-        'storefront-page'
-      );
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
-        `blog-${identifier}-${postSlug}`,
-        'storefront-page'
-      );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
-    });
-
-    it('handles empty slug gracefully', () => {
-      const identifier = 'test-merchant';
-
-      revalidateBlogPosts(identifier, '');
-
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-posts',
-        'storefront-page'
-      );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
-    });
-
-    it('works with merchant ID as identifier', () => {
+    it('works with a merchant identifier as a single path target', () => {
       revalidateBlogPosts(MERCHANT_ID, 'my-blog-post');
 
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-posts',
-        'storefront-page'
+        `blog-list-${MERCHANT_ID}-all-1`,
+        'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         `blog-${MERCHANT_ID}-my-blog-post`,
-        'storefront-page'
+        'merchant'
+      );
+      expect(mockRevalidatePath).toHaveBeenCalledWith(`/${MERCHANT_ID}/blog`);
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        `/${MERCHANT_ID}/blog/my-blog-post`
       );
     });
   });

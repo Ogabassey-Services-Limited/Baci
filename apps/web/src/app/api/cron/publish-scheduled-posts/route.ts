@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
-import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
+import { getMerchantBlogCacheIdentifiers } from '@/lib/blog-cache-identifiers';
+import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { createServiceClient } from '@/lib/supabase/service';
 
 /**
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     // Posts where status is 'scheduled' and published_at is in the past
     const { data: scheduledPosts, error: fetchError } = await supabase
       .from('blog_posts')
-      .select('id, slug, merchant_id, merchants(slug)')
+      .select('id, slug, merchant_id')
       .eq('status', 'scheduled')
       .lte('published_at', now);
 
@@ -70,32 +71,24 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Revalidate paths for all posts
+    // 4. Revalidate blog caches and storefront paths for all posts
     for (const post of scheduledPosts) {
       try {
-        const merchantSlug = (post.merchants as unknown as { slug: string })
-          ?.slug;
-        if (merchantSlug) {
-          revalidatePath(`/${merchantSlug}/blog`);
-          revalidatePath(`/${merchantSlug}/blog/${post.slug}`);
-          console.log(`🔄 Cron: Revalidated paths for ${merchantSlug}`);
-        }
+        const identifiers = await getMerchantBlogCacheIdentifiers(
+          supabase,
+          post.merchant_id
+        );
+        revalidateBlogPosts({
+          identifiers,
+          postSlugs: [post.slug],
+        });
+        console.log(`🔄 Cron: Revalidated blog cache for post ${post.slug}`);
       } catch (revalError) {
         console.warn(
           `Cron Warning: Revalidation failed for post ${post.id}:`,
           revalError
         );
       }
-    }
-
-    // Revalidate global blog list once after all updates
-    try {
-      revalidatePath('/blog');
-    } catch (revalError) {
-      console.warn(
-        'Cron Warning: Global blog revalidation failed:',
-        revalError
-      );
     }
 
     return NextResponse.json({

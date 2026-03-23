@@ -38,9 +38,15 @@ vi.mock('@/lib/csrf', () => ({
 
 // Mock cache revalidation
 const mockRevalidateBlogPosts = vi.fn();
+const mockGetMerchantBlogCacheIdentifiers = vi.fn();
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateBlogPosts: (...args: unknown[]) => mockRevalidateBlogPosts(...args),
+}));
+
+vi.mock('@/lib/blog-cache-identifiers', () => ({
+  getMerchantBlogCacheIdentifiers: (...args: unknown[]) =>
+    mockGetMerchantBlogCacheIdentifiers(...args),
 }));
 
 // Mock embeddings
@@ -390,6 +396,10 @@ describe('POST /api/merchant/blog/posts', () => {
     mockHasPermission.mockReturnValue(true);
     mockCheckCsrfProtection.mockResolvedValue({ valid: true });
     mockGetBlogEmbeddingText.mockReturnValue('embedding text');
+    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue([
+      'test-store',
+      'ogabassey.com',
+    ]);
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
     });
@@ -397,9 +407,9 @@ describe('POST /api/merchant/blog/posts', () => {
     // Setup default mock responses
     // Mock single() to return appropriate data based on select field
     mockSupabase.select.mockImplementation((fields: string) => {
-      if (fields === 'business_name') {
+      if (fields === 'business_name, slug') {
         mockSupabase.single.mockResolvedValueOnce({
-          data: { business_name: 'Test Store' },
+          data: { business_name: 'Test Store', slug: 'test-store' },
           error: null,
         });
       } else if (fields === 'blog_enabled') {
@@ -410,7 +420,7 @@ describe('POST /api/merchant/blog/posts', () => {
       } else {
         // Default for insert().select()
         mockSupabase.single.mockResolvedValueOnce({
-          data: { id: '1', slug: 'test-slug' },
+          data: { id: '1', slug: 'new-blog-post' },
           error: null,
         });
       }
@@ -499,11 +509,11 @@ describe('POST /api/merchant/blog/posts', () => {
             }),
           } as never;
         }
-        if (fields === 'business_name') {
+        if (fields === 'business_name, slug') {
           return {
             eq: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
-              data: { business_name: 'Test Store' },
+              data: { business_name: 'Test Store', slug: 'test-store' },
               error: null,
             }),
           } as never;
@@ -728,10 +738,59 @@ describe('POST /api/merchant/blog/posts', () => {
         makeRequest('/api/merchant/blog/posts', { body: validPostData })
       );
 
-      expect(mockRevalidateBlogPosts).toHaveBeenCalledWith(
-        MERCHANT_ID,
-        'new-blog-post'
+      expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+        identifiers: ['test-store', 'ogabassey.com'],
+        listingCategories: [],
+        postSlugs: ['new-blog-post'],
+      });
+    });
+
+    it('warns when merchant slug is missing and still uses available identifiers', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+
+      mockSupabase.select.mockImplementation((fields: string) => {
+        if (fields === 'business_name, slug') {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: { business_name: 'Test Store', slug: null },
+            error: null,
+          });
+        } else if (fields === 'blog_enabled') {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: { blog_enabled: true },
+            error: null,
+          });
+        } else {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: { id: '1', slug: 'new-blog-post' },
+            error: null,
+          });
+        }
+
+        return mockSupabase;
+      });
+
+      await POST(
+        makeRequest('/api/merchant/blog/posts', { body: validPostData })
       );
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Merchant slug missing during blog post revalidation; falling back to available blog identifiers only',
+        {
+          merchantId: MERCHANT_ID,
+        }
+      );
+      expect(mockGetMerchantBlogCacheIdentifiers).toHaveBeenCalledWith(
+        mockSupabase,
+        MERCHANT_ID
+      );
+      expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+        identifiers: ['test-store', 'ogabassey.com'],
+        listingCategories: [],
+        postSlugs: ['new-blog-post'],
+      });
+      consoleWarnSpy.mockRestore();
     });
   });
 

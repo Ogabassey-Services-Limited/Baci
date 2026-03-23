@@ -5,6 +5,7 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { getMerchantBlogCacheIdentifiers } from '@/lib/blog-cache-identifiers';
 import {
   calculateReadingTime,
   calculateWordCount,
@@ -179,9 +180,18 @@ export async function POST(request: NextRequest) {
     // Get merchant business name if needed (optional, or we can use metadata)
     const { data: merchantData } = await supabase
       .from('merchants')
-      .select('business_name')
+      .select('business_name, slug')
       .eq('id', access.merchantId)
       .single();
+
+    if (!merchantData?.slug) {
+      console.warn(
+        'Merchant slug missing during blog post revalidation; falling back to available blog identifiers only',
+        {
+          merchantId: access.merchantId,
+        }
+      );
+    }
 
     const merchant = {
       id: access.merchantId,
@@ -327,7 +337,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Invalidate blog caches so storefront shows the new post immediately
-    revalidateBlogPosts(merchant.id, postData.slug);
+    try {
+      const cacheIdentifiers = await getMerchantBlogCacheIdentifiers(
+        supabase,
+        access.merchantId
+      );
+      revalidateBlogPosts({
+        identifiers: cacheIdentifiers,
+        listingCategories: newPost?.category ? [newPost.category] : [],
+        postSlugs: [newPost?.slug || postData.slug],
+      });
+    } catch (error) {
+      console.error('Failed to revalidate blog caches after post creation:', {
+        merchantId: access.merchantId,
+        postSlug: newPost?.slug || postData.slug,
+        error,
+      });
+    }
 
     return NextResponse.json(newPost, { status: 201 });
   } catch (error) {
