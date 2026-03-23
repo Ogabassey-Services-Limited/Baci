@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { getMerchantBlogCacheIdentifiers } from '@/lib/blog-cache-identifiers';
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
+import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
 import { createServiceClient } from '@/lib/supabase/service';
 
 /**

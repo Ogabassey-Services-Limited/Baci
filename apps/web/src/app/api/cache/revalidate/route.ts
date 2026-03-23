@@ -6,10 +6,6 @@ import {
   hasPermission,
 } from '@/lib/api-auth';
 import {
-  getMerchantBlogCacheIdentifiers,
-  getMerchantBlogPostSlugs,
-} from '@/lib/blog-cache-identifiers';
-import {
   revalidateBlogPosts,
   revalidateCategories,
   revalidateFeatures,
@@ -19,6 +15,8 @@ import {
   revalidateReviews,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
+import { getMerchantBlogPostSlugs } from '@/lib/get-merchant-blog-post-slugs';
 
 /**
  * Cache Revalidation API

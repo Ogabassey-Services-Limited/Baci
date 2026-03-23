@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+function normalizeBlogIdentifier(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? '';
+}
+
 export async function getMerchantBlogCacheIdentifiers(
   supabase: SupabaseClient,
   merchantId: string
@@ -15,13 +19,14 @@ export async function getMerchantBlogCacheIdentifiers(
       merchantId,
       error: merchantError,
     });
-    return [];
+    throw merchantError;
   }
 
   const identifiers = new Set<string>();
+  const normalizedMerchantSlug = normalizeBlogIdentifier(merchant?.slug);
 
-  if (merchant?.slug) {
-    identifiers.add(merchant.slug.trim().toLowerCase());
+  if (normalizedMerchantSlug.length > 0) {
+    identifiers.add(normalizedMerchantSlug);
   }
 
   const { data: domains, error: domainsError } = await supabase
@@ -36,40 +41,16 @@ export async function getMerchantBlogCacheIdentifiers(
       merchantId,
       error: domainsError,
     });
-    return Array.from(identifiers);
+    throw domainsError;
   }
 
   for (const domain of domains ?? []) {
-    if (domain?.domain) {
-      identifiers.add(domain.domain.trim().toLowerCase());
+    const normalizedDomain = normalizeBlogIdentifier(domain?.domain);
+
+    if (normalizedDomain.length > 0) {
+      identifiers.add(normalizedDomain);
     }
   }
 
   return Array.from(identifiers);
-}
-
-export async function getMerchantBlogPostSlugs(
-  supabase: SupabaseClient,
-  merchantId: string
-): Promise<string[]> {
-  const { data: posts, error } = await supabase
-    .from('blog_posts')
-    .select('slug')
-    .eq('merchant_id', merchantId);
-
-  if (error) {
-    console.error('Failed to fetch merchant blog post slugs:', {
-      merchantId,
-      error,
-    });
-    return [];
-  }
-
-  return Array.from(
-    new Set(
-      (posts ?? [])
-        .map((post) => post.slug?.trim().toLowerCase())
-        .filter((slug): slug is string => Boolean(slug))
-    )
-  );
 }

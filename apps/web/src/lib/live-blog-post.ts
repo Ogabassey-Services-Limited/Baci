@@ -37,6 +37,11 @@ export async function getLiveBlogPost(
   postSlug: string,
   includeDrafts: boolean = false
 ) {
+  const normalizedPostSlug = postSlug?.trim().toLowerCase();
+  if (!normalizedPostSlug) {
+    return null;
+  }
+
   const lookupKey = identifier.toLowerCase();
   const merchant =
     lookupKey.includes('.') && !lookupKey.includes('/')
@@ -56,7 +61,7 @@ export async function getLiveBlogPost(
       'id, title, slug, excerpt, content, featured_image_url, featured_image_alt, category, tags, author_name, author_avatar, author_title, author_bio, published_at, status, meta_title, meta_description, seo_title, seo_description, keywords, reading_time_minutes, word_count, view_count, created_at, updated_at'
     )
     .eq('merchant_id', merchant.id)
-    .eq('slug', postSlug.toLowerCase());
+    .eq('slug', normalizedPostSlug);
 
   if (!includeDrafts) {
     query = query.eq('status', 'published');
@@ -79,13 +84,18 @@ export async function getLiveBlogPost(
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .neq('id', post.id)
+    .order('published_at', { ascending: false })
     .limit(3);
 
   if (post.category) {
     relatedQuery = relatedQuery.eq('category', post.category);
   }
 
-  const { data: relatedPosts } = await relatedQuery;
+  const { data: relatedPosts, error: relatedPostsError } = await relatedQuery;
+
+  if (relatedPostsError) {
+    console.error('Error fetching related live blog posts:', relatedPostsError);
+  }
 
   return {
     merchant: {
@@ -95,6 +105,6 @@ export async function getLiveBlogPost(
       logo_url: merchant.logo_url,
     },
     post,
-    relatedPosts: relatedPosts || [],
+    relatedPosts: relatedPostsError ? [] : (relatedPosts ?? []),
   };
 }

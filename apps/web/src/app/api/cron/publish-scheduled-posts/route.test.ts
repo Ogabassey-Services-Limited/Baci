@@ -23,7 +23,7 @@ const createServiceClientMock = () => {
 
 const mockSupabase = createServiceClientMock();
 
-vi.mock('@/lib/blog-cache-identifiers', () => ({
+vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
   getMerchantBlogCacheIdentifiers: (...args: unknown[]) =>
     mockGetMerchantBlogCacheIdentifiers(...args),
 }));

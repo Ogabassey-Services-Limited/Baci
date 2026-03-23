@@ -31,9 +31,12 @@ vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
 }));
 
-vi.mock('@/lib/blog-cache-identifiers', () => ({
+vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
   getMerchantBlogCacheIdentifiers: (...args: unknown[]) =>
     mockGetMerchantBlogCacheIdentifiers(...args),
+}));
+
+vi.mock('@/lib/get-merchant-blog-post-slugs', () => ({
   getMerchantBlogPostSlugs: (...args: unknown[]) =>
     mockGetMerchantBlogPostSlugs(...args),
 }));

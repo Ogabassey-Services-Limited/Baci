@@ -37,7 +37,7 @@ vi.mock('@/lib/cache-revalidation', () => ({
   revalidateBlogPosts: (...args: unknown[]) => mockRevalidateBlogPosts(...args),
 }));
 
-vi.mock('@/lib/blog-cache-identifiers', () => ({
+vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
   getMerchantBlogCacheIdentifiers: (...args: unknown[]) =>
     mockGetMerchantBlogCacheIdentifiers(...args),
 }));
@@ -885,14 +885,13 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
 
   describe('successful deletion', () => {
     it('deletes post and returns success', async () => {
-      let eqCallCount = 0;
-      mockSupabase.eq.mockImplementation(() => {
-        eqCallCount++;
-        if (eqCallCount >= 4) {
-          return Promise.resolve({ error: null });
-        }
-        return mockSupabase;
-      });
+      // eq() call order: fetch existing post id -> fetch existing post merchant_id
+      // -> delete post id -> delete post merchant_id
+      mockSupabase.eq
+        .mockImplementationOnce(() => mockSupabase)
+        .mockImplementationOnce(() => mockSupabase)
+        .mockImplementationOnce(() => mockSupabase)
+        .mockImplementationOnce(() => Promise.resolve({ error: null }));
 
       const res = await DELETE(
         makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'DELETE'),
@@ -908,14 +907,11 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
     });
 
     it('revalidates blog cache after deletion', async () => {
-      let eqCallCount = 0;
-      mockSupabase.eq.mockImplementation(() => {
-        eqCallCount++;
-        if (eqCallCount >= 4) {
-          return Promise.resolve({ error: null });
-        }
-        return mockSupabase;
-      });
+      mockSupabase.eq
+        .mockImplementationOnce(() => mockSupabase)
+        .mockImplementationOnce(() => mockSupabase)
+        .mockImplementationOnce(() => mockSupabase)
+        .mockImplementationOnce(() => Promise.resolve({ error: null }));
 
       await DELETE(
         makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'DELETE'),
@@ -932,14 +928,13 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
 
   describe('error handling', () => {
     it('returns 500 when database delete fails', async () => {
-      let eqCallCount = 0;
-      mockSupabase.eq.mockImplementation(() => {
-        eqCallCount++;
-        if (eqCallCount >= 4) {
-          return Promise.resolve({ error: { message: 'Delete failed' } });
-        }
-        return mockSupabase;
-      });
+      mockSupabase.eq
+        .mockImplementationOnce(() => mockSupabase)
+        .mockImplementationOnce(() => mockSupabase)
+        .mockImplementationOnce(() => mockSupabase)
+        .mockImplementationOnce(() =>
+          Promise.resolve({ error: { message: 'Delete failed' } })
+        );
 
       const res = await DELETE(
         makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'DELETE'),

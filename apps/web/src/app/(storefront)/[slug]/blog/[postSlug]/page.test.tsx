@@ -199,6 +199,42 @@ describe('storefront blog post page', () => {
     ).toBeTruthy();
   });
 
+  it('falls back to the live query when the cached lookup throws', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    mockDraftMode.mockResolvedValue({ isEnabled: false });
+    mockHeaders.mockResolvedValue({
+      get: (key: string) => (key === 'host' ? 'ogabassey.com' : null),
+    });
+    mockGetCachedBlogPost.mockRejectedValue(new Error('Cache lookup failed'));
+    mockGetLiveBlogPost.mockResolvedValue(liveBlogPost);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        postSlug: 'apple-studio-display-review',
+      }),
+    });
+
+    expect(mockGetLiveBlogPost).toHaveBeenCalledWith(
+      'ogabassey.com',
+      'apple-studio-display-review',
+      false
+    );
+    expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Error fetching cached blog post, falling back to live query',
+      expect.objectContaining({
+        slug: 'ogabassey.com',
+        postSlug: 'apple-studio-display-review',
+        error: expect.any(Error),
+      })
+    );
+    consoleErrorSpy.mockRestore();
+  });
+
   it('still throws notFound when both cached and live lookups miss', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockHeaders.mockResolvedValue({

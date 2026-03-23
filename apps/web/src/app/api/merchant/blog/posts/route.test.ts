@@ -44,7 +44,7 @@ vi.mock('@/lib/cache-revalidation', () => ({
   revalidateBlogPosts: (...args: unknown[]) => mockRevalidateBlogPosts(...args),
 }));
 
-vi.mock('@/lib/blog-cache-identifiers', () => ({
+vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
   getMerchantBlogCacheIdentifiers: (...args: unknown[]) =>
     mockGetMerchantBlogCacheIdentifiers(...args),
 }));
@@ -791,6 +791,39 @@ describe('POST /api/merchant/blog/posts', () => {
         postSlugs: ['new-blog-post'],
       });
       consoleWarnSpy.mockRestore();
+    });
+
+    it('returns 500 when the merchant lookup fails', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+
+      mockSupabase.select.mockImplementation((fields: string) => {
+        if (fields === 'business_name, slug') {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: null,
+            error: { message: 'merchant lookup failed' },
+          });
+        }
+
+        return mockSupabase;
+      });
+
+      const res = await POST(
+        makeRequest('/api/merchant/blog/posts', { body: validPostData })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.error).toBe('Failed to load merchant details');
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to fetch merchant details for blog post creation:',
+        expect.objectContaining({
+          merchantId: MERCHANT_ID,
+          error: { message: 'merchant lookup failed' },
+        })
+      );
+      consoleErrorSpy.mockRestore();
     });
   });
 

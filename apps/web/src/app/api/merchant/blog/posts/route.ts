@@ -5,7 +5,6 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
-import { getMerchantBlogCacheIdentifiers } from '@/lib/blog-cache-identifiers';
 import {
   calculateReadingTime,
   calculateWordCount,
@@ -17,6 +16,7 @@ import {
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
+import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
 import { createPostSchema } from '@/lib/validations/blog';
 
 export async function GET(request: NextRequest) {
@@ -178,11 +178,25 @@ export async function POST(request: NextRequest) {
     const supabase = auth.supabase;
 
     // Get merchant business name if needed (optional, or we can use metadata)
-    const { data: merchantData } = await supabase
+    const { data: merchantData, error: merchantError } = await supabase
       .from('merchants')
       .select('business_name, slug')
       .eq('id', access.merchantId)
       .single();
+
+    if (merchantError) {
+      console.error(
+        'Failed to fetch merchant details for blog post creation:',
+        {
+          merchantId: access.merchantId,
+          error: merchantError,
+        }
+      );
+      return NextResponse.json(
+        { error: 'Failed to load merchant details' },
+        { status: 500 }
+      );
+    }
 
     if (!merchantData?.slug) {
       console.warn(
