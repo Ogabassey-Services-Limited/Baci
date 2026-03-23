@@ -179,13 +179,14 @@ export async function POST(request: NextRequest) {
     // Get merchant business name if needed (optional, or we can use metadata)
     const { data: merchantData } = await supabase
       .from('merchants')
-      .select('business_name')
+      .select('business_name, slug')
       .eq('id', access.merchantId)
       .single();
 
     const merchant = {
       id: access.merchantId,
       business_name: merchantData?.business_name || 'Store Owner',
+      slug: merchantData?.slug || null,
     };
 
     // Check if blog feature is enabled
@@ -327,7 +328,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Invalidate blog caches so storefront shows the new post immediately
-    revalidateBlogPosts(merchant.id, postData.slug);
+    revalidateBlogPosts({
+      identifiers: [merchant.slug],
+      postSlugs: [postData.slug],
+    });
 
     return NextResponse.json(newPost, { status: 201 });
   } catch (error) {

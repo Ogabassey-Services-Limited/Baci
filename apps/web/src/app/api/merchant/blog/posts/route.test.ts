@@ -397,9 +397,9 @@ describe('POST /api/merchant/blog/posts', () => {
     // Setup default mock responses
     // Mock single() to return appropriate data based on select field
     mockSupabase.select.mockImplementation((fields: string) => {
-      if (fields === 'business_name') {
+      if (fields === 'business_name, slug') {
         mockSupabase.single.mockResolvedValueOnce({
-          data: { business_name: 'Test Store' },
+          data: { business_name: 'Test Store', slug: 'test-store' },
           error: null,
         });
       } else if (fields === 'blog_enabled') {
@@ -499,11 +499,11 @@ describe('POST /api/merchant/blog/posts', () => {
             }),
           } as never;
         }
-        if (fields === 'business_name') {
+        if (fields === 'business_name, slug') {
           return {
             eq: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
-              data: { business_name: 'Test Store' },
+              data: { business_name: 'Test Store', slug: 'test-store' },
               error: null,
             }),
           } as never;
@@ -728,10 +728,10 @@ describe('POST /api/merchant/blog/posts', () => {
         makeRequest('/api/merchant/blog/posts', { body: validPostData })
       );
 
-      expect(mockRevalidateBlogPosts).toHaveBeenCalledWith(
-        MERCHANT_ID,
-        'new-blog-post'
-      );
+      expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+        identifiers: ['test-store'],
+        postSlugs: ['new-blog-post'],
+      });
     });
   });
 

@@ -12,6 +12,11 @@
  */
 import { revalidateTag } from 'next/cache';
 
+interface BlogRevalidationOptions {
+  identifiers?: Array<string | null | undefined>;
+  postSlugs?: Array<string | null | undefined>;
+}
+
 /**
  * Revalidate all cached data related to a merchant's products.
  * Call after product create/update/delete.
@@ -69,11 +74,40 @@ export function revalidateMerchant(merchantId: string, merchantSlug?: string) {
  * Revalidate blog post cache.
  * Call after blog post create/update/delete/publish.
  */
-export function revalidateBlogPosts(identifier: string, postSlug?: string) {
-  revalidateTag('blog-posts', 'storefront-page');
+export function revalidateBlogPosts(
+  identifierOrOptions: string | BlogRevalidationOptions,
+  postSlug?: string
+) {
+  revalidateTag('blog-posts', 'merchant');
 
-  if (postSlug) {
-    revalidateTag(`blog-${identifier}-${postSlug}`, 'storefront-page');
+  const identifiers =
+    typeof identifierOrOptions === 'string'
+      ? [identifierOrOptions]
+      : (identifierOrOptions.identifiers ?? []);
+  const postSlugs =
+    typeof identifierOrOptions === 'string'
+      ? [postSlug]
+      : (identifierOrOptions.postSlugs ?? []);
+
+  const normalizedIdentifiers = Array.from(
+    new Set(
+      identifiers
+        .map((identifier) => identifier?.trim().toLowerCase())
+        .filter((identifier): identifier is string => Boolean(identifier))
+    )
+  );
+  const normalizedPostSlugs = Array.from(
+    new Set(
+      postSlugs
+        .map((slug) => slug?.trim().toLowerCase())
+        .filter((slug): slug is string => Boolean(slug))
+    )
+  );
+
+  for (const identifier of normalizedIdentifiers) {
+    for (const slug of normalizedPostSlugs) {
+      revalidateTag(`blog-${identifier}-${slug}`, 'merchant');
+    }
   }
 }
 
