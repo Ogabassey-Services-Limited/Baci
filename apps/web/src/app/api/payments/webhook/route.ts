@@ -1,5 +1,4 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
@@ -385,10 +384,8 @@ export async function POST(request: NextRequest) {
           image_url?: string;
         }>;
 
-        // Generate order number and tracking token
-        const orderNumber = `ORD-${nanoid(12).toUpperCase()}`;
-
-        // Create standard order from chat order
+        // Create standard order from chat order.
+        // Let the database generate the canonical order number and tracking token.
         const { data: newOrder, error: orderCreateError } = await supabase
           .from('orders')
           .insert({
@@ -398,8 +395,6 @@ export async function POST(request: NextRequest) {
             customer_email: chatOrder.customer_email,
             customer_phone: chatOrder.customer_phone,
             shipping_address: chatOrder.shipping_address,
-            order_number: orderNumber,
-            tracking_token: nanoid(32),
             subtotal: chatOrder.subtotal,
             shipping_fee: chatOrder.shipping_fee || 0,
             total: (
@@ -412,7 +407,7 @@ export async function POST(request: NextRequest) {
             notes: `Converted from chat order. Session: ${chatOrder.session_id}`,
             source: 'chat',
           })
-          .select('id')
+          .select('id, order_number')
           .single();
 
         if (orderCreateError || !newOrder) {
@@ -427,6 +422,9 @@ export async function POST(request: NextRequest) {
             { status: 500 }
           );
         }
+
+        const orderNumber =
+          newOrder.order_number || newOrder.id.slice(0, 8).toUpperCase();
 
         // Create order items
         const orderItems = chatItems.map((item) => ({
