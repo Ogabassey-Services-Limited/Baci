@@ -117,7 +117,7 @@ export function revalidateBlogPosts(
     new Set([
       'all',
       ...listingCategories
-        .map((category) => category?.trim().toLowerCase())
+        .map((category) => category?.trim())
         .filter((category): category is string => Boolean(category)),
     ])
   );

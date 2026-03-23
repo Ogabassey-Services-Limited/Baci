@@ -20,7 +20,7 @@ export async function getMerchantBlogPostCategories(
   return Array.from(
     new Set(
       (posts ?? [])
-        .map((post) => post.category?.trim().toLowerCase() ?? '')
+        .map((post) => post.category?.trim() ?? '')
         .filter((category): category is string => category.length > 0)
     )
   );

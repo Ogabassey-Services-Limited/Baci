@@ -325,6 +325,10 @@ describe('POST /api/cache/revalidate', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-ogabassey.com-all-1',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
         'blog-list-test-store-reviews-1',
         'merchant'
       );
@@ -372,35 +376,71 @@ describe('POST /api/cache/revalidate', () => {
       );
     });
 
+    it('revalidates additional blog listing pages when the merchant has multiple pages of posts', async () => {
+      setupAuth(true, true);
+      mockGetMerchantBlogPostSlugs.mockResolvedValue([
+        'apple-studio-display-review',
+        'airpods-max-2-2026',
+        'post-3',
+        'post-4',
+        'post-5',
+        'post-6',
+        'post-7',
+        'post-8',
+        'post-9',
+        'post-10',
+        'post-11',
+        'post-12',
+        'post-13',
+      ]);
+
+      const res = await POST(makeRequest({ targets: ['blog'] }));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.revalidated).toContain('blog');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-test-store-all-2',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-ogabassey.com-all-2',
+        'merchant'
+      );
+    });
+
     it('skips blog revalidation when blog cache identifiers lookup fails', async () => {
       const consoleErrorSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => undefined);
 
-      setupAuth(true, true);
-      mockGetMerchantBlogCacheIdentifiers.mockRejectedValueOnce(
-        new Error('lookup failed')
-      );
+      try {
+        setupAuth(true, true);
+        mockGetMerchantBlogCacheIdentifiers.mockRejectedValueOnce(
+          new Error('lookup failed')
+        );
 
-      const res = await POST(makeRequest({ targets: ['blog'] }));
-      const json = await res.json();
+        const res = await POST(makeRequest({ targets: ['blog'] }));
+        const json = await res.json();
 
-      expect(res.status).toBe(500);
-      expect(json.success).toBe(false);
-      expect(json.revalidated).not.toContain('blog');
-      expect(json.failedTargets).toEqual(['blog']);
-      expect(mockRevalidateTag).not.toHaveBeenCalledWith(
-        'blog-posts',
-        'merchant'
-      );
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to revalidate blog caches:',
-        expect.objectContaining({
-          merchantId: MERCHANT_ID,
-          error: expect.any(Error),
-        })
-      );
-      consoleErrorSpy.mockRestore();
+        expect(res.status).toBe(500);
+        expect(json.success).toBe(false);
+        expect(json.revalidated).not.toContain('blog');
+        expect(json.failedTargets).toEqual(['blog']);
+        expect(mockRevalidateTag).not.toHaveBeenCalledWith(
+          'blog-posts',
+          'merchant'
+        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          'Failed to revalidate blog caches:',
+          expect.objectContaining({
+            merchantId: MERCHANT_ID,
+            error: expect.any(Error),
+          })
+        );
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
     });
 
     it('revalidates reviews cache when reviews target specified', async () => {
@@ -547,6 +587,10 @@ describe('POST /api/cache/revalidate', () => {
       expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'blog-list-test-store-all-1',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-ogabassey.com-all-1',
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(

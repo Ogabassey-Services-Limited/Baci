@@ -32,11 +32,12 @@ describe('getMerchantBlogPostCategories', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns unique normalized categories', async () => {
+  it('returns unique trimmed categories without lowercasing stored values', async () => {
     const supabase = createSupabaseMock({
       posts: [
         { category: 'Reviews' },
-        { category: 'reviews' },
+        { category: 'Reviews' },
+        { category: '  Laptops  ' },
         { category: '   ' },
         { category: null },
       ],
@@ -44,7 +45,7 @@ describe('getMerchantBlogPostCategories', () => {
 
     await expect(
       getMerchantBlogPostCategories(supabase.client, 'merchant-8')
-    ).resolves.toEqual(['reviews']);
+    ).resolves.toEqual(['Reviews', 'Laptops']);
     expect(supabase.postsEq).toHaveBeenCalledWith('merchant_id', 'merchant-8');
   });
 

@@ -57,46 +57,12 @@ export async function POST(request: Request) {
 
     console.log(`📦 Cron: Found ${scheduledPosts.length} posts to publish`);
 
-    // 3. Batch update status to 'published'
     const postIds = scheduledPosts.map((post) => post.id);
     const merchantIds = Array.from(
       new Set(scheduledPosts.map((post) => post.merchant_id))
     );
-    const { error: updateError } = await supabase
-      .from('blog_posts')
-      .update({ status: 'published' })
-      .in('id', postIds);
 
-    if (updateError) {
-      console.error('Cron Error: Batch update failed:', updateError);
-      return NextResponse.json(
-        { error: 'Batch update failed' },
-        { status: 500 }
-      );
-    }
-
-    const publishedPostCountsByMerchant = new Map<string, number>();
-    const { data: publishedPosts, error: publishedPostsError } = await supabase
-      .from('blog_posts')
-      .select('merchant_id')
-      .eq('status', 'published')
-      .in('merchant_id', merchantIds);
-
-    if (publishedPostsError) {
-      console.error(
-        'Cron Error: Failed to load published blog counts for revalidation:',
-        publishedPostsError
-      );
-    } else {
-      for (const post of publishedPosts ?? []) {
-        publishedPostCountsByMerchant.set(
-          post.merchant_id,
-          (publishedPostCountsByMerchant.get(post.merchant_id) ?? 0) + 1
-        );
-      }
-    }
-
-    // 4. Revalidate blog caches and storefront paths grouped by merchant
+    // 3. Group scheduled posts by merchant and compute listing sizes before mutating
     const postsByMerchant = new Map<
       string,
       {
@@ -124,9 +90,34 @@ export async function POST(request: Request) {
       postsByMerchant.set(post.merchant_id, merchantPosts);
     }
 
+    const publishedPostCountsByMerchant = new Map<string, number>();
+    const { data: publishedPosts, error: publishedPostsError } = await supabase
+      .from('blog_posts')
+      .select('merchant_id')
+      .eq('status', 'published')
+      .in('merchant_id', merchantIds);
+
+    if (publishedPostsError) {
+      console.error(
+        'Cron Error: Failed to load published blog counts for revalidation:',
+        publishedPostsError
+      );
+      return NextResponse.json(
+        { error: 'Failed to load published blog counts' },
+        { status: 500 }
+      );
+    }
+
+    for (const post of publishedPosts ?? []) {
+      publishedPostCountsByMerchant.set(
+        post.merchant_id,
+        (publishedPostCountsByMerchant.get(post.merchant_id) ?? 0) + 1
+      );
+    }
+
     for (const [merchantId, merchantPosts] of postsByMerchant) {
       const publishedPostCount =
-        publishedPostCountsByMerchant.get(merchantId) ??
+        (publishedPostCountsByMerchant.get(merchantId) ?? 0) +
         merchantPosts.postSlugs.length;
       const totalPages = Math.max(
         1,
@@ -138,6 +129,23 @@ export async function POST(request: Request) {
         (_, index) => index + 1
       );
     }
+
+    // 4. Batch update status to 'published'
+    const { error: updateError } = await supabase
+      .from('blog_posts')
+      .update({ status: 'published' })
+      .in('id', postIds);
+
+    if (updateError) {
+      console.error('Cron Error: Batch update failed:', updateError);
+      return NextResponse.json(
+        { error: 'Batch update failed' },
+        { status: 500 }
+      );
+    }
+
+    // 5. Revalidate blog caches grouped by merchant
+    const failedMerchants: string[] = [];
 
     for (const [merchantId, merchantPosts] of postsByMerchant) {
       try {
@@ -155,12 +163,25 @@ export async function POST(request: Request) {
           `🔄 Cron: Revalidated blog cache for merchant ${merchantId} across ${merchantPosts.postSlugs.length} posts`
         );
       } catch (revalError) {
-        console.warn(
-          'Cron Warning: Revalidation failed for merchant %s:',
+        console.error(
+          'Cron Error: Revalidation failed for merchant %s:',
           merchantId,
           revalError
         );
+        failedMerchants.push(merchantId);
       }
+    }
+
+    if (failedMerchants.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Failed to revalidate blog caches for some merchants',
+          failedMerchants,
+          processed: scheduledPosts.length,
+          published: postIds,
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({

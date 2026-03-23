@@ -5,6 +5,7 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import {
   revalidateBlogPosts,
   revalidateCategories,
@@ -106,10 +107,20 @@ export async function POST(request: NextRequest) {
         getMerchantBlogPostSlugs(auth.supabase, merchantId),
         getMerchantBlogPostCategories(auth.supabase, merchantId),
       ]);
+      const listingPages = Array.from(
+        {
+          length: Math.max(
+            1,
+            Math.ceil(postSlugs.length / BLOG_LISTING_PAGE_SIZE)
+          ),
+        },
+        (_, index) => index + 1
+      );
 
       revalidateBlogPosts({
         identifiers,
         listingCategories,
+        listingPages,
         postSlugs,
       });
       revalidated.push('blog');

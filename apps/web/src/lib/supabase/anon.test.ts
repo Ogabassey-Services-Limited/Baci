@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreateClient = vi.fn();
 
@@ -17,6 +17,10 @@ describe('createPublicClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCreateClient.mockReturnValue({});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('uses only the timeout signal when no caller signal is provided', async () => {
@@ -82,6 +86,76 @@ describe('createPublicClient', () => {
     expect(anySpy).toHaveBeenCalledWith([callerSignal, timeoutSignal]);
     expect(fetchSpy).toHaveBeenCalledWith('https://example.com/data', {
       headers: { 'X-Test': '2' },
+      signal: combinedSignal,
+    });
+  });
+
+  it('propagates fetch failures while preserving timeout-only behavior', async () => {
+    const timeoutSignal = new AbortController().signal;
+    const timeoutSpy = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockReturnValue(timeoutSignal);
+    const anySpy = vi.spyOn(AbortSignal, 'any');
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new Error('network failed'));
+
+    createPublicClient({
+      clientInfo: 'baci-web-live-blog-post',
+      timeoutMs: 25,
+    });
+    const options = mockCreateClient.mock.calls[0][2] as {
+      global: {
+        fetch: (url: string, requestOptions?: RequestInit) => Promise<Response>;
+      };
+    };
+
+    await expect(
+      options.global.fetch('https://example.com/data', {
+        headers: { 'X-Test': '3' },
+      })
+    ).rejects.toThrow('network failed');
+    expect(timeoutSpy).toHaveBeenCalledWith(25);
+    expect(anySpy).not.toHaveBeenCalled();
+    expect(fetchSpy).toHaveBeenCalledWith('https://example.com/data', {
+      headers: { 'X-Test': '3' },
+      signal: timeoutSignal,
+    });
+  });
+
+  it('propagates abort failures while preserving composed signals', async () => {
+    const callerSignal = new AbortController().signal;
+    const timeoutSignal = new AbortController().signal;
+    const combinedSignal = new AbortController().signal;
+    const timeoutSpy = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockReturnValue(timeoutSignal);
+    const anySpy = vi.spyOn(AbortSignal, 'any').mockReturnValue(combinedSignal);
+    const abortError = new DOMException('Request aborted', 'AbortError');
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(abortError);
+
+    createPublicClient({
+      clientInfo: 'baci-web-live-blog-post',
+      timeoutMs: 40,
+    });
+    const options = mockCreateClient.mock.calls[0][2] as {
+      global: {
+        fetch: (url: string, requestOptions?: RequestInit) => Promise<Response>;
+      };
+    };
+
+    await expect(
+      options.global.fetch('https://example.com/data', {
+        headers: { 'X-Test': '4' },
+        signal: callerSignal,
+      })
+    ).rejects.toThrow('Request aborted');
+    expect(timeoutSpy).toHaveBeenCalledWith(40);
+    expect(anySpy).toHaveBeenCalledWith([callerSignal, timeoutSignal]);
+    expect(fetchSpy).toHaveBeenCalledWith('https://example.com/data', {
+      headers: { 'X-Test': '4' },
       signal: combinedSignal,
     });
   });

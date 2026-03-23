@@ -196,7 +196,7 @@ describe('cache-revalidation utilities', () => {
     it('revalidates blog posts cache', () => {
       revalidateBlogPosts({
         identifiers: ['test-merchant', 'OGABASSEY.COM', 'test-merchant'],
-        listingCategories: ['reviews'],
+        listingCategories: ['Reviews'],
         listingPages: [1, 2, 2],
         postSlugs: ['test-post', 'Test-Post'],
       });
@@ -211,7 +211,7 @@ describe('cache-revalidation utilities', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-list-test-merchant-reviews-1',
+        'blog-list-test-merchant-Reviews-1',
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
