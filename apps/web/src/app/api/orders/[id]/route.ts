@@ -6,6 +6,11 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
 import { ORDER_COLUMNS, ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
+import { bookOrderShipment } from '@/lib/shipping/book-order-shipment';
+import {
+  isShippingProviderCode,
+  OrderShipmentBookingError,
+} from '@/lib/shipping/order-shipment-booking-utils';
 
 // GET /api/orders/[id] - Get a single order
 export async function GET(
@@ -94,7 +99,7 @@ export async function PATCH(
     const { data: existingOrder, error: checkError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, shipping_status, payment_status, is_credit_order, customer_id'
+        'id, order_number, shipping_status, payment_status, is_credit_order, customer_id, selected_quote_id, shipping_provider, tracking_number, shipment_id'
       )
       .eq('id', id)
       .eq('merchant_id', merchantId)
@@ -124,6 +129,36 @@ export async function PATCH(
       );
     }
 
+    if (
+      shipping_status === 'shipped' &&
+      existingOrder.shipping_status === 'pending'
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Order must be processing before it can be marked as shipped.',
+          code: 'ORDER_NOT_READY_TO_SHIP',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      shipping_status === 'shipped' &&
+      !existingOrder.tracking_number &&
+      !existingOrder.shipment_id &&
+      isShippingProviderCode(existingOrder.shipping_provider) &&
+      !existingOrder.selected_quote_id
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'This provider order does not have a saved shipping quote. Please re-quote before marking it as shipped.',
+          code: 'MISSING_SHIPPING_QUOTE',
+        },
+        { status: 400 }
+      );
+    }
+
     // Build update object with only provided fields
     const updates: Record<string, unknown> = {};
 
@@ -138,6 +173,20 @@ export async function PATCH(
     }
     if (shipping_address !== undefined) {
       updates.shipping_address = shipping_address;
+    }
+
+    if (
+      shipping_status === 'shipped' &&
+      !existingOrder.tracking_number &&
+      !existingOrder.shipment_id &&
+      isShippingProviderCode(existingOrder.shipping_provider) &&
+      existingOrder.selected_quote_id
+    ) {
+      const booking = await bookOrderShipment(supabase, merchantId, id);
+      updates.shipping_provider = booking.provider;
+      updates.selected_quote_id = booking.quoteId;
+      updates.shipment_id = booking.shipmentId;
+      updates.tracking_number = booking.trackingNumber;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -192,6 +241,13 @@ export async function PATCH(
 
     return NextResponse.json({ order });
   } catch (error) {
+    if (error instanceof OrderShipmentBookingError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.status }
+      );
+    }
+
     console.error('Unexpected error in PATCH /api/orders/[id]:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

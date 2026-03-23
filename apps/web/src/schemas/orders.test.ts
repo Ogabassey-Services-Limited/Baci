@@ -98,4 +98,32 @@ describe('orderCreateSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('maps shipping_quote_id into selected_quote_id', () => {
+    const quoteId = '123e4567-e89b-12d3-a456-426614174111';
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      shipping_quote_id: quoteId,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.selected_quote_id).toBe(quoteId);
+    }
+  });
+
+  it('prefers selected_quote_id when both quote fields are present', () => {
+    const selectedQuoteId = '123e4567-e89b-12d3-a456-426614174112';
+    const legacyQuoteId = '123e4567-e89b-12d3-a456-426614174113';
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      selected_quote_id: selectedQuoteId,
+      shipping_quote_id: legacyQuoteId,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.selected_quote_id).toBe(selectedQuoteId);
+    }
+  });
 });
