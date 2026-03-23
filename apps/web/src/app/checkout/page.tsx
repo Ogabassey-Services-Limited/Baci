@@ -1220,7 +1220,7 @@ function CheckoutPageContent() {
         source: 'online_store',
         // Use selected shipping provider or fallback to GIGL
         shipping_provider: selectedShippingQuote?.provider || 'GIGL',
-        shipping_quote_id: selectedShippingQuote?.id,
+        selected_quote_id: selectedShippingQuote?.id,
         shipping_session_id: shippingSessionId,
         shipping_carrier: selectedShippingQuote?.carrierName,
         shipping_service_tier: selectedShippingQuote?.serviceTier,
