@@ -21,6 +21,7 @@ export const DARK_COLORS = {
   // Brand - Blue Primary
   primary: '#4A90D9',
   primaryLight: 'rgba(74, 144, 217, 0.15)',
+  textOnPrimary: '#FFFFFF',
 
   // Accent - Baci Gold
   gold: '#F0BF58',
@@ -73,6 +74,7 @@ export const LIGHT_COLORS = {
   // Brand - Blue Primary
   primary: '#3B82F6',
   primaryLight: 'rgba(59, 130, 246, 0.1)',
+  textOnPrimary: '#FFFFFF',
 
   // Accent - Baci Gold
   gold: '#D4A03D',

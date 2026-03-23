@@ -1,28 +1,39 @@
 'use server';
 
+import {
+  buildCustomerNameFields,
+  buildCustomerSearchFilter,
+  CUSTOMER_ADMIN_COLUMNS,
+  extractOrderDeliveryAddress,
+  WEB_ORDER_WITH_ITEMS_QUERY,
+} from '@baci/shared';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { ensurePermission } from '@/lib/merchant-server';
 import {
   sanitizeEmail,
-  sanitizeLikePattern,
   sanitizePhone,
-  sanitizeSearchQuery,
   sanitizeText,
 } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
 export interface Customer {
   id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
+  merchant_id: string;
+  full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
   address: string | null;
   total_orders: number;
   total_spent: number;
   store_credit: number;
+  loyalty_points: number;
   created_at: string;
+  updated_at: string;
+  last_login_at: string | null;
+  deleted_at: string | null;
 }
 
 export interface CreateCustomerData {
@@ -31,6 +42,7 @@ export interface CreateCustomerData {
   email: string;
   phone: string;
   address: string;
+  store_credit?: number;
 }
 
 async function resolveCustomerMerchantId(
@@ -52,27 +64,18 @@ export async function getCustomers(
   const supabase = createClient(cookieStore);
   const authorizedMerchantId = await resolveCustomerMerchantId('view');
 
-  if (!authorizedMerchantId) {
-    return [];
-  }
-
-  if (merchantId !== authorizedMerchantId) {
+  if (!authorizedMerchantId || merchantId !== authorizedMerchantId) {
     return [];
   }
 
   let query = supabase
     .from('customers')
-    .select(
-      'id, first_name, last_name, email, phone, address, total_orders, total_spent, store_credit, created_at'
-    )
+    .select(CUSTOMER_ADMIN_COLUMNS)
     .eq('merchant_id', authorizedMerchantId)
     .order('created_at', { ascending: false });
 
   if (search?.trim()) {
-    const sanitizedPattern = sanitizeLikePattern(sanitizeSearchQuery(search));
-    query = query.or(
-      `first_name.ilike.%${sanitizedPattern}%,last_name.ilike.%${sanitizedPattern}%,email.ilike.%${sanitizedPattern}%,phone.ilike.%${sanitizedPattern}%`
-    );
+    query = query.or(buildCustomerSearchFilter(search));
   }
 
   const { data: customers, error } = await query;
@@ -93,20 +96,32 @@ export async function createCustomer(formData: CreateCustomerData) {
     throw new Error('Unauthorized');
   }
 
-  // Sanitize input
-  const { first_name, last_name, email, phone, address } = formData;
+  const firstName = formData.first_name
+    ? sanitizeText(formData.first_name, 100)
+    : null;
+  const lastName = formData.last_name
+    ? sanitizeText(formData.last_name, 100)
+    : null;
+  const email = formData.email ? sanitizeEmail(formData.email) : null;
+  const phone = formData.phone ? sanitizePhone(formData.phone) : null;
+  const address = formData.address ? sanitizeText(formData.address, 500) : null;
+  const nameFields = buildCustomerNameFields({
+    first_name: firstName,
+    last_name: lastName,
+    email,
+  });
 
   const { data: customer, error } = await supabase
     .from('customers')
     .insert({
-      first_name: first_name ? sanitizeText(first_name, 100) : null,
-      last_name: last_name ? sanitizeText(last_name, 100) : null,
-      email: email ? sanitizeEmail(email) : null,
-      phone: phone ? sanitizePhone(phone) : null,
-      address: address ? sanitizeText(address, 500) : null,
       merchant_id: authorizedMerchantId,
+      ...nameFields,
+      email,
+      phone,
+      address,
+      store_credit: formData.store_credit ?? 0,
     })
-    .select()
+    .select(CUSTOMER_ADMIN_COLUMNS)
     .single();
 
   if (error) {
@@ -127,12 +142,9 @@ export async function getCustomer(
     return null;
   }
 
-  // Fetch customer with merchant verification
   const { data: customer, error } = await supabase
     .from('customers')
-    .select(
-      'id, first_name, last_name, email, phone, address, total_orders, total_spent, store_credit, created_at'
-    )
+    .select(CUSTOMER_ADMIN_COLUMNS)
     .eq('id', customerId)
     .eq('merchant_id', authorizedMerchantId)
     .single();
@@ -173,7 +185,6 @@ export async function getCustomerOrders(
     return [];
   }
 
-  // Fetch customer with merchant verification
   const { data: customer } = await supabase
     .from('customers')
     .select('id, merchant_id, email')
@@ -183,12 +194,21 @@ export async function getCustomerOrders(
 
   if (!customer) return [];
 
-  const { data: orders, error } = await supabase
+  let orderQuery = supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select(WEB_ORDER_WITH_ITEMS_QUERY)
     .eq('merchant_id', customer.merchant_id)
-    .eq('customer_email', customer.email)
     .order('created_at', { ascending: false });
+
+  if (customer.email) {
+    orderQuery = orderQuery.or(
+      `customer_id.eq.${customerId},and(customer_email.eq.${customer.email},customer_id.is.null)`
+    );
+  } else {
+    orderQuery = orderQuery.eq('customer_id', customerId);
+  }
+
+  const { data: orders, error } = await orderQuery;
 
   if (error) {
     console.error('Error fetching customer orders:', error);
@@ -202,7 +222,8 @@ export async function getCustomerOrders(
     total: Number(order.total),
     shipping_status: order.shipping_status,
     payment_method: order.payment_method || 'N/A',
-    shipping_address: order.shipping_address || 'N/A',
+    shipping_address:
+      extractOrderDeliveryAddress(order.shipping_address) || 'N/A',
     items: (order.order_items || []).map((item: OrderItemData) => ({
       id: item.id,
       name: item.name,

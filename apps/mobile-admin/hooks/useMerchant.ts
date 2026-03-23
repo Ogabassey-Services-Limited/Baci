@@ -4,6 +4,12 @@
  * 2025 Best Practice: Uses authenticated user ID
  */
 
+import {
+  RegisteredAddressSchema,
+  type RegisteredAddress,
+  SocialMediaSchema,
+  type SocialMediaValues,
+} from '@baci/shared';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { useAuth } from '@/hooks/useAuth';
@@ -38,14 +44,15 @@ export const MerchantSchema = z.object({
   support_email: z.string().email().nullable(),
   support_phone: z.string().nullable(),
   business_address: z.string().nullable(),
-  social_media: z
-    .object({
-      instagram: z.string().optional(),
-      facebook: z.string().optional(),
-      twitter: z.string().optional(),
-      tiktok: z.string().optional(),
-    })
-    .nullable(),
+  social_media:
+    SocialMediaSchema.nullable() as unknown as z.ZodType<
+      SocialMediaValues | null
+    >,
+  registered_address:
+    RegisteredAddressSchema.nullable().optional() as unknown as z.ZodType<
+      RegisteredAddress | null | undefined
+    >,
+  state_code: z.string().nullable().optional(),
   google_analytics_id: z.string().nullable(),
   facebook_pixel_id: z.string().nullable(),
   tiktok_pixel_id: z.string().nullable(),
@@ -72,6 +79,10 @@ export const MerchantSchema = z.object({
 });
 
 export type Merchant = z.infer<typeof MerchantSchema>;
+export type MerchantSocialMedia = NonNullable<Merchant['social_media']>;
+export type MerchantRegisteredAddress = NonNullable<
+  Merchant['registered_address']
+>;
 
 export const DomainSchema = z.object({
   id: z.string(),

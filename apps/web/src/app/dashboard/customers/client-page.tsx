@@ -1,5 +1,6 @@
 'use client';
 
+import { getCustomerDisplayName } from '@baci/shared';
 import {
   BarChart,
   Download,
@@ -335,73 +336,79 @@ export default function CustomersClientPage({
                 </TableCell>
               </TableRow>
             ) : (
-              customers.map((customer) => (
-                <TableRow key={customer.id}>
-                  <TableCell>
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>
-                        {customer.first_name && customer.first_name.length > 0
-                          ? customer.first_name.substring(0, 1).toUpperCase()
-                          : '?'}
-                        {customer.last_name && customer.last_name.length > 0
-                          ? customer.last_name.substring(0, 1).toUpperCase()
-                          : ''}
-                      </AvatarFallback>
-                    </Avatar>
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <Link
-                      href={`/dashboard/customers/${customer.id}`}
-                      className="hover:underline"
-                      aria-label={`View details for ${customer.first_name || 'Unknown'} ${customer.last_name || 'Customer'}`}
-                    >
-                      {customer.first_name} {customer.last_name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{customer.email || '-'}</TableCell>
-                  <TableCell>{customer.phone || '-'}</TableCell>
-                  <TableCell>{customer.total_orders}</TableCell>
-                  <TableCell>{formatCurrency(customer.total_spent)}</TableCell>
-                  <TableCell>
-                    {customer.store_credit > 0 ? (
-                      <Badge
-                        variant="secondary"
-                        className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-950/30 dark:text-green-300 dark:hover:bg-green-900/40"
+              customers.map((customer) => {
+                const displayName = getCustomerDisplayName(customer);
+                const initials =
+                  displayName
+                    .split(' ')
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((part) => part[0]?.toUpperCase() ?? '')
+                    .join('') || '?';
+
+                return (
+                  <TableRow key={customer.id}>
+                    <TableCell>
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>{initials}</AvatarFallback>
+                      </Avatar>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/dashboard/customers/${customer.id}`}
+                        className="hover:underline"
+                        aria-label={`View details for ${displayName}`}
                       >
-                        {formatCurrency(customer.store_credit)}
-                      </Badge>
-                    ) : (
-                      '-'
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          aria-label={`Actions for ${customer.first_name || 'Unknown'} ${customer.last_name || 'Customer'}`}
+                        {displayName}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{customer.email || '-'}</TableCell>
+                    <TableCell>{customer.phone || '-'}</TableCell>
+                    <TableCell>{customer.total_orders}</TableCell>
+                    <TableCell>
+                      {formatCurrency(customer.total_spent)}
+                    </TableCell>
+                    <TableCell>
+                      {customer.store_credit > 0 ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-950/30 dark:text-green-300 dark:hover:bg-green-900/40"
                         >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <Link href={`/dashboard/customers/${customer.id}`}>
-                          <DropdownMenuItem>
-                            <Edit className="mr-2 h-4 w-4" />
-                            View Profile
+                          {formatCurrency(customer.store_credit)}
+                        </Badge>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            aria-label={`Actions for ${displayName}`}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <Link href={`/dashboard/customers/${customer.id}`}>
+                            <DropdownMenuItem>
+                              <Edit className="mr-2 h-4 w-4" />
+                              View Profile
+                            </DropdownMenuItem>
+                          </Link>
+                          <DropdownMenuItem className="text-red-600">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
                           </DropdownMenuItem>
-                        </Link>
-                        <DropdownMenuItem className="text-red-600">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

@@ -4,6 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { getCustomerDisplayName } from '@baci/shared';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import React, { useRef } from 'react';
@@ -69,11 +70,7 @@ const getInitials = (name: string | null) => {
 };
 
 const getDisplayName = (customer: Customer) => {
-  const names = [customer.first_name, customer.last_name]
-    .filter((name): name is string => Boolean(name))
-    .join(' ');
-  if (names) return names;
-  return customer.email.split('@')[0];
+  return getCustomerDisplayName(customer);
 };
 
 const handleWhatsApp = (phone: string) => {
@@ -261,6 +258,8 @@ function CustomerItem({
   onPress,
 }: CustomerItemProps) {
   const displayName = getDisplayName(item);
+  const customerEmail = item.email ?? null;
+  const customerEmailLabel = customerEmail ?? 'No email';
   const customerPhone = item.phone || null;
 
   return (
@@ -272,7 +271,7 @@ function CustomerItem({
         pressed && { backgroundColor: colors.cardHover },
       ]}
       onPress={() => onPress(item.id)}
-      accessibilityLabel={`${displayName}, ${item.email}, ${item.total_orders} orders, spent ${formatCurrency(item.total_spent, currencySymbol)}`}
+      accessibilityLabel={`${displayName}, ${customerEmailLabel}, ${item.total_orders} orders, spent ${formatCurrency(item.total_spent, currencySymbol)}`}
       accessibilityRole="button"
       accessibilityHint="View customer details"
     >
@@ -293,7 +292,7 @@ function CustomerItem({
           style={[styles.customerEmail, { color: colors.textSecondary }]}
           numberOfLines={1}
         >
-          {item.email}
+          {customerEmailLabel}
         </Text>
 
         <View style={styles.statsRow}>
@@ -355,25 +354,27 @@ function CustomerItem({
             </Pressable>
           </>
         ) : null}
-        <Pressable
-          style={[
-            styles.miniActionButton,
-            {
-              backgroundColor: colors.primaryLight,
-              minWidth: 44,
-              minHeight: 44,
-            },
-          ]}
-          onPress={(e) => {
-            e.stopPropagation();
-            handleEmail(item.email);
-          }}
-          accessibilityLabel={`Email ${displayName}`}
-          accessibilityRole="button"
-          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-        >
-          <Ionicons name="mail" size={16} color={colors.primary} />
-        </Pressable>
+        {customerEmail ? (
+          <Pressable
+            style={[
+              styles.miniActionButton,
+              {
+                backgroundColor: colors.primaryLight,
+                minWidth: 44,
+                minHeight: 44,
+              },
+            ]}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleEmail(customerEmail);
+            }}
+            accessibilityLabel={`Email ${displayName}`}
+            accessibilityRole="button"
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Ionicons name="mail" size={16} color={colors.primary} />
+          </Pressable>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -454,10 +455,9 @@ export default function CustomersScreen() {
     const q = searchQuery.toLowerCase();
     return allCustomers.filter(
       (c) =>
-        c.first_name?.toLowerCase().includes(q) ||
-        c.last_name?.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q) ||
-        c.phone?.toLowerCase().includes(q)
+        getCustomerDisplayName(c).toLowerCase().includes(q) ||
+        (c.email?.toLowerCase().includes(q) ?? false) ||
+        (c.phone?.toLowerCase().includes(q) ?? false)
     );
   })();
 
@@ -468,7 +468,7 @@ export default function CustomersScreen() {
     const q = searchQuery.toLowerCase();
     return failedOrders.filter(
       (o) =>
-        o.customer_name?.toLowerCase().includes(q) ||
+        (o.customer_name?.toLowerCase().includes(q) ?? false) ||
         o.customer_email.toLowerCase().includes(q)
     );
   })();

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { splitCustomerFullName } from '@baci/shared';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -45,17 +46,9 @@ export default function CustomerEditScreen() {
 
   useEffect(() => {
     if (customer) {
-      let fName = customer.first_name;
-      let lName = customer.last_name;
-
-      // Fallback for legacy data
-      if (!fName && !lName && (customer as Record<string, unknown>).full_name) {
-        const parts = (
-          (customer as Record<string, unknown>).full_name as string
-        ).split(' ');
-        fName = parts[0];
-        lName = parts.slice(1).join(' ');
-      }
+      const fallbackNames = splitCustomerFullName(customer.full_name);
+      const fName = customer.first_name ?? fallbackNames.first_name;
+      const lName = customer.last_name ?? fallbackNames.last_name;
 
       setFirstName(fName ?? '');
       setLastName(lName ?? '');

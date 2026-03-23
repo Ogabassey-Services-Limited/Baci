@@ -33,6 +33,7 @@ describe('customer schemas', () => {
         first_name: null,
         email: null,
         phone: null,
+        store_credit: null,
       });
       expect(result.success).toBe(true);
     });
@@ -59,6 +60,26 @@ describe('customer schemas', () => {
       if (result.success) {
         expect(result.data.phone).toBe('+234 (801) 234-5678  9');
       }
+    });
+
+    it('accepts non-negative store credit values', () => {
+      const result = createCustomerSchema.safeParse({
+        first_name: 'Ada',
+        store_credit: '2500',
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.store_credit).toBe(2500);
+      }
+    });
+
+    it('rejects runaway store credit values', () => {
+      expect(
+        createCustomerSchema.safeParse({
+          store_credit: '1000000001',
+        }).success
+      ).toBe(false);
     });
   });
 
@@ -87,9 +108,13 @@ describe('customer schemas', () => {
 
     it('accepts null for nullable fields', () => {
       const result = updateCustomerSchema.safeParse({
+        first_name: null,
+        last_name: null,
+        full_name: null,
         email: null,
         phone: null,
         address: null,
+        store_credit: null,
       });
       expect(result.success).toBe(true);
     });
@@ -115,5 +140,41 @@ describe('customer schemas', () => {
         expect(result.data.phone).toBe('--');
       }
     });
+
+    it('accepts non-negative store credit values', () => {
+      const result = updateCustomerSchema.safeParse({
+        store_credit: 1250,
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.store_credit).toBe(1250);
+      }
+    });
+
+    it('rejects negative store credit values', () => {
+      expect(
+        updateCustomerSchema.safeParse({
+          store_credit: -1,
+        }).success
+      ).toBe(false);
+
+      expect(
+        createCustomerSchema.safeParse({
+          first_name: 'Ada',
+          store_credit: -1,
+        }).success
+      ).toBe(false);
+    });
+  });
+
+  it('treats cleared store credit input as unset instead of coercing it to zero', () => {
+    const result = createCustomerSchema.safeParse({
+      first_name: 'Ada',
+      store_credit: '',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.store_credit).toBeUndefined();
   });
 });

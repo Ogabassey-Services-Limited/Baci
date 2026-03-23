@@ -10,8 +10,10 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import {
-  normalizeProductInventory,
-} from '@/lib/product-inventory';
+  MOBILE_ADMIN_PRODUCT_COLUMNS as PRODUCT_COLUMNS,
+  MOBILE_ADMIN_PRODUCT_WITH_RELATIONS_QUERY,
+} from '@baci/shared';
+import { normalizeProductInventory } from '@/lib/product-inventory';
 import { sanitizeSearchQuery, sanitizeText } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { getJoinedRecord } from '@/lib/supabase-utils';
@@ -59,9 +61,6 @@ export interface InventoryStats {
   outOfStockCount: number;
   categoryCount: number;
 }
-
-const PRODUCT_COLUMNS =
-  'id, name, description, price, compare_at_price, cost_price, stock_quantity, stock, sku, slug, images, status, category, category_id, brand, brand_id, fulfillment_details, color, variant_attributes, has_variants, manage_stock, low_stock_threshold, created_at, updated_at' as const;
 
 interface ProductsPage {
   products: Product[];
@@ -233,7 +232,7 @@ export function useProduct(productId: string) {
       // Fetch product
       const { data: productData, error: productError } = await supabase
         .from('products')
-        .select(`${PRODUCT_COLUMNS}, categories(name), brands(name)`)
+        .select(MOBILE_ADMIN_PRODUCT_WITH_RELATIONS_QUERY)
         .eq('id', productId)
         .eq('merchant_id', merchant.id)
         .single();

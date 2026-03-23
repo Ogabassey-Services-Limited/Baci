@@ -1,6 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getMerchantByIdentifier } from '@/lib/cached-data';
+import { Suspense } from 'react';
+import {
+  getMerchantByIdentifier,
+  getRequestScopedMerchant,
+} from '@/lib/cached-data';
+import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateFAQSchema } from '@/lib/seo-utils';
 import { getTemplate } from '@/templates/registry';
@@ -11,6 +16,27 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+/**
+ * Extracts FAQ items from merchant data, checking both structured faq_items
+ * and legacy FAQ content. Returns an empty array when no valid items exist.
+ */
+function extractFaqItems(merchant: {
+  faq_items?: unknown;
+  pages?: { faq?: string };
+}): FAQItem[] {
+  if (
+    merchant.faq_items &&
+    Array.isArray(merchant.faq_items) &&
+    merchant.faq_items.length > 0
+  ) {
+    return merchant.faq_items as FAQItem[];
+  }
+  if (merchant.pages?.faq) {
+    return parseLegacyFAQ(merchant.pages.faq);
+  }
+  return [];
+}
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -18,7 +44,11 @@ export async function generateMetadata({
   const merchant = await getMerchantByIdentifier(slug);
 
   if (!merchant) {
-    return { title: 'FAQ' };
+    notFound();
+  }
+
+  if (extractFaqItems(merchant).length === 0) {
+    notFound();
   }
 
   return {
@@ -36,39 +66,65 @@ export async function generateMetadata({
   };
 }
 
-export default async function FAQPage({ params }: PageProps) {
+/**
+ * Synchronous page wrapper ensures the H1 tag appears in the initial SSR HTML,
+ * rather than being deferred to RSC streaming (which crawlers like Ahrefs miss).
+ * JSON-LD is in a separate Suspense boundary so it streams independently.
+ */
+export default function FAQPage({ params }: PageProps) {
+  return (
+    <>
+      <h1 className="sr-only">Frequently Asked Questions</h1>
+      <Suspense fallback={null}>
+        <FAQJsonLd params={params} />
+      </Suspense>
+      <Suspense
+        fallback={
+          <div className="container mx-auto px-4 py-12 flex items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <span className="sr-only">Loading FAQ...</span>
+          </div>
+        }
+      >
+        <FAQContent params={params} />
+      </Suspense>
+    </>
+  );
+}
+
+/** Streams FAQ JSON-LD structured data independently of page content. */
+async function FAQJsonLd({ params }: PageProps) {
   const { slug } = await params;
-  const merchant = await getMerchantByIdentifier(slug);
+  const merchant = await getRequestScopedMerchant(slug);
 
-  if (!merchant) {
-    notFound();
-  }
+  if (!merchant) return null;
 
-  let faqItems: FAQItem[] = [];
-
-  if (
-    merchant.faq_items &&
-    Array.isArray(merchant.faq_items) &&
-    merchant.faq_items.length > 0
-  ) {
-    faqItems = merchant.faq_items as FAQItem[];
-  } else if (merchant.pages?.faq) {
-    faqItems = parseLegacyFAQ(merchant.pages.faq);
-  }
-
-  if (faqItems.length === 0) {
-    notFound();
-  }
+  const faqItems = extractFaqItems(merchant);
+  if (faqItems.length === 0) return null;
 
   const faqSchema = generateFAQSchema(faqItems);
 
-  const jsonLdScript = (
+  return (
     <script
       type="application/ld+json"
       // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
       dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}
     />
   );
+}
+
+async function FAQContent({ params }: PageProps) {
+  const { slug } = await params;
+  const merchant = await getRequestScopedMerchant(slug);
+
+  if (!merchant) {
+    notFound();
+  }
+
+  const faqItems = extractFaqItems(merchant);
+  if (faqItems.length === 0) {
+    notFound();
+  }
 
   // Resolve template component server-side for SEO (H1 in SSR HTML)
   const templateId = merchant.template_id;
@@ -80,15 +136,11 @@ export default async function FAQPage({ params }: PageProps) {
         if (components.Help) {
           const HelpComponent = components.Help;
           return (
-            <>
-              {jsonLdScript}
-              <HelpComponent
-                // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
-                merchant={merchant as any}
-                storeSlug={merchant.slug}
-                isPreview={false}
-              />
-            </>
+            <HelpComponent
+              merchant={toTemplateMerchantData(merchant)}
+              storeSlug={merchant.slug}
+              isPreview={false}
+            />
           );
         }
       } catch (error) {
@@ -104,13 +156,10 @@ export default async function FAQPage({ params }: PageProps) {
 
   // Fallback to default FAQ page
   return (
-    <>
-      {jsonLdScript}
-      <FAQPageClient
-        merchant={merchant}
-        faqItems={faqItems}
-        legacyContent={!merchant.faq_items ? merchant.pages?.faq : undefined}
-      />
-    </>
+    <FAQPageClient
+      merchant={merchant}
+      faqItems={faqItems}
+      legacyContent={!merchant.faq_items ? merchant.pages?.faq : undefined}
+    />
   );
 }

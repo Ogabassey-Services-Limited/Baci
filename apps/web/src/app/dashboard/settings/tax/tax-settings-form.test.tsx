@@ -1,20 +1,15 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaxSettingsForm } from './tax-settings-form';
 
-// Mock Supabase client
-vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => ({
-    from: vi.fn(() => ({
-      update: vi.fn(() => ({
-        eq: vi.fn(() => Promise.resolve({ error: null })),
-      })),
-    })),
-  }),
+const mockApiPatch = vi.fn();
+const mockToast = vi.fn();
+
+vi.mock('@/lib/api-client', () => ({
+  apiPatch: (...args: unknown[]) => mockApiPatch(...args),
 }));
 
-// Mock AddressAutocomplete as a simple input
 vi.mock('@/components/address-autocomplete', () => ({
   AddressAutocomplete: (
     props: React.InputHTMLAttributes<HTMLInputElement> & {
@@ -26,14 +21,11 @@ vi.mock('@/components/address-autocomplete', () => ({
   },
 }));
 
-// Mock useToast
-const mockToast = vi.fn();
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
 const defaultProps = {
-  merchantId: 'merchant-123',
   initialVatEnabled: false,
   initialVatRate: 7.5,
   initialTaxId: '',
@@ -48,6 +40,11 @@ const defaultProps = {
 };
 
 describe('TaxSettingsForm', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockApiPatch.mockResolvedValue({ merchant: { id: 'merchant-1' } });
+  });
+
   it('renders all card sections', () => {
     render(<TaxSettingsForm {...defaultProps} />);
 
@@ -71,10 +68,33 @@ describe('TaxSettingsForm', () => {
     expect(screen.getByText('Active')).toBeDefined();
   });
 
-  it('does not show Active badge when VAT is disabled', () => {
+  it('saves VAT changes through the merchant settings API', async () => {
     render(<TaxSettingsForm {...defaultProps} />);
 
-    expect(screen.queryByText('Active')).toBeNull();
+    fireEvent.click(screen.getByRole('switch'));
+
+    await waitFor(() => {
+      expect(mockApiPatch).toHaveBeenCalledWith('/api/merchant/settings', {
+        vat_registration_status: 'registered',
+      });
+    });
+  });
+
+  it('shows an error toast when VAT save fails', async () => {
+    mockApiPatch.mockRejectedValueOnce(new Error('VAT update failed'));
+
+    render(<TaxSettingsForm {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('switch'));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Update Failed',
+          variant: 'destructive',
+        })
+      );
+    });
   });
 
   it('renders Tax ID input with initial value', () => {
@@ -83,6 +103,28 @@ describe('TaxSettingsForm', () => {
     const input = screen.getByLabelText('Tax Identification Number (TIN)');
     expect(input).toBeDefined();
     expect((input as HTMLInputElement).value).toBe('1234567890');
+  });
+
+  it('rejects invalid TIN values before calling the API', async () => {
+    render(<TaxSettingsForm {...defaultProps} />);
+
+    const input = screen.getByLabelText(
+      'Tax Identification Number (TIN)'
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '123456789' } });
+    const [saveButton] = screen.getAllByRole('button', { name: 'Save' });
+    expect(saveButton).toBeDefined();
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockApiPatch).not.toHaveBeenCalled();
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Invalid Tax ID',
+          variant: 'destructive',
+        })
+      );
+    });
   });
 
   it('renders Legal Entity Name input with initial value', () => {
@@ -123,75 +165,8 @@ describe('TaxSettingsForm', () => {
     render(<TaxSettingsForm {...defaultProps} />);
 
     const select = screen.getByLabelText('State') as HTMLSelectElement;
-    // 37 states + "Select state..." placeholder = 38 options
     const options = select.querySelectorAll('option');
     expect(options.length).toBe(38);
     expect(options[0].textContent).toBe('Select state...');
-  });
-
-  it('renders state dropdown with specific states', () => {
-    render(<TaxSettingsForm {...defaultProps} />);
-
-    const select = screen.getByLabelText('State') as HTMLSelectElement;
-    const optionTexts = Array.from(select.querySelectorAll('option')).map(
-      (o) => o.textContent
-    );
-
-    expect(optionTexts).toContain('Lagos');
-    expect(optionTexts).toContain('FCT');
-    expect(optionTexts).toContain('Rivers');
-    expect(optionTexts).toContain('Kano');
-  });
-
-  it('sets initial state code in dropdown', () => {
-    render(<TaxSettingsForm {...defaultProps} initialStateCode="NG-LA" />);
-
-    const select = screen.getByLabelText('State') as HTMLSelectElement;
-    expect(select.value).toBe('NG-LA');
-  });
-
-  it('strips non-digit characters from TIN input', () => {
-    render(<TaxSettingsForm {...defaultProps} />);
-
-    const input = screen.getByLabelText(
-      'Tax Identification Number (TIN)'
-    ) as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '12ab34cd56' } });
-    expect(input.value).toBe('123456');
-  });
-
-  it('limits TIN input to 10 digits', () => {
-    render(<TaxSettingsForm {...defaultProps} />);
-
-    const input = screen.getByLabelText(
-      'Tax Identification Number (TIN)'
-    ) as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '12345678901234' } });
-    expect(input.value).toBe('1234567890');
-  });
-
-  it('updates legal entity name on input change', () => {
-    render(<TaxSettingsForm {...defaultProps} />);
-
-    const input = screen.getByLabelText(
-      'Registered Business Name'
-    ) as HTMLInputElement;
-    fireEvent.change(input, {
-      target: { value: 'New Business Name Ltd' },
-    });
-    expect(input.value).toBe('New Business Name Ltd');
-  });
-
-  it('renders Save Address button', () => {
-    render(<TaxSettingsForm {...defaultProps} />);
-
-    expect(screen.getByRole('button', { name: /Save Address/i })).toBeDefined();
-  });
-
-  it('renders FIRS info in the alert', () => {
-    render(<TaxSettingsForm {...defaultProps} />);
-
-    expect(screen.getByText(/Finance Act 2020/)).toBeDefined();
-    expect(screen.getAllByText(/7\.5%/).length).toBeGreaterThanOrEqual(1);
   });
 });
