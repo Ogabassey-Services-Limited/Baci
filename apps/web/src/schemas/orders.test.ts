@@ -27,11 +27,12 @@ describe('orderCreateSchema', () => {
   it('sanitizes XSS from customer_name', () => {
     const result = orderCreateSchema.safeParse({
       ...validOrder,
-      customer_name: '<script>alert("XSS")</script>John',
+      customer_name: '<script></script>jOhN dOE',
     });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.customer_name).not.toContain('<script>');
+      expect(result.data.customer_name).toBe('John Doe');
     }
   });
 

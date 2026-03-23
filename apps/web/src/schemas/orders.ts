@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { formatPersonName } from '@/lib/format-person-name';
 import {
   sanitizeEmail,
   sanitizePhone,
@@ -14,7 +15,7 @@ export const orderCreateSchema = z.object({
   customer_name: z
     .string()
     .min(1)
-    .transform((val) => sanitizeText(val)),
+    .transform((val) => formatPersonName(sanitizeText(val))),
   customer_phone: z
     .string()
     .optional()

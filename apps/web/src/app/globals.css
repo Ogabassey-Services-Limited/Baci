@@ -24,6 +24,10 @@
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 239 45% 30%;
+    --dashboard-surface: 0 0% 100%;
+    --dashboard-surface-elevated: 0 0% 98%;
+    --dashboard-surface-subtle: 240 4.8% 95.9%;
+    --dashboard-surface-border: 240 5.9% 90%;
     --radius: 0.5rem;
     --theme-radius-none: 0px;
     --theme-radius-sm: calc(var(--radius) - 2px);
@@ -77,6 +81,10 @@
     --border: 239 30% 25%;
     --input: 239 30% 25%;
     --ring: 38 92% 55%;
+    --dashboard-surface: 239 34% 16%;
+    --dashboard-surface-elevated: 239 36% 12%;
+    --dashboard-surface-subtle: 239 24% 22%;
+    --dashboard-surface-border: 239 22% 28%;
   }
 
   /* Modern box-sizing and smooth scrolling */
@@ -294,6 +302,21 @@
       @apply backdrop-blur-md;
       background: color-mix(in srgb, var(--store-background, black) 70%, transparent);
     }
+  }
+
+  .dashboard-surface {
+    background-color: hsl(var(--dashboard-surface));
+    border-color: hsl(var(--dashboard-surface-border));
+  }
+
+  .dashboard-surface-elevated {
+    background-color: hsl(var(--dashboard-surface-elevated));
+    border-color: hsl(var(--dashboard-surface-border));
+  }
+
+  .dashboard-surface-subtle {
+    background-color: hsl(var(--dashboard-surface-subtle));
+    border-color: hsl(var(--dashboard-surface-border));
   }
 
   /*

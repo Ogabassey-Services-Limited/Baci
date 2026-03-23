@@ -1,4 +1,5 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -52,5 +53,42 @@ describe('OrdersClientPage', () => {
   it('renders without crashing', () => {
     const { container } = render(<OrdersClientPage />);
     expect(container).toBeDefined();
+  });
+
+  it('expands an order when a non-interactive part of the card is clicked', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <OrdersClientPage
+        initialOrders={[
+          {
+            id: 'order-1',
+            orderNumber: 'ORD-001',
+            customerName: 'Chidimma Azubuike',
+            total: 803638,
+            shippingStatus: 'Pending',
+            paymentStatus: 'Pending',
+            paymentMethod: 'card',
+            date: 'Mar 18, 2026',
+            createdAt: Date.now(),
+            source: 'online_store',
+            items: [
+              {
+                id: 'item-1',
+                name: 'iPhone 14 Pro',
+                quantity: 1,
+                price: 803638,
+              },
+            ],
+          },
+        ]}
+      />
+    );
+
+    expect(screen.queryByText('Item Details')).not.toBeInTheDocument();
+
+    await user.click(screen.getByText('1 item: iPhone 14 Pro'));
+
+    expect(screen.getByText('Item Details')).toBeInTheDocument();
   });
 });

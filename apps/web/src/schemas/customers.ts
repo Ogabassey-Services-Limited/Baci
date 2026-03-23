@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { formatPersonName } from '@/lib/format-person-name';
 import {
   sanitizeEmail,
   sanitizePhone,
@@ -8,12 +9,12 @@ import {
 export const createCustomerSchema = z.object({
   first_name: z
     .string()
-    .transform((val) => sanitizeText(val, 100))
+    .transform((val) => formatPersonName(sanitizeText(val, 100)))
     .optional()
     .nullable(),
   last_name: z
     .string()
-    .transform((val) => sanitizeText(val, 100))
+    .transform((val) => formatPersonName(sanitizeText(val, 100)))
     .optional()
     .nullable(),
   email: z
@@ -52,7 +53,7 @@ export const createCustomerSchema = z.object({
 export const updateCustomerSchema = z.object({
   full_name: z
     .string()
-    .transform((val) => sanitizeText(val, 100))
+    .transform((val) => formatPersonName(sanitizeText(val, 100)))
     .optional(),
   email: z
     .string()
