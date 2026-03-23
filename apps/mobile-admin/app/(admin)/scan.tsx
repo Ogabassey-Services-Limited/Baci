@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -113,15 +114,22 @@ export default function ScanScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
       >
         <View style={styles.centerContent}>
-          <Ionicons name="camera-outline" size={64} color="#EF4444" />
+          <Ionicons name="camera-outline" size={64} color={colors.error} />
           <Text style={[styles.message, { color: colors.text }]}>
             Camera permission denied
           </Text>
           <Text style={[styles.subMessage, { color: colors.text }]}>
             Please enable camera access in settings
           </Text>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Go Back</Text>
+          <Pressable
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={() => router.back()}
+          >
+            <Text
+              style={[styles.backButtonText, { color: colors.textOnPrimary }]}
+            >
+              Go Back
+            </Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -165,6 +173,9 @@ export default function ScanScreen() {
 
           {/* Actions */}
           <View style={styles.actions}>
+            {/* Hardcoded #1E293B ensures consistent contrast against the
+                semi-transparent camera overlay, matching the #FFFFFF text
+                and #000000 background used throughout this screen. */}
             <Pressable
               style={[styles.actionButton, { backgroundColor: '#1E293B' }]}
               onPress={() => router.back()}
@@ -174,6 +185,9 @@ export default function ScanScreen() {
             </Pressable>
 
             {scanned && (
+              /* Hardcoded #3B82F6 provides a distinct action color with
+                 reliable contrast on the camera overlay, independent of
+                 the merchant theme. */
               <Pressable
                 style={[styles.actionButton, { backgroundColor: '#3B82F6' }]}
                 onPress={() => setScanned(false)}
@@ -192,36 +206,35 @@ export default function ScanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#000000', // Keep #000 for full-screen camera compatibility
   },
   centerContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
-    gap: 16,
+    padding: SPACING['3xl'],
+    gap: SPACING.lg,
   },
   message: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: TYPOGRAPHY.size.xl,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
     textAlign: 'center',
   },
   subMessage: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
     textAlign: 'center',
     opacity: 0.7,
   },
   backButton: {
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    backgroundColor: '#3B82F6',
-    borderRadius: 8,
+    marginTop: SPACING.lg,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING['2xl'],
+    borderRadius: RADIUS.md,
   },
   backButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   camera: {
     flex: 1,
@@ -230,8 +243,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'space-between',
-    paddingVertical: 48,
+    paddingVertical: SPACING['4xl'],
   },
+  // Fixed 280x280 frame and marginTop: 80 are intentional — sized to
+  // comfortably fit standard 1D/2D barcodes and centered in the camera
+  // viewport for a consistent scanning UX across device sizes.
   scannerFrame: {
     alignSelf: 'center',
     width: 280,
@@ -270,31 +286,31 @@ const styles = StyleSheet.create({
   },
   instructions: {
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: SPACING['3xl'],
   },
   instructionText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.size.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     textAlign: 'center',
   },
   actions: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 32,
+    gap: SPACING.md,
+    paddingHorizontal: SPACING['3xl'],
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    gap: 8,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: RADIUS.md,
+    gap: SPACING.sm,
   },
   actionButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });
