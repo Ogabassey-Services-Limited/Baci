@@ -2,17 +2,30 @@
  * Tests for ScanScreen component
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- Mocks ---
 
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
+  lastBarcodeHandler: undefined as
+    | ((payload: BarcodeScanPayload) => Promise<void> | void)
+    | undefined,
   requestCameraPermissionsAsync: vi.fn(),
   routerBack: vi.fn(),
   routerPush: vi.fn(),
 }));
+const mockAlert = mocks.alert;
+
+type BarcodeScanPayload = {
+  type: string;
+  data: string;
+};
+
+type AlertButton = {
+  onPress?: () => void;
+};
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -55,9 +68,17 @@ vi.mock('expo-camera', () => ({
   Camera: {
     requestCameraPermissionsAsync: () => mocks.requestCameraPermissionsAsync(),
   },
-  CameraView: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="camera-view">{children}</div>
-  ),
+  CameraView: ({
+    children,
+    onBarcodeScanned,
+  }: {
+    children: React.ReactNode;
+    onBarcodeScanned?: (payload: BarcodeScanPayload) => Promise<void> | void;
+  }) => {
+    mocks.lastBarcodeHandler = onBarcodeScanned;
+
+    return <div data-testid="camera-view">{children}</div>;
+  },
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
@@ -137,9 +158,35 @@ vi.mock('@/lib/supabase', () => ({
 
 import ScanScreen from './scan';
 
+async function triggerBarcodeScan(data: string) {
+  const onBarcodeScanned = mocks.lastBarcodeHandler;
+
+  if (!onBarcodeScanned) {
+    throw new Error('Expected camera barcode handler to be registered');
+  }
+
+  await act(async () => {
+    await onBarcodeScanned({ type: 'ean13', data });
+  });
+}
+
+function pressLastAlertButton(index: number) {
+  const buttons = mockAlert.mock.calls.at(-1)?.[2] as AlertButton[] | undefined;
+  const onPress = buttons?.[index]?.onPress;
+
+  if (!onPress) {
+    throw new Error(`Expected alert button ${index} to exist`);
+  }
+
+  act(() => {
+    onPress();
+  });
+}
+
 describe('ScanScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.lastBarcodeHandler = undefined;
     mocks.requestCameraPermissionsAsync.mockResolvedValue({
       status: 'granted',
     });
@@ -196,6 +243,68 @@ describe('ScanScreen', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Cancel')).toBeDefined();
+      });
+    });
+  });
+
+  describe('scan results', () => {
+    it('runs the add-product action from the product-not-found alert', async () => {
+      mockSupabaseSingle.mockResolvedValue({
+        data: null,
+        error: { message: 'Not found' },
+      });
+
+      render(<ScanScreen />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('camera-view')).toBeDefined();
+      });
+
+      await triggerBarcodeScan('ABC 123');
+
+      await waitFor(() => {
+        expect(mockAlert).toHaveBeenCalledWith(
+          'Product Not Found',
+          'No product found with barcode: ABC 123',
+          expect.any(Array)
+        );
+      });
+
+      pressLastAlertButton(1);
+
+      expect(mocks.routerPush).toHaveBeenCalledWith(
+        '/product/new?sku=ABC%20123'
+      );
+    });
+
+    it('runs the scan-again action from the product-found alert', async () => {
+      mockSupabaseSingle.mockResolvedValue({
+        data: { id: 'product-1', name: 'Widget' },
+        error: null,
+      });
+
+      render(<ScanScreen />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('camera-view')).toBeDefined();
+      });
+
+      await triggerBarcodeScan('SKU-123');
+
+      await waitFor(() => {
+        expect(mockAlert).toHaveBeenCalledWith(
+          'Product Found',
+          'Product: Widget\nBarcode: SKU-123',
+          expect.any(Array)
+        );
+      });
+
+      expect(screen.getByText('Processing...')).toBeDefined();
+
+      pressLastAlertButton(1);
+
+      await waitFor(() => {
+        expect(screen.getByText('Align barcode within frame')).toBeDefined();
       });
     });
   });
