@@ -7,15 +7,26 @@ import {
 } from '@/lib/email-templates';
 import { formatPersonName } from '@/lib/format-person-name';
 import { logger } from '@/lib/logger';
-import { ensurePermission } from '@/lib/merchant-server';
-import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
+import { getOrderNumberLookupCandidates } from '@/lib/order-number-lookup';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import { loadOrderItemImageMap } from './order-item-images';
-import type { PaymentStatus, ShippingStatus } from './order-statuses';
 
-export type { PaymentStatus, ShippingStatus } from './order-statuses';
+export type ShippingStatus =
+  | 'Pending'
+  | 'Processing'
+  | 'Shipped'
+  | 'Delivered'
+  | 'Canceled'
+  | 'Returned';
+
+export type PaymentStatus =
+  | 'Paid'
+  | 'Unpaid'
+  | 'Pending'
+  | 'Partially Paid'
+  | 'Refunded';
 
 export interface Transaction {
   id: string;
@@ -65,8 +76,8 @@ export interface OrderStats {
 }
 
 interface OrderFilters {
-  paymentStatus?: PaymentStatus | 'All';
-  shippingStatus?: ShippingStatus | 'All';
+  paymentStatus?: string;
+  shippingStatus?: string;
   search?: string;
 }
 
@@ -99,28 +110,6 @@ interface DashboardOrderRecord {
   order_items?: OrderItem[];
 }
 
-interface OrderConfirmationRecord {
-  id: string;
-  merchant_id: string;
-  order_number: string;
-  customer_name: string;
-  customer_email?: string;
-  customer_phone?: string;
-  subtotal?: string;
-  shipping_fee?: string;
-  total: string;
-  shipping_address?: {
-    address?: string;
-    city?: string;
-    state?: string;
-  };
-  order_items?: Array<{
-    name?: string;
-    quantity?: number;
-    price?: string | number;
-  }>;
-}
-
 export interface JumiaOrderItem {
   id?: string;
   name?: string;
@@ -137,20 +126,6 @@ export interface JumiaOrder {
   created_at_jumia: string;
   items?: JumiaOrderItem[];
 }
-
-const ORDER_CONFIRMATION_SELECT = [
-  'id',
-  'merchant_id',
-  'order_number',
-  'customer_name',
-  'customer_email',
-  'customer_phone',
-  'subtotal',
-  'shipping_fee',
-  'total',
-  'shipping_address',
-  'order_items(id, name, quantity, price)',
-].join(', ');
 
 function formatStatus(status: string): string {
   if (!status) return 'Pending';
@@ -169,7 +144,7 @@ export async function getOrders(
 
   let query = supabase
     .from('orders')
-    .select(ORDER_WITH_ITEMS_QUERY)
+    .select('*, order_items(*)')
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false });
 
@@ -177,7 +152,7 @@ export async function getOrders(
   if (filters.paymentStatus && filters.paymentStatus !== 'All') {
     query = query.eq(
       'payment_status',
-      filters.paymentStatus.toLowerCase().replace(/\s+/g, '_')
+      filters.paymentStatus.toLowerCase().replace(' ', '_')
     );
   }
 
@@ -195,18 +170,7 @@ export async function getOrders(
     );
   }
 
-  const { data: ordersData, error } = await query;
-
-  if (error) {
-    logger.error({
-      message: 'Error fetching dashboard orders',
-      error,
-      merchantId,
-      filters,
-      route: 'dashboard/orders/getOrders',
-    });
-    return [];
-  }
+  const { data: orders, error } = await query;
 
   // FETCH JUMIA ORDERS (If no specific payment/shipping filter that excludes them)
   // Jumia orders don't have standard payment/shipping statuses in the same way,
@@ -223,16 +187,21 @@ export async function getOrders(
     jumiaOrders = jOrders || [];
   }
 
-  const orders = (ordersData || []) as unknown as DashboardOrderRecord[];
+  if (error) {
+    console.error('Error fetching orders:', error);
+    // If main orders fail, we might still want to show Jumia orders?
+    // Usually better to fail safely.
+    return [];
+  }
 
   const orderItemImageMap = await loadOrderItemImageMap(
     supabase,
-    orders.flatMap((order) =>
+    (orders || []).flatMap((order) =>
       (order.order_items || []).map((item: OrderItem) => item.product_id)
     )
   );
 
-  const realOrders = orders.map((order) => ({
+  const realOrders = (orders || []).map((order) => ({
     id: order.id,
     orderNumber: order.order_number,
     customerName: formatPersonName(order.customer_name || 'Customer'),
@@ -389,7 +358,7 @@ export async function getOrder(
   if (isUuid) {
     const { data, error } = await supabase
       .from('orders')
-      .select(ORDER_WITH_ITEMS_QUERY)
+      .select('*, order_items(*)')
       .eq('merchant_id', merchantId)
       .eq('id', orderIdentifier)
       .maybeSingle();
@@ -397,18 +366,15 @@ export async function getOrder(
     order = data as DashboardOrderRecord | null;
     orderError = error;
   } else {
-    const normalizedIdentifier = orderIdentifier.replace(/^#/, '').trim();
-    const candidateOrderNumbers = [
-      normalizedIdentifier,
-      `#${normalizedIdentifier}`,
-    ].filter((value, index, values) => values.indexOf(value) === index);
+    const candidateOrderNumbers =
+      getOrderNumberLookupCandidates(orderIdentifier);
 
     for (const candidateOrderNumber of candidateOrderNumbers) {
       const { data, error } = await supabase
         .from('orders')
-        .select(ORDER_WITH_ITEMS_QUERY)
+        .select('*, order_items(*)')
         .eq('merchant_id', merchantId)
-        .eq('order_number', candidateOrderNumber)
+        .ilike('order_number', candidateOrderNumber)
         .maybeSingle();
 
       if (error) {
@@ -500,41 +466,18 @@ export async function resendOrderConfirmation(
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-    const { merchant: authorizedMerchant } = await ensurePermission(
-      'orders',
-      'edit'
-    );
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select(
-        'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
-      )
-      .eq('id', authorizedMerchant.id)
-      .single();
 
-    if (merchantError || !merchant) {
-      logger.error({
-        message: 'Resend Notification: Merchant not found',
-        merchantId: authorizedMerchant.id,
-        error: merchantError,
-      });
-      return { success: false, message: 'Merchant profile not found' };
-    }
-
-    // 2. Fetch Order with merchant scope
-    const { data: orderData, error: orderError } = await supabase
+    // 1. Fetch Order
+    const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select(ORDER_CONFIRMATION_SELECT)
+      .select('*, order_items(*)')
       .eq('id', orderId)
-      .eq('merchant_id', merchant.id)
       .single();
-    const order = orderData as unknown as OrderConfirmationRecord | null;
 
     if (orderError || !order) {
       logger.error({
         message: 'Resend Notification: Order not found',
         orderId,
-        merchantId: merchant.id,
         error: orderError,
       });
       return { success: false, message: 'Order not found' };
@@ -544,14 +487,32 @@ export async function resendOrderConfirmation(
       return { success: false, message: 'Customer has no email address' };
     }
 
+    // 2. Fetch Merchant Details
+    const { data: merchant, error: merchantError } = await supabase
+      .from('merchants')
+      .select(
+        'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
+      )
+      .eq('id', order.merchant_id)
+      .single();
+
+    if (merchantError || !merchant) {
+      logger.error({
+        message: 'Resend Notification: Merchant not found',
+        merchantId: order.merchant_id,
+        error: merchantError,
+      });
+      return { success: false, message: 'Merchant profile not found' };
+    }
+
     // 3. Prepare Email Data
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
     const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
-    const emailItems = (order.order_items || []).map((item) => ({
+    const emailItems = (order.order_items || []).map((item: OrderItem) => ({
       name: item.name || 'Product',
       quantity: item.quantity || 1,
-      price: Number.parseFloat(String(item.price || 0)),
+      price: item.price || 0,
     }));
 
     const emailData = {
@@ -602,7 +563,7 @@ export async function resendOrderConfirmation(
     logger.info({
       message: 'Order confirmation email resent manually',
       orderId: order.id,
-      merchantId: merchant.id,
+      adminUser: (await supabase.auth.getUser()).data.user?.id,
     });
 
     return {

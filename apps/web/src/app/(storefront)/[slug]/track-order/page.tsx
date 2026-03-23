@@ -439,7 +439,7 @@ function OrderTrackContent() {
                   </label>
                   <ThemedInput
                     id="orderNumber"
-                    placeholder="ORD-123456"
+                    placeholder="ORD-241204-A7K3-2"
                     value={orderNumber}
                     onChange={(e) => setOrderNumber(e.target.value)}
                   />

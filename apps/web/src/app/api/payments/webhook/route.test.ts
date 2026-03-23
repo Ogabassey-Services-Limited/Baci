@@ -126,11 +126,6 @@ vi.mock('@/services/insurance', () => ({
   purchaseInsuranceForPaidOrder: vi.fn(),
 }));
 
-// Mock nanoid
-vi.mock('nanoid', () => ({
-  nanoid: vi.fn(() => 'MOCK123'),
-}));
-
 // Mock reference schema
 vi.mock('@/schemas/payments', () => ({
   referenceSchema: {
@@ -780,6 +775,208 @@ describe('POST /api/payments/webhook', () => {
   });
 
   describe('Success Path', () => {
+    it('uses the database-generated order number when converting chat orders', async () => {
+      const body = {
+        reference: 'CHAT-REF123',
+        status: 'success',
+        event: 'charge.success',
+        amount: 11000,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      const { notifyNewOrder, notifyPaymentReceived } = await import(
+        '@/lib/expo-push'
+      );
+      const { sendEmail } = await import('@/lib/zeptomail');
+
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 11000,
+          reference: 'CHAT-REF123',
+          currency: 'NGN',
+          paid_at: '2026-03-23T10:00:00Z',
+          created_at: '2026-03-23T10:00:00Z',
+          customer: { name: 'Jane Doe', email: 'jane@example.com' },
+        },
+      });
+
+      const chatOrder = {
+        id: 'chat-order-123',
+        merchant_id: 'merchant-123',
+        customer_id: 'customer-123',
+        customer_name: 'Jane Doe',
+        customer_email: 'jane@example.com',
+        customer_phone: '+2348012345678',
+        shipping_address: {
+          address: '123 Example Street',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+        session_id: 'session-123',
+        subtotal: '10000',
+        shipping_fee: '1000',
+        items: [
+          {
+            product_id: 'product-1',
+            variant_id: 'variant-1',
+            name: 'Chat Product',
+            quantity: 1,
+            price: 10000,
+            image_url: 'https://example.com/product.png',
+          },
+        ],
+      };
+
+      let orderInsertPayload: Record<string, unknown> | null = null;
+      let chatOrdersCallCount = 0;
+
+      const chatOrdersLookupQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: chatOrder,
+          error: null,
+        }),
+      };
+
+      const chatOrdersUpdateQuery = {
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockResolvedValue({
+          data: null,
+          error: null,
+        }),
+      };
+
+      const ordersInsertQuery = {
+        insert: vi.fn((payload: Record<string, unknown>) => {
+          orderInsertPayload = payload;
+          return {
+            select: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: 'order-123',
+                order_number: 'ORD-260323-A7K3-2',
+              },
+              error: null,
+            }),
+          };
+        }),
+      };
+
+      const orderItemsQuery = {
+        insert: vi.fn().mockResolvedValue({
+          data: null,
+          error: null,
+        }),
+      };
+
+      const transactionsQuery = {
+        insert: vi.fn().mockResolvedValue({
+          data: null,
+          error: null,
+        }),
+      };
+
+      const merchantsQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: {
+            business_name: 'Test Store',
+            slug: 'test-store',
+            support_email: 'support@test-store.com',
+            email_sender_name: 'Test Store',
+            email: 'hello@test-store.com',
+            tax_identification_number: null,
+            cac_rc_number: null,
+          },
+          error: null,
+        }),
+      };
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'chat_orders') {
+          chatOrdersCallCount += 1;
+          return chatOrdersCallCount === 1
+            ? (chatOrdersLookupQuery as any)
+            : (chatOrdersUpdateQuery as any);
+        }
+
+        if (table === 'orders') {
+          return ordersInsertQuery as any;
+        }
+
+        if (table === 'order_items') {
+          return orderItemsQuery as any;
+        }
+
+        if (table === 'transactions') {
+          return transactionsQuery as any;
+        }
+
+        if (table === 'merchants') {
+          return merchantsQuery as any;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      vi.mocked(mockServiceClient.rpc).mockResolvedValue({
+        data: null,
+        error: null,
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toMatchObject({
+        success: true,
+        orderId: 'order-123',
+        orderNumber: 'ORD-260323-A7K3-2',
+      });
+      expect(orderInsertPayload).toBeTruthy();
+      expect(orderInsertPayload).not.toHaveProperty('order_number');
+      expect(orderInsertPayload).not.toHaveProperty('tracking_token');
+      expect(transactionsQuery.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'Payment for order ORD-260323-A7K3-2 (via chat)',
+        })
+      );
+      expect(vi.mocked(notifyNewOrder)).toHaveBeenCalledWith(
+        'merchant-123',
+        'ORD-260323-A7K3-2',
+        'Jane Doe',
+        10000,
+        'NGN'
+      );
+      expect(vi.mocked(notifyPaymentReceived)).toHaveBeenCalledWith(
+        'merchant-123',
+        10000,
+        'NGN',
+        'ORD-260323-A7K3-2'
+      );
+      expect(vi.mocked(sendEmail)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subject: 'Order Confirmation - #ORD-260323-A7K3-2',
+        })
+      );
+    });
+
     it('returns 200 and processes valid webhook successfully', async () => {
       const body = {
         reference: 'REF123',
