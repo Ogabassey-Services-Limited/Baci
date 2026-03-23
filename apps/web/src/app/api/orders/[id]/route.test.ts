@@ -24,6 +24,11 @@ vi.mock('@/lib/shipping/book-order-shipment', () => ({
   bookOrderShipment: vi.fn(),
 }));
 
+vi.mock('@/lib/shipping/order-shipment-booking-lock', () => ({
+  claimOrderShipmentBooking: vi.fn(),
+  clearOrderShipmentBookingLock: vi.fn(),
+}));
+
 vi.mock('@/lib/shipping/order-shipment-booking-utils', () => {
   class MockOrderShipmentBookingError extends Error {
     readonly code: string;
@@ -52,6 +57,10 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { bookOrderShipment } from '@/lib/shipping/book-order-shipment';
+import {
+  claimOrderShipmentBooking,
+  clearOrderShipmentBookingLock,
+} from '@/lib/shipping/order-shipment-booking-lock';
 import { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
 import { PATCH } from './route';
 
@@ -165,6 +174,10 @@ describe('PATCH /api/orders/[id]', () => {
       response: undefined,
     });
     vi.mocked(getMerchantIdForApiUser).mockResolvedValue('merchant-1');
+    vi.mocked(claimOrderShipmentBooking).mockResolvedValue({
+      status: 'claimed',
+      lockToken: 'lock-1',
+    });
   });
 
   it('rejects shipping an order that has not reached processing', async () => {
@@ -301,6 +314,11 @@ describe('PATCH /api/orders/[id]', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
+    expect(claimOrderShipmentBooking).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      'order-1'
+    );
     expect(bookOrderShipment).toHaveBeenCalledWith(
       supabase,
       'merchant-1',
@@ -309,6 +327,8 @@ describe('PATCH /api/orders/[id]', () => {
     expect(ordersUpdate).toHaveBeenCalledWith({
       selected_quote_id: 'quote-2',
       shipment_id: 'shipment-1',
+      shipment_booking_lock_token: null,
+      shipment_booking_started_at: null,
       shipping_provider: 'TOPSHIP',
       shipping_status: 'shipped',
       tracking_number: 'TRACK-1',
@@ -361,6 +381,11 @@ describe('PATCH /api/orders/[id]', () => {
     );
     const payload = await response.json();
 
+    expect(claimOrderShipmentBooking).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      'order-1'
+    );
     expect(bookOrderShipment).toHaveBeenCalledWith(
       supabase,
       'merchant-1',
@@ -372,6 +397,7 @@ describe('PATCH /api/orders/[id]', () => {
       code: 'QUOTE_ALREADY_USED',
     });
     expect(ordersUpdate).not.toHaveBeenCalled();
+    expect(clearOrderShipmentBookingLock).not.toHaveBeenCalled();
   });
 
   it('returns 500 when shipment booking fails unexpectedly', async () => {
@@ -420,6 +446,11 @@ describe('PATCH /api/orders/[id]', () => {
     );
     const payload = await response.json();
 
+    expect(claimOrderShipmentBooking).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      'order-1'
+    );
     expect(bookOrderShipment).toHaveBeenCalledWith(
       supabase,
       'merchant-1',
@@ -428,7 +459,162 @@ describe('PATCH /api/orders/[id]', () => {
     expect(response.status).toBe(500);
     expect(payload).toEqual({ error: 'Internal server error' });
     expect(ordersUpdate).not.toHaveBeenCalled();
+    expect(clearOrderShipmentBookingLock).not.toHaveBeenCalled();
 
     consoleErrorSpy.mockRestore();
+  });
+
+  it('returns 409 when another request already owns the shipment booking lock', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'paid',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(existingOrder, {
+      id: 'order-1',
+      shipping_status: 'shipped',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: 'TRACK-1',
+    });
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+    vi.mocked(claimOrderShipmentBooking).mockResolvedValue({
+      status: 'in_progress',
+    });
+
+    const response = await PATCH(
+      createPatchRequest({ shipping_status: 'shipped' }),
+      {
+        params: Promise.resolve({ id: 'order-1' }),
+      }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload).toEqual({
+      error: 'Shipment booking is already in progress for this order.',
+      code: 'SHIPMENT_BOOKING_IN_PROGRESS',
+    });
+    expect(bookOrderShipment).not.toHaveBeenCalled();
+    expect(ordersUpdate).not.toHaveBeenCalled();
+  });
+
+  it('skips provider booking when another request already attached the shipment', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'paid',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const updatedOrder: UpdatedOrder = {
+      id: 'order-1',
+      shipping_status: 'shipped',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: 'TRACK-1',
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(
+      existingOrder,
+      updatedOrder
+    );
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+    vi.mocked(claimOrderShipmentBooking).mockResolvedValue({
+      status: 'already_booked',
+    });
+
+    const response = await PATCH(
+      createPatchRequest({ shipping_status: 'shipped' }),
+      {
+        params: Promise.resolve({ id: 'order-1' }),
+      }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(bookOrderShipment).not.toHaveBeenCalled();
+    expect(ordersUpdate).toHaveBeenCalledWith({
+      shipping_status: 'shipped',
+    });
+    expect(payload).toEqual({ order: updatedOrder });
+  });
+
+  it('releases the booking lock when shipment booking fails before provider state is created', async () => {
+    const existingOrder: ExistingOrder = {
+      id: 'order-1',
+      order_number: 'BACI-001',
+      shipping_status: 'processing',
+      payment_status: 'paid',
+      is_credit_order: false,
+      customer_id: null,
+      selected_quote_id: 'quote-1',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: null,
+      shipment_id: null,
+    };
+    const updatedOrder: UpdatedOrder = {
+      id: 'order-1',
+      shipping_status: 'shipped',
+      shipping_provider: 'TOPSHIP',
+      tracking_number: 'TRACK-1',
+    };
+    const { supabase, ordersUpdate } = createSupabaseMock(
+      existingOrder,
+      updatedOrder
+    );
+
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      user: createMockUser(),
+      supabase,
+    });
+    vi.mocked(bookOrderShipment).mockRejectedValue(
+      new OrderShipmentBookingError(
+        'Shipping address is incomplete.',
+        400,
+        'INCOMPLETE_SHIPPING_ADDRESS'
+      )
+    );
+
+    const response = await PATCH(
+      createPatchRequest({ shipping_status: 'shipped' }),
+      {
+        params: Promise.resolve({ id: 'order-1' }),
+      }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload).toEqual({
+      error: 'Shipping address is incomplete.',
+      code: 'INCOMPLETE_SHIPPING_ADDRESS',
+    });
+    expect(clearOrderShipmentBookingLock).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      'order-1',
+      'lock-1'
+    );
+    expect(ordersUpdate).not.toHaveBeenCalled();
   });
 });

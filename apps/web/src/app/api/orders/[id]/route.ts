@@ -8,9 +8,36 @@ import { notifyOrderStatusChange } from '@/lib/expo-push';
 import { ORDER_COLUMNS, ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { bookOrderShipment } from '@/lib/shipping/book-order-shipment';
 import {
+  claimOrderShipmentBooking,
+  clearOrderShipmentBookingLock,
+} from '@/lib/shipping/order-shipment-booking-lock';
+import {
   isShippingProviderCode,
   OrderShipmentBookingError,
 } from '@/lib/shipping/order-shipment-booking-utils';
+
+const RELEASEABLE_BOOKING_ERROR_CODES = new Set([
+  'ORDER_NOT_FOUND',
+  'MISSING_SHIPPING_QUOTE',
+  'INVALID_SHIPPING_PROVIDER',
+  'MISSING_ORDER_ITEMS',
+  'QUOTE_NOT_FOUND',
+  'QUOTE_REFRESH_UNAVAILABLE',
+  'QUOTE_REFRESH_FAILED',
+  'MERCHANT_NOT_FOUND',
+  'INCOMPLETE_SHIPPING_ADDRESS',
+  'EXISTING_SHIPMENT_LOOKUP_FAILED',
+  'INCOMPLETE_EXISTING_SHIPMENT',
+]);
+
+function shouldReleaseBookingLock(
+  error: unknown
+): error is OrderShipmentBookingError {
+  return (
+    error instanceof OrderShipmentBookingError &&
+    RELEASEABLE_BOOKING_ERROR_CODES.has(error.code)
+  );
+}
 
 // GET /api/orders/[id] - Get a single order
 export async function GET(
@@ -94,6 +121,7 @@ export async function PATCH(
     }
 
     const supabase = auth.supabase;
+    let shipmentBookingLockToken: string | null = null;
 
     // Verify order belongs to this merchant and get current status
     const { data: existingOrder, error: checkError } = await supabase
@@ -182,11 +210,53 @@ export async function PATCH(
       isShippingProviderCode(existingOrder.shipping_provider) &&
       existingOrder.selected_quote_id
     ) {
-      const booking = await bookOrderShipment(supabase, merchantId, id);
-      updates.shipping_provider = booking.provider;
-      updates.selected_quote_id = booking.quoteId;
-      updates.shipment_id = booking.shipmentId;
-      updates.tracking_number = booking.trackingNumber;
+      const bookingClaim = await claimOrderShipmentBooking(
+        supabase,
+        merchantId,
+        id
+      );
+
+      if (bookingClaim.status === 'in_progress') {
+        return NextResponse.json(
+          {
+            error: 'Shipment booking is already in progress for this order.',
+            code: 'SHIPMENT_BOOKING_IN_PROGRESS',
+          },
+          { status: 409 }
+        );
+      }
+
+      if (bookingClaim.status === 'claimed') {
+        shipmentBookingLockToken = bookingClaim.lockToken;
+
+        try {
+          const booking = await bookOrderShipment(supabase, merchantId, id);
+          updates.shipping_provider = booking.provider;
+          updates.selected_quote_id = booking.quoteId;
+          updates.shipment_id = booking.shipmentId;
+          updates.tracking_number = booking.trackingNumber;
+          updates.shipment_booking_lock_token = null;
+          updates.shipment_booking_started_at = null;
+        } catch (error) {
+          if (shouldReleaseBookingLock(error)) {
+            try {
+              await clearOrderShipmentBookingLock(
+                supabase,
+                merchantId,
+                id,
+                shipmentBookingLockToken
+              );
+            } catch (lockError) {
+              console.error(
+                'Failed to release shipment booking lock after booking error:',
+                lockError
+              );
+            }
+          }
+
+          throw error;
+        }
+      }
     }
 
     if (Object.keys(updates).length === 0) {
@@ -197,11 +267,20 @@ export async function PATCH(
     }
 
     // Update order
-    const { data: order, error: updateError } = await supabase
+    let updateQuery = supabase
       .from('orders')
       .update(updates)
       .eq('id', id)
-      .eq('merchant_id', merchantId)
+      .eq('merchant_id', merchantId);
+
+    if (shipmentBookingLockToken) {
+      updateQuery = updateQuery.eq(
+        'shipment_booking_lock_token',
+        shipmentBookingLockToken
+      );
+    }
+
+    const { data: order, error: updateError } = await updateQuery
       .select(ORDER_COLUMNS)
       .single();
 

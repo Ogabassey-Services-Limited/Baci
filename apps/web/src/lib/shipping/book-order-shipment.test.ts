@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
 
 vi.mock('@/lib/shipping', () => ({
@@ -44,53 +44,101 @@ const { shippingService } = await import('@/lib/shipping');
 
 type MockChain = {
   from: ReturnType<typeof vi.fn>;
-  select: ReturnType<typeof vi.fn>;
-  eq: ReturnType<typeof vi.fn>;
-  single: ReturnType<typeof vi.fn>;
-  insert: ReturnType<typeof vi.fn>;
-  update: ReturnType<typeof vi.fn>;
-  upsert: ReturnType<typeof vi.fn>;
+  rpc: ReturnType<typeof vi.fn>;
 };
 
 function createMockSupabase(overrides?: {
   order?: { data: unknown; error: unknown };
+  existingShipment?: { data: unknown; error: unknown };
   quote?: { data: unknown; error: unknown };
   merchant?: { data: unknown; error: unknown };
   shipmentInsert?: { data: unknown; error: unknown };
 }) {
-  let callIndex = 0;
-  const responses = [
-    overrides?.order ?? { data: null, error: { message: 'not configured' } },
-    overrides?.quote ?? { data: null, error: { message: 'not configured' } },
-    overrides?.merchant ?? { data: null, error: { message: 'not configured' } },
-  ];
+  const ordersSelectChain = {
+    eq: vi.fn().mockReturnThis(),
+    single: vi
+      .fn()
+      .mockResolvedValue(
+        overrides?.order ?? { data: null, error: { message: 'not configured' } }
+      ),
+  };
+  const shipmentsSelectChain = {
+    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue(
+      overrides?.existingShipment ?? {
+        data: null,
+        error: null,
+      }
+    ),
+  };
+  const shippingQuotesSelectChain = {
+    eq: vi.fn().mockReturnThis(),
+    single: vi
+      .fn()
+      .mockResolvedValue(
+        overrides?.quote ?? { data: null, error: { message: 'not configured' } }
+      ),
+  };
+  const merchantsSelectChain = {
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue(
+      overrides?.merchant ?? {
+        data: null,
+        error: { message: 'not configured' },
+      }
+    ),
+  };
+
+  const shipmentsInsertSelectChain = {
+    single: vi.fn().mockResolvedValue(
+      overrides?.shipmentInsert ?? {
+        data: { id: 'shipment-1' },
+        error: null,
+      }
+    ),
+  };
+  const shipmentsInsertChain = {
+    select: vi.fn().mockReturnValue(shipmentsInsertSelectChain),
+  };
+  const shippingQuotesUpdateChain = {
+    eq: vi.fn().mockResolvedValue({ error: null }),
+  };
 
   const chain: MockChain = {
-    from: vi.fn().mockReturnThis(),
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    single: vi.fn().mockImplementation(() => {
-      const response = responses[callIndex] ?? responses[responses.length - 1];
-      callIndex++;
-      return Promise.resolve(response);
+    rpc: vi.fn(),
+    from: vi.fn((table: string) => {
+      if (table === 'orders') {
+        return {
+          select: vi.fn(() => ordersSelectChain),
+        };
+      }
+
+      if (table === 'shipments') {
+        return {
+          select: vi.fn(() => shipmentsSelectChain),
+          insert: vi.fn(() => shipmentsInsertChain),
+        };
+      }
+
+      if (table === 'shipping_quotes') {
+        return {
+          select: vi.fn(() => shippingQuotesSelectChain),
+          update: vi.fn(() => shippingQuotesUpdateChain),
+          upsert: vi.fn().mockResolvedValue({ error: null }),
+        };
+      }
+
+      if (table === 'merchants') {
+        return {
+          select: vi.fn(() => merchantsSelectChain),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
     }),
-    insert: vi.fn().mockImplementation(() => {
-      callIndex = 100; // skip to shipment insert
-      return {
-        select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue(
-            overrides?.shipmentInsert ?? {
-              data: { id: 'shipment-1' },
-              error: null,
-            }
-          ),
-        }),
-      };
-    }),
-    update: vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    }),
-    upsert: vi.fn().mockResolvedValue({ error: null }),
   };
 
   return chain as unknown as Parameters<typeof bookOrderShipment>[0];
@@ -148,6 +196,10 @@ const bookingResult = {
 };
 
 describe('bookOrderShipment', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('throws ORDER_NOT_FOUND when order does not exist', async () => {
     const supabase = createMockSupabase({
       order: { data: null, error: { message: 'not found' } },
@@ -241,6 +293,62 @@ describe('bookOrderShipment', () => {
         quoteMetadata: validQuote.provider_metadata,
       })
     );
+  });
+
+  it('reuses an existing saved shipment instead of booking the provider again', async () => {
+    const supabase = createMockSupabase({
+      order: { data: validOrder, error: null },
+      existingShipment: {
+        data: {
+          id: 'shipment-existing',
+          provider: 'TOPSHIP',
+          provider_shipment_id: 'prov-existing',
+          tracking_number: 'TRACK-EXISTING',
+          carrier_name: 'Topship Express',
+          estimated_delivery_days: 2,
+          label_url: 'https://example.com/existing-label.pdf',
+          pickup_scheduled_at: '2026-03-25T00:00:00.000Z',
+          status: 'booked',
+        },
+        error: null,
+      },
+    });
+
+    const result = await bookOrderShipment(supabase, 'merchant-1', 'order-1');
+
+    expect(result).toMatchObject({
+      shipmentId: 'shipment-existing',
+      provider: 'TOPSHIP',
+      providerShipmentId: 'prov-existing',
+      trackingNumber: 'TRACK-EXISTING',
+      quoteId: 'quote-1',
+    });
+    expect(shippingService.bookShipment).not.toHaveBeenCalled();
+  });
+
+  it('throws when an existing saved shipment is missing critical booking details', async () => {
+    const supabase = createMockSupabase({
+      order: { data: validOrder, error: null },
+      existingShipment: {
+        data: {
+          id: 'shipment-existing',
+          provider: 'TOPSHIP',
+          provider_shipment_id: null,
+          tracking_number: 'TRACK-EXISTING',
+          carrier_name: 'Topship Express',
+          estimated_delivery_days: 2,
+          label_url: null,
+          pickup_scheduled_at: null,
+          status: 'booked',
+        },
+        error: null,
+      },
+    });
+
+    await expect(
+      bookOrderShipment(supabase, 'merchant-1', 'order-1')
+    ).rejects.toThrow('shipment is already saved for this order');
+    expect(shippingService.bookShipment).not.toHaveBeenCalled();
   });
 
   it('throws MERCHANT_NOT_FOUND when merchant does not exist', async () => {
