@@ -9,6 +9,42 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockRouterBack = vi.fn();
 const mockRouterPush = vi.fn();
+
+vi.mock('react-native', async () => {
+  const React = await import('react');
+
+  return {
+    Alert: { alert: vi.fn() },
+    Pressable: ({
+      children,
+      onPress,
+      disabled,
+    }: {
+      children?: React.ReactNode;
+      onPress?: () => void;
+      disabled?: boolean;
+    }) =>
+      React.createElement('button', { onClick: onPress, disabled }, children),
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text: ({
+      children,
+      style,
+    }: {
+      children?: React.ReactNode;
+      style?: unknown;
+    }) => React.createElement('span', { style }, children),
+    View: ({
+      children,
+      ...props
+    }: {
+      children?: React.ReactNode;
+    } & Record<string, unknown>) =>
+      React.createElement('div', props, children),
+  };
+});
+
 vi.mock('expo-router', () => ({
   router: {
     back: () => mockRouterBack(),
