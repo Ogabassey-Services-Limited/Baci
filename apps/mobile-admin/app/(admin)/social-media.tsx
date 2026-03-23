@@ -43,30 +43,37 @@ export default function SocialMediaScreen() {
   // State for social media
   const [socialMedia, setSocialMedia] =
     useState<MerchantSocialMedia>(EMPTY_SOCIAL_MEDIA);
+  const instagram = merchant?.social_media?.instagram ?? '';
+  const twitter = merchant?.social_media?.twitter ?? '';
+  const facebook = merchant?.social_media?.facebook ?? '';
+  const tiktok = merchant?.social_media?.tiktok ?? '';
+  const youtube = merchant?.social_media?.youtube ?? '';
+  const pinterest = merchant?.social_media?.pinterest ?? '';
+  const linkedin = merchant?.social_media?.linkedin ?? '';
+  const snapchat = merchant?.social_media?.snapchat ?? '';
 
   // Populate state
   useEffect(() => {
-    const sm = merchant?.social_media;
     setSocialMedia({
       ...EMPTY_SOCIAL_MEDIA,
-      instagram: sm?.instagram || '',
-      twitter: sm?.twitter || '',
-      facebook: sm?.facebook || '',
-      tiktok: sm?.tiktok || '',
-      youtube: sm?.youtube || '',
-      pinterest: sm?.pinterest || '',
-      linkedin: sm?.linkedin || '',
-      snapchat: sm?.snapchat || '',
+      instagram,
+      twitter,
+      facebook,
+      tiktok,
+      youtube,
+      pinterest,
+      linkedin,
+      snapchat,
     });
   }, [
-    merchant?.social_media?.instagram,
-    merchant?.social_media?.twitter,
-    merchant?.social_media?.facebook,
-    merchant?.social_media?.tiktok,
-    merchant?.social_media?.youtube,
-    merchant?.social_media?.pinterest,
-    merchant?.social_media?.linkedin,
-    merchant?.social_media?.snapchat,
+    instagram,
+    twitter,
+    facebook,
+    tiktok,
+    youtube,
+    pinterest,
+    linkedin,
+    snapchat,
   ]);
 
   // Save Mutation
