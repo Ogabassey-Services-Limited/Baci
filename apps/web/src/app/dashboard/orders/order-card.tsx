@@ -15,9 +15,11 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Order, ShippingStatus } from './actions';
 import { OrderCardDetails } from './order-card-details';
+import { stripOrderNumberPrefix } from './order-number';
 import { getOrderSourceLabel } from './order-source-display';
 import { OrderSourceIcon } from './order-source-icon';
-import { StatusBadge, StatusDropdown } from './order-status-components';
+import { StatusBadge } from './status-badge';
+import { StatusDropdown } from './status-dropdown';
 
 const INTERACTIVE_CARD_TARGET_SELECTOR = [
   'a',
@@ -111,6 +113,8 @@ export function OrderCard({
 
   return (
     <Card
+      data-testid="order-card"
+      data-selected={isSelected ? 'true' : 'false'}
       className={`mb-3 cursor-pointer overflow-hidden rounded-2xl border border-l-4 shadow-sm transition-all hover:shadow-md dark:text-slate-100 ${cardStyle}`}
       onClick={handleCardClick}
     >
@@ -127,7 +131,7 @@ export function OrderCard({
           <div className="min-w-0 flex-1">
             <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
               <Link
-                href={`/dashboard/orders/${order.orderNumber.replace('#', '')}`}
+                href={`/dashboard/orders/${stripOrderNumberPrefix(order.orderNumber)}`}
                 className="font-semibold text-foreground underline-offset-4 hover:underline dark:text-slate-100"
                 onClick={(event) => event.stopPropagation()}
               >

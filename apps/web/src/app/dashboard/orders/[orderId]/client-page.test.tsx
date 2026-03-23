@@ -87,7 +87,7 @@ vi.mock('../actions', () => ({
   resendOrderConfirmation: vi.fn(),
 }));
 
-vi.mock('../order-status-components', () => ({
+vi.mock('../status-badge', () => ({
   StatusBadge: ({ status, type }: { status: string; type: string }) => (
     <span data-testid={`status-badge-${type}`}>{status}</span>
   ),

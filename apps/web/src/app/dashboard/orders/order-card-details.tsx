@@ -4,7 +4,8 @@ import { Box, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import type { Order } from './actions';
-import { StatusBadge } from './order-status-components';
+import { stripOrderNumberPrefix } from './order-number';
+import { StatusBadge } from './status-badge';
 
 export function OrderCardDetails({
   order,
@@ -23,7 +24,7 @@ export function OrderCardDetails({
           <div className="space-y-2">
             {order.items?.map((item) => (
               <div
-                key={item.id || item.name}
+                key={item.id}
                 className="flex items-center justify-between rounded p-2 text-sm hover:bg-muted/20"
               >
                 <div className="flex items-center gap-3 overflow-hidden">
@@ -59,21 +60,25 @@ export function OrderCardDetails({
               </span>
               <StatusBadge status={order.shippingStatus} type="shipping" />
             </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground/70">Provider</span>
-              <span className="font-medium">
-                {order.shipping_provider || 'Not assigned'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="font-medium text-foreground/70">Tracking #</span>
-              <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
-                {order.tracking_number || 'PENDING'}
-              </span>
-            </div>
+            {order.shipping_provider && (
+              <div className="flex justify-between">
+                <span className="font-medium text-foreground/70">Provider</span>
+                <span className="font-medium">{order.shipping_provider}</span>
+              </div>
+            )}
+            {order.tracking_number && (
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-foreground/70">
+                  Tracking #
+                </span>
+                <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
+                  {order.tracking_number}
+                </span>
+              </div>
+            )}
             <div className="pt-2">
               <Link
-                href={`/dashboard/orders/${order.orderNumber.replace('#', '')}`}
+                href={`/dashboard/orders/${stripOrderNumberPrefix(order.orderNumber)}`}
                 className="w-full"
               >
                 <Button variant="outline" size="sm" className="w-full">

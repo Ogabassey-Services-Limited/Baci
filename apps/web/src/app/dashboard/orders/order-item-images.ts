@@ -11,19 +11,20 @@ export function extractOrderItemImage(images: unknown): string | undefined {
     return undefined;
   }
 
-  const firstImage = images[0];
+  for (const image of images) {
+    if (typeof image === 'string' && image) {
+      return image;
+    }
 
-  if (typeof firstImage === 'string') {
-    return firstImage || undefined;
-  }
-
-  if (
-    firstImage &&
-    typeof firstImage === 'object' &&
-    'url' in firstImage &&
-    typeof firstImage.url === 'string'
-  ) {
-    return firstImage.url || undefined;
+    if (
+      image &&
+      typeof image === 'object' &&
+      'url' in image &&
+      typeof image.url === 'string' &&
+      image.url
+    ) {
+      return image.url;
+    }
   }
 
   return undefined;

@@ -6,12 +6,18 @@ describe('formatPersonName', () => {
     expect(formatPersonName('chidimma azubuike')).toBe('Chidimma Azubuike');
   });
 
-  it('normalizes mixed-case names', () => {
-    expect(formatPersonName('cHIYEnYe oKafor')).toBe('Chiyenye Okafor');
+  it('normalizes all-uppercase names', () => {
+    expect(formatPersonName('CHIYENYE OKAFOR')).toBe('Chiyenye Okafor');
   });
 
   it('preserves apostrophes and hyphens while casing each segment', () => {
     expect(formatPersonName("o'neil-jAMES")).toBe("O'Neil-James");
+  });
+
+  it('preserves intentional mid-word capitalization', () => {
+    expect(formatPersonName("McDonald DeVries O'Brien")).toBe(
+      "McDonald DeVries O'Brien"
+    );
   });
 
   it('collapses repeated whitespace', () => {

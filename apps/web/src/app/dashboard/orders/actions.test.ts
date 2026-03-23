@@ -47,7 +47,7 @@ vi.mock('@/lib/supabase/server', () => ({
 // Import after mocks
 const { getOrder, resendOrderConfirmation } = await import('./actions');
 
-const ORDER_ID = 'order-123';
+const ORDER_ID = '11111111-1111-4111-8111-111111111111';
 const MERCHANT_ID = 'merchant-456';
 
 const mockOrder = {
@@ -82,6 +82,7 @@ const mockOrder = {
 };
 
 const mockMerchant: {
+  id: string;
   business_name: string;
   slug: string;
   support_email: string;
@@ -90,6 +91,7 @@ const mockMerchant: {
   tax_identification_number: string | null;
   cac_rc_number: string | null;
 } = {
+  id: MERCHANT_ID,
   business_name: 'TestShop',
   slug: 'testshop',
   support_email: 'support@testshop.com',
@@ -113,28 +115,45 @@ function setupMocks(overrides?: {
 
   mockGetUser.mockResolvedValue({
     data: { user: { id: 'admin-user' } },
+    error: null,
   });
 
   mockFrom.mockImplementation((table: string) => {
     if (table === 'orders') {
+      const scopedOrderQuery = vi.fn((column: string, value: string) => {
+        expect(column).toBe('merchant_id');
+        expect(value).toBe(MERCHANT_ID);
+        return {
+          single: vi.fn(() =>
+            Promise.resolve({ data: order, error: orderError })
+          ),
+        };
+      });
+
       return {
         select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn(() =>
-              Promise.resolve({ data: order, error: orderError })
-            ),
-          })),
+          eq: vi.fn((column: string, value: string) => {
+            expect(column).toBe('id');
+            expect(value).toBe(ORDER_ID);
+            return {
+              eq: scopedOrderQuery,
+            };
+          }),
         })),
       };
     }
     if (table === 'merchants') {
       return {
         select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn(() =>
-              Promise.resolve({ data: merchant, error: merchantError })
-            ),
-          })),
+          eq: vi.fn((column: string, value: string) => {
+            expect(column).toBe('user_id');
+            expect(value).toBe('admin-user');
+            return {
+              single: vi.fn(() =>
+                Promise.resolve({ data: merchant, error: merchantError })
+              ),
+            };
+          }),
         })),
       };
     }
@@ -345,6 +364,7 @@ describe('getOrder', () => {
 
     return {
       ordersOr,
+      ordersMaybeSingle,
       ordersSelect,
       productsIn,
       productsSelect,
@@ -367,6 +387,27 @@ describe('getOrder', () => {
     );
     expect(productsSelect).toHaveBeenCalledWith('id, images');
     expect(productsIn).toHaveBeenCalledWith('id', ['product-1']);
+  });
+
+  it('fetches an order by direct uuid lookup', async () => {
+    const {
+      ordersMaybeSingle,
+      ordersOr,
+      productsIn,
+      productsSelect,
+      transactionsOrder,
+    } = mockGetOrderQueries();
+
+    const order = await getOrder(MERCHANT_ID, ORDER_ID);
+
+    expect(order?.id).toBe(ORDER_ID);
+    expect(ordersMaybeSingle).toHaveBeenCalledOnce();
+    expect(ordersOr).not.toHaveBeenCalled();
+    expect(productsSelect).toHaveBeenCalledWith('id, images');
+    expect(productsIn).toHaveBeenCalledWith('id', ['product-1']);
+    expect(transactionsOrder).toHaveBeenCalledWith('created_at', {
+      ascending: false,
+    });
   });
 
   it('preserves storefront order sources for dashboard labels', async () => {
@@ -432,6 +473,37 @@ describe('getOrder', () => {
 
     expect(order).toBeNull();
     expect(ordersOr).toHaveBeenCalledOnce();
+    expect(productsSelect).not.toHaveBeenCalled();
+    expect(transactionsOrder).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the direct uuid lookup does not find an order', async () => {
+    const { ordersMaybeSingle, ordersOr, productsSelect, transactionsOrder } =
+      mockGetOrderQueries({
+        orderRows: [],
+      });
+
+    const order = await getOrder(MERCHANT_ID, ORDER_ID);
+
+    expect(order).toBeNull();
+    expect(ordersMaybeSingle).toHaveBeenCalledOnce();
+    expect(ordersOr).not.toHaveBeenCalled();
+    expect(productsSelect).not.toHaveBeenCalled();
+    expect(transactionsOrder).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the direct uuid lookup fails', async () => {
+    const { ordersMaybeSingle, ordersOr, productsSelect, transactionsOrder } =
+      mockGetOrderQueries({
+        orderRows: [],
+        orderError: { message: 'DB error' },
+      });
+
+    const order = await getOrder(MERCHANT_ID, ORDER_ID);
+
+    expect(order).toBeNull();
+    expect(ordersMaybeSingle).toHaveBeenCalledOnce();
+    expect(ordersOr).not.toHaveBeenCalled();
     expect(productsSelect).not.toHaveBeenCalled();
     expect(transactionsOrder).not.toHaveBeenCalled();
   });

@@ -1,5 +1,8 @@
 'use client';
 
+// This stays client-side because the icon is rendered directly inside
+// interactive dashboard order card client components.
+
 import { CircleDot, Globe, PencilLine, Store } from 'lucide-react';
 import Image from 'next/image';
 import type { ReactNode } from 'react';

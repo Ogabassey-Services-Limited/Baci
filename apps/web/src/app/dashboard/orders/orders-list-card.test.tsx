@@ -38,6 +38,10 @@ describe('OrdersListCard', () => {
         onSelectOrder={vi.fn()}
         onStatusUpdate={vi.fn()}
         onManageJumia={vi.fn()}
+        onMarkPaid={vi.fn()}
+        onMarkUnpaid={vi.fn()}
+        onFulfillOrders={vi.fn()}
+        onDeleteSelected={vi.fn()}
         formatCurrency={(amount) => `₦${amount}`}
       />
     );
@@ -47,5 +51,77 @@ describe('OrdersListCard', () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Select all orders')).toBeInTheDocument();
     expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
+  });
+
+  it('renders a loading state while orders are being fetched', () => {
+    render(
+      <OrdersListCard
+        filteredOrders={[]}
+        selectedOrders={new Set()}
+        ordersLoading
+        ordersError={null}
+        onSelectAll={vi.fn()}
+        onSelectOrder={vi.fn()}
+        onStatusUpdate={vi.fn()}
+        onManageJumia={vi.fn()}
+        onMarkPaid={vi.fn()}
+        onMarkUnpaid={vi.fn()}
+        onFulfillOrders={vi.fn()}
+        onDeleteSelected={vi.fn()}
+        formatCurrency={(amount) => `₦${amount}`}
+      />
+    );
+
+    expect(screen.getByRole('img', { name: 'Loading' })).toBeInTheDocument();
+  });
+
+  it('renders an error state when the orders query fails', () => {
+    render(
+      <OrdersListCard
+        filteredOrders={[]}
+        selectedOrders={new Set()}
+        ordersLoading={false}
+        ordersError="Failed to load orders"
+        onSelectAll={vi.fn()}
+        onSelectOrder={vi.fn()}
+        onStatusUpdate={vi.fn()}
+        onManageJumia={vi.fn()}
+        onMarkPaid={vi.fn()}
+        onMarkUnpaid={vi.fn()}
+        onFulfillOrders={vi.fn()}
+        onDeleteSelected={vi.fn()}
+        formatCurrency={(amount) => `₦${amount}`}
+      />
+    );
+
+    expect(screen.getByText('Failed to Load Orders')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Failed to load orders Please try again\./i)
+    ).toBeInTheDocument();
+  });
+
+  it('renders an empty state when no orders match the current filters', () => {
+    render(
+      <OrdersListCard
+        filteredOrders={[]}
+        selectedOrders={new Set()}
+        ordersLoading={false}
+        ordersError={null}
+        onSelectAll={vi.fn()}
+        onSelectOrder={vi.fn()}
+        onStatusUpdate={vi.fn()}
+        onManageJumia={vi.fn()}
+        onMarkPaid={vi.fn()}
+        onMarkUnpaid={vi.fn()}
+        onFulfillOrders={vi.fn()}
+        onDeleteSelected={vi.fn()}
+        formatCurrency={(amount) => `₦${amount}`}
+      />
+    );
+
+    expect(screen.getByText('No orders found')).toBeInTheDocument();
+    expect(
+      screen.getByText('No orders match the current filters.')
+    ).toBeInTheDocument();
   });
 });

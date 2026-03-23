@@ -11,21 +11,9 @@ import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import { loadOrderItemImageMap } from './order-item-images';
+import type { PaymentStatus, ShippingStatus } from './order-statuses';
 
-export type ShippingStatus =
-  | 'Pending'
-  | 'Processing'
-  | 'Shipped'
-  | 'Delivered'
-  | 'Canceled'
-  | 'Returned';
-
-export type PaymentStatus =
-  | 'Paid'
-  | 'Unpaid'
-  | 'Pending'
-  | 'Partially Paid'
-  | 'Refunded';
+export type { PaymentStatus, ShippingStatus } from './order-statuses';
 
 export interface Transaction {
   id: string;
@@ -75,8 +63,8 @@ export interface OrderStats {
 }
 
 interface OrderFilters {
-  paymentStatus?: string;
-  shippingStatus?: string;
+  paymentStatus?: PaymentStatus | 'All';
+  shippingStatus?: ShippingStatus | 'All';
   search?: string;
 }
 
@@ -207,7 +195,7 @@ export async function getOrders(
   if (filters.paymentStatus && filters.paymentStatus !== 'All') {
     query = query.eq(
       'payment_status',
-      filters.paymentStatus.toLowerCase().replace(' ', '_')
+      filters.paymentStatus.toLowerCase().replace(/\s+/g, '_')
     );
   }
 
@@ -556,11 +544,44 @@ export async function resendOrderConfirmation(
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // 1. Fetch Order
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      logger.error({
+        message: 'Resend Notification: Unauthorized request',
+        orderId,
+        error: authError,
+      });
+      return { success: false, message: 'Unauthorized' };
+    }
+
+    // 1. Resolve Merchant and tenant scope
+    const { data: merchant, error: merchantError } = await supabase
+      .from('merchants')
+      .select(
+        'id, business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
+      )
+      .eq('user_id', user.id)
+      .single();
+
+    if (merchantError || !merchant) {
+      logger.error({
+        message: 'Resend Notification: Merchant not found',
+        userId: user.id,
+        error: merchantError,
+      });
+      return { success: false, message: 'Merchant profile not found' };
+    }
+
+    // 2. Fetch Order with merchant scope
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .select(ORDER_CONFIRMATION_SELECT)
       .eq('id', orderId)
+      .eq('merchant_id', merchant.id)
       .single();
     const order = orderData as unknown as OrderConfirmationRecord | null;
 
@@ -568,6 +589,7 @@ export async function resendOrderConfirmation(
       logger.error({
         message: 'Resend Notification: Order not found',
         orderId,
+        merchantId: merchant.id,
         error: orderError,
       });
       return { success: false, message: 'Order not found' };
@@ -575,24 +597,6 @@ export async function resendOrderConfirmation(
 
     if (!order.customer_email) {
       return { success: false, message: 'Customer has no email address' };
-    }
-
-    // 2. Fetch Merchant Details
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select(
-        'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
-      )
-      .eq('id', order.merchant_id)
-      .single();
-
-    if (merchantError || !merchant) {
-      logger.error({
-        message: 'Resend Notification: Merchant not found',
-        merchantId: order.merchant_id,
-        error: merchantError,
-      });
-      return { success: false, message: 'Merchant profile not found' };
     }
 
     // 3. Prepare Email Data
@@ -653,7 +657,7 @@ export async function resendOrderConfirmation(
     logger.info({
       message: 'Order confirmation email resent manually',
       orderId: order.id,
-      adminUser: (await supabase.auth.getUser()).data.user?.id,
+      adminUser: user.id,
     });
 
     return {

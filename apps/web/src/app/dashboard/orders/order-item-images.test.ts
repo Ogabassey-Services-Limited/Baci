@@ -28,6 +28,17 @@ describe('extractOrderItemImage', () => {
     ).toBe('https://cdn.example.com/products/ipad.avif');
   });
 
+  it('skips invalid entries until it finds a valid image url', () => {
+    expect(
+      extractOrderItemImage([
+        null,
+        { src: 'missing' },
+        '',
+        { url: 'https://cdn.example.com/products/iphone-2.avif' },
+      ])
+    ).toBe('https://cdn.example.com/products/iphone-2.avif');
+  });
+
   it('returns undefined for unsupported image payloads', () => {
     expect(extractOrderItemImage(null)).toBeUndefined();
     expect(extractOrderItemImage([])).toBeUndefined();

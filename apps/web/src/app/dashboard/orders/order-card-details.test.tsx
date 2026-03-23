@@ -49,4 +49,20 @@ describe('OrderCardDetails', () => {
     expect(screen.getByText('Topship')).toBeInTheDocument();
     expect(screen.getByText('TRK-001')).toBeInTheDocument();
   });
+
+  it('omits tracking details when fulfillment data is missing', () => {
+    render(
+      <OrderCardDetails
+        order={makeOrder({
+          tracking_number: undefined,
+          shipping_provider: undefined,
+        })}
+        formatCurrency={(amount) => `₦${amount}`}
+      />
+    );
+
+    expect(screen.getByText('Item Details')).toBeInTheDocument();
+    expect(screen.queryByText('TRK-001')).not.toBeInTheDocument();
+    expect(screen.queryByText('Topship')).not.toBeInTheDocument();
+  });
 });

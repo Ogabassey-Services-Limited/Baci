@@ -1,7 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
-import { OrdersStatsCards, OrdersUrgentAlert } from './orders-stats-cards';
+import { describe, expect, it } from 'vitest';
+import { OrdersStatsCards } from './orders-stats-cards';
 
 describe('OrdersStatsCards', () => {
   it('renders the summary totals', () => {
@@ -21,30 +20,37 @@ describe('OrdersStatsCards', () => {
     expect(screen.getByText('10')).toBeInTheDocument();
     expect(screen.getByText('Completed Orders ✅')).toBeInTheDocument();
   });
-});
 
-describe('OrdersUrgentAlert', () => {
-  it('calls the resolve handler when the resolve button is clicked', async () => {
-    const user = userEvent.setup();
-    const onResolve = vi.fn();
-
+  it('shows loading indicators while stats are loading', () => {
     render(
-      <OrdersUrgentAlert
-        showAlert
+      <OrdersStatsCards
         stats={{
-          totalOrders: 10,
-          completedOrders: 6,
-          unpaidOrders: 4,
-          urgentOrders: 2,
+          totalOrders: 0,
+          completedOrders: 0,
+          unpaidOrders: 0,
+          urgentOrders: 0,
         }}
-        statsLoading={false}
-        onDismiss={vi.fn()}
-        onResolve={onResolve}
+        statsLoading
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Click to resolve' }));
+    expect(screen.getAllByRole('img', { name: 'Loading' })).toHaveLength(3);
+  });
 
-    expect(onResolve).toHaveBeenCalledOnce();
+  it('renders zero values without hiding the stat cards', () => {
+    render(
+      <OrdersStatsCards
+        stats={{
+          totalOrders: 0,
+          completedOrders: 0,
+          unpaidOrders: 0,
+          urgentOrders: 0,
+        }}
+        statsLoading={false}
+      />
+    );
+
+    expect(screen.getAllByText('0')).toHaveLength(3);
+    expect(screen.getByText('Unpaid Orders 💸')).toBeInTheDocument();
   });
 });

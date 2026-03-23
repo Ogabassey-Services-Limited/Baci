@@ -17,9 +17,11 @@ import {
   type OrderStats,
   type ShippingStatus,
 } from './actions';
+import type { PaymentStatus } from './order-statuses';
 import { OrdersFiltersBar } from './orders-filters-bar';
 import { OrdersListCard } from './orders-list-card';
-import { OrdersStatsCards, OrdersUrgentAlert } from './orders-stats-cards';
+import { OrdersStatsCards } from './orders-stats-cards';
+import { OrdersUrgentAlert } from './orders-urgent-alert';
 
 interface OrdersClientPageProps {
   initialOrders?: Order[];
@@ -27,7 +29,7 @@ interface OrdersClientPageProps {
 }
 
 function formatStatusForDb(status: string) {
-  return status.toLowerCase().replace(' ', '_');
+  return status.toLowerCase().replace(/\s+/g, '_');
 }
 
 export default function OrdersClientPage({
@@ -42,8 +44,12 @@ export default function OrdersClientPage({
   const { merchant, loading: merchantLoading } = useMerchant();
   const { loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const [paymentFilter, setPaymentFilter] = useState('All');
-  const [shippingFilter, setShippingFilter] = useState('All');
+  const [paymentFilter, setPaymentFilter] = useState<PaymentStatus | 'All'>(
+    'All'
+  );
+  const [shippingFilter, setShippingFilter] = useState<ShippingStatus | 'All'>(
+    'All'
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [showAlert, setShowAlert] = useState(true);
@@ -207,6 +213,61 @@ export default function OrdersClientPage({
     setSelectedOrders(new Set());
   };
 
+  const applyBulkOrderUpdate = (
+    updater: (order: Order) => Order,
+    successTitle: string,
+    successDescription: string
+  ) => {
+    if (selectedOrders.size === 0) {
+      return;
+    }
+
+    setOrders((currentOrders) =>
+      currentOrders.map((order) =>
+        selectedOrders.has(order.orderNumber) ? updater(order) : order
+      )
+    );
+    setSelectedOrders(new Set());
+    toast({
+      title: successTitle,
+      description: successDescription,
+    });
+  };
+
+  const handleMarkSelectedPaymentStatus = (paymentStatus: PaymentStatus) => {
+    applyBulkOrderUpdate(
+      (order) => ({ ...order, paymentStatus }),
+      `Marked ${paymentStatus.toLowerCase()}`,
+      `${selectedOrders.size} selected order${selectedOrders.size === 1 ? '' : 's'} updated.`
+    );
+  };
+
+  const handleFulfillSelectedOrders = () => {
+    applyBulkOrderUpdate(
+      (order) => ({
+        ...order,
+        shippingStatus:
+          order.shippingStatus === 'Pending'
+            ? 'Processing'
+            : order.shippingStatus,
+      }),
+      'Fulfillment started',
+      `${selectedOrders.size} selected order${selectedOrders.size === 1 ? '' : 's'} moved into processing.`
+    );
+  };
+
+  const handleDeleteSelectedOrders = () => {
+    const selectedCount = selectedOrders.size;
+    setOrders((currentOrders) =>
+      currentOrders.filter((order) => !selectedOrders.has(order.orderNumber))
+    );
+    setSelectedOrders(new Set());
+    toast({
+      title: 'Orders removed from view',
+      description: `${selectedCount} selected order${selectedCount === 1 ? '' : 's'} removed.`,
+    });
+  };
+
   if (authLoading || merchantLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -285,6 +346,10 @@ export default function OrdersClientPage({
         onSelectOrder={handleSelectOrder}
         onStatusUpdate={handleUpdateStatus}
         onManageJumia={setSelectedJumiaOrder}
+        onMarkPaid={() => handleMarkSelectedPaymentStatus('Paid')}
+        onMarkUnpaid={() => handleMarkSelectedPaymentStatus('Unpaid')}
+        onFulfillOrders={handleFulfillSelectedOrders}
+        onDeleteSelected={handleDeleteSelectedOrders}
         formatCurrency={formatCurrency}
       />
 

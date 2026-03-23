@@ -15,8 +15,19 @@ export function formatPersonName(value: string | null | undefined): string {
         return part;
       }
 
-      const lowerCased = part.toLocaleLowerCase();
-      return lowerCased.charAt(0).toLocaleUpperCase() + lowerCased.slice(1);
+      const isAllLowercase = part === part.toLocaleLowerCase();
+      const isAllUppercase = part === part.toLocaleUpperCase();
+      const startsWithUppercase =
+        part.charAt(0) !== part.charAt(0).toLocaleLowerCase();
+
+      if (!isAllLowercase && !isAllUppercase && startsWithUppercase) {
+        return part;
+      }
+
+      const normalizedPart = part.toLocaleLowerCase();
+      return (
+        normalizedPart.charAt(0).toLocaleUpperCase() + normalizedPart.slice(1)
+      );
     })
     .join('');
 }

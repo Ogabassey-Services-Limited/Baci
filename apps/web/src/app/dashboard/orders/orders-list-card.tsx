@@ -25,6 +25,10 @@ export function OrdersListCard({
   onSelectOrder,
   onStatusUpdate,
   onManageJumia,
+  onMarkPaid,
+  onMarkUnpaid,
+  onFulfillOrders,
+  onDeleteSelected,
   formatCurrency,
 }: {
   filteredOrders: Order[];
@@ -35,8 +39,18 @@ export function OrdersListCard({
   onSelectOrder: (orderNumber: string, isSelected: boolean) => void;
   onStatusUpdate: (orderNumber: string, newStatus: ShippingStatus) => void;
   onManageJumia: (order: Order) => void;
+  onMarkPaid: () => void;
+  onMarkUnpaid: () => void;
+  onFulfillOrders: () => void;
+  onDeleteSelected: () => void;
   formatCurrency: (amount: number) => string;
 }) {
+  const allSelected =
+    filteredOrders.length > 0 && selectedOrders.size === filteredOrders.length;
+  const partiallySelected =
+    selectedOrders.size > 0 && selectedOrders.size < filteredOrders.length;
+  const hasSelectedOrders = selectedOrders.size > 0;
+
   return (
     <Card className="glass border-slate-800/70 bg-white/60 backdrop-blur-xl dark:bg-black/40">
       <CardHeader className="border-b border-blue-200/50 px-4 pb-0 pt-4 dark:border-slate-800">
@@ -48,7 +62,7 @@ export function OrdersListCard({
                 variant="outline"
                 size="sm"
                 className="h-8 gap-1"
-                disabled={selectedOrders.size === 0}
+                disabled={!hasSelectedOrders}
               >
                 <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
                   Bulk Actions
@@ -57,12 +71,31 @@ export function OrdersListCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Mark as Paid</DropdownMenuItem>
-              <DropdownMenuItem>Mark as Unpaid</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onMarkPaid}>
+                Mark as Paid
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onMarkUnpaid}>
+                Mark as Unpaid
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Fulfill Orders</DropdownMenuItem>
+              <DropdownMenuItem onSelect={onFulfillOrders}>
+                Fulfill Orders
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600">
+              <DropdownMenuItem
+                className="text-red-600"
+                onSelect={(event) => {
+                  event.preventDefault();
+
+                  if (
+                    window.confirm(
+                      `Delete ${selectedOrders.size} selected order${selectedOrders.size === 1 ? '' : 's'} from this view?`
+                    )
+                  ) {
+                    onDeleteSelected();
+                  }
+                }}
+              >
                 Delete Selected
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -71,10 +104,9 @@ export function OrdersListCard({
         <div className="flex items-center gap-2 py-4">
           <Checkbox
             id="select-all"
-            onCheckedChange={(checked) => onSelectAll(checked as boolean)}
+            onCheckedChange={(checked) => onSelectAll(checked === true)}
             checked={
-              selectedOrders.size > 0 &&
-              selectedOrders.size === filteredOrders.length
+              allSelected ? true : partiallySelected ? 'indeterminate' : false
             }
             aria-label="Select all orders"
           />
@@ -106,17 +138,26 @@ export function OrdersListCard({
             </Alert>
           ) : (
             <div className="space-y-2">
-              {filteredOrders.map((order) => (
-                <OrderCard
-                  key={order.orderNumber}
-                  order={order}
-                  isSelected={selectedOrders.has(order.orderNumber)}
-                  onSelect={onSelectOrder}
-                  onStatusUpdate={onStatusUpdate}
-                  onManageJumia={onManageJumia}
-                  formatCurrency={formatCurrency}
-                />
-              ))}
+              {filteredOrders.length > 0 ? (
+                filteredOrders.map((order) => (
+                  <OrderCard
+                    key={order.orderNumber}
+                    order={order}
+                    isSelected={selectedOrders.has(order.orderNumber)}
+                    onSelect={onSelectOrder}
+                    onStatusUpdate={onStatusUpdate}
+                    onManageJumia={onManageJumia}
+                    formatCurrency={formatCurrency}
+                  />
+                ))
+              ) : (
+                <Alert className="m-4">
+                  <AlertTitle>No orders found</AlertTitle>
+                  <AlertDescription>
+                    No orders match the current filters.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           )}
         </div>

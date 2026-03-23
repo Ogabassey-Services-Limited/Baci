@@ -43,27 +43,15 @@ import {
   resendOrderConfirmation,
   type ShippingStatus,
 } from '../actions';
+import { getOrderItems, type OrderDetailsItem } from '../order-items';
 import { getOrderSourceLabel } from '../order-source-display';
 import { OrderSourceIcon } from '../order-source-icon';
-import { StatusBadge } from '../order-status-components';
+import { StatusBadge } from '../status-badge';
 import ConfirmInsuranceDialog from './confirm-insurance-dialog';
 
 // Type definitions
 interface OrderDetailsClientPageProps {
   initialOrder: Order;
-}
-
-interface OrderItem {
-  id: string;
-  image?: string;
-  name: string;
-  quantity: number;
-  price: number;
-  product?: {
-    image?: string;
-    fulfillmentFields?: string[];
-  };
-  hasAssurance?: boolean;
 }
 
 // Helper function
@@ -81,7 +69,7 @@ function FulfillmentDialog({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  orderItems: OrderItem[];
+  orderItems: OrderDetailsItem[];
   onConfirm: (data: unknown) => void;
 }) {
   if (!isOpen) return null;
@@ -101,20 +89,13 @@ export default function OrderDetailsClientPage({
     return null;
   }
 
-  // --- MOCK ITEMS HANDLING ---
-  // If items exist on the order (from our updated fetcher), use them.
-  // Otherwise fall back to mock for safety in dev if DB is inconsistent.
-  // biome-ignore lint/suspicious/noExplicitAny: Order items have dynamic structure from API
-  const orderItems = (order as any).items || (order as any).order_items || [];
-
-  // Safe display map
-  const displayItems: OrderItem[] = orderItems.length > 0 ? orderItems : [];
+  const displayItems = getOrderItems(order);
 
   const doesOrderRequireFulfillment = () => {
     // Check for fulfillment fields OR assurance
     // Assurance items implicitly require fulfillment (device details)
     return displayItems.some(
-      (item: OrderItem) =>
+      (item) =>
         (item.product?.fulfillmentFields &&
           item.product.fulfillmentFields.length > 0) ||
         item.hasAssurance // New check
@@ -408,7 +389,7 @@ export default function OrderDetailsClientPage({
                 )}
               </CardHeader>
               <CardContent>
-                {displayItems.map((item: OrderItem) => (
+                {displayItems.map((item) => (
                   <div
                     key={item.id}
                     className="flex items-center gap-4 mb-4 last:mb-0"

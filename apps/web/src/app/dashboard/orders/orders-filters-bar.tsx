@@ -27,24 +27,29 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import type { PaymentStatus, ShippingStatus } from './actions';
+import {
+  PAYMENT_STATUSES,
+  type PaymentStatus,
+  SHIPPING_STATUSES,
+  type ShippingStatus,
+} from './order-statuses';
 
-const PAYMENT_STATUSES: { name: PaymentStatus; icon: ElementType }[] = [
-  { name: 'Paid', icon: CheckCircle },
-  { name: 'Unpaid', icon: AlertCircleIcon },
-  { name: 'Pending', icon: Hourglass },
-  { name: 'Partially Paid', icon: CircleDot },
-  { name: 'Refunded', icon: Undo2 },
-];
+const PAYMENT_STATUS_ICONS: Record<PaymentStatus, ElementType> = {
+  Paid: CheckCircle,
+  Unpaid: AlertCircleIcon,
+  Pending: Hourglass,
+  'Partially Paid': CircleDot,
+  Refunded: Undo2,
+};
 
-const SHIPPING_STATUSES: { name: ShippingStatus; icon: ElementType }[] = [
-  { name: 'Pending', icon: Clock },
-  { name: 'Processing', icon: RefreshCw },
-  { name: 'Shipped', icon: Truck },
-  { name: 'Delivered', icon: CheckCircle },
-  { name: 'Canceled', icon: X },
-  { name: 'Returned', icon: RotateCcw },
-];
+const SHIPPING_STATUS_ICONS: Record<ShippingStatus, ElementType> = {
+  Pending: Clock,
+  Processing: RefreshCw,
+  Shipped: Truck,
+  Delivered: CheckCircle,
+  Canceled: X,
+  Returned: RotateCcw,
+};
 
 export function OrdersFiltersBar({
   searchTerm,
@@ -56,10 +61,10 @@ export function OrdersFiltersBar({
 }: {
   searchTerm: string;
   onSearchChange: (value: string) => void;
-  paymentFilter: string;
-  onPaymentFilterChange: (value: string) => void;
-  shippingFilter: string;
-  onShippingFilterChange: (value: string) => void;
+  paymentFilter: PaymentStatus | 'All';
+  onPaymentFilterChange: (value: PaymentStatus | 'All') => void;
+  shippingFilter: ShippingStatus | 'All';
+  onShippingFilterChange: (value: ShippingStatus | 'All') => void;
 }) {
   return (
     <>
@@ -102,17 +107,21 @@ export function OrdersFiltersBar({
               All
             </DropdownMenuCheckboxItem>
             <DropdownMenuSeparator />
-            {PAYMENT_STATUSES.map((status) => (
-              <DropdownMenuCheckboxItem
-                key={status.name}
-                checked={paymentFilter === status.name}
-                onCheckedChange={() => onPaymentFilterChange(status.name)}
-                className="text-blue-800"
-              >
-                <status.icon className="mr-2 h-4 w-4" />
-                {status.name}
-              </DropdownMenuCheckboxItem>
-            ))}
+            {PAYMENT_STATUSES.map((status) => {
+              const Icon = PAYMENT_STATUS_ICONS[status];
+
+              return (
+                <DropdownMenuCheckboxItem
+                  key={status}
+                  checked={paymentFilter === status}
+                  onCheckedChange={() => onPaymentFilterChange(status)}
+                  className="text-blue-800"
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  {status}
+                </DropdownMenuCheckboxItem>
+              );
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -139,17 +148,21 @@ export function OrdersFiltersBar({
               All
             </DropdownMenuCheckboxItem>
             <DropdownMenuSeparator />
-            {SHIPPING_STATUSES.map((status) => (
-              <DropdownMenuCheckboxItem
-                key={status.name}
-                checked={shippingFilter === status.name}
-                onCheckedChange={() => onShippingFilterChange(status.name)}
-                className="text-blue-800"
-              >
-                <status.icon className="mr-2 h-4 w-4" />
-                {status.name}
-              </DropdownMenuCheckboxItem>
-            ))}
+            {SHIPPING_STATUSES.map((status) => {
+              const Icon = SHIPPING_STATUS_ICONS[status];
+
+              return (
+                <DropdownMenuCheckboxItem
+                  key={status}
+                  checked={shippingFilter === status}
+                  onCheckedChange={() => onShippingFilterChange(status)}
+                  className="text-blue-800"
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  {status}
+                </DropdownMenuCheckboxItem>
+              );
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
