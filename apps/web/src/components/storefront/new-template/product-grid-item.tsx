@@ -168,6 +168,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
             onToggleWishlist(e);
           }}
           className="absolute top-2 right-2 z-20 p-2 rounded-full bg-white/50 md:hover:bg-white active:bg-white backdrop-blur-sm shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
+          aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
         >
           <Heart
             size={18}
@@ -187,6 +188,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
               ? 'bg-red-600 text-white md:hover:bg-red-700'
               : 'bg-white text-gray-900 md:hover:text-red-600 md:hover:border-red-100'
           }`}
+          aria-label={isAdded ? "Added to cart" : "Add to cart"}
         >
           {isAdded ? (
             <Check size={iconSize} />
