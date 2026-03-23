@@ -42,23 +42,42 @@ interface TopshipRate {
   serviceType: string;
   pricingTier: string;
   cost: number; // In KOBO (divide by 100 for Naira)
-  vat: number; // In KOBO
-  total: number; // In KOBO
+  vat?: number; // In KOBO
+  total?: number; // In KOBO
   currency: string;
   estimatedDeliveryDate?: string;
   deliveryEta?: string;
   carrierName?: string;
   carrierLogo?: string;
+  actualCost?: number | null;
+  remoteAreaCost?: number | null;
+  budgetDeliveryCost?: number | null;
+  budgetCategory?: string | null;
+  tags?: string[];
 }
 
-interface TopshipShipmentResponse {
+interface TopshipSavedShipment {
+  id: string;
+  trackingId: string;
+  shipmentStatus: string;
+  status?: string;
+  pricingTier?: string;
+  itemCollectionMode?: string;
+  isPaid?: boolean;
+  pickupCharge?: number;
+  shipmentCharge?: number;
+  valueAddedTaxCharge?: number;
+  totalCharge?: number;
+  label?: string;
+  estimatedDeliveryDate?: string;
+  [key: string]: unknown;
+}
+
+interface TopshipWrappedShipmentResponse {
   status: boolean;
   message: string;
-  data: {
-    shipmentId: string;
-    trackingId: string;
-    status: string;
-    [key: string]: unknown;
+  data: TopshipSavedShipment & {
+    shipmentId?: string;
   };
 }
 
@@ -102,6 +121,9 @@ const TOPSHIP_CATEGORIES: Record<string, string> = {
   food: 'Food',
   default: 'Others',
 };
+
+const TOPSHIP_DEFAULT_PICKUP_CHARGE_KOBO = 200000;
+const TOPSHIP_VAT_RATE = 0.075;
 
 // =============================================================================
 // TOPSHIP PROVIDER IMPLEMENTATION
@@ -337,6 +359,272 @@ export class TopshipProvider extends BaseShippingProvider {
     return pricingTier;
   }
 
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object';
+  }
+
+  private readString(value: unknown): string | undefined {
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
+  }
+
+  private readNumber(value: unknown): number | undefined {
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : undefined;
+  }
+
+  private parseQuoteMetadata(value: unknown): Partial<TopshipRate> {
+    if (!this.isRecord(value)) {
+      return {};
+    }
+
+    return {
+      serviceType:
+        this.readString(value.serviceType) || this.readString(value.mode),
+      pricingTier: this.readString(value.pricingTier),
+      cost: this.readNumber(value.cost),
+      vat: this.readNumber(value.vat),
+      total: this.readNumber(value.total),
+      currency: this.readString(value.currency),
+      estimatedDeliveryDate: this.readString(value.estimatedDeliveryDate),
+      deliveryEta:
+        this.readString(value.deliveryEta) || this.readString(value.duration),
+      carrierName: this.readString(value.carrierName),
+      carrierLogo: this.readString(value.carrierLogo),
+      actualCost: this.readNumber(value.actualCost) ?? null,
+      remoteAreaCost: this.readNumber(value.remoteAreaCost) ?? null,
+      budgetDeliveryCost: this.readNumber(value.budgetDeliveryCost) ?? null,
+      budgetCategory: this.readString(value.budgetCategory) ?? null,
+      tags: Array.isArray(value.tags)
+        ? value.tags.filter((tag): tag is string => typeof tag === 'string')
+        : undefined,
+    };
+  }
+
+  private parseProviderRateId(providerRateId?: string): {
+    pricingTier?: string;
+    serviceType?: string;
+  } {
+    if (!providerRateId) {
+      return {};
+    }
+
+    const separatorIndex = providerRateId.indexOf('_');
+    if (separatorIndex === -1) {
+      return {
+        pricingTier: providerRateId,
+      };
+    }
+
+    return {
+      pricingTier: providerRateId.slice(0, separatorIndex),
+      serviceType: providerRateId.slice(separatorIndex + 1) || undefined,
+    };
+  }
+
+  private resolveShipmentRoute(
+    request: BookingRequest
+  ): 'Domestic' | 'International' {
+    return request.sender.countryCode === request.receiver.countryCode
+      ? 'Domestic'
+      : 'International';
+  }
+
+  private resolveItemCollectionMode(
+    pickupType?: BookingRequest['pickupType']
+  ): 'PickUp' | 'DropOff' {
+    return pickupType === 'dropoff' ? 'DropOff' : 'PickUp';
+  }
+
+  private calculateVatCharge(
+    shipmentCharge: number,
+    pickupCharge: number
+  ): number {
+    return Math.round((shipmentCharge + pickupCharge) * TOPSHIP_VAT_RATE);
+  }
+
+  private buildShipmentAddressDetail(address: BookingRequest['sender']) {
+    return {
+      name: address.name,
+      email: address.email,
+      phoneNumber: address.phone,
+      addressLine1: address.address,
+      city: address.city,
+      state: address.state,
+      country: address.country,
+      countryCode: address.countryCode,
+      postalCode: address.postalCode,
+    };
+  }
+
+  private buildSaveShipmentPayload(
+    request: BookingRequest,
+    options: {
+      pricingTier: string;
+      shipmentCharge: number;
+      pickupCharge: number;
+      valueAddedTaxCharge: number;
+      shipmentRoute: 'Domestic' | 'International';
+      itemCollectionMode: 'PickUp' | 'DropOff';
+    }
+  ) {
+    const items: TopshipQuoteItem[] = request.items.map((item) => ({
+      category: this.mapCategory(item.category),
+      description: item.description || item.name,
+      weight: item.weight,
+      quantity: item.quantity,
+      value: item.value,
+    }));
+
+    return {
+      shipment: [
+        {
+          shipmentRoute: options.shipmentRoute,
+          itemCollectionMode: options.itemCollectionMode,
+          pricingTier: options.pricingTier,
+          insuranceType: 'None',
+          shipmentCharge: options.shipmentCharge,
+          valueAddedTaxCharge: options.valueAddedTaxCharge,
+          pickupCharge: options.pickupCharge,
+          senderDetail: this.buildShipmentAddressDetail(request.sender),
+          receiverDetail: this.buildShipmentAddressDetail(request.receiver),
+          items,
+        },
+      ],
+    };
+  }
+
+  private async readResponseBody(response: Response): Promise<unknown> {
+    const text = await response.text();
+    if (!text) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  }
+
+  private getErrorMessage(payload: unknown): string | undefined {
+    if (typeof payload === 'string' && payload.length > 0) {
+      return payload;
+    }
+
+    if (!this.isRecord(payload)) {
+      return undefined;
+    }
+
+    return this.readString(payload.message) || this.readString(payload.error);
+  }
+
+  private parseExpectedPickupCharge(payload: unknown): number | undefined {
+    const message = this.getErrorMessage(payload);
+    if (!message) {
+      return undefined;
+    }
+
+    const match = message.match(/Expecting NGN\s*([0-9,]+(?:\.\d+)?)/i);
+    if (!match) {
+      return undefined;
+    }
+
+    const amount = Number.parseFloat(match[1].replace(/,/g, ''));
+    return Number.isFinite(amount) ? Math.round(amount * 100) : undefined;
+  }
+
+  private parseSavedShipment(payload: unknown): TopshipSavedShipment {
+    if (
+      Array.isArray(payload) &&
+      payload.length > 0 &&
+      this.isRecord(payload[0])
+    ) {
+      return payload[0] as TopshipSavedShipment;
+    }
+
+    if (
+      this.isRecord(payload) &&
+      this.readString(payload.id) &&
+      this.readString(payload.trackingId)
+    ) {
+      return payload as TopshipSavedShipment;
+    }
+
+    if (
+      this.isRecord(payload) &&
+      payload.status === true &&
+      this.isRecord(payload.data)
+    ) {
+      const data = payload.data as TopshipWrappedShipmentResponse['data'];
+      return {
+        ...data,
+        id: data.id || data.shipmentId || '',
+      };
+    }
+
+    throw new Error('Failed to create Topship shipment');
+  }
+
+  private async saveShipmentWithRetry(
+    request: BookingRequest,
+    options: {
+      pricingTier: string;
+      shipmentCharge: number;
+      shipmentRoute: 'Domestic' | 'International';
+      itemCollectionMode: 'PickUp' | 'DropOff';
+      pickupCharge: number;
+    }
+  ): Promise<TopshipSavedShipment> {
+    let pickupCharge = options.pickupCharge;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const valueAddedTaxCharge = this.calculateVatCharge(
+        options.shipmentCharge,
+        pickupCharge
+      );
+      const payload = this.buildSaveShipmentPayload(request, {
+        ...options,
+        pickupCharge,
+        valueAddedTaxCharge,
+      });
+
+      const response = await this.safeFetch(
+        `${TOPSHIP_BASE_URL}/save-shipment`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify(payload),
+        }
+      );
+      const result = await this.readResponseBody(response);
+
+      if (response.ok) {
+        return this.parseSavedShipment(result);
+      }
+
+      const expectedPickupCharge = this.parseExpectedPickupCharge(result);
+      if (
+        attempt === 0 &&
+        expectedPickupCharge !== undefined &&
+        expectedPickupCharge !== pickupCharge
+      ) {
+        pickupCharge = expectedPickupCharge;
+        continue;
+      }
+
+      this.log('error', 'Topship save shipment failed', {
+        status: response.status,
+        error: this.getErrorMessage(result) || String(result),
+      });
+      throw new Error(
+        this.getErrorMessage(result) || 'Failed to create Topship shipment'
+      );
+    }
+
+    throw new Error('Failed to create Topship shipment');
+  }
+
   // ==========================================================================
   // GET QUOTES
   // ==========================================================================
@@ -454,12 +742,13 @@ export class TopshipProvider extends BaseShippingProvider {
         deliveryRange: rate.deliveryEta, // Pass raw string
         minDays: deliveryEta.minDays,
         maxDays: deliveryEta.maxDays,
-        price: this.koboToNaira(rate.total),
+        price: this.koboToNaira(rate.total ?? rate.cost),
         currency: 'NGN',
         pickupIncluded: true,
         insuranceIncluded: true,
         providerRateId: `${rate.pricingTier}_${rate.serviceType}`,
         expiresAt: this.getQuoteExpiry(1),
+        rawResponse: rate,
       };
     });
   }
@@ -469,103 +758,75 @@ export class TopshipProvider extends BaseShippingProvider {
   // ==========================================================================
 
   async bookShipment(request: BookingRequest): Promise<ShipmentBookingResult> {
-    const items: TopshipQuoteItem[] = request.items.map((item) => ({
-      category: this.mapCategory(item.category),
-      description: item.name,
-      weight: item.weight,
-      quantity: item.quantity,
-      value: item.value,
-    }));
+    const quoteMetadata = this.parseQuoteMetadata(request.quoteMetadata);
+    const rateFromId = this.parseProviderRateId(request.providerRateId);
+    const pricingTier =
+      quoteMetadata.pricingTier || rateFromId.pricingTier || 'Premium';
+    const serviceType = quoteMetadata.serviceType || rateFromId.serviceType;
+    const shipmentCharge = quoteMetadata.cost;
 
-    const payload = {
-      shipmentRoute: 'domestic', // Will be determined from addresses
-      senderDetails: {
-        name: request.sender.name,
-        email: request.sender.email,
-        phone: request.sender.phone,
-        addressLine1: request.sender.address,
-        city: request.sender.city,
-        state: request.sender.state,
-        country: request.sender.country,
-        countryCode: request.sender.countryCode,
-      },
-      receiverDetails: {
-        name: request.receiver.name,
-        email: request.receiver.email,
-        phone: request.receiver.phone,
-        addressLine1: request.receiver.address,
-        city: request.receiver.city,
-        state: request.receiver.state,
-        country: request.receiver.country,
-        countryCode: request.receiver.countryCode,
-      },
-      items,
-      pickupType: request.pickupType === 'dropoff' ? 'dropoff' : 'pickup',
-      // Parse the rate ID to get pricing tier
-      // pricingTier would be extracted from the selected quote
-    };
-
-    // Step 1: Save shipment (creates draft)
-    const saveResponse = await this.safeFetch(
-      `${TOPSHIP_BASE_URL}/save-shipment`,
-      {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify(payload),
-      }
-    );
-
-    if (!saveResponse.ok) {
-      const error = await saveResponse.text();
-      this.log('error', 'Topship save shipment failed', {
-        status: saveResponse.status,
-        error,
-      });
-      throw new Error('Failed to create Topship shipment');
-    }
-
-    const saveResult: TopshipShipmentResponse = await saveResponse.json();
-
-    if (!saveResult.status || !saveResult.data?.shipmentId) {
+    if (shipmentCharge === undefined) {
       throw new Error(
-        saveResult.message || 'Failed to create Topship shipment'
+        'Topship booking requires stored quote metadata with a shipment charge.'
       );
     }
 
-    // Step 2: Pay from wallet to confirm shipment
+    const itemCollectionMode = this.resolveItemCollectionMode(
+      request.pickupType
+    );
+    const shipmentRoute = this.resolveShipmentRoute(request);
+    const initialPickupCharge =
+      itemCollectionMode === 'PickUp' ? TOPSHIP_DEFAULT_PICKUP_CHARGE_KOBO : 0;
+
+    const savedShipment = await this.saveShipmentWithRetry(request, {
+      pricingTier,
+      shipmentCharge,
+      shipmentRoute,
+      itemCollectionMode,
+      pickupCharge: initialPickupCharge,
+    });
+
     const payResponse = await this.safeFetch(
       `${TOPSHIP_BASE_URL}/pay-from-wallet`,
       {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({
-          shipmentId: saveResult.data.shipmentId,
+          detail: {
+            shipmentId: savedShipment.id,
+          },
         }),
       }
     );
+    const payResult = await this.readResponseBody(payResponse);
 
     if (!payResponse.ok) {
-      const error = await payResponse.text();
+      const message =
+        this.getErrorMessage(payResult) ||
+        'Failed to confirm Topship shipment payment';
       this.log('error', 'Topship payment failed', {
         status: payResponse.status,
-        error,
+        error: message,
+        trackingId: savedShipment.trackingId,
       });
-      throw new Error('Failed to confirm Topship shipment payment');
+      throw new Error(
+        `Failed to confirm Topship shipment payment for tracking ${savedShipment.trackingId}: ${message}`
+      );
     }
 
-    const payResult = await payResponse.json();
-
-    if (!payResult.status) {
-      throw new Error(payResult.message || 'Failed to process Topship payment');
-    }
+    const paidShipment = this.parseSavedShipment(payResult);
 
     return {
       provider: 'TOPSHIP',
-      providerShipmentId: saveResult.data.shipmentId,
-      trackingNumber: saveResult.data.trackingId,
-      carrierName: 'Topship', // Will be updated with actual carrier
-      status: 'booked',
-      rawResponse: saveResult.data,
+      providerShipmentId: paidShipment.id,
+      trackingNumber: paidShipment.trackingId,
+      carrierName: serviceType
+        ? `${this.getCarrierDisplayName(pricingTier)} - ${serviceType}`
+        : this.getCarrierDisplayName(pricingTier),
+      status: mapTopshipStatus(
+        paidShipment.shipmentStatus || paidShipment.status || 'booked'
+      ),
+      rawResponse: paidShipment,
     };
   }
 

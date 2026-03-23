@@ -740,12 +740,16 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
         .from('orders')
         .update({
           fulfillment_details: fulfillmentDetails,
-          shipping_status: 'shipped',
           updated_at: new Date().toISOString(),
         })
         .eq('id', order.id);
 
       if (error) throw error;
+
+      await updateStatusMutation.mutateAsync({
+        orderId: order.id,
+        status: 'shipped',
+      });
 
       setShowFulfillmentModal(false);
       setFulfillmentDetails({ imei: '', serialNumber: '' });
@@ -753,6 +757,23 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
         'Success',
         'Order marked as shipped with fulfillment details'
       );
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.access_token) {
+        fetch(`${BASE_URL}/api/orders/${order.id}/shipped`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({}),
+        }).catch(() => {
+          // Silently ignore email errors
+        });
+      }
 
       queryClient.invalidateQueries({ queryKey: ['order', order.id] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
