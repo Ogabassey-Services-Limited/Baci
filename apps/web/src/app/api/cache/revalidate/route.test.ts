@@ -278,10 +278,9 @@ describe('POST /api/cache/revalidate', () => {
       expect(res.status).toBe(200);
       expect(json.revalidated).toContain('blog');
 
-      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        `blog-list-${MERCHANT_ID}-all-1`,
-        'merchant'
+        'blog-posts',
+        'storefront-page'
       );
     });
 
@@ -373,7 +372,7 @@ describe('POST /api/cache/revalidate', () => {
       );
       expect(mockRevalidateTag).not.toHaveBeenCalledWith(
         'blog-posts',
-        'merchant'
+        'storefront-page'
       );
       expect(mockRevalidateTag).not.toHaveBeenCalledWith(
         `reviews-${MERCHANT_ID}`,
@@ -426,10 +425,9 @@ describe('POST /api/cache/revalidate', () => {
         `merchant-id-${MERCHANT_ID}`,
         'merchant'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        `blog-list-${MERCHANT_ID}-all-1`,
-        'merchant'
+        'blog-posts',
+        'storefront-page'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         `reviews-${MERCHANT_ID}`,
@@ -459,10 +457,9 @@ describe('POST /api/cache/revalidate', () => {
       expect(json.revalidated).toHaveLength(7);
 
       // Should have revalidated all categories
-      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        `blog-list-${MERCHANT_ID}-all-1`,
-        'merchant'
+        'blog-posts',
+        'storefront-page'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'page-config',
