@@ -42,7 +42,7 @@ describe('MigrationJobSummary', () => {
     expect(screen.getByText('20')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /commit import/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^import$/i }));
     fireEvent.click(screen.getByRole('button', { name: /refresh/i }));
 
     expect(onCommit).toHaveBeenCalled();
@@ -68,6 +68,44 @@ describe('MigrationJobSummary', () => {
     expect(screen.getByText('Something failed')).toBeInTheDocument();
     expect(
       screen.getByText(/select a job to inspect its preview rows/i)
+    ).toBeInTheDocument();
+  });
+
+  it('shows a progress bar when the selected job is still running', () => {
+    render(
+      <MigrationJobSummary
+        acting={false}
+        error={null}
+        loading={false}
+        onCommit={vi.fn().mockResolvedValue(undefined)}
+        onNotify={vi.fn().mockResolvedValue(undefined)}
+        onRefresh={vi.fn().mockResolvedValue(undefined)}
+        selectedJob={{
+          id: 'job-2',
+          entity_type: 'orders',
+          source_platform: 'bumpa',
+          status: 'validating',
+          original_filename: 'orders.csv',
+          processed_rows: 0,
+          total_rows: 5821,
+          summary: {
+            validRows: 0,
+            invalidRows: 0,
+            receiptReadyOrders: 0,
+          },
+          error: null,
+          created_at: '2026-03-22T10:00:00.000Z',
+          committed_at: null,
+          notified_at: null,
+          canCommit: false,
+          canNotify: false,
+        }}
+      />
+    );
+
+    expect(screen.getByText(/building preview/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('progressbar', { name: /migration progress/i })
     ).toBeInTheDocument();
   });
 });
