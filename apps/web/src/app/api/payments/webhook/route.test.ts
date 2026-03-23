@@ -847,12 +847,19 @@ describe('POST /api/payments/webhook', () => {
         }),
       };
 
-      const chatOrdersUpdateQuery = {
+      const chatOrdersClaimQuery = {
         update: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockResolvedValue({
-          data: null,
+        eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: chatOrder.id },
           error: null,
         }),
+      };
+
+      const chatOrdersUpdateQuery = {
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
       };
 
       const ordersInsertQuery = {
@@ -905,9 +912,13 @@ describe('POST /api/payments/webhook', () => {
       vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
         if (table === 'chat_orders') {
           chatOrdersCallCount += 1;
-          return chatOrdersCallCount === 1
-            ? (chatOrdersLookupQuery as any)
-            : (chatOrdersUpdateQuery as any);
+          if (chatOrdersCallCount === 1) {
+            return chatOrdersLookupQuery as any;
+          }
+          if (chatOrdersCallCount === 2) {
+            return chatOrdersClaimQuery as any;
+          }
+          return chatOrdersUpdateQuery as any;
         }
 
         if (table === 'orders') {
@@ -952,6 +963,11 @@ describe('POST /api/payments/webhook', () => {
       expect(orderInsertPayload).toBeTruthy();
       expect(orderInsertPayload).not.toHaveProperty('order_number');
       expect(orderInsertPayload).not.toHaveProperty('tracking_token');
+      expect(chatOrdersClaimQuery.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'processing',
+        })
+      );
       expect(transactionsQuery.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           description: 'Payment for order ORD-260323-A7K3-2 (via chat)',
@@ -975,6 +991,233 @@ describe('POST /api/payments/webhook', () => {
           subject: 'Order Confirmation - #ORD-260323-A7K3-2',
         })
       );
+      expect(chatOrdersUpdateQuery.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'paid',
+          order_id: 'order-123',
+        })
+      );
+    });
+
+    it('returns 200 when chat order was already claimed before conversion', async () => {
+      const body = {
+        reference: 'CHAT-REF123',
+        status: 'success',
+        event: 'charge.success',
+        amount: 11000,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 11000,
+          reference: 'CHAT-REF123',
+          currency: 'NGN',
+          paid_at: '2026-03-23T10:00:00Z',
+          created_at: '2026-03-23T10:00:00Z',
+          customer: { name: 'Jane Doe', email: 'jane@example.com' },
+        },
+      });
+
+      const chatOrder = {
+        id: 'chat-order-123',
+        merchant_id: 'merchant-123',
+        customer_id: 'customer-123',
+        customer_name: 'Jane Doe',
+        customer_email: 'jane@example.com',
+        customer_phone: '+2348012345678',
+        shipping_address: { address: '123 Example Street' },
+        session_id: 'session-123',
+        subtotal: '10000',
+        shipping_fee: '1000',
+        items: [],
+      };
+
+      let chatOrdersCallCount = 0;
+      const chatOrdersLookupQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: chatOrder,
+          error: null,
+        }),
+      };
+      const chatOrdersClaimQuery = {
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: null,
+          error: null,
+        }),
+      };
+      const ordersInsertQuery = {
+        insert: vi.fn(),
+      };
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'chat_orders') {
+          chatOrdersCallCount += 1;
+          return chatOrdersCallCount === 1
+            ? (chatOrdersLookupQuery as any)
+            : (chatOrdersClaimQuery as any);
+        }
+
+        if (table === 'orders') {
+          return ordersInsertQuery as any;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({ message: 'Already processed' });
+      expect(ordersInsertQuery.insert).not.toHaveBeenCalled();
+    });
+
+    it('returns 500 when canonical order number is missing after chat conversion', async () => {
+      const body = {
+        reference: 'CHAT-REF123',
+        status: 'success',
+        event: 'charge.success',
+        amount: 11000,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 11000,
+          reference: 'CHAT-REF123',
+          currency: 'NGN',
+          paid_at: '2026-03-23T10:00:00Z',
+          created_at: '2026-03-23T10:00:00Z',
+          customer: { name: 'Jane Doe', email: 'jane@example.com' },
+        },
+      });
+
+      const chatOrder = {
+        id: 'chat-order-123',
+        merchant_id: 'merchant-123',
+        customer_id: 'customer-123',
+        customer_name: 'Jane Doe',
+        customer_email: 'jane@example.com',
+        customer_phone: '+2348012345678',
+        shipping_address: { address: '123 Example Street' },
+        session_id: 'session-123',
+        subtotal: '10000',
+        shipping_fee: '1000',
+        items: [],
+      };
+
+      let chatOrdersCallCount = 0;
+      const chatOrdersLookupQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: chatOrder,
+          error: null,
+        }),
+      };
+      const chatOrdersClaimQuery = {
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: chatOrder.id },
+          error: null,
+        }),
+      };
+      const chatOrdersUpdateQuery = {
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+      };
+      const ordersInsertQuery = {
+        insert: vi.fn(() => ({
+          select: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: {
+              id: 'order-123',
+              order_number: null,
+            },
+            error: null,
+          }),
+        })),
+      };
+      const transactionsQuery = {
+        insert: vi.fn(),
+      };
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'chat_orders') {
+          chatOrdersCallCount += 1;
+          if (chatOrdersCallCount === 1) {
+            return chatOrdersLookupQuery as any;
+          }
+          if (chatOrdersCallCount === 2) {
+            return chatOrdersClaimQuery as any;
+          }
+          return chatOrdersUpdateQuery as any;
+        }
+
+        if (table === 'orders') {
+          return ordersInsertQuery as any;
+        }
+
+        if (table === 'transactions') {
+          return transactionsQuery as any;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as any;
+      });
+
+      const { notifyNewOrder, notifyPaymentReceived } = await import(
+        '@/lib/expo-push'
+      );
+      const { sendEmail } = await import('@/lib/zeptomail');
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data).toEqual({
+        error: 'Failed to create canonical order number',
+      });
+      expect(transactionsQuery.insert).not.toHaveBeenCalled();
+      expect(chatOrdersUpdateQuery.update).not.toHaveBeenCalled();
+      expect(vi.mocked(notifyNewOrder)).not.toHaveBeenCalled();
+      expect(vi.mocked(notifyPaymentReceived)).not.toHaveBeenCalled();
+      expect(vi.mocked(sendEmail)).not.toHaveBeenCalled();
     });
 
     it('returns 200 and processes valid webhook successfully', async () => {
