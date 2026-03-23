@@ -543,6 +543,22 @@ describe('GET /api/llm/[...segments]', () => {
       expect(response.status).toBe(404);
     });
   });
+
+  /* ------ Error handling ------ */
+  describe('error handling', () => {
+    it('returns 404 when handleLlmRequest throws an unhandled error', async () => {
+      getMerchantByIdentifier.mockRejectedValue(new Error('DB error'));
+
+      const { GET } = await import('./route');
+      const response = await GET(
+        makeRequest('/api/llm/ogabassey'),
+        makeParams(['ogabassey'])
+      );
+
+      expect(response.status).toBe(404);
+      expect(notFoundMarkdownResponse).toHaveBeenCalled();
+    });
+  });
 });
 
 /* ------------------------------------------------------------------ */
