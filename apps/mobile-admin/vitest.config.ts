@@ -16,9 +16,7 @@ function resolveTestingLibraryReactPath() {
     return require.resolve('@testing-library/react');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Failed to resolve @testing-library/react ESM entry: ${message}`
-    );
+    throw new Error(`Failed to resolve @testing-library/react ESM entry: ${message}`);
   }
 }
 
@@ -32,10 +30,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': __dirname,
-      '@baci/shared': path.resolve(
-        __dirname,
-        '../../packages/shared/src/index.ts'
-      ),
       '@testing-library/react': testingLibraryReactPath,
       react: reactPath,
       'react/jsx-runtime': path.resolve(reactPath, 'jsx-runtime.js'),

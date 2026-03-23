@@ -113,22 +113,15 @@ export default function ScanScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
       >
         <View style={styles.centerContent}>
-          <Ionicons name="camera-outline" size={64} color={colors.error} />
+          <Ionicons name="camera-outline" size={64} color="#EF4444" />
           <Text style={[styles.message, { color: colors.text }]}>
             Camera permission denied
           </Text>
           <Text style={[styles.subMessage, { color: colors.text }]}>
             Please enable camera access in settings
           </Text>
-          <Pressable
-            style={[styles.backButton, { backgroundColor: colors.primary }]}
-            onPress={() => router.back()}
-          >
-            <Text
-              style={[styles.backButtonText, { color: colors.textOnPrimary }]}
-            >
-              Go Back
-            </Text>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>Go Back</Text>
           </Pressable>
         </View>
       </SafeAreaView>
