@@ -48,11 +48,15 @@ export async function generateMetadata({
 /**
  * Synchronous page wrapper ensures the H1 tag appears in the initial SSR HTML,
  * rather than being deferred to RSC streaming (which crawlers like Ahrefs miss).
+ * JSON-LD is in a separate Suspense boundary so it streams independently.
  */
 export default function AboutPage({ params }: PageProps) {
   return (
     <>
       <h1 className="sr-only">About Us</h1>
+      <Suspense fallback={null}>
+        <AboutJsonLd params={params} />
+      </Suspense>
       <Suspense
         fallback={
           <div className="container mx-auto px-4 py-12 flex items-center justify-center">
@@ -64,6 +68,37 @@ export default function AboutPage({ params }: PageProps) {
         <AboutContent params={params} />
       </Suspense>
     </>
+  );
+}
+
+/** Streams JSON-LD structured data independently of page content. */
+async function AboutJsonLd({ params }: PageProps) {
+  const { slug } = await params;
+  const merchant = await getMerchantByIdentifier(slug);
+
+  if (!merchant) return null;
+
+  const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
+  if (!aboutPage.story && !aboutPage.mission && !merchant.pages?.about) {
+    return null;
+  }
+
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+  const baseUrl = isDevelopment
+    ? `http://localhost:3000/${merchant.slug}`
+    : `https://${merchant.slug}.${rootDomain}`;
+
+  const jsonLd = generateAboutPageJsonLd(merchant, aboutPage, baseUrl);
+
+  return (
+    <script
+      type="application/ld+json"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
+      dangerouslySetInnerHTML={{
+        __html: safeJsonLdStringify(jsonLd as Record<string, unknown>),
+      }}
+    />
   );
 }
 
@@ -82,14 +117,6 @@ async function AboutContent({ params }: PageProps) {
     notFound();
   }
 
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-  const baseUrl = isDevelopment
-    ? `http://localhost:3000/${merchant.slug}`
-    : `https://${merchant.slug}.${rootDomain}`;
-
-  const jsonLd = generateAboutPageJsonLd(merchant, aboutPage, baseUrl);
-
   // Resolve template component server-side for SEO (H1 in SSR HTML)
   const templateId = merchant.template_id;
   if (templateId && templateId !== 'default' && templateId !== 'puck') {
@@ -100,23 +127,12 @@ async function AboutContent({ params }: PageProps) {
         if (components.About) {
           const AboutComponent = components.About;
           return (
-            <>
-              <script
-                type="application/ld+json"
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-                dangerouslySetInnerHTML={{
-                  __html: safeJsonLdStringify(
-                    jsonLd as Record<string, unknown>
-                  ),
-                }}
-              />
-              <AboutComponent
-                // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
-                merchant={merchant as any}
-                storeSlug={merchant.slug}
-                isPreview={false}
-              />
-            </>
+            <AboutComponent
+              // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
+              merchant={merchant as any}
+              storeSlug={merchant.slug}
+              isPreview={false}
+            />
           );
         }
       } catch (error) {
@@ -132,19 +148,10 @@ async function AboutContent({ params }: PageProps) {
 
   // Fallback to default about page
   return (
-    <>
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema is sanitized via safeJsonLdStringify
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(jsonLd as Record<string, unknown>),
-        }}
-      />
-      <AboutPageClient
-        merchant={merchant}
-        aboutPage={aboutPage}
-        legacyContent={legacyAboutContent}
-      />
-    </>
+    <AboutPageClient
+      merchant={merchant}
+      aboutPage={aboutPage}
+      legacyContent={legacyAboutContent}
+    />
   );
 }

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { getMerchantByIdentifier } from '@/lib/cached-data';
-import { WishListPageClient } from './wishlist-client';
+import { WishListContent } from './wishlist-content';
 
 export const metadata: Metadata = {
   title: 'Your Wish List',
@@ -33,16 +32,4 @@ export default function WishListPage({
       </Suspense>
     </>
   );
-}
-
-async function WishListContent({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-  const merchant = await getMerchantByIdentifier(slug);
-  const merchantCountry = merchant?.country ?? null;
-
-  return <WishListPageClient merchantCountry={merchantCountry} />;
 }
