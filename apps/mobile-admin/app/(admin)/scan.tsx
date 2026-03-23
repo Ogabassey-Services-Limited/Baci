@@ -125,7 +125,9 @@ export default function ScanScreen() {
             style={[styles.backButton, { backgroundColor: colors.primary }]}
             onPress={() => router.back()}
           >
-            <Text style={[styles.backButtonText, { color: colors.textOnPrimary }]}>
+            <Text
+              style={[styles.backButtonText, { color: colors.textOnPrimary }]}
+            >
               Go Back
             </Text>
           </Pressable>
@@ -171,6 +173,9 @@ export default function ScanScreen() {
 
           {/* Actions */}
           <View style={styles.actions}>
+            {/* Hardcoded #1E293B ensures consistent contrast against the
+                semi-transparent camera overlay, matching the #FFFFFF text
+                and #000000 background used throughout this screen. */}
             <Pressable
               style={[styles.actionButton, { backgroundColor: '#1E293B' }]}
               onPress={() => router.back()}
@@ -180,6 +185,9 @@ export default function ScanScreen() {
             </Pressable>
 
             {scanned && (
+              /* Hardcoded #3B82F6 provides a distinct action color with
+                 reliable contrast on the camera overlay, independent of
+                 the merchant theme. */
               <Pressable
                 style={[styles.actionButton, { backgroundColor: '#3B82F6' }]}
                 onPress={() => setScanned(false)}
@@ -235,8 +243,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'space-between',
-    paddingVertical: 48,
+    paddingVertical: SPACING['4xl'],
   },
+  // Fixed 280x280 frame and marginTop: 80 are intentional — sized to
+  // comfortably fit standard 1D/2D barcodes and centered in the camera
+  // viewport for a consistent scanning UX across device sizes.
   scannerFrame: {
     alignSelf: 'center',
     width: 280,
