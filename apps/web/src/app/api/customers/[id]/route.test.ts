@@ -58,6 +58,10 @@ let updateResult: unknown = null;
 let updateError: unknown = null;
 let deleteResult: unknown[] | null = null;
 let deleteError: unknown = null;
+let csrfResult: { valid: boolean; response: Response | null } = {
+  valid: true,
+  response: null,
+};
 
 const createMockSupabase = () => ({
   auth: {
@@ -125,9 +129,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 vi.mock('@/lib/csrf', () => ({
-  checkCsrfProtection: vi.fn(() =>
-    Promise.resolve({ valid: true, response: null })
-  ),
+  checkCsrfProtection: vi.fn(() => Promise.resolve(csrfResult)),
 }));
 
 // ---- Import handlers AFTER mocks ----
@@ -167,6 +169,7 @@ function resetMocks() {
   updateError = null;
   deleteResult = [{ id: CUSTOMER_ID }];
   deleteError = null;
+  csrfResult = { valid: true, response: null };
 }
 
 // ---- Tests ----
@@ -298,5 +301,26 @@ describe('DELETE /api/customers/[id]', () => {
 
     expect(res.status).toBe(401);
     expect(json.error).toBe('Unauthorized');
+  });
+
+  it('returns the CSRF rejection when CSRF validation fails', async () => {
+    csrfResult = {
+      valid: false,
+      response: new Response(
+        JSON.stringify({ error: 'CSRF validation failed' }),
+        {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      ),
+    };
+
+    const res = await DELETE(makeDeleteRequest(CUSTOMER_ID), {
+      params: Promise.resolve({ id: CUSTOMER_ID }),
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json.error).toBe('CSRF validation failed');
   });
 });

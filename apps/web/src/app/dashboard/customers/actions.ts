@@ -13,7 +13,6 @@ import { ensurePermission } from '@/lib/merchant-server';
 import {
   sanitizeEmail,
   sanitizePhone,
-  sanitizeSearchQuery,
   sanitizeText,
 } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
@@ -76,7 +75,7 @@ export async function getCustomers(
     .order('created_at', { ascending: false });
 
   if (search?.trim()) {
-    query = query.or(buildCustomerSearchFilter(sanitizeSearchQuery(search)));
+    query = query.or(buildCustomerSearchFilter(search));
   }
 
   const { data: customers, error } = await query;

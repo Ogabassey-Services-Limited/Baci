@@ -76,10 +76,18 @@ export default function TaxScreen() {
     }
 
     lastSyncedAddressMerchantId.current = merchantId;
+    const mappedStateCode =
+      merchantStateCode ||
+      NIGERIAN_STATES.find(
+        (state) =>
+          state.name.toLowerCase() ===
+          (merchantAddress?.state ?? '').trim().toLowerCase()
+      )?.code ||
+      '';
     setStreet(merchantAddress?.street ?? '');
     setCity(merchantAddress?.city ?? '');
     setPostalCode(merchantAddress?.postal_code ?? '');
-    setStateCode(merchantStateCode);
+    setStateCode(mappedStateCode);
   }, [merchantAddress, merchantId, merchantStateCode]);
 
   // Update VAT status mutation

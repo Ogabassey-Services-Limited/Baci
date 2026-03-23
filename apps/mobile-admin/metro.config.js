@@ -39,6 +39,7 @@ config.resolver = {
   // Explicitly alias core libraries to the workspace root to prevent duplication
   // and resolve issues where pnpm doesn't symlink to sub-packages correctly.
   extraNodeModules: {
+    '@baci/shared': path.resolve(workspaceRoot, 'packages/shared'),
     'react-native': path.resolve(workspaceRoot, 'node_modules/react-native'),
     react: path.resolve(workspaceRoot, 'node_modules/react'),
     'react-dom': path.resolve(workspaceRoot, 'node_modules/react-dom'),

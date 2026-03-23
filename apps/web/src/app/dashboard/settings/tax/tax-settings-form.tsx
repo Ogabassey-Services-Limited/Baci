@@ -174,7 +174,7 @@ export function TaxSettingsForm({
         registered_address: {
           street: address.street || null,
           city: address.city || null,
-          state: selectedState?.name || address.state || null,
+          state: selectedState?.name || null,
           postal_code: address.postal_code || null,
           country: 'Nigeria',
         },

@@ -7,7 +7,8 @@ import {
 } from '@/lib/sanitize-core';
 
 const customerStoreCreditSchema = z.preprocess(
-  (value) => (value === '' ? undefined : value),
+  (value) =>
+    typeof value === 'string' && value.trim() === '' ? undefined : value,
   z.coerce.number().min(0).max(1_000_000_000).optional()
 );
 

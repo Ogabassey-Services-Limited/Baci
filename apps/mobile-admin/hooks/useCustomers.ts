@@ -307,8 +307,8 @@ export function useUpdateCustomer() {
       const { data, error } = await supabase
         .from('customers')
         .update({
-          ...nameFields,
           ...customerData,
+          ...nameFields,
         })
         .eq('id', id)
         .eq('merchant_id', merchant.id)

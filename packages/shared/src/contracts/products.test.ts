@@ -7,6 +7,13 @@ import {
   WEB_PRODUCT_WITH_VARIANTS_QUERY,
 } from './products';
 
+function tokenizeColumns(columns: string): string[] {
+  return columns
+    .split(',')
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
 describe('product column constants', () => {
   it('MOBILE_ADMIN_PRODUCT_COLUMNS is a non-empty string', () => {
     expect(typeof MOBILE_ADMIN_PRODUCT_COLUMNS).toBe('string');
@@ -57,6 +64,7 @@ describe('product column constants', () => {
   });
 
   it('MOBILE_ADMIN_PRODUCT_COLUMNS includes essential product fields', () => {
+    const mobileTokens = tokenizeColumns(MOBILE_ADMIN_PRODUCT_COLUMNS);
     const essentialFields = [
       'id',
       'name',
@@ -66,11 +74,12 @@ describe('product column constants', () => {
       'images',
     ];
     for (const field of essentialFields) {
-      expect(MOBILE_ADMIN_PRODUCT_COLUMNS).toContain(field);
+      expect(mobileTokens).toContain(field);
     }
   });
 
   it('WEB_PRODUCT_COLUMNS includes SEO fields', () => {
+    const webTokens = tokenizeColumns(WEB_PRODUCT_COLUMNS);
     const seoFields = [
       'meta_title',
       'meta_description',
@@ -78,7 +87,7 @@ describe('product column constants', () => {
       'schema_markup',
     ];
     for (const field of seoFields) {
-      expect(WEB_PRODUCT_COLUMNS).toContain(field);
+      expect(webTokens).toContain(field);
     }
   });
 });

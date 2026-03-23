@@ -559,7 +559,7 @@ export default function CheckoutScreen() {
     }
   }, [enabledPaymentMethods, selectedPayment, paymentTab]);
 
-  const performBackTransition = React.useEffectEvent(() => {
+  const performBackTransition = () => {
     if (step === 'payment') {
       setStep('address');
     } else if (step === 'review') {
@@ -567,7 +567,7 @@ export default function CheckoutScreen() {
     } else {
       router.back();
     }
-  });
+  };
 
   const handleBack = () => {
     performBackTransition();
