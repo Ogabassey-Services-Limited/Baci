@@ -83,7 +83,8 @@ describe('WalletPage', () => {
 
     render(<WalletPage params={Promise.resolve({ slug: 'ogabassey' })} />);
 
-    // Allow async WalletContent to resolve
+    // Async RSC content streams via Suspense which jsdom can't resolve,
+    // so verify the correct code path via function call assertions
     await vi.waitFor(() => {
       expect(getCachedMerchant).toHaveBeenCalledWith('ogabassey');
     });

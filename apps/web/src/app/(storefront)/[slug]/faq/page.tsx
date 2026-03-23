@@ -1,7 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { getMerchantByIdentifier } from '@/lib/cached-data';
+import {
+  getMerchantByIdentifier,
+  getRequestScopedMerchant,
+} from '@/lib/cached-data';
+import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateFAQSchema } from '@/lib/seo-utils';
 import { getTemplate } from '@/templates/registry';
@@ -91,7 +95,7 @@ export default function FAQPage({ params }: PageProps) {
 /** Streams FAQ JSON-LD structured data independently of page content. */
 async function FAQJsonLd({ params }: PageProps) {
   const { slug } = await params;
-  const merchant = await getMerchantByIdentifier(slug);
+  const merchant = await getRequestScopedMerchant(slug);
 
   if (!merchant) return null;
 
@@ -111,7 +115,7 @@ async function FAQJsonLd({ params }: PageProps) {
 
 async function FAQContent({ params }: PageProps) {
   const { slug } = await params;
-  const merchant = await getMerchantByIdentifier(slug);
+  const merchant = await getRequestScopedMerchant(slug);
 
   if (!merchant) {
     notFound();
@@ -133,8 +137,7 @@ async function FAQContent({ params }: PageProps) {
           const HelpComponent = components.Help;
           return (
             <HelpComponent
-              // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
-              merchant={merchant as any}
+              merchant={toTemplateMerchantData(merchant)}
               storeSlug={merchant.slug}
               isPreview={false}
             />
