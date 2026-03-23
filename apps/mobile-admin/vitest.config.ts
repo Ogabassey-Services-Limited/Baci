@@ -9,6 +9,14 @@ const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
 const reactPath = path.dirname(require.resolve('react/package.json'));
 const reactDomPath = path.dirname(require.resolve('react-dom/package.json'));
+const sharedPackagePath = path.resolve(
+  __dirname,
+  '../../packages/shared/src/index.ts'
+);
+const sharedPackageDirectory = path.resolve(
+  __dirname,
+  '../../packages/shared/src'
+);
 
 function resolveTestingLibraryReactPath() {
   // Use the package entry instead of an internal dist path to avoid brittle resolution.
@@ -16,7 +24,9 @@ function resolveTestingLibraryReactPath() {
     return require.resolve('@testing-library/react');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to resolve @testing-library/react ESM entry: ${message}`);
+    throw new Error(
+      `Failed to resolve @testing-library/react ESM entry: ${message}`
+    );
   }
 }
 
@@ -28,16 +38,36 @@ export default defineConfig({
     __DEV__: true,
   },
   resolve: {
-    alias: {
-      '@': __dirname,
-      '@testing-library/react': testingLibraryReactPath,
-      react: reactPath,
-      'react/jsx-runtime': path.resolve(reactPath, 'jsx-runtime.js'),
-      'react/jsx-dev-runtime': path.resolve(reactPath, 'jsx-dev-runtime.js'),
-      'react-dom': reactDomPath,
-      'react-dom/client': path.resolve(reactDomPath, 'client.js'),
-      'react-dom/test-utils': path.resolve(reactDomPath, 'test-utils.js'),
-    },
+    alias: [
+      { find: /^@\//, replacement: `${__dirname}/` },
+      { find: /^@baci\/shared$/, replacement: sharedPackagePath },
+      {
+        find: /^@baci\/shared\/(.*)$/,
+        replacement: `${sharedPackageDirectory}/$1`,
+      },
+      {
+        find: /^@testing-library\/react$/,
+        replacement: testingLibraryReactPath,
+      },
+      { find: /^react$/, replacement: reactPath },
+      {
+        find: /^react\/jsx-runtime$/,
+        replacement: path.resolve(reactPath, 'jsx-runtime.js'),
+      },
+      {
+        find: /^react\/jsx-dev-runtime$/,
+        replacement: path.resolve(reactPath, 'jsx-dev-runtime.js'),
+      },
+      { find: /^react-dom$/, replacement: reactDomPath },
+      {
+        find: /^react-dom\/client$/,
+        replacement: path.resolve(reactDomPath, 'client.js'),
+      },
+      {
+        find: /^react-dom\/test-utils$/,
+        replacement: path.resolve(reactDomPath, 'test-utils.js'),
+      },
+    ],
     dedupe: ['react', 'react-dom'],
   },
   ssr: {

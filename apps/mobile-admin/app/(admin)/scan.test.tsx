@@ -1,0 +1,202 @@
+/**
+ * Tests for ScanScreen component
+ */
+
+import { render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// --- Mocks ---
+
+const mocks = vi.hoisted(() => ({
+  alert: vi.fn(),
+  requestCameraPermissionsAsync: vi.fn(),
+  routerBack: vi.fn(),
+  routerPush: vi.fn(),
+}));
+
+vi.mock('react-native', async () => {
+  const React = await import('react');
+
+  return {
+    Alert: { alert: mocks.alert },
+    Pressable: ({
+      children,
+      onPress,
+      disabled,
+    }: {
+      children?: React.ReactNode;
+      onPress?: () => void;
+      disabled?: boolean;
+    }) =>
+      React.createElement('button', { onClick: onPress, disabled }, children),
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text: ({
+      children,
+      style,
+    }: {
+      children?: React.ReactNode;
+      style?: unknown;
+    }) => React.createElement('span', { style }, children),
+    View: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('div', null, children),
+  };
+});
+
+vi.mock('expo-router', () => ({
+  router: {
+    back: () => mocks.routerBack(),
+    push: (path: string) => mocks.routerPush(path),
+  },
+}));
+
+vi.mock('expo-camera', () => ({
+  Camera: {
+    requestCameraPermissionsAsync: () => mocks.requestCameraPermissionsAsync(),
+  },
+  CameraView: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="camera-view">{children}</div>
+  ),
+}));
+
+vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: ({
+    children,
+    ...props
+  }: { children: React.ReactNode } & Record<string, unknown>) => (
+    <div data-testid="safe-area-view" {...props}>
+      {children}
+    </div>
+  ),
+}));
+
+vi.mock('@expo/vector-icons', () => ({
+  Ionicons: ({ name, size }: { name: string; size: number }) => (
+    <span data-testid={`icon-${name}`} data-size={size} />
+  ),
+}));
+
+const mockMerchant = { id: 'merchant-123' };
+vi.mock('@/hooks/useMerchant', () => ({
+  useMerchant: () => ({ merchant: mockMerchant }),
+}));
+
+vi.mock('@/hooks/useTheme', () => ({
+  useTheme: () => ({
+    colors: {
+      background: '#0D0D1A',
+      text: '#FFFFFF',
+      error: '#EF4444',
+      primary: '#4A90D9',
+      textOnPrimary: '#FFFFFF',
+    },
+    isDark: true,
+  }),
+}));
+
+vi.mock('@/constants/theme', () => ({
+  RADIUS: {
+    md: 12,
+  },
+  SPACING: {
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 20,
+    '2xl': 24,
+    '3xl': 32,
+    '4xl': 48,
+  },
+  TYPOGRAPHY: {
+    fontFamily: {
+      regular: 'Inter_400Regular',
+      semiBold: 'Inter_600SemiBold',
+      bold: 'Inter_700Bold',
+    },
+    size: {
+      md: 14,
+      lg: 16,
+      xl: 18,
+    },
+  },
+}));
+
+const mockSupabaseSingle = vi.fn();
+const mockSupabaseEq = vi.fn(() => ({ single: mockSupabaseSingle }));
+const mockSupabaseSelect = vi.fn(() => ({
+  eq: vi.fn(() => ({ eq: mockSupabaseEq })),
+}));
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    from: () => ({ select: mockSupabaseSelect }),
+  },
+}));
+
+// --- Tests ---
+
+import ScanScreen from './scan';
+
+describe('ScanScreen', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.requestCameraPermissionsAsync.mockResolvedValue({
+      status: 'granted',
+    });
+  });
+
+  describe('permission states', () => {
+    it('renders requesting permission message initially', () => {
+      mocks.requestCameraPermissionsAsync.mockReturnValue(
+        new Promise(() => void 0)
+      );
+      render(<ScanScreen />);
+      expect(screen.getByText('Requesting camera permission...')).toBeDefined();
+    });
+
+    it('renders permission denied state with Go Back button', async () => {
+      mocks.requestCameraPermissionsAsync.mockResolvedValue({
+        status: 'denied',
+      });
+      render(<ScanScreen />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Camera permission denied')).toBeDefined();
+      });
+
+      expect(
+        screen.getByText('Please enable camera access in settings')
+      ).toBeDefined();
+      expect(screen.getByText('Go Back')).toBeDefined();
+    });
+
+    it('renders camera view when permission is granted', async () => {
+      render(<ScanScreen />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('camera-view')).toBeDefined();
+      });
+
+      expect(screen.getByText('Align barcode within frame')).toBeDefined();
+      expect(screen.getByText('Cancel')).toBeDefined();
+    });
+  });
+
+  describe('camera overlay', () => {
+    it('displays instruction text when not scanning', async () => {
+      render(<ScanScreen />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Align barcode within frame')).toBeDefined();
+      });
+    });
+
+    it('renders Cancel button in camera overlay', async () => {
+      render(<ScanScreen />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Cancel')).toBeDefined();
+      });
+    });
+  });
+});
