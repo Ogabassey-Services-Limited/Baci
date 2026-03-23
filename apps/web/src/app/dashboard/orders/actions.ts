@@ -5,10 +5,12 @@ import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
+import { formatPersonName } from '@/lib/format-person-name';
 import { logger } from '@/lib/logger';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
+import { loadOrderItemImageMap } from './order-item-images';
 
 export type ShippingStatus =
   | 'Pending'
@@ -81,10 +83,30 @@ interface OrderFilters {
 interface OrderItem {
   id: string;
   name?: string;
+  product_id?: string | null;
   quantity: number;
   price?: string | number;
   variant_name?: string;
   has_assurance?: boolean;
+}
+
+interface DashboardOrderRecord {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  total: string;
+  shipping_status: string;
+  payment_status: string;
+  payment_method: string | null;
+  created_at: string;
+  source: string;
+  tracking_number?: string;
+  shipping_provider?: string;
+  payment_reference?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  notes?: string;
+  order_items?: OrderItem[];
 }
 
 export interface JumiaOrderItem {
@@ -171,10 +193,17 @@ export async function getOrders(
     return [];
   }
 
+  const orderItemImageMap = await loadOrderItemImageMap(
+    supabase,
+    (orders || []).flatMap((order) =>
+      (order.order_items || []).map((item: OrderItem) => item.product_id)
+    )
+  );
+
   const realOrders = (orders || []).map((order) => ({
     id: order.id,
     orderNumber: order.order_number,
-    customerName: order.customer_name,
+    customerName: formatPersonName(order.customer_name || 'Customer'),
     total: Number.parseFloat(order.total),
     shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
     paymentStatus: formatStatus(order.payment_status) as PaymentStatus,
@@ -185,7 +214,7 @@ export async function getOrders(
       year: 'numeric',
     }),
     createdAt: new Date(order.created_at).getTime(),
-    source: order.source === 'online_store' ? 'other' : order.source,
+    source: order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
     items: (order.order_items || []).map((item: OrderItem) => ({
@@ -193,7 +222,9 @@ export async function getOrders(
       name: item.name || 'Unknown Product',
       quantity: item.quantity,
       price: Number.parseFloat(String(item.price || 0)),
-      image: undefined,
+      image: item.product_id
+        ? orderItemImageMap.get(item.product_id)
+        : undefined,
       variant: item.variant_name || undefined,
       hasAssurance: item.has_assurance || false,
     })),
@@ -218,7 +249,7 @@ export async function getOrders(
     return {
       id: jOrder.jumia_order_id, // Use Jumia ID as ID
       orderNumber: jOrder.jumia_order_number,
-      customerName: jOrder.customer_name || 'Jumia Customer',
+      customerName: formatPersonName(jOrder.customer_name || 'Jumia Customer'),
       total: Number.parseFloat(jOrder.total_amount),
       shippingStatus,
       paymentStatus,
@@ -314,37 +345,69 @@ export async function getOrder(
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  // Try fetching by ID first, then order_number
-  let query = supabase
-    .from('orders')
-    .select('*, order_items(*)')
-    .eq('merchant_id', merchantId);
-
   // Check if identifier is UUID
   const isUuid =
     /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
       orderIdentifier
     );
 
+  let order: DashboardOrderRecord | null = null;
+  let orderError: { message?: string } | null = null;
+
   if (isUuid) {
-    query = query.eq('id', orderIdentifier);
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('merchant_id', merchantId)
+      .eq('id', orderIdentifier)
+      .maybeSingle();
+
+    order = data as DashboardOrderRecord | null;
+    orderError = error;
   } else {
-    // Assume order number (remove # if present)
-    const orderNum = orderIdentifier.startsWith('#')
-      ? orderIdentifier
-      : `#${orderIdentifier}`;
-    // Also try without hash just in case
-    query = query.or(
-      `order_number.eq.${orderNum},order_number.eq.${orderIdentifier}`
-    );
+    const normalizedIdentifier = orderIdentifier.replace(/^#/, '').trim();
+    const candidateOrderNumbers = [
+      normalizedIdentifier,
+      `#${normalizedIdentifier}`,
+    ].filter((value, index, values) => values.indexOf(value) === index);
+
+    for (const candidateOrderNumber of candidateOrderNumbers) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, order_items(*)')
+        .eq('merchant_id', merchantId)
+        .ilike('order_number', candidateOrderNumber)
+        .maybeSingle();
+
+      if (error) {
+        orderError = error;
+        break;
+      }
+
+      if (data) {
+        order = data as DashboardOrderRecord;
+        break;
+      }
+    }
   }
 
-  const { data: order, error } = await query.single();
-
-  if (error || !order) {
-    console.error('Error fetching order:', error);
+  if (orderError || !order) {
+    if (orderError) {
+      logger.error({
+        message: 'Error fetching order',
+        error: orderError,
+        merchantId,
+        orderIdentifier,
+        route: 'dashboard/orders/getOrder',
+      });
+    }
     return null;
   }
+
+  const orderItemImageMap = await loadOrderItemImageMap(
+    supabase,
+    (order.order_items || []).map((item: OrderItem) => item.product_id)
+  );
 
   // Fetch transactions
   const { data: transactions } = await supabase
@@ -358,7 +421,7 @@ export async function getOrder(
   return {
     id: order.id,
     orderNumber: order.order_number,
-    customerName: order.customer_name,
+    customerName: formatPersonName(order.customer_name || 'Customer'),
     total: Number.parseFloat(order.total),
     shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
     paymentStatus: formatStatus(order.payment_status) as PaymentStatus,
@@ -369,7 +432,7 @@ export async function getOrder(
       year: 'numeric',
     }),
     createdAt: new Date(order.created_at).getTime(),
-    source: order.source === 'online_store' ? 'other' : order.source,
+    source: order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
     payment_reference: order.payment_reference,
@@ -381,7 +444,9 @@ export async function getOrder(
       name: item.name || 'Unknown Product',
       quantity: item.quantity,
       price: Number.parseFloat(String(item.price || 0)),
-      image: undefined, // Image not available without product join
+      image: item.product_id
+        ? orderItemImageMap.get(item.product_id)
+        : undefined,
       variant: item.variant_name || undefined,
       hasAssurance: item.has_assurance || false,
     })),
@@ -454,7 +519,7 @@ export async function resendOrderConfirmation(
 
     const emailData = {
       orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
-      customerName: order.customer_name,
+      customerName: formatPersonName(order.customer_name || 'Customer'),
       items: emailItems,
       subtotal: Number.parseFloat(order.subtotal || '0'),
       shippingFee: Number.parseFloat(order.shipping_fee || '0'),
@@ -488,7 +553,7 @@ export async function resendOrderConfirmation(
 
     await sendEmail({
       to: order.customer_email,
-      toName: order.customer_name,
+      toName: formatPersonName(order.customer_name || 'Customer'),
       subject: `Order Confirmation - #${emailData.orderNumber}`,
       htmlContent,
       textContent,

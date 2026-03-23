@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { type MouseEvent, useEffect, useRef, useState } from 'react';
 import { OrderManagerModal } from '@/components/jumia/order-manager-modal';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +58,21 @@ import {
   type PaymentStatus,
   type ShippingStatus,
 } from './actions';
+import { getOrderSourceLabel } from './order-source-display';
+import { OrderSourceIcon } from './order-source-icon';
+
+const INTERACTIVE_CARD_TARGET_SELECTOR = [
+  'a',
+  'button',
+  'input',
+  'label',
+  'select',
+  'textarea',
+  '[role="button"]',
+  '[role="checkbox"]',
+  '[role="menuitem"]',
+  '[data-no-card-toggle="true"]',
+].join(', ');
 
 export const StatusBadge = ({
   status,
@@ -89,7 +104,13 @@ export const StatusBadge = ({
   return (
     <Badge
       variant={'outline'}
-      className={cn('capitalize justify-center', className)}
+      className={cn(
+        'inline-flex items-center justify-center whitespace-nowrap rounded-full border px-3 text-sm font-medium capitalize',
+        type === 'payment'
+          ? 'h-9 min-w-[124px] px-3 text-sm'
+          : 'h-7 min-w-[104px] px-3 text-xs',
+        className
+      )}
     >
       {status}
     </Badge>
@@ -111,7 +132,7 @@ const StatusDropdown = ({
         <Button
           variant="outline"
           size="sm"
-          className="flex items-center gap-2 capitalize w-full justify-between"
+          className="flex h-9 min-w-[160px] items-center justify-between gap-2 rounded-lg capitalize"
         >
           <StatusBadge status={shippingStatus} type="shipping" />
           <ChevronDown className="h-4 w-4" />
@@ -165,52 +186,6 @@ const StatusDropdown = ({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-};
-
-export const SourceIcon = ({ source }: { source: string }) => {
-  if (source === 'whatsapp') {
-    return (
-      <svg
-        className="h-6 w-6 text-green-500"
-        viewBox="0 0 24 24"
-        fill="currentColor"
-        aria-hidden="true"
-      >
-        <path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.74.45 3.38 1.26 4.84l-1.33 4.85 4.97-1.3c1.4.78 2.98 1.21 4.61 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-5.46-4.45-9.91-9.91-9.91zM17.48 15.36c-.21.6-1.3 1.12-1.79 1.18-.49.06-1.04.06-1.57-.09-.53-.15-1.12-.34-1.84-1.1-1.02-1.08-1.7-2.35-1.93-2.76-.23-.41-.03-.63.18-.84.2-.21.41-.35.56-.53.15-.18.2-.3.15-.49-.06-.18-.53-1.27-.73-1.76s-.4-.41-.56-.41h-.48c-.18 0-.4.18-.56.41-.18.21-.69.69-.69 1.69s.71 1.97.81 2.12c.1.15 1.41 2.35 3.43 3.21.49.21.87.34 1.18.43.53.15.99.12 1.36-.03.44-.18.69-.81.79-1.53.1-.71.1-1.3-.03-1.48-.06-.18-.24-.27-.45-.45z" />
-      </svg>
-    );
-  }
-  if (source === 'instagram') {
-    return (
-      <svg
-        className="h-6 w-6"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
-        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
-      </svg>
-    );
-  }
-  if (source === 'jumia') {
-    return (
-      <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center bg-white border border-gray-100 shadow-sm relative">
-        <Image
-          src="/images/jumia-logo.png"
-          alt="Jumia"
-          fill
-          className="object-contain p-0.5"
-        />
-      </div>
-    );
-  }
-  return <div className="h-6 w-6 rounded-full bg-gray-200" />;
 };
 
 const OrderCard = ({
@@ -272,18 +247,39 @@ const OrderCard = ({
   })();
 
   const cardStyle = isUrgent
-    ? 'border-l-red-500 bg-red-50/50 dark:bg-red-950/20'
+    ? 'dashboard-surface border-l-red-500 ring-1 ring-red-500/15'
     : isWarning
-      ? 'border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20'
-      : 'border-l-primary/20 bg-card hover:bg-accent/50';
+      ? 'dashboard-surface border-l-amber-500 ring-1 ring-amber-500/15'
+      : 'dashboard-surface border-l-primary/20';
+
+  const toggleExpanded = () => {
+    setIsExpanded((current) => !current);
+  };
+
+  const handleCardClick = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target;
+
+    if (target instanceof Element) {
+      const interactiveTarget = target.closest(
+        INTERACTIVE_CARD_TARGET_SELECTOR
+      );
+
+      if (interactiveTarget) {
+        return;
+      }
+    }
+
+    toggleExpanded();
+  };
 
   return (
     <Card
-      className={`mb-3 transition-all hover:shadow-md overflow-hidden border-l-4 group ${cardStyle}`}
+      className={`mb-3 cursor-pointer overflow-hidden rounded-2xl border border-l-4 shadow-sm transition-all hover:shadow-md dark:text-slate-100 ${cardStyle}`}
+      onClick={handleCardClick}
     >
-      <div className="p-4 flex flex-col md:flex-row gap-4">
+      <div className="flex flex-col gap-4 p-4 md:flex-row md:items-center">
         {/* Left: Checkbox & Logic */}
-        <div className="flex items-start gap-4 flex-1 min-w-0">
+        <div className="flex min-w-0 flex-1 items-start gap-4">
           <Checkbox
             onCheckedChange={(checked) =>
               onSelect(order.orderNumber, checked as boolean)
@@ -300,10 +296,10 @@ const OrderCard = ({
      But simpler to let user click Chevron or non-interactive areas. */
           >
             {/* Header: Customer & Date & Urgency */}
-            <div className="flex flex-wrap gap-2 text-sm mb-3 items-center">
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
               <Link
                 href={`/dashboard/orders/${order.orderNumber.replace('#', '')}`}
-                className="font-semibold text-foreground hover:underline decoration-primary underline-offset-4"
+                className="font-semibold text-foreground hover:underline decoration-primary underline-offset-4 dark:text-slate-100"
                 onClick={(e) => e.stopPropagation()}
               >
                 {order.customerName}
@@ -311,28 +307,27 @@ const OrderCard = ({
               <span className="text-muted-foreground">•</span>
               <button
                 type="button"
-                className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded cursor-pointer hover:text-foreground transition-colors"
-                onClick={() => setIsExpanded(!isExpanded)}
+                className="dashboard-surface-subtle cursor-pointer rounded px-1.5 py-0.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+                onClick={toggleExpanded}
               >
                 {order.orderNumber}
               </button>
-              {/* Source Icon next to ID */}
-              <div className="ml-1 scale-75 origin-left">
-                <SourceIcon source={order.source} />
-              </div>
-              <span className="text-muted-foreground">•</span>
-              <span className="text-muted-foreground text-xs">
+              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground dark:text-slate-400">
+                <OrderSourceIcon source={order.source} />
+                <span>{getOrderSourceLabel(order.source)}</span>
+              </span>
+              <span className="text-xs text-muted-foreground dark:text-slate-400">
                 {order.date}
               </span>
 
               {/* Urgency / Time Badge */}
               <div
-                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ml-2 ${
+                className={`ml-2 flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold ${
                   isUrgent
-                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                    ? 'border-red-200 bg-red-100 text-red-800 dark:border-red-400/45 dark:bg-red-950/70 dark:text-red-100'
                     : isWarning
-                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                      : 'bg-muted text-muted-foreground'
+                      ? 'border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-400/45 dark:bg-amber-950/70 dark:text-amber-100'
+                      : 'dashboard-surface-subtle border-border text-muted-foreground'
                 }`}
               >
                 {isActionable && (isUrgent || isWarning) && (
@@ -350,19 +345,19 @@ const OrderCard = ({
 
               <Badge
                 variant="outline"
-                className="ml-auto md:hidden text-[10px] h-5"
+                className="ml-auto h-5 text-[10px] md:hidden"
               >
                 {order.paymentStatus}
               </Badge>
             </div>
 
             {/* Visual Row: Product Thumbnails - Hidden on mobile */}
-            <div className="hidden md:flex items-center gap-2 mb-1">
+            <div className="mb-1 hidden items-center gap-2 md:flex">
               {visibleItems.length > 0 ? (
                 visibleItems.map((item) => (
                   <div
                     key={item.id}
-                    className="relative w-12 h-12 rounded-lg bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0"
+                    className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted dark:border-slate-800 dark:bg-slate-900"
                   >
                     {item.image ? (
                       <Image
@@ -377,7 +372,7 @@ const OrderCard = ({
                     )}
                     {/* Quantity Badge if > 1 */}
                     {item.quantity > 1 && (
-                      <div className="absolute -bottom-1 -right-1 bg-foreground text-background text-[10px] font-bold px-1 rounded-full shadow-sm">
+                      <div className="absolute -bottom-1 -right-1 rounded-full bg-foreground px-1 py-0.5 text-[10px] font-bold text-background shadow-sm">
                         x{item.quantity}
                       </div>
                     )}
@@ -391,33 +386,33 @@ const OrderCard = ({
 
               {/* +X More Badge */}
               {remainingItems > 0 && (
-                <div className="w-12 h-12 rounded-lg bg-muted/50 border border-dashed border-muted-foreground/30 flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-dashed border-muted-foreground/30 bg-muted/50 text-xs font-medium text-muted-foreground dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-400">
                   +{remainingItems}
                 </div>
               )}
             </div>
 
-            <p className="text-xs text-muted-foreground truncate max-w-[90%] mt-1 group-hover:text-primary transition-colors">
+            <p className="mt-1 max-w-[90%] truncate text-xs text-muted-foreground transition-colors group-hover:text-primary dark:text-slate-400">
               {itemCount} items: {order.items?.map((i) => i.name).join(', ')}
             </p>
           </div>
         </div>
 
         {/* Right: Metrics & Actions */}
-        <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-auto border-t md:border-t-0 pt-3 md:pt-0 mt-2 md:mt-0">
+        <div className="mt-2 flex w-full items-center justify-between gap-6 border-t pt-3 md:mt-0 md:w-auto md:justify-end md:border-t-0 md:pt-0">
           {/* Financials */}
-          <div className="flex flex-col items-end min-w-[100px]">
-            <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+          <div className="flex min-w-[100px] flex-col items-end">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground dark:text-slate-500">
               Total
             </span>
-            <span className="font-bold text-lg">
+            <span className="text-lg font-bold dark:text-slate-50">
               {formatCurrency(order.total)}
             </span>
           </div>
 
           {/* Status Actions */}
           <div className="flex items-center gap-3">
-            <div className="hidden md:block">
+            <div className="hidden md:flex md:items-center">
               <StatusBadge status={order.paymentStatus} type="payment" />
             </div>
 
@@ -425,7 +420,7 @@ const OrderCard = ({
               <Button
                 size="sm"
                 variant="outline"
-                className="hover:bg-orange-50 hover:text-orange-600 border-orange-200"
+                className="border-orange-200 hover:bg-orange-50 hover:text-orange-600 dark:border-orange-500/30 dark:hover:bg-orange-500/10"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (onManageJumia) onManageJumia(order);
@@ -440,8 +435,8 @@ const OrderCard = ({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="shrink-0 h-8 w-8"
+              onClick={toggleExpanded}
+              className="h-9 w-9 shrink-0 rounded-lg"
               aria-label={`${isExpanded ? 'Collapse' : 'Expand'} details for order ${order.orderNumber}`}
             >
               {isExpanded ? (
@@ -456,7 +451,7 @@ const OrderCard = ({
 
       {/* Expanded Details Pane */}
       {isExpanded && (
-        <div className="bg-muted/10 border-t p-4 animate-in slide-in-from-top-2">
+        <div className="dashboard-surface-subtle animate-in slide-in-from-top-2 border-t p-4">
           <div className="grid gap-6 md:grid-cols-2">
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
@@ -494,7 +489,7 @@ const OrderCard = ({
               <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
                 <MapPin className="w-3 h-3" /> Fulfillment
               </h4>
-              <div className="bg-background rounded-lg border p-4 text-sm space-y-3">
+              <div className="dashboard-surface-elevated space-y-3 rounded-lg border p-4 text-sm">
                 <div className="flex justify-between border-b pb-2">
                   <span className="text-foreground/70 font-medium">
                     Shipping Status
@@ -765,20 +760,20 @@ export default function OrdersClientPage({
   }
 
   return (
-    <div className="flex flex-col h-full gap-4 relative">
+    <div className="relative flex h-full flex-col gap-4">
       {/* Dynamic Background Elements */}
-      <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background -z-10 pointer-events-none" />
-      <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] -z-10 pointer-events-none opacity-50" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background" />
+      <div className="pointer-events-none absolute left-0 top-0 -z-10 h-full w-full bg-[url('/grid.svg')] bg-center opacity-50 [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" />
 
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
+        <h1 className="bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
           Orders 📦
         </h1>
         <div className="flex items-center gap-2">
           <Button
             size="icon"
             variant="outline"
-            className="h-11 w-11 min-w-[44px] min-h-[44px]"
+            className="h-11 min-h-[44px] w-11 min-w-[44px]"
           >
             <File className="h-4 w-4" />
             <span className="sr-only">Export</span>
@@ -786,7 +781,7 @@ export default function OrdersClientPage({
           <Button
             size="icon"
             variant="outline"
-            className="h-11 w-11 min-w-[44px] min-h-[44px]"
+            className="h-11 min-h-[44px] w-11 min-w-[44px]"
           >
             <RefreshCw className="h-4 w-4" />
             <span className="sr-only">Refresh</span>
@@ -803,7 +798,7 @@ export default function OrdersClientPage({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="bg-blue-50/50 backdrop-blur-sm border-blue-200 transition-transform transform hover:scale-105">
+        <Card className="border-blue-200 bg-blue-50/50 backdrop-blur-sm transition-transform hover:scale-105">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-800">
               Total Orders 🛍️
@@ -811,7 +806,7 @@ export default function OrdersClientPage({
             <ShoppingCart className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-stat text-blue-900">
+            <div className="text-stat text-blue-900 dark:text-slate-50">
               {statsLoading ? (
                 <BagLoader size={24} />
               ) : (
@@ -820,7 +815,7 @@ export default function OrdersClientPage({
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-yellow-50/50 backdrop-blur-sm border-yellow-200 transition-transform transform hover:scale-105">
+        <Card className="border-yellow-200 bg-yellow-50/50 backdrop-blur-sm transition-transform hover:scale-105">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-yellow-800">
               Completed Orders ✅
@@ -828,7 +823,7 @@ export default function OrdersClientPage({
             <PackageCheck className="h-5 w-5 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-stat text-yellow-900">
+            <div className="text-stat text-yellow-900 dark:text-slate-50">
               {statsLoading ? (
                 <BagLoader size={24} />
               ) : (
@@ -837,7 +832,7 @@ export default function OrdersClientPage({
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-blue-50/50 backdrop-blur-sm border-blue-200 transition-transform transform hover:scale-105">
+        <Card className="border-blue-200 bg-blue-50/50 backdrop-blur-sm transition-transform hover:scale-105">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-800">
               Unpaid Orders 💸
@@ -845,7 +840,7 @@ export default function OrdersClientPage({
             <FileWarning className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-stat text-blue-900">
+            <div className="text-stat text-blue-900 dark:text-slate-50">
               {statsLoading ? (
                 <BagLoader size={24} />
               ) : (
@@ -861,15 +856,15 @@ export default function OrdersClientPage({
         <Input
           type="search"
           placeholder="Search orders..."
-          className="w-full bg-background/50 backdrop-blur-sm pl-8"
+          className="w-full bg-background/50 pl-8 backdrop-blur-sm"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
       {showAlert && stats.urgentOrders > 0 && (
-        <Alert className="bg-yellow-50/80 backdrop-blur-sm border-yellow-200 text-yellow-900 relative">
-          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+        <Alert className="relative border-yellow-200 bg-yellow-50/80 text-yellow-900 backdrop-blur-sm dark:border-yellow-500/20 dark:bg-yellow-500/10 dark:text-yellow-100">
+          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-300" />
           <AlertTitle className="font-semibold">
             {statsLoading ? (
               <span className="flex items-center gap-2">
@@ -899,7 +894,7 @@ export default function OrdersClientPage({
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-2 right-2 h-6 w-6"
+            className="absolute right-2 top-2 h-6 w-6"
             onClick={() => setShowAlert(false)}
           >
             <X className="h-4 w-4" />
@@ -908,8 +903,8 @@ export default function OrdersClientPage({
         </Alert>
       )}
 
-      <div className="flex gap-2 items-center text-sm text-muted-foreground">
-        <div className="flex gap-2 items-center">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2">
           <ListFilter className="h-4 w-4 text-blue-800" />
         </div>
         <DropdownMenu>
@@ -986,8 +981,8 @@ export default function OrdersClientPage({
         </DropdownMenu>
       </div>
 
-      <Card className="glass bg-white/60 dark:bg-black/40 backdrop-blur-xl">
-        <CardHeader className="px-4 pt-4 pb-0 border-b border-blue-200/50">
+      <Card className="glass border-slate-800/70 bg-white/60 backdrop-blur-xl dark:bg-black/40">
+        <CardHeader className="border-b border-blue-200/50 px-4 pb-0 pt-4 dark:border-slate-800">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold">Recent Orders</h3>
             <div className="flex items-center gap-2">
@@ -1034,7 +1029,7 @@ export default function OrdersClientPage({
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-4">
+          <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-4">
             {ordersLoading ? (
               <div className="flex justify-center items-center h-64">
                 <BagLoader size={32} />

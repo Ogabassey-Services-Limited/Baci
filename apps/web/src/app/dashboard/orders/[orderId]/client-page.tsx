@@ -43,7 +43,9 @@ import {
   resendOrderConfirmation,
   type ShippingStatus,
 } from '../actions';
-import { SourceIcon, StatusBadge } from '../client-page';
+import { StatusBadge } from '../client-page';
+import { getOrderSourceLabel } from '../order-source-display';
+import { OrderSourceIcon } from '../order-source-icon';
 import ConfirmInsuranceDialog from './confirm-insurance-dialog';
 
 // Type definitions
@@ -53,6 +55,7 @@ interface OrderDetailsClientPageProps {
 
 interface OrderItem {
   id: string;
+  image?: string;
   name: string;
   quantity: number;
   price: number;
@@ -345,8 +348,10 @@ export default function OrderDetailsClientPage({
                       Channel
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                      <SourceIcon source={order.source} />
-                      <p className="font-semibold capitalize">{order.source}</p>
+                      <OrderSourceIcon source={order.source} />
+                      <p className="font-semibold">
+                        {getOrderSourceLabel(order.source)}
+                      </p>
                     </div>
                   </div>
                   <div>
@@ -410,7 +415,7 @@ export default function OrderDetailsClientPage({
                   >
                     <Image
                       src={
-                        item.product?.image || '/images/placeholder-product.png'
+                        item.image || item.product?.image || '/placeholder.png'
                       }
                       alt={item.name || 'Product'}
                       width={64}

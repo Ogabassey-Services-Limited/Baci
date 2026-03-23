@@ -45,7 +45,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 // Import after mocks
-const { resendOrderConfirmation } = await import('./actions');
+const { getOrder, resendOrderConfirmation } = await import('./actions');
 
 const ORDER_ID = 'order-123';
 const MERCHANT_ID = 'merchant-456';
@@ -57,6 +57,11 @@ const mockOrder = {
   customer_name: 'John Doe',
   customer_email: 'john@example.com',
   customer_phone: '+2348012345678',
+  shipping_status: 'pending',
+  payment_status: 'paid',
+  payment_method: 'card',
+  created_at: '2026-03-23T08:00:00.000Z',
+  source: 'whatsapp',
   subtotal: '10000',
   shipping_fee: '1500',
   total: '11500',
@@ -65,7 +70,15 @@ const mockOrder = {
     city: 'Lagos',
     state: 'Lagos',
   },
-  order_items: [{ name: 'Widget', quantity: 2, price: 5000 }],
+  order_items: [
+    {
+      id: 'item-1',
+      name: 'Widget',
+      product_id: 'product-1',
+      quantity: 2,
+      price: 5000,
+    },
+  ],
 };
 
 const mockMerchant: {
@@ -253,5 +266,193 @@ describe('resendOrderConfirmation', () => {
     const result = await resendOrderConfirmation(ORDER_ID);
     expect(result.success).toBe(false);
     expect(result.message).toBe('Failed to send email. Please try again.');
+  });
+});
+
+describe('getOrder', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fetches an order case-insensitively by order number', async () => {
+    const maybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: mockOrder, error: null });
+    const merchantScopedFilter = {
+      eq: vi.fn(() => ({ maybeSingle })),
+      ilike: vi.fn((column: string, value: string) => {
+        expect(column).toBe('order_number');
+        expect(value).toBe('ord-001');
+        return { maybeSingle };
+      }),
+    };
+    const merchantEq = vi.fn((column: string, value: string) => {
+      expect(column).toBe('merchant_id');
+      expect(value).toBe(MERCHANT_ID);
+      return merchantScopedFilter;
+    });
+    const productsIn = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'product-1',
+          images: ['https://cdn.example.com/products/widget.avif'],
+        },
+      ],
+      error: null,
+    });
+    const productsSelect = vi.fn(() => ({ in: productsIn }));
+    const transactionsOrder = vi
+      .fn()
+      .mockResolvedValue({ data: [], error: null });
+    const transactionsEq = vi.fn((column: string, value: string) => {
+      expect(column).toBe('order_id');
+      expect(value).toBe(ORDER_ID);
+      return { order: transactionsOrder };
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'orders') {
+        return {
+          select: vi.fn(() => ({
+            eq: merchantEq,
+          })),
+        };
+      }
+
+      if (table === 'transactions') {
+        return {
+          select: vi.fn(() => ({
+            eq: transactionsEq,
+          })),
+        };
+      }
+
+      if (table === 'products') {
+        return {
+          select: productsSelect,
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const order = await getOrder(MERCHANT_ID, 'ord-001');
+
+    expect(order?.id).toBe(ORDER_ID);
+    expect(order?.orderNumber).toBe('#ORD-001');
+    expect(order?.items[0]?.image).toBe(
+      'https://cdn.example.com/products/widget.avif'
+    );
+    expect(merchantEq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
+    expect(merchantScopedFilter.ilike).toHaveBeenCalledWith(
+      'order_number',
+      'ord-001'
+    );
+    expect(productsSelect).toHaveBeenCalledWith('id, images');
+    expect(productsIn).toHaveBeenCalledWith('id', ['product-1']);
+  });
+
+  it('preserves storefront order sources for dashboard labels', async () => {
+    const storefrontOrder = {
+      ...mockOrder,
+      source: 'online_store',
+    };
+    const maybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: storefrontOrder, error: null });
+    const merchantScopedFilter = {
+      eq: vi.fn(() => ({ maybeSingle })),
+      ilike: vi.fn(() => ({ maybeSingle })),
+    };
+    const productsIn = vi.fn().mockResolvedValue({
+      data: [],
+      error: null,
+    });
+    const productsSelect = vi.fn(() => ({ in: productsIn }));
+    const transactionsOrder = vi
+      .fn()
+      .mockResolvedValue({ data: [], error: null });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'orders') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => merchantScopedFilter),
+          })),
+        };
+      }
+
+      if (table === 'transactions') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({ order: transactionsOrder })),
+          })),
+        };
+      }
+
+      if (table === 'products') {
+        return {
+          select: productsSelect,
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const order = await getOrder(MERCHANT_ID, 'ord-001');
+
+    expect(order?.source).toBe('online_store');
+  });
+
+  it('formats legacy lowercase customer names for display', async () => {
+    const lowercaseOrder = {
+      ...mockOrder,
+      customer_name: 'chidimma azubuike',
+    };
+    const maybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: lowercaseOrder, error: null });
+    const merchantScopedFilter = {
+      eq: vi.fn(() => ({ maybeSingle })),
+      ilike: vi.fn(() => ({ maybeSingle })),
+    };
+    const productsIn = vi.fn().mockResolvedValue({
+      data: [],
+      error: null,
+    });
+    const productsSelect = vi.fn(() => ({ in: productsIn }));
+    const transactionsOrder = vi
+      .fn()
+      .mockResolvedValue({ data: [], error: null });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'orders') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => merchantScopedFilter),
+          })),
+        };
+      }
+
+      if (table === 'transactions') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({ order: transactionsOrder })),
+          })),
+        };
+      }
+
+      if (table === 'products') {
+        return {
+          select: productsSelect,
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const order = await getOrder(MERCHANT_ID, 'ord-001');
+
+    expect(order?.customerName).toBe('Chidimma Azubuike');
   });
 });
