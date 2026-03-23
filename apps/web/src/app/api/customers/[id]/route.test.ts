@@ -169,6 +169,30 @@ describe('GET /api/customers/[id]', () => {
     expect(json.customer).toBeDefined();
     expect(json.customer.id).toBe(CUSTOMER_ID);
   });
+
+  it('returns 404 when the customer does not exist', async () => {
+    customer = null;
+
+    const res = await GET(makeGetRequest(CUSTOMER_ID), {
+      params: Promise.resolve({ id: CUSTOMER_ID }),
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(json.error).toBe('Customer not found');
+  });
+
+  it('returns 500 when the customer lookup fails', async () => {
+    customerError = { message: 'database is unavailable' };
+
+    const res = await GET(makeGetRequest(CUSTOMER_ID), {
+      params: Promise.resolve({ id: CUSTOMER_ID }),
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(json.error).toBe('Internal server error');
+  });
 });
 
 describe('PATCH /api/customers/[id]', () => {

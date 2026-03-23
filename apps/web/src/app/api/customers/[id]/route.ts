@@ -42,9 +42,17 @@ export async function GET(
     .select(CUSTOMER_ADMIN_COLUMNS)
     .eq('id', id)
     .eq('merchant_id', merchantId)
-    .single();
+    .maybeSingle();
 
   if (error) {
+    console.error('Customer lookup failed:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+
+  if (!customer) {
     return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
   }
 

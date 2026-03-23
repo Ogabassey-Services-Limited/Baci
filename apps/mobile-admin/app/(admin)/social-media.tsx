@@ -58,7 +58,16 @@ export default function SocialMediaScreen() {
       linkedin: sm?.linkedin || '',
       snapchat: sm?.snapchat || '',
     });
-  }, [merchant?.social_media]);
+  }, [
+    merchant?.social_media?.instagram,
+    merchant?.social_media?.twitter,
+    merchant?.social_media?.facebook,
+    merchant?.social_media?.tiktok,
+    merchant?.social_media?.youtube,
+    merchant?.social_media?.pinterest,
+    merchant?.social_media?.linkedin,
+    merchant?.social_media?.snapchat,
+  ]);
 
   // Save Mutation
   const saveMutation = useMutation({

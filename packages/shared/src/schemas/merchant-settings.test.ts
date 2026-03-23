@@ -23,4 +23,29 @@ describe('merchant settings schemas', () => {
       }).success
     ).toBe(true);
   });
+
+  it('rejects non-string social media handles', () => {
+    const result = SocialMediaSchema.safeParse({
+      instagram: 123,
+      tiktok: { handle: '@usebaci' },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(
+      expect.arrayContaining(['instagram', 'tiktok'])
+    );
+  });
+
+  it('rejects invalid registered address field types', () => {
+    const result = RegisteredAddressSchema.safeParse({
+      street: 42,
+      city: { name: 'Lagos' },
+      postal_code: ['101001'],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.path.join('.'))).toEqual(
+      expect.arrayContaining(['street', 'city', 'postal_code'])
+    );
+  });
 });

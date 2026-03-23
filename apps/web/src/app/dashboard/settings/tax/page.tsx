@@ -10,6 +10,7 @@ import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
+import { registeredAddressSchema } from '@/schemas/merchant-settings';
 import { TaxSettingsForm } from './tax-settings-form';
 
 export const metadata: Metadata = {
@@ -43,7 +44,19 @@ export default async function TaxSettingsPage() {
   const vatRate = merchantData?.vat_rate ?? 7.5;
   const taxId = merchantData?.tax_identification_number ?? '';
   const legalEntityName = merchantData?.legal_entity_name ?? '';
-  const addr = merchantData?.registered_address as RegisteredAddress | null;
+  const parsedAddress = registeredAddressSchema.safeParse(
+    merchantData?.registered_address
+  );
+  if (!parsedAddress.success && merchantData?.registered_address != null) {
+    console.error('Invalid merchant registered address payload:', {
+      merchantId: merchant.id,
+      address: merchantData.registered_address,
+      error: parsedAddress.error,
+    });
+  }
+  const addr: RegisteredAddress | null = parsedAddress.success
+    ? parsedAddress.data
+    : null;
   const registeredAddress = {
     street: addr?.street ?? '',
     city: addr?.city ?? '',

@@ -45,7 +45,7 @@ const socialMediaSchema = z.object({
     .nullable(),
 });
 
-const registeredAddressSchema: z.ZodType<RegisteredAddress> = z.object({
+export const registeredAddressSchema: z.ZodType<RegisteredAddress> = z.object({
   street: z
     .string()
     .transform((value) => sanitizeText(value, 255))
