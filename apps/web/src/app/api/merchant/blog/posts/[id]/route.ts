@@ -224,6 +224,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     );
     revalidateBlogPosts({
       identifiers: cacheIdentifiers,
+      listingCategories: [existingPost.category, updatedPost.category].filter(
+        (category): category is string => Boolean(category)
+      ),
       postSlugs: [existingPost.slug, updatedPost.slug],
     });
 
@@ -272,6 +275,20 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     const supabase = auth.supabase;
 
+    const { data: existingPost, error: existingPostError } = await supabase
+      .from('blog_posts')
+      .select('slug, category')
+      .eq('id', id)
+      .eq('merchant_id', access.merchantId)
+      .maybeSingle();
+
+    if (existingPostError) {
+      console.error(
+        'Error fetching blog post before deletion:',
+        existingPostError
+      );
+    }
+
     // Delete post
     const { error: deleteError } = await supabase
       .from('blog_posts')
@@ -292,7 +309,11 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       supabase,
       access.merchantId
     );
-    revalidateBlogPosts({ identifiers: cacheIdentifiers });
+    revalidateBlogPosts({
+      identifiers: cacheIdentifiers,
+      listingCategories: existingPost?.category ? [existingPost.category] : [],
+      postSlugs: existingPost?.slug ? [existingPost.slug] : [],
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

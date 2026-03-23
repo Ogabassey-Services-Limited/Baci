@@ -14,6 +14,8 @@ import { revalidateTag } from 'next/cache';
 
 interface BlogRevalidationOptions {
   identifiers?: Array<string | null | undefined>;
+  listingCategories?: Array<string | null | undefined>;
+  listingPages?: Array<number | null | undefined>;
   postSlugs?: Array<string | null | undefined>;
 }
 
@@ -88,6 +90,14 @@ export function revalidateBlogPosts(
     typeof identifierOrOptions === 'string'
       ? [postSlug]
       : (identifierOrOptions.postSlugs ?? []);
+  const listingCategories =
+    typeof identifierOrOptions === 'string'
+      ? []
+      : (identifierOrOptions.listingCategories ?? []);
+  const listingPages =
+    typeof identifierOrOptions === 'string'
+      ? []
+      : (identifierOrOptions.listingPages ?? []);
 
   const normalizedIdentifiers = Array.from(
     new Set(
@@ -103,8 +113,35 @@ export function revalidateBlogPosts(
         .filter((slug): slug is string => Boolean(slug))
     )
   );
+  const normalizedListingCategories = Array.from(
+    new Set([
+      'all',
+      ...listingCategories
+        .map((category) => category?.trim().toLowerCase())
+        .filter((category): category is string => Boolean(category)),
+    ])
+  );
+  const normalizedListingPages = Array.from(
+    new Set(
+      listingPages.filter(
+        (page): page is number =>
+          typeof page === 'number' && Number.isInteger(page) && page > 0
+      )
+    )
+  );
+  const effectiveListingPages =
+    normalizedListingPages.length > 0 ? normalizedListingPages : [1];
 
   for (const identifier of normalizedIdentifiers) {
+    for (const category of normalizedListingCategories) {
+      for (const page of effectiveListingPages) {
+        revalidateTag(
+          `blog-list-${identifier}-${category}-${page}`,
+          'merchant'
+        );
+      }
+    }
+
     for (const slug of normalizedPostSlugs) {
       revalidateTag(`blog-${identifier}-${slug}`, 'merchant');
     }

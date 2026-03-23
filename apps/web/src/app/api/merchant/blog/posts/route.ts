@@ -183,6 +183,15 @@ export async function POST(request: NextRequest) {
       .eq('id', access.merchantId)
       .single();
 
+    if (!merchantData?.slug) {
+      console.warn(
+        'Merchant slug missing during blog post revalidation; falling back to base blog tag only',
+        {
+          merchantId: access.merchantId,
+        }
+      );
+    }
+
     const merchant = {
       id: access.merchantId,
       business_name: merchantData?.business_name || 'Store Owner',
@@ -329,7 +338,8 @@ export async function POST(request: NextRequest) {
 
     // Invalidate blog caches so storefront shows the new post immediately
     revalidateBlogPosts({
-      identifiers: [merchant.slug],
+      identifiers: merchant.slug ? [merchant.slug] : [],
+      listingCategories: postData.category ? [postData.category] : [],
       postSlugs: [postData.slug],
     });
 
