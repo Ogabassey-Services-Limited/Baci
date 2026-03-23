@@ -397,9 +397,9 @@ describe('POST /api/merchant/blog/posts', () => {
     // Setup default mock responses
     // Mock single() to return appropriate data based on select field
     mockSupabase.select.mockImplementation((fields: string) => {
-      if (fields === 'business_name') {
+      if (fields === 'business_name, slug') {
         mockSupabase.single.mockResolvedValueOnce({
-          data: { business_name: 'Test Store' },
+          data: { business_name: 'Test Store', slug: 'test-store' },
           error: null,
         });
       } else if (fields === 'blog_enabled') {
@@ -499,11 +499,11 @@ describe('POST /api/merchant/blog/posts', () => {
             }),
           } as never;
         }
-        if (fields === 'business_name') {
+        if (fields === 'business_name, slug') {
           return {
             eq: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
-              data: { business_name: 'Test Store' },
+              data: { business_name: 'Test Store', slug: 'test-store' },
               error: null,
             }),
           } as never;
@@ -728,10 +728,53 @@ describe('POST /api/merchant/blog/posts', () => {
         makeRequest('/api/merchant/blog/posts', { body: validPostData })
       );
 
-      expect(mockRevalidateBlogPosts).toHaveBeenCalledWith(
-        MERCHANT_ID,
-        'new-blog-post'
+      expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+        identifiers: ['test-store'],
+        listingCategories: [],
+        postSlugs: ['new-blog-post'],
+      });
+    });
+
+    it('warns when merchant slug is missing and falls back to the base blog tag', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+
+      mockSupabase.select.mockImplementation((fields: string) => {
+        if (fields === 'business_name, slug') {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: { business_name: 'Test Store', slug: null },
+            error: null,
+          });
+        } else if (fields === 'blog_enabled') {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: { blog_enabled: true },
+            error: null,
+          });
+        } else {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: { id: '1', slug: 'new-blog-post' },
+            error: null,
+          });
+        }
+
+        return mockSupabase;
+      });
+
+      await POST(
+        makeRequest('/api/merchant/blog/posts', { body: validPostData })
       );
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Merchant slug missing during blog post revalidation; falling back to base blog tag only',
+        { merchantId: MERCHANT_ID }
+      );
+      expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+        identifiers: [],
+        listingCategories: [],
+        postSlugs: ['new-blog-post'],
+      });
+      consoleWarnSpy.mockRestore();
     });
   });
 
