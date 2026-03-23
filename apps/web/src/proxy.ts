@@ -716,16 +716,19 @@ export async function proxy(request: NextRequest) {
       // route collisions with dynamic [category] segments in the storefront tree.
       if (pathname.endsWith('.md')) {
         const merchantSlug = await getSlugForCustomDomain(domain);
-        const mdUrl = request.nextUrl.clone();
-        mdUrl.pathname = toLlmApiPath(pathname, merchantSlug ?? domain);
+        if (merchantSlug) {
+          const mdUrl = request.nextUrl.clone();
+          mdUrl.pathname = toLlmApiPath(pathname, merchantSlug);
 
-        const mdHeaders = new Headers(request.headers);
-        mdHeaders.set('x-custom-domain', domain);
-        mdHeaders.set('x-merchant-domain', domain);
+          const mdHeaders = new Headers(request.headers);
+          mdHeaders.set('x-custom-domain', domain);
+          mdHeaders.set('x-merchant-domain', domain);
 
-        return NextResponse.rewrite(mdUrl, {
-          request: { headers: mdHeaders },
-        });
+          return NextResponse.rewrite(mdUrl, {
+            request: { headers: mdHeaders },
+          });
+        }
+        // Slug lookup failed — fall through to standard domain rewrite
       }
 
       // First visit: Rewrite to /${domain}${pathname} so the storefront [slug] route handles it
