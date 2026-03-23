@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { getTemplate } from '@/templates/registry';
@@ -44,7 +45,29 @@ export async function generateMetadata({
   };
 }
 
-export default async function AboutPage({ params }: PageProps) {
+/**
+ * Synchronous page wrapper ensures the H1 tag appears in the initial SSR HTML,
+ * rather than being deferred to RSC streaming (which crawlers like Ahrefs miss).
+ */
+export default function AboutPage({ params }: PageProps) {
+  return (
+    <>
+      <h1 className="sr-only">About Us</h1>
+      <Suspense
+        fallback={
+          <div className="container mx-auto px-4 py-12 flex items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <span className="sr-only">Loading about page...</span>
+          </div>
+        }
+      >
+        <AboutContent params={params} />
+      </Suspense>
+    </>
+  );
+}
+
+async function AboutContent({ params }: PageProps) {
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
@@ -67,7 +90,7 @@ export default async function AboutPage({ params }: PageProps) {
 
   const jsonLd = generateAboutPageJsonLd(merchant, aboutPage, baseUrl);
 
-  // Resolve template component server-side (same pattern as blog/page.tsx)
+  // Resolve template component server-side for SEO (H1 in SSR HTML)
   const templateId = merchant.template_id;
   if (templateId && templateId !== 'default' && templateId !== 'puck') {
     const template = getTemplate(templateId);

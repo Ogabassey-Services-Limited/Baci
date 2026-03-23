@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateFAQSchema } from '@/lib/seo-utils';
@@ -36,7 +37,29 @@ export async function generateMetadata({
   };
 }
 
-export default async function FAQPage({ params }: PageProps) {
+/**
+ * Synchronous page wrapper ensures the H1 tag appears in the initial SSR HTML,
+ * rather than being deferred to RSC streaming (which crawlers like Ahrefs miss).
+ */
+export default function FAQPage({ params }: PageProps) {
+  return (
+    <>
+      <h1 className="sr-only">Frequently Asked Questions</h1>
+      <Suspense
+        fallback={
+          <div className="container mx-auto px-4 py-12 flex items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <span className="sr-only">Loading FAQ...</span>
+          </div>
+        }
+      >
+        <FAQContent params={params} />
+      </Suspense>
+    </>
+  );
+}
+
+async function FAQContent({ params }: PageProps) {
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 
