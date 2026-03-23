@@ -93,33 +93,6 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('@/constants/theme', () => ({
-  RADIUS: {
-    md: 12,
-  },
-  SPACING: {
-    sm: 8,
-    md: 12,
-    lg: 16,
-    xl: 20,
-    '2xl': 24,
-    '3xl': 32,
-    '4xl': 48,
-  },
-  TYPOGRAPHY: {
-    fontFamily: {
-      regular: 'Inter_400Regular',
-      semiBold: 'Inter_600SemiBold',
-      bold: 'Inter_700Bold',
-    },
-    size: {
-      md: 14,
-      lg: 16,
-      xl: 18,
-    },
-  },
-}));
-
 const mockSupabaseSingle = vi.fn();
 const mockSupabaseEq = vi.fn(() => ({ single: mockSupabaseSingle }));
 const mockSupabaseSelect = vi.fn(() => ({
