@@ -80,6 +80,8 @@ export function buildOrderItems(
     return {
       id: item.id,
       product_id: item.product_id || '',
+      variant_id: item.variant_id || undefined,
+      variant_name: item.variant_name || undefined,
       name: item.name,
       product_name: item.name,
       quantity: item.quantity,

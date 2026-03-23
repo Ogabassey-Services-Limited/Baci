@@ -8,6 +8,7 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
+import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-label';
 import { registerDomain } from '@/lib/go54';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
@@ -15,6 +16,7 @@ import {
   calculatePlatformFee,
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
+import { isValidUuid } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
@@ -387,6 +389,42 @@ export async function POST(request: NextRequest) {
 
         // Generate order number and tracking token
         const orderNumber = `ORD-${nanoid(12).toUpperCase()}`;
+        const variantIds = [
+          ...new Set(
+            chatItems
+              .map((item) => item.variant_id)
+              .filter(
+                (variantId): variantId is string =>
+                  !!variantId && isValidUuid(variantId)
+              )
+          ),
+        ];
+        const variantNameMap = new Map<string, string>();
+
+        if (variantIds.length > 0) {
+          const { data: variants, error: variantsError } = await supabase
+            .from('product_variants')
+            .select('id, attributes')
+            .in('id', variantIds);
+
+          if (variantsError) {
+            logger.error({
+              message: 'Failed to load variant labels for chat order items',
+              reference,
+              error: variantsError,
+            });
+          } else {
+            for (const variant of variants || []) {
+              const variantLabel = formatVariantAttributesLabel(
+                variant.attributes
+              );
+
+              if (variantLabel) {
+                variantNameMap.set(variant.id, variantLabel);
+              }
+            }
+          }
+        }
 
         // Create standard order from chat order
         const { data: newOrder, error: orderCreateError } = await supabase
@@ -433,11 +471,14 @@ export async function POST(request: NextRequest) {
           order_id: newOrder.id,
           product_id: item.product_id,
           variant_id: item.variant_id || null,
+          variant_name: item.variant_id
+            ? (variantNameMap.get(item.variant_id) ?? null)
+            : null,
           name: item.name,
           quantity: item.quantity,
           price: item.price,
-          subtotal: item.quantity * item.price,
-          image_url: item.image_url || null,
+          line_extension_amount: item.quantity * item.price,
+          item_description: item.name,
         }));
 
         if (orderItems.length > 0) {

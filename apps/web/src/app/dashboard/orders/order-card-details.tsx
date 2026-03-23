@@ -35,9 +35,11 @@ export function OrderCardDetails({
                   </div>
                   <div className="truncate">
                     <p className="truncate font-medium">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.variant || 'Default Variant'}
-                    </p>
+                    {item.variant && (
+                      <p className="text-xs text-muted-foreground">
+                        {item.variant}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="shrink-0 text-right">

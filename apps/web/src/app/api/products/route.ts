@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
           price: Number.parseFloat(p.price),
           manage_stock: p.manage_stock ?? true,
           stock: getEffectiveStock(p),
-          minimum_order_quantity: p.min_order_quantity,
+          minimum_order_quantity: 1,
 
           // Image handling
           image:

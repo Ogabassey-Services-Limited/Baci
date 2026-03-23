@@ -90,4 +90,10 @@ describe('product column constants', () => {
       expect(webTokens).toContain(field);
     }
   });
+
+  it('WEB_PRODUCT_COLUMNS does not include unsupported production columns', () => {
+    expect(tokenizeColumns(WEB_PRODUCT_COLUMNS)).not.toContain(
+      'min_order_quantity'
+    );
+  });
 });

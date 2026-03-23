@@ -101,7 +101,7 @@ export async function GET(
       price: Number.parseFloat(product.price),
       manage_stock: product.manage_stock ?? true,
       stock: getEffectiveStock(product),
-      minimum_order_quantity: product.min_order_quantity,
+      minimum_order_quantity: 1,
 
       image:
         product.images?.[0]?.url ||
