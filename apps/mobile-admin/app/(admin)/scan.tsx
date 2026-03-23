@@ -9,7 +9,6 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -173,9 +172,6 @@ export default function ScanScreen() {
 
           {/* Actions */}
           <View style={styles.actions}>
-            {/* Hardcoded #1E293B ensures consistent contrast against the
-                semi-transparent camera overlay, matching the #FFFFFF text
-                and #000000 background used throughout this screen. */}
             <Pressable
               style={[styles.actionButton, { backgroundColor: '#1E293B' }]}
               onPress={() => router.back()}
@@ -185,9 +181,6 @@ export default function ScanScreen() {
             </Pressable>
 
             {scanned && (
-              /* Hardcoded #3B82F6 provides a distinct action color with
-                 reliable contrast on the camera overlay, independent of
-                 the merchant theme. */
               <Pressable
                 style={[styles.actionButton, { backgroundColor: '#3B82F6' }]}
                 onPress={() => setScanned(false)}
@@ -206,35 +199,36 @@ export default function ScanScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000', // Keep #000 for full-screen camera compatibility
+    backgroundColor: '#000000',
   },
   centerContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING['3xl'],
-    gap: SPACING.lg,
+    padding: 32,
+    gap: 16,
   },
   message: {
-    fontSize: TYPOGRAPHY.size.xl,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
+    fontSize: 18,
+    fontWeight: '700',
     textAlign: 'center',
   },
   subMessage: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: 14,
     textAlign: 'center',
     opacity: 0.7,
   },
   backButton: {
-    marginTop: SPACING.lg,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING['2xl'],
-    borderRadius: RADIUS.md,
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#3B82F6',
+    borderRadius: 8,
   },
   backButtonText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
   camera: {
     flex: 1,
@@ -243,11 +237,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'space-between',
-    paddingVertical: SPACING['4xl'],
+    paddingVertical: 48,
   },
-  // Fixed 280x280 frame and marginTop: 80 are intentional — sized to
-  // comfortably fit standard 1D/2D barcodes and centered in the camera
-  // viewport for a consistent scanning UX across device sizes.
   scannerFrame: {
     alignSelf: 'center',
     width: 280,
@@ -286,31 +277,31 @@ const styles = StyleSheet.create({
   },
   instructions: {
     alignItems: 'center',
-    paddingHorizontal: SPACING['3xl'],
+    paddingHorizontal: 32,
   },
   instructionText: {
     color: '#FFFFFF',
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: 16,
+    fontWeight: '600',
     textAlign: 'center',
   },
   actions: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: SPACING.md,
-    paddingHorizontal: SPACING['3xl'],
+    gap: 12,
+    paddingHorizontal: 32,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.xl,
-    borderRadius: RADIUS.md,
-    gap: SPACING.sm,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    gap: 8,
   },
   actionButtonText: {
     color: '#FFFFFF',
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
