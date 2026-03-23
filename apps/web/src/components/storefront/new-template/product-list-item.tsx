@@ -144,7 +144,6 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
                   style={{ backgroundColor: hexColor }}
                   title={colorName}
                   aria-label={`Select color ${colorName}`}
-                  aria-pressed={isSelected}
                 />
               );
             })}
@@ -160,7 +159,6 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
           }}
           className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-white/60 md:hover:bg-white active:bg-white backdrop-blur-sm shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
           aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-          aria-pressed={isWishlisted}
         >
           <Heart
             size={16}
