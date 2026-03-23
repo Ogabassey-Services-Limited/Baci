@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { nanoid } from 'nanoid';
 import type { NormalizedImportedOrder } from '@/lib/imports/bumpa/bumpa-types';
+import { mapBumpaOrderSource } from '@/lib/imports/bumpa/map-bumpa-order-source';
 import { createImportCustomerResolver } from './resolve-import-customer';
 
 interface CommitBumpaOrdersInput {
@@ -48,6 +49,11 @@ function buildOrderInsertPayload(
   order: NormalizedImportedOrder,
   trackingToken: string
 ) {
+  const orderSource = mapBumpaOrderSource(
+    order.sourceOrigin,
+    order.sourceChannel
+  );
+
   return {
     merchant_id: merchantId,
     customer_id: customerId,
@@ -67,7 +73,7 @@ function buildOrderInsertPayload(
     original_currency: order.currency,
     original_total: order.total,
     payment_method: 'imported',
-    source: 'bumpa_import',
+    source: orderSource,
     notes: order.shippingOption
       ? `Imported from Bumpa (${order.shippingOption})`
       : 'Imported from Bumpa',
