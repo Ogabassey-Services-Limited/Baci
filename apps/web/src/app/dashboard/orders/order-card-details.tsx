@@ -2,9 +2,9 @@
 
 import { Box, MapPin } from 'lucide-react';
 import Link from 'next/link';
+import { getDashboardOrderDetailsHref } from '@/app/dashboard/orders/order-links';
 import { Button } from '@/components/ui/button';
 import type { Order } from './actions';
-import { stripOrderNumberPrefix } from './order-number';
 import { StatusBadge } from './status-badge';
 
 export function OrderCardDetails({
@@ -14,6 +14,8 @@ export function OrderCardDetails({
   order: Order;
   formatCurrency: (amount: number) => string;
 }) {
+  const orderDetailsHref = getDashboardOrderDetailsHref(order);
+
   return (
     <div className="dashboard-surface-subtle animate-in slide-in-from-top-2 border-t p-4">
       <div className="grid gap-6 md:grid-cols-2">
@@ -77,14 +79,11 @@ export function OrderCardDetails({
               </div>
             )}
             <div className="pt-2">
-              <Link
-                href={`/dashboard/orders/${stripOrderNumberPrefix(order.orderNumber)}`}
-                className="w-full"
-              >
-                <Button variant="outline" size="sm" className="w-full">
-                  Open Order Details
+              {orderDetailsHref ? (
+                <Button asChild variant="outline" size="sm" className="w-full">
+                  <Link href={orderDetailsHref}>Open Order Details</Link>
                 </Button>
-              </Link>
+              ) : null}
             </div>
           </div>
         </div>

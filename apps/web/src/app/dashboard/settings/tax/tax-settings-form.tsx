@@ -1,5 +1,6 @@
 'use client';
 
+import { NIGERIAN_STATES, type RegisteredAddress } from '@baci/shared';
 import { Building2, CheckCircle2, Info, Loader2, MapPin } from 'lucide-react';
 import { useState } from 'react';
 import {
@@ -19,57 +20,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { createClient } from '@/lib/supabase/client';
-
-const NIGERIAN_STATES = [
-  { name: 'Abia', code: 'NG-AB' },
-  { name: 'Adamawa', code: 'NG-AD' },
-  { name: 'Akwa Ibom', code: 'NG-AK' },
-  { name: 'Anambra', code: 'NG-AN' },
-  { name: 'Bauchi', code: 'NG-BA' },
-  { name: 'Bayelsa', code: 'NG-BY' },
-  { name: 'Benue', code: 'NG-BE' },
-  { name: 'Borno', code: 'NG-BO' },
-  { name: 'Cross River', code: 'NG-CR' },
-  { name: 'Delta', code: 'NG-DE' },
-  { name: 'Ebonyi', code: 'NG-EB' },
-  { name: 'Edo', code: 'NG-ED' },
-  { name: 'Ekiti', code: 'NG-EK' },
-  { name: 'Enugu', code: 'NG-EN' },
-  { name: 'FCT', code: 'NG-FC' },
-  { name: 'Gombe', code: 'NG-GO' },
-  { name: 'Imo', code: 'NG-IM' },
-  { name: 'Jigawa', code: 'NG-JI' },
-  { name: 'Kaduna', code: 'NG-KD' },
-  { name: 'Kano', code: 'NG-KN' },
-  { name: 'Katsina', code: 'NG-KT' },
-  { name: 'Kebbi', code: 'NG-KE' },
-  { name: 'Kogi', code: 'NG-KO' },
-  { name: 'Kwara', code: 'NG-KW' },
-  { name: 'Lagos', code: 'NG-LA' },
-  { name: 'Nasarawa', code: 'NG-NA' },
-  { name: 'Niger', code: 'NG-NI' },
-  { name: 'Ogun', code: 'NG-OG' },
-  { name: 'Ondo', code: 'NG-ON' },
-  { name: 'Osun', code: 'NG-OS' },
-  { name: 'Oyo', code: 'NG-OY' },
-  { name: 'Plateau', code: 'NG-PL' },
-  { name: 'Rivers', code: 'NG-RI' },
-  { name: 'Sokoto', code: 'NG-SO' },
-  { name: 'Taraba', code: 'NG-TA' },
-  { name: 'Yobe', code: 'NG-YO' },
-  { name: 'Zamfara', code: 'NG-ZA' },
-] as const;
-
-interface RegisteredAddress {
-  street: string;
-  city: string;
-  state: string;
-  postal_code: string;
-}
+import { apiPatch } from '@/lib/api-client';
 
 interface TaxSettingsFormProps {
-  merchantId: string;
   initialVatEnabled: boolean;
   initialVatRate: number;
   initialTaxId: string;
@@ -79,7 +32,6 @@ interface TaxSettingsFormProps {
 }
 
 export function TaxSettingsForm({
-  merchantId,
   initialVatEnabled,
   initialVatRate,
   initialTaxId,
@@ -93,28 +45,27 @@ export function TaxSettingsForm({
   const [legalEntityName, setLegalEntityName] = useState(
     initialLegalEntityName
   );
-  const [address, setAddress] = useState<RegisteredAddress>(
-    initialRegisteredAddress
-  );
+  const [address, setAddress] = useState<RegisteredAddress>({
+    ...initialRegisteredAddress,
+    country: initialRegisteredAddress.country ?? 'Nigeria',
+  });
   const [stateCode, setStateCode] = useState(initialStateCode);
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingEntity, setIsSavingEntity] = useState(false);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
+
+  const saveSettings = async (payload: Record<string, unknown>) => {
+    await apiPatch('/api/merchant/settings', payload);
+  };
 
   const handleVatToggle = async (enabled: boolean) => {
     setIsLoading(true);
     setVatEnabled(enabled);
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('merchants')
-        .update({
-          vat_registration_status: enabled ? 'registered' : 'not_registered',
-        })
-        .eq('id', merchantId);
-
-      if (error) throw error;
+      await saveSettings({
+        vat_registration_status: enabled ? 'registered' : 'not_registered',
+      });
 
       toast({
         title: enabled ? 'VAT Enabled' : 'VAT Disabled',
@@ -146,15 +97,9 @@ export function TaxSettingsForm({
 
     setIsLoading(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('merchants')
-        .update({
-          tax_identification_number: taxId || null,
-        })
-        .eq('id', merchantId);
-
-      if (error) throw error;
+      await saveSettings({
+        tax_identification_number: taxId || null,
+      });
 
       toast({
         title: 'Tax ID Saved',
@@ -174,15 +119,9 @@ export function TaxSettingsForm({
   const handleSaveLegalEntity = async () => {
     setIsSavingEntity(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('merchants')
-        .update({
-          legal_entity_name: legalEntityName || null,
-        })
-        .eq('id', merchantId);
-
-      if (error) throw error;
+      await saveSettings({
+        legal_entity_name: legalEntityName || null,
+      });
 
       toast({
         title: 'Legal Entity Name Saved',
@@ -230,25 +169,17 @@ export function TaxSettingsForm({
   const handleSaveAddress = async () => {
     setIsSavingAddress(true);
     try {
-      const supabase = createClient();
-
       const selectedState = NIGERIAN_STATES.find((s) => s.code === stateCode);
-
-      const { error } = await supabase
-        .from('merchants')
-        .update({
-          registered_address: {
-            street: address.street || null,
-            city: address.city || null,
-            state: selectedState?.name || address.state || null,
-            postal_code: address.postal_code || null,
-            country: 'Nigeria',
-          },
-          state_code: stateCode || null,
-        })
-        .eq('id', merchantId);
-
-      if (error) throw error;
+      await saveSettings({
+        registered_address: {
+          street: address.street || null,
+          city: address.city || null,
+          state: selectedState?.name || null,
+          postal_code: address.postal_code || null,
+          country: 'Nigeria',
+        },
+        state_code: stateCode || null,
+      });
 
       toast({
         title: 'Address Saved',
@@ -394,7 +325,7 @@ export function TaxSettingsForm({
             <AddressAutocomplete
               id="address-street"
               placeholder="Start typing your address..."
-              value={address.street}
+              value={address.street ?? ''}
               onChange={handleStreetChange}
               onSelect={handleAddressSelect}
               country="ng"
@@ -410,7 +341,7 @@ export function TaxSettingsForm({
               <Input
                 id="address-city"
                 placeholder="e.g. Lagos"
-                value={address.city}
+                value={address.city ?? ''}
                 onChange={(e) =>
                   setAddress((prev) => ({ ...prev, city: e.target.value }))
                 }
@@ -421,7 +352,7 @@ export function TaxSettingsForm({
               <Input
                 id="address-postal"
                 placeholder="e.g. 100001"
-                value={address.postal_code}
+                value={address.postal_code ?? ''}
                 onChange={(e) =>
                   setAddress((prev) => ({
                     ...prev,

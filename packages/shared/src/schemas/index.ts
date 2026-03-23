@@ -1,3 +1,2 @@
-// Placeholder for Zod schemas
-// Add validation schemas here as needed
-export {};
+export * from './merchant-settings';
+export * from './phone';

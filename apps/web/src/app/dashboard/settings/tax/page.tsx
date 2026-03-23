@@ -1,3 +1,7 @@
+import {
+  MERCHANT_TAX_SETTINGS_COLUMNS,
+  type RegisteredAddress,
+} from '@baci/shared';
 import { ChevronLeft, Receipt } from 'lucide-react';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
@@ -6,6 +10,7 @@ import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
+import { registeredAddressSchema } from '@/schemas/merchant-settings';
 import { TaxSettingsForm } from './tax-settings-form';
 
 export const metadata: Metadata = {
@@ -24,22 +29,34 @@ export default async function TaxSettingsPage() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const { data: merchantData } = await supabase
+  const { data: merchantData, error: merchantDataError } = await supabase
     .from('merchants')
-    .select(
-      'vat_registration_status, vat_rate, tax_identification_number, legal_entity_name, registered_address, state_code'
-    )
+    .select(MERCHANT_TAX_SETTINGS_COLUMNS)
     .eq('id', merchant.id)
     .single();
+
+  if (merchantDataError) {
+    console.error('Failed to load merchant tax settings:', merchantDataError);
+    throw new Error('Unable to load merchant data');
+  }
 
   const vatEnabled = merchantData?.vat_registration_status === 'registered';
   const vatRate = merchantData?.vat_rate ?? 7.5;
   const taxId = merchantData?.tax_identification_number ?? '';
   const legalEntityName = merchantData?.legal_entity_name ?? '';
-  const addr = merchantData?.registered_address as Record<
-    string,
-    string
-  > | null;
+  const parsedAddress = registeredAddressSchema.safeParse(
+    merchantData?.registered_address
+  );
+  if (!parsedAddress.success && merchantData?.registered_address != null) {
+    console.error('Invalid merchant registered address payload:', {
+      merchantId: merchant.id,
+      address: merchantData.registered_address,
+      error: parsedAddress.error,
+    });
+  }
+  const addr: RegisteredAddress | null = parsedAddress.success
+    ? parsedAddress.data
+    : null;
   const registeredAddress = {
     street: addr?.street ?? '',
     city: addr?.city ?? '',
@@ -70,7 +87,6 @@ export default async function TaxSettingsPage() {
       </div>
 
       <TaxSettingsForm
-        merchantId={merchant.id}
         initialVatEnabled={vatEnabled}
         initialVatRate={vatRate}
         initialTaxId={taxId}

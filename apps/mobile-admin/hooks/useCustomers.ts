@@ -4,6 +4,12 @@
  */
 
 import {
+  buildCustomerAddressLine,
+  buildCustomerNameFields,
+  buildCustomerSearchFilter,
+  CUSTOMER_ADMIN_COLUMNS,
+} from '@baci/shared';
+import {
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -15,7 +21,9 @@ import { useMerchant } from './useMerchant';
 
 export interface Customer {
   id: string;
-  email: string;
+  merchant_id: string;
+  full_name: string | null;
+  email: string | null;
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
@@ -25,6 +33,7 @@ export interface Customer {
   store_credit: number;
   loyalty_points: number;
   created_at: string;
+  updated_at: string;
   last_login_at: string | null;
   deleted_at: string | null;
 }
@@ -37,9 +46,6 @@ interface CustomersPage {
 
 const PAGE_SIZE = 20;
 
-const CUSTOMER_COLUMNS =
-  'id, email, first_name, last_name, phone, address, total_orders, total_spent, store_credit, loyalty_points, created_at, last_login_at, deleted_at' as const;
-
 async function fetchCustomers(
   merchantId: string,
   cursor: number = 0,
@@ -50,7 +56,7 @@ async function fetchCustomers(
 ): Promise<CustomersPage> {
   let query = supabase
     .from('customers')
-    .select(CUSTOMER_COLUMNS, { count: 'exact' })
+    .select(CUSTOMER_ADMIN_COLUMNS, { count: 'exact' })
     .eq('merchant_id', merchantId)
     .is('deleted_at', null) // Exclude soft-deleted customers
     .range(cursor, cursor + PAGE_SIZE - 1);
@@ -64,7 +70,7 @@ async function fetchCustomers(
       query = query.order('total_spent', { ascending: false });
       break;
     case 'alpha':
-      query = query.order('first_name', { ascending: true });
+      query = query.order('full_name', { ascending: true });
       break;
     default:
       query = query.order('created_at', { ascending: false });
@@ -73,9 +79,7 @@ async function fetchCustomers(
   if (filters?.search) {
     const term = sanitizeSearchQuery(filters.search);
     if (term) {
-      query = query.or(
-        `first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`
-      );
+      query = query.or(buildCustomerSearchFilter(term));
     }
   }
 
@@ -119,7 +123,7 @@ export function useCustomer(customerId: string) {
       // Fetch customer
       const { data: customer, error } = await supabase
         .from('customers')
-        .select(CUSTOMER_COLUMNS)
+        .select(CUSTOMER_ADMIN_COLUMNS)
         .eq('id', customerId)
         .eq('merchant_id', merchant?.id)
         .single();
@@ -243,16 +247,32 @@ export function useCreateCustomer() {
         }
       }
 
+      const nameFields = buildCustomerNameFields({
+        first_name: newCustomer.first_name,
+        last_name: newCustomer.last_name,
+        email: newCustomer.email,
+      });
+      const address = buildCustomerAddressLine(
+        newCustomer.address,
+        newCustomer.city,
+        newCustomer.state,
+        newCustomer.zip_code
+      );
+
       const { data, error } = await supabase
         .from('customers')
         .insert({
           merchant_id: merchant.id,
-          ...newCustomer,
+          ...nameFields,
+          email: newCustomer.email || null,
+          phone: newCustomer.phone || null,
+          address,
+          store_credit: 0,
           total_orders: 0,
           total_spent: 0,
           loyalty_points: 0,
         })
-        .select(CUSTOMER_COLUMNS)
+        .select(CUSTOMER_ADMIN_COLUMNS)
         .single();
 
       if (error) throw new Error(error.message);
@@ -282,16 +302,17 @@ export function useUpdateCustomer() {
       if (!merchant?.id) throw new Error('No merchant selected');
 
       const { id, ...customerData } = updates;
+      const nameFields = buildCustomerNameFields(customerData);
 
       const { data, error } = await supabase
         .from('customers')
         .update({
           ...customerData,
-          // full_name is deprecated, we relied on first/last
+          ...nameFields,
         })
         .eq('id', id)
         .eq('merchant_id', merchant.id)
-        .select(CUSTOMER_COLUMNS)
+        .select(CUSTOMER_ADMIN_COLUMNS)
         .single();
 
       if (error) throw new Error(error.message);

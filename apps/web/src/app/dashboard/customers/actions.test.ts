@@ -74,7 +74,10 @@ describe('customer actions staff access', () => {
 
     expect(mockEnsurePermission).toHaveBeenCalledWith('customers', 'create');
     expect(insertMock).toHaveBeenCalledWith(
-      expect.objectContaining({ merchant_id: 'merchant-staff' })
+      expect.objectContaining({
+        merchant_id: 'merchant-staff',
+        full_name: 'Ada Lovelace',
+      })
     );
   });
 

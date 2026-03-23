@@ -10,12 +10,12 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { type MouseEvent, useState } from 'react';
+import { getDashboardOrderDetailsHref } from '@/app/dashboard/orders/order-links';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Order, ShippingStatus } from './actions';
 import { OrderCardDetails } from './order-card-details';
-import { stripOrderNumberPrefix } from './order-number';
 import { getOrderSourceLabel } from './order-source-display';
 import { OrderSourceIcon } from './order-source-icon';
 import { StatusBadge } from './status-badge';
@@ -50,6 +50,7 @@ export function OrderCard({
   formatCurrency: (amount: number) => string;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const orderDetailsHref = getDashboardOrderDetailsHref(order);
   const itemCount = order.items?.length || 0;
   const itemLabel = `${itemCount} ${itemCount === 1 ? 'item' : 'items'}`;
   const visibleItems = order.items?.slice(0, 4) || [];
@@ -130,13 +131,19 @@ export function OrderCard({
           />
           <div className="min-w-0 flex-1">
             <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
-              <Link
-                href={`/dashboard/orders/${stripOrderNumberPrefix(order.orderNumber)}`}
-                className="font-semibold text-foreground underline-offset-4 hover:underline dark:text-slate-100"
-                onClick={(event) => event.stopPropagation()}
-              >
-                {order.customerName}
-              </Link>
+              {orderDetailsHref ? (
+                <Link
+                  href={orderDetailsHref}
+                  className="font-semibold text-foreground underline-offset-4 hover:underline dark:text-slate-100"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {order.customerName}
+                </Link>
+              ) : (
+                <span className="font-semibold text-foreground dark:text-slate-100">
+                  {order.customerName}
+                </span>
+              )}
               <span className="text-muted-foreground">•</span>
               <button
                 type="button"
