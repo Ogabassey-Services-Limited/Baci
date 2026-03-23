@@ -60,6 +60,7 @@ export interface ReceiptOrder {
   items: Array<{
     product_name: string;
     name?: string;
+    variant_name?: string;
     quantity: number;
     price: number;
   }>;

@@ -4,6 +4,7 @@ export interface OrderDetailsItem {
   id: string;
   image?: string;
   name: string;
+  variant?: string;
   quantity: number;
   price: number;
   product?: {
@@ -48,6 +49,7 @@ function isOrderDetailsItem(value: unknown): value is OrderDetailsItem {
     id?: unknown;
     image?: unknown;
     name?: unknown;
+    variant?: unknown;
     quantity?: unknown;
     price?: unknown;
     product?: unknown;
@@ -57,6 +59,8 @@ function isOrderDetailsItem(value: unknown): value is OrderDetailsItem {
   return (
     typeof candidate.id === 'string' &&
     typeof candidate.name === 'string' &&
+    (candidate.variant === undefined ||
+      typeof candidate.variant === 'string') &&
     typeof candidate.quantity === 'number' &&
     typeof candidate.price === 'number' &&
     (candidate.image === undefined || typeof candidate.image === 'string') &&

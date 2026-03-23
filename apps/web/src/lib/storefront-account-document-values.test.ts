@@ -87,6 +87,8 @@ describe('storefront account document values', () => {
         {
           id: 'item-1',
           product_id: null,
+          variant_id: 'variant-1',
+          variant_name: 'Blue / 128GB',
           name: 'iPhone 16',
           quantity: 2,
           price: 1000,
@@ -96,6 +98,8 @@ describe('storefront account document values', () => {
       {
         id: 'item-1',
         product_id: '',
+        variant_id: 'variant-1',
+        variant_name: 'Blue / 128GB',
         name: 'iPhone 16',
         product_name: 'iPhone 16',
         quantity: 2,
@@ -110,6 +114,8 @@ describe('storefront account document values', () => {
         {
           id: 'item-2',
           product_id: 'prod-2',
+          variant_id: null,
+          variant_name: null,
           name: 'MacBook Air',
           quantity: null,
           price: '500' as never,
@@ -122,6 +128,8 @@ describe('storefront account document values', () => {
         {
           id: 'item-3',
           product_id: 'prod-3',
+          variant_id: null,
+          variant_name: null,
           name: 'iPad Pro',
           quantity: 1,
           price: '' as never,

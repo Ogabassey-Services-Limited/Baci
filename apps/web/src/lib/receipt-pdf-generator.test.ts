@@ -170,6 +170,25 @@ describe('generateReceiptBlob', () => {
     expect(pdfText).toContain('A second long product title');
   });
 
+  it('includes variant labels in receipt line items when present', () => {
+    const order = {
+      ...baseOrder,
+      items: [
+        {
+          product_name: 'iPhone 16',
+          variant_name: 'Blue / 128GB',
+          quantity: 1,
+          price: 150000,
+        },
+      ],
+      transactions: [],
+    };
+
+    const pdfText = getPdfText(order, baseMerchant);
+
+    expect(pdfText).toContain('Blue / 128GB');
+  });
+
   it('renders payment history when transactions are present', () => {
     const order = {
       ...baseOrder,

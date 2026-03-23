@@ -153,7 +153,9 @@ export function generateReceiptPDF(
     startY: y,
     head: [['Item', 'Qty', 'Unit Price', 'Line Total']],
     body: (order.items || []).map((item) => [
-      item.product_name || item.name || 'Item',
+      item.variant_name
+        ? `${item.product_name || item.name || 'Item'} (${item.variant_name})`
+        : item.product_name || item.name || 'Item',
       String(item.quantity),
       formatReceiptCurrency(item.price, currency),
       formatReceiptCurrency(item.quantity * item.price, currency),

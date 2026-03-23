@@ -142,7 +142,9 @@ export function buildStorefrontAccountDocumentBundle({
     return {
       line_id: index + 1,
       product_id: item.product_id || undefined,
-      name: item.product_name || item.name,
+      name: item.variant_name
+        ? `${item.product_name || item.name} (${item.variant_name})`
+        : item.product_name || item.name,
       quantity: item.quantity,
       unit_code: 'EA',
       price: item.price,

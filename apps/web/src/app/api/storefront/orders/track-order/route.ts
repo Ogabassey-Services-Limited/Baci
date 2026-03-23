@@ -38,6 +38,7 @@ interface OrderItemRow {
   id: string;
   product_id: string;
   name: string;
+  variant_name?: string;
   quantity: number;
   price: number;
   product_images?: unknown;
@@ -265,6 +266,7 @@ export async function GET(request: NextRequest) {
           id: item.id,
           product_id: item.product_id,
           product_name: item.name,
+          variant_name: item.variant_name,
           quantity: item.quantity,
           unit_price: item.price,
           total_price: item.price * item.quantity,

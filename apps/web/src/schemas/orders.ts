@@ -43,7 +43,9 @@ const orderCreateSchemaBase = z.object({
           assurance_fee: z.number().nonnegative().optional(),
           variantId: z.string().optional(),
           variant_id: z.string().optional(),
-          variantAttributes: z.record(z.string()).optional(),
+          variantAttributes: z
+            .record(z.string().transform((val) => sanitizeText(val).trim()))
+            .optional(),
         })
         .refine((data) => data.product_id || data.productId || data.id, {
           message:
