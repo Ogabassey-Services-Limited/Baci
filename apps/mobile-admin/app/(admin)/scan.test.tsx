@@ -9,6 +9,37 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockRouterBack = vi.fn();
 const mockRouterPush = vi.fn();
+
+vi.mock('react-native', async () => {
+  const React = await import('react');
+
+  return {
+    Alert: { alert: vi.fn() },
+    Pressable: ({
+      children,
+      onPress,
+      disabled,
+    }: {
+      children?: React.ReactNode;
+      onPress?: () => void;
+      disabled?: boolean;
+    }) =>
+      React.createElement('button', { onClick: onPress, disabled }, children),
+    StyleSheet: {
+      create: (styles: Record<string, unknown>) => styles,
+    },
+    Text: ({
+      children,
+      style,
+    }: {
+      children?: React.ReactNode;
+      style?: unknown;
+    }) => React.createElement('span', { style }, children),
+    View: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('div', null, children),
+  };
+});
+
 vi.mock('expo-router', () => ({
   router: {
     back: () => mockRouterBack(),
@@ -60,6 +91,33 @@ vi.mock('@/hooks/useTheme', () => ({
     },
     isDark: true,
   }),
+}));
+
+vi.mock('@/constants/theme', () => ({
+  RADIUS: {
+    md: 12,
+  },
+  SPACING: {
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 20,
+    '2xl': 24,
+    '3xl': 32,
+    '4xl': 48,
+  },
+  TYPOGRAPHY: {
+    fontFamily: {
+      regular: 'Inter_400Regular',
+      semiBold: 'Inter_600SemiBold',
+      bold: 'Inter_700Bold',
+    },
+    size: {
+      md: 14,
+      lg: 16,
+      xl: 18,
+    },
+  },
 }));
 
 const mockSupabaseSingle = vi.fn();
