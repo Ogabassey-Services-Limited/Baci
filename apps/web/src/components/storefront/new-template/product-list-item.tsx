@@ -76,12 +76,14 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
             <button
               onClick={handlePrevColor}
               className="absolute left-1 top-1/2 -translate-y-1/2 z-30 p-1 bg-white/40 backdrop-blur-md border border-white/50 rounded-full shadow-sm text-gray-700 opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 hover:bg-white/60 hover:text-gray-900 pointer-events-auto"
+              aria-label="Previous color"
             >
               <ChevronLeft size={14} />
             </button>
             <button
               onClick={handleNextColor}
               className="absolute right-1 top-1/2 -translate-y-1/2 z-30 p-1 bg-white/40 backdrop-blur-md border border-white/50 rounded-full shadow-sm text-gray-700 opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 hover:bg-white/60 hover:text-gray-900 pointer-events-auto"
+              aria-label="Next color"
             >
               <ChevronRight size={14} />
             </button>
@@ -141,6 +143,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
                   }`}
                   style={{ backgroundColor: hexColor }}
                   title={colorName}
+                  aria-label={`Select color ${colorName}`}
                 />
               );
             })}
@@ -155,6 +158,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
             onToggleWishlist(e);
           }}
           className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-white/60 md:hover:bg-white active:bg-white backdrop-blur-sm shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
+          aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
         >
           <Heart
             size={16}
