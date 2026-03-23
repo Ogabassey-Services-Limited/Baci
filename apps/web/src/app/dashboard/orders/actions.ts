@@ -14,21 +14,9 @@ import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import { loadOrderItemImageMap } from './order-item-images';
+import type { PaymentStatus, ShippingStatus } from './order-statuses';
 
-export type ShippingStatus =
-  | 'Pending'
-  | 'Processing'
-  | 'Shipped'
-  | 'Delivered'
-  | 'Canceled'
-  | 'Returned';
-
-export type PaymentStatus =
-  | 'Paid'
-  | 'Unpaid'
-  | 'Pending'
-  | 'Partially Paid'
-  | 'Refunded';
+export type { PaymentStatus, ShippingStatus } from './order-statuses';
 
 export interface Transaction {
   id: string;
@@ -154,7 +142,7 @@ export async function getOrders(
   if (filters.paymentStatus && filters.paymentStatus !== 'All') {
     query = query.eq(
       'payment_status',
-      filters.paymentStatus.toLowerCase().replace(' ', '_')
+      filters.paymentStatus.toLowerCase().replace(/\s+/g, '_')
     );
   }
 
@@ -594,7 +582,7 @@ export async function resendOrderConfirmation(
     logger.info({
       message: 'Order confirmation email resent manually',
       orderId: order.id,
-      adminUser: (await supabase.auth.getUser()).data.user?.id,
+      adminUser: user.id,
     });
 
     return {

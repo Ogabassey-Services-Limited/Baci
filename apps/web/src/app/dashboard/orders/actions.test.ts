@@ -53,7 +53,9 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 // Import after mocks
-const { getOrder, resendOrderConfirmation } = await import('./actions');
+const { getOrder, getOrders, resendOrderConfirmation } = await import(
+  './actions'
+);
 
 const ORDER_ID = '11111111-1111-4111-8111-111111111111';
 const MERCHANT_ID = 'merchant-456';
@@ -294,6 +296,7 @@ describe('resendOrderConfirmation', () => {
     const result = await resendOrderConfirmation(ORDER_ID);
     expect(result.success).toBe(true);
     expect(result.message).toBe('Order confirmation email sent successfully');
+    expect(mockGetUser).toHaveBeenCalledOnce();
     expect(mockSendEmail).toHaveBeenCalledOnce();
   });
 
@@ -398,6 +401,101 @@ describe('resendOrderConfirmation', () => {
     const result = await resendOrderConfirmation(ORDER_ID);
     expect(result.success).toBe(false);
     expect(result.message).toBe('Failed to send email. Please try again.');
+  });
+});
+
+describe('getOrders', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('normalizes all payment-status whitespace before querying orders', async () => {
+    let normalizedPaymentStatus: string | undefined;
+    const productsIn = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'product-1',
+          images: ['https://cdn.example.com/products/widget.avif'],
+        },
+      ],
+      error: null,
+    });
+    const queryResult = Promise.resolve({
+      data: [
+        {
+          id: ORDER_ID,
+          order_number: 'ORD-001',
+          customer_name: 'John Doe',
+          total: '11500',
+          shipping_status: 'pending',
+          payment_status: 'partially_paid',
+          payment_method: 'card',
+          created_at: '2026-03-23T08:00:00.000Z',
+          source: 'whatsapp',
+          order_items: [
+            {
+              id: 'item-1',
+              name: 'Widget',
+              product_id: 'product-1',
+              quantity: 1,
+              price: '11500',
+            },
+          ],
+        },
+      ],
+      error: null,
+    });
+    const ordersQuery = Object.assign(queryResult, {
+      eq: vi.fn((column: string, value: string) => {
+        if (column === 'merchant_id') {
+          expect(value).toBe(MERCHANT_ID);
+          return ordersQuery;
+        }
+
+        if (column === 'payment_status') {
+          normalizedPaymentStatus = value;
+          return ordersQuery;
+        }
+
+        throw new Error(`Unexpected order filter ${column}=${value}`);
+      }),
+      order: vi.fn(() => ordersQuery),
+      or: vi.fn(() => ordersQuery),
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'orders') {
+        return {
+          select: vi.fn((query: string) => {
+            expect(query).toBe(ORDER_WITH_ITEMS_QUERY);
+            return ordersQuery;
+          }),
+        };
+      }
+
+      if (table === 'products') {
+        return {
+          select: vi.fn((query: string) => {
+            expect(query).toBe('id, images');
+            return { in: productsIn };
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const orders = await getOrders(MERCHANT_ID, {
+      paymentStatus: 'Partially \t Paid',
+    });
+
+    expect(normalizedPaymentStatus).toBe('partially_paid');
+    expect(orders).toHaveLength(1);
+    expect(orders[0]?.paymentStatus).toBe('Partially Paid');
+    expect(orders[0]?.items[0]?.image).toBe(
+      'https://cdn.example.com/products/widget.avif'
+    );
+    expect(productsIn).toHaveBeenCalledWith('id', ['product-1']);
   });
 });
 
