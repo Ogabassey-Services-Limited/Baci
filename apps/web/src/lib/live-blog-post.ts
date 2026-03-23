@@ -1,36 +1,9 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import {
   getCachedFeatureSettings,
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
-
-function getPublicSupabaseClient() {
-  const url = getSupabaseUrl();
-  const key = getSupabaseAnonKey();
-
-  if (!url || !key) {
-    throw new Error('Supabase configuration is missing');
-  }
-
-  return createSupabaseClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-    global: {
-      headers: {
-        'X-Client-Info': 'baci-web-live-blog-post',
-      },
-      fetch: (url, options = {}) =>
-        fetch(url, {
-          ...options,
-          signal: AbortSignal.timeout(10000),
-        }),
-    },
-  });
-}
+import { createPublicClient } from '@/lib/supabase/anon';
 
 export async function getLiveBlogPost(
   identifier: string,
@@ -53,7 +26,10 @@ export async function getLiveBlogPost(
   const features = await getCachedFeatureSettings(merchant.id);
   if (!features?.blog_enabled) return null;
 
-  const supabase = getPublicSupabaseClient();
+  const supabase = createPublicClient({
+    clientInfo: 'baci-web-live-blog-post',
+    timeoutMs: 10000,
+  });
 
   let query = supabase
     .from('blog_posts')

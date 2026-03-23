@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     // Posts where status is 'scheduled' and published_at is in the past
     const { data: scheduledPosts, error: fetchError } = await supabase
       .from('blog_posts')
-      .select('id, slug, merchant_id')
+      .select('id, slug, merchant_id, category')
       .eq('status', 'scheduled')
       .lte('published_at', now);
 
@@ -71,21 +71,49 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Revalidate blog caches and storefront paths for all posts
+    // 4. Revalidate blog caches and storefront paths grouped by merchant
+    const postsByMerchant = new Map<
+      string,
+      {
+        categories: Set<string>;
+        postSlugs: string[];
+      }
+    >();
+
     for (const post of scheduledPosts) {
+      const merchantPosts = postsByMerchant.get(post.merchant_id) ?? {
+        categories: new Set<string>(),
+        postSlugs: [],
+      };
+
+      if (post.slug) {
+        merchantPosts.postSlugs.push(post.slug);
+      }
+
+      if (post.category) {
+        merchantPosts.categories.add(post.category);
+      }
+
+      postsByMerchant.set(post.merchant_id, merchantPosts);
+    }
+
+    for (const [merchantId, merchantPosts] of postsByMerchant) {
       try {
         const identifiers = await getMerchantBlogCacheIdentifiers(
           supabase,
-          post.merchant_id
+          merchantId
         );
         revalidateBlogPosts({
           identifiers,
-          postSlugs: [post.slug],
+          listingCategories: Array.from(merchantPosts.categories),
+          postSlugs: merchantPosts.postSlugs,
         });
-        console.log(`🔄 Cron: Revalidated blog cache for post ${post.slug}`);
+        console.log(
+          `🔄 Cron: Revalidated blog cache for merchant ${merchantId} across ${merchantPosts.postSlugs.length} posts`
+        );
       } catch (revalError) {
         console.warn(
-          `Cron Warning: Revalidation failed for post ${post.id}:`,
+          `Cron Warning: Revalidation failed for merchant ${merchantId}:`,
           revalError
         );
       }

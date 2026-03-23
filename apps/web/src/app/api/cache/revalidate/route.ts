@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
 
   const { targets } = result.data;
   const merchantId = access.merchantId;
+  const failedTargets: string[] = [];
   const revalidated: string[] = [];
 
   const shouldRevalidate = (target: string) =>
@@ -114,6 +115,7 @@ export async function POST(request: NextRequest) {
         merchantId,
         error,
       });
+      failedTargets.push('blog');
     }
   }
 
@@ -132,9 +134,17 @@ export async function POST(request: NextRequest) {
     revalidated.push('pages');
   }
 
-  return NextResponse.json({
-    success: true,
-    revalidated,
-    message: `Cache purged for: ${revalidated.join(', ')}`,
-  });
+  const success = failedTargets.length === 0;
+
+  return NextResponse.json(
+    {
+      success,
+      revalidated,
+      failedTargets,
+      message: success
+        ? `Cache purged for: ${revalidated.join(', ')}`
+        : `Cache purge failed for: ${failedTargets.join(', ')}`,
+    },
+    { status: success ? 200 : 500 }
+  );
 }

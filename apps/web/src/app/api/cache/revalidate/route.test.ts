@@ -318,6 +318,14 @@ describe('POST /api/cache/revalidate', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-test-store-airpods-max-2-2026',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-ogabassey.com-apple-studio-display-review',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
         'blog-ogabassey.com-airpods-max-2-2026',
         'merchant'
       );
@@ -325,7 +333,13 @@ describe('POST /api/cache/revalidate', () => {
       expect(mockRevalidatePath).toHaveBeenCalledWith(
         '/test-store/blog/apple-studio-display-review'
       );
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        '/test-store/blog/airpods-max-2-2026'
+      );
       expect(mockRevalidatePath).toHaveBeenCalledWith('/ogabassey.com/blog');
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        '/ogabassey.com/blog/apple-studio-display-review'
+      );
       expect(mockRevalidatePath).toHaveBeenCalledWith(
         '/ogabassey.com/blog/airpods-max-2-2026'
       );
@@ -344,8 +358,10 @@ describe('POST /api/cache/revalidate', () => {
       const res = await POST(makeRequest({ targets: ['blog'] }));
       const json = await res.json();
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(500);
+      expect(json.success).toBe(false);
       expect(json.revalidated).not.toContain('blog');
+      expect(json.failedTargets).toEqual(['blog']);
       expect(mockRevalidateTag).not.toHaveBeenCalledWith(
         'blog-posts',
         'merchant'
@@ -590,6 +606,7 @@ describe('POST /api/cache/revalidate', () => {
 
       expect(json).toEqual({
         success: true,
+        failedTargets: [],
         revalidated: expect.arrayContaining(['products', 'merchant']),
         message: expect.stringContaining('Cache purged for'),
       });

@@ -69,6 +69,13 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
           id: 'post-1',
           slug: 'apple-studio-display-review',
           merchant_id: 'merchant-1',
+          category: 'reviews',
+        },
+        {
+          id: 'post-2',
+          slug: 'macbook-air-m4-review',
+          merchant_id: 'merchant-1',
+          category: 'laptops',
         },
       ],
       error: null,
@@ -95,9 +102,12 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       mockSupabase,
       'merchant-1'
     );
+    expect(mockGetMerchantBlogCacheIdentifiers).toHaveBeenCalledTimes(1);
     expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
       identifiers: ['test-store', 'ogabassey.com'],
-      postSlugs: ['apple-studio-display-review'],
+      listingCategories: ['reviews', 'laptops'],
+      postSlugs: ['apple-studio-display-review', 'macbook-air-m4-review'],
     });
+    expect(mockRevalidateBlogPosts).toHaveBeenCalledTimes(1);
   });
 });

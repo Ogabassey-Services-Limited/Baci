@@ -741,6 +741,35 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
         postSlugs: ['original-slug', 'updated-slug'],
       });
     });
+
+    it('returns 500 when blog cache identifier setup fails before update', async () => {
+      mockSupabase.single
+        .mockResolvedValueOnce({
+          data: existingPost,
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { ...existingPost, content: validUpdateData.content },
+          error: null,
+        });
+      mockGetMerchantBlogCacheIdentifiers.mockRejectedValueOnce(
+        new Error('cache setup failed')
+      );
+
+      const res = await PATCH(
+        makeRequest(
+          `/api/merchant/blog/posts/${POST_ID}`,
+          'PATCH',
+          validUpdateData
+        ),
+        makeParams(POST_ID)
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.error).toBe('Internal server error');
+      expect(mockRevalidateBlogPosts).not.toHaveBeenCalled();
+    });
   });
 
   describe('error handling', () => {
@@ -924,9 +953,42 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
         postSlugs: ['deleted-post'],
       });
     });
+
+    it('returns 500 when blog cache identifier setup fails before deletion', async () => {
+      mockGetMerchantBlogCacheIdentifiers.mockRejectedValueOnce(
+        new Error('cache setup failed')
+      );
+
+      const res = await DELETE(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'DELETE'),
+        makeParams(POST_ID)
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.error).toBe('Internal server error');
+      expect(mockRevalidateBlogPosts).not.toHaveBeenCalled();
+    });
   });
 
   describe('error handling', () => {
+    it('returns 500 when the pre-delete lookup fails', async () => {
+      mockSupabase.maybeSingle.mockResolvedValue({
+        data: null,
+        error: { message: 'Lookup failed' },
+      });
+
+      const res = await DELETE(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'DELETE'),
+        makeParams(POST_ID)
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.error).toBe('Failed to load post for deletion');
+      expect(mockSupabase.delete).not.toHaveBeenCalled();
+    });
+
     it('returns 500 when database delete fails', async () => {
       mockSupabase.eq
         .mockImplementationOnce(() => mockSupabase)

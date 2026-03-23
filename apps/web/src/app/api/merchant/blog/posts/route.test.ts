@@ -384,6 +384,10 @@ describe('POST /api/merchant/blog/posts', () => {
     author_name: 'John Doe',
     status: 'draft',
   };
+  const validPostDataWithCategory = {
+    ...validPostData,
+    category: 'the-category-slug',
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -741,6 +745,49 @@ describe('POST /api/merchant/blog/posts', () => {
       expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
         identifiers: ['test-store', 'ogabassey.com'],
         listingCategories: [],
+        postSlugs: ['new-blog-post'],
+      });
+    });
+
+    it('forwards the created post category into blog cache revalidation', async () => {
+      mockSupabase.maybeSingle.mockResolvedValue({
+        data: null,
+        error: null,
+      });
+
+      mockSupabase.select.mockImplementation((fields: string) => {
+        if (fields === 'business_name, slug') {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: { business_name: 'Test Store', slug: 'test-store' },
+            error: null,
+          });
+        } else if (fields === 'blog_enabled') {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: { blog_enabled: true },
+            error: null,
+          });
+        } else {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: {
+              id: '1',
+              slug: 'new-blog-post',
+              category: 'the-category-slug',
+            },
+            error: null,
+          });
+        }
+        return mockSupabase;
+      });
+
+      await POST(
+        makeRequest('/api/merchant/blog/posts', {
+          body: validPostDataWithCategory,
+        })
+      );
+
+      expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
+        identifiers: ['test-store', 'ogabassey.com'],
+        listingCategories: ['the-category-slug'],
         postSlugs: ['new-blog-post'],
       });
     });

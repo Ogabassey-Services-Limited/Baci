@@ -167,6 +167,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.published_at = new Date().toISOString();
     }
 
+    const cacheIdentifiers = await getMerchantBlogCacheIdentifiers(
+      supabase,
+      access.merchantId
+    );
+
     // Update post
     const { data: updatedPost, error: updateError } = await supabase
       .from('blog_posts')
@@ -218,25 +223,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Invalidate blog caches so storefront reflects changes immediately
-    try {
-      const cacheIdentifiers = await getMerchantBlogCacheIdentifiers(
-        supabase,
-        access.merchantId
-      );
-      revalidateBlogPosts({
-        identifiers: cacheIdentifiers,
-        listingCategories: [existingPost.category, updatedPost.category].filter(
-          (category): category is string => Boolean(category)
-        ),
-        postSlugs: [existingPost.slug, updatedPost.slug],
-      });
-    } catch (error) {
-      console.error('Failed to revalidate blog caches after post update:', {
-        merchantId: access.merchantId,
-        postId: id,
-        error,
-      });
-    }
+    revalidateBlogPosts({
+      identifiers: cacheIdentifiers,
+      listingCategories: [existingPost.category, updatedPost.category].filter(
+        (category): category is string => Boolean(category)
+      ),
+      postSlugs: [existingPost.slug, updatedPost.slug],
+    });
 
     return NextResponse.json(updatedPost);
   } catch (error) {
@@ -295,7 +288,16 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
         'Error fetching blog post before deletion:',
         existingPostError
       );
+      return NextResponse.json(
+        { error: 'Failed to load post for deletion' },
+        { status: 500 }
+      );
     }
+
+    const cacheIdentifiers = await getMerchantBlogCacheIdentifiers(
+      supabase,
+      access.merchantId
+    );
 
     // Delete post
     const { error: deleteError } = await supabase
@@ -313,25 +315,11 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     }
 
     // Invalidate blog caches after deletion
-    try {
-      const cacheIdentifiers = await getMerchantBlogCacheIdentifiers(
-        supabase,
-        access.merchantId
-      );
-      revalidateBlogPosts({
-        identifiers: cacheIdentifiers,
-        listingCategories: existingPost?.category
-          ? [existingPost.category]
-          : [],
-        postSlugs: existingPost?.slug ? [existingPost.slug] : [],
-      });
-    } catch (error) {
-      console.error('Failed to revalidate blog caches after post deletion:', {
-        merchantId: access.merchantId,
-        postId: id,
-        error,
-      });
-    }
+    revalidateBlogPosts({
+      identifiers: cacheIdentifiers,
+      listingCategories: existingPost?.category ? [existingPost.category] : [],
+      postSlugs: existingPost?.slug ? [existingPost.slug] : [],
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

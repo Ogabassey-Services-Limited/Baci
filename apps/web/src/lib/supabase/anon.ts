@@ -9,9 +9,22 @@ import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
  */
 let _anonClient: SupabaseClient | null = null;
 
+function getPublicSupabaseCredentials() {
+  const url = getSupabaseUrl();
+  const key = getSupabaseAnonKey();
+
+  if (!url || !key) {
+    throw new Error('Supabase configuration is missing');
+  }
+
+  return { key, url };
+}
+
 export function createAnonClient(): SupabaseClient {
   if (!_anonClient) {
-    _anonClient = createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    const { key, url } = getPublicSupabaseCredentials();
+
+    _anonClient = createClient(url, key, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -20,4 +33,29 @@ export function createAnonClient(): SupabaseClient {
     });
   }
   return _anonClient;
+}
+
+export function createPublicClient(options: {
+  clientInfo: string;
+  timeoutMs?: number;
+}): SupabaseClient {
+  const { key, url } = getPublicSupabaseCredentials();
+
+  return createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+    global: {
+      headers: {
+        'X-Client-Info': options.clientInfo,
+      },
+      fetch: (requestUrl, requestOptions = {}) =>
+        fetch(requestUrl, {
+          ...requestOptions,
+          signal: AbortSignal.timeout(options.timeoutMs ?? 10000),
+        }),
+    },
+  });
 }
