@@ -43,6 +43,18 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ segments: string[] }> }
 ) {
+  try {
+    return await handleLlmRequest(request, context);
+  } catch (err) {
+    console.error('[LLM API] Unhandled error', err);
+    return notFound();
+  }
+}
+
+async function handleLlmRequest(
+  request: Request,
+  context: { params: Promise<{ segments: string[] }> }
+) {
   const { segments } = await context.params;
   const host = request.headers.get('host') ?? new URL(request.url).host;
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
