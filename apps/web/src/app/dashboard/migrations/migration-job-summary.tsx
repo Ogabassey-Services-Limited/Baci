@@ -1,10 +1,16 @@
 'use client';
 
 import { Loader2, Mail, RefreshCw } from 'lucide-react';
-import { statusBadgeClass } from '@/app/dashboard/migrations/migration-utils';
+import {
+  getMigrationProgressLabel,
+  getMigrationProgressValue,
+  isMigrationStatusActive,
+  statusBadgeClass,
+} from '@/app/dashboard/migrations/migration-utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import type { ImportJobDetail } from './migration-types';
 
@@ -27,13 +33,20 @@ export default function MigrationJobSummary({
   onRefresh,
   selectedJob,
 }: MigrationJobSummaryProps) {
+  const progressLabel = selectedJob
+    ? getMigrationProgressLabel(selectedJob.status)
+    : null;
+  const progressValue = selectedJob
+    ? getMigrationProgressValue(selectedJob.status)
+    : 0;
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-4">
         <div>
           <CardTitle>Selected Job</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            Review the preview, then commit or notify when the job is ready.
+            Review the preview, then import or notify when the job is ready.
           </p>
         </div>
         {selectedJob ? (
@@ -116,6 +129,27 @@ export default function MigrationJobSummary({
               </div>
             </div>
 
+            {selectedJob &&
+            isMigrationStatusActive(selectedJob.status) &&
+            progressLabel ? (
+              <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium">{progressLabel}</p>
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {progressValue}%
+                  </span>
+                </div>
+                <Progress
+                  aria-label="Migration progress"
+                  className="h-2"
+                  value={progressValue}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Job status updates automatically while this stage is running.
+                </p>
+              </div>
+            ) : null}
+
             <div className="flex flex-wrap gap-3">
               <Button
                 disabled={!selectedJob.canCommit || acting}
@@ -125,7 +159,7 @@ export default function MigrationJobSummary({
                 {acting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : null}
-                Commit Import
+                Import
               </Button>
               <Button
                 disabled={!selectedJob.canNotify || acting}
