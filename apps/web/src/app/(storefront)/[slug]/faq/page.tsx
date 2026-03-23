@@ -12,6 +12,27 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+/**
+ * Extracts FAQ items from merchant data, checking both structured faq_items
+ * and legacy FAQ content. Returns an empty array when no valid items exist.
+ */
+function extractFaqItems(merchant: {
+  faq_items?: unknown;
+  pages?: { faq?: string };
+}): FAQItem[] {
+  if (
+    merchant.faq_items &&
+    Array.isArray(merchant.faq_items) &&
+    merchant.faq_items.length > 0
+  ) {
+    return merchant.faq_items as FAQItem[];
+  }
+  if (merchant.pages?.faq) {
+    return parseLegacyFAQ(merchant.pages.faq);
+  }
+  return [];
+}
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -22,13 +43,7 @@ export async function generateMetadata({
     notFound();
   }
 
-  const hasFaqItems =
-    merchant.faq_items &&
-    Array.isArray(merchant.faq_items) &&
-    merchant.faq_items.length > 0;
-  const hasLegacyFaq = !!merchant.pages?.faq;
-
-  if (!hasFaqItems && !hasLegacyFaq) {
+  if (extractFaqItems(merchant).length === 0) {
     notFound();
   }
 
@@ -80,17 +95,7 @@ async function FAQJsonLd({ params }: PageProps) {
 
   if (!merchant) return null;
 
-  let faqItems: FAQItem[] = [];
-  if (
-    merchant.faq_items &&
-    Array.isArray(merchant.faq_items) &&
-    merchant.faq_items.length > 0
-  ) {
-    faqItems = merchant.faq_items as FAQItem[];
-  } else if (merchant.pages?.faq) {
-    faqItems = parseLegacyFAQ(merchant.pages.faq);
-  }
-
+  const faqItems = extractFaqItems(merchant);
   if (faqItems.length === 0) return null;
 
   const faqSchema = generateFAQSchema(faqItems);
@@ -112,18 +117,7 @@ async function FAQContent({ params }: PageProps) {
     notFound();
   }
 
-  let faqItems: FAQItem[] = [];
-
-  if (
-    merchant.faq_items &&
-    Array.isArray(merchant.faq_items) &&
-    merchant.faq_items.length > 0
-  ) {
-    faqItems = merchant.faq_items as FAQItem[];
-  } else if (merchant.pages?.faq) {
-    faqItems = parseLegacyFAQ(merchant.pages.faq);
-  }
-
+  const faqItems = extractFaqItems(merchant);
   if (faqItems.length === 0) {
     notFound();
   }

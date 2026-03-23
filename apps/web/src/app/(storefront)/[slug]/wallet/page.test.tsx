@@ -75,6 +75,34 @@ describe('WalletPage', () => {
     });
   });
 
+  it('does not call notFound for valid ogabassey merchant', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue({
+      template_id: 'ogabassey',
+      slug: 'ogabassey',
+    } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
+
+    render(<WalletPage params={Promise.resolve({ slug: 'ogabassey' })} />);
+
+    // Allow async WalletContent to resolve
+    await vi.waitFor(() => {
+      expect(getCachedMerchant).toHaveBeenCalledWith('ogabassey');
+    });
+    expect(notFound).not.toHaveBeenCalled();
+  });
+
+  it('triggers notFound for non-ogabassey template', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValue({
+      template_id: 'default',
+      slug: 'other-store',
+    } as unknown as Awaited<ReturnType<typeof getCachedMerchant>>);
+
+    render(<WalletPage params={Promise.resolve({ slug: 'other-store' })} />);
+
+    await vi.waitFor(() => {
+      expect(notFound).toHaveBeenCalled();
+    });
+  });
+
   it('triggers notFound for invalid slug', async () => {
     vi.mocked(isValidMerchantIdentifier).mockReturnValue(false);
 

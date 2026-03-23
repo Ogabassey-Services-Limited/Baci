@@ -22,6 +22,8 @@ vi.mock('@/types/faq', () => ({
   parseLegacyFAQ: vi.fn(() => []),
 }));
 
+const { parseLegacyFAQ } = await import('@/types/faq');
+
 vi.mock('../pages/faq/faq-page-client', () => ({
   FAQPageClient: () => <div data-testid="faq-client">FAQ UI</div>,
 }));
@@ -88,6 +90,20 @@ describe('generateMetadata', () => {
       business_name: 'Test Store',
       faq_items: [],
       pages: {},
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    await expect(
+      generateMetadata({ params: Promise.resolve({ slug: 'test' }) })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+  });
+
+  it('calls notFound when faq_items is empty and legacy FAQ is unparsable', async () => {
+    // Regression: truthy merchant.pages.faq that parseLegacyFAQ returns [] for
+    vi.mocked(parseLegacyFAQ).mockReturnValue([]);
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      faq_items: [],
+      pages: { faq: 'some unparsable content' },
     } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
     await expect(

@@ -11,7 +11,7 @@ const wishListPageClientProps = vi.fn();
 vi.mock('./wishlist-client', () => ({
   WishListPageClient: (props: { merchantCountry: string | null }) => {
     wishListPageClientProps(props);
-    return <div data-testid="wishlist-client">Wish List</div>;
+    return <section aria-label="wish list">Your saved items</section>;
   },
 }));
 
@@ -33,7 +33,9 @@ describe('WishListContent', () => {
     });
     render(element);
 
-    expect(screen.getByTestId('wishlist-client')).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'wish list' })
+    ).toBeInTheDocument();
     expect(wishListPageClientProps).toHaveBeenCalledWith(
       expect.objectContaining({ merchantCountry: 'NG' })
     );
