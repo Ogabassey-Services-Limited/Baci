@@ -295,7 +295,7 @@ function generateCSP(
           // Since Next.js internal chunks are not easily nonced in App Router, we use a
           // strict policy that allows 'self' and 'unsafe-inline' (for framework tags)
           // but still nonces our own custom scripts.
-          'script-src': `'self' 'nonce-${nonce}' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com`,
+          'script-src': `'self' 'nonce-${nonce}' 'unsafe-inline'${isLocal ? " 'unsafe-eval'" : ''} https://vercel.live https://va.vercel-scripts.com`,
           'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
           'connect-src':
             "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com https://helpdesk.usebaci.com",
@@ -535,7 +535,16 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = '/login';
       url.searchParams.set('redirectTo', pathname);
-      return NextResponse.redirect(url);
+      return applySecurityHeaders(
+        NextResponse.redirect(url),
+        pathname,
+        userAgent,
+        routeType,
+        isLocal,
+        nonce,
+        undefined,
+        hostname
+      );
     }
 
     // Auth routes: redirect to dashboard if already logged in
@@ -545,7 +554,16 @@ export async function proxy(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = redirectTo || '/dashboard';
       url.search = '';
-      return NextResponse.redirect(url);
+      return applySecurityHeaders(
+        NextResponse.redirect(url),
+        pathname,
+        userAgent,
+        routeType,
+        isLocal,
+        nonce,
+        undefined,
+        hostname
+      );
     }
 
     // For protected routes, apply security headers to the supabase response

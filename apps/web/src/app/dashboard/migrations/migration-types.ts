@@ -1,4 +1,8 @@
 import type {
+  NormalizedImportedOrder,
+  NormalizedImportedProduct,
+} from '@/lib/imports/bumpa/bumpa-types';
+import type {
   ImportJobEntityType,
   ImportJobSourcePlatform,
   ImportJobStatus,
@@ -29,7 +33,10 @@ export interface ImportJobRowsResponse {
   rows: Array<{
     id: string;
     meta: Record<string, unknown>;
-    normalized_payload: Record<string, unknown> | null;
+    normalized_payload:
+      | NormalizedImportedOrder
+      | NormalizedImportedProduct
+      | null;
     row_number: number;
     row_status: 'create' | 'update' | 'duplicate' | 'invalid';
     source_external_id: string | null;
