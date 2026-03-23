@@ -87,7 +87,7 @@ vi.mock('../actions', () => ({
   resendOrderConfirmation: vi.fn(),
 }));
 
-vi.mock('../client-page', () => ({
+vi.mock('../order-status-components', () => ({
   StatusBadge: ({ status, type }: { status: string; type: string }) => (
     <span data-testid={`status-badge-${type}`}>{status}</span>
   ),
@@ -179,7 +179,7 @@ describe('OrderDetailsClientPage', () => {
   it('renders a back-to-orders link', () => {
     render(<OrderDetailsClientPage initialOrder={makeOrder()} />);
 
-    const backLink = screen.getByText('Back to Orders');
+    const backLink = screen.getByRole('link', { name: 'Back to Orders' });
     expect(backLink).toBeInTheDocument();
   });
 

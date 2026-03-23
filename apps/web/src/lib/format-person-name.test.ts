@@ -21,4 +21,9 @@ describe('formatPersonName', () => {
   it('returns an empty string for blank input', () => {
     expect(formatPersonName('   ')).toBe('');
   });
+
+  it('handles null and undefined gracefully', () => {
+    expect(formatPersonName(null)).toBe('');
+    expect(formatPersonName(undefined)).toBe('');
+  });
 });

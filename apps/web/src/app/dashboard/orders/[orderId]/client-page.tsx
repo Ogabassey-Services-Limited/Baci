@@ -43,9 +43,9 @@ import {
   resendOrderConfirmation,
   type ShippingStatus,
 } from '../actions';
-import { StatusBadge } from '../client-page';
 import { getOrderSourceLabel } from '../order-source-display';
 import { OrderSourceIcon } from '../order-source-icon';
+import { StatusBadge } from '../order-status-components';
 import ConfirmInsuranceDialog from './confirm-insurance-dialog';
 
 // Type definitions

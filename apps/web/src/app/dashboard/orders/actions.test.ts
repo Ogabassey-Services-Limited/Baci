@@ -274,23 +274,18 @@ describe('getOrder', () => {
     vi.clearAllMocks();
   });
 
-  it('fetches an order case-insensitively by order number', async () => {
-    const maybeSingle = vi
+  function mockGetOrderQueries(options?: {
+    orderRows?: (typeof mockOrder)[];
+    orderError?: { message: string } | null;
+  }) {
+    const orderRows = options?.orderRows ?? [mockOrder];
+    const orderError = options?.orderError ?? null;
+    const ordersOr = vi
       .fn()
-      .mockResolvedValue({ data: mockOrder, error: null });
-    const merchantScopedFilter = {
-      eq: vi.fn(() => ({ maybeSingle })),
-      ilike: vi.fn((column: string, value: string) => {
-        expect(column).toBe('order_number');
-        expect(value).toBe('ord-001');
-        return { maybeSingle };
-      }),
-    };
-    const merchantEq = vi.fn((column: string, value: string) => {
-      expect(column).toBe('merchant_id');
-      expect(value).toBe(MERCHANT_ID);
-      return merchantScopedFilter;
-    });
+      .mockResolvedValue({ data: orderRows, error: orderError });
+    const ordersMaybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: orderRows[0] ?? null, error: orderError });
     const productsIn = vi.fn().mockResolvedValue({
       data: [
         {
@@ -300,41 +295,65 @@ describe('getOrder', () => {
       ],
       error: null,
     });
-    const productsSelect = vi.fn(() => ({ in: productsIn }));
     const transactionsOrder = vi
       .fn()
       .mockResolvedValue({ data: [], error: null });
-    const transactionsEq = vi.fn((column: string, value: string) => {
-      expect(column).toBe('order_id');
-      expect(value).toBe(ORDER_ID);
-      return { order: transactionsOrder };
-    });
+    const ordersSelect = vi.fn(() => ({
+      eq: vi.fn((column: string, value: string) => {
+        if (column !== 'merchant_id' || value !== MERCHANT_ID) {
+          throw new Error(`Unexpected order filter ${column}=${value}`);
+        }
+
+        return {
+          eq: vi.fn((nestedColumn: string, nestedValue: string) => {
+            expect(nestedColumn).toBe('id');
+            return {
+              maybeSingle: vi.fn(() => {
+                expect(nestedValue).toBe(ORDER_ID);
+                return ordersMaybeSingle();
+              }),
+            };
+          }),
+          or: ordersOr,
+        };
+      }),
+    }));
+    const productsSelect = vi.fn(() => ({ in: productsIn }));
+    const transactionsSelect = vi.fn(() => ({
+      eq: vi.fn((column: string, value: string) => {
+        expect(column).toBe('order_id');
+        expect(value).toBe(ORDER_ID);
+        return { order: transactionsOrder };
+      }),
+    }));
 
     mockFrom.mockImplementation((table: string) => {
       if (table === 'orders') {
-        return {
-          select: vi.fn(() => ({
-            eq: merchantEq,
-          })),
-        };
-      }
-
-      if (table === 'transactions') {
-        return {
-          select: vi.fn(() => ({
-            eq: transactionsEq,
-          })),
-        };
+        return { select: ordersSelect };
       }
 
       if (table === 'products') {
-        return {
-          select: productsSelect,
-        };
+        return { select: productsSelect };
+      }
+
+      if (table === 'transactions') {
+        return { select: transactionsSelect };
       }
 
       throw new Error(`Unexpected table: ${table}`);
     });
+
+    return {
+      ordersOr,
+      ordersSelect,
+      productsIn,
+      productsSelect,
+      transactionsOrder,
+    };
+  }
+
+  it('fetches an order case-insensitively by order number', async () => {
+    const { ordersOr, productsIn, productsSelect } = mockGetOrderQueries();
 
     const order = await getOrder(MERCHANT_ID, 'ord-001');
 
@@ -343,60 +362,16 @@ describe('getOrder', () => {
     expect(order?.items[0]?.image).toBe(
       'https://cdn.example.com/products/widget.avif'
     );
-    expect(merchantEq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
-    expect(merchantScopedFilter.ilike).toHaveBeenCalledWith(
-      'order_number',
-      'ord-001'
+    expect(ordersOr).toHaveBeenCalledWith(
+      expect.stringContaining('order_number.ilike.ord-001')
     );
     expect(productsSelect).toHaveBeenCalledWith('id, images');
     expect(productsIn).toHaveBeenCalledWith('id', ['product-1']);
   });
 
   it('preserves storefront order sources for dashboard labels', async () => {
-    const storefrontOrder = {
-      ...mockOrder,
-      source: 'online_store',
-    };
-    const maybeSingle = vi
-      .fn()
-      .mockResolvedValue({ data: storefrontOrder, error: null });
-    const merchantScopedFilter = {
-      eq: vi.fn(() => ({ maybeSingle })),
-      ilike: vi.fn(() => ({ maybeSingle })),
-    };
-    const productsIn = vi.fn().mockResolvedValue({
-      data: [],
-      error: null,
-    });
-    const productsSelect = vi.fn(() => ({ in: productsIn }));
-    const transactionsOrder = vi
-      .fn()
-      .mockResolvedValue({ data: [], error: null });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'orders') {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => merchantScopedFilter),
-          })),
-        };
-      }
-
-      if (table === 'transactions') {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({ order: transactionsOrder })),
-          })),
-        };
-      }
-
-      if (table === 'products') {
-        return {
-          select: productsSelect,
-        };
-      }
-
-      throw new Error(`Unexpected table: ${table}`);
+    mockGetOrderQueries({
+      orderRows: [{ ...mockOrder, source: 'online_store' }],
     });
 
     const order = await getOrder(MERCHANT_ID, 'ord-001');
@@ -405,54 +380,59 @@ describe('getOrder', () => {
   });
 
   it('formats legacy lowercase customer names for display', async () => {
-    const lowercaseOrder = {
-      ...mockOrder,
-      customer_name: 'chidimma azubuike',
-    };
-    const maybeSingle = vi
-      .fn()
-      .mockResolvedValue({ data: lowercaseOrder, error: null });
-    const merchantScopedFilter = {
-      eq: vi.fn(() => ({ maybeSingle })),
-      ilike: vi.fn(() => ({ maybeSingle })),
-    };
-    const productsIn = vi.fn().mockResolvedValue({
-      data: [],
-      error: null,
-    });
-    const productsSelect = vi.fn(() => ({ in: productsIn }));
-    const transactionsOrder = vi
-      .fn()
-      .mockResolvedValue({ data: [], error: null });
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'orders') {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => merchantScopedFilter),
-          })),
-        };
-      }
-
-      if (table === 'transactions') {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({ order: transactionsOrder })),
-          })),
-        };
-      }
-
-      if (table === 'products') {
-        return {
-          select: productsSelect,
-        };
-      }
-
-      throw new Error(`Unexpected table: ${table}`);
+    mockGetOrderQueries({
+      orderRows: [{ ...mockOrder, customer_name: 'chidimma azubuike' }],
     });
 
     const order = await getOrder(MERCHANT_ID, 'ord-001');
 
     expect(order?.customerName).toBe('Chidimma Azubuike');
+  });
+
+  it('returns null when the order does not exist', async () => {
+    const { ordersOr, productsSelect, transactionsOrder } = mockGetOrderQueries(
+      {
+        orderRows: [],
+      }
+    );
+
+    const order = await getOrder(MERCHANT_ID, 'ord-001');
+
+    expect(order).toBeNull();
+    expect(ordersOr).toHaveBeenCalledOnce();
+    expect(productsSelect).not.toHaveBeenCalled();
+    expect(transactionsOrder).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the order lookup is rejected as unauthenticated', async () => {
+    const { ordersOr, productsSelect, transactionsOrder } = mockGetOrderQueries(
+      {
+        orderRows: [],
+        orderError: { message: 'Unauthenticated' },
+      }
+    );
+
+    const order = await getOrder(MERCHANT_ID, 'ord-001');
+
+    expect(order).toBeNull();
+    expect(ordersOr).toHaveBeenCalledOnce();
+    expect(productsSelect).not.toHaveBeenCalled();
+    expect(transactionsOrder).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the order query fails', async () => {
+    const { ordersOr, productsSelect, transactionsOrder } = mockGetOrderQueries(
+      {
+        orderRows: [],
+        orderError: { message: 'DB error' },
+      }
+    );
+
+    const order = await getOrder(MERCHANT_ID, 'ord-001');
+
+    expect(order).toBeNull();
+    expect(ordersOr).toHaveBeenCalledOnce();
+    expect(productsSelect).not.toHaveBeenCalled();
+    expect(transactionsOrder).not.toHaveBeenCalled();
   });
 });

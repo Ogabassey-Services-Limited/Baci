@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
 
 interface ProductImageRecord {
   id: string;
@@ -44,7 +45,13 @@ export async function loadOrderItemImageMap(
     .in('id', uniqueProductIds);
 
   if (error) {
-    throw new Error(`Failed to load product images: ${error.message}`);
+    logger.error({
+      message: 'Failed to load dashboard order item images',
+      error,
+      productIds: uniqueProductIds,
+      route: 'dashboard/orders/loadOrderItemImageMap',
+    });
+    return new Map<string, string>();
   }
 
   return new Map(

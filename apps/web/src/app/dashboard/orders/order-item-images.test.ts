@@ -4,6 +4,12 @@ import {
   loadOrderItemImageMap,
 } from '@/app/dashboard/orders/order-item-images';
 
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: vi.fn(),
+  },
+}));
+
 describe('extractOrderItemImage', () => {
   it('returns the first string image url', () => {
     expect(
@@ -68,5 +74,23 @@ describe('loadOrderItemImageMap', () => {
 
     expect(imageMap.size).toBe(0);
     expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('returns an empty map when the product image query fails', async () => {
+    const inQuery = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'boom' },
+    });
+    const selectQuery = vi.fn(() => ({ in: inQuery }));
+    const supabase = {
+      from: vi.fn(() => ({ select: selectQuery })),
+    } as const;
+
+    const imageMap = await loadOrderItemImageMap(supabase as never, [
+      'product-1',
+    ]);
+
+    expect(imageMap.size).toBe(0);
+    expect(supabase.from).toHaveBeenCalledWith('products');
   });
 });

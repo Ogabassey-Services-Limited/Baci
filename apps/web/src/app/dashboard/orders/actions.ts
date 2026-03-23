@@ -109,6 +109,28 @@ interface DashboardOrderRecord {
   order_items?: OrderItem[];
 }
 
+interface OrderConfirmationRecord {
+  id: string;
+  merchant_id: string;
+  order_number: string;
+  customer_name: string;
+  customer_email?: string;
+  customer_phone?: string;
+  subtotal?: string;
+  shipping_fee?: string;
+  total: string;
+  shipping_address?: {
+    address?: string;
+    city?: string;
+    state?: string;
+  };
+  order_items?: Array<{
+    name?: string;
+    quantity?: number;
+    price?: string | number;
+  }>;
+}
+
 export interface JumiaOrderItem {
   id?: string;
   name?: string;
@@ -125,6 +147,40 @@ export interface JumiaOrder {
   created_at_jumia: string;
   items?: JumiaOrderItem[];
 }
+
+const ORDER_ITEM_SELECT =
+  'id, name, product_id, quantity, price, variant_name, has_assurance';
+const DASHBOARD_ORDER_SELECT = [
+  'id',
+  'order_number',
+  'customer_name',
+  'total',
+  'shipping_status',
+  'payment_status',
+  'payment_method',
+  'created_at',
+  'source',
+  'tracking_number',
+  'shipping_provider',
+  'payment_reference',
+  'customer_email',
+  'customer_phone',
+  'notes',
+  `order_items(${ORDER_ITEM_SELECT})`,
+].join(', ');
+const ORDER_CONFIRMATION_SELECT = [
+  'id',
+  'merchant_id',
+  'order_number',
+  'customer_name',
+  'customer_email',
+  'customer_phone',
+  'subtotal',
+  'shipping_fee',
+  'total',
+  'shipping_address',
+  'order_items(id, name, quantity, price)',
+].join(', ');
 
 function formatStatus(status: string): string {
   if (!status) return 'Pending';
@@ -143,7 +199,7 @@ export async function getOrders(
 
   let query = supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select(DASHBOARD_ORDER_SELECT)
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false });
 
@@ -169,7 +225,18 @@ export async function getOrders(
     );
   }
 
-  const { data: orders, error } = await query;
+  const { data: ordersData, error } = await query;
+
+  if (error) {
+    logger.error({
+      message: 'Error fetching dashboard orders',
+      error,
+      merchantId,
+      filters,
+      route: 'dashboard/orders/getOrders',
+    });
+    return [];
+  }
 
   // FETCH JUMIA ORDERS (If no specific payment/shipping filter that excludes them)
   // Jumia orders don't have standard payment/shipping statuses in the same way,
@@ -186,21 +253,16 @@ export async function getOrders(
     jumiaOrders = jOrders || [];
   }
 
-  if (error) {
-    console.error('Error fetching orders:', error);
-    // If main orders fail, we might still want to show Jumia orders?
-    // Usually better to fail safely.
-    return [];
-  }
+  const orders = (ordersData || []) as unknown as DashboardOrderRecord[];
 
   const orderItemImageMap = await loadOrderItemImageMap(
     supabase,
-    (orders || []).flatMap((order) =>
+    orders.flatMap((order) =>
       (order.order_items || []).map((item: OrderItem) => item.product_id)
     )
   );
 
-  const realOrders = (orders || []).map((order) => ({
+  const realOrders = orders.map((order) => ({
     id: order.id,
     orderNumber: order.order_number,
     customerName: formatPersonName(order.customer_name || 'Customer'),
@@ -357,12 +419,12 @@ export async function getOrder(
   if (isUuid) {
     const { data, error } = await supabase
       .from('orders')
-      .select('*, order_items(*)')
+      .select(DASHBOARD_ORDER_SELECT)
       .eq('merchant_id', merchantId)
       .eq('id', orderIdentifier)
       .maybeSingle();
 
-    order = data as DashboardOrderRecord | null;
+    order = data as unknown as DashboardOrderRecord | null;
     orderError = error;
   } else {
     const normalizedIdentifier = orderIdentifier.replace(/^#/, '').trim();
@@ -371,22 +433,47 @@ export async function getOrder(
       `#${normalizedIdentifier}`,
     ].filter((value, index, values) => values.indexOf(value) === index);
 
-    for (const candidateOrderNumber of candidateOrderNumbers) {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .eq('merchant_id', merchantId)
-        .ilike('order_number', candidateOrderNumber)
-        .maybeSingle();
+    const orderMatchClause = candidateOrderNumbers
+      .map((candidateOrderNumber) => {
+        const sanitizedOrderNumber = sanitizeLikePattern(candidateOrderNumber);
+        return `order_number.ilike.${sanitizedOrderNumber}`;
+      })
+      .join(',');
 
-      if (error) {
-        orderError = error;
-        break;
-      }
+    const { data, error } = await supabase
+      .from('orders')
+      .select(DASHBOARD_ORDER_SELECT)
+      .eq('merchant_id', merchantId)
+      .or(orderMatchClause);
 
-      if (data) {
-        order = data as DashboardOrderRecord;
-        break;
+    if (error) {
+      orderError = error;
+    } else {
+      const normalizedCandidateSet = new Set(
+        candidateOrderNumbers.map((candidateOrderNumber) =>
+          candidateOrderNumber.replace(/^#/, '').trim().toLowerCase()
+        )
+      );
+      const matchingOrders = (
+        (data || []) as unknown as DashboardOrderRecord[]
+      ).filter((candidateOrder) =>
+        normalizedCandidateSet.has(
+          candidateOrder.order_number.replace(/^#/, '').trim().toLowerCase()
+        )
+      );
+
+      if (matchingOrders.length === 1) {
+        [order] = matchingOrders;
+      } else if (matchingOrders.length > 1) {
+        logger.warn({
+          message: 'Multiple orders matched the provided dashboard identifier',
+          merchantId,
+          orderIdentifier,
+          matchingOrderIds: matchingOrders.map(
+            (candidateOrder) => candidateOrder.id
+          ),
+          route: 'dashboard/orders/getOrder',
+        });
       }
     }
   }
@@ -470,11 +557,12 @@ export async function resendOrderConfirmation(
     const supabase = createClient(cookieStore);
 
     // 1. Fetch Order
-    const { data: order, error: orderError } = await supabase
+    const { data: orderData, error: orderError } = await supabase
       .from('orders')
-      .select('*, order_items(*)')
+      .select(ORDER_CONFIRMATION_SELECT)
       .eq('id', orderId)
       .single();
+    const order = orderData as unknown as OrderConfirmationRecord | null;
 
     if (orderError || !order) {
       logger.error({
@@ -511,10 +599,10 @@ export async function resendOrderConfirmation(
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
     const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
-    const emailItems = (order.order_items || []).map((item: OrderItem) => ({
+    const emailItems = (order.order_items || []).map((item) => ({
       name: item.name || 'Product',
       quantity: item.quantity || 1,
-      price: item.price || 0,
+      price: Number(item.price || 0),
     }));
 
     const emailData = {

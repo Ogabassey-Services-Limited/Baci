@@ -143,6 +143,7 @@ export function OrderSourceIcon({ source }: { source: string }) {
             src="/images/jumia-logo.png"
             alt=""
             fill
+            sizes="24px"
             className="object-contain p-0.5"
           />
         </div>

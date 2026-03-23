@@ -6,6 +6,7 @@ describe('getOrderSourceLabel', () => {
     expect(getOrderSourceLabel('online_store')).toBe('Website');
     expect(getOrderSourceLabel('storefront')).toBe('Website');
     expect(getOrderSourceLabel('web')).toBe('Website');
+    expect(getOrderSourceLabel('website')).toBe('Website');
     expect(getOrderSourceLabel('whatsapp')).toBe('WhatsApp');
   });
 

@@ -298,7 +298,7 @@
   }
 
   @media (hover: hover) and (min-width: 768px) {
-  .dark .glass-themed {
+    .dark .glass-themed {
       @apply backdrop-blur-md;
       background: color-mix(in srgb, var(--store-background, black) 70%, transparent);
     }

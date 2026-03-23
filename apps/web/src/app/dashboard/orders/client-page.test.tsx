@@ -87,7 +87,7 @@ describe('OrdersClientPage', () => {
 
     expect(screen.queryByText('Item Details')).not.toBeInTheDocument();
 
-    await user.click(screen.getByText('1 items: iPhone 14 Pro'));
+    await user.click(screen.getByText('1 item: iPhone 14 Pro'));
 
     expect(screen.getByText('Item Details')).toBeInTheDocument();
   });

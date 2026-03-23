@@ -1,8 +1,8 @@
 const WORD_SEPARATOR_REGEX = /([\s'’-]+)/;
 const WHITESPACE_REGEX = /\s+/g;
 
-export function formatPersonName(value: string): string {
-  const normalizedValue = value.replace(WHITESPACE_REGEX, ' ').trim();
+export function formatPersonName(value: string | null | undefined): string {
+  const normalizedValue = value?.replace(WHITESPACE_REGEX, ' ').trim() || '';
 
   if (!normalizedValue) {
     return '';
