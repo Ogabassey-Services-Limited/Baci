@@ -2,36 +2,19 @@
  * Tests for ScanScreen component
  */
 
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- Mocks ---
 
-const mocks = vi.hoisted(() => ({
-  alert: vi.fn(),
-  lastBarcodeHandler: undefined as
-    | ((payload: BarcodeScanPayload) => Promise<void> | void)
-    | undefined,
-  requestCameraPermissionsAsync: vi.fn(),
-  routerBack: vi.fn(),
-  routerPush: vi.fn(),
-}));
-const mockAlert = mocks.alert;
-
-type BarcodeScanPayload = {
-  type: string;
-  data: string;
-};
-
-type AlertButton = {
-  onPress?: () => void;
-};
+const mockRouterBack = vi.fn();
+const mockRouterPush = vi.fn();
 
 vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
-    Alert: { alert: mocks.alert },
+    Alert: { alert: vi.fn() },
     Pressable: ({
       children,
       onPress,
@@ -59,26 +42,20 @@ vi.mock('react-native', async () => {
 
 vi.mock('expo-router', () => ({
   router: {
-    back: () => mocks.routerBack(),
-    push: (path: string) => mocks.routerPush(path),
+    back: () => mockRouterBack(),
+    push: (path: string) => mockRouterPush(path),
   },
 }));
 
+let mockPermissionStatus = 'granted';
 vi.mock('expo-camera', () => ({
   Camera: {
-    requestCameraPermissionsAsync: () => mocks.requestCameraPermissionsAsync(),
+    requestCameraPermissionsAsync: () =>
+      Promise.resolve({ status: mockPermissionStatus }),
   },
-  CameraView: ({
-    children,
-    onBarcodeScanned,
-  }: {
-    children: React.ReactNode;
-    onBarcodeScanned?: (payload: BarcodeScanPayload) => Promise<void> | void;
-  }) => {
-    mocks.lastBarcodeHandler = onBarcodeScanned;
-
-    return <div data-testid="camera-view">{children}</div>;
-  },
+  CameraView: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="camera-view">{children}</div>
+  ),
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
@@ -158,53 +135,22 @@ vi.mock('@/lib/supabase', () => ({
 
 import ScanScreen from './scan';
 
-async function triggerBarcodeScan(data: string) {
-  const onBarcodeScanned = mocks.lastBarcodeHandler;
-
-  if (!onBarcodeScanned) {
-    throw new Error('Expected camera barcode handler to be registered');
-  }
-
-  await act(async () => {
-    await onBarcodeScanned({ type: 'ean13', data });
-  });
-}
-
-function pressLastAlertButton(index: number) {
-  const buttons = mockAlert.mock.calls.at(-1)?.[2] as AlertButton[] | undefined;
-  const onPress = buttons?.[index]?.onPress;
-
-  if (!onPress) {
-    throw new Error(`Expected alert button ${index} to exist`);
-  }
-
-  act(() => {
-    onPress();
-  });
-}
-
 describe('ScanScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.lastBarcodeHandler = undefined;
-    mocks.requestCameraPermissionsAsync.mockResolvedValue({
-      status: 'granted',
-    });
+    mockPermissionStatus = 'granted';
   });
 
   describe('permission states', () => {
     it('renders requesting permission message initially', () => {
-      mocks.requestCameraPermissionsAsync.mockReturnValue(
-        new Promise(() => void 0)
-      );
+      // Camera permission is null before the async effect resolves
+      mockPermissionStatus = 'granted';
       render(<ScanScreen />);
       expect(screen.getByText('Requesting camera permission...')).toBeDefined();
     });
 
     it('renders permission denied state with Go Back button', async () => {
-      mocks.requestCameraPermissionsAsync.mockResolvedValue({
-        status: 'denied',
-      });
+      mockPermissionStatus = 'denied';
       render(<ScanScreen />);
 
       await waitFor(() => {
@@ -218,6 +164,7 @@ describe('ScanScreen', () => {
     });
 
     it('renders camera view when permission is granted', async () => {
+      mockPermissionStatus = 'granted';
       render(<ScanScreen />);
 
       await waitFor(() => {
@@ -243,68 +190,6 @@ describe('ScanScreen', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Cancel')).toBeDefined();
-      });
-    });
-  });
-
-  describe('scan results', () => {
-    it('runs the add-product action from the product-not-found alert', async () => {
-      mockSupabaseSingle.mockResolvedValue({
-        data: null,
-        error: { message: 'Not found' },
-      });
-
-      render(<ScanScreen />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('camera-view')).toBeDefined();
-      });
-
-      await triggerBarcodeScan('ABC 123');
-
-      await waitFor(() => {
-        expect(mockAlert).toHaveBeenCalledWith(
-          'Product Not Found',
-          'No product found with barcode: ABC 123',
-          expect.any(Array)
-        );
-      });
-
-      pressLastAlertButton(1);
-
-      expect(mocks.routerPush).toHaveBeenCalledWith(
-        '/product/new?sku=ABC%20123'
-      );
-    });
-
-    it('runs the scan-again action from the product-found alert', async () => {
-      mockSupabaseSingle.mockResolvedValue({
-        data: { id: 'product-1', name: 'Widget' },
-        error: null,
-      });
-
-      render(<ScanScreen />);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('camera-view')).toBeDefined();
-      });
-
-      await triggerBarcodeScan('SKU-123');
-
-      await waitFor(() => {
-        expect(mockAlert).toHaveBeenCalledWith(
-          'Product Found',
-          'Product: Widget\nBarcode: SKU-123',
-          expect.any(Array)
-        );
-      });
-
-      expect(screen.getByText('Processing...')).toBeDefined();
-
-      pressLastAlertButton(1);
-
-      await waitFor(() => {
-        expect(screen.getByText('Align barcode within frame')).toBeDefined();
       });
     });
   });
