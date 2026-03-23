@@ -323,12 +323,16 @@ describe('getOrder', () => {
   }) {
     const orderRows = options?.orderRows ?? [mockOrder];
     const orderError = options?.orderError ?? null;
-    const ordersOr = vi
-      .fn()
-      .mockResolvedValue({ data: orderRows, error: orderError });
+    const orderNumberLookups: string[] = [];
     const ordersMaybeSingle = vi
       .fn()
       .mockResolvedValue({ data: orderRows[0] ?? null, error: orderError });
+    const orderNumberMaybeSingle = vi.fn((orderNumber: string) => {
+      orderNumberLookups.push(orderNumber);
+      const matchedOrder =
+        orderRows.find((row) => row.order_number === orderNumber) ?? null;
+      return Promise.resolve({ data: matchedOrder, error: orderError });
+    });
     const productsIn = vi.fn().mockResolvedValue({
       data: [
         {
@@ -349,15 +353,25 @@ describe('getOrder', () => {
 
         return {
           eq: vi.fn((nestedColumn: string, nestedValue: string) => {
-            expect(nestedColumn).toBe('id');
-            return {
-              maybeSingle: vi.fn(() => {
-                expect(nestedValue).toBe(ORDER_ID);
-                return ordersMaybeSingle();
-              }),
-            };
+            if (nestedColumn === 'id') {
+              return {
+                maybeSingle: vi.fn(() => {
+                  expect(nestedValue).toBe(ORDER_ID);
+                  return ordersMaybeSingle();
+                }),
+              };
+            }
+
+            if (nestedColumn === 'order_number') {
+              return {
+                maybeSingle: vi.fn(() => orderNumberMaybeSingle(nestedValue)),
+              };
+            }
+
+            throw new Error(
+              `Unexpected nested order filter ${nestedColumn}=${nestedValue}`
+            );
           }),
-          or: ordersOr,
         };
       }),
     }));
@@ -387,8 +401,9 @@ describe('getOrder', () => {
     });
 
     return {
-      ordersOr,
       ordersMaybeSingle,
+      orderNumberLookups,
+      orderNumberMaybeSingle,
       ordersSelect,
       productsIn,
       productsSelect,
@@ -396,19 +411,18 @@ describe('getOrder', () => {
     };
   }
 
-  it('fetches an order case-insensitively by order number', async () => {
-    const { ordersOr, productsIn, productsSelect } = mockGetOrderQueries();
+  it('fetches an order by exact order number candidates', async () => {
+    const { orderNumberLookups, productsIn, productsSelect } =
+      mockGetOrderQueries();
 
-    const order = await getOrder(MERCHANT_ID, 'ord-001');
+    const order = await getOrder(MERCHANT_ID, 'ORD-001');
 
     expect(order?.id).toBe(ORDER_ID);
     expect(order?.orderNumber).toBe('#ORD-001');
     expect(order?.items[0]?.image).toBe(
       'https://cdn.example.com/products/widget.avif'
     );
-    expect(ordersOr).toHaveBeenCalledWith(
-      expect.stringContaining('order_number.ilike.ord-001')
-    );
+    expect(orderNumberLookups).toEqual(['ORD-001', '#ORD-001']);
     expect(productsSelect).toHaveBeenCalledWith('id, images');
     expect(productsIn).toHaveBeenCalledWith('id', ['product-1']);
   });
@@ -416,7 +430,7 @@ describe('getOrder', () => {
   it('fetches an order by direct uuid lookup', async () => {
     const {
       ordersMaybeSingle,
-      ordersOr,
+      orderNumberMaybeSingle,
       productsIn,
       productsSelect,
       transactionsOrder,
@@ -426,7 +440,7 @@ describe('getOrder', () => {
 
     expect(order?.id).toBe(ORDER_ID);
     expect(ordersMaybeSingle).toHaveBeenCalledOnce();
-    expect(ordersOr).not.toHaveBeenCalled();
+    expect(orderNumberMaybeSingle).not.toHaveBeenCalled();
     expect(productsSelect).toHaveBeenCalledWith('id, images');
     expect(productsIn).toHaveBeenCalledWith('id', ['product-1']);
     expect(transactionsOrder).toHaveBeenCalledWith('created_at', {
@@ -439,7 +453,7 @@ describe('getOrder', () => {
       orderRows: [{ ...mockOrder, source: 'online_store' }],
     });
 
-    const order = await getOrder(MERCHANT_ID, 'ord-001');
+    const order = await getOrder(MERCHANT_ID, 'ORD-001');
 
     expect(order?.source).toBe('online_store');
   });
@@ -449,85 +463,90 @@ describe('getOrder', () => {
       orderRows: [{ ...mockOrder, customer_name: 'chidimma azubuike' }],
     });
 
-    const order = await getOrder(MERCHANT_ID, 'ord-001');
+    const order = await getOrder(MERCHANT_ID, 'ORD-001');
 
     expect(order?.customerName).toBe('Chidimma Azubuike');
   });
 
   it('returns null when the order does not exist', async () => {
-    const { ordersOr, productsSelect, transactionsOrder } = mockGetOrderQueries(
-      {
+    const { orderNumberMaybeSingle, productsSelect, transactionsOrder } =
+      mockGetOrderQueries({
         orderRows: [],
-      }
-    );
+      });
 
-    const order = await getOrder(MERCHANT_ID, 'ord-001');
+    const order = await getOrder(MERCHANT_ID, 'ORD-001');
 
     expect(order).toBeNull();
-    expect(ordersOr).toHaveBeenCalledOnce();
+    expect(orderNumberMaybeSingle).toHaveBeenCalledTimes(2);
     expect(productsSelect).not.toHaveBeenCalled();
     expect(transactionsOrder).not.toHaveBeenCalled();
   });
 
   it('returns null when the order lookup is rejected as unauthenticated', async () => {
-    const { ordersOr, productsSelect, transactionsOrder } = mockGetOrderQueries(
-      {
+    const { orderNumberMaybeSingle, productsSelect, transactionsOrder } =
+      mockGetOrderQueries({
         orderRows: [],
         orderError: { message: 'Unauthenticated' },
-      }
-    );
+      });
 
-    const order = await getOrder(MERCHANT_ID, 'ord-001');
+    const order = await getOrder(MERCHANT_ID, 'ORD-001');
 
     expect(order).toBeNull();
-    expect(ordersOr).toHaveBeenCalledOnce();
+    expect(orderNumberMaybeSingle).toHaveBeenCalledOnce();
     expect(productsSelect).not.toHaveBeenCalled();
     expect(transactionsOrder).not.toHaveBeenCalled();
   });
 
   it('returns null when the order query fails', async () => {
-    const { ordersOr, productsSelect, transactionsOrder } = mockGetOrderQueries(
-      {
+    const { orderNumberMaybeSingle, productsSelect, transactionsOrder } =
+      mockGetOrderQueries({
         orderRows: [],
         orderError: { message: 'DB error' },
-      }
-    );
+      });
 
-    const order = await getOrder(MERCHANT_ID, 'ord-001');
+    const order = await getOrder(MERCHANT_ID, 'ORD-001');
 
     expect(order).toBeNull();
-    expect(ordersOr).toHaveBeenCalledOnce();
+    expect(orderNumberMaybeSingle).toHaveBeenCalledOnce();
     expect(productsSelect).not.toHaveBeenCalled();
     expect(transactionsOrder).not.toHaveBeenCalled();
   });
 
   it('returns null when the direct uuid lookup does not find an order', async () => {
-    const { ordersMaybeSingle, ordersOr, productsSelect, transactionsOrder } =
-      mockGetOrderQueries({
-        orderRows: [],
-      });
+    const {
+      ordersMaybeSingle,
+      orderNumberMaybeSingle,
+      productsSelect,
+      transactionsOrder,
+    } = mockGetOrderQueries({
+      orderRows: [],
+    });
 
     const order = await getOrder(MERCHANT_ID, ORDER_ID);
 
     expect(order).toBeNull();
     expect(ordersMaybeSingle).toHaveBeenCalledOnce();
-    expect(ordersOr).not.toHaveBeenCalled();
+    expect(orderNumberMaybeSingle).not.toHaveBeenCalled();
     expect(productsSelect).not.toHaveBeenCalled();
     expect(transactionsOrder).not.toHaveBeenCalled();
   });
 
   it('returns null when the direct uuid lookup fails', async () => {
-    const { ordersMaybeSingle, ordersOr, productsSelect, transactionsOrder } =
-      mockGetOrderQueries({
-        orderRows: [],
-        orderError: { message: 'DB error' },
-      });
+    const {
+      ordersMaybeSingle,
+      orderNumberMaybeSingle,
+      productsSelect,
+      transactionsOrder,
+    } = mockGetOrderQueries({
+      orderRows: [],
+      orderError: { message: 'DB error' },
+    });
 
     const order = await getOrder(MERCHANT_ID, ORDER_ID);
 
     expect(order).toBeNull();
     expect(ordersMaybeSingle).toHaveBeenCalledOnce();
-    expect(ordersOr).not.toHaveBeenCalled();
+    expect(orderNumberMaybeSingle).not.toHaveBeenCalled();
     expect(productsSelect).not.toHaveBeenCalled();
     expect(transactionsOrder).not.toHaveBeenCalled();
   });
