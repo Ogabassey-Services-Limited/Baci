@@ -7,14 +7,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- Mocks ---
 
-const mockRouterBack = vi.fn();
-const mockRouterPush = vi.fn();
+const mocks = vi.hoisted(() => ({
+  alert: vi.fn(),
+  requestCameraPermissionsAsync: vi.fn(),
+  routerBack: vi.fn(),
+  routerPush: vi.fn(),
+}));
 
 vi.mock('react-native', async () => {
   const React = await import('react');
 
   return {
-    Alert: { alert: vi.fn() },
+    Alert: { alert: mocks.alert },
     Pressable: ({
       children,
       onPress,
@@ -35,28 +39,21 @@ vi.mock('react-native', async () => {
       children?: React.ReactNode;
       style?: unknown;
     }) => React.createElement('span', { style }, children),
-    View: ({
-      children,
-      ...props
-    }: {
-      children?: React.ReactNode;
-    } & Record<string, unknown>) =>
-      React.createElement('div', props, children),
+    View: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('div', null, children),
   };
 });
 
 vi.mock('expo-router', () => ({
   router: {
-    back: () => mockRouterBack(),
-    push: (path: string) => mockRouterPush(path),
+    back: () => mocks.routerBack(),
+    push: (path: string) => mocks.routerPush(path),
   },
 }));
 
-let mockPermissionStatus = 'granted';
 vi.mock('expo-camera', () => ({
   Camera: {
-    requestCameraPermissionsAsync: () =>
-      Promise.resolve({ status: mockPermissionStatus }),
+    requestCameraPermissionsAsync: () => mocks.requestCameraPermissionsAsync(),
   },
   CameraView: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="camera-view">{children}</div>
@@ -98,6 +95,33 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
+vi.mock('@/constants/theme', () => ({
+  RADIUS: {
+    md: 12,
+  },
+  SPACING: {
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 20,
+    '2xl': 24,
+    '3xl': 32,
+    '4xl': 48,
+  },
+  TYPOGRAPHY: {
+    fontFamily: {
+      regular: 'Inter_400Regular',
+      semiBold: 'Inter_600SemiBold',
+      bold: 'Inter_700Bold',
+    },
+    size: {
+      md: 14,
+      lg: 16,
+      xl: 18,
+    },
+  },
+}));
+
 const mockSupabaseSingle = vi.fn();
 const mockSupabaseEq = vi.fn(() => ({ single: mockSupabaseSingle }));
 const mockSupabaseSelect = vi.fn(() => ({
@@ -116,19 +140,24 @@ import ScanScreen from './scan';
 describe('ScanScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPermissionStatus = 'granted';
+    mocks.requestCameraPermissionsAsync.mockResolvedValue({
+      status: 'granted',
+    });
   });
 
   describe('permission states', () => {
     it('renders requesting permission message initially', () => {
-      // Camera permission is null before the async effect resolves
-      mockPermissionStatus = 'granted';
+      mocks.requestCameraPermissionsAsync.mockReturnValue(
+        new Promise(() => void 0)
+      );
       render(<ScanScreen />);
       expect(screen.getByText('Requesting camera permission...')).toBeDefined();
     });
 
     it('renders permission denied state with Go Back button', async () => {
-      mockPermissionStatus = 'denied';
+      mocks.requestCameraPermissionsAsync.mockResolvedValue({
+        status: 'denied',
+      });
       render(<ScanScreen />);
 
       await waitFor(() => {
@@ -142,7 +171,6 @@ describe('ScanScreen', () => {
     });
 
     it('renders camera view when permission is granted', async () => {
-      mockPermissionStatus = 'granted';
       render(<ScanScreen />);
 
       await waitFor(() => {

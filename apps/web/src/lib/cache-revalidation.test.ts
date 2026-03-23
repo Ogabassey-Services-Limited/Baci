@@ -192,57 +192,111 @@ describe('cache-revalidation utilities', () => {
 
   describe('revalidateBlogPosts', () => {
     it('revalidates blog posts cache', () => {
-      const identifier = 'test-merchant';
+      revalidateBlogPosts({ identifiers: ['test-merchant'] });
 
-      revalidateBlogPosts(identifier);
-
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-posts',
-        'storefront-page'
-      );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
-    });
-
-    it('revalidates specific blog post when slug provided', () => {
-      const identifier = 'test-merchant';
-      const postSlug = 'test-post';
-
-      revalidateBlogPosts(identifier, postSlug);
-
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-posts',
-        'storefront-page'
-      );
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
-        `blog-${identifier}-${postSlug}`,
-        'storefront-page'
+        'blog-list-test-merchant-all-1',
+        'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
     });
 
-    it('handles empty slug gracefully', () => {
-      const identifier = 'test-merchant';
+    it('revalidates specific blog post when identifiers and slugs are provided', () => {
+      revalidateBlogPosts({
+        identifiers: ['test-merchant', 'TEST-MERCHANT'],
+        postSlugs: ['test-post', 'test-post'],
+      });
 
-      revalidateBlogPosts(identifier, '');
-
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-posts',
-        'storefront-page'
+        'blog-list-test-merchant-all-1',
+        'merchant'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-test-merchant-test-post',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
     });
 
-    it('works with merchant ID as identifier', () => {
-      revalidateBlogPosts(MERCHANT_ID, 'my-blog-post');
+    it('supports the legacy identifier + slug signature', () => {
+      revalidateBlogPosts('test-merchant', 'test-post');
 
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-posts',
-        'storefront-page'
+        'blog-list-test-merchant-all-1',
+        'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        `blog-${MERCHANT_ID}-my-blog-post`,
-        'storefront-page'
+        'blog-test-merchant-test-post',
+        'merchant'
       );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(3);
+    });
+
+    it('revalidates category listing pages when categories and pages are provided', () => {
+      revalidateBlogPosts({
+        identifiers: ['test-merchant'],
+        listingCategories: ['tech', 'TECH'],
+        listingPages: [1, 2, 2],
+      });
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-test-merchant-all-1',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-test-merchant-all-2',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-test-merchant-tech-1',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-test-merchant-tech-2',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(5);
+    });
+
+    it('revalidates listing tags for each identifier when multiple identifiers are provided', () => {
+      revalidateBlogPosts({
+        identifiers: ['merchant-1', 'merchant-2'],
+        listingCategories: ['tech'],
+        listingPages: [2],
+      });
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-merchant-1-all-2',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-merchant-1-tech-2',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-merchant-2-all-2',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-list-merchant-2-tech-2',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(5);
+    });
+
+    it('handles empty identifiers and slugs gracefully', () => {
+      revalidateBlogPosts({
+        identifiers: ['', null, undefined],
+        postSlugs: ['', null, undefined],
+      });
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
     });
   });
 
