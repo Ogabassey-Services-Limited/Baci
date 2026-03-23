@@ -26,7 +26,10 @@ export interface RawDbProduct {
   slug?: string;
   description?: string;
   images?: (string | { url: string; alt?: string })[];
-  categories?: { id?: string; name: string; slug: string } | null;
+  categories?:
+    | { id?: string; name: string; slug: string }
+    | { id?: string; name: string; slug: string }[]
+    | null;
   // Support for Many-to-Many relation (preferred over single category_id)
   product_categories?: {
     categories: { id?: string; name: string; slug: string } | null;
@@ -125,8 +128,11 @@ export function normalizeProduct(raw: RawDbProduct): NormalizedProduct {
   const normalizedImages = normalizeImages(raw.images);
 
   // Determine category source: prioritize direct join, then many-to-many (first), then legacy text
+  // Supabase may return categories as a single object (FK join) or array (type inference)
+  const rawCat = raw.categories;
+  const resolvedCategory = Array.isArray(rawCat) ? (rawCat[0] ?? null) : rawCat;
   const joinedCategory =
-    raw.categories || raw.product_categories?.[0]?.categories;
+    resolvedCategory || raw.product_categories?.[0]?.categories;
 
   // Determine category name
   const categoryName = joinedCategory?.name || raw.category || 'General';
