@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { getCustomerDisplayName } from '@baci/shared';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
@@ -56,11 +57,7 @@ export default function CustomerDetailsScreen() {
 
   const getDisplayName = () => {
     if (!customer) return '';
-    const names = [customer.first_name, customer.last_name]
-      .filter((name): name is string => Boolean(name))
-      .join(' ');
-    if (names) return names;
-    return customer.email.split('@')[0];
+    return getCustomerDisplayName(customer);
   };
 
   const handleWhatsApp = () => {

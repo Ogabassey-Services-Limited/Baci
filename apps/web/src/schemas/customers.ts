@@ -6,6 +6,12 @@ import {
   sanitizeText,
 } from '@/lib/sanitize-core';
 
+const customerStoreCreditSchema = z.preprocess(
+  (value) =>
+    typeof value === 'string' && value.trim() === '' ? undefined : value,
+  z.coerce.number().min(0).max(1_000_000_000).optional()
+);
+
 export const createCustomerSchema = z.object({
   first_name: z
     .string()
@@ -43,6 +49,7 @@ export const createCustomerSchema = z.object({
     .transform((val) => sanitizeText(val, 100))
     .optional()
     .nullable(),
+  store_credit: customerStoreCreditSchema.optional().nullable(),
   notes: z
     .string()
     .transform((val) => sanitizeText(val, 1000))
@@ -51,10 +58,21 @@ export const createCustomerSchema = z.object({
 });
 
 export const updateCustomerSchema = z.object({
+  first_name: z
+    .string()
+    .transform((val) => formatPersonName(sanitizeText(val, 100)))
+    .optional()
+    .nullable(),
+  last_name: z
+    .string()
+    .transform((val) => formatPersonName(sanitizeText(val, 100)))
+    .optional()
+    .nullable(),
   full_name: z
     .string()
     .transform((val) => formatPersonName(sanitizeText(val, 100)))
-    .optional(),
+    .optional()
+    .nullable(),
   email: z
     .string()
     .transform((val) => sanitizeEmail(val))
@@ -71,6 +89,7 @@ export const updateCustomerSchema = z.object({
     .transform((val) => sanitizeText(val, 500))
     .optional()
     .nullable(),
+  store_credit: customerStoreCreditSchema.optional().nullable(),
 });
 
 /**

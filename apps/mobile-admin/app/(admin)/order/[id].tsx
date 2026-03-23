@@ -70,6 +70,7 @@ import {
 } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
 import { BASE_URL } from '@/lib/api-client';
+import { extractOrderDeliveryAddress } from '@/lib/orders';
 import { supabase } from '@/lib/supabase';
 import { parseSavedRiders } from '@/lib/validators/storage';
 
@@ -361,12 +362,7 @@ export default function OrderDetailsScreen() {
     const rawShipping = order?.shipping_address as ShippingAddress;
     const shippingAddress =
       typeof rawShipping === 'object' ? rawShipping : null;
-    const deliveryAddress =
-      (typeof rawShipping === 'string' ? rawShipping.trim() : null) ||
-      shippingAddress?.address ||
-      shippingAddress?.address_line1 ||
-      order?.customer_address ||
-      '';
+    const deliveryAddress = extractOrderDeliveryAddress(rawShipping) || '';
     const deliveryCityState = [shippingAddress?.city, shippingAddress?.state]
       .filter((part): part is string => Boolean(part?.trim()))
       .join(' ');

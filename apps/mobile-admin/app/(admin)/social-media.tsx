@@ -4,8 +4,9 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
+import type { ComponentProps } from 'react';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,75 +15,134 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useAuth } from '@/hooks/useAuth';
+import SocialMediaInput from '@/components/settings/SocialMediaInput';
+import { type MerchantSocialMedia, useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
-import { supabase } from '@/lib/supabase';
+import { updateMerchantSettings } from '@/lib/merchant-settings';
+
+const EMPTY_SOCIAL_MEDIA: MerchantSocialMedia = {
+  instagram: '',
+  twitter: '',
+  facebook: '',
+  tiktok: '',
+  youtube: '',
+  pinterest: '',
+  linkedin: '',
+  snapchat: '',
+};
+
+type SocialMediaFieldConfig = {
+  platform: keyof MerchantSocialMedia;
+  label: string;
+  icon: ComponentProps<typeof Ionicons>['name'];
+  placeholder: string;
+  badge?: string;
+};
+
+const SOCIAL_MEDIA_FIELDS: readonly SocialMediaFieldConfig[] = [
+  {
+    platform: 'instagram',
+    label: 'Instagram Handle',
+    icon: 'logo-instagram',
+    placeholder: '@username',
+  },
+  {
+    platform: 'twitter',
+    label: 'Twitter/X Handle',
+    icon: 'logo-twitter',
+    placeholder: '@username',
+  },
+  {
+    platform: 'snapchat',
+    label: 'Snapchat Handle',
+    icon: 'logo-snapchat',
+    placeholder: '@username',
+    badge: 'NEW',
+  },
+  {
+    platform: 'facebook',
+    label: 'Facebook URL',
+    icon: 'logo-facebook',
+    placeholder: 'https://facebook.com/page',
+  },
+  {
+    platform: 'youtube',
+    label: 'YouTube URL',
+    icon: 'logo-youtube',
+    placeholder: 'https://youtube.com/@channel',
+  },
+  {
+    platform: 'pinterest',
+    label: 'Pinterest URL',
+    icon: 'logo-pinterest',
+    placeholder: 'https://pinterest.com/profile',
+  },
+  {
+    platform: 'tiktok',
+    label: 'TikTok Handle',
+    icon: 'logo-tiktok',
+    placeholder: '@username',
+  },
+  {
+    platform: 'linkedin',
+    label: 'LinkedIn URL',
+    icon: 'logo-linkedin',
+    placeholder: 'https://linkedin.com/company/...',
+  },
+] as const;
 
 export default function SocialMediaScreen() {
   const { colors, shadows } = useTheme();
-  const { user } = useAuth();
+  const { merchant, isLoading } = useMerchant();
   const router = useRouter();
   const queryClient = useQueryClient();
 
   // State for social media
-  const [socialMedia, setSocialMedia] = useState({
-    instagram: '',
-    twitter: '',
-    facebook: '',
-    tiktok: '',
-    linkedin: '',
-    snapchat: '',
-  });
-
-  // Fetch merchant data
-  const { data: merchant, isLoading } = useQuery({
-    queryKey: ['merchant-social', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('merchants')
-        .select('social_media')
-        .eq('user_id', user?.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
+  const [socialMedia, setSocialMedia] =
+    useState<MerchantSocialMedia>(EMPTY_SOCIAL_MEDIA);
+  const instagram = merchant?.social_media?.instagram ?? '';
+  const twitter = merchant?.social_media?.twitter ?? '';
+  const facebook = merchant?.social_media?.facebook ?? '';
+  const tiktok = merchant?.social_media?.tiktok ?? '';
+  const youtube = merchant?.social_media?.youtube ?? '';
+  const pinterest = merchant?.social_media?.pinterest ?? '';
+  const linkedin = merchant?.social_media?.linkedin ?? '';
+  const snapchat = merchant?.social_media?.snapchat ?? '';
 
   // Populate state
   useEffect(() => {
-    if (merchant?.social_media) {
-      // Ensure we handle JSONB correctly usually strictly typed or cast
-      const sm = merchant.social_media as Record<string, string>;
-      setSocialMedia({
-        instagram: sm?.instagram || '',
-        twitter: sm?.twitter || '',
-        facebook: sm?.facebook || '',
-        tiktok: sm?.tiktok || '',
-        linkedin: sm?.linkedin || '',
-        snapchat: sm?.snapchat || '',
-      });
-    }
-  }, [merchant]);
+    setSocialMedia({
+      ...EMPTY_SOCIAL_MEDIA,
+      instagram,
+      twitter,
+      facebook,
+      tiktok,
+      youtube,
+      pinterest,
+      linkedin,
+      snapchat,
+    });
+  }, [
+    instagram,
+    twitter,
+    facebook,
+    tiktok,
+    youtube,
+    pinterest,
+    linkedin,
+    snapchat,
+  ]);
 
   // Save Mutation
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase
-        .from('merchants')
-        .update({
-          social_media: socialMedia,
-        })
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-      return true;
-    },
+    mutationFn: async () =>
+      updateMerchantSettings({
+        social_media: socialMedia,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
       queryClient.invalidateQueries({ queryKey: ['store-readiness'] });
@@ -97,6 +157,16 @@ export default function SocialMediaScreen() {
 
   const handleSave = () => {
     saveMutation.mutate();
+  };
+
+  const handleSocialMediaChange = (
+    platform: keyof MerchantSocialMedia,
+    value: string
+  ) => {
+    setSocialMedia((previous) => ({
+      ...previous,
+      [platform]: value,
+    }));
   };
 
   if (isLoading) {
@@ -162,201 +232,23 @@ export default function SocialMediaScreen() {
               Connect your social accounts to display icons on your storefront
               footer and contact page.
             </Text>
-
-            {/* Instagram */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Instagram Handle
-              </Text>
-              <View
-                style={[
-                  styles.inputContainer,
-                  {
-                    borderColor: colors.border,
-                    backgroundColor: colors.background,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="logo-instagram"
-                  size={20}
-                  color={colors.textMuted}
-                />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  value={socialMedia.instagram}
-                  onChangeText={(t) =>
-                    setSocialMedia((p) => ({ ...p, instagram: t }))
+            {SOCIAL_MEDIA_FIELDS.map(
+              ({ platform, label, icon, placeholder, badge }) => (
+                <SocialMediaInput
+                  key={platform}
+                  badge={badge}
+                  colors={colors}
+                  icon={icon}
+                  label={label}
+                  onChange={(value) =>
+                    handleSocialMediaChange(platform, value)
                   }
-                  placeholder="@username"
-                  placeholderTextColor={colors.textMuted}
+                  placeholder={placeholder}
+                  platform={platform}
+                  value={socialMedia[platform] ?? ''}
                 />
-              </View>
-            </View>
-
-            {/* Twitter */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Twitter/X Handle
-              </Text>
-              <View
-                style={[
-                  styles.inputContainer,
-                  {
-                    borderColor: colors.border,
-                    backgroundColor: colors.background,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="logo-twitter"
-                  size={20}
-                  color={colors.textMuted}
-                />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  value={socialMedia.twitter}
-                  onChangeText={(t) =>
-                    setSocialMedia((p) => ({ ...p, twitter: t }))
-                  }
-                  placeholder="@username"
-                  placeholderTextColor={colors.textMuted}
-                />
-              </View>
-            </View>
-
-            {/* Snapchat */}
-            <View style={styles.inputGroup}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>
-                  Snapchat Handle
-                </Text>
-                <View style={{ backgroundColor: colors.primary, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
-                  <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>NEW</Text>
-                </View>
-              </View>
-              <View
-                style={[
-                  styles.inputContainer,
-                  {
-                    borderColor: colors.border,
-                    backgroundColor: colors.background,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="logo-snapchat"
-                  size={20}
-                  color={colors.textMuted}
-                />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  value={socialMedia.snapchat}
-                  onChangeText={(t) =>
-                    setSocialMedia((p) => ({ ...p, snapchat: t }))
-                  }
-                  placeholder="@username"
-                  placeholderTextColor={colors.textMuted}
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
-
-            {/* Facebook */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Facebook URL
-              </Text>
-              <View
-                style={[
-                  styles.inputContainer,
-                  {
-                    borderColor: colors.border,
-                    backgroundColor: colors.background,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="logo-facebook"
-                  size={20}
-                  color={colors.textMuted}
-                />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  value={socialMedia.facebook}
-                  onChangeText={(t) =>
-                    setSocialMedia((p) => ({ ...p, facebook: t }))
-                  }
-                  placeholder="https://facebook.com/page"
-                  placeholderTextColor={colors.textMuted}
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
-
-            {/* TikTok */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                TikTok Handle
-              </Text>
-              <View
-                style={[
-                  styles.inputContainer,
-                  {
-                    borderColor: colors.border,
-                    backgroundColor: colors.background,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="logo-tiktok"
-                  size={20}
-                  color={colors.textMuted}
-                />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  value={socialMedia.tiktok}
-                  onChangeText={(t) =>
-                    setSocialMedia((p) => ({ ...p, tiktok: t }))
-                  }
-                  placeholder="@username"
-                  placeholderTextColor={colors.textMuted}
-                />
-              </View>
-            </View>
-
-            {/* LinkedIn */}
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                LinkedIn URL
-              </Text>
-              <View
-                style={[
-                  styles.inputContainer,
-                  {
-                    borderColor: colors.border,
-                    backgroundColor: colors.background,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="logo-linkedin"
-                  size={20}
-                  color={colors.textMuted}
-                />
-                <TextInput
-                  style={[styles.input, { color: colors.text }]}
-                  value={socialMedia.linkedin}
-                  onChangeText={(t) =>
-                    setSocialMedia((p) => ({ ...p, linkedin: t }))
-                  }
-                  placeholder="https://linkedin.com/company/..."
-                  placeholderTextColor={colors.textMuted}
-                  autoCapitalize="none"
-                />
-              </View>
-            </View>
-
+              )
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -397,27 +289,5 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     marginBottom: SPACING.xl,
     lineHeight: 20,
-  },
-  inputGroup: {
-    marginBottom: SPACING.lg,
-  },
-  label: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginBottom: SPACING.xs,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    height: 48,
-    gap: SPACING.sm,
-  },
-  input: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.size.md,
-    height: '100%',
   },
 });

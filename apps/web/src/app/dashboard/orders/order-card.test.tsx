@@ -6,7 +6,7 @@ import type { Order } from './actions';
 import { OrderCard } from './order-card';
 
 vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => (
+  default: ({ fill: _fill, ...props }: Record<string, unknown>) => (
     // biome-ignore lint/performance/noImgElement: test mock
     <img {...props} alt={props.alt as string} />
   ),
@@ -109,6 +109,39 @@ describe('OrderCard', () => {
     await user.click(screen.getByText('1 item: Widget'));
 
     expect(screen.getByText('Item Details')).toBeInTheDocument();
+  });
+
+  it('links regular orders to the dashboard detail page', () => {
+    render(
+      <OrderCard
+        order={makeOrder({ orderNumber: '#ORD-001', source: 'website' })}
+        isSelected={false}
+        onSelect={vi.fn()}
+        onStatusUpdate={vi.fn()}
+        formatCurrency={(amount) => `₦${amount}`}
+      />
+    );
+
+    expect(screen.getByRole('link', { name: 'Ada Lovelace' })).toHaveAttribute(
+      'href',
+      '/dashboard/orders/ORD-001'
+    );
+  });
+
+  it('does not link jumia orders to the regular detail page', () => {
+    render(
+      <OrderCard
+        order={makeOrder({ source: 'jumia' })}
+        isSelected={false}
+        onSelect={vi.fn()}
+        onStatusUpdate={vi.fn()}
+        formatCurrency={(amount) => `₦${amount}`}
+      />
+    );
+
+    expect(
+      screen.queryByRole('link', { name: 'Ada Lovelace' })
+    ).not.toBeInTheDocument();
   });
 
   it('calls onSelect when the checkbox is toggled', async () => {

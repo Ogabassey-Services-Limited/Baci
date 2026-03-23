@@ -19,6 +19,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { BASE_URL } from '@/lib/api-client';
+import { ORDER_COLUMNS } from '@/lib/orders';
 import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { getJoinedRecord } from '@/lib/supabase-utils';
@@ -53,9 +54,6 @@ interface OrderItemRow {
 }
 
 const PAGE_SIZE = 20;
-
-const ORDER_COLUMNS =
-  'id, order_number, merchant_id, customer_id, customer_name, customer_email, customer_phone, customer_address, shipping_status, payment_status, total, subtotal, shipping_fee, tax_amount, discount_amount, discount_code, currency, source, payment_method, notes, is_credit_order, shipping_address, recorded_by_user_id, wallet_amount_used, fulfillment_details, created_at, updated_at' as const;
 
 async function fetchOrders(
   merchantId: string,
@@ -362,7 +360,6 @@ export function useOrder(orderId: string) {
       const balance = Math.max(0, (Number(order.total) || 0) - amountPaid);
 
       const orderWithMeta = order as typeof order & {
-        customer_address?: string | null;
         fulfillment_details?: { imei?: string; serialNumber?: string } | null;
       };
 
@@ -373,7 +370,6 @@ export function useOrder(orderId: string) {
         virtual_account: virtualAccount || null,
         staff_terminal: staffTerminal,
         recorded_by_name: recordedByName,
-        customer_address: orderWithMeta.customer_address ?? null,
         fulfillment_details: orderWithMeta.fulfillment_details ?? null,
         items: (items as OrderItemRow[] | null)?.map((item) => {
           const product = getJoinedRecord(item.products);

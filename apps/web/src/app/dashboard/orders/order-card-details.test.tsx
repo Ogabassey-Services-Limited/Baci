@@ -65,4 +65,30 @@ describe('OrderCardDetails', () => {
     expect(screen.queryByText('TRK-001')).not.toBeInTheDocument();
     expect(screen.queryByText('Topship')).not.toBeInTheDocument();
   });
+
+  it('renders a detail link for non-jumia orders', () => {
+    render(
+      <OrderCardDetails
+        order={makeOrder({ orderNumber: '#ORD-001', source: 'website' })}
+        formatCurrency={(amount) => `₦${amount}`}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Open Order Details' })
+    ).toHaveAttribute('href', '/dashboard/orders/ORD-001');
+  });
+
+  it('omits the detail link for jumia orders', () => {
+    render(
+      <OrderCardDetails
+        order={makeOrder({ source: 'jumia' })}
+        formatCurrency={(amount) => `₦${amount}`}
+      />
+    );
+
+    expect(
+      screen.queryByRole('link', { name: 'Open Order Details' })
+    ).not.toBeInTheDocument();
+  });
 });
