@@ -113,7 +113,8 @@ export async function POST(request: Request) {
         );
       } catch (revalError) {
         console.warn(
-          `Cron Warning: Revalidation failed for merchant ${merchantId}:`,
+          'Cron Warning: Revalidation failed for merchant %s:',
+          merchantId,
           revalError
         );
       }
