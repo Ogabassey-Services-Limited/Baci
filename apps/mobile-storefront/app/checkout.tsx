@@ -566,7 +566,6 @@ export default function CheckoutScreen() {
     }
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
@@ -591,14 +590,19 @@ export default function CheckoutScreen() {
           );
           return true;
         }
-        handleBack();
+        if (step === 'payment') {
+          setStep('address');
+        } else if (step === 'review') {
+          setStep('payment');
+        } else {
+          router.back();
+        }
         return true;
       }
     );
 
     return () => backHandler.remove();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, handleBack]);
+  }, [step]);
 
   useEffect(() => {
     const fetchLocations = async () => {

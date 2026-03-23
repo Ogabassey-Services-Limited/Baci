@@ -7,6 +7,7 @@ import {
 } from '@/lib/email-templates';
 import { formatPersonName } from '@/lib/format-person-name';
 import { logger } from '@/lib/logger';
+import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
@@ -136,26 +137,6 @@ export interface JumiaOrder {
   items?: JumiaOrderItem[];
 }
 
-const ORDER_ITEM_SELECT =
-  'id, name, product_id, quantity, price, variant_name, has_assurance';
-const DASHBOARD_ORDER_SELECT = [
-  'id',
-  'order_number',
-  'customer_name',
-  'total',
-  'shipping_status',
-  'payment_status',
-  'payment_method',
-  'created_at',
-  'source',
-  'tracking_number',
-  'shipping_provider',
-  'payment_reference',
-  'customer_email',
-  'customer_phone',
-  'notes',
-  `order_items(${ORDER_ITEM_SELECT})`,
-].join(', ');
 const ORDER_CONFIRMATION_SELECT = [
   'id',
   'merchant_id',
@@ -187,7 +168,7 @@ export async function getOrders(
 
   let query = supabase
     .from('orders')
-    .select(DASHBOARD_ORDER_SELECT)
+    .select(ORDER_WITH_ITEMS_QUERY)
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false });
 
@@ -407,12 +388,12 @@ export async function getOrder(
   if (isUuid) {
     const { data, error } = await supabase
       .from('orders')
-      .select(DASHBOARD_ORDER_SELECT)
+      .select(ORDER_WITH_ITEMS_QUERY)
       .eq('merchant_id', merchantId)
       .eq('id', orderIdentifier)
       .maybeSingle();
 
-    order = data as unknown as DashboardOrderRecord | null;
+    order = data as DashboardOrderRecord | null;
     orderError = error;
   } else {
     const normalizedIdentifier = orderIdentifier.replace(/^#/, '').trim();
@@ -421,47 +402,22 @@ export async function getOrder(
       `#${normalizedIdentifier}`,
     ].filter((value, index, values) => values.indexOf(value) === index);
 
-    const orderMatchClause = candidateOrderNumbers
-      .map((candidateOrderNumber) => {
-        const sanitizedOrderNumber = sanitizeLikePattern(candidateOrderNumber);
-        return `order_number.ilike.${sanitizedOrderNumber}`;
-      })
-      .join(',');
+    for (const candidateOrderNumber of candidateOrderNumbers) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(ORDER_WITH_ITEMS_QUERY)
+        .eq('merchant_id', merchantId)
+        .eq('order_number', candidateOrderNumber)
+        .maybeSingle();
 
-    const { data, error } = await supabase
-      .from('orders')
-      .select(DASHBOARD_ORDER_SELECT)
-      .eq('merchant_id', merchantId)
-      .or(orderMatchClause);
+      if (error) {
+        orderError = error;
+        break;
+      }
 
-    if (error) {
-      orderError = error;
-    } else {
-      const normalizedCandidateSet = new Set(
-        candidateOrderNumbers.map((candidateOrderNumber) =>
-          candidateOrderNumber.replace(/^#/, '').trim().toLowerCase()
-        )
-      );
-      const matchingOrders = (
-        (data || []) as unknown as DashboardOrderRecord[]
-      ).filter((candidateOrder) =>
-        normalizedCandidateSet.has(
-          candidateOrder.order_number.replace(/^#/, '').trim().toLowerCase()
-        )
-      );
-
-      if (matchingOrders.length === 1) {
-        [order] = matchingOrders;
-      } else if (matchingOrders.length > 1) {
-        logger.warn({
-          message: 'Multiple orders matched the provided dashboard identifier',
-          merchantId,
-          orderIdentifier,
-          matchingOrderIds: matchingOrders.map(
-            (candidateOrder) => candidateOrder.id
-          ),
-          route: 'dashboard/orders/getOrder',
-        });
+      if (data) {
+        order = data as DashboardOrderRecord;
+        break;
       }
     }
   }
@@ -606,7 +562,7 @@ export async function resendOrderConfirmation(
     const emailItems = (order.order_items || []).map((item) => ({
       name: item.name || 'Product',
       quantity: item.quantity || 1,
-      price: Number(item.price || 0),
+      price: Number.parseFloat(String(item.price || 0)),
     }));
 
     const emailData = {

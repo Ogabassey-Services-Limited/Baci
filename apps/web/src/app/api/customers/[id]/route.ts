@@ -1,3 +1,4 @@
+import { buildCustomerNameFields, CUSTOMER_ADMIN_COLUMNS } from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
@@ -38,9 +39,7 @@ export async function GET(
 
   const { data: customer, error } = await supabase
     .from('customers')
-    .select(
-      'id, merchant_id, full_name, email, phone, address, store_credit, total_orders, total_spent, created_at, updated_at'
-    )
+    .select(CUSTOMER_ADMIN_COLUMNS)
     .eq('id', id)
     .eq('merchant_id', merchantId)
     .single();
@@ -108,15 +107,57 @@ export async function PATCH(
     }
 
     const body = parseResult.data;
+    const { data: existingCustomer, error: existingCustomerError } =
+      await supabase
+        .from('customers')
+        .select(CUSTOMER_ADMIN_COLUMNS)
+        .eq('id', id)
+        .eq('merchant_id', merchantId)
+        .single();
+
+    if (existingCustomerError || !existingCustomer) {
+      return NextResponse.json(
+        { error: 'Customer not found' },
+        { status: 404 }
+      );
+    }
+
+    const updates: Record<string, unknown> = {
+      email: body.email,
+      phone: body.phone,
+      address: body.address,
+      store_credit: body.store_credit,
+    };
+
+    if (
+      body.first_name !== undefined ||
+      body.last_name !== undefined ||
+      body.full_name !== undefined ||
+      body.email !== undefined
+    ) {
+      Object.assign(
+        updates,
+        buildCustomerNameFields({
+          first_name: body.first_name ?? existingCustomer.first_name,
+          last_name: body.last_name ?? existingCustomer.last_name,
+          full_name: body.full_name ?? existingCustomer.full_name,
+          email: body.email ?? existingCustomer.email,
+        })
+      );
+    }
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === undefined) {
+        delete updates[key];
+      }
+    }
 
     const { data: customer, error } = await supabase
       .from('customers')
-      .update(body)
+      .update(updates)
       .eq('id', id)
       .eq('merchant_id', merchantId)
-      .select(
-        'id, merchant_id, full_name, email, phone, address, store_credit, total_orders, total_spent, created_at, updated_at'
-      )
+      .select(CUSTOMER_ADMIN_COLUMNS)
       .single();
 
     if (error) {

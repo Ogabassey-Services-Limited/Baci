@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./types": "./src/types/index.ts",
     "./constants": "./src/constants/index.ts",
+    "./contracts": "./src/contracts/index.ts",
     "./schemas": "./src/schemas/index.ts",
     "./receipt": "./src/receipt/index.ts",
     "./gmc-feed": "./src/gmc-feed/index.ts"

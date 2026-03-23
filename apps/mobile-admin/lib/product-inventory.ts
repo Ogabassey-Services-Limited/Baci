@@ -14,7 +14,7 @@ export type ProductStockBucket =
 const DEFAULT_LOW_STOCK_THRESHOLD = 5;
 
 function toNonNegativeInteger(value: number | null | undefined): number {
-  if (!Number.isFinite(value)) return 0;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
   return Math.max(0, Math.trunc(value));
 }
 
@@ -39,7 +39,9 @@ export function getProductLowStockThreshold(
   product: InventoryProductLike
 ): number {
   const threshold = product.low_stock_threshold;
-  if (!Number.isFinite(threshold)) return DEFAULT_LOW_STOCK_THRESHOLD;
+  if (typeof threshold !== 'number' || !Number.isFinite(threshold)) {
+    return DEFAULT_LOW_STOCK_THRESHOLD;
+  }
   return Math.max(0, Math.trunc(threshold));
 }
 

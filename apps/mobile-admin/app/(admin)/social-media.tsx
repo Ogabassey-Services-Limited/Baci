@@ -4,7 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -19,70 +19,56 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useAuth } from '@/hooks/useAuth';
+import {
+  type MerchantSocialMedia,
+  useMerchant,
+} from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
-import { supabase } from '@/lib/supabase';
+import { updateMerchantSettings } from '@/lib/merchant-settings';
+
+const EMPTY_SOCIAL_MEDIA: MerchantSocialMedia = {
+  instagram: '',
+  twitter: '',
+  facebook: '',
+  tiktok: '',
+  youtube: '',
+  pinterest: '',
+  linkedin: '',
+  snapchat: '',
+};
 
 export default function SocialMediaScreen() {
   const { colors, shadows } = useTheme();
-  const { user } = useAuth();
+  const { merchant, isLoading } = useMerchant();
   const router = useRouter();
   const queryClient = useQueryClient();
 
   // State for social media
-  const [socialMedia, setSocialMedia] = useState({
-    instagram: '',
-    twitter: '',
-    facebook: '',
-    tiktok: '',
-    linkedin: '',
-    snapchat: '',
-  });
-
-  // Fetch merchant data
-  const { data: merchant, isLoading } = useQuery({
-    queryKey: ['merchant-social', user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('merchants')
-        .select('social_media')
-        .eq('user_id', user?.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
+  const [socialMedia, setSocialMedia] =
+    useState<MerchantSocialMedia>(EMPTY_SOCIAL_MEDIA);
 
   // Populate state
   useEffect(() => {
-    if (merchant?.social_media) {
-      // Ensure we handle JSONB correctly usually strictly typed or cast
-      const sm = merchant.social_media as Record<string, string>;
-      setSocialMedia({
-        instagram: sm?.instagram || '',
-        twitter: sm?.twitter || '',
-        facebook: sm?.facebook || '',
-        tiktok: sm?.tiktok || '',
-        linkedin: sm?.linkedin || '',
-        snapchat: sm?.snapchat || '',
-      });
-    }
-  }, [merchant]);
+    const sm = merchant?.social_media;
+    setSocialMedia({
+      ...EMPTY_SOCIAL_MEDIA,
+      instagram: sm?.instagram || '',
+      twitter: sm?.twitter || '',
+      facebook: sm?.facebook || '',
+      tiktok: sm?.tiktok || '',
+      youtube: sm?.youtube || '',
+      pinterest: sm?.pinterest || '',
+      linkedin: sm?.linkedin || '',
+      snapchat: sm?.snapchat || '',
+    });
+  }, [merchant?.social_media]);
 
   // Save Mutation
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase
-        .from('merchants')
-        .update({
-          social_media: socialMedia,
-        })
-        .eq('user_id', user?.id);
-
-      if (error) throw error;
-      return true;
-    },
+    mutationFn: async () =>
+      updateMerchantSettings({
+        social_media: socialMedia,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
       queryClient.invalidateQueries({ queryKey: ['store-readiness'] });

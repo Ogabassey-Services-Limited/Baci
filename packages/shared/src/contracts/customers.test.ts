@@ -1,0 +1,100 @@
+import { describe, expect, it } from 'vitest';
+import {
+  buildCustomerAddressLine,
+  buildCustomerFullName,
+  buildCustomerNameFields,
+  buildCustomerSearchFilter,
+  getCustomerDisplayName,
+  splitCustomerFullName,
+} from './customers';
+
+describe('customer contracts', () => {
+  it('builds a full name from first and last names', () => {
+    expect(buildCustomerFullName('Ada', 'Lovelace')).toBe('Ada Lovelace');
+  });
+
+  it('falls back to a trimmed legacy full name when split names are absent', () => {
+    expect(buildCustomerFullName(null, undefined, '  Ada Byron  ')).toBe(
+      'Ada Byron'
+    );
+  });
+
+  it('falls back to email username when all names are missing', () => {
+    expect(
+      buildCustomerNameFields({ email: 'merchant@example.com' })
+    ).toMatchObject({
+      first_name: null,
+      last_name: null,
+      full_name: 'merchant',
+    });
+  });
+
+  it('uses a non-standard email string as the final fallback name', () => {
+    expect(buildCustomerNameFields({ email: 'merchant-without-at-sign' })).toEqual(
+      {
+        first_name: null,
+        last_name: null,
+        full_name: 'merchant-without-at-sign',
+      }
+    );
+  });
+
+  it('splits a legacy full name into first and last names', () => {
+    expect(splitCustomerFullName('Ada Lovelace')).toEqual({
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+    });
+  });
+
+  it('splits multi-part legacy names without losing the trailing segments', () => {
+    expect(splitCustomerFullName('  Ada   Byron   King ')).toEqual({
+      first_name: 'Ada',
+      last_name: 'Byron King',
+    });
+  });
+
+  it('returns a sensible display name', () => {
+    expect(
+      getCustomerDisplayName({
+        email: 'guest@example.com',
+        first_name: null,
+        full_name: null,
+        last_name: null,
+      })
+    ).toBe('guest');
+  });
+
+  it('falls back to Guest when no name or email is available', () => {
+    expect(
+      getCustomerDisplayName({
+        email: null,
+        first_name: null,
+        full_name: null,
+        last_name: null,
+      })
+    ).toBe('Guest');
+  });
+
+  it('searches across full name and split name fields', () => {
+    expect(buildCustomerSearchFilter('Ada')).toContain('full_name.ilike.%Ada%');
+    expect(buildCustomerSearchFilter('Ada')).toContain(
+      'first_name.ilike.%Ada%'
+    );
+  });
+
+  it('sanitizes reserved characters out of the search filter value', () => {
+    expect(buildCustomerSearchFilter('Ada,%_ King')).toContain(
+      'full_name.ilike.%Ada King%'
+    );
+  });
+
+  it('builds a full address from populated parts only', () => {
+    expect(buildCustomerAddressLine('12 Allen Avenue', '', 'Ikeja')).toBe(
+      '12 Allen Avenue, Ikeja'
+    );
+  });
+
+  it('returns null when every address fragment is empty', () => {
+    expect(buildCustomerAddressLine('', ' ', null, undefined)).toBeNull();
+  });
+});

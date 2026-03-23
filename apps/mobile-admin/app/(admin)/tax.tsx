@@ -3,8 +3,9 @@
  * Configure VAT, tax identification, legal entity, and registered address
  */
 
+import { type RegisteredAddress, NIGERIAN_STATES } from '@baci/shared';
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -24,54 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
-import { supabase } from '@/lib/supabase';
-
-const NIGERIAN_STATES = [
-  { name: 'Abia', code: 'NG-AB' },
-  { name: 'Adamawa', code: 'NG-AD' },
-  { name: 'Akwa Ibom', code: 'NG-AK' },
-  { name: 'Anambra', code: 'NG-AN' },
-  { name: 'Bauchi', code: 'NG-BA' },
-  { name: 'Bayelsa', code: 'NG-BY' },
-  { name: 'Benue', code: 'NG-BE' },
-  { name: 'Borno', code: 'NG-BO' },
-  { name: 'Cross River', code: 'NG-CR' },
-  { name: 'Delta', code: 'NG-DE' },
-  { name: 'Ebonyi', code: 'NG-EB' },
-  { name: 'Edo', code: 'NG-ED' },
-  { name: 'Ekiti', code: 'NG-EK' },
-  { name: 'Enugu', code: 'NG-EN' },
-  { name: 'FCT', code: 'NG-FC' },
-  { name: 'Gombe', code: 'NG-GO' },
-  { name: 'Imo', code: 'NG-IM' },
-  { name: 'Jigawa', code: 'NG-JI' },
-  { name: 'Kaduna', code: 'NG-KD' },
-  { name: 'Kano', code: 'NG-KN' },
-  { name: 'Katsina', code: 'NG-KT' },
-  { name: 'Kebbi', code: 'NG-KE' },
-  { name: 'Kogi', code: 'NG-KO' },
-  { name: 'Kwara', code: 'NG-KW' },
-  { name: 'Lagos', code: 'NG-LA' },
-  { name: 'Nasarawa', code: 'NG-NA' },
-  { name: 'Niger', code: 'NG-NI' },
-  { name: 'Ogun', code: 'NG-OG' },
-  { name: 'Ondo', code: 'NG-ON' },
-  { name: 'Osun', code: 'NG-OS' },
-  { name: 'Oyo', code: 'NG-OY' },
-  { name: 'Plateau', code: 'NG-PL' },
-  { name: 'Rivers', code: 'NG-RI' },
-  { name: 'Sokoto', code: 'NG-SO' },
-  { name: 'Taraba', code: 'NG-TA' },
-  { name: 'Yobe', code: 'NG-YO' },
-  { name: 'Zamfara', code: 'NG-ZA' },
-] as const;
-
-interface RegisteredAddress {
-  street?: string | null;
-  city?: string | null;
-  state?: string | null;
-  postal_code?: string | null;
-}
+import { updateMerchantSettings } from '@/lib/merchant-settings';
 
 export default function TaxScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -94,45 +48,21 @@ export default function TaxScreen() {
   const [stateCode, setStateCode] = useState('');
   const [showStateModal, setShowStateModal] = useState(false);
 
-  // Fetch registered address (not in the RPC schema)
-  const { data: addressData } = useQuery({
-    queryKey: ['merchant-address', merchant?.id],
-    queryFn: async () => {
-      if (!merchant?.id) return null;
-      const { data } = await supabase
-        .from('merchants')
-        .select('registered_address, state_code')
-        .eq('id', merchant.id)
-        .single();
-      return data;
-    },
-    enabled: !!merchant?.id,
-  });
-
-  // Sync address data when fetched
+  // Sync address data when merchant context changes
   React.useEffect(() => {
-    if (addressData) {
-      const addr = addressData.registered_address as RegisteredAddress | null;
-      setStreet(addr?.street ?? '');
-      setCity(addr?.city ?? '');
-      setPostalCode(addr?.postal_code ?? '');
-      setStateCode((addressData.state_code as string) ?? '');
-    }
-  }, [addressData]);
+    const addr = merchant?.registered_address as RegisteredAddress | null;
+    setStreet(addr?.street ?? '');
+    setCity(addr?.city ?? '');
+    setPostalCode(addr?.postal_code ?? '');
+    setStateCode(merchant?.state_code ?? '');
+  }, [merchant?.registered_address, merchant?.state_code]);
 
   // Update VAT status mutation
   const updateVatMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
-      if (!merchant?.id) throw new Error('No merchant found');
-
-      const { error } = await supabase
-        .from('merchants')
-        .update({
-          vat_registration_status: enabled ? 'registered' : 'not_registered',
-        })
-        .eq('id', merchant.id);
-
-      if (error) throw error;
+      await updateMerchantSettings({
+        vat_registration_status: enabled ? 'registered' : 'not_registered',
+      });
       return enabled;
     },
     onMutate: async (enabled) => {
@@ -158,15 +88,12 @@ export default function TaxScreen() {
   // Save TIN mutation
   const saveTinMutation = useMutation({
     mutationFn: async (tin: string) => {
-      if (!merchant?.id) throw new Error('No merchant found');
       if (tin && !/^\d{10}$/.test(tin)) {
         throw new Error('Nigerian TIN must be exactly 10 digits');
       }
-      const { error } = await supabase
-        .from('merchants')
-        .update({ tax_identification_number: tin || null })
-        .eq('id', merchant.id);
-      if (error) throw error;
+      await updateMerchantSettings({
+        tax_identification_number: tin || null,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
@@ -180,12 +107,9 @@ export default function TaxScreen() {
   // Save legal entity name mutation
   const saveLegalEntityMutation = useMutation({
     mutationFn: async (name: string) => {
-      if (!merchant?.id) throw new Error('No merchant found');
-      const { error } = await supabase
-        .from('merchants')
-        .update({ legal_entity_name: name || null })
-        .eq('id', merchant.id);
-      if (error) throw error;
+      await updateMerchantSettings({
+        legal_entity_name: name || null,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['merchant'] });
@@ -199,25 +123,20 @@ export default function TaxScreen() {
   // Save registered address mutation
   const saveAddressMutation = useMutation({
     mutationFn: async () => {
-      if (!merchant?.id) throw new Error('No merchant found');
       const selectedState = NIGERIAN_STATES.find((s) => s.code === stateCode);
-      const { error } = await supabase
-        .from('merchants')
-        .update({
-          registered_address: {
-            street: street || null,
-            city: city || null,
-            state: selectedState?.name || null,
-            postal_code: postalCode || null,
-            country: 'Nigeria',
-          },
-          state_code: stateCode || null,
-        })
-        .eq('id', merchant.id);
-      if (error) throw error;
+      await updateMerchantSettings({
+        registered_address: {
+          street: street || null,
+          city: city || null,
+          state: selectedState?.name || null,
+          postal_code: postalCode || null,
+          country: 'Nigeria',
+        },
+        state_code: stateCode || null,
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant-address'] });
+      queryClient.invalidateQueries({ queryKey: ['merchant'] });
       Alert.alert('Success', 'Registered business address saved.');
     },
     onError: () => {

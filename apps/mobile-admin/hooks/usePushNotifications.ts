@@ -164,15 +164,42 @@ export function usePushNotifications(): UsePushNotificationsResult {
           // Navigate to appropriate screen
           const navParams = getNotificationNavigationParams(response);
           if (navParams) {
-            // Use router.push for navigation
-            if (navParams.params) {
-              router.push({
-                pathname: `/(admin)/${navParams.screen}` as Href,
-                params: navParams.params,
-              });
-            } else {
-              router.push(`/(admin)/${navParams.screen}` as Href);
+            const entityId = navParams.params?.id?.toString().trim();
+
+            if (navParams.screen === 'order') {
+              router.push(
+                entityId
+                  ? (`/(admin)/order/${entityId}` as Href)
+                  : '/(admin)/(tabs)/orders'
+              );
+              return;
             }
+
+            if (navParams.screen === 'product') {
+              router.push(
+                entityId
+                  ? (`/(admin)/product/${entityId}` as Href)
+                  : '/(admin)/(tabs)/products'
+              );
+              return;
+            }
+
+            if (navParams.screen === 'orders') {
+              router.push('/(admin)/(tabs)/orders');
+              return;
+            }
+
+            if (navParams.screen === 'products') {
+              router.push('/(admin)/(tabs)/products');
+              return;
+            }
+
+            if (navParams.screen === 'notifications') {
+              router.push('/(admin)/notifications');
+              return;
+            }
+
+            router.push('/(admin)/(tabs)');
           }
         }
       );

@@ -1,3 +1,7 @@
+import {
+  MERCHANT_TAX_SETTINGS_COLUMNS,
+  type RegisteredAddress,
+} from '@baci/shared';
 import { ChevronLeft, Receipt } from 'lucide-react';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
@@ -26,9 +30,7 @@ export default async function TaxSettingsPage() {
 
   const { data: merchantData } = await supabase
     .from('merchants')
-    .select(
-      'vat_registration_status, vat_rate, tax_identification_number, legal_entity_name, registered_address, state_code'
-    )
+    .select(MERCHANT_TAX_SETTINGS_COLUMNS)
     .eq('id', merchant.id)
     .single();
 
@@ -36,10 +38,7 @@ export default async function TaxSettingsPage() {
   const vatRate = merchantData?.vat_rate ?? 7.5;
   const taxId = merchantData?.tax_identification_number ?? '';
   const legalEntityName = merchantData?.legal_entity_name ?? '';
-  const addr = merchantData?.registered_address as Record<
-    string,
-    string
-  > | null;
+  const addr = merchantData?.registered_address as RegisteredAddress | null;
   const registeredAddress = {
     street: addr?.street ?? '',
     city: addr?.city ?? '',
@@ -70,7 +69,6 @@ export default async function TaxSettingsPage() {
       </div>
 
       <TaxSettingsForm
-        merchantId={merchant.id}
         initialVatEnabled={vatEnabled}
         initialVatRate={vatRate}
         initialTaxId={taxId}

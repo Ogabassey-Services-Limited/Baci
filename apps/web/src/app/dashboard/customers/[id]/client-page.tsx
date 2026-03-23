@@ -1,5 +1,6 @@
 'use client';
 
+import { getCustomerDisplayName, splitCustomerFullName } from '@baci/shared';
 import {
   ArrowLeft,
   Edit,
@@ -32,6 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { useToast } from '@/hooks/use-toast';
+import { apiDelete, apiPatch } from '@/lib/api-client';
 import type { Customer, CustomerOrder } from '../actions';
 
 interface CustomerDetailClientPageProps {
@@ -54,7 +56,12 @@ export default function CustomerDetailClientPage({
   const [creditAmount, setCreditAmount] = useState('');
   const [isCreditOpen, setIsCreditOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [editData, setEditData] = useState<Partial<Customer>>(initialCustomer);
+  const initialNameFields = splitCustomerFullName(initialCustomer.full_name);
+  const [editData, setEditData] = useState<Partial<Customer>>({
+    ...initialCustomer,
+    first_name: initialCustomer.first_name ?? initialNameFields.first_name,
+    last_name: initialCustomer.last_name ?? initialNameFields.last_name,
+  });
 
   const handleUpdateCredit = async () => {
     if (!customer) return;
@@ -62,15 +69,10 @@ export default function CustomerDetailClientPage({
       const newCredit = Number.parseFloat(creditAmount);
       if (Number.isNaN(newCredit)) return;
 
-      const res = await fetch(`/api/customers/${customer.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ store_credit: newCredit }),
-      });
-
-      if (!res.ok) throw new Error('Failed to update credit');
-
-      const data = await res.json();
+      const data = await apiPatch<{ customer: Customer }>(
+        `/api/customers/${customer.id}`,
+        { store_credit: newCredit }
+      );
       setCustomer(data.customer);
       setIsCreditOpen(false);
       toast({
@@ -92,13 +94,10 @@ export default function CustomerDetailClientPage({
   const handleSaveChanges = async () => {
     if (!customer) return;
     try {
-      const res = await fetch(`/api/customers/${customer.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editData),
-      });
-      if (!res.ok) throw new Error('Failed to update profile');
-      const data = await res.json();
+      const data = await apiPatch<{ customer: Customer }>(
+        `/api/customers/${customer.id}`,
+        editData
+      );
       setCustomer(data.customer);
       setEditOpen(false);
       toast({
@@ -118,10 +117,7 @@ export default function CustomerDetailClientPage({
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this customer?')) return;
     try {
-      const res = await fetch(`/api/customers/${customer.id}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error('Failed to delete customer');
+      await apiDelete(`/api/customers/${customer.id}`);
       toast({
         title: 'Success',
         description: 'Customer deleted',
@@ -156,6 +152,15 @@ export default function CustomerDetailClientPage({
   if (!customer) {
     return <div>Customer not found</div>;
   }
+
+  const displayName = getCustomerDisplayName(customer);
+  const initials =
+    displayName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('') || '?';
 
   return (
     <div className="flex flex-col gap-6 h-full">
@@ -261,15 +266,10 @@ export default function CustomerDetailClientPage({
           <CardContent className="p-6">
             <div className="flex items-start gap-4">
               <Avatar className="h-20 w-20">
-                <AvatarFallback className="text-2xl">
-                  {customer.first_name.substring(0, 1).toUpperCase()}
-                  {customer.last_name.substring(0, 1).toUpperCase()}
-                </AvatarFallback>
+                <AvatarFallback className="text-2xl">{initials}</AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <h2 className="text-2xl font-bold">
-                  {customer.first_name} {customer.last_name}
-                </h2>
+                <h2 className="text-2xl font-bold">{displayName}</h2>
                 <p className="text-muted-foreground">
                   Customer since:{' '}
                   {new Date(customer.created_at).toLocaleDateString()}
