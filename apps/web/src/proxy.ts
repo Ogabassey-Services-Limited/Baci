@@ -325,6 +325,32 @@ function generateCSP(
 }
 
 /**
+ * Convert a `.md` pathname into the corresponding `/api/llm/` path.
+ *
+ * Examples (with slug "ogabassey"):
+ *   /index.html.md        → /api/llm/ogabassey
+ *   /about.md             → /api/llm/ogabassey/about
+ *   /shoes/index.html.md  → /api/llm/ogabassey/shoes
+ *   /shoes/nike-air.md    → /api/llm/ogabassey/shoes/nike-air
+ *   /blog/my-post.md      → /api/llm/ogabassey/blog/my-post
+ */
+function toLlmApiPath(pathname: string, slug: string): string {
+  // Strip trailing /index.html.md or .md suffix to get the clean path
+  let clean = pathname;
+  if (clean.endsWith('/index.html.md')) {
+    clean = clean.slice(0, -'/index.html.md'.length);
+  } else if (clean.endsWith('.md')) {
+    clean = clean.slice(0, -'.md'.length);
+  }
+
+  // Remove leading slash
+  clean = clean.replace(/^\//, '');
+
+  // Build the API path
+  return clean ? `/api/llm/${slug}/${clean}` : `/api/llm/${slug}`;
+}
+
+/**
  * Next.js Middleware Function
  * Handles multi-tenant routing, security headers, caching, and authentication
  */
@@ -418,6 +444,25 @@ export async function proxy(request: NextRequest) {
   // merchant storefront domains without proxy rewrites.
   if (pathname === '/llms.txt' || pathname === '/llms-full.txt') {
     return NextResponse.next();
+  }
+
+  // ==== LLM MARKDOWN MIRRORS (slug-based paths) ====
+  // For root-domain paths like /ogabassey/about.md, rewrite to /api/llm/ogabassey/about
+  // to avoid route collisions with dynamic [category] segments.
+  // Custom domain and subdomain .md paths are handled in their respective sections below.
+  if (
+    pathname.endsWith('.md') &&
+    !pathname.startsWith('/api') &&
+    !pathname.startsWith('/_next')
+  ) {
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length >= 1) {
+      const slug = segments[0];
+      const rest = pathname.slice(`/${slug}`.length);
+      const mdUrl = request.nextUrl.clone();
+      mdUrl.pathname = toLlmApiPath(rest, slug);
+      return NextResponse.rewrite(mdUrl);
+    }
   }
 
   // ==== SEO: GLOBAL LOWERCASE REDIRECT ====
@@ -667,6 +712,22 @@ export async function proxy(request: NextRequest) {
         );
       }
 
+      // LLM markdown mirrors: rewrite .md paths to /api/llm/ to avoid
+      // route collisions with dynamic [category] segments in the storefront tree.
+      if (pathname.endsWith('.md')) {
+        const merchantSlug = await getSlugForCustomDomain(domain);
+        const mdUrl = request.nextUrl.clone();
+        mdUrl.pathname = toLlmApiPath(pathname, merchantSlug ?? domain);
+
+        const mdHeaders = new Headers(request.headers);
+        mdHeaders.set('x-custom-domain', domain);
+        mdHeaders.set('x-merchant-domain', domain);
+
+        return NextResponse.rewrite(mdUrl, {
+          request: { headers: mdHeaders },
+        });
+      }
+
       // First visit: Rewrite to /${domain}${pathname} so the storefront [slug] route handles it
       const url = request.nextUrl.clone();
       url.pathname = `/${domain}${pathname}`;
@@ -764,6 +825,20 @@ export async function proxy(request: NextRequest) {
         request,
         hostname
       );
+    }
+
+    // LLM markdown mirrors: rewrite .md paths to /api/llm/ to avoid
+    // route collisions with dynamic [category] segments in the storefront tree.
+    if (pathname.endsWith('.md')) {
+      const mdUrl = request.nextUrl.clone();
+      mdUrl.pathname = toLlmApiPath(pathname, subdomain as string);
+
+      const mdHeaders = new Headers(request.headers);
+      mdHeaders.set('x-merchant-slug', subdomain as string);
+
+      return NextResponse.rewrite(mdUrl, {
+        request: { headers: mdHeaders },
+      });
     }
 
     const url = request.nextUrl.clone();
