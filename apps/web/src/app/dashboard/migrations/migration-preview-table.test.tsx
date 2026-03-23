@@ -23,6 +23,8 @@ describe('MigrationPreviewTable', () => {
               total: 25000,
               currency: 'NGN',
               items: [{ id: 'item-1' }],
+              sourceChannel: 'MOBILE',
+              sourceOrigin: 'instagram',
             },
             row_number: 2,
             row_status: 'create',
@@ -34,10 +36,13 @@ describe('MigrationPreviewTable', () => {
       />
     );
 
-    expect(screen.getByText('ORD-1001 · Ada Lovelace')).toBeInTheDocument();
+    expect(screen.getByText('ORD-1001')).toBeInTheDocument();
+    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
+    expect(screen.getByText('Instagram')).toBeInTheDocument();
     expect(
       screen.getByText('25000 NGN · 1 item · 1 unmatched')
     ).toBeInTheDocument();
+    expect(screen.queryByText('bumpa-1')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /next/i }));
 

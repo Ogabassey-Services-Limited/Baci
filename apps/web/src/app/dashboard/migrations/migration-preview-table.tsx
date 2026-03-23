@@ -1,5 +1,6 @@
 'use client';
 
+import MigrationOrderSourceChip from '@/app/dashboard/migrations/migration-order-source-chip';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -46,10 +47,28 @@ function formatPrimaryText(
 
   if (entityType === 'orders') {
     const customer = payload.customer as Record<string, unknown> | undefined;
-    return `${payload.orderNumber || 'Unknown order'} · ${customer?.fullName || 'Unknown customer'}`;
+    return String(customer?.fullName || 'Unknown customer');
   }
 
   return `${payload.title || 'Untitled product'}${payload.sku ? ` · ${payload.sku}` : ''}`;
+}
+
+function formatRecordText(
+  entityType: 'orders' | 'products',
+  payload: Record<string, unknown> | null,
+  rowNumber: number
+) {
+  if (!payload) {
+    return entityType === 'orders'
+      ? `Order ${rowNumber}`
+      : `Product ${rowNumber}`;
+  }
+
+  if (entityType === 'orders') {
+    return String(payload.orderNumber || `Order ${rowNumber}`);
+  }
+
+  return String(payload.title || payload.sku || `Product ${rowNumber}`);
 }
 
 function formatSecondaryText(
@@ -88,7 +107,9 @@ export default function MigrationPreviewTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Row</TableHead>
+              <TableHead>
+                {entityType === 'orders' ? 'Order' : 'Product'}
+              </TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Source</TableHead>
               <TableHead>Preview</TableHead>
@@ -117,8 +138,19 @@ export default function MigrationPreviewTable({
             ) : (
               rows.map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="font-medium">
-                    {row.row_number}
+                  <TableCell className="min-w-[180px]">
+                    <div className="space-y-1">
+                      <p className="font-medium">
+                        {formatRecordText(
+                          entityType,
+                          row.normalized_payload,
+                          row.row_number
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Row {row.row_number}
+                      </p>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge
@@ -130,8 +162,31 @@ export default function MigrationPreviewTable({
                       {row.row_status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {row.source_external_id || 'n/a'}
+                  <TableCell className="min-w-[170px]">
+                    {entityType === 'orders' ? (
+                      row.normalized_payload ? (
+                        <MigrationOrderSourceChip
+                          sourceChannel={
+                            row.normalized_payload.sourceChannel as
+                              | string
+                              | null
+                              | undefined
+                          }
+                          sourceOrigin={
+                            row.normalized_payload.sourceOrigin as
+                              | string
+                              | null
+                              | undefined
+                          }
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          n/a
+                        </span>
+                      )
+                    ) : (
+                      <Badge variant="outline">Bumpa</Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">

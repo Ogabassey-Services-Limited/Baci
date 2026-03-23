@@ -131,6 +131,11 @@ describe('commitBumpaOrders', () => {
       updatedOrders: 0,
       createdCustomers: 0,
     });
+    expect(insertOrderQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'manual',
+      })
+    );
     expect(insertItemsQuery.insert).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
@@ -206,6 +211,7 @@ describe('commitBumpaOrders', () => {
         shipping_status: 'delivered',
         import_job_id: 'job-1',
         external_id: 'ext-1',
+        source: 'manual',
       })
     );
     expect(deleteItemsQuery.eq).toHaveBeenCalledWith(
@@ -377,5 +383,72 @@ describe('commitBumpaOrders', () => {
         orders: [createOrder()],
       })
     ).rejects.toThrow('Failed to insert imported order items: items failed');
+  });
+
+  it('maps Bumpa origins to native Baci order sources', async () => {
+    const loadQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+    };
+    loadQuery.select.mockReturnValue(loadQuery);
+    loadQuery.eq
+      .mockReturnValueOnce(loadQuery)
+      .mockResolvedValueOnce({ data: [], error: null });
+
+    const insertOrderQuery = {
+      insert: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+    };
+    insertOrderQuery.insert.mockReturnValue(insertOrderQuery);
+    insertOrderQuery.select.mockReturnValue(insertOrderQuery);
+    insertOrderQuery.single.mockResolvedValue({
+      data: {
+        id: 'order-new',
+        external_id: 'ext-2',
+        tracking_token: 'tracking-2',
+      },
+      error: null,
+    });
+
+    const deleteItemsQuery = {
+      delete: vi.fn(),
+      eq: vi.fn(),
+    };
+    deleteItemsQuery.delete.mockReturnValue(deleteItemsQuery);
+    deleteItemsQuery.eq.mockResolvedValue({ error: null });
+
+    const insertItemsQuery = {
+      insert: vi.fn(),
+    };
+    insertItemsQuery.insert.mockResolvedValue({ error: null });
+
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(loadQuery)
+        .mockReturnValueOnce(insertOrderQuery)
+        .mockReturnValueOnce(deleteItemsQuery)
+        .mockReturnValueOnce(insertItemsQuery),
+    } as unknown as SupabaseClient;
+
+    await commitBumpaOrders({
+      supabase,
+      merchantId: 'merchant-1',
+      importJobId: 'job-1',
+      orders: [
+        createOrder({
+          externalSourceId: 'ext-2',
+          sourceOrigin: 'walk-in',
+          sourceChannel: 'MOBILE',
+        }),
+      ],
+    });
+
+    expect(insertOrderQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'physical',
+      })
+    );
   });
 });

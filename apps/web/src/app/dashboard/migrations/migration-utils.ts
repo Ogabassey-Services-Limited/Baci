@@ -1,3 +1,12 @@
+const ACTIVE_MIGRATION_STATUSES = new Set([
+  'uploaded',
+  'validating',
+  'commit_queued',
+  'committing',
+  'notify_queued',
+  'notifying',
+]);
+
 export function statusBadgeClass(status: string) {
   if (status === 'completed' || status === 'committed') {
     return 'bg-emerald-500/10 text-emerald-700';
@@ -21,4 +30,62 @@ export function statusBadgeClass(status: string) {
   }
 
   return 'bg-muted text-muted-foreground';
+}
+
+export function isMigrationStatusActive(status: string) {
+  return ACTIVE_MIGRATION_STATUSES.has(status);
+}
+
+export function getMigrationProgressValue(status: string) {
+  switch (status) {
+    case 'uploaded':
+      return 18;
+    case 'validating':
+      return 56;
+    case 'commit_queued':
+      return 68;
+    case 'committing':
+      return 84;
+    case 'notify_queued':
+      return 92;
+    case 'notifying':
+      return 97;
+    case 'preview_ready':
+    case 'committed':
+    case 'completed':
+      return 100;
+    default:
+      return 0;
+  }
+}
+
+export function getMigrationProgressLabel(status: string) {
+  switch (status) {
+    case 'uploaded':
+      return 'Upload complete. Preparing preview...';
+    case 'validating':
+      return 'Building preview...';
+    case 'commit_queued':
+      return 'Import queued...';
+    case 'committing':
+      return 'Importing records...';
+    case 'notify_queued':
+      return 'Customer notification campaign queued...';
+    case 'notifying':
+      return 'Sending customer notifications...';
+    default:
+      return null;
+  }
+}
+
+export function shouldFetchMigrationRows(status: string) {
+  return status !== 'uploaded' && status !== 'validating';
+}
+
+export function getInitialMigrationSelection(
+  statuses: Array<{ id: string; status: string }>
+) {
+  return (
+    statuses.find((job) => shouldFetchMigrationRows(job.status))?.id ?? null
+  );
 }

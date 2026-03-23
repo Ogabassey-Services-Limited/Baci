@@ -27,7 +27,13 @@ export default function imageLoader({
     return src;
   }
 
-  // Relative/local paths — use Next.js built-in optimization
+  // Local public assets should resolve directly instead of being bounced
+  // through /_next/image by the custom loader.
+  if (src.startsWith('/') && !src.startsWith('//')) {
+    return src;
+  }
+
+  // Non-root relative paths keep the existing optimization fallback.
   const q = quality || 75;
   return `/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=${q}`;
 }
