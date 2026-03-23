@@ -17,7 +17,6 @@ import {
   markdownResponse,
   notFoundMarkdownResponse,
 } from '@/lib/llms-markdown';
-import type { RawDbProduct } from '@/lib/normalize-product';
 import { parseLegacyFAQ } from '@/types/faq';
 
 function notFound() {
@@ -40,6 +39,18 @@ function notFound() {
  *   /ogabassey/shoes/nike.md  →  /api/llm/ogabassey/shoes/nike
  */
 export async function GET(
+  request: Request,
+  context: { params: Promise<{ segments: string[] }> }
+) {
+  try {
+    return await handleLlmRequest(request, context);
+  } catch (err) {
+    console.error('[LLM API] Unhandled error', err);
+    return notFound();
+  }
+}
+
+async function handleLlmRequest(
   request: Request,
   context: { params: Promise<{ segments: string[] }> }
 ) {
@@ -120,9 +131,7 @@ export async function GET(
     // section = category, item = product slug
     const product = await getCachedProductWithDetails(merchant.id, item);
     if (!product) return notFound();
-    return markdownResponse(
-      buildProductMarkdown(merchant, origin, product as unknown as RawDbProduct)
-    );
+    return markdownResponse(buildProductMarkdown(merchant, origin, product));
   }
 
   return notFound();
