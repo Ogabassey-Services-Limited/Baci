@@ -50,14 +50,20 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
   safeJsonLdStringify: () => '{}',
 }));
 
+const mockGenerateBreadcrumbSchema = vi.fn((_items: unknown) => ({}));
+const mockGetProductUrl = vi.fn(
+  (_product: unknown) => '/products/test-product'
+);
+
 vi.mock('@/lib/seo-utils', () => ({
   constructCanonicalUrl: (base: string) => base,
   generateAggregateRating: () => null,
-  generateBreadcrumbSchema: () => ({}),
+  generateBreadcrumbSchema: (items: unknown) =>
+    mockGenerateBreadcrumbSchema(items),
   generateFAQSchema: () => ({}),
   generateProductSchema: () => ({ offers: {} }),
   generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
-  getProductUrl: () => '/products/test-product',
+  getProductUrl: (product: unknown) => mockGetProductUrl(product),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -241,5 +247,58 @@ describe('products/[productSlug] page', () => {
 
     expect(metadata.title).toBe('Product Not Found');
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
+  });
+
+  describe('schema URL consistency', () => {
+    it('uses getProductUrl for both offers and breadcrumb URLs with categorized product', async () => {
+      mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+      mockHeaders.mockReturnValue(makeHeaders({}));
+      mockGetProductUrl.mockReturnValue('/phones/iphone-15');
+
+      // Import and call the page component directly
+      const { default: ProductPage } = await import('./page');
+      await ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      });
+
+      // getProductUrl should have been called
+      expect(mockGetProductUrl).toHaveBeenCalled();
+
+      // Breadcrumb schema should receive the same product URL
+      expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            url: expect.stringContaining('/phones/iphone-15'),
+          }),
+        ])
+      );
+    });
+
+    it('uses /products/ fallback path when product has no category', async () => {
+      mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+      mockHeaders.mockReturnValue(makeHeaders({}));
+      mockGetProductUrl.mockReturnValue('/products/mystery-item');
+
+      const { default: ProductPage } = await import('./page');
+      await ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      });
+
+      expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            url: expect.stringContaining('/products/mystery-item'),
+          }),
+        ])
+      );
+    });
   });
 });
