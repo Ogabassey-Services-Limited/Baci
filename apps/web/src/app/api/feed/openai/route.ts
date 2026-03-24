@@ -1,5 +1,4 @@
 import { gzipSync } from 'node:zlib';
-import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
@@ -9,7 +8,7 @@ import {
 } from '@/lib/feed-identifier';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { stripHtmlTags } from '@/lib/sanitize-core';
-import { createAnonClient } from '@/lib/supabase/anon';
+import { getCachedOpenAIFeedData, type OpenAIFeedProduct } from './feed-data';
 
 const _FeedQuerySchema = z
   .object({
@@ -19,47 +18,12 @@ const _FeedQuerySchema = z
   })
   .refine((data) => data.merchant_id || data.merchant_slug, {
     message: 'merchant_id or merchant_slug parameter is required',
+  })
+  .refine((data) => !(data.merchant_id && data.merchant_slug), {
+    message: 'Provide exactly one of merchant_id or merchant_slug, not both',
   });
 
 const UNLIMITED_STOCK_QUANTITY = 9999;
-
-/**
- * Cached data fetcher for a resolved merchant (keyed by merchant UUID).
- * Merchant resolution happens outside the cache boundary so that
- * cache tags always use canonical merchant.id (never slugs).
- */
-function createCachedFeedDataFetcher(merchantId: string) {
-  return unstable_cache(
-    async () => {
-      const supabase = createAnonClient();
-
-      const { data: products, error: productsError } = await supabase
-        .from('products')
-        .select(
-          `id, name, description, slug, price, compare_at_price, images,
-           brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
-           weight_value, weight_unit, updated_at,
-           variants:product_variants(id, attributes, price_override, stock_quantity, sku, primary_image)`
-        )
-        .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(10000);
-
-      if (productsError) {
-        console.error('DB_PRODUCTS_ERROR:', productsError);
-        throw new Error('Failed to fetch products');
-      }
-
-      return { products: products || [] };
-    },
-    ['openai-product-feed', merchantId],
-    {
-      revalidate: 3600,
-      tags: ['openai-product-feed', 'products', `merchant-feed-${merchantId}`],
-    }
-  );
-}
 
 /**
  * OpenAI Product Feed API
@@ -101,8 +65,7 @@ export async function GET(request: NextRequest) {
     const isBySlug = !merchantIdParam && !!merchantSlug;
     const merchant = await resolveFeedMerchant(identifier, isBySlug);
 
-    const getCachedFeedData = createCachedFeedDataFetcher(merchant.id);
-    const { products } = await getCachedFeedData();
+    const { products } = await getCachedOpenAIFeedData(merchant.id);
 
     // Determine base URL from request headers
     const host = request.headers.get('host') || `${merchant.slug}.baci.app`;
@@ -152,38 +115,7 @@ export async function GET(request: NextRequest) {
 
 // --- Interfaces ---
 
-interface Variant {
-  id: string;
-  attributes: Record<string, string>; // e.g., { color: 'Red', size: 'XL' }
-  price_override?: number;
-  stock_quantity?: number;
-  sku?: string;
-  primary_image?: string;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  slug?: string;
-  price: number;
-  compare_at_price?: number;
-  images?: string[] | Array<{ url: string; alt?: string }>;
-  brand?: string;
-  gtin?: string;
-  mpn?: string;
-  sku?: string;
-  stock: number;
-  stock_quantity?: number;
-  manage_stock?: boolean;
-  condition?: 'new' | 'used' | 'refurbished';
-  google_product_category?: string;
-  category?: string;
-  weight_value?: number;
-  weight_unit?: 'kg' | 'lb' | 'g' | 'oz';
-  updated_at?: string;
-  variants?: Variant[];
-}
+type Product = OpenAIFeedProduct;
 
 interface Merchant {
   id: string;
