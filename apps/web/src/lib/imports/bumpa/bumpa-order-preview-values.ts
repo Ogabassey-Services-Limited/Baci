@@ -90,7 +90,7 @@ function normalizePhoneKey(value: string) {
 }
 
 function splitPipeField(value: string) {
-  return value.split('|').map((part) => part.trim());
+  return value.split(/(?<!\|)\|(?!\|)/).map((part) => part.trim());
 }
 
 export function buildCustomer(row: BumpaOrderRow): NormalizedImportedCustomer {

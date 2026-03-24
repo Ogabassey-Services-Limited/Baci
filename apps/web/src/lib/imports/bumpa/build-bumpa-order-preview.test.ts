@@ -122,4 +122,93 @@ describe('buildBumpaOrderPreview', () => {
     expect(result.summary.phoneOnlyCustomers).toBe(1);
     expect(result.rows[0]?.payload?.receiptReady).toBe(false);
   });
+
+  it('keeps double-pipe laptop descriptions as a single import item', () => {
+    const result = buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          id: '3889870',
+          'Order Number': '06320',
+          Products:
+            '*Lenovo Thinkpad T14 Gen 1 || 10th Gen || Intel core i5 || 16GB RAM || 512gb SSD || 14 inches screen || Windows 11 pro || UK used',
+          'Customer Name': 'Oyinkan Aluko',
+          'Customer Email': 'tzoyah8@gmail.com',
+          'Product Quantity': '1.00',
+          'Product SKU': '',
+          Total: '450000.00',
+          'Sub Total': '450000.00',
+          'Amount Paid': '450000.00',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [],
+    });
+
+    expect(result.rows[0]?.rowStatus).toBe('create');
+    expect(result.rows[0]?.payload?.items).toHaveLength(1);
+    expect(result.rows[0]?.errors).toEqual([]);
+  });
+
+  it('accepts rows with blank customer names when an email exists', () => {
+    const result = buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          id: '1107127',
+          'Order Number': '04151-1',
+          Products: 'IPhone XR 64gb (Premium Used)',
+          'Customer Name': '',
+          'Customer Email': 'khenzobox@outlook.com',
+          'Customer Phone': '',
+          'Product Quantity': '1.00',
+          'Product SKU': '',
+          Total: '250000.00',
+          'Sub Total': '250000.00',
+          'Amount Paid': '250000.00',
+          'Order Date': '2024-08-13 23:20:25',
+          'Created At': '2024-08-13',
+          'Updated At': '2024-08-13',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [],
+    });
+
+    expect(result.rows[0]?.rowStatus).toBe('create');
+    expect(result.rows[0]?.payload?.customer.email).toBe(
+      'khenzobox@outlook.com'
+    );
+  });
+
+  it('marks fully anonymous rows invalid with a clear identity error', () => {
+    const result = buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          id: '2250705',
+          'Order Number': '05360',
+          Products: 'iPhone 16 256gb (Brand New ) | Insurance | Charger',
+          'Customer Name': '',
+          'Customer Email': '',
+          'Customer Phone': '',
+          'Product SKU': ' |  | ',
+          'Product Quantity': '1.00 | 1.00 | 1.00',
+          Total: '1343000.00',
+          'Sub Total': '1343000.00',
+          'Amount Paid': '1343000.00',
+          'Order Date': '2025-05-09 17:50:19',
+          'Created At': '2025-05-09',
+          'Updated At': '2025-05-09',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [],
+    });
+
+    expect(result.rows[0]?.rowStatus).toBe('invalid');
+    expect(result.rows[0]?.errors).toContain(
+      'Customer name, email, or phone is required'
+    );
+  });
 });

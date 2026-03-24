@@ -268,6 +268,22 @@ describe('buildItems', () => {
     expect(items[1].quantity).toBe(3);
   });
 
+  it('does not split double pipes used inside a single product title', () => {
+    const row = makeRow({
+      Products:
+        '*Lenovo Thinkpad T14 Gen 1 || 10th Gen || Intel core i5 || 16GB RAM',
+      'Product SKU': '',
+      'Product Quantity': '1.00',
+    });
+
+    const items = buildItems(row, []);
+
+    expect(items).toHaveLength(1);
+    expect(items[0].productName).toBe(
+      '*Lenovo Thinkpad T14 Gen 1 || 10th Gen || Intel core i5 || 16GB RAM'
+    );
+  });
+
   it('uses matched product price for unit price', () => {
     const items = buildItems(makeRow(), existingProducts);
     expect(items[0].unitPrice).toBe(2250);
