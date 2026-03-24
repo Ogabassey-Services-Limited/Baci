@@ -15,6 +15,6 @@ describe('BlogPostPageFallback', () => {
 
   it('includes the body fallback component', () => {
     const { getByTestId } = render(<BlogPostPageFallback />);
-    expect(getByTestId('body-fallback')).toBeDefined();
+    expect(getByTestId('body-fallback')).toBeInTheDocument();
   });
 });

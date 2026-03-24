@@ -4,6 +4,9 @@ import {
   OgabasseyV2Blog,
 } from '@/components/storefront/ogabassey/pages/blog';
 import { getCachedBlogListing } from '@/lib/cached-data';
+import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { generateBreadcrumbSchema } from '@/lib/seo-utils';
+import { buildStoreUrl } from '@/lib/store-url';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -42,11 +45,54 @@ export default async function BlogPage({ params }: PageProps) {
     notFound();
   }
 
+  const baseUrl = buildStoreUrl(data.merchant);
+  const blogUrl = `${baseUrl}/blog`;
+
+  const blogSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Blog',
+    name: `${data.merchant.business_name} Blog`,
+    description: `Read the latest articles, tips, and insights from ${data.merchant.business_name}.`,
+    url: blogUrl,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': blogUrl },
+    author: {
+      '@type': 'Organization',
+      name: data.merchant.business_name,
+      url: baseUrl,
+    },
+    blogPost: data.posts.map((post) => ({
+      '@type': 'BlogPosting',
+      headline: post.title,
+      url: `${blogUrl}/${post.slug}`,
+      datePublished: post.published_at,
+      description: post.excerpt || '',
+    })),
+  };
+
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: data.merchant.business_name, url: baseUrl },
+    { name: 'Blog', url: blogUrl },
+  ]);
+
   return (
-    <OgabasseyV2Blog
-      posts={data.posts}
-      merchantSlug={slug}
-      categories={data.categories}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(blogSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLdStringify(breadcrumbSchema),
+        }}
+      />
+      <OgabasseyV2Blog
+        posts={data.posts}
+        merchantSlug={slug}
+        categories={data.categories}
+      />
+    </>
   );
 }

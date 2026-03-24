@@ -176,6 +176,9 @@ export async function generateMetadata(
 
   if (effectiveCategorySlug) {
     const cleanSlug = product.slug || product.id;
+    // Known limitation: NODE_ENV check can break Vercel preview deployments
+    // where NODE_ENV=production but routing is path-mode (no subdomain/custom domain).
+    // Part 2 follow-up will replace this with headers()-based routing mode detection.
     const targetPath =
       process.env.NODE_ENV === 'development'
         ? `/${slug}/${effectiveCategorySlug}/${cleanSlug}`
