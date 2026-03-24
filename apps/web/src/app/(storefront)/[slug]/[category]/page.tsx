@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { cookies, headers } from 'next/headers';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
+import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { CATEGORY_SEO_DEFAULTS } from '@/config/category-seo-defaults';
 import {
@@ -18,7 +20,6 @@ import {
   generateCollectionPageSchema,
   generateFAQSchema,
 } from '@/lib/seo-utils';
-import { buildStoreUrl } from '@/lib/store-url';
 import { isDomainIdentifier } from '@/lib/validation';
 
 // Enable ISR with 5 minute revalidation
@@ -29,36 +30,6 @@ interface PageProps {
     slug: string; // Store slug (merchant)
     category: string; // Category slug
   }>;
-}
-
-type CategoryPageData = Awaited<ReturnType<typeof getCachedCategoryPageData>>;
-
-function getSeoData(data: CategoryPageData, categorySlug: string) {
-  if (data.isCollection)
-    return data.seo || { heading: '', description: '', features: [], faqs: [] };
-
-  const categoryName = data.fallbackName || '';
-  const categoryDescription = data.fallbackDescription || '';
-
-  const normalizedSlug = categorySlug.toLowerCase();
-  const defaultConfig = CATEGORY_SEO_DEFAULTS[normalizedSlug] || null;
-  const fallbackConfig = !defaultConfig
-    ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-        normalizedSlug.includes(key)
-      )?.[1]
-    : null;
-  const effectiveConfig = defaultConfig || fallbackConfig;
-
-  return {
-    heading:
-      data.category?.seo_heading || effectiveConfig?.heading || categoryName,
-    description:
-      data.category?.seo_description ||
-      effectiveConfig?.description ||
-      categoryDescription,
-    features: data.category?.seo_features || effectiveConfig?.features || [],
-    faqs: data.category?.seo_faq || effectiveConfig?.faqs || [],
-  };
 }
 
 export async function generateMetadata({
@@ -79,13 +50,48 @@ export async function generateMetadata({
 
   const data = await getCachedCategoryPageData(merchant.id, category, slug);
 
-  const seoData = getSeoData(data, category);
+  // Helper to resolve SEO data
+  const getSeoData = () => {
+    if (data.isCollection)
+      return (
+        data.seo || { heading: '', description: '', features: [], faqs: [] }
+      );
+
+    // Logic for category pages
+    const categoryName = data.fallbackName || '';
+    const categoryDescription = data.fallbackDescription || '';
+
+    const normalizedSlug = category.toLowerCase();
+    const defaultConfig = CATEGORY_SEO_DEFAULTS[normalizedSlug] || null;
+    const fallbackConfig = !defaultConfig
+      ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
+          normalizedSlug.includes(key)
+        )?.[1]
+      : null;
+    const effectiveConfig = defaultConfig || fallbackConfig;
+
+    return {
+      heading:
+        data.category?.seo_heading || effectiveConfig?.heading || categoryName,
+      description:
+        data.category?.seo_description ||
+        effectiveConfig?.description ||
+        categoryDescription,
+      features: data.category?.seo_features || effectiveConfig?.features || [],
+      faqs: data.category?.seo_faq || effectiveConfig?.faqs || [],
+    };
+  };
+
+  const seoData = getSeoData();
   const categoryName = data.isCollection
     ? data.name
     : data.fallbackName || category;
   const products = data.products as unknown as Product[];
 
-  const baseUrl = buildStoreUrl(merchant);
+  const headersList = await headers();
+  const host = headersList.get('host') || 'baci.app';
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  const baseUrl = `${protocol}://${host}`;
   const categoryUrl = `${baseUrl}/${category}`;
 
   const title = `${categoryName} | ${merchant.business_name}`;
@@ -126,7 +132,14 @@ export async function generateMetadata({
 export default async function CategoryPageRoute({ params }: PageProps) {
   const { slug, category } = await params;
 
-  // Lowercase enforcement moved to proxy (prefix normalization + storefront lowercase redirect)
+  // SEO: Enforce lowercase URLs using x-pathname header (works even if params are normalized)
+  const headersList = await headers();
+  const pathname = headersList.get('x-pathname');
+
+  if (pathname && pathname !== pathname.toLowerCase()) {
+    // biome-ignore lint/suspicious/noExplicitAny: Redirecting to lowercase string is valid
+    return permanentRedirect(pathname.toLowerCase() as any);
+  }
 
   // 1. Get Merchant
   const merchant = isDomainIdentifier(slug)
@@ -140,12 +153,54 @@ export default async function CategoryPageRoute({ params }: PageProps) {
   const data = await getCachedCategoryPageData(merchant.id, category, slug);
   const products = data.products as unknown as Product[];
 
-  const seoData = getSeoData(data, category);
+  // Helper to resolve SEO data (Same as metadata)
+  const getSeoData = () => {
+    if (data.isCollection)
+      return (
+        data.seo || { heading: '', description: '', features: [], faqs: [] }
+      );
+
+    const categoryName = data.fallbackName || '';
+    const categoryDescription = data.fallbackDescription || '';
+
+    const normalizedSlug = category.toLowerCase();
+    const defaultConfig = CATEGORY_SEO_DEFAULTS[normalizedSlug] || null;
+    const fallbackConfig = !defaultConfig
+      ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
+          normalizedSlug.includes(key)
+        )?.[1]
+      : null;
+    const effectiveConfig = defaultConfig || fallbackConfig;
+
+    return {
+      heading:
+        data.category?.seo_heading || effectiveConfig?.heading || categoryName,
+      description:
+        data.category?.seo_description ||
+        effectiveConfig?.description ||
+        categoryDescription,
+      features: data.category?.seo_features || effectiveConfig?.features || [],
+      faqs: data.category?.seo_faq || effectiveConfig?.faqs || [],
+    };
+  };
+
+  const seoData = getSeoData();
   const categoryName = data.isCollection
     ? data.name
     : data.fallbackName || category;
 
-  const baseUrl = buildStoreUrl(merchant);
+  // Read theme cookie server-side for SSR consistency
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get('storefront-theme')?.value;
+
+  const _initialTheme: V2ThemeMode | undefined =
+    themeCookie === 'standard' || themeCookie === 'santa'
+      ? themeCookie
+      : undefined;
+
+  const host = headersList.get('host') || 'baci.app';
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  const baseUrl = `${protocol}://${host}`;
   const categoryUrl = `${baseUrl}/${category}`;
 
   // Generate CollectionPage schema

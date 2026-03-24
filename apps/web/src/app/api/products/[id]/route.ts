@@ -11,11 +11,6 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import {
-  getPrimaryProductImage,
-  PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
-  PRODUCT_IMAGE_PLACEHOLDER_URL,
-} from '@/lib/product-image';
-import {
   PRODUCT_COLUMNS,
   PRODUCT_VARIANT_COLUMNS,
 } from '@/lib/product-queries';
@@ -109,10 +104,13 @@ export async function GET(
       minimum_order_quantity: 1,
 
       image:
-        getPrimaryProductImage(product.images) || PRODUCT_IMAGE_PLACEHOLDER_URL,
+        product.images?.[0]?.url ||
+        product.image_small ||
+        'https://picsum.photos/seed/placeholder/80/80',
       imageLarge:
-        getPrimaryProductImage(product.images) ||
-        PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
+        product.images?.[0]?.url ||
+        product.image_large ||
+        'https://picsum.photos/seed/placeholder/600/400',
       imageHint: product.image_hint || '',
       images: product.images || [],
 
@@ -308,25 +306,11 @@ export async function PUT(
     // Image fields
     if (body.images !== undefined) {
       updates.images = body.images;
+      updates.image_small = body.images?.[0]?.url;
+      updates.image_large = body.images?.[0]?.url;
     }
-    if (
-      body.images === undefined &&
-      (body.image !== undefined || body.imageLarge !== undefined)
-    ) {
-      const primaryImage = body.image ?? body.imageLarge;
-      updates.images = primaryImage
-        ? [
-            {
-              url: primaryImage,
-              alt:
-                (typeof updates.name === 'string'
-                  ? updates.name
-                  : existingProduct.name) || 'Product image',
-              order: 0,
-            },
-          ]
-        : [];
-    }
+    if (body.image !== undefined) updates.image_small = body.image;
+    if (body.imageLarge !== undefined) updates.image_large = body.imageLarge;
     if (body.imageHint !== undefined) updates.image_hint = body.imageHint;
 
     // Physical attributes

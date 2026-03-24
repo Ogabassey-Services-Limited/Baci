@@ -1,7 +1,6 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   buildBlogUrl,
-  buildCanonicalBlogPostUrl,
   getBlogPostTextPreview,
   resolveBlogPostContent,
 } from './blog-post-content';
@@ -118,42 +117,6 @@ describe('getBlogPostTextPreview', () => {
     });
 
     expect(preview).toBe('First paragraph Nested second paragraph');
-  });
-});
-
-describe('buildCanonicalBlogPostUrl', () => {
-  it('uses subdomain canonical URL without doubling the slug', () => {
-    expect(
-      buildCanonicalBlogPostUrl(
-        { slug: 'ogabassey', custom_domain: undefined },
-        'my-post'
-      )
-    ).toBe('https://ogabassey.usebaci.com/blog/my-post');
-  });
-
-  it('uses the merchant custom domain when present', () => {
-    expect(
-      buildCanonicalBlogPostUrl(
-        { slug: 'ogabassey', custom_domain: 'ogabassey.com' },
-        'my-post'
-      )
-    ).toBe('https://ogabassey.com/blog/my-post');
-  });
-
-  describe('development mode', () => {
-    afterEach(() => {
-      vi.unstubAllEnvs();
-    });
-
-    it('returns dev URL with slug baked in during development', () => {
-      vi.stubEnv('NODE_ENV', 'development');
-      expect(
-        buildCanonicalBlogPostUrl(
-          { slug: 'ogabassey', custom_domain: undefined },
-          'my-post'
-        )
-      ).toBe('http://localhost:3000/ogabassey/blog/my-post');
-    });
   });
 });
 
