@@ -2,11 +2,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  activeAuthProvider: null as 'password' | 'google' | 'apple' | null,
   push: vi.fn(),
   replace: vi.fn(),
   signIn: vi.fn(),
+  signInWithApple: vi.fn(),
+  signInWithGoogle: vi.fn(),
+  isAuthenticating: false,
   resetOnboarding: vi.fn(),
-  signInWithIdToken: vi.fn(),
   alert: vi.fn(),
 }));
 
@@ -153,7 +156,11 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
+    activeAuthProvider: mocks.activeAuthProvider,
+    isAuthenticating: mocks.isAuthenticating,
     signIn: mocks.signIn,
+    signInWithApple: mocks.signInWithApple,
+    signInWithGoogle: mocks.signInWithGoogle,
   }),
 }));
 
@@ -161,14 +168,6 @@ vi.mock('@/context/OnboardingContext', () => ({
   useOnboarding: () => ({
     resetOnboarding: mocks.resetOnboarding,
   }),
-}));
-
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      signInWithIdToken: mocks.signInWithIdToken,
-    },
-  },
 }));
 
 vi.mock('@/lib/sanitize', () => ({
@@ -190,6 +189,10 @@ describe('LoginScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.signIn.mockResolvedValue({ error: null });
+    mocks.signInWithApple.mockResolvedValue({ error: null });
+    mocks.signInWithGoogle.mockResolvedValue({ error: null });
+    mocks.activeAuthProvider = null;
+    mocks.isAuthenticating = false;
   });
 
   afterEach(() => {
@@ -228,9 +231,12 @@ describe('LoginScreen', () => {
     });
     mocks.signIn.mockReturnValue(signInPromise);
 
-    render(<LoginScreen />);
+    const view = render(<LoginScreen />);
     fillLoginFields();
     fireEvent.click(screen.getByText('Sign In'));
+    mocks.isAuthenticating = true;
+    mocks.activeAuthProvider = 'password';
+    view.rerender(<LoginScreen />);
 
     const signUpButton = screen.getByLabelText(
       'Sign up for a new merchant account'
@@ -243,6 +249,9 @@ describe('LoginScreen', () => {
     if (resolveSignIn) {
       resolveSignIn({ error: null });
     }
+    mocks.isAuthenticating = false;
+    mocks.activeAuthProvider = null;
+    view.rerender(<LoginScreen />);
     await waitFor(() => {
       expect(signUpButton.disabled).toBe(false);
     });
