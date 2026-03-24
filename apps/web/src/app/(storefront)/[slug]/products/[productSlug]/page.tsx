@@ -310,6 +310,10 @@ export default async function ProductPage({ params }: PageProps) {
     merchant?.logo_url
   );
 
+  // Canonical product URL used for both offers and breadcrumbs (consistent SEO signals)
+  const productPath = getProductUrl(product);
+  const productUrl = `${baseUrl}${productPath}`;
+
   // Add URL to the schema offers (sanitized to prevent XSS)
   // Variant products have no top-level offers (offers live on each hasVariant entry)
   if (
@@ -317,7 +321,6 @@ export default async function ProductPage({ params }: PageProps) {
     !Array.isArray(productSchema.offers) &&
     productSchema.offers['@type'] !== 'AggregateOffer'
   ) {
-    const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
     productSchema.offers.url = escapeHtml(productUrl);
   }
 
@@ -333,8 +336,6 @@ export default async function ProductPage({ params }: PageProps) {
   }
 
   // Generate breadcrumb schema using helper function (sanitization handled in generateBreadcrumbSchema)
-  // FIXED: Use proper category path structure (/[category]/[slug]) instead of query params
-  const productUrl = `${baseUrl}/${product.category_slug || 'products'}/${product.slug || product.id}`;
 
   const categorySlug =
     product.category_slug ||
