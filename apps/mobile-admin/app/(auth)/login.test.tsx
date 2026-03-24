@@ -256,4 +256,74 @@ describe('LoginScreen', () => {
       expect(signUpButton.disabled).toBe(false);
     });
   });
+
+  it('shows the Google provider error when native sign-in fails', async () => {
+    mocks.signInWithGoogle.mockResolvedValue({
+      error: 'Google Sign-in is not available in this build.',
+    });
+
+    render(<LoginScreen />);
+
+    fireEvent.click(screen.getByText('Google'));
+
+    expect(mocks.signInWithGoogle).toHaveBeenCalledTimes(1);
+    expect(
+      await screen.findByText('Google Sign-in is not available in this build.')
+    ).toBeTruthy();
+  });
+
+  it('disables auth links while Google sign-in is in progress and restores them after success', async () => {
+    let resolveGoogleSignIn:
+      | ((value: { error: null } | PromiseLike<{ error: null }>) => void)
+      | undefined;
+    const googleSignInPromise = new Promise<{ error: null }>((resolve) => {
+      resolveGoogleSignIn = resolve;
+    });
+    mocks.signInWithGoogle
+      .mockResolvedValueOnce({
+        error: 'Google Sign-in is not available in this build.',
+      })
+      .mockReturnValueOnce(googleSignInPromise);
+
+    const view = render(<LoginScreen />);
+    fireEvent.click(screen.getByText('Google'));
+    expect(
+      await screen.findByText('Google Sign-in is not available in this build.')
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Google'));
+    mocks.isAuthenticating = true;
+    mocks.activeAuthProvider = 'google';
+    view.rerender(<LoginScreen />);
+
+    const forgotPasswordButton = screen.getByLabelText(
+      'Forgot password? Reset your password'
+    ) as HTMLButtonElement;
+    const signUpButton = screen.getByLabelText(
+      'Sign up for a new merchant account'
+    ) as HTMLButtonElement;
+
+    await waitFor(() => {
+      expect(forgotPasswordButton.disabled).toBe(true);
+      expect(signUpButton.disabled).toBe(true);
+      expect(
+        screen.queryByText('Google Sign-in is not available in this build.')
+      ).toBeNull();
+    });
+
+    fireEvent.click(forgotPasswordButton);
+    expect(mocks.push).not.toHaveBeenCalledWith('/(auth)/forgot-password');
+
+    if (resolveGoogleSignIn) {
+      resolveGoogleSignIn({ error: null });
+    }
+    mocks.isAuthenticating = false;
+    mocks.activeAuthProvider = null;
+    view.rerender(<LoginScreen />);
+
+    await waitFor(() => {
+      expect(forgotPasswordButton.disabled).toBe(false);
+      expect(signUpButton.disabled).toBe(false);
+    });
+  });
 });

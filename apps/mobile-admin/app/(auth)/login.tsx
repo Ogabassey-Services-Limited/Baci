@@ -240,10 +240,18 @@ export default function LoginScreen() {
               </View>
             </View>
             <Pressable
-              onPress={() => push('/(auth)/forgot-password')}
+              onPress={() => {
+                if (isAnyLoading) {
+                  return;
+                }
+
+                push('/(auth)/forgot-password');
+              }}
               style={styles.forgotPassword}
+              disabled={isAnyLoading}
               accessibilityRole="link"
               accessibilityLabel="Forgot password? Reset your password"
+              accessibilityState={{ disabled: isAnyLoading }}
             >
               <Text style={styles.forgotPasswordText}>
                 Forgot Password?

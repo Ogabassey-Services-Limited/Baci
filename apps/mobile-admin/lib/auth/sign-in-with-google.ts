@@ -45,6 +45,29 @@ const googleConfig = {
 let cachedGoogleModule: GoogleSignInModule | null = null;
 let lastGoogleConfigSignature: string | null = null;
 
+function getGoogleConfigError():
+  | {
+      code: 'google_missing_client_id';
+      error: string;
+    }
+  | null {
+  const missingConfigFields = [
+    Platform.OS === 'ios' && !googleConfig.iosClientId
+      ? 'googleConfig.iosClientId'
+      : null,
+    !googleConfig.webClientId ? 'googleConfig.webClientId' : null,
+  ].filter(Boolean);
+
+  if (missingConfigFields.length === 0) {
+    return null;
+  }
+
+  return {
+    code: 'google_missing_client_id',
+    error: `${missingConfigFields.join(' and ')} must be set before GoogleSignin.configure() can start Google Sign-in for this build.`,
+  };
+}
+
 async function loadGoogleSignInModule(): Promise<GoogleSignInModule | null> {
   if (cachedGoogleModule) {
     return cachedGoogleModule;
@@ -74,6 +97,13 @@ async function loadGoogleSignInModule(): Promise<GoogleSignInModule | null> {
 async function ensureGoogleConfigured(
   googleModule: GoogleSignInModule
 ): Promise<void> {
+  const googleConfigError = getGoogleConfigError();
+  if (googleConfigError) {
+    throw Object.assign(new Error(googleConfigError.error), {
+      code: googleConfigError.code,
+    });
+  }
+
   const configSignature = `${googleConfig.iosClientId ?? ''}:${googleConfig.webClientId ?? ''}`;
 
   if (lastGoogleConfigSignature === configSignature) {
@@ -100,6 +130,15 @@ export async function signInWithGoogleNative(): Promise<GoogleSignInResult> {
     };
   }
 
+  const googleConfigError = getGoogleConfigError();
+  if (googleConfigError) {
+    return {
+      ...googleConfigError,
+      session: null,
+      user: null,
+    };
+  }
+
   const googleModule = await loadGoogleSignInModule();
   if (!googleModule) {
     return {
@@ -112,7 +151,15 @@ export async function signInWithGoogleNative(): Promise<GoogleSignInResult> {
 
   try {
     await ensureGoogleConfigured(googleModule);
-    await googleModule.GoogleSignin.hasPlayServices();
+    const hasPlayServices = await googleModule.GoogleSignin.hasPlayServices();
+    if (!hasPlayServices) {
+      return {
+        code: 'google_play_services_unavailable',
+        error: 'Google Play Services is not available on this device.',
+        session: null,
+        user: null,
+      };
+    }
 
     const response = await googleModule.GoogleSignin.signIn();
     let accessToken: string | null = null;
