@@ -30,7 +30,7 @@ export const blogPostSchema = z.object({
   // Note: 'scheduled' exists in the DB enum but has no cron job to publish.
   // Only accept statuses that are immediately actionable.
   status: z.enum(['draft', 'published', 'archived']).optional(),
-  published_at: z.string().datetime().nullable().optional(),
+  published_at: z.string().datetime({ offset: true }).nullable().optional(),
   seo_title: z
     .string()
     .max(70, 'SEO title must be 70 characters or less')

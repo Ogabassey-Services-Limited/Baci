@@ -430,7 +430,9 @@ export default function EditBlogPostPage() {
             ? scheduledDate?.toISOString()
             : newStatus === 'published'
               ? new Date().toISOString()
-              : formData.published_at,
+              : formData.published_at
+                ? new Date(formData.published_at).toISOString()
+                : formData.published_at,
         embedded_products: embeddedProducts.map((p) => p.id),
       };
 
