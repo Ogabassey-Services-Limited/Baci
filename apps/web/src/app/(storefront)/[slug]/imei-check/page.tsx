@@ -1,8 +1,6 @@
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { OgabasseyImeiChecker } from '@/components/storefront/ogabassey/pages/imei-checker';
-import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
@@ -38,14 +36,6 @@ export default async function ImeiCheckPage({
   if (!merchant) {
     notFound();
   }
-
-  // Read theme cookie server-side for SSR consistency
-  const cookieStore = await cookies();
-  const themeCookie = cookieStore.get('storefront-theme')?.value;
-  const _initialTheme: V2ThemeMode | undefined =
-    themeCookie === 'standard' || themeCookie === 'santa'
-      ? themeCookie
-      : undefined;
 
   // Only show for Ogabassey template (merchant-specific feature)
   if (
