@@ -119,6 +119,7 @@ let variants: unknown[] = [];
 let updateResult: unknown = null;
 let updateError: unknown = null;
 let deleteError: unknown = null;
+let lastProductUpdatePayload: unknown = null;
 
 const createMockSupabase = () => ({
   auth: {
@@ -172,20 +173,23 @@ const createMockSupabase = () => ({
             error: productError,
           })
         ),
-        update: vi.fn(() => ({
-          eq: vi.fn(() => ({
+        update: vi.fn((payload: unknown) => {
+          lastProductUpdatePayload = payload;
+          return {
             eq: vi.fn(() => ({
-              select: vi.fn(() => ({
-                single: vi.fn(() =>
-                  Promise.resolve({
-                    data: updateError ? null : updateResult,
-                    error: updateError,
-                  })
-                ),
+              eq: vi.fn(() => ({
+                select: vi.fn(() => ({
+                  single: vi.fn(() =>
+                    Promise.resolve({
+                      data: updateError ? null : updateResult,
+                      error: updateError,
+                    })
+                  ),
+                })),
               })),
             })),
-          })),
-        })),
+          };
+        }),
         delete: vi.fn(() => {
           eqCallCount = 0; // Reset counter
           return deleteChain;
@@ -307,6 +311,7 @@ function resetMocks() {
   updateResult = null;
   updateError = null;
   deleteError = null;
+  lastProductUpdatePayload = null;
   csrfValid = true;
 }
 
@@ -541,6 +546,50 @@ describe('PUT /api/products/[id]', () => {
       expect(res.status).toBe(200);
       expect(json.product).toBeDefined();
       expect(json.product.name).toBe('Updated Product');
+    });
+
+    it('preserves explicit images when single-image fields are also provided', async () => {
+      product = {
+        id: PRODUCT_ID,
+        name: 'Old Name',
+        description: 'Old description',
+        condition: 'new',
+      };
+
+      updateResult = {
+        id: PRODUCT_ID,
+        name: 'Updated Product',
+        price: '6000',
+        slug: 'updated-product',
+      };
+
+      const explicitImages = [
+        {
+          url: 'https://cdn.example.com/products/explicit.jpg',
+          alt: 'Explicit image',
+          order: 0,
+        },
+      ];
+
+      const res = await PUT(
+        makePutRequest(PRODUCT_ID, {
+          ...validUpdateBody,
+          images: explicitImages,
+          image: 'https://cdn.example.com/products/legacy-small.jpg',
+          imageLarge: 'https://cdn.example.com/products/legacy-large.jpg',
+        }),
+        {
+          params: Promise.resolve({ id: PRODUCT_ID }),
+        }
+      );
+      await res.json();
+
+      expect(res.status).toBe(200);
+      expect(lastProductUpdatePayload).toEqual(
+        expect.objectContaining({
+          images: explicitImages,
+        })
+      );
     });
 
     it('updates product with variants', async () => {
