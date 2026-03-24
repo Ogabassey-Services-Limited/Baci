@@ -15,8 +15,8 @@ vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(),
 }));
 
-vi.mock('@/lib/import-jobs/import-job-service', () => ({
-  triggerImportWorker: vi.fn(),
+vi.mock('@/lib/import-jobs/kickoff-import-job', () => ({
+  kickoffImportJob: vi.fn(),
 }));
 
 vi.mock('@/lib/import-jobs/import-job-route-auth', () => ({
@@ -33,7 +33,7 @@ import {
   resolveImportRouteContext,
 } from '@/lib/import-jobs/import-job-route-auth';
 import type { ImportJobRecord } from '@/lib/import-jobs/import-job-service';
-import { triggerImportWorker } from '@/lib/import-jobs/import-job-service';
+import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { POST } from './route';
 
 const jobId = '00000000-0000-4000-8000-000000000001';
@@ -128,7 +128,7 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
     );
 
     expect(response.status).toBe(403);
-    expect(triggerImportWorker).not.toHaveBeenCalled();
+    expect(kickoffImportJob).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the job does not exist', async () => {
@@ -142,7 +142,7 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
     );
 
     expect(response.status).toBe(404);
-    expect(triggerImportWorker).not.toHaveBeenCalled();
+    expect(kickoffImportJob).not.toHaveBeenCalled();
   });
 
   it('returns 403 when the merchant lacks permission for the import entity', async () => {
@@ -157,7 +157,7 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
     );
 
     expect(response.status).toBe(403);
-    expect(triggerImportWorker).not.toHaveBeenCalled();
+    expect(kickoffImportJob).not.toHaveBeenCalled();
   });
 
   it('returns 409 when the job is not preview ready', async () => {
@@ -186,7 +186,7 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
     );
 
     expect(response.status).toBe(202);
-    expect(triggerImportWorker).toHaveBeenCalledWith('http://localhost', jobId);
+    expect(kickoffImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
   });
 
   it('returns 409 when the preview_ready transition does not update any rows', async () => {
@@ -206,6 +206,6 @@ describe('POST /api/import-jobs/[jobId]/commit', () => {
     );
 
     expect(response.status).toBe(409);
-    expect(triggerImportWorker).not.toHaveBeenCalled();
+    expect(kickoffImportJob).not.toHaveBeenCalled();
   });
 });
