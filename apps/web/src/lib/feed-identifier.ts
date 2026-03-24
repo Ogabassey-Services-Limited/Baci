@@ -37,7 +37,7 @@ export async function resolveFeedMerchant(
     : await query.eq('id', identifier).single();
 
   if (error || !merchant) {
-    throw new Error('Merchant not found');
+    throw new Error('Merchant not found', { cause: error });
   }
 
   return merchant as FeedMerchantRecord;

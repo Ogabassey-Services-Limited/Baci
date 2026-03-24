@@ -26,6 +26,14 @@ vi.mock('next/cache', () => ({
   },
 }));
 
+vi.mock('@/lib/cache-headers', () => ({
+  CACHE_HEADERS: {
+    LONG: {
+      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+    },
+  },
+}));
+
 vi.mock('./feed-builder', () => ({
   generateGoogleMerchantFeed: (...args: unknown[]) =>
     mockGenerateGoogleMerchantFeed(...args),
@@ -313,8 +321,11 @@ describe('GET /api/feed/google-merchant — cache tag canonicalization', () => {
   it('tags cache with merchant UUID, not slug, when request uses slug', async () => {
     const { GET } = await import('./route');
 
-    await GET(makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey'));
+    const response = await GET(
+      makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey')
+    );
 
+    expect(response.status).toBe(200);
     // resolveFeedMerchant returns id: 'merchant-1', so cache tag should use that
     expect(capturedCacheTags).toContain('merchant-feed-merchant-1');
     expect(capturedCacheTags).not.toContain('merchant-feed-ogabassey');
@@ -323,12 +334,13 @@ describe('GET /api/feed/google-merchant — cache tag canonicalization', () => {
   it('tags cache with merchant UUID when request uses merchant_id', async () => {
     const { GET } = await import('./route');
 
-    await GET(
+    const response = await GET(
       makeRequest(
         '/api/feed/google-merchant?merchant_id=00000000-0000-4000-8000-000000000001'
       )
     );
 
+    expect(response.status).toBe(200);
     expect(capturedCacheTags).toContain('merchant-feed-merchant-1');
   });
 });

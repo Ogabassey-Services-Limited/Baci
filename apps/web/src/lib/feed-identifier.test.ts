@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isUuid } from './feed-identifier';
+import { isUuid } from '@/lib/feed-identifier';
 
 describe('isUuid', () => {
   it('returns true for a valid UUID v4', () => {

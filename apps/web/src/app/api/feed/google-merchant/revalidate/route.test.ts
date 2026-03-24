@@ -195,6 +195,8 @@ describe('POST /api/feed/google-merchant/revalidate', () => {
     );
 
     expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe('Failed to revalidate feed');
     expect(mockRevalidateMerchantFeed).toHaveBeenCalledTimes(1);
   });
 });

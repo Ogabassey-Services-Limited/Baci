@@ -26,6 +26,14 @@ vi.mock('next/cache', () => ({
   },
 }));
 
+vi.mock('@/lib/cache-headers', () => ({
+  CACHE_HEADERS: {
+    LONG: {
+      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+    },
+  },
+}));
+
 interface ProductFixture {
   id: string;
   name: string;
@@ -141,6 +149,21 @@ describe('GET /api/feed/openai', () => {
     const parsed = JSON.parse(text);
     expect(parsed.title).toBe('Test Phone');
     expect(parsed.merchant_name).toBe('Ogabassey');
+  });
+
+  it('returns 200 with JSONL for valid merchant_id', async () => {
+    const { GET } = await import('./route');
+    const response = await GET(
+      makeRequest(
+        '/api/feed/openai?merchant_id=00000000-0000-4000-8000-000000000001'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockResolveFeedMerchant).toHaveBeenCalledWith(
+      '00000000-0000-4000-8000-000000000001',
+      false
+    );
   });
 
   it('returns 404 when merchant is not found', async () => {
@@ -287,8 +310,11 @@ describe('GET /api/feed/openai — query projection', () => {
 describe('GET /api/feed/openai — cache tag canonicalization', () => {
   it('tags cache with merchant UUID, not slug, when request uses slug', async () => {
     const { GET } = await import('./route');
-    await GET(makeRequest('/api/feed/openai?merchant_slug=ogabassey'));
+    const response = await GET(
+      makeRequest('/api/feed/openai?merchant_slug=ogabassey')
+    );
 
+    expect(response.status).toBe(200);
     expect(capturedCacheTags).toContain('merchant-feed-merchant-1');
     expect(capturedCacheTags).not.toContain('merchant-feed-ogabassey');
   });
