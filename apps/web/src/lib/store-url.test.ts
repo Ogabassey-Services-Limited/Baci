@@ -85,6 +85,16 @@ describe('buildStoreUrl', () => {
       );
     });
 
+    it('respects NEXT_PUBLIC_ROOT_DOMAIN env var', async () => {
+      vi.resetModules();
+      vi.stubEnv('NODE_ENV', 'production');
+      vi.stubEnv('NEXT_PUBLIC_ROOT_DOMAIN', 'custom.io');
+      const { buildStoreUrl: freshBuild } = await import('@/lib/store-url');
+      expect(freshBuild({ slug: 'mystore', custom_domain: undefined })).toBe(
+        'https://mystore.custom.io'
+      );
+    });
+
     it('returns no trailing slash for any mode', () => {
       const subdomain = buildStoreUrl({
         slug: 'ogabassey',

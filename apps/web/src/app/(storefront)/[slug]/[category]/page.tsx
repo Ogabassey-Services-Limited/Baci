@@ -31,6 +31,36 @@ interface PageProps {
   }>;
 }
 
+type CategoryPageData = Awaited<ReturnType<typeof getCachedCategoryPageData>>;
+
+function getSeoData(data: CategoryPageData, categorySlug: string) {
+  if (data.isCollection)
+    return data.seo || { heading: '', description: '', features: [], faqs: [] };
+
+  const categoryName = data.fallbackName || '';
+  const categoryDescription = data.fallbackDescription || '';
+
+  const normalizedSlug = categorySlug.toLowerCase();
+  const defaultConfig = CATEGORY_SEO_DEFAULTS[normalizedSlug] || null;
+  const fallbackConfig = !defaultConfig
+    ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
+        normalizedSlug.includes(key)
+      )?.[1]
+    : null;
+  const effectiveConfig = defaultConfig || fallbackConfig;
+
+  return {
+    heading:
+      data.category?.seo_heading || effectiveConfig?.heading || categoryName,
+    description:
+      data.category?.seo_description ||
+      effectiveConfig?.description ||
+      categoryDescription,
+    features: data.category?.seo_features || effectiveConfig?.features || [],
+    faqs: data.category?.seo_faq || effectiveConfig?.faqs || [],
+  };
+}
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -49,39 +79,7 @@ export async function generateMetadata({
 
   const data = await getCachedCategoryPageData(merchant.id, category, slug);
 
-  // Helper to resolve SEO data
-  const getSeoData = () => {
-    if (data.isCollection)
-      return (
-        data.seo || { heading: '', description: '', features: [], faqs: [] }
-      );
-
-    // Logic for category pages
-    const categoryName = data.fallbackName || '';
-    const categoryDescription = data.fallbackDescription || '';
-
-    const normalizedSlug = category.toLowerCase();
-    const defaultConfig = CATEGORY_SEO_DEFAULTS[normalizedSlug] || null;
-    const fallbackConfig = !defaultConfig
-      ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-          normalizedSlug.includes(key)
-        )?.[1]
-      : null;
-    const effectiveConfig = defaultConfig || fallbackConfig;
-
-    return {
-      heading:
-        data.category?.seo_heading || effectiveConfig?.heading || categoryName,
-      description:
-        data.category?.seo_description ||
-        effectiveConfig?.description ||
-        categoryDescription,
-      features: data.category?.seo_features || effectiveConfig?.features || [],
-      faqs: data.category?.seo_faq || effectiveConfig?.faqs || [],
-    };
-  };
-
-  const seoData = getSeoData();
+  const seoData = getSeoData(data, category);
   const categoryName = data.isCollection
     ? data.name
     : data.fallbackName || category;
@@ -142,38 +140,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
   const data = await getCachedCategoryPageData(merchant.id, category, slug);
   const products = data.products as unknown as Product[];
 
-  // Helper to resolve SEO data (Same as metadata)
-  const getSeoData = () => {
-    if (data.isCollection)
-      return (
-        data.seo || { heading: '', description: '', features: [], faqs: [] }
-      );
-
-    const categoryName = data.fallbackName || '';
-    const categoryDescription = data.fallbackDescription || '';
-
-    const normalizedSlug = category.toLowerCase();
-    const defaultConfig = CATEGORY_SEO_DEFAULTS[normalizedSlug] || null;
-    const fallbackConfig = !defaultConfig
-      ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-          normalizedSlug.includes(key)
-        )?.[1]
-      : null;
-    const effectiveConfig = defaultConfig || fallbackConfig;
-
-    return {
-      heading:
-        data.category?.seo_heading || effectiveConfig?.heading || categoryName,
-      description:
-        data.category?.seo_description ||
-        effectiveConfig?.description ||
-        categoryDescription,
-      features: data.category?.seo_features || effectiveConfig?.features || [],
-      faqs: data.category?.seo_faq || effectiveConfig?.faqs || [],
-    };
-  };
-
-  const seoData = getSeoData();
+  const seoData = getSeoData(data, category);
   const categoryName = data.isCollection
     ? data.name
     : data.fallbackName || category;

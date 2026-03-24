@@ -1,58 +1,24 @@
 import { notFound } from 'next/navigation';
-import { cache } from 'react';
 import {
   type BlogPost,
   OgabasseyV2Blog,
 } from '@/components/storefront/ogabassey/pages/blog';
-import { getPublicSupabaseClient } from '@/lib/cached-data';
+import { getCachedBlogListing } from '@/lib/cached-data';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-const getBlogData = cache(async (merchantSlug: string) => {
-  const supabase = getPublicSupabaseClient();
-
-  // Get merchant
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id, business_name, slug')
-    .eq('slug', merchantSlug)
-    .single();
-
-  if (!merchant) return null;
-
-  // Check if blog is enabled
-  const { data: features } = await supabase
-    .from('merchant_feature_settings')
-    .select('blog_enabled')
-    .eq('merchant_id', merchant.id)
-    .single();
-
-  if (!features?.blog_enabled) return null;
-
-  // Fetch published posts
-  const { data: posts } = await supabase
-    .from('blog_posts')
-    .select(
-      'id, title, slug, excerpt, featured_image_url, category, author_name, published_at, reading_time_minutes'
-    )
-    .eq('merchant_id', merchant.id)
-    .eq('status', 'published')
-    .order('published_at', { ascending: false })
-    .limit(50);
-
-  // Get unique categories
-  const categories = [
-    ...new Set(posts?.map((p) => p.category).filter(Boolean)),
-  ];
+async function getBlogData(merchantSlug: string) {
+  const result = await getCachedBlogListing(merchantSlug);
+  if (!result) return null;
 
   return {
-    merchant,
-    posts: (posts || []) as BlogPost[],
-    categories,
+    merchant: result.merchant,
+    posts: result.posts as BlogPost[],
+    categories: result.categories,
   };
-});
+}
 
 export async function generateMetadata({ params }: PageProps) {
   const { slug } = await params;

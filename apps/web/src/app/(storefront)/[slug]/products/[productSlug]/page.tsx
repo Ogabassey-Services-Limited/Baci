@@ -23,6 +23,7 @@ import {
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
+import { isDomainIdentifier } from '@/lib/validation';
 import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
 
@@ -160,7 +161,12 @@ export async function generateMetadata(
     ? await getCachedMerchantByDomain(slug)
     : await getCachedMerchant(slug);
 
-  const baseUrl = buildStoreUrl(merchant ?? { slug, custom_domain: undefined });
+  const baseUrl = buildStoreUrl(
+    merchant ??
+      (isDomainIdentifier(slug)
+        ? { slug, custom_domain: slug }
+        : { slug, custom_domain: undefined })
+  );
 
   // If we have a category slug (explicit or generated), REDIRECT to the pretty URL (SEO Best Practice)
   // This ensures /products/ URLs are always canonicalized to their category-based counterparts
@@ -279,7 +285,12 @@ export default async function ProductPage({ params }: PageProps) {
     }));
   }
 
-  const baseUrl = buildStoreUrl(merchant ?? { slug, custom_domain: undefined });
+  const baseUrl = buildStoreUrl(
+    merchant ??
+      (isDomainIdentifier(slug)
+        ? { slug, custom_domain: slug }
+        : { slug, custom_domain: undefined })
+  );
 
   // Generate product schema (now handles merging custom schema_markup internally)
   const productSchema = generateProductSchema(

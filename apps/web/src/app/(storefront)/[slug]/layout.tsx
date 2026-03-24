@@ -23,6 +23,10 @@ function StorefrontLayoutRenderer({
   children: React.ReactNode;
 }) {
   // Theme is handled client-side by V2ThemeProvider (reads cookie on mount).
+  // Trade-off: removing server-side theme detection (cookies()) enables PPR static shells
+  // but may cause a single-frame flash when seasonal themes (e.g., santa in December)
+  // differ from the 'standard' default. SnowEffect uses fixed inset-0 pointer-events-none,
+  // so there is zero CLS impact. The flash is imperceptible in practice.
   // hideNavigation is computed client-side by OgabasseyLayout via usePathname().
   const templateId = merchant.template_id;
 

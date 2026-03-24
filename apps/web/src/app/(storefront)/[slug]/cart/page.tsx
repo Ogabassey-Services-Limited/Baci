@@ -35,11 +35,18 @@ export default async function CartPage({
 async function CartContent({ merchantId }: { merchantId: string }) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
-  const { data: vatSettings } = await supabase
+  const { data: vatSettings, error } = await supabase
     .from('merchants')
     .select('vat_registration_status, vat_rate')
     .eq('id', merchantId)
     .single();
+
+  if (error) {
+    console.error('Failed to fetch VAT settings:', {
+      merchantId,
+      error: error.message,
+    });
+  }
 
   const vatEnabled = vatSettings?.vat_registration_status === 'registered';
   const vatRate = vatSettings?.vat_rate ?? 7.5;

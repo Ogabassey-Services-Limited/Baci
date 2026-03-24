@@ -287,6 +287,7 @@ async function BlogPostContent({
                 baseUrl={baseUrl}
                 content={content}
                 locale={locale}
+                postUrl={postUrl}
                 post={{
                   author_bio: post.author_bio,
                   id: post.id,
