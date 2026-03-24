@@ -16,6 +16,11 @@ describe('imageLoader', () => {
     expect(imageLoader({ src: url, width: 400 })).toBe(url);
   });
 
+  it('returns data URLs directly without modification', () => {
+    const url = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA';
+    expect(imageLoader({ src: url, width: 64 })).toBe(url);
+  });
+
   it('ignores width and quality for external URLs', () => {
     const url = 'https://cdn.ogabassey.com/img.avif';
     expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(url);
