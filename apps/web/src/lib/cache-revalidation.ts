@@ -179,12 +179,14 @@ export function revalidatePageConfig(merchantId: string, pageSlug?: string) {
 }
 
 /**
- * Revalidate the Google Merchant Center feed cache for a merchant.
+ * Revalidate the feed cache (Google Merchant + OpenAI) for a merchant.
  * Call after the backfill script populates/refreshes `product_feed_images`,
  * or after any mutation that changes feed-relevant product data.
+ *
+ * @param merchantId - Canonical merchant UUID (not slug).
  */
-export function revalidateMerchantFeed(merchantIdentifier: string) {
-  revalidateTag(`merchant-feed-${merchantIdentifier}`, 'products');
+export function revalidateMerchantFeed(merchantId: string) {
+  revalidateTag(`merchant-feed-${merchantId}`, 'products');
 }
 
 /**

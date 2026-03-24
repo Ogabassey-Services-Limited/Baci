@@ -1,44 +1,47 @@
 import { gzipSync } from 'node:zlib';
-import { createClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
+import {
+  MerchantNotFoundError,
+  resolveFeedMerchant,
+} from '@/lib/feed-identifier';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { stripHtmlTags } from '@/lib/sanitize-core';
+import { createAnonClient } from '@/lib/supabase/anon';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const _FeedQuerySchema = z
+  .object({
+    merchant_id: z.string().uuid().optional(),
+    merchant_slug: z.string().min(1).optional(),
+    format: z.enum(['jsonl', 'plain']).optional(),
+  })
+  .refine((data) => data.merchant_id || data.merchant_slug, {
+    message: 'merchant_id or merchant_slug parameter is required',
+  });
 
-// Factory function that creates a cached fetcher for each merchant
-function createCachedFeedDataFetcher(
-  merchantIdentifier: string,
-  isBySlug: boolean
-) {
+const UNLIMITED_STOCK_QUANTITY = 9999;
+
+/**
+ * Cached data fetcher for a resolved merchant (keyed by merchant UUID).
+ * Merchant resolution happens outside the cache boundary so that
+ * cache tags always use canonical merchant.id (never slugs).
+ */
+function createCachedFeedDataFetcher(merchantId: string) {
   return unstable_cache(
     async () => {
-      const merchantQuery = supabase
-        .from('merchants')
-        .select('id, business_name, country, payout_currency, slug, logo_url');
+      const supabase = createAnonClient();
 
-      const { data: merchant, error: merchantError } = isBySlug
-        ? await merchantQuery.eq('slug', merchantIdentifier).single()
-        : await merchantQuery.eq('id', merchantIdentifier).single();
-
-      if (merchantError || !merchant) {
-        throw new Error('Merchant not found');
-      }
-
-      // Fetch products with variants for OpenAI spec (Best Practice: Include all sellable units)
       const { data: products, error: productsError } = await supabase
         .from('products')
         .select(
           `id, name, description, slug, price, compare_at_price, images,
-           brand, gtin, mpn, sku, stock, stock_quantity, condition, google_product_category, category,
+           brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
            weight_value, weight_unit, updated_at,
            variants:product_variants(id, attributes, price_override, stock_quantity, sku, primary_image)`
         )
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', merchantId)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(10000);
@@ -48,16 +51,12 @@ function createCachedFeedDataFetcher(
         throw new Error('Failed to fetch products');
       }
 
-      return { merchant, products: products || [] };
+      return { products: products || [] };
     },
-    ['openai-product-feed', merchantIdentifier],
+    ['openai-product-feed', merchantId],
     {
-      revalidate: 3600, // Revalidate every 1 hour
-      tags: [
-        'openai-product-feed',
-        'products',
-        `merchant-feed-${merchantIdentifier}`,
-      ],
+      revalidate: 3600,
+      tags: ['openai-product-feed', 'products', `merchant-feed-${merchantId}`],
     }
   );
 }
@@ -74,24 +73,36 @@ function createCachedFeedDataFetcher(
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const merchantId = searchParams.get('merchant_id');
-  const merchantSlug = searchParams.get('merchant_slug');
-  const format = searchParams.get('format'); // 'jsonl' for gzipped, default is plain
+  const rawParams = {
+    merchant_id: searchParams.get('merchant_id') || undefined,
+    merchant_slug: searchParams.get('merchant_slug') || undefined,
+    format: searchParams.get('format') || undefined,
+  };
 
-  if (!merchantId && !merchantSlug) {
+  const parsed = _FeedQuerySchema.safeParse(rawParams);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: 'merchant_id or merchant_slug parameter is required' },
+      {
+        error: parsed.error.errors[0]?.message || 'Invalid query parameters',
+      },
       { status: 400 }
     );
   }
 
+  const {
+    merchant_id: merchantIdParam,
+    merchant_slug: merchantSlug,
+    format,
+  } = parsed.data;
+
   try {
-    const identifier = merchantId || merchantSlug || '';
-    const getCachedFeedData = createCachedFeedDataFetcher(
-      identifier,
-      !!merchantSlug
-    );
-    const { merchant, products } = await getCachedFeedData();
+    // Resolve merchant outside cache so tags use canonical UUID
+    const identifier = merchantIdParam || merchantSlug || '';
+    const isBySlug = !merchantIdParam && !!merchantSlug;
+    const merchant = await resolveFeedMerchant(identifier, isBySlug);
+
+    const getCachedFeedData = createCachedFeedDataFetcher(merchant.id);
+    const { products } = await getCachedFeedData();
 
     // Determine base URL from request headers
     const host = request.headers.get('host') || `${merchant.slug}.baci.app`;
@@ -126,8 +137,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('OPENAI_FEED_GENERATION_ERROR:', error);
-    const message = (error as Error).message;
-    if (message === 'Merchant not found') {
+    if (error instanceof MerchantNotFoundError) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
@@ -164,6 +174,8 @@ interface Product {
   mpn?: string;
   sku?: string;
   stock: number;
+  stock_quantity?: number;
+  manage_stock?: boolean;
   condition?: 'new' | 'used' | 'refurbished';
   google_product_category?: string;
   category?: string;
@@ -357,9 +369,16 @@ function generateOpenAIFeed(
       const imageUrl =
         typeof firstImage === 'string' ? firstImage : firstImage?.url || '';
 
-      const stockCount = getEffectiveStock(product);
-      const availability: OpenAIFeedItem['availability'] =
-        stockCount > 0 ? 'in_stock' : 'out_of_stock';
+      // manage_stock === false means unlimited stock (no inventory tracking)
+      let stockCount: number;
+      let availability: OpenAIFeedItem['availability'];
+      if (product.manage_stock === false) {
+        stockCount = UNLIMITED_STOCK_QUANTITY;
+        availability = 'in_stock';
+      } else {
+        stockCount = getEffectiveStock(product);
+        availability = stockCount > 0 ? 'in_stock' : 'out_of_stock';
+      }
 
       const formattedPrice = `${product.price.toFixed(2)} ${currency}`;
       const salePrice =
