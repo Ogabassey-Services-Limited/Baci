@@ -14,11 +14,16 @@ import {
   generateBlogPostSchema,
   generateBreadcrumbSchema,
 } from '@/lib/seo-utils';
+import { buildStoreUrl } from '@/lib/store-url';
 import { isDomainIdentifier } from '@/lib/validation';
 import { BlogPostBody } from './BlogPostBody';
 import { BlogPostBodyFallback } from './BlogPostBodyFallback';
 import { BlogPostHeader } from './BlogPostHeader';
-import { buildBlogUrl, getBlogPostTextPreview } from './blog-post-content';
+import { BlogPostPageFallback } from './BlogPostPageFallback';
+import {
+  buildCanonicalBlogPostUrl,
+  getBlogPostTextPreview,
+} from './blog-post-content';
 import { ViewCounter } from './view-counter';
 
 interface PageProps {
@@ -65,18 +70,12 @@ export async function generateMetadata({
 
   const { merchant, post } = data;
   const title = post.seo_title || post.title || 'Blog Post';
-  const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
   const description =
     post.seo_description ||
     post.excerpt ||
     getBlogPostTextPreview(post.content);
 
-  // Use request headers to determine the actual domain (supports custom domains)
-  const headersList = await headers();
-  const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
-  const url = buildBlogUrl(baseUrl, basePath, post.slug);
+  const url = buildCanonicalBlogPostUrl(merchant, post.slug);
 
   return {
     title: `${title} | ${merchant.business_name}`,
@@ -120,8 +119,13 @@ export async function generateMetadata({
   };
 }
 
-export default async function BlogPostPage({ params }: PageProps) {
-  const { slug, postSlug } = await params;
+async function BlogPostContent({
+  slug,
+  postSlug,
+}: {
+  slug: string;
+  postSlug: string;
+}) {
   const isDraftMode = (await draftMode()).isEnabled;
   const data = await getResolvedBlogPost(slug, postSlug, isDraftMode);
 
@@ -133,11 +137,13 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   const content = post.content || '';
 
-  // Use request headers to determine the actual domain (supports custom domains)
+  // Canonical URLs using buildStoreUrl (no headers() needed for the base URL)
+  const baseUrl = buildStoreUrl(merchant);
+  const blogIndexUrl = `${baseUrl}/blog`;
+  const postUrl = buildCanonicalBlogPostUrl(merchant, post.slug);
+
+  // Locale from headers (inside Suspense, so PPR-safe)
   const headersList = await headers();
-  const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
   const rawLocale = headersList.get('accept-language')?.split(',')[0];
   let locale: string | undefined;
   if (rawLocale) {
@@ -149,9 +155,8 @@ export default async function BlogPostPage({ params }: PageProps) {
     }
   }
 
-  // Determine base path for internal links
+  // basePath still needed for internal navigation links
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
-  const postUrl = buildBlogUrl(baseUrl, basePath, post.slug);
 
   // Generate schema
   const blogSchema = generateBlogPostSchema({
@@ -189,7 +194,7 @@ export default async function BlogPostPage({ params }: PageProps) {
     },
     {
       name: 'Blog',
-      url: buildBlogUrl(baseUrl, basePath),
+      url: blogIndexUrl,
     },
     {
       name: post.title,
@@ -282,6 +287,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                 baseUrl={baseUrl}
                 content={content}
                 locale={locale}
+                postUrl={postUrl}
                 post={{
                   author_bio: post.author_bio,
                   id: post.id,
@@ -308,5 +314,14 @@ export default async function BlogPostPage({ params }: PageProps) {
         </footer>
       </div>
     </>
+  );
+}
+
+export default async function BlogPostPage({ params }: PageProps) {
+  const { slug, postSlug } = await params;
+  return (
+    <Suspense fallback={<BlogPostPageFallback />}>
+      <BlogPostContent slug={slug} postSlug={postSlug} />
+    </Suspense>
   );
 }

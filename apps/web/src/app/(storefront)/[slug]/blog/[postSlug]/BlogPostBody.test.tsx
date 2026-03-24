@@ -111,6 +111,7 @@ describe('BlogPostBody', () => {
         basePath: '/ogabassey',
         baseUrl: 'https://usebaci.com',
         content: '<p>Legacy HTML body</p>',
+        postUrl: 'https://usebaci.com/ogabassey/blog/pixel-9-review',
         post: {
           id: 'post-1',
           slug: 'pixel-9-review',
@@ -148,6 +149,41 @@ describe('BlogPostBody', () => {
     );
     expect(mockResolveBlogPostContent).toHaveBeenCalledWith(
       '<p>Legacy HTML body</p>'
+    );
+  });
+
+  it('uses canonical postUrl for subdomain share links without doubled slug', async () => {
+    mockResolveBlogPostContent.mockResolvedValue({
+      isJson: false,
+      legacyHtml: '<p>Content</p>',
+      renderedContent: null,
+    });
+
+    render(
+      await BlogPostBody({
+        basePath: '/ogabassey',
+        baseUrl: 'https://ogabassey.usebaci.com',
+        content: '<p>Content</p>',
+        postUrl: 'https://ogabassey.usebaci.com/blog/my-post',
+        post: {
+          id: 'post-1',
+          slug: 'my-post',
+          tags: null,
+          title: 'My Post',
+        },
+        relatedPosts: [],
+      })
+    );
+
+    // Share URL should be the canonical subdomain URL, NOT doubled like
+    // https://ogabassey.usebaci.com/ogabassey/blog/my-post
+    const expectedShareUrl = encodeURIComponent(
+      'https://ogabassey.usebaci.com/blog/my-post'
+    );
+
+    expect(screen.getByRole('link', { name: 'Twitter' })).toHaveAttribute(
+      'href',
+      expect.stringContaining(expectedShareUrl)
     );
   });
 });
