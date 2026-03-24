@@ -29,8 +29,7 @@ import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
 
 // This route mostly returns 308 redirects (categorized products) — PPR offers near-zero benefit.
-// Explicitly dynamic so we can use headers() for correct routing-mode detection.
-export const dynamic = 'force-dynamic';
+// headers() below automatically opts this route into dynamic rendering under cacheComponents.
 
 interface PageProps {
   params: Promise<{
