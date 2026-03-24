@@ -65,6 +65,17 @@ function writeWrappedTextLines(input: {
   return currentY;
 }
 
+function getReceiptItemVariantName(item: ReceiptOrder['items'][number]) {
+  const candidate = item as ReceiptOrder['items'][number] & {
+    variant_name?: unknown;
+  };
+
+  return typeof candidate.variant_name === 'string' &&
+    candidate.variant_name.length > 0
+    ? candidate.variant_name
+    : null;
+}
+
 export function generateReceiptPDF(
   order: ReceiptOrder,
   merchant: ReceiptMerchant
@@ -152,14 +163,18 @@ export function generateReceiptPDF(
   autoTable(doc, {
     startY: y,
     head: [['Item', 'Qty', 'Unit Price', 'Line Total']],
-    body: (order.items || []).map((item) => [
-      item.variant_name
-        ? `${item.product_name || item.name || 'Item'} (${item.variant_name})`
-        : item.product_name || item.name || 'Item',
-      String(item.quantity),
-      formatReceiptCurrency(item.price, currency),
-      formatReceiptCurrency(item.quantity * item.price, currency),
-    ]),
+    body: (order.items || []).map((item) => {
+      const variantName = getReceiptItemVariantName(item);
+
+      return [
+        variantName
+          ? `${item.product_name || item.name || 'Item'} (${variantName})`
+          : item.product_name || item.name || 'Item',
+        String(item.quantity),
+        formatReceiptCurrency(item.price, currency),
+        formatReceiptCurrency(item.quantity * item.price, currency),
+      ];
+    }),
     styles: {
       fontSize: 10,
       cellPadding: 4,

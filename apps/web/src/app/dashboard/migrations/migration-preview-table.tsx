@@ -15,25 +15,20 @@ import type {
   NormalizedImportedProduct,
 } from '@/lib/imports/bumpa/bumpa-types';
 import { cn } from '@/lib/utils';
+import type {
+  ImportJobRowStatus,
+  ImportJobRowsResponse,
+  MigrationPreviewFilter,
+} from './migration-types';
 
 interface MigrationPreviewTableProps {
   entityType: 'orders' | 'products';
+  filter: MigrationPreviewFilter;
   loading: boolean;
   onPageChange: (page: number) => void;
   page: number;
   pageSize: number;
-  rows: Array<{
-    id: string;
-    meta: Record<string, unknown>;
-    normalized_payload:
-      | NormalizedImportedOrder
-      | NormalizedImportedProduct
-      | null;
-    row_number: number;
-    row_status: 'create' | 'update' | 'duplicate' | 'invalid';
-    source_external_id: string | null;
-    validation_errors: string[];
-  }>;
+  rows: ImportJobRowsResponse['rows'];
   total: number;
 }
 
@@ -43,11 +38,48 @@ function isNormalizedImportedOrder(
   return Boolean(payload && 'orderNumber' in payload && 'customer' in payload);
 }
 
-function statusClassName(status: string) {
+function statusClassName(status: ImportJobRowStatus) {
   if (status === 'create') return 'bg-emerald-500/10 text-emerald-700';
   if (status === 'update') return 'bg-blue-500/10 text-blue-700';
   if (status === 'duplicate') return 'bg-amber-500/10 text-amber-700';
   return 'bg-rose-500/10 text-rose-700';
+}
+
+function getActionLabel(status: ImportJobRowStatus) {
+  if (status === 'create') return 'Create new';
+  if (status === 'update') return 'Update existing';
+  if (status === 'duplicate') return 'Duplicate / skipped';
+  return 'Needs fix';
+}
+
+function getEmptyStateCopy(filter: MigrationPreviewFilter) {
+  if (filter === 'importable') {
+    return 'No rows are currently ready to import.';
+  }
+
+  if (filter === 'needs_fix') {
+    return 'No rows currently need fixes.';
+  }
+
+  return 'No preview rows available yet.';
+}
+
+function getFilterHeading(filter: MigrationPreviewFilter) {
+  if (filter === 'importable') return 'Showing rows ready to import';
+  if (filter === 'needs_fix') return 'Showing rows that need fixes';
+  return null;
+}
+
+function getFilterDescription(filter: MigrationPreviewFilter) {
+  if (filter === 'importable') {
+    return 'These rows will be created or updated when you import this job.';
+  }
+
+  if (filter === 'needs_fix') {
+    return 'These rows will be skipped until you correct the CSV and create a fresh preview.';
+  }
+
+  return null;
 }
 
 function formatPrimaryText(
@@ -128,6 +160,7 @@ function formatSecondaryText(
 
 export default function MigrationPreviewTable({
   entityType,
+  filter,
   loading,
   onPageChange,
   page,
@@ -139,6 +172,15 @@ export default function MigrationPreviewTable({
 
   return (
     <div className="space-y-4">
+      {getFilterHeading(filter) ? (
+        <div className="rounded-xl border bg-muted/20 px-4 py-3">
+          <p className="text-sm font-medium">{getFilterHeading(filter)}</p>
+          <p className="text-sm text-muted-foreground">
+            {getFilterDescription(filter)}
+          </p>
+        </div>
+      ) : null}
+
       <div className="overflow-hidden rounded-xl border">
         <Table>
           <TableHeader>
@@ -146,7 +188,7 @@ export default function MigrationPreviewTable({
               <TableHead>
                 {entityType === 'orders' ? 'Order' : 'Product'}
               </TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Action</TableHead>
               <TableHead>Source</TableHead>
               <TableHead>Preview</TableHead>
               <TableHead>Errors</TableHead>
@@ -168,7 +210,7 @@ export default function MigrationPreviewTable({
                   colSpan={5}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  No preview rows available yet.
+                  {getEmptyStateCopy(filter)}
                 </TableCell>
               </TableRow>
             ) : (
@@ -195,7 +237,7 @@ export default function MigrationPreviewTable({
                         statusClassName(row.row_status)
                       )}
                     >
-                      {row.row_status}
+                      {getActionLabel(row.row_status)}
                     </Badge>
                   </TableCell>
                   <TableCell className="min-w-[170px]">

@@ -2,6 +2,7 @@
 
 import { Loader2, Mail, RefreshCw } from 'lucide-react';
 import {
+  decorateImportJob,
   getMigrationProgressLabel,
   getMigrationProgressValue,
   isMigrationStatusActive,
@@ -12,12 +13,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import type { ImportJobDetail } from './migration-types';
+import type {
+  ImportJobDetail,
+  MigrationPreviewFilter,
+} from './migration-types';
 
 interface MigrationJobSummaryProps {
+  activeFilter: MigrationPreviewFilter;
   acting: boolean;
   error: string | null;
   loading: boolean;
+  onFilterChange: (filter: MigrationPreviewFilter) => void;
   onCommit: () => Promise<void>;
   onNotify: () => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -25,20 +31,51 @@ interface MigrationJobSummaryProps {
 }
 
 export default function MigrationJobSummary({
+  activeFilter,
   acting,
   error,
   loading,
+  onFilterChange,
   onCommit,
   onNotify,
   onRefresh,
   selectedJob,
 }: MigrationJobSummaryProps) {
+  const decoratedJob = selectedJob ? decorateImportJob(selectedJob) : null;
+  const summary = (decoratedJob?.summary || {}) as Record<string, unknown>;
+  const validRows = Number(summary.validRows || 0);
+  const invalidRows = Number(summary.invalidRows || 0);
+  const receiptReadyOrders = Number(summary.receiptReadyOrders || 0);
   const progressLabel = selectedJob
     ? getMigrationProgressLabel(selectedJob.status)
     : null;
   const progressValue = selectedJob
     ? getMigrationProgressValue(selectedJob.status)
     : 0;
+  const suggestedAction =
+    activeFilter === 'importable'
+      ? {
+          description:
+            'These rows are ready to import now. Duplicates and invalid rows will stay out of this import.',
+          title: 'Ready to import',
+        }
+      : activeFilter === 'needs_fix'
+        ? {
+            description:
+              'These rows will be skipped. Review the Errors column, fix the CSV, then create a fresh preview.',
+            title: 'Needs attention',
+          }
+        : invalidRows > 0
+          ? {
+              description:
+                'Use the summary cards to focus on rows that are ready to import or rows that need fixing.',
+              title: 'Review before importing',
+            }
+          : {
+              description:
+                'Review the preview table, then import the rows that are ready.',
+              title: 'Import workflow',
+            };
 
   return (
     <Card>
@@ -87,35 +124,69 @@ export default function MigrationJobSummary({
             </div>
 
             <div className="grid gap-3 md:grid-cols-4">
-              <div className="rounded-xl border p-4">
-                <p className="text-xs uppercase text-muted-foreground">Rows</p>
+              <button
+                aria-pressed={activeFilter === 'all'}
+                className={cn(
+                  'rounded-xl border p-4 text-left transition-colors',
+                  activeFilter === 'all'
+                    ? 'border-primary bg-primary/5'
+                    : 'hover:border-primary/40'
+                )}
+                onClick={() => onFilterChange('all')}
+                type="button"
+              >
+                <p className="text-xs uppercase text-muted-foreground">
+                  All Rows
+                </p>
                 <output
-                  aria-label="Rows"
+                  aria-label="All rows"
                   className="mt-2 block text-2xl font-semibold"
                 >
                   {selectedJob.total_rows || 0}
                 </output>
-              </div>
-              <div className="rounded-xl border p-4">
-                <p className="text-xs uppercase text-muted-foreground">Valid</p>
+              </button>
+              <button
+                aria-pressed={activeFilter === 'importable'}
+                className={cn(
+                  'rounded-xl border p-4 text-left transition-colors',
+                  activeFilter === 'importable'
+                    ? 'border-emerald-500 bg-emerald-500/5'
+                    : 'hover:border-emerald-500/40'
+                )}
+                onClick={() => onFilterChange('importable')}
+                type="button"
+              >
+                <p className="text-xs uppercase text-muted-foreground">
+                  Ready To Import
+                </p>
                 <output
                   aria-label="Valid rows"
                   className="mt-2 block text-2xl font-semibold"
                 >
-                  {Number(selectedJob.summary?.validRows || 0)}
+                  {validRows}
                 </output>
-              </div>
-              <div className="rounded-xl border p-4">
+              </button>
+              <button
+                aria-pressed={activeFilter === 'needs_fix'}
+                className={cn(
+                  'rounded-xl border p-4 text-left transition-colors',
+                  activeFilter === 'needs_fix'
+                    ? 'border-amber-500 bg-amber-500/5'
+                    : 'hover:border-amber-500/40'
+                )}
+                onClick={() => onFilterChange('needs_fix')}
+                type="button"
+              >
                 <p className="text-xs uppercase text-muted-foreground">
-                  Invalid
+                  Needs Fix
                 </p>
                 <output
                   aria-label="Invalid rows"
                   className="mt-2 block text-2xl font-semibold"
                 >
-                  {Number(selectedJob.summary?.invalidRows || 0)}
+                  {invalidRows}
                 </output>
-              </div>
+              </button>
               <div className="rounded-xl border p-4">
                 <p className="text-xs uppercase text-muted-foreground">
                   Receipt Ready
@@ -124,8 +195,41 @@ export default function MigrationJobSummary({
                   aria-label="Receipt ready orders"
                   className="mt-2 block text-2xl font-semibold"
                 >
-                  {Number(selectedJob.summary?.receiptReadyOrders || 0)}
+                  {receiptReadyOrders}
                 </output>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{suggestedAction.title}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {suggestedAction.description}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {activeFilter !== 'all' ? (
+                    <Button
+                      onClick={() => onFilterChange('all')}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      Show all rows
+                    </Button>
+                  ) : null}
+                  {activeFilter === 'needs_fix' && validRows > 0 ? (
+                    <Button
+                      onClick={() => onFilterChange('importable')}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      Show ready rows
+                    </Button>
+                  ) : null}
+                </div>
               </div>
             </div>
 

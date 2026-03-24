@@ -32,6 +32,7 @@ export async function GET(
     }
 
     const parsedQuery = importJobRowsQuerySchema.safeParse({
+      filter: request.nextUrl.searchParams.get('filter') || undefined,
       page: request.nextUrl.searchParams.get('page') || undefined,
       pageSize: request.nextUrl.searchParams.get('pageSize') || undefined,
     });
@@ -67,20 +68,26 @@ export async function GET(
 
     const from = (parsedQuery.data.page - 1) * parsedQuery.data.pageSize;
     const to = from + parsedQuery.data.pageSize - 1;
-    const {
-      data: rows,
-      count,
-      error,
-    } = await authResult.context.supabase
+    let query = authResult.context.supabase
       .from('import_job_rows')
       .select(
         'id, row_number, source_external_id, row_status, source_payload, normalized_payload, validation_errors, meta',
         { count: 'exact' }
       )
       .eq('merchant_id', authResult.context.merchantContext.merchantId)
-      .eq('import_job_id', job.id)
-      .order('row_number', { ascending: true })
-      .range(from, to);
+      .eq('import_job_id', job.id);
+
+    if (parsedQuery.data.filter === 'importable') {
+      query = query.in('row_status', ['create', 'update']);
+    } else if (parsedQuery.data.filter === 'needs_fix') {
+      query = query.eq('row_status', 'invalid');
+    }
+
+    const {
+      data: rows,
+      count,
+      error,
+    } = await query.order('row_number', { ascending: true }).range(from, to);
 
     if (error) {
       throw new Error(error.message);

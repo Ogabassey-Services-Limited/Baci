@@ -10,9 +10,11 @@ describe('MigrationJobSummary', () => {
 
     render(
       <MigrationJobSummary
+        activeFilter="all"
         acting={false}
         error={null}
         loading={false}
+        onFilterChange={vi.fn()}
         onCommit={onCommit}
         onNotify={onNotify}
         onRefresh={onRefresh}
@@ -55,9 +57,11 @@ describe('MigrationJobSummary', () => {
   it('shows placeholder copy when no job is selected', () => {
     render(
       <MigrationJobSummary
+        activeFilter="all"
         acting={false}
         error="Something failed"
         loading={false}
+        onFilterChange={vi.fn()}
         onCommit={vi.fn().mockResolvedValue(undefined)}
         onNotify={vi.fn().mockResolvedValue(undefined)}
         onRefresh={vi.fn().mockResolvedValue(undefined)}
@@ -74,9 +78,11 @@ describe('MigrationJobSummary', () => {
   it('shows a progress bar when the selected job is still running', () => {
     render(
       <MigrationJobSummary
+        activeFilter="all"
         acting={false}
         error={null}
         loading={false}
+        onFilterChange={vi.fn()}
         onCommit={vi.fn().mockResolvedValue(undefined)}
         onNotify={vi.fn().mockResolvedValue(undefined)}
         onRefresh={vi.fn().mockResolvedValue(undefined)}
@@ -107,5 +113,48 @@ describe('MigrationJobSummary', () => {
     expect(
       screen.getByRole('progressbar', { name: /migration progress/i })
     ).toBeInTheDocument();
+  });
+
+  it('lets merchants focus the summary on rows that need fixes', () => {
+    const onFilterChange = vi.fn();
+
+    render(
+      <MigrationJobSummary
+        activeFilter="needs_fix"
+        acting={false}
+        error={null}
+        loading={false}
+        onFilterChange={onFilterChange}
+        onCommit={vi.fn().mockResolvedValue(undefined)}
+        onNotify={vi.fn().mockResolvedValue(undefined)}
+        onRefresh={vi.fn().mockResolvedValue(undefined)}
+        selectedJob={{
+          id: 'job-3',
+          entity_type: 'orders',
+          source_platform: 'bumpa',
+          status: 'preview_ready',
+          original_filename: 'orders.csv',
+          processed_rows: 25,
+          total_rows: 25,
+          summary: {
+            validRows: 20,
+            invalidRows: 5,
+            receiptReadyOrders: 12,
+          },
+          error: null,
+          created_at: '2026-03-22T10:00:00.000Z',
+          committed_at: null,
+          notified_at: null,
+          canCommit: true,
+          canNotify: false,
+        }}
+      />
+    );
+
+    expect(screen.getByText(/these rows will be skipped/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /show ready rows/i }));
+
+    expect(onFilterChange).toHaveBeenCalledWith('importable');
   });
 });
