@@ -13,6 +13,7 @@ import {
   type ShippingStatus,
 } from '@baci/shared';
 import { Ionicons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -48,6 +49,7 @@ import {
   type OrderSection,
 } from '@/utils/date-utils';
 import { exportOrdersRPC } from '@/utils/export-orders';
+import { getOrdersViewState } from './orders-view-state';
 
 // Item height for getItemLayout optimization
 const _ORDER_ITEM_HEIGHT = 120;
@@ -228,7 +230,13 @@ function OrderItem({
 
 export default function OrdersScreen() {
   const { colors, shadows, isDark } = useTheme();
-  const { storeUrl, merchant } = useMerchant();
+  const queryClient = useQueryClient();
+  const {
+    storeUrl,
+    merchant,
+    isLoading: isMerchantLoading,
+    error: merchantError,
+  } = useMerchant();
   const [statusFilter, setStatusFilter] = useState<ShippingStatus | undefined>(
     undefined
   );
@@ -284,7 +292,7 @@ export default function OrdersScreen() {
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-    refetch,
+    error: ordersError,
   } = useOrders(statusFilter || 'all', debouncedSearch, dateRange);
 
   // Flatten pages into single array, deduplicating by ID
@@ -295,6 +303,16 @@ export default function OrdersScreen() {
     seenIds.add(o.id);
     return true;
   });
+  const hasMerchant = Boolean(merchant?.id);
+  const listViewState = getOrdersViewState({
+    hasMerchant,
+    isMerchantLoading,
+    merchantError,
+    isOrdersLoading: isLoading,
+    ordersError: ordersError instanceof Error ? ordersError : null,
+    ordersLength: allOrders.length,
+  });
+  const isRefreshing = listViewState.status === 'loading';
 
   // Fetch order counts
   const { data: counts } = useOrderCounts();
@@ -313,6 +331,12 @@ export default function OrdersScreen() {
     }
     return 'All Time';
   })();
+  const dateChipLabel =
+    typeof dateRange === 'string'
+      ? dateRange
+      : dateRange
+        ? `${format(dateRange.start, 'MMM d')} - ${format(dateRange.end, 'MMM d')}`
+        : null;
 
   const handleExport = async () => {
     if (allOrders.length === 0) return;
@@ -604,6 +628,35 @@ export default function OrdersScreen() {
     }
   };
 
+  const handleRetry = () => {
+    void queryClient.invalidateQueries({ queryKey: ['merchant'] });
+
+    if (!merchant?.id) {
+      return;
+    }
+
+    void queryClient.invalidateQueries({ queryKey: ['orders', merchant.id] });
+    void queryClient.invalidateQueries({
+      queryKey: ['order-counts', merchant.id],
+    });
+  };
+
+  const handleDateFilterSelect = (
+    filter: string | { start: Date | null; end: Date | null } | null
+  ) => {
+    if (filter === null || typeof filter === 'string') {
+      setDateRange(filter);
+      return;
+    }
+
+    if (filter.start && filter.end) {
+      setDateRange({ start: filter.start, end: filter.end });
+      return;
+    }
+
+    setDateRange(null);
+  };
+
   // Navigation callback for orders
   const handleOrderPress = (id: string) => {
     router.push(`/order/${id}`);
@@ -794,9 +847,7 @@ export default function OrdersScreen() {
           >
             <Ionicons name="calendar" size={14} color={colors.gold} />
             <Text style={[styles.dateChipText, { color: colors.gold }]}>
-              {typeof dateRange === 'string'
-                ? dateRange
-                : `${format(dateRange.start!, 'MMM d')} - ${format(dateRange.end!, 'MMM d')}`}
+              {dateChipLabel}
             </Text>
             <Pressable
               onPress={clearDateRange}
@@ -921,8 +972,8 @@ export default function OrdersScreen() {
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
-            refreshing={isLoading}
-            onRefresh={refetch}
+            refreshing={isRefreshing}
+            onRefresh={handleRetry}
             tintColor={colors.gold}
             colors={[colors.gold]}
           />
@@ -937,7 +988,40 @@ export default function OrdersScreen() {
           ) : null
         }
         ListEmptyComponent={
-          !isLoading ? (
+          listViewState.status === 'error' ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={56}
+                color={colors.error}
+              />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                {listViewState.title}
+              </Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                {listViewState.message}
+              </Text>
+              <Pressable
+                style={[
+                  styles.emptyAction,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleRetry}
+                accessibilityLabel="Retry loading orders"
+                accessibilityRole="button"
+                accessibilityHint="Retries the merchant and orders queries"
+              >
+                <Text
+                  style={[
+                    styles.emptyActionText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Try Again
+                </Text>
+              </Pressable>
+            </View>
+          ) : listViewState.status === 'empty' ? (
             <View style={styles.emptyContainer}>
               <Ionicons
                 name="receipt-outline"
@@ -975,10 +1059,7 @@ export default function OrdersScreen() {
       <DateRangePicker
         visible={showDatePicker}
         onClose={() => setShowDatePicker(false)}
-        onSelect={(filter) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setDateRange(filter as any);
-        }}
+        onSelect={handleDateFilterSelect}
         currentFilter={dateRange}
       />
 
@@ -1415,6 +1496,19 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     textAlign: 'center',
+  },
+  emptyAction: {
+    marginTop: SPACING.md,
+    minWidth: 140,
+    minHeight: 44,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.lg,
+  },
+  emptyActionText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   footerLoader: {
     paddingVertical: SPACING.lg,
