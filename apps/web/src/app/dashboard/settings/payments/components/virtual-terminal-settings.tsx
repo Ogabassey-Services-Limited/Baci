@@ -475,7 +475,7 @@ export function VirtualTerminalSettings({
                             <a
                               href={account.payment_link}
                               target="_blank"
-                              rel="noreferrer"
+                              rel="noopener noreferrer"
                               className="text-primary hover:underline flex items-center gap-1 text-xs"
                             >
                               Open <ExternalLink className="h-3 w-3" />
