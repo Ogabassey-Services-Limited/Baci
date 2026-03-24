@@ -5,9 +5,25 @@ describe('getOrderItems', () => {
   it('returns parsed typed items from the items field', () => {
     expect(
       getOrderItems({
-        items: [{ id: 'item-1', name: 'Widget', quantity: 1, price: 1000 }],
+        items: [
+          {
+            id: 'item-1',
+            name: 'Widget',
+            variant: 'Blue / 128GB',
+            quantity: 1,
+            price: 1000,
+          },
+        ],
       })
-    ).toEqual([{ id: 'item-1', name: 'Widget', quantity: 1, price: 1000 }]);
+    ).toEqual([
+      {
+        id: 'item-1',
+        name: 'Widget',
+        variant: 'Blue / 128GB',
+        quantity: 1,
+        price: 1000,
+      },
+    ]);
   });
 
   it('falls back to the order_items field when items is not usable', () => {

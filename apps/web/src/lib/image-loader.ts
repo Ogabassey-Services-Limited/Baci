@@ -27,7 +27,16 @@ export default function imageLoader({
     return src;
   }
 
-  // Relative/local paths — use Next.js built-in optimization
+  // Local public assets bypass the optimizer in development so local previews
+  // do not depend on the dev image proxy.
+  if (
+    process.env.NODE_ENV === 'development' &&
+    src.startsWith('/') &&
+    !src.startsWith('//')
+  ) {
+    return src;
+  }
+
   const q = quality || 75;
   return `/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=${q}`;
 }

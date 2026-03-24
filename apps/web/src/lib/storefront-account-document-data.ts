@@ -116,7 +116,9 @@ export async function getStorefrontAccountDocumentData({
     await Promise.all([
       supabase
         .from('order_items')
-        .select('id, product_id, name, quantity, price')
+        .select(
+          'id, product_id, variant_id, variant_name, name, quantity, price'
+        )
         .eq('order_id', orderId),
       supabase
         .from('transactions')

@@ -95,6 +95,11 @@ export function CustomerOrderDetailsContent({
                       <p className="text-sm text-muted-foreground">
                         Qty: {item.quantity}
                       </p>
+                      {item.variant_name && (
+                        <p className="text-sm text-muted-foreground">
+                          {item.variant_name}
+                        </p>
+                      )}
                     </div>
                     <p className="text-sm font-medium">
                       {formatDisplayCurrency(item.price, currency)}

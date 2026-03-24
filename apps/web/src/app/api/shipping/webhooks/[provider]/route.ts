@@ -299,8 +299,8 @@ export async function POST(
     // Update order status
     const orderStatusMap: Record<NormalizedShipmentStatus, string> = {
       pending: 'pending',
-      booked: 'processing',
-      pickup_scheduled: 'processing',
+      booked: 'shipped',
+      pickup_scheduled: 'shipped',
       picked_up: 'shipped',
       in_transit: 'shipped',
       out_for_delivery: 'shipped',

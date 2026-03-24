@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
+import { getOrderNumberLookupCandidates } from '@/lib/order-number-lookup';
 import { createAnonClient } from '@/lib/supabase/anon';
 import {
   trackOrderEmailSchema,
@@ -37,9 +38,41 @@ interface OrderItemRow {
   id: string;
   product_id: string;
   name: string;
+  variant_name?: string;
   quantity: number;
   price: number;
   product_images?: unknown;
+}
+
+interface TrackedOrder {
+  id: string;
+  order_number: string;
+  shipping_status: string;
+  payment_status: string;
+  subtotal: number;
+  shipping_cost: number;
+  discount_amount: number | null;
+  total: number;
+  currency?: string | null;
+  created_at: string;
+  updated_at: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone?: string;
+  shipping_address: ShippingAddress | string | null;
+  tracking_number?: string | null;
+  shipping_provider?: string | null;
+  paid_at?: string;
+  shipped_at?: string;
+  delivered_at?: string;
+  cancelled_at?: string;
+  merchant_business_name?: string | null;
+  merchant_logo_url?: string | null;
+  merchant_support_email?: string | null;
+  merchant_support_phone?: string | null;
+  merchant_phone?: string | null;
+  items?: OrderItemRow[] | null;
+  shipping_state?: string;
 }
 
 // Type-guard helper to safely extract first image URL from unknown product_images
@@ -88,8 +121,8 @@ export async function GET(request: NextRequest) {
 
     if (trackingToken) {
       const parsed = trackOrderTokenSchema.safeParse({
-        token: trackingToken,
-        merchant_slug: merchantSlug,
+        token: trackingToken ?? undefined,
+        merchant_slug: merchantSlug ?? undefined,
       });
       if (!parsed.success) {
         return NextResponse.json(
@@ -104,10 +137,10 @@ export async function GET(request: NextRequest) {
       validatedToken = parsed.data.token;
     } else {
       const parsed = trackOrderEmailSchema.safeParse({
-        order_number: orderNumber,
-        order_id: orderId,
-        email,
-        merchant_slug: merchantSlug,
+        order_number: orderNumber ?? undefined,
+        order_id: orderId ?? undefined,
+        email: email ?? undefined,
+        merchant_slug: merchantSlug ?? undefined,
       });
       if (!parsed.success) {
         return NextResponse.json(
@@ -126,15 +159,37 @@ export async function GET(request: NextRequest) {
 
     const supabase = createAnonClient();
 
-    const { data: orders, error } = await supabase.rpc('get_order_tracking', {
-      p_merchant_slug: validatedMerchantSlug,
-      p_order_id: validatedOrderId,
-      p_order_number: validatedOrderNumber,
-      p_email: validatedEmail,
-      p_tracking_token: validatedToken,
-    });
+    const orderNumberCandidates =
+      validatedToken || validatedOrderId || !validatedOrderNumber
+        ? [validatedOrderNumber]
+        : getOrderNumberLookupCandidates(validatedOrderNumber);
 
-    const order = Array.isArray(orders) ? orders[0] : null;
+    let error: { code?: string } | null = null;
+    let order: TrackedOrder | null = null;
+
+    for (const candidateOrderNumber of orderNumberCandidates) {
+      const result = await supabase.rpc('get_order_tracking', {
+        p_merchant_slug: validatedMerchantSlug,
+        p_order_id: validatedOrderId,
+        p_order_number: candidateOrderNumber || null,
+        p_email: validatedEmail,
+        p_tracking_token: validatedToken,
+      });
+
+      if (result.error) {
+        error = result.error;
+        break;
+      }
+
+      const matchedOrder = Array.isArray(result.data)
+        ? (result.data[0] as TrackedOrder | undefined)
+        : null;
+
+      if (matchedOrder) {
+        order = matchedOrder;
+        break;
+      }
+    }
 
     if (error || !order) {
       logger.error({
@@ -211,6 +266,7 @@ export async function GET(request: NextRequest) {
           id: item.id,
           product_id: item.product_id,
           product_name: item.name,
+          variant_name: item.variant_name,
           quantity: item.quantity,
           unit_price: item.price,
           total_price: item.price * item.quantity,

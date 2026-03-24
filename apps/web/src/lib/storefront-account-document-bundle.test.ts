@@ -85,6 +85,8 @@ describe('buildStorefrontAccountDocumentBundle', () => {
         {
           id: 'item-1',
           product_id: 'prod-1',
+          variant_id: null,
+          variant_name: 'Blue / 128GB',
           name: 'iPhone 16',
           quantity: 1,
           price: 100000,
@@ -113,6 +115,7 @@ describe('buildStorefrontAccountDocumentBundle', () => {
     expect(result.order.current_document_kind).toBe('receipt');
     expect(result.order.receipt_eligible).toBe(true);
     expect(result.order.customer_name).toBe('Oga Bassey');
+    expect(result.invoiceData.items[0]?.name).toBe('iPhone 16 (Blue / 128GB)');
     expect(result.invoiceData.items[0]?.vat_amount).toBe(5000);
     expect(result.invoiceData.items[0]?.vat_category_code).toBe('S');
     expect(result.order.transactions?.[0]?.id).toBe('tx-1');
@@ -288,6 +291,8 @@ describe('buildStorefrontAccountDocumentBundle', () => {
         {
           id: 'item-1',
           product_id: 'prod-1',
+          variant_id: null,
+          variant_name: null,
           name: 'Mixed Tax Item',
           quantity: 1,
           price: 100000,

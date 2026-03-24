@@ -6,6 +6,7 @@ import {
   getSupabaseServiceRoleKey,
   getSupabaseUrl,
 } from '@/env';
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 
 /**
  * Create a Supabase client for cached queries.
@@ -1043,7 +1044,7 @@ export async function getCachedCategoryPageData(
     let query = supabase
       .from('products')
       .select(
-        'id, name, slug, description, price, compare_at_price, cost_price, status, stock, stock_quantity, manage_stock, min_order_quantity, low_stock_threshold, is_active, condition, brand, category, color, images, image_small, image_large, image_hint, gtin, mpn, created_at, updated_at'
+        'id, name, slug, description, price, compare_at_price, cost_price, status, stock, stock_quantity, manage_stock, low_stock_threshold, is_active, condition, brand, category, color, images, image_small, image_large, image_hint, gtin, mpn, created_at, updated_at'
       )
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
@@ -1514,7 +1515,7 @@ export async function getCachedBlogListing(
     `blog-list-${identifier}-${category || 'all'}-${page}`
   );
 
-  const limit = 12;
+  const limit = BLOG_LISTING_PAGE_SIZE;
   const offset = (page - 1) * limit;
   const lookupKey = identifier.toLowerCase();
   const merchant =

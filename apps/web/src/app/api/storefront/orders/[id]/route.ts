@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/server';
 interface OrderItem {
   id: string;
   product_id: string;
+  variant_name?: string;
   name: string;
   quantity: number;
   price: number;
@@ -108,7 +109,9 @@ export async function GET(
         );
         const { data: items, error: itemsError } = await supabase
           .from('order_items')
-          .select('id, product_id, product_name:name, quantity, price')
+          .select(
+            'id, product_id, variant_name, product_name:name, quantity, price'
+          )
           .eq('order_id', order.id);
 
         if (itemsError) {
@@ -173,7 +176,9 @@ export async function GET(
           );
           const { data: items } = await admin
             .from('order_items')
-            .select('id, product_id, product_name:name, quantity, price')
+            .select(
+              'id, product_id, variant_name, product_name:name, quantity, price'
+            )
             .eq('order_id', order.id);
 
           return NextResponse.json({
@@ -242,7 +247,9 @@ export async function GET(
           );
           const { data: items } = await admin
             .from('order_items')
-            .select('id, product_id, product_name:name, quantity, price')
+            .select(
+              'id, product_id, variant_name, product_name:name, quantity, price'
+            )
             .eq('order_id', order.id);
 
           return NextResponse.json({

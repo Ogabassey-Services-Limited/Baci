@@ -1,5 +1,4 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
@@ -8,6 +7,7 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
+import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-label';
 import { registerDomain } from '@/lib/go54';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
@@ -15,6 +15,7 @@ import {
   calculatePlatformFee,
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
+import { isValidUuid } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
@@ -375,6 +376,40 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        const claimTimestamp = new Date().toISOString();
+        const { data: claimedChatOrder, error: claimError } = await supabase
+          .from('chat_orders')
+          .update({
+            status: 'processing',
+            updated_at: claimTimestamp,
+          })
+          .eq('id', chatOrder.id)
+          .eq('status', 'pending_payment')
+          .select('id')
+          .maybeSingle();
+
+        if (claimError) {
+          logger.error({
+            message: 'Failed to claim chat order for conversion',
+            reference,
+            chatOrderId: chatOrder.id,
+            error: claimError,
+          });
+          return NextResponse.json(
+            { error: 'Failed to claim chat order' },
+            { status: 500 }
+          );
+        }
+
+        if (!claimedChatOrder) {
+          logger.info({
+            message: 'Chat order already claimed or processed',
+            reference,
+            chatOrderId: chatOrder.id,
+          });
+          return NextResponse.json({ message: 'Already processed' });
+        }
+
         // Parse items from JSONB
         const chatItems = (chatOrder.items || []) as Array<{
           product_id: string;
@@ -385,10 +420,45 @@ export async function POST(request: NextRequest) {
           image_url?: string;
         }>;
 
-        // Generate order number and tracking token
-        const orderNumber = `ORD-${nanoid(12).toUpperCase()}`;
+        const variantIds = [
+          ...new Set(
+            chatItems
+              .map((item) => item.variant_id)
+              .filter(
+                (variantId): variantId is string =>
+                  !!variantId && isValidUuid(variantId)
+              )
+          ),
+        ];
+        const variantNameMap = new Map<string, string>();
 
-        // Create standard order from chat order
+        if (variantIds.length > 0) {
+          const { data: variants, error: variantsError } = await supabase
+            .from('product_variants')
+            .select('id, attributes')
+            .in('id', variantIds);
+
+          if (variantsError) {
+            logger.error({
+              message: 'Failed to load variant labels for chat order items',
+              reference,
+              error: variantsError,
+            });
+          } else {
+            for (const variant of variants || []) {
+              const variantLabel = formatVariantAttributesLabel(
+                variant.attributes
+              );
+
+              if (variantLabel) {
+                variantNameMap.set(variant.id, variantLabel);
+              }
+            }
+          }
+        }
+
+        // Create standard order from chat order.
+        // Let the database generate the canonical order number and tracking token.
         const { data: newOrder, error: orderCreateError } = await supabase
           .from('orders')
           .insert({
@@ -398,8 +468,6 @@ export async function POST(request: NextRequest) {
             customer_email: chatOrder.customer_email,
             customer_phone: chatOrder.customer_phone,
             shipping_address: chatOrder.shipping_address,
-            order_number: orderNumber,
-            tracking_token: nanoid(32),
             subtotal: chatOrder.subtotal,
             shipping_fee: chatOrder.shipping_fee || 0,
             total: (
@@ -412,7 +480,7 @@ export async function POST(request: NextRequest) {
             notes: `Converted from chat order. Session: ${chatOrder.session_id}`,
             source: 'chat',
           })
-          .select('id')
+          .select('id, order_number')
           .single();
 
         if (orderCreateError || !newOrder) {
@@ -428,16 +496,34 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        const orderNumber = newOrder.order_number;
+
+        if (!orderNumber) {
+          logger.error({
+            message: 'Canonical order number missing for chat order conversion',
+            reference,
+            chatOrderId: chatOrder.id,
+            orderId: newOrder.id,
+          });
+          return NextResponse.json(
+            { error: 'Failed to create canonical order number' },
+            { status: 500 }
+          );
+        }
+
         // Create order items
         const orderItems = chatItems.map((item) => ({
           order_id: newOrder.id,
           product_id: item.product_id,
           variant_id: item.variant_id || null,
+          variant_name: item.variant_id
+            ? (variantNameMap.get(item.variant_id) ?? null)
+            : null,
           name: item.name,
           quantity: item.quantity,
           price: item.price,
-          subtotal: item.quantity * item.price,
-          image_url: item.image_url || null,
+          line_extension_amount: item.quantity * item.price,
+          item_description: item.name,
         }));
 
         if (orderItems.length > 0) {
@@ -506,7 +592,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Update chat order with order link and status
-        await supabase
+        const { error: chatOrderUpdateError } = await supabase
           .from('chat_orders')
           .update({
             status: 'paid',
@@ -514,7 +600,18 @@ export async function POST(request: NextRequest) {
             paid_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq('id', chatOrder.id);
+          .eq('id', chatOrder.id)
+          .eq('status', 'processing');
+
+        if (chatOrderUpdateError) {
+          logger.warn({
+            message: 'Failed to finalize chat order status after conversion',
+            reference,
+            chatOrderId: chatOrder.id,
+            orderId: newOrder.id,
+            error: chatOrderUpdateError,
+          });
+        }
 
         // Send push notification to merchant
         try {

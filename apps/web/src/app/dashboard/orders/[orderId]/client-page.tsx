@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { apiPatch } from '@/lib/api-client';
 import {
   type Order,
   resendOrderConfirmation,
@@ -53,7 +54,6 @@ import ConfirmInsuranceDialog from './confirm-insurance-dialog';
 interface OrderDetailsClientPageProps {
   initialOrder: Order;
 }
-
 // Helper function
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-NG', {
@@ -61,6 +61,17 @@ function formatCurrency(amount: number): string {
     currency: 'NGN',
     minimumFractionDigits: 0,
   }).format(amount);
+}
+
+function toDbShippingStatus(status: ShippingStatus): string {
+  return status.toLowerCase().replace('canceled', 'cancelled');
+}
+
+function fromDbShippingStatus(status: string): ShippingStatus {
+  return status
+    .split('_')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ') as ShippingStatus;
 }
 
 // Placeholder FulfillmentDialog - replace with actual import when available
@@ -102,31 +113,44 @@ export default function OrderDetailsClientPage({
     );
   };
 
-  const handleUpdateStatus = (newStatus: ShippingStatus) => {
+  const handleUpdateStatus = async (newStatus: ShippingStatus) => {
     // If confirming ('Processing'), check if we need the new dialog
     if (newStatus === 'Processing' && order.shippingStatus === 'Pending') {
       setIsConfirmationDialogOpen(true);
       return;
     }
 
-    // ... OLD LOGIC for other statuses ...
-    // But wait, the old logic was client-side only state update?
-    // "handleUpdateStatus" updated local state and showed toast.
-    // If I want to persist, I should call an API or server action.
-    // The previous implementation seemed to be UI-mock or incomplete.
-    // I will keep existing logic for non-confirm actions for safety,
-    // but for Confirm, I go through my new API.
+    try {
+      const result = await apiPatch<{
+        order: {
+          shipping_status: string;
+          shipping_provider?: string | null;
+          tracking_number?: string | null;
+        };
+      }>(`/api/orders/${order.id}`, {
+        shipping_status: toDbShippingStatus(newStatus),
+      });
 
-    // Legacy/Existing logic for other statuses:
-    const newPaymentStatus = order.paymentStatus;
-    setOrder((prev) => ({
-      ...prev,
-      shippingStatus: newStatus,
-      paymentStatus: newPaymentStatus,
-    }));
-    toast({
-      title: `Order status updated to ${newStatus}`,
-    });
+      setOrder((prev) => ({
+        ...prev,
+        shippingStatus: fromDbShippingStatus(result.order.shipping_status),
+        shipping_provider:
+          result.order.shipping_provider ?? prev.shipping_provider,
+        tracking_number: result.order.tracking_number ?? prev.tracking_number,
+      }));
+      toast({
+        title: `Order status updated to ${newStatus}`,
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to update order status',
+      });
+    }
   };
 
   const handleConfirmationSubmit = async (data: Record<string, unknown>) => {

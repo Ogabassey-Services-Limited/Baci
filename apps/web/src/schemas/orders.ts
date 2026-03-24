@@ -6,7 +6,7 @@ import {
   sanitizeText,
 } from '@/lib/sanitize-core';
 
-export const orderCreateSchema = z.object({
+const orderCreateSchemaBase = z.object({
   merchant_id: z.string().uuid(),
   customer_email: z
     .string()
@@ -43,7 +43,9 @@ export const orderCreateSchema = z.object({
           assurance_fee: z.number().nonnegative().optional(),
           variantId: z.string().optional(),
           variant_id: z.string().optional(),
-          variantAttributes: z.record(z.string()).optional(),
+          variantAttributes: z
+            .record(z.string().transform((val) => sanitizeText(val).trim()))
+            .optional(),
         })
         .refine((data) => data.product_id || data.productId || data.id, {
           message:
@@ -109,6 +111,19 @@ export const orderCreateSchema = z.object({
     .optional()
     .transform((val) => (val ? sanitizeText(val) : val)),
 });
+
+export const orderCreateSchema = z.preprocess((input) => {
+  if (!input || typeof input !== 'object') {
+    return input;
+  }
+
+  const data = input as Record<string, unknown>;
+
+  return {
+    ...data,
+    selected_quote_id: data.selected_quote_id ?? data.shipping_quote_id,
+  };
+}, orderCreateSchemaBase);
 
 export type OrderCreateInput = z.infer<typeof orderCreateSchema>;
 
