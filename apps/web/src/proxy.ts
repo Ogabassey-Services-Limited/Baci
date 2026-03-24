@@ -468,7 +468,13 @@ export async function proxy(request: NextRequest) {
   // 301 redirect old blog subdomain to new blog location
   // blog.ogabassey.com/* -> ogabassey.com/blog/*
   if (normalizeHostname(hostname) === 'blog.ogabassey.com') {
-    const newPath = pathname === '/' ? '' : pathname;
+    // Strip accidental domain prefix from path (e.g., /ogabassey.com/blog/... → /blog/...)
+    let cleanPath = pathname;
+    const domainPrefixMatch = cleanPath.match(/^\/[^/]+\.[^/]+(\/.*)$/);
+    if (domainPrefixMatch) {
+      cleanPath = domainPrefixMatch[1];
+    }
+    const newPath = cleanPath === '/' ? '' : cleanPath;
     const newUrl = `https://ogabassey.com/blog${newPath}`;
     return NextResponse.redirect(newUrl, { status: 301 });
   }
