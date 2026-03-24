@@ -47,7 +47,7 @@ jobs:
     runs-on: baci-deploy
     timeout-minutes: 20
     env:
-      BLOG_SMOKE_BASE_URL: https://ogabassey.com
+      BLOG_SMOKE_BASE_URL: ${{ vars.BLOG_SMOKE_BASE_URL || 'https://ogabassey.com' }}
       BLOG_SMOKE_TAG: blog-posts
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -168,6 +168,9 @@ jobs:
       - name: Invalidate storefront blog cache tag
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
         run: pnpm dlx vercel cache invalidate --tag "${{ env.BLOG_SMOKE_TAG }}" --token="${{ env.VERCEL_TOKEN }}" --yes
+      - name: Wait for cache invalidation to propagate
+        if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
+        run: sleep 10
       - name: Re-run storefront blog smoke test after tag invalidate
         id: storefront-blog-smoke-after-invalidate
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
@@ -176,6 +179,9 @@ jobs:
       - name: Hard purge storefront blog cache tag
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
         run: pnpm dlx vercel cache dangerously-delete --tag "${{ env.BLOG_SMOKE_TAG }}" --token="${{ env.VERCEL_TOKEN }}" --yes
+      - name: Wait for cache purge to propagate
+        if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
+        run: sleep 10
       - name: Re-run storefront blog smoke test after hard purge
         id: storefront-blog-smoke-after-delete
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
