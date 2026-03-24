@@ -136,6 +136,14 @@ describe('GET /api/feed/openai', () => {
     expect(parsed.merchant_name).toBe('Ogabassey');
   });
 
+  it('passes resolved merchant UUID (not slug) to cached data fetcher', async () => {
+    const { GET } = await import('./route');
+    await GET(makeRequest('/api/feed/openai?merchant_slug=ogabassey'));
+
+    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1');
+    expect(mockGetCachedOpenAIFeedData).not.toHaveBeenCalledWith('ogabassey');
+  });
+
   it('returns 200 with JSONL for valid merchant_id', async () => {
     const { GET } = await import('./route');
     const response = await GET(

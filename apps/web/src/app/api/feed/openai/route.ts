@@ -8,7 +8,7 @@ import {
 } from '@/lib/feed-identifier';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { stripHtmlTags } from '@/lib/sanitize-core';
-import { getCachedOpenAIFeedData } from './feed-data';
+import { getCachedOpenAIFeedData, type OpenAIFeedProduct } from './feed-data';
 
 const _FeedQuerySchema = z
   .object({
@@ -115,38 +115,7 @@ export async function GET(request: NextRequest) {
 
 // --- Interfaces ---
 
-interface Variant {
-  id: string;
-  attributes: Record<string, string>; // e.g., { color: 'Red', size: 'XL' }
-  price_override?: number;
-  stock_quantity?: number;
-  sku?: string;
-  primary_image?: string;
-}
-
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  slug?: string;
-  price: number;
-  compare_at_price?: number;
-  images?: string[] | Array<{ url: string; alt?: string }>;
-  brand?: string;
-  gtin?: string;
-  mpn?: string;
-  sku?: string;
-  stock: number;
-  stock_quantity?: number;
-  manage_stock?: boolean;
-  condition?: 'new' | 'used' | 'refurbished';
-  google_product_category?: string;
-  category?: string;
-  weight_value?: number;
-  weight_unit?: 'kg' | 'lb' | 'g' | 'oz';
-  updated_at?: string;
-  variants?: Variant[];
-}
+type Product = OpenAIFeedProduct;
 
 interface Merchant {
   id: string;

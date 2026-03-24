@@ -53,14 +53,26 @@ export async function getCachedGoogleMerchantFeedData(
     throw new Error('Failed to fetch products');
   }
 
-  // Fetch prevalidated image manifest from product_feed_images
+  // Fetch prevalidated image manifest scoped to active products only
+  const productIds = (products || []).map((p: { id: string }) => p.id);
+
+  if (productIds.length === 0) {
+    return {
+      custom_domain: primaryDomain?.domain ?? null,
+      slug: merchantSlug,
+      products: [] as FeedProduct[],
+      imageManifest: {} as ImageManifestMap,
+    };
+  }
+
   const { data: manifestRows, error: manifestError } = await supabase
     .from('product_feed_images')
     .select(
       'product_id, verified_url, verified_format, status, is_primary, position'
     )
     .eq('merchant_id', merchantId)
-    .eq('status', 'verified');
+    .eq('status', 'verified')
+    .in('product_id', productIds);
 
   if (manifestError) {
     console.error('DB_MANIFEST_ERROR:', manifestError);
