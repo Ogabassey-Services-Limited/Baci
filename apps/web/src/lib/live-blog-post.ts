@@ -3,6 +3,7 @@ import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
+import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import { createPublicClient } from '@/lib/supabase/anon';
 
 export async function getLiveBlogPost(
@@ -33,9 +34,7 @@ export async function getLiveBlogPost(
 
   let query = supabase
     .from('blog_posts')
-    .select(
-      'id, title, slug, excerpt, content, featured_image_url, featured_image_alt, category, tags, author_name, author_avatar, author_title, author_bio, published_at, status, meta_title, meta_description, seo_title, seo_description, keywords, reading_time_minutes, word_count, view_count, created_at, updated_at'
-    )
+    .select(STOREFRONT_BLOG_POST_SELECT)
     .eq('merchant_id', merchant.id)
     .eq('slug', normalizedPostSlug);
 
