@@ -14,7 +14,7 @@ import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
  * This client doesn't use cookies, so it's suitable for caching.
  * Only use for public/read-only data that doesn't require authentication.
  */
-function getPublicSupabaseClient() {
+export function getPublicSupabaseClient() {
   const url = getSupabaseUrl();
   const key = getSupabaseAnonKey();
 

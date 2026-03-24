@@ -1,10 +1,8 @@
 import type { Metadata } from 'next';
-import { cookies, headers } from 'next/headers';
-import { notFound, permanentRedirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
-import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { CATEGORY_SEO_DEFAULTS } from '@/config/category-seo-defaults';
 import {
@@ -20,6 +18,7 @@ import {
   generateCollectionPageSchema,
   generateFAQSchema,
 } from '@/lib/seo-utils';
+import { buildStoreUrl } from '@/lib/store-url';
 import { isDomainIdentifier } from '@/lib/validation';
 
 // Enable ISR with 5 minute revalidation
@@ -88,10 +87,7 @@ export async function generateMetadata({
     : data.fallbackName || category;
   const products = data.products as unknown as Product[];
 
-  const headersList = await headers();
-  const host = headersList.get('host') || 'baci.app';
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
+  const baseUrl = buildStoreUrl(merchant);
   const categoryUrl = `${baseUrl}/${category}`;
 
   const title = `${categoryName} | ${merchant.business_name}`;
@@ -132,14 +128,7 @@ export async function generateMetadata({
 export default async function CategoryPageRoute({ params }: PageProps) {
   const { slug, category } = await params;
 
-  // SEO: Enforce lowercase URLs using x-pathname header (works even if params are normalized)
-  const headersList = await headers();
-  const pathname = headersList.get('x-pathname');
-
-  if (pathname && pathname !== pathname.toLowerCase()) {
-    // biome-ignore lint/suspicious/noExplicitAny: Redirecting to lowercase string is valid
-    return permanentRedirect(pathname.toLowerCase() as any);
-  }
+  // Lowercase enforcement moved to proxy (prefix normalization + storefront lowercase redirect)
 
   // 1. Get Merchant
   const merchant = isDomainIdentifier(slug)
@@ -189,18 +178,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
     ? data.name
     : data.fallbackName || category;
 
-  // Read theme cookie server-side for SSR consistency
-  const cookieStore = await cookies();
-  const themeCookie = cookieStore.get('storefront-theme')?.value;
-
-  const _initialTheme: V2ThemeMode | undefined =
-    themeCookie === 'standard' || themeCookie === 'santa'
-      ? themeCookie
-      : undefined;
-
-  const host = headersList.get('host') || 'baci.app';
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
+  const baseUrl = buildStoreUrl(merchant);
   const categoryUrl = `${baseUrl}/${category}`;
 
   // Generate CollectionPage schema

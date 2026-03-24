@@ -1,19 +1,17 @@
-import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import {
   type BlogPost,
   OgabasseyV2Blog,
 } from '@/components/storefront/ogabassey/pages/blog';
-import { createClient } from '@/lib/supabase/server';
+import { getPublicSupabaseClient } from '@/lib/cached-data';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
 const getBlogData = cache(async (merchantSlug: string) => {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = getPublicSupabaseClient();
 
   // Get merchant
   const { data: merchant } = await supabase

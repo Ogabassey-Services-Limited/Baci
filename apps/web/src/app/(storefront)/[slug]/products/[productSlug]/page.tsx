@@ -1,5 +1,4 @@
 import type { Metadata, ResolvingMetadata } from 'next';
-import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
@@ -22,6 +21,7 @@ import {
   generateSlug,
   getProductUrl,
 } from '@/lib/seo-utils';
+import { buildStoreUrl } from '@/lib/store-url';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
@@ -160,25 +160,7 @@ export async function generateMetadata(
     ? await getCachedMerchantByDomain(slug)
     : await getCachedMerchant(slug);
 
-  const headersList = await headers();
-  const host = headersList.get('host') || 'baci.app';
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  let baseUrl = `${protocol}://${host}`;
-
-  // Only include slug in URL path for localhost (development)
-  // For subdomains (merchant.usebaci.com) and custom domains (merchant.com),
-  // the merchant identity is in the domain itself, not the path
-  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
-
-  // FIX: Ensure canonical URL always points to the production custom domain if it exists
-  // This prevents Vercel deployment URLs (e.g. baci-xyz.vercel.app) from being used as canonicals
-  if (!isLocalhost && merchant?.custom_domain) {
-    baseUrl = `https://${merchant.custom_domain}`;
-  } else if (!isLocalhost && merchant?.slug && !host.includes(merchant.slug)) {
-    // If we are on a generic domain but merchant has a slug-based subdomain (and not custom domain)
-    // We generally trust the host, but if we are on vercel.app, we might want to enforce subdomain.
-    // For now, custom_domain is the primary fix for the reported issue.
-  }
+  const baseUrl = buildStoreUrl(merchant ?? { slug, custom_domain: undefined });
 
   // If we have a category slug (explicit or generated), REDIRECT to the pretty URL (SEO Best Practice)
   // This ensures /products/ URLs are always canonicalized to their category-based counterparts
@@ -188,16 +170,14 @@ export async function generateMetadata(
 
   if (effectiveCategorySlug) {
     const cleanSlug = product.slug || product.id;
-    // Resolve stored slug (localhost/preview logic vs production subdomain logic)
-    const targetPath = isLocalhost
-      ? `/${slug}/${effectiveCategorySlug}/${cleanSlug}`
-      : `/${effectiveCategorySlug}/${cleanSlug}`;
+    const targetPath =
+      process.env.NODE_ENV === 'development'
+        ? `/${slug}/${effectiveCategorySlug}/${cleanSlug}`
+        : `/${effectiveCategorySlug}/${cleanSlug}`;
 
     // biome-ignore lint/suspicious/noExplicitAny: Dynamic route path requires type assertion
     permanentRedirect(targetPath as any);
   }
-
-  const urlPrefix = isLocalhost ? `/${slug}` : '';
 
   // Construct canonical URL:
   // 1. Use explicit canonical from product data if available
@@ -209,7 +189,7 @@ export async function generateMetadata(
     const productPath = getProductUrl(product);
 
     // Construct full URL
-    const basePath = `${baseUrl}${urlPrefix}${productPath}`;
+    const basePath = `${baseUrl}${productPath}`;
 
     // Clean params for canonical
     canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, [
@@ -271,15 +251,6 @@ export async function generateMetadata(
 export default async function ProductPage({ params }: PageProps) {
   const { slug, productSlug } = await params;
 
-  // SEO: Enforce lowercase URLs using x-pathname header (works even if params are normalized)
-  const headersList = await headers();
-  const pathname = headersList.get('x-pathname');
-
-  if (pathname && pathname !== pathname.toLowerCase()) {
-    // biome-ignore lint/suspicious/noExplicitAny: Redirecting to lowercase string is valid
-    return permanentRedirect(pathname.toLowerCase() as any);
-  }
-
   const product = await getProductCached(slug, productSlug);
 
   if (!product) {
@@ -308,13 +279,7 @@ export default async function ProductPage({ params }: PageProps) {
     }));
   }
 
-  const host = headersList.get('host') || 'baci.app';
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
-
-  // Only include slug in URL path for localhost (development)
-  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
-  const urlPrefix = isLocalhost ? `/${slug}` : '';
+  const baseUrl = buildStoreUrl(merchant ?? { slug, custom_domain: undefined });
 
   // Generate product schema (now handles merging custom schema_markup internally)
   const productSchema = generateProductSchema(
@@ -332,7 +297,7 @@ export default async function ProductPage({ params }: PageProps) {
     !Array.isArray(productSchema.offers) &&
     productSchema.offers['@type'] !== 'AggregateOffer'
   ) {
-    const productUrl = `${baseUrl}${urlPrefix}/products/${product.slug || product.id}`;
+    const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
     productSchema.offers.url = escapeHtml(productUrl);
   }
 
@@ -349,17 +314,17 @@ export default async function ProductPage({ params }: PageProps) {
 
   // Generate breadcrumb schema using helper function (sanitization handled in generateBreadcrumbSchema)
   // FIXED: Use proper category path structure (/[category]/[slug]) instead of query params
-  const productUrl = `${baseUrl}${urlPrefix}/${product.category_slug || 'products'}/${product.slug || product.id}`;
+  const productUrl = `${baseUrl}/${product.category_slug || 'products'}/${product.slug || product.id}`;
 
   const categorySlug =
     product.category_slug ||
     (product.category ? generateSlug(product.category) : 'products');
   const categoryName =
     product.categories?.name || product.category || 'All Products';
-  const categoryUrl = `${baseUrl}${urlPrefix}/${categorySlug}`;
+  const categoryUrl = `${baseUrl}/${categorySlug}`;
 
   const breadcrumbItems = [
-    { name: merchant?.business_name || 'Home', url: `${baseUrl}${urlPrefix}` },
+    { name: merchant?.business_name || 'Home', url: baseUrl },
     { name: categoryName, url: categoryUrl },
     { name: product.name, url: productUrl },
   ];
