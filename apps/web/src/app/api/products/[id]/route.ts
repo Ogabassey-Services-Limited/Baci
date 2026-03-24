@@ -97,7 +97,7 @@ export async function GET(
       id: product.id,
       name: product.name,
       description: product.description || '',
-      status: product.status || (product.is_active ? 'active' : 'draft'),
+      status: product.status || 'draft',
       price: Number.parseFloat(product.price),
       manage_stock: product.manage_stock ?? true,
       stock: getEffectiveStock(product),
@@ -322,7 +322,6 @@ export async function PUT(
     // Status fields
     if (body.status !== undefined) {
       updates.status = body.status;
-      updates.is_active = body.status === 'active';
     }
 
     // Tax fields

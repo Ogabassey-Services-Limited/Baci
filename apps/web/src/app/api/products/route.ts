@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
           id: p.id,
           name: p.name,
           description: p.description || '',
-          status: p.status || (p.is_active ? 'active' : 'draft'),
+          status: p.status || 'draft',
           price: Number.parseFloat(p.price),
           manage_stock: p.manage_stock ?? true,
           stock: getEffectiveStock(p),
@@ -477,8 +477,6 @@ export async function POST(request: NextRequest) {
         dimensions: body.dimensions,
 
         status: body.status || 'draft',
-        // Legacy is_active for backward compatibility
-        is_active: body.status === 'active',
 
         taxable: body.taxable ?? true,
         tax_code: body.tax_code,

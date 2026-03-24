@@ -205,7 +205,7 @@ export async function getOrders(
       filters,
       route: 'dashboard/orders/getOrders',
     });
-    return [];
+    throw new Error('Failed to fetch dashboard orders');
   }
 
   // FETCH JUMIA ORDERS (If no specific payment/shipping filter that excludes them)

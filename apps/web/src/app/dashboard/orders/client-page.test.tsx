@@ -91,4 +91,11 @@ describe('OrdersClientPage', () => {
 
     expect(screen.getByText('Item Details')).toBeInTheDocument();
   });
+
+  it('shows the server-provided orders error instead of empty state', () => {
+    render(<OrdersClientPage initialOrdersError="Could not load orders." />);
+
+    expect(screen.getByText('Failed to Load Orders')).toBeInTheDocument();
+    expect(screen.getByText(/Could not load orders\./i)).toBeInTheDocument();
+  });
 });
