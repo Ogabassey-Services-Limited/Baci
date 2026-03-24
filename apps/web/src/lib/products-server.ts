@@ -1,9 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  getPrimaryProductImage,
-  PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
-  PRODUCT_IMAGE_PLACEHOLDER_URL,
-} from '@/lib/product-image';
 import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
 import {
   getEffectiveStock,
@@ -140,10 +135,17 @@ export async function getProducts(
 
         // Image handling
         image:
-          getPrimaryProductImage(p.images) || PRODUCT_IMAGE_PLACEHOLDER_URL,
+          (typeof p.images?.[0] === 'string'
+            ? p.images[0]
+            : p.images?.[0]?.url) ||
+          p.image_small ||
+          'https://picsum.photos/seed/placeholder/80/80',
         imageLarge:
-          getPrimaryProductImage(p.images) ||
-          PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
+          (typeof p.images?.[0] === 'string'
+            ? p.images[0]
+            : p.images?.[0]?.url) ||
+          p.image_large ||
+          'https://picsum.photos/seed/placeholder/600/400',
         imageHint: p.image_hint || '',
         images: p.images || [],
 

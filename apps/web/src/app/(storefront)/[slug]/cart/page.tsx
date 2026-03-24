@@ -25,37 +25,28 @@ export default async function CartPage({
     notFound();
   }
 
-  return (
-    <Suspense fallback={<StorefrontPageSkeleton />}>
-      <CartContent merchantId={merchant.id} />
-    </Suspense>
-  );
-}
-
-async function CartContent({ merchantId }: { merchantId: string }) {
+  // Fetch VAT settings for the merchant
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
-  const { data: vatSettings, error } = await supabase
+  const { data: vatSettings } = await supabase
     .from('merchants')
     .select('vat_registration_status, vat_rate')
-    .eq('id', merchantId)
+    .eq('id', merchant.id)
     .single();
-
-  if (error) {
-    console.error('Failed to fetch VAT settings:', {
-      merchantId,
-      error: error.message,
-    });
-  }
 
   const vatEnabled = vatSettings?.vat_registration_status === 'registered';
   const vatRate = vatSettings?.vat_rate ?? 7.5;
 
+  // Ogabassey Template - uses CartPageWrapper for item_id parameter handling
+  // Supports direct add-to-cart links: /cart?item_id=123 or /cart?item_id=123,456
+  // Default to ogabassey cart as it's the fully functional implementation
   return (
-    <CartPageWrapper
-      merchantId={merchantId}
-      vatEnabled={vatEnabled}
-      vatRate={vatRate}
-    />
+    <Suspense fallback={<StorefrontPageSkeleton />}>
+      <CartPageWrapper
+        merchantId={merchant.id}
+        vatEnabled={vatEnabled}
+        vatRate={vatRate}
+      />
+    </Suspense>
   );
 }

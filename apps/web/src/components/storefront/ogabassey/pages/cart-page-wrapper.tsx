@@ -4,10 +4,6 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
-import {
-  getPrimaryProductImage,
-  PRODUCT_IMAGE_PLACEHOLDER_URL,
-} from '@/lib/product-image';
 import { createClient } from '@/lib/supabase/client';
 import { CartPage } from './cart-page';
 
@@ -51,7 +47,7 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
         const { data: products, error } = await supabase
           .from('products')
           .select(
-            'id, name, description, status, price, manage_stock, stock, brand, gtin, mpn, merchant_id, images, imageHint:image_hint'
+            'id, name, description, status, price, manage_stock, stock, brand, gtin, mpn, merchant_id, images, image:image_small, imageLarge:image_large, imageHint:image_hint'
           )
           .eq('merchant_id', merchantId)
           .in('id', ids)
@@ -79,20 +75,10 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
         // Add each product to cart
         let addedCount = 0;
         for (const product of products) {
-          const resolvedImage =
-            getPrimaryProductImage(product.images) ||
-            PRODUCT_IMAGE_PLACEHOLDER_URL;
           // Check if already in cart
           const existsInCart = cart.some(item => item.id === product.id);
           if (!existsInCart) {
-            addToCart(
-              {
-                ...product,
-                image: resolvedImage,
-                imageLarge: resolvedImage,
-              },
-              1
-            );
+            addToCart(product, 1);
             addedCount++;
           }
         }
@@ -129,12 +115,10 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
   // Show loading state while adding items
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[var(--store-background,#ffffff)]">
+      <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_18%,transparent)] border-t-[var(--store-primary,#111827)]" />
-          <p className="text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_65%,transparent)]">
-            Adding items to cart...
-          </p>
+          <div className="w-12 h-12 border-4 border-gray-700 border-t-red-600 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Adding items to cart...</p>
         </div>
       </div>
     );

@@ -1,5 +1,5 @@
 import { Redirect, Stack, useSegments } from 'expo-router';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -54,9 +54,7 @@ export default function AuthLayout() {
           paddingHorizontal: 24,
         }}
       >
-        <Text style={{ color: colors.error ?? '#DC2626' }}>
-          Unable to load your merchant profile right now.
-        </Text>
+        Unable to load your merchant profile right now.
       </View>
     );
   }

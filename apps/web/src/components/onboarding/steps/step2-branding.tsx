@@ -16,7 +16,6 @@ import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { useShallow } from 'zustand/react/shallow';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import { Button } from '@/components/ui/button';
 import { FormLabel } from '@/components/ui/form';
@@ -86,18 +85,17 @@ export default function Step2_Branding() {
   const isLoading = isGenerating || isExtracting || isUploading;
 
   // Sync with global UI store for background animations and preview
-  const {
-    setLogoUploaded,
-    setStoreLogoDataUri,
-    setShowMobilePreview,
-    setShowTemplateSelector,
-  } = useOnboardingUIStore(
-    useShallow((state) => ({
-      setLogoUploaded: state.setLogoUploaded,
-      setStoreLogoDataUri: state.setLogoDataUri,
-      setShowMobilePreview: state.setShowMobilePreview,
-      setShowTemplateSelector: state.setShowTemplateSelector,
-    }))
+  const setLogoUploaded = useOnboardingUIStore(
+    (state) => state.setLogoUploaded
+  );
+  const setStoreLogoDataUri = useOnboardingUIStore(
+    (state) => state.setLogoDataUri
+  );
+  const setShowMobilePreview = useOnboardingUIStore(
+    (state) => state.setShowMobilePreview
+  );
+  const setShowTemplateSelector = useOnboardingUIStore(
+    (state) => state.setShowTemplateSelector
   );
 
   // Effect to keep currentLogoDataUri updated for client-side operations

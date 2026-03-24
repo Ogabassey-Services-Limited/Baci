@@ -5,7 +5,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -44,11 +44,37 @@ const GoogleLogo = ({ size = 20 }: { size?: number }) => (
   </Svg>
 );
 
+// Dynamic import and fallbacks for native modules to prevent evaluation-time crashes
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let GoogleSignin: Record<string, (...args: any[]) => any> | null = null;
+let isSuccessResponse: (res: unknown) => res is { data: { idToken: string } } =
+  (_res): _res is { data: { idToken: string } } => false;
+let statusCodes: Record<string, string> = {
+  SIGN_IN_CANCELLED: 'CANCELLED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  PLAY_SERVICES_NOT_AVAILABLE: 'PLAY_SERVICES_NOT_AVAILABLE',
+};
+
+try {
+  if (Platform.OS !== 'web') {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const GoogleSigninModule = require('@react-native-google-signin/google-signin');
+    GoogleSignin = GoogleSigninModule.GoogleSignin;
+    isSuccessResponse = GoogleSigninModule.isSuccessResponse;
+    statusCodes = GoogleSigninModule.statusCodes;
+  }
+} catch (_e) {
+  console.debug('[GoogleSignIn] Native module ignored during evaluation');
+}
+
+import * as AppleAuthentication from 'expo-apple-authentication';
+import Constants from 'expo-constants';
 import { BaciLogo } from '@/components/BaciLogo';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
+import { supabase } from '@/lib/supabase';
 
 // Baci Brand Colors
 const BRAND = {
@@ -56,40 +82,147 @@ const BRAND = {
   navy: '#23255d',
 };
 
+// Get Google Client IDs from Expo Constants (baked in at build time)
+// This is the 2026 best practice - guaranteed to work on native builds
+const googleConfig = {
+  iosClientId:
+    Constants.expoConfig?.extra?.googleIosClientId ??
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  webClientId:
+    Constants.expoConfig?.extra?.googleWebClientId ??
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+};
+
+// DEBUG: Log the client IDs to verify they're being loaded
+if (__DEV__) {
+  console.log('[GoogleSignIn] Configuring with:', {
+    iosClientId: `${googleConfig.iosClientId?.slice(0, 20)}...`,
+    webClientId: `${googleConfig.webClientId?.slice(0, 20)}...`,
+    source: Constants.expoConfig?.extra?.googleWebClientId
+      ? 'Constants.extra'
+      : 'process.env',
+  });
+}
+
+// Google Sign-In configuration moved to useEffect to prevent evaluation-time crashes
+
 export default function LoginScreen() {
   // 2026 Best Practice: Destructure for React Compiler stable refs
   const { push, replace } = useRouter();
   const { colors } = useTheme();
-  const {
-    activeAuthProvider,
-    isAuthenticating,
-    signIn,
-    signInWithApple,
-    signInWithGoogle,
-  } = useAuth();
+  const { signIn } = useAuth();
   const { resetOnboarding } = useOnboarding();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const passwordRef = useRef<TextInput>(null);
 
+  useEffect(() => {
+    // 2026 Best Practice: Configure native modules only on supported platforms
+    if (Platform.OS !== 'web' && GoogleSignin) {
+      try {
+        GoogleSignin.configure({
+          iosClientId: googleConfig.iosClientId,
+          webClientId: googleConfig.webClientId,
+          offlineAccess: true,
+          scopes: ['profile', 'email'],
+        });
+      } catch (e) {
+        console.warn('[GoogleSignIn] Configuration deferred or failed:', e);
+      }
+    }
+  }, []);
+
   const handleGoogleSignIn = async () => {
+    if (Platform.OS === 'web' || !GoogleSignin) {
+      Alert.alert(
+        'Platform Not Supported',
+        'Google Sign-in is currently only supported on mobile devices.'
+      );
+      return;
+    }
+    setIsGoogleLoading(true);
     setError(null);
 
-    const result = await signInWithGoogle();
-    if (result.error) {
-      setError(result.error);
+    try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+
+      if (__DEV__) {
+        console.log(
+          '[GoogleSignIn] Response:',
+          JSON.stringify(response, null, 2)
+        );
+      }
+
+      if (isSuccessResponse(response) && response.data?.idToken) {
+        const { error: signInError } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: response.data.idToken,
+        });
+        if (signInError) {
+          setError(signInError.message);
+        }
+      } else {
+        // More detailed error message
+        console.error('[GoogleSignIn] No ID token. Full response:', response);
+        setError(
+          `Google sign-in failed: No ID token received. Check webClientId configuration.`
+        );
+      }
+    } catch (err: unknown) {
+      console.error('[GoogleSignIn] Error:', err);
+      const errorWithCode = err as { code?: string; message?: string };
+      if (errorWithCode?.code === statusCodes.SIGN_IN_CANCELLED) {
+        // User cancelled, no error to show
+      } else if (errorWithCode?.code === statusCodes.IN_PROGRESS) {
+        setError('Sign-in already in progress');
+      } else if (
+        errorWithCode?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE
+      ) {
+        setError('Google Play Services not available');
+      } else {
+        setError(
+          `Google sign-in failed: ${errorWithCode?.message || 'Unknown error'}`
+        );
+      }
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
   const handleAppleSignIn = async () => {
+    setIsAppleLoading(true);
     setError(null);
 
-    const result = await signInWithApple();
-    if (result.error) {
-      setError(result.error);
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (credential.identityToken) {
+        const { error: signInError } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+        });
+        if (signInError) {
+          setError(signInError.message);
+        }
+      }
+    } catch (err: unknown) {
+      if ((err as { code?: string })?.code !== 'ERR_REQUEST_CANCELED') {
+        setError('Apple sign-in failed');
+      }
+    } finally {
+      setIsAppleLoading(false);
     }
   };
 
@@ -106,23 +239,27 @@ export default function LoginScreen() {
       return;
     }
 
+    setIsLoading(true);
     setError(null);
 
-    const result = await signIn(email.trim(), password);
-    if (result.error) {
-      setError(
-        result.error === 'Invalid login credentials'
-          ? 'Incorrect email or password'
-          : result.error
-      );
+    try {
+      const { error: authError } = await signIn(email.trim(), password);
+
+      if (authError) {
+        setError(
+          authError.message === 'Invalid login credentials'
+            ? 'Incorrect email or password'
+            : authError.message
+        );
+      }
+    } catch (_err) {
+      setError('Network error. Please check your connection and try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const isPasswordLoading =
-    isAuthenticating && activeAuthProvider === 'password';
-  const isGoogleLoading = isAuthenticating && activeAuthProvider === 'google';
-  const isAppleLoading = isAuthenticating && activeAuthProvider === 'apple';
-  const isAnyLoading = isAuthenticating;
+  const isAnyLoading = isLoading || isGoogleLoading || isAppleLoading;
 
   return (
     <SafeAreaView
@@ -240,18 +377,10 @@ export default function LoginScreen() {
               </View>
             </View>
             <Pressable
-              onPress={() => {
-                if (isAnyLoading) {
-                  return;
-                }
-
-                push('/(auth)/forgot-password');
-              }}
+              onPress={() => push('/(auth)/forgot-password')}
               style={styles.forgotPassword}
-              disabled={isAnyLoading}
               accessibilityRole="link"
               accessibilityLabel="Forgot password? Reset your password"
-              accessibilityState={{ disabled: isAnyLoading }}
             >
               <Text style={styles.forgotPasswordText}>
                 Forgot Password?
@@ -268,11 +397,11 @@ export default function LoginScreen() {
               disabled={isAnyLoading}
               accessibilityRole="button"
               accessibilityLabel={
-                isPasswordLoading ? 'Signing in' : 'Sign in to your account'
+                isLoading ? 'Signing in' : 'Sign in to your account'
               }
               accessibilityState={{ disabled: isAnyLoading }}
             >
-              {isPasswordLoading ? (
+              {isLoading ? (
                 <ActivityIndicator color={BRAND.navy} />
               ) : (
                 <Text style={[styles.loginButtonText, { color: BRAND.navy }]}>

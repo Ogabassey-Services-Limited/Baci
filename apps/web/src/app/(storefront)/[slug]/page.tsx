@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
+import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
@@ -10,7 +12,6 @@ import {
   generateWebSiteSchema,
   type LocalBusinessData,
 } from '@/lib/seo-utils';
-import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { StorefrontContent } from './storefront-content';
 
@@ -49,7 +50,10 @@ export async function generateMetadata({
     merchant.site_tagline ||
     `Shop at ${merchant.business_name}. Browse our collection and enjoy convenient delivery.`;
 
-  const baseUrl = buildStoreUrl(merchant);
+  const headersList = await headers();
+  const host = headersList.get('host') || `${slug}.localhost: 3000`;
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  const baseUrl = `${protocol}://${host}`;
 
   const socialMedia = merchant.social_media as Record<string, string> | null;
 
@@ -138,8 +142,31 @@ export default async function StorefrontPage({
     return <StoreNotPublished businessName={merchant.business_name} />;
   }
 
+  // Theme cookie for SSR consistency
+  // IMPORTANT: Cookie name must match V2ThemeProvider's THEME_COOKIE_NAME
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get('storefront-theme-v2')?.value;
+
+  // Server-side date check - force standard theme outside December
+  const currentMonth = new Date().getMonth();
+  const isDecember = currentMonth === 11;
+
+  let initialTheme: V2ThemeMode;
+  if (themeCookie === 'santa' && !isDecember) {
+    // Force standard theme outside December
+    initialTheme = 'standard';
+  } else if (themeCookie === 'standard' || themeCookie === 'santa') {
+    initialTheme = themeCookie as V2ThemeMode;
+  } else {
+    // Default based on month for SSR consistency
+    initialTheme = isDecember ? 'santa' : 'standard';
+  }
+
   // Generate schemas (fast, uses cached merchant data)
-  const baseUrl = buildStoreUrl(merchant);
+  const headersList = await headers();
+  const host = headersList.get('host') || `${slug}.localhost:3000`;
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  const baseUrl = `${protocol}://${host}`;
   const description =
     merchant.site_description ||
     merchant.site_tagline ||
@@ -207,7 +234,7 @@ export default async function StorefrontPage({
 
       {/* STREAMING: Heavy data fetching happens here, wrapped in Suspense */}
       <Suspense fallback={<StorefrontPageSkeleton />}>
-        <StorefrontContent merchant={merchant} />
+        <StorefrontContent merchant={merchant} initialTheme={initialTheme} />
       </Suspense>
     </>
   );
