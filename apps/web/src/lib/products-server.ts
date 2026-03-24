@@ -127,7 +127,7 @@ export async function getProducts(
         id: p.id,
         name: p.name,
         description: p.description || '',
-        status: p.status || (p.is_active ? 'active' : 'draft'),
+        status: p.status || 'draft',
         price: Number.parseFloat(p.price),
         manage_stock: p.manage_stock ?? true,
         stock: getEffectiveStock(p),

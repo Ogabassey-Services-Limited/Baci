@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/product-queries', () => ({
   PRODUCT_WITH_VARIANTS_QUERY:
-    'id, name, description, price, stock, stock_quantity, status, is_active, manage_stock, sku, slug, compare_at_price, cost_price, low_stock_threshold, brand, category, color, has_variants, images, image_small, image_large, image_hint, weight_value, weight_unit, dimensions, taxable, tax_code, condition, condition_detail, meta_title, meta_description, keywords, canonical_url, schema_markup, gtin, mpn, google_product_category, created_at, updated_at, merchant_id, fulfillment_details, variants:product_variants(id, product_id, merchant_id, attributes, price_override, cost_price, stock_quantity, sku, primary_image, images, created_at, updated_at)',
+    'id, name, description, price, stock, stock_quantity, status, manage_stock, sku, slug, compare_at_price, cost_price, low_stock_threshold, brand, category, color, has_variants, images, image_small, image_large, image_hint, weight_value, weight_unit, dimensions, taxable, tax_code, condition, condition_detail, meta_title, meta_description, keywords, canonical_url, schema_markup, gtin, mpn, google_product_category, created_at, updated_at, merchant_id, fulfillment_details, variants:product_variants(id, product_id, merchant_id, attributes, price_override, cost_price, stock_quantity, sku, primary_image, images, created_at, updated_at)',
 }));
 
 vi.mock('@/lib/sanitize-core', () => ({
@@ -75,7 +75,6 @@ function makeRawProduct(overrides: Record<string, unknown> = {}) {
     stock: 10,
     stock_quantity: 10,
     status: 'active',
-    is_active: true,
     manage_stock: true,
     min_order_quantity: 1,
     sku: 'SKU-001',
@@ -563,13 +562,12 @@ describe('getProducts', () => {
 
   // --- Status derivation ---
 
-  it('falls back to is_active for status when status field is null', async () => {
+  it('falls back to draft when status field is null', async () => {
     // Arrange
-    const rawActive = makeRawProduct({ status: null, is_active: true });
+    const rawActive = makeRawProduct({ status: null });
     const rawInactive = makeRawProduct({
       id: 'prod-002',
       status: null,
-      is_active: false,
     });
     const { client } = createMockSupabase({
       data: [rawActive, rawInactive],
@@ -581,7 +579,7 @@ describe('getProducts', () => {
     const result = await getProducts(client as never, merchantId, {});
 
     // Assert
-    expect(result.products[0].status).toBe('active');
+    expect(result.products[0].status).toBe('draft');
     expect(result.products[1].status).toBe('draft');
   });
 

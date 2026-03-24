@@ -25,6 +25,7 @@ import { OrdersUrgentAlert } from './orders-urgent-alert';
 
 interface OrdersClientPageProps {
   initialOrders?: Order[];
+  initialOrdersError?: string | null;
   initialStats?: OrderStats;
 }
 
@@ -34,6 +35,7 @@ function formatStatusForDb(status: string) {
 
 export default function OrdersClientPage({
   initialOrders = [],
+  initialOrdersError = null,
   initialStats = {
     totalOrders: 0,
     completedOrders: 0,
@@ -55,7 +57,9 @@ export default function OrdersClientPage({
   const [showAlert, setShowAlert] = useState(true);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [ordersLoading, setOrdersLoading] = useState(false);
-  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [ordersError, setOrdersError] = useState<string | null>(
+    initialOrdersError
+  );
   const [selectedJumiaOrder, setSelectedJumiaOrder] = useState<Order | null>(
     null
   );
