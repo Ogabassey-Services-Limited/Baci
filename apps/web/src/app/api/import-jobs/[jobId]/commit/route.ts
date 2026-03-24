@@ -5,7 +5,7 @@ import {
   hasImportRoutePermission,
   resolveImportRouteContext,
 } from '@/lib/import-jobs/import-job-route-auth';
-import { triggerImportWorker } from '@/lib/import-jobs/import-job-service';
+import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { logger } from '@/lib/logger';
 import { importJobParamsSchema } from '@/schemas/import-jobs';
 
@@ -103,7 +103,7 @@ export async function POST(
       );
     }
 
-    after(() => triggerImportWorker(request.nextUrl.origin, job.id));
+    after(() => kickoffImportJob(job.id, request.nextUrl.origin));
 
     return NextResponse.json(
       { jobId: job.id, status: 'commit_queued' },

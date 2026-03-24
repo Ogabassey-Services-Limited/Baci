@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   hasImportRoutePermission,
@@ -6,9 +6,9 @@ import {
 } from '@/lib/import-jobs/import-job-route-auth';
 import {
   createImportStoragePath,
-  triggerImportWorker,
   validateImportFile,
 } from '@/lib/import-jobs/import-job-service';
+import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { logger } from '@/lib/logger';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { importJobUploadSchema } from '@/schemas/import-jobs';
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await triggerImportWorker(request.nextUrl.origin, job.id);
+    after(() => kickoffImportJob(job.id, request.nextUrl.origin));
 
     return NextResponse.json({ job }, { status: 202 });
   } catch (error) {
