@@ -792,6 +792,9 @@ export default async function CategoryProductPage({ params }: PageProps) {
     if (correctCategorySlug) {
       const cleanSlug = product.slug || product.id;
 
+      // Known limitation: NODE_ENV check can break Vercel preview deployments
+      // where NODE_ENV=production but routing is path-mode. Cannot use headers()
+      // here without opting this route out of PPR (cacheComponents: true).
       const targetPath =
         process.env.NODE_ENV === 'development'
           ? `/${slug}/${correctCategorySlug}/${cleanSlug}`
