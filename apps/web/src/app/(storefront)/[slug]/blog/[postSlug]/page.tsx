@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { getCachedBlogPost } from '@/lib/cached-data';
+import { getLiveBlogPost } from '@/lib/live-blog-post';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -24,12 +25,39 @@ interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
 }
 
+type ResolvedBlogPost = Awaited<ReturnType<typeof getLiveBlogPost>>;
+
+async function getResolvedBlogPost(
+  slug: string,
+  postSlug: string,
+  isDraftMode: boolean
+): Promise<ResolvedBlogPost> {
+  try {
+    const cachedData = await getCachedBlogPost(slug, postSlug, isDraftMode);
+
+    if (cachedData) {
+      return cachedData;
+    }
+  } catch (error) {
+    console.error(
+      'Error fetching cached blog post, falling back to live query',
+      {
+        slug,
+        postSlug,
+        error,
+      }
+    );
+  }
+
+  return getLiveBlogPost(slug, postSlug, isDraftMode);
+}
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug, postSlug } = await params;
   const isDraftMode = (await draftMode()).isEnabled;
-  const data = await getCachedBlogPost(slug, postSlug, isDraftMode);
+  const data = await getResolvedBlogPost(slug, postSlug, isDraftMode);
 
   if (!data) {
     return { title: 'Post Not Found' };
@@ -95,7 +123,7 @@ export async function generateMetadata({
 export default async function BlogPostPage({ params }: PageProps) {
   const { slug, postSlug } = await params;
   const isDraftMode = (await draftMode()).isEnabled;
-  const data = await getCachedBlogPost(slug, postSlug, isDraftMode);
+  const data = await getResolvedBlogPost(slug, postSlug, isDraftMode);
 
   if (!data) {
     notFound();

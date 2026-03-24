@@ -5,6 +5,7 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import {
   revalidateBlogPosts,
   revalidateCategories,
@@ -15,6 +16,9 @@ import {
   revalidateReviews,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
+import { getMerchantBlogPostCategories } from '@/lib/get-merchant-blog-post-categories';
+import { getMerchantBlogPostSlugs } from '@/lib/get-merchant-blog-post-slugs';
 
 /**
  * Cache Revalidation API
@@ -75,6 +79,7 @@ export async function POST(request: NextRequest) {
 
   const { targets } = result.data;
   const merchantId = access.merchantId;
+  const failedTargets: string[] = [];
   const revalidated: string[] = [];
 
   const shouldRevalidate = (target: string) =>
@@ -96,8 +101,36 @@ export async function POST(request: NextRequest) {
   }
 
   if (shouldRevalidate('blog')) {
-    revalidateBlogPosts(merchantId);
-    revalidated.push('blog');
+    try {
+      const [identifiers, postSlugs, listingCategories] = await Promise.all([
+        getMerchantBlogCacheIdentifiers(auth.supabase, merchantId),
+        getMerchantBlogPostSlugs(auth.supabase, merchantId),
+        getMerchantBlogPostCategories(auth.supabase, merchantId),
+      ]);
+      const listingPages = Array.from(
+        {
+          length: Math.max(
+            1,
+            Math.ceil(postSlugs.length / BLOG_LISTING_PAGE_SIZE)
+          ),
+        },
+        (_, index) => index + 1
+      );
+
+      revalidateBlogPosts({
+        identifiers,
+        listingCategories,
+        listingPages,
+        postSlugs,
+      });
+      revalidated.push('blog');
+    } catch (error) {
+      console.error('Failed to revalidate blog caches:', {
+        merchantId,
+        error,
+      });
+      failedTargets.push('blog');
+    }
   }
 
   if (shouldRevalidate('reviews')) {
@@ -115,9 +148,26 @@ export async function POST(request: NextRequest) {
     revalidated.push('pages');
   }
 
-  return NextResponse.json({
-    success: true,
-    revalidated,
-    message: `Cache purged for: ${revalidated.join(', ')}`,
-  });
+  const success = failedTargets.length === 0;
+
+  if (!success) {
+    return NextResponse.json(
+      {
+        error: `Cache purge failed for: ${failedTargets.join(', ')}`,
+        failedTargets,
+        revalidated,
+      },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json(
+    {
+      success: true,
+      revalidated,
+      failedTargets: [],
+      message: `Cache purged for: ${revalidated.join(', ')}`,
+    },
+    { status: 200 }
+  );
 }

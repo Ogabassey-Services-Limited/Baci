@@ -1,6 +1,8 @@
 import { timingSafeEqual } from 'node:crypto';
-import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
+import { revalidateBlogPosts } from '@/lib/cache-revalidation';
+import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
 import { createServiceClient } from '@/lib/supabase/service';
 
 /**
@@ -34,7 +36,7 @@ export async function POST(request: Request) {
     // Posts where status is 'scheduled' and published_at is in the past
     const { data: scheduledPosts, error: fetchError } = await supabase
       .from('blog_posts')
-      .select('id, slug, merchant_id, merchants(slug)')
+      .select('id, slug, merchant_id, category')
       .eq('status', 'scheduled')
       .lte('published_at', now);
 
@@ -55,8 +57,80 @@ export async function POST(request: Request) {
 
     console.log(`📦 Cron: Found ${scheduledPosts.length} posts to publish`);
 
-    // 3. Batch update status to 'published'
     const postIds = scheduledPosts.map((post) => post.id);
+    const merchantIds = Array.from(
+      new Set(scheduledPosts.map((post) => post.merchant_id))
+    );
+
+    // 3. Group scheduled posts by merchant and compute listing sizes before mutating
+    const postsByMerchant = new Map<
+      string,
+      {
+        categories: Set<string>;
+        listingPages: number[];
+        postSlugs: string[];
+      }
+    >();
+
+    for (const post of scheduledPosts) {
+      const merchantPosts = postsByMerchant.get(post.merchant_id) ?? {
+        categories: new Set<string>(),
+        listingPages: [1],
+        postSlugs: [],
+      };
+
+      if (post.slug) {
+        merchantPosts.postSlugs.push(post.slug);
+      }
+
+      if (post.category) {
+        merchantPosts.categories.add(post.category);
+      }
+
+      postsByMerchant.set(post.merchant_id, merchantPosts);
+    }
+
+    const publishedPostCountsByMerchant = new Map<string, number>();
+    const { data: publishedPosts, error: publishedPostsError } = await supabase
+      .from('blog_posts')
+      .select('merchant_id')
+      .eq('status', 'published')
+      .in('merchant_id', merchantIds);
+
+    if (publishedPostsError) {
+      console.error(
+        'Cron Error: Failed to load published blog counts for revalidation:',
+        publishedPostsError
+      );
+      return NextResponse.json(
+        { error: 'Failed to load published blog counts' },
+        { status: 500 }
+      );
+    }
+
+    for (const post of publishedPosts ?? []) {
+      publishedPostCountsByMerchant.set(
+        post.merchant_id,
+        (publishedPostCountsByMerchant.get(post.merchant_id) ?? 0) + 1
+      );
+    }
+
+    for (const [merchantId, merchantPosts] of postsByMerchant) {
+      const publishedPostCount =
+        (publishedPostCountsByMerchant.get(merchantId) ?? 0) +
+        merchantPosts.postSlugs.length;
+      const totalPages = Math.max(
+        1,
+        Math.ceil(publishedPostCount / BLOG_LISTING_PAGE_SIZE)
+      );
+
+      merchantPosts.listingPages = Array.from(
+        { length: totalPages },
+        (_, index) => index + 1
+      );
+    }
+
+    // 4. Batch update status to 'published'
     const { error: updateError } = await supabase
       .from('blog_posts')
       .update({ status: 'published' })
@@ -70,31 +144,43 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Revalidate paths for all posts
-    for (const post of scheduledPosts) {
+    // 5. Revalidate blog caches grouped by merchant
+    const failedMerchants: string[] = [];
+
+    for (const [merchantId, merchantPosts] of postsByMerchant) {
       try {
-        const merchantSlug = (post.merchants as unknown as { slug: string })
-          ?.slug;
-        if (merchantSlug) {
-          revalidatePath(`/${merchantSlug}/blog`);
-          revalidatePath(`/${merchantSlug}/blog/${post.slug}`);
-          console.log(`🔄 Cron: Revalidated paths for ${merchantSlug}`);
-        }
+        const identifiers = await getMerchantBlogCacheIdentifiers(
+          supabase,
+          merchantId
+        );
+        revalidateBlogPosts({
+          identifiers,
+          listingCategories: Array.from(merchantPosts.categories),
+          listingPages: merchantPosts.listingPages,
+          postSlugs: merchantPosts.postSlugs,
+        });
+        console.log(
+          `🔄 Cron: Revalidated blog cache for merchant ${merchantId} across ${merchantPosts.postSlugs.length} posts`
+        );
       } catch (revalError) {
-        console.warn(
-          `Cron Warning: Revalidation failed for post ${post.id}:`,
+        console.error(
+          'Cron Error: Revalidation failed for merchant %s:',
+          merchantId,
           revalError
         );
+        failedMerchants.push(merchantId);
       }
     }
 
-    // Revalidate global blog list once after all updates
-    try {
-      revalidatePath('/blog');
-    } catch (revalError) {
-      console.warn(
-        'Cron Warning: Global blog revalidation failed:',
-        revalError
+    if (failedMerchants.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'Failed to revalidate blog caches for some merchants',
+          failedMerchants,
+          processed: scheduledPosts.length,
+          published: postIds,
+        },
+        { status: 500 }
       );
     }
 

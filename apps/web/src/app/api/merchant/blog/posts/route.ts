@@ -16,6 +16,7 @@ import {
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
+import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
 import { createPostSchema } from '@/lib/validations/blog';
 
 export async function GET(request: NextRequest) {
@@ -177,11 +178,34 @@ export async function POST(request: NextRequest) {
     const supabase = auth.supabase;
 
     // Get merchant business name if needed (optional, or we can use metadata)
-    const { data: merchantData } = await supabase
+    const { data: merchantData, error: merchantError } = await supabase
       .from('merchants')
-      .select('business_name')
+      .select('business_name, slug')
       .eq('id', access.merchantId)
       .single();
+
+    if (merchantError) {
+      console.error(
+        'Failed to fetch merchant details for blog post creation:',
+        {
+          merchantId: access.merchantId,
+          error: merchantError,
+        }
+      );
+      return NextResponse.json(
+        { error: 'Failed to load merchant details' },
+        { status: 500 }
+      );
+    }
+
+    if (!merchantData?.slug) {
+      console.warn(
+        'Merchant slug missing during blog post revalidation; falling back to available blog identifiers only',
+        {
+          merchantId: access.merchantId,
+        }
+      );
+    }
 
     const merchant = {
       id: access.merchantId,
@@ -327,7 +351,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Invalidate blog caches so storefront shows the new post immediately
-    revalidateBlogPosts(merchant.id, postData.slug);
+    try {
+      const cacheIdentifiers = await getMerchantBlogCacheIdentifiers(
+        supabase,
+        access.merchantId
+      );
+      revalidateBlogPosts({
+        identifiers: cacheIdentifiers,
+        listingCategories: newPost?.category ? [newPost.category] : [],
+        postSlugs: [newPost?.slug || postData.slug],
+      });
+    } catch (error) {
+      console.error('Failed to revalidate blog caches after post creation:', {
+        merchantId: access.merchantId,
+        postSlug: newPost?.slug || postData.slug,
+        error,
+      });
+    }
 
     return NextResponse.json(newPost, { status: 201 });
   } catch (error) {
