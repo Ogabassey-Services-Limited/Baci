@@ -62,6 +62,7 @@ describe('MigrationPreviewTable', () => {
     render(
       <MigrationPreviewTable
         entityType="orders"
+        filter="all"
         loading={false}
         onPageChange={onPageChange}
         page={1}
@@ -84,6 +85,7 @@ describe('MigrationPreviewTable', () => {
     expect(screen.getByText('ORD-1001')).toBeInTheDocument();
     expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
     expect(screen.getByText('Instagram')).toBeInTheDocument();
+    expect(screen.getByText('Create new')).toBeInTheDocument();
     expect(
       screen.getByText('25000 NGN · 1 item · 1 unmatched')
     ).toBeInTheDocument();
@@ -98,6 +100,7 @@ describe('MigrationPreviewTable', () => {
     const { rerender } = render(
       <MigrationPreviewTable
         entityType="products"
+        filter="all"
         loading
         onPageChange={vi.fn()}
         page={1}
@@ -112,6 +115,7 @@ describe('MigrationPreviewTable', () => {
     rerender(
       <MigrationPreviewTable
         entityType="products"
+        filter="needs_fix"
         loading={false}
         onPageChange={vi.fn()}
         page={1}
@@ -122,7 +126,39 @@ describe('MigrationPreviewTable', () => {
     );
 
     expect(
-      screen.getByText(/no preview rows available yet/i)
+      screen.getByText(/no rows currently need fixes/i)
+    ).toBeInTheDocument();
+  });
+
+  it('shows helper copy when focusing on importable rows', () => {
+    render(
+      <MigrationPreviewTable
+        entityType="orders"
+        filter="importable"
+        loading={false}
+        onPageChange={vi.fn()}
+        page={1}
+        pageSize={25}
+        rows={[
+          {
+            id: 'row-1',
+            meta: { unmatchedItemCount: 1 },
+            normalized_payload: createOrderPayload(),
+            row_number: 2,
+            row_status: 'create',
+            source_external_id: 'bumpa-1',
+            validation_errors: [],
+          },
+        ]}
+        total={1}
+      />
+    );
+
+    expect(
+      screen.getByText(/showing rows ready to import/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/these rows will be created or updated/i)
     ).toBeInTheDocument();
   });
 });

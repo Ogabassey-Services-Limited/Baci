@@ -1,3 +1,9 @@
+import type {
+  ImportJobDetail,
+  ImportJobListItem,
+  ImportJobRowStatus,
+  MigrationPreviewFilter,
+} from '@/app/dashboard/migrations/migration-types';
 import type { ImportJobStatus } from '@/schemas/import-jobs';
 
 const ACTIVE_MIGRATION_STATUSES = new Set<ImportJobStatus>([
@@ -83,4 +89,35 @@ export function getInitialMigrationSelection(
   return (
     statuses.find((job) => shouldFetchMigrationRows(job.status))?.id ?? null
   );
+}
+
+export function decorateImportJob(job: ImportJobListItem): ImportJobDetail {
+  const summary = (job.summary || {}) as Record<string, unknown>;
+  const validRows =
+    typeof summary.validRows === 'number' ? summary.validRows : 0;
+
+  return {
+    ...job,
+    canCommit: job.status === 'preview_ready' && validRows > 0,
+    canNotify:
+      job.entity_type === 'orders' &&
+      job.status === 'committed' &&
+      validRows > 0,
+  };
+}
+
+export function filterMigrationRows<
+  T extends { row_status: ImportJobRowStatus },
+>(rows: T[], filter: MigrationPreviewFilter) {
+  if (filter === 'importable') {
+    return rows.filter(
+      (row) => row.row_status === 'create' || row.row_status === 'update'
+    );
+  }
+
+  if (filter === 'needs_fix') {
+    return rows.filter((row) => row.row_status === 'invalid');
+  }
+
+  return rows;
 }
