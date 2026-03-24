@@ -23,6 +23,8 @@ vi.mock('react-native', async () => {
 
   return {
     ActivityIndicator: () => React.createElement('div', null, 'loading'),
+    Text: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('span', null, children),
     View: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
