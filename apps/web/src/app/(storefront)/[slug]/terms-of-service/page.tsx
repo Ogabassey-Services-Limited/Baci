@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { buildStoreUrl } from '@/lib/store-url';
 import { TermsPageClient } from '../pages/terms/terms-page-client';
 
 interface PageProps {
@@ -22,11 +22,7 @@ export async function generateMetadata({
     };
   }
 
-  // Use request headers to determine the actual domain (supports custom domains)
-  const headersList = await headers();
-  const host = headersList.get('host') || `${slug}.usebaci.com`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const canonicalUrl = `${protocol}://${host}/terms-of-service`;
+  const canonicalUrl = `${buildStoreUrl(merchant)}/terms-of-service`;
 
   return {
     title: `Terms of Service | ${merchant.business_name}`,
@@ -61,10 +57,7 @@ export default async function TermsOfServicePage({ params }: PageProps) {
   }
 
   // Generate base URL for JSON-LD (supports custom domains)
-  const headersList = await headers();
-  const host = headersList.get('host') || `${slug}.usebaci.com`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
+  const baseUrl = buildStoreUrl(merchant);
 
   // Generate WebPage JSON-LD schema for Terms of Service
   const termsSchema = {

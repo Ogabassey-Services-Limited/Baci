@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
@@ -27,6 +26,7 @@ import {
   generateSlug,
   getProductUrl,
 } from '@/lib/seo-utils';
+import { buildStoreUrl } from '@/lib/store-url';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import { isDomainIdentifier } from '@/lib/validation';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
@@ -696,19 +696,7 @@ export async function generateMetadata({
 
   const { product, merchant } = result;
 
-  const headersList = await headers();
-  const host = headersList.get('host') || 'baci.app';
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  let baseUrl = `${protocol}://${host}`;
-
-  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
-
-  // FIX: Ensure canonical URL always points to the production custom domain if it exists
-  if (!isLocalhost && merchant?.custom_domain) {
-    baseUrl = `https://${merchant.custom_domain}`;
-  }
-
-  const urlPrefix = isLocalhost ? `/${slug}` : '';
+  const baseUrl = buildStoreUrl(merchant);
 
   // Construct canonical URL:
   // 1. Use explicit canonical from product data if available
@@ -720,7 +708,7 @@ export async function generateMetadata({
     const productPath = getProductUrl(product);
 
     // Construct full URL
-    const basePath = `${baseUrl}${urlPrefix}${productPath}`;
+    const basePath = `${baseUrl}${productPath}`;
 
     // Clean params for canonical
     // We import constructCanonicalUrl from seo-utils
@@ -793,10 +781,6 @@ export default async function CategoryProductPage({ params }: PageProps) {
 
   const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
 
-  const headersList = await headers();
-  const host = headersList.get('host') || 'baci.app';
-  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
-
   // Strict Canonical URL Enforcement:
   // 1. If we found via case-insensitive fallback -> Redirect to lowercase canonical
   // 2. If the URL category doesn't match the product's actual category -> Redirect
@@ -808,20 +792,16 @@ export default async function CategoryProductPage({ params }: PageProps) {
     if (correctCategorySlug) {
       const cleanSlug = product.slug || product.id;
 
-      const targetPath = isLocalhost
-        ? `/${slug}/${correctCategorySlug}/${cleanSlug}`
-        : `/${correctCategorySlug}/${cleanSlug}`;
+      const targetPath =
+        process.env.NODE_ENV === 'development'
+          ? `/${slug}/${correctCategorySlug}/${cleanSlug}`
+          : `/${correctCategorySlug}/${cleanSlug}`;
 
       permanentRedirect(targetPath as `/${string}`);
     }
   }
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  let baseUrl = `${protocol}://${host}`;
 
-  // FIX: Ensure schema URL always points to the production custom domain if it exists
-  if (!isLocalhost && merchant?.custom_domain) {
-    baseUrl = `https://${merchant.custom_domain}`;
-  }
+  const baseUrl = buildStoreUrl(merchant);
 
   // Generate product schema (now handles merging custom schema_markup internally)
   const productSchema = generateProductSchema(

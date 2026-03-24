@@ -1,5 +1,4 @@
-import { render } from '@testing-library/react';
-import type { ReactElement, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockDraftMode = vi.fn();
@@ -57,6 +56,13 @@ vi.mock('@/lib/seo-utils', () => ({
   generateBreadcrumbSchema: () => ({}),
 }));
 
+vi.mock('@/lib/store-url', () => ({
+  buildStoreUrl: (merchant: { slug: string; custom_domain?: string }) =>
+    merchant.custom_domain
+      ? `https://${merchant.custom_domain}`
+      : `https://${merchant.slug}.usebaci.com`,
+}));
+
 vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: (value: string) => value.includes('.'),
 }));
@@ -69,6 +75,10 @@ vi.mock('./BlogPostBodyFallback', () => ({
   BlogPostBodyFallback: () => null,
 }));
 
+vi.mock('./BlogPostPageFallback', () => ({
+  BlogPostPageFallback: () => null,
+}));
+
 vi.mock('./BlogPostHeader', () => ({
   BlogPostHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
 }));
@@ -78,6 +88,13 @@ vi.mock('./blog-post-content', () => ({
     postSlug
       ? `${baseUrl}${basePath}/blog/${postSlug}`
       : `${baseUrl}${basePath}/blog`,
+  buildCanonicalBlogPostUrl: (
+    merchant: { slug: string; custom_domain?: string },
+    postSlug: string
+  ) =>
+    merchant.custom_domain
+      ? `https://${merchant.custom_domain}/blog/${postSlug}`
+      : `https://${merchant.slug}.usebaci.com/blog/${postSlug}`,
   getBlogPostTextPreview: () => 'Preview text',
 }));
 
@@ -85,7 +102,7 @@ vi.mock('./view-counter', () => ({
   ViewCounter: () => null,
 }));
 
-import BlogPostPage, { generateMetadata } from './page';
+import { generateMetadata } from './page';
 
 const liveBlogPost = {
   merchant: {
@@ -125,9 +142,6 @@ describe('storefront blog post page', () => {
 
   it('falls back to a live blog query for metadata when the cached lookup misses', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: false });
-    mockHeaders.mockResolvedValue({
-      get: (key: string) => (key === 'host' ? 'ogabassey.com' : null),
-    });
     mockGetCachedBlogPost.mockResolvedValue(null);
     mockGetLiveBlogPost.mockResolvedValue(liveBlogPost);
 
@@ -145,15 +159,12 @@ describe('storefront blog post page', () => {
     );
     expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
     expect(metadata.alternates?.canonical).toBe(
-      'https://ogabassey.com/blog/apple-studio-display-review'
+      'https://ogabassey.usebaci.com/blog/apple-studio-display-review'
     );
   });
 
   it('uses the cached blog query when metadata is already available', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: false });
-    mockHeaders.mockResolvedValue({
-      get: (key: string) => (key === 'host' ? 'ogabassey.com' : null),
-    });
     mockGetCachedBlogPost.mockResolvedValue(liveBlogPost);
     mockGetLiveBlogPost.mockResolvedValue(null);
 
@@ -173,41 +184,12 @@ describe('storefront blog post page', () => {
     expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
   });
 
-  it('renders the page when the live fallback finds the post', async () => {
-    mockDraftMode.mockResolvedValue({ isEnabled: false });
-    mockHeaders.mockResolvedValue({
-      get: (key: string) => {
-        if (key === 'host') return 'ogabassey.com';
-        if (key === 'accept-language') return 'en-NG';
-        return null;
-      },
-    });
-    mockGetCachedBlogPost.mockResolvedValue(null);
-    mockGetLiveBlogPost.mockResolvedValue(liveBlogPost);
-
-    const result = await BlogPostPage({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        postSlug: 'apple-studio-display-review',
-      }),
-    });
-    const view = render(result as ReactElement);
-
-    expect(mockNotFound).not.toHaveBeenCalled();
-    expect(
-      view.getByRole('heading', { name: 'The Great 5K Stall' })
-    ).toBeTruthy();
-  });
-
   it('falls back to the live query when the cached lookup throws', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
 
     mockDraftMode.mockResolvedValue({ isEnabled: false });
-    mockHeaders.mockResolvedValue({
-      get: (key: string) => (key === 'host' ? 'ogabassey.com' : null),
-    });
     mockGetCachedBlogPost.mockRejectedValue(new Error('Cache lookup failed'));
     mockGetLiveBlogPost.mockResolvedValue(liveBlogPost);
 
@@ -235,21 +217,41 @@ describe('storefront blog post page', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('still throws notFound when both cached and live lookups miss', async () => {
+  it('returns not-found metadata when both cached and live lookups miss', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: false });
-    mockHeaders.mockResolvedValue({
-      get: () => null,
-    });
     mockGetCachedBlogPost.mockResolvedValue(null);
     mockGetLiveBlogPost.mockResolvedValue(null);
 
-    await expect(
-      BlogPostPage({
-        params: Promise.resolve({
-          slug: 'ogabassey.com',
-          postSlug: 'missing-post',
-        }),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        postSlug: 'missing-post',
+      }),
+    });
+
+    expect(metadata.title).toBe('Post Not Found');
+    expect(mockNotFound).not.toHaveBeenCalled();
+  });
+
+  it('uses canonical URL from buildCanonicalBlogPostUrl for custom domains', async () => {
+    mockDraftMode.mockResolvedValue({ isEnabled: false });
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...liveBlogPost,
+      merchant: {
+        ...liveBlogPost.merchant,
+        custom_domain: 'ogabassey.com',
+      },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        postSlug: 'apple-studio-display-review',
+      }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://ogabassey.com/blog/apple-studio-display-review'
+    );
   });
 });

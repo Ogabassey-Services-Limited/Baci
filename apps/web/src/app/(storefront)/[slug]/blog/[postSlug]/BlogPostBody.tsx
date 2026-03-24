@@ -15,6 +15,7 @@ export interface BlogPostBodyProps {
   baseUrl: string;
   content: unknown;
   locale?: string;
+  postUrl?: string;
   post: {
     author_bio?: string | null;
     id: string;
@@ -39,11 +40,12 @@ export async function BlogPostBody({
   content,
   locale,
   post,
+  postUrl,
   relatedPosts,
 }: BlogPostBodyProps) {
   const { isJson, legacyHtml, renderedContent } =
     await resolveBlogPostContent(content);
-  const shareUrl = buildBlogUrl(baseUrl, basePath, post.slug);
+  const shareUrl = postUrl || buildBlogUrl(baseUrl, basePath, post.slug);
 
   return (
     <div className="[content-visibility:auto] [contain-intrinsic-size:1152px_2400px]">
