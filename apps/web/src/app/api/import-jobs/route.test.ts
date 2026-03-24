@@ -7,7 +7,11 @@ vi.mock('next/server', async () => {
 
   return {
     ...actual,
-    after: (callback: () => void) => callback(),
+    after: (callback: () => void | Promise<void>) => {
+      void Promise.resolve()
+        .then(callback)
+        .catch(() => undefined);
+    },
   };
 });
 
@@ -52,6 +56,11 @@ function createRequest(body: FormData) {
     nextUrl: new URL('http://localhost/api/import-jobs'),
     formData: vi.fn().mockResolvedValue(body),
   } as unknown as ActualNextRequest;
+}
+
+async function flushAfterCallbacks() {
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 function createSupabaseMock() {
@@ -274,6 +283,7 @@ describe('POST /api/import-jobs', () => {
         storage_path: 'merchant-1/orders/orders.csv',
       })
     );
+    await flushAfterCallbacks();
     expect(kickoffImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');
   });
 
@@ -395,6 +405,7 @@ describe('POST /api/import-jobs', () => {
     const response = await POST(createRequest(formData) as NextRequest);
 
     expect(response.status).toBe(202);
+    await flushAfterCallbacks();
     await expect(response.json()).resolves.toEqual(
       expect.objectContaining({
         job: expect.objectContaining({
@@ -403,5 +414,6 @@ describe('POST /api/import-jobs', () => {
         }),
       })
     );
+    expect(kickoffImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');
   });
 });

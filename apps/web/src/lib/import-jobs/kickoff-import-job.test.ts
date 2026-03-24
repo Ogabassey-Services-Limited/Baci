@@ -18,11 +18,11 @@ vi.mock('@/lib/import-jobs/process-import-job', () => ({
   processImportJobById: vi.fn(),
 }));
 
+import { triggerImportWorker } from '@/lib/import-jobs/import-job-service';
+import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
+import { processImportJobById } from '@/lib/import-jobs/process-import-job';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
-import { triggerImportWorker } from './import-job-service';
-import { kickoffImportJob } from './kickoff-import-job';
-import { processImportJobById } from './process-import-job';
 
 describe('kickoffImportJob', () => {
   beforeEach(() => {
@@ -72,6 +72,25 @@ describe('kickoffImportJob', () => {
     expect(triggerImportWorker).toHaveBeenCalledWith(
       'https://usebaci.com',
       'job-1'
+    );
+  });
+
+  it('logs when the worker fallback also fails', async () => {
+    vi.mocked(processImportJobById).mockResolvedValue(null);
+    vi.mocked(triggerImportWorker).mockRejectedValue(new Error('boom-worker'));
+
+    await kickoffImportJob('job-1', 'https://usebaci.com');
+
+    expect(triggerImportWorker).toHaveBeenCalledWith(
+      'https://usebaci.com',
+      'job-1'
+    );
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to trigger import worker fallback',
+        jobId: 'job-1',
+        origin: 'https://usebaci.com',
+      })
     );
   });
 });

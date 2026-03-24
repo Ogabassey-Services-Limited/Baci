@@ -7,7 +7,11 @@ vi.mock('next/server', async () => {
 
   return {
     ...actual,
-    after: (callback: () => void) => callback(),
+    after: (callback: () => void | Promise<void>) => {
+      void Promise.resolve()
+        .then(callback)
+        .catch(() => undefined);
+    },
   };
 });
 
@@ -37,6 +41,11 @@ import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { POST } from './route';
 
 const jobId = '00000000-0000-4000-8000-000000000001';
+
+async function flushAfterCallbacks() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
 
 function createRouteContext(): ImportRouteContext {
   const query = {
@@ -226,6 +235,30 @@ describe('POST /api/import-jobs/[jobId]/notify-customers', () => {
       jobId,
       status: 'notify_queued',
     });
+    await flushAfterCallbacks();
+    expect(kickoffImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
+  });
+
+  it('returns 202 even when post-response kickoff rejects', async () => {
+    vi.mocked(getImportJobForMerchant).mockResolvedValue(createMockImportJob());
+    vi.mocked(kickoffImportJob).mockRejectedValue(new Error('boom'));
+
+    const response = await POST(
+      new NextRequest(
+        `http://localhost/api/import-jobs/${jobId}/notify-customers`,
+        {
+          method: 'POST',
+        }
+      ),
+      { params: Promise.resolve({ jobId }) }
+    );
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({
+      jobId,
+      status: 'notify_queued',
+    });
+    await flushAfterCallbacks();
     expect(kickoffImportJob).toHaveBeenCalledWith(jobId, 'http://localhost');
   });
 

@@ -1,7 +1,7 @@
+import { triggerImportWorker } from '@/lib/import-jobs/import-job-service';
+import { processImportJobById } from '@/lib/import-jobs/process-import-job';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
-import { triggerImportWorker } from './import-job-service';
-import { processImportJobById } from './process-import-job';
 
 export async function kickoffImportJob(jobId: string, origin: string) {
   try {
