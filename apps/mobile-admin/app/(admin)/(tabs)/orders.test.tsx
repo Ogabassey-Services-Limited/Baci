@@ -262,7 +262,7 @@ describe('OrdersScreen', () => {
     expect(screen.getByText('Failed to load orders')).toBeTruthy();
     expect(screen.queryByText('No orders found')).toBeNull();
 
-    fireEvent.click(screen.getByText('Try Again'));
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
 
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['merchant'],
@@ -294,7 +294,7 @@ describe('OrdersScreen', () => {
 
     render(<OrdersScreen />);
 
-    fireEvent.click(screen.getByText('Try Again'));
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
 
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['merchant'],
