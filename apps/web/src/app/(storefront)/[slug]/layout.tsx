@@ -1,10 +1,9 @@
 import type { Metadata, Viewport } from 'next';
-import { cookies, headers } from 'next/headers';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
 import { MerchantSlugSync } from '@/components/storefront/merchant-slug-sync';
 import { OgabasseyLayout } from '@/components/storefront/ogabassey/layout';
-import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { PageViewTracker } from '@/components/storefront/page-view-tracker';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { MOBILE_APPS } from '@/config/platform';
@@ -16,42 +15,23 @@ import { getRequestScopedMerchant } from '@/lib/cached-data';
  * Renders the appropriate layout wrapper based on the merchant's template.
  * Currently supports 'ogabassey' template with persistent layout.
  */
-async function StorefrontLayoutRenderer({
+function StorefrontLayoutRenderer({
   merchant,
   children,
-  hideNavigation,
 }: {
   merchant: MerchantData;
-  slug: string; // identifier used
   children: React.ReactNode;
-  hideNavigation: boolean;
 }) {
-  // Read theme cookie server-side for SSR consistency
-  // CRITICAL: Always provide a theme value to avoid hydration mismatch
-  const cookieStore = await cookies();
-  const themeCookie = cookieStore.get('storefront-theme-v2')?.value;
-
-  // Dynamic default based on date to match client-side logic in v2-theme-context.tsx
-  const isDecember = new Date().getMonth() === 11;
-  const defaultTheme: V2ThemeMode = isDecember ? 'santa' : 'standard';
-
-  const initialTheme: V2ThemeMode =
-    themeCookie === 'standard' || themeCookie === 'santa'
-      ? (themeCookie as V2ThemeMode)
-      : defaultTheme;
-
+  // Theme is handled client-side by V2ThemeProvider (reads cookie on mount).
+  // Trade-off: removing server-side theme detection (cookies()) enables PPR static shells
+  // but may cause a single-frame flash when seasonal themes (e.g., santa in December)
+  // differ from the 'standard' default. SnowEffect uses fixed inset-0 pointer-events-none,
+  // so there is zero CLS impact. The flash is imperceptible in practice.
+  // hideNavigation is computed client-side by OgabasseyLayout via usePathname().
   const templateId = merchant.template_id;
 
   if (templateId === 'ogabassey') {
-    return (
-      <OgabasseyLayout
-        merchant={merchant}
-        initialTheme={initialTheme}
-        hideNavigation={hideNavigation}
-      >
-        {children}
-      </OgabasseyLayout>
-    );
+    return <OgabasseyLayout merchant={merchant}>{children}</OgabasseyLayout>;
   }
 
   // Default / other templates: No global layout wrapper (layout handled per page)
@@ -219,16 +199,6 @@ export default async function StorefrontLayout({
       ? 'domain'
       : 'path';
 
-  // Detect key pages where navigation should be hidden (Checkout, Auth, Account Login)
-  const pathname = headersList.get('x-pathname') || '';
-  const isCheckout = pathname.includes('/checkout');
-  const isAuthPage =
-    pathname.includes('/account/login') ||
-    pathname.includes('/track-order') || // Tracking often minimal
-    pathname.includes('/auth/'); // Future proofing
-
-  const hideNavigation = isCheckout || isAuthPage;
-
   // Fetch navigation categories server-side (cached)
   const navigationCategories = await getCachedNavigationCategories(merchant.id);
 
@@ -249,8 +219,6 @@ export default async function StorefrontLayout({
         */}
         <StorefrontLayoutRenderer
           merchant={merchant as unknown as MerchantData}
-          slug={slug}
-          hideNavigation={hideNavigation}
         >
           {children}
         </StorefrontLayoutRenderer>
