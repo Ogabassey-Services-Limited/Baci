@@ -162,11 +162,17 @@ export async function POST(_request: NextRequest) {
         : 'Unknown Customer';
 
       // Upsert order
-      const { data: existingOrder } = await supabase
+      const { data: existingOrder, error: checkError } = await supabase
         .from('jumia_orders')
         .select('id, notification_sent')
+        .eq('merchant_id', merchantId)
         .eq('jumia_order_id', order.id)
-        .single();
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('[Jumia Orders] Check error:', checkError);
+        continue;
+      }
 
       const isNewOrder = !existingOrder;
 
@@ -211,6 +217,7 @@ export async function POST(_request: NextRequest) {
         await supabase
           .from('jumia_orders')
           .update({ notification_sent: true })
+          .eq('merchant_id', merchantId)
           .eq('jumia_order_id', order.id);
       }
     }

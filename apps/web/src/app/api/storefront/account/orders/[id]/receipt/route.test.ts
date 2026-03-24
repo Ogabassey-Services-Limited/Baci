@@ -195,7 +195,16 @@ describe('GET /api/storefront/account/orders/[id]/receipt', () => {
         order_number: 'ORD-1001\r\nSet-Cookie: evil',
       })
     );
-    vi.mocked(generateReceiptBlob).mockReturnValue(new Blob(['receipt']));
+    const fakeBlob = new Blob(['receipt'], { type: 'application/pdf' });
+    (fakeBlob as any).stream = function () {
+      return new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('receipt'));
+          controller.close();
+        },
+      });
+    };
+    vi.mocked(generateReceiptBlob).mockReturnValue(fakeBlob);
 
     const response = await requestReceipt();
 

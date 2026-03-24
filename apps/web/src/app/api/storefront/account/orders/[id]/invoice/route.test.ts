@@ -166,7 +166,20 @@ describe('GET /api/storefront/account/orders/[id]/invoice', () => {
     vi.mocked(getStorefrontAccountDocumentData).mockResolvedValue(
       createDocumentData('ORD-1001\r\nSet-Cookie: evil')
     );
-    vi.mocked(generateInvoiceBlob).mockReturnValue(new Blob(['invoice']));
+    // NextResponse requires a web standard Blob. Some Node environments
+    // have slight incompatibilities with Blob stream types when passed to NextResponse.
+    // However, the test should just mock it to return a basic string/buffer that is valid.
+    const fakeBlob = new Blob(['invoice'], { type: 'application/pdf' });
+    // Patch the stream property to avoid TypeError: object.stream is not a function in undici/Response
+    (fakeBlob as any).stream = function () {
+      return new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('invoice'));
+          controller.close();
+        },
+      });
+    };
+    vi.mocked(generateInvoiceBlob).mockReturnValue(fakeBlob);
 
     const response = await GET(
       new NextRequest(
