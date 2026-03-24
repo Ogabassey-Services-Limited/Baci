@@ -336,6 +336,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
                         e.stopPropagation();
                         handleDelete(file.id, file.name);
                       }}
+                      aria-label={`Delete ${file.name}`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
