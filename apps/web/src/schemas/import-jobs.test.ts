@@ -83,6 +83,7 @@ describe('importJobParamsSchema', () => {
 describe('importJobRowsQuerySchema', () => {
   it('uses defaults when no values provided', () => {
     const result = importJobRowsQuerySchema.parse({});
+    expect(result.filter).toBe('all');
     expect(result.page).toBe(1);
     expect(result.pageSize).toBe(25);
   });
@@ -106,6 +107,14 @@ describe('importJobRowsQuerySchema', () => {
   it('rejects non-positive page', () => {
     const result = importJobRowsQuerySchema.safeParse({ page: '0' });
     expect(result.success).toBe(false);
+  });
+
+  it('accepts supported preview filters', () => {
+    const result = importJobRowsQuerySchema.parse({
+      filter: 'needs_fix',
+    });
+
+    expect(result.filter).toBe('needs_fix');
   });
 });
 
