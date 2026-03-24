@@ -28,11 +28,13 @@ function createRouteContext(): ImportRouteContext {
         const query = {
           select: vi.fn(),
           eq: vi.fn(),
+          in: vi.fn(),
           order: vi.fn(),
           range: vi.fn(),
         };
         query.select.mockReturnValue(query);
         query.eq.mockReturnValue(query);
+        query.in.mockReturnValue(query);
         query.order.mockReturnValue(query);
         query.range.mockResolvedValue({
           data: [
@@ -160,11 +162,13 @@ describe('GET /api/import-jobs/[jobId]/rows', () => {
             const query = {
               select: vi.fn(),
               eq: vi.fn(),
+              in: vi.fn(),
               order: vi.fn(),
               range: vi.fn(),
             };
             query.select.mockReturnValue(query);
             query.eq.mockReturnValue(query);
+            query.in.mockReturnValue(query);
             query.order.mockReturnValue(query);
             query.range.mockResolvedValue({
               data: null,
@@ -196,11 +200,13 @@ describe('GET /api/import-jobs/[jobId]/rows', () => {
             const query = {
               select: vi.fn(),
               eq: vi.fn(),
+              in: vi.fn(),
               order: vi.fn(),
               range: vi.fn(),
             };
             query.select.mockReturnValue(query);
             query.eq.mockReturnValue(query);
+            query.in.mockReturnValue(query);
             query.order.mockReturnValue(query);
             query.range.mockResolvedValue({
               data: [],
@@ -240,6 +246,48 @@ describe('GET /api/import-jobs/[jobId]/rows', () => {
     );
 
     expect(response.status).toBe(200);
+  });
+
+  it('filters preview rows to importable actions when requested', async () => {
+    const routeContext = createRouteContext();
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: routeContext,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost/api/import-jobs/${jobId}/rows?filter=importable&page=1&pageSize=25`
+      ),
+      { params: Promise.resolve({ jobId }) }
+    );
+
+    expect(response.status).toBe(200);
+    const query = vi.mocked(routeContext.supabase.from).mock.results[0]
+      ?.value as {
+      in: ReturnType<typeof vi.fn>;
+    };
+    expect(query.in).toHaveBeenCalledWith('row_status', ['create', 'update']);
+  });
+
+  it('filters preview rows to invalid actions when requested', async () => {
+    const routeContext = createRouteContext();
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: routeContext,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost/api/import-jobs/${jobId}/rows?filter=needs_fix&page=1&pageSize=25`
+      ),
+      { params: Promise.resolve({ jobId }) }
+    );
+
+    expect(response.status).toBe(200);
+    const query = vi.mocked(routeContext.supabase.from).mock.results[0]
+      ?.value as {
+      eq: ReturnType<typeof vi.fn>;
+    };
+    expect(query.eq).toHaveBeenCalledWith('row_status', 'invalid');
   });
 
   it('returns paginated preview rows for the selected job', async () => {
