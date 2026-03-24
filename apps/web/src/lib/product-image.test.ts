@@ -30,12 +30,25 @@ describe('product-image', () => {
     ).toBe('https://cdn.example.com/products/product-1.jpg');
   });
 
+  it('skips blank image entries and returns the first valid url', () => {
+    expect(
+      getPrimaryProductImage([
+        { url: null },
+        { url: '' },
+        '   ',
+        { url: 'https://cdn.example.com/products/product-2.jpg' },
+      ])
+    ).toBe('https://cdn.example.com/products/product-2.jpg');
+  });
+
+  it('returns null when all image entries are blank', () => {
+    expect(getPrimaryProductImage([{ url: null }, { url: '' }, '   '])).toBe(
+      null
+    );
+  });
+
   it('exports stable placeholder image urls', () => {
-    expect(PRODUCT_IMAGE_PLACEHOLDER_URL).toBe(
-      'https://picsum.photos/seed/placeholder/80/80'
-    );
-    expect(PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL).toBe(
-      'https://picsum.photos/seed/placeholder/600/400'
-    );
+    expect(PRODUCT_IMAGE_PLACEHOLDER_URL).toBe('/placeholder.png');
+    expect(PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL).toBe('/placeholder.png');
   });
 });

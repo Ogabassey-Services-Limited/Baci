@@ -1,8 +1,6 @@
-export const PRODUCT_IMAGE_PLACEHOLDER_URL =
-  'https://picsum.photos/seed/placeholder/80/80';
+export const PRODUCT_IMAGE_PLACEHOLDER_URL = '/placeholder.png';
 
-export const PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL =
-  'https://picsum.photos/seed/placeholder/600/400';
+export const PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL = '/placeholder.png';
 
 export function getPrimaryProductImage(
   images: Array<string | { url?: string | null }> | null | undefined
@@ -11,14 +9,21 @@ export function getPrimaryProductImage(
     return null;
   }
 
-  const firstImage = images[0];
+  for (const image of images) {
+    if (typeof image === 'string') {
+      const normalized = image.trim();
+      if (normalized.length > 0) {
+        return normalized;
+      }
+      continue;
+    }
 
-  if (typeof firstImage === 'string') {
-    return firstImage || null;
-  }
-
-  if (firstImage && typeof firstImage === 'object') {
-    return firstImage.url || null;
+    if (image && typeof image === 'object') {
+      const normalized = image.url?.trim();
+      if (normalized) {
+        return normalized;
+      }
+    }
   }
 
   return null;
