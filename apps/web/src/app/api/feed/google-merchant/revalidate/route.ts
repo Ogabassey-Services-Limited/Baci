@@ -1,7 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
-import { isUuid, resolveFeedMerchant } from '@/lib/feed-identifier';
+import {
+  isUuid,
+  MerchantNotFoundError,
+  resolveFeedMerchant,
+} from '@/lib/feed-identifier';
 
 const RevalidateSchema = z
   .object({
@@ -85,8 +89,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ revalidated: true, merchant_id: merchantId });
   } catch (error) {
     console.error('FEED_REVALIDATE_ERROR:', error);
-    const message = (error as Error).message;
-    if (message === 'Merchant not found') {
+    if (error instanceof MerchantNotFoundError) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }

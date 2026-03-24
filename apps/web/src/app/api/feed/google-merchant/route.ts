@@ -2,7 +2,10 @@ import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
-import { resolveFeedMerchant } from '@/lib/feed-identifier';
+import {
+  MerchantNotFoundError,
+  resolveFeedMerchant,
+} from '@/lib/feed-identifier';
 import { createAnonClient } from '@/lib/supabase/anon';
 import {
   type FeedProduct,
@@ -178,8 +181,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('FEED_GENERATION_ERROR:', error);
-    const message = (error as Error).message;
-    if (message === 'Merchant not found') {
+    if (error instanceof MerchantNotFoundError) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }

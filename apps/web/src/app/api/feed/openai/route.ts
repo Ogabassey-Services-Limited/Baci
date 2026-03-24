@@ -1,11 +1,25 @@
 import { gzipSync } from 'node:zlib';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
-import { resolveFeedMerchant } from '@/lib/feed-identifier';
+import {
+  MerchantNotFoundError,
+  resolveFeedMerchant,
+} from '@/lib/feed-identifier';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import { createAnonClient } from '@/lib/supabase/anon';
+
+const _FeedQuerySchema = z
+  .object({
+    merchant_id: z.string().uuid().optional(),
+    merchant_slug: z.string().min(1).optional(),
+    format: z.enum(['jsonl', 'plain']).optional(),
+  })
+  .refine((data) => data.merchant_id || data.merchant_slug, {
+    message: 'merchant_id or merchant_slug parameter is required',
+  });
 
 const UNLIMITED_STOCK_QUANTITY = 9999;
 
@@ -59,16 +73,27 @@ function createCachedFeedDataFetcher(merchantId: string) {
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const merchantIdParam = searchParams.get('merchant_id');
-  const merchantSlug = searchParams.get('merchant_slug');
-  const format = searchParams.get('format'); // 'jsonl' for gzipped, default is plain
+  const rawParams = {
+    merchant_id: searchParams.get('merchant_id') || undefined,
+    merchant_slug: searchParams.get('merchant_slug') || undefined,
+    format: searchParams.get('format') || undefined,
+  };
 
-  if (!merchantIdParam && !merchantSlug) {
+  const parsed = _FeedQuerySchema.safeParse(rawParams);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: 'merchant_id or merchant_slug parameter is required' },
+      {
+        error: parsed.error.errors[0]?.message || 'Invalid query parameters',
+      },
       { status: 400 }
     );
   }
+
+  const {
+    merchant_id: merchantIdParam,
+    merchant_slug: merchantSlug,
+    format,
+  } = parsed.data;
 
   try {
     // Resolve merchant outside cache so tags use canonical UUID
@@ -112,8 +137,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('OPENAI_FEED_GENERATION_ERROR:', error);
-    const message = (error as Error).message;
-    if (message === 'Merchant not found') {
+    if (error instanceof MerchantNotFoundError) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }

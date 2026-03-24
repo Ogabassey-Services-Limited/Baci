@@ -9,14 +9,25 @@ vi.mock('@/lib/cache-revalidation', () => ({
     mockRevalidateMerchantFeed(...args),
 }));
 
-vi.mock('@/lib/feed-identifier', () => ({
-  isUuid: (value: string) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      value
-    ),
-  resolveFeedMerchant: (...args: unknown[]) => mockResolveFeedMerchant(...args),
-}));
+vi.mock('@/lib/feed-identifier', () => {
+  class _MerchantNotFoundError extends Error {
+    constructor(identifier: string) {
+      super(`Merchant not found: ${identifier}`);
+      this.name = 'MerchantNotFoundError';
+    }
+  }
+  return {
+    MerchantNotFoundError: _MerchantNotFoundError,
+    isUuid: (value: string) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        value
+      ),
+    resolveFeedMerchant: (...args: unknown[]) =>
+      mockResolveFeedMerchant(...args),
+  };
+});
 
+import { MerchantNotFoundError } from '@/lib/feed-identifier';
 import { POST } from './route';
 
 function makeRequest(body: unknown, authHeader?: string): NextRequest {
@@ -170,7 +181,9 @@ describe('POST /api/feed/google-merchant/revalidate', () => {
   });
 
   it('returns 404 when slug resolution fails', async () => {
-    mockResolveFeedMerchant.mockRejectedValue(new Error('Merchant not found'));
+    mockResolveFeedMerchant.mockRejectedValue(
+      new MerchantNotFoundError('nonexistent')
+    );
     const res = await POST(
       makeRequest({ identifier: 'nonexistent' }, 'Bearer test-secret')
     );

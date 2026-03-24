@@ -7,9 +7,19 @@ const mockGenerateGoogleMerchantFeed = vi.fn();
 let capturedCacheTags: string[] = [];
 let capturedProductsSelect = '';
 
-vi.mock('@/lib/feed-identifier', () => ({
-  resolveFeedMerchant: (...args: unknown[]) => mockResolveFeedMerchant(...args),
-}));
+vi.mock('@/lib/feed-identifier', () => {
+  class _MerchantNotFoundError extends Error {
+    constructor(identifier: string) {
+      super(`Merchant not found: ${identifier}`);
+      this.name = 'MerchantNotFoundError';
+    }
+  }
+  return {
+    MerchantNotFoundError: _MerchantNotFoundError,
+    resolveFeedMerchant: (...args: unknown[]) =>
+      mockResolveFeedMerchant(...args),
+  };
+});
 
 vi.mock('@/lib/supabase/anon', () => ({
   createAnonClient: () => mockCreateAnonClient(),
@@ -38,6 +48,8 @@ vi.mock('./feed-builder', () => ({
   generateGoogleMerchantFeed: (...args: unknown[]) =>
     mockGenerateGoogleMerchantFeed(...args),
 }));
+
+import { MerchantNotFoundError } from '@/lib/feed-identifier';
 
 type ProductRecord = {
   id: string;
@@ -190,7 +202,9 @@ describe('GET /api/feed/google-merchant', () => {
   });
 
   it('returns 404 when merchant is not found', async () => {
-    mockResolveFeedMerchant.mockRejectedValue(new Error('Merchant not found'));
+    mockResolveFeedMerchant.mockRejectedValue(
+      new MerchantNotFoundError('ogabassey')
+    );
     const { GET } = await import('./route');
 
     const response = await GET(

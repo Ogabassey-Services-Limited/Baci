@@ -7,9 +7,19 @@ const mockCreateAnonClient = vi.fn();
 let capturedCacheTags: string[] = [];
 let capturedProductsSelect = '';
 
-vi.mock('@/lib/feed-identifier', () => ({
-  resolveFeedMerchant: (...args: unknown[]) => mockResolveFeedMerchant(...args),
-}));
+vi.mock('@/lib/feed-identifier', () => {
+  class _MerchantNotFoundError extends Error {
+    constructor(identifier: string) {
+      super(`Merchant not found: ${identifier}`);
+      this.name = 'MerchantNotFoundError';
+    }
+  }
+  return {
+    MerchantNotFoundError: _MerchantNotFoundError,
+    resolveFeedMerchant: (...args: unknown[]) =>
+      mockResolveFeedMerchant(...args),
+  };
+});
 
 vi.mock('@/lib/supabase/anon', () => ({
   createAnonClient: () => mockCreateAnonClient(),
@@ -33,6 +43,8 @@ vi.mock('@/lib/cache-headers', () => ({
     },
   },
 }));
+
+import { MerchantNotFoundError } from '@/lib/feed-identifier';
 
 interface ProductFixture {
   id: string;
@@ -167,7 +179,9 @@ describe('GET /api/feed/openai', () => {
   });
 
   it('returns 404 when merchant is not found', async () => {
-    mockResolveFeedMerchant.mockRejectedValue(new Error('Merchant not found'));
+    mockResolveFeedMerchant.mockRejectedValue(
+      new MerchantNotFoundError('nonexistent')
+    );
     const { GET } = await import('./route');
     const response = await GET(
       makeRequest('/api/feed/openai?merchant_slug=nonexistent')
