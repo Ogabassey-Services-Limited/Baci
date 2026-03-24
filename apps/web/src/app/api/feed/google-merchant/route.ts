@@ -9,6 +9,7 @@ import {
   generateGoogleMerchantFeed,
   type ImageManifestMap,
 } from './feed-builder';
+import { FEED_PRODUCTS_SELECT } from './feed-query';
 import { buildMerchantBaseUrl } from './route-utils';
 
 /**
@@ -60,11 +61,7 @@ function createCachedFeedDataFetcher(
 
       const { data: products, error: productsError } = await supabase
         .from('products')
-        .select(
-          `id, name, description, slug, price, compare_at_price,
-           brand, gtin, mpn, sku, stock, condition, google_product_category, category,
-           weight_value, weight_unit, updated_at`
-        )
+        .select(FEED_PRODUCTS_SELECT)
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
         .order('created_at', { ascending: false })

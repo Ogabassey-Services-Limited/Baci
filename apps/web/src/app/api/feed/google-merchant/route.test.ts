@@ -44,6 +44,7 @@ let merchantResult: { data: MerchantRecord | null; error: unknown };
 let domainResult: { data: { domain: string } | null; error: unknown };
 let productsResult: { data: ProductRecord[]; error: unknown };
 let manifestResult: { data: Record<string, unknown>[]; error: unknown };
+let capturedProductsSelect: string;
 
 function createMockSupabase() {
   return {
@@ -74,15 +75,18 @@ function createMockSupabase() {
 
       if (table === 'products') {
         return {
-          select: () => ({
-            eq: () => ({
+          select: (projection: string) => {
+            capturedProductsSelect = projection;
+            return {
               eq: () => ({
-                order: () => ({
-                  limit: () => Promise.resolve(productsResult),
+                eq: () => ({
+                  order: () => ({
+                    limit: () => Promise.resolve(productsResult),
+                  }),
                 }),
               }),
-            }),
-          }),
+            };
+          },
         };
       }
 
@@ -108,6 +112,7 @@ function makeRequest(path: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.resetModules();
+  capturedProductsSelect = '';
   merchantResult = {
     data: {
       id: 'merchant-1',
@@ -295,5 +300,21 @@ describe('GET /api/feed/google-merchant', () => {
       'https://ogabassey.com',
       expect.any(Object)
     );
+  });
+});
+
+describe('GET /api/feed/google-merchant — products query projection', () => {
+  it('includes stock_quantity in the products select', async () => {
+    const { GET } = await import('./route');
+    await GET(makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey'));
+
+    expect(capturedProductsSelect).toContain('stock_quantity');
+  });
+
+  it('includes manage_stock in the products select', async () => {
+    const { GET } = await import('./route');
+    await GET(makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey'));
+
+    expect(capturedProductsSelect).toContain('manage_stock');
   });
 });
