@@ -8,8 +8,10 @@ import type {
   ImportJobDetail,
   ImportJobListItem,
   ImportJobRowsResponse,
+  MigrationPreviewFilter,
 } from '@/app/dashboard/migrations/migration-types';
 import {
+  decorateImportJob,
   getInitialMigrationSelection,
   isMigrationStatusActive,
   shouldFetchMigrationRows,
@@ -20,6 +22,20 @@ function mergeJobs(jobs: ImportJobListItem[], nextJob: ImportJobListItem) {
   return [nextJob, ...jobs.filter((job) => job.id !== nextJob.id)];
 }
 
+function buildRowsUrl(
+  jobId: string,
+  page: number,
+  filter: MigrationPreviewFilter
+) {
+  const params = new URLSearchParams({
+    filter,
+    page: String(page),
+    pageSize: '25',
+  });
+
+  return `/api/import-jobs/${jobId}/rows?${params.toString()}`;
+}
+
 export default function MigrationsClientPage({
   initialError,
   initialJobs,
@@ -27,87 +43,118 @@ export default function MigrationsClientPage({
   initialError?: string | null;
   initialJobs: ImportJobListItem[];
 }) {
+  const initialSelectedJobId = getInitialMigrationSelection(initialJobs);
   const [entityType, setEntityType] = useState<'orders' | 'products'>('orders');
   const [file, setFile] = useState<File | null>(null);
   const [jobs, setJobs] = useState(initialJobs);
-  const [selectedJobId, setSelectedJobId] = useState(() =>
-    getInitialMigrationSelection(initialJobs)
-  );
-  const [selectedJob, setSelectedJob] = useState<ImportJobDetail | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState(initialSelectedJobId);
+  const [selectedJob, setSelectedJob] = useState<ImportJobDetail | null>(() => {
+    const initialSelectedJob = initialSelectedJobId
+      ? initialJobs.find((job) => job.id === initialSelectedJobId)
+      : null;
+
+    return initialSelectedJob ? decorateImportJob(initialSelectedJob) : null;
+  });
   const [rowsResponse, setRowsResponse] =
     useState<ImportJobRowsResponse | null>(null);
+  const [activeFilter, setActiveFilter] =
+    useState<MigrationPreviewFilter>('all');
   const [loading, setLoading] = useState(false);
+  const [rowsLoading, setRowsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(initialError ?? null);
+  const jobsRef = useRef(jobs);
   const refreshRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    jobsRef.current = jobs;
+  }, [jobs]);
 
   const refreshJob = useEffectEvent(
     async (
       jobId: string,
       options?: {
         background?: boolean;
+        filter?: MigrationPreviewFilter;
+        includeJob?: boolean;
+        includeRows?: boolean;
         page?: number;
       }
     ) => {
       const page = options?.page || 1;
       const background = options?.background ?? false;
+      const includeJob = options?.includeJob ?? true;
+      const includeRows = options?.includeRows ?? true;
+      const filter = options?.filter ?? activeFilter;
       const requestId = ++refreshRequestIdRef.current;
 
-      if (!background) {
+      if (!background && includeJob) {
         setLoading(true);
       }
-
-      setError(null);
+      if (!background && includeRows) {
+        setRowsLoading(true);
+      }
+      if (!background) {
+        setError(null);
+      }
 
       try {
-        const jobResponse = await fetch(`/api/import-jobs/${jobId}`, {
-          cache: 'no-store',
-        });
-        const jobPayload = await jobResponse.json();
+        let nextJob = selectedJobId === jobId ? selectedJob : null;
 
-        if (!jobResponse.ok) {
-          throw new Error(jobPayload.error || 'Failed to load import job');
-        }
-
-        const nextJob = jobPayload.job as ImportJobDetail;
-
-        if (requestId !== refreshRequestIdRef.current) {
-          return;
-        }
-
-        setSelectedJob(nextJob);
-        setJobs((currentJobs) =>
-          mergeJobs(currentJobs, nextJob as ImportJobListItem)
-        );
-
-        if (!shouldFetchMigrationRows(nextJob.status)) {
-          setRowsResponse(null);
-          return;
-        }
-
-        const rowsResponseData = await fetch(
-          `/api/import-jobs/${jobId}/rows?page=${page}&pageSize=25`,
-          {
+        if (includeJob) {
+          const jobResponse = await fetch(`/api/import-jobs/${jobId}`, {
             cache: 'no-store',
-          }
-        );
-        const rowsPayload = (await rowsResponseData.json()) as
-          | ImportJobRowsResponse
-          | { error?: string };
+          });
+          const jobPayload = await jobResponse.json();
 
-        if (!rowsResponseData.ok) {
-          throw new Error(
-            ('error' in rowsPayload && rowsPayload.error) ||
-              'Failed to load import job rows'
+          if (!jobResponse.ok) {
+            throw new Error(jobPayload.error || 'Failed to load import job');
+          }
+
+          nextJob = jobPayload.job as ImportJobDetail;
+
+          if (requestId !== refreshRequestIdRef.current) {
+            return;
+          }
+
+          setSelectedJob(nextJob);
+          setJobs((currentJobs) =>
+            mergeJobs(currentJobs, nextJob as ImportJobListItem)
           );
         }
 
-        if (requestId !== refreshRequestIdRef.current) {
+        if (!nextJob || !shouldFetchMigrationRows(nextJob.status)) {
+          if (requestId === refreshRequestIdRef.current) {
+            setRowsResponse(null);
+          }
           return;
         }
 
-        setRowsResponse(rowsPayload as ImportJobRowsResponse);
+        if (includeRows) {
+          const rowsResponseData = await fetch(
+            buildRowsUrl(jobId, page, filter),
+            {
+              cache: 'no-store',
+            }
+          );
+          const rowsPayload = (await rowsResponseData.json()) as
+            | ImportJobRowsResponse
+            | { error?: string };
+
+          if (!rowsResponseData.ok) {
+            throw new Error(
+              ('error' in rowsPayload && rowsPayload.error) ||
+                'Failed to load import job rows'
+            );
+          }
+
+          if (requestId !== refreshRequestIdRef.current) {
+            return;
+          }
+
+          setRowsResponse(rowsPayload as ImportJobRowsResponse);
+        }
       } catch (jobError) {
         if (requestId !== refreshRequestIdRef.current) {
           return;
@@ -119,8 +166,19 @@ export default function MigrationsClientPage({
             : 'Failed to load import job'
         );
       } finally {
-        if (!background && requestId === refreshRequestIdRef.current) {
+        if (
+          !background &&
+          includeJob &&
+          requestId === refreshRequestIdRef.current
+        ) {
           setLoading(false);
+        }
+        if (
+          !background &&
+          includeRows &&
+          requestId === refreshRequestIdRef.current
+        ) {
+          setRowsLoading(false);
         }
       }
     }
@@ -133,10 +191,46 @@ export default function MigrationsClientPage({
       return;
     }
 
-    setSelectedJob(null);
+    setActiveFilter('all');
     setRowsResponse(null);
-    void refreshJob(selectedJobId);
+
+    const nextSelectedJob =
+      jobsRef.current.find((job) => job.id === selectedJobId) || null;
+    if (nextSelectedJob) {
+      const decoratedJob = decorateImportJob(nextSelectedJob);
+      setSelectedJob(decoratedJob);
+
+      if (isMigrationStatusActive(decoratedJob.status)) {
+        void refreshJob(selectedJobId, {
+          background: true,
+          filter: 'all',
+          includeJob: true,
+          includeRows: true,
+        });
+      } else if (shouldFetchMigrationRows(decoratedJob.status)) {
+        void refreshJob(selectedJobId, {
+          filter: 'all',
+          includeJob: false,
+          includeRows: true,
+        });
+      }
+      return;
+    }
+
+    setSelectedJob(null);
+    void refreshJob(selectedJobId, { filter: 'all' });
   }, [selectedJobId]);
+
+  useEffect(() => {
+    if (!selectedJobId) {
+      return;
+    }
+
+    const nextSelectedJob = jobs.find((job) => job.id === selectedJobId);
+    if (nextSelectedJob) {
+      setSelectedJob(decorateImportJob(nextSelectedJob));
+    }
+  }, [jobs, selectedJobId]);
 
   useEffect(() => {
     if (
@@ -150,12 +244,13 @@ export default function MigrationsClientPage({
     const intervalId = window.setInterval(() => {
       void refreshJob(selectedJobId, {
         background: true,
+        filter: activeFilter,
         page: rowsResponse?.pagination.page || 1,
       });
     }, 5000);
 
     return () => window.clearInterval(intervalId);
-  }, [rowsResponse?.pagination.page, selectedJob, selectedJobId]);
+  }, [activeFilter, rowsResponse?.pagination.page, selectedJob, selectedJobId]);
 
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -187,8 +282,6 @@ export default function MigrationsClientPage({
       setJobs((currentJobs) =>
         mergeJobs(currentJobs, payload.job as ImportJobListItem)
       );
-      setSelectedJob(null);
-      setRowsResponse(null);
       setSelectedJobId(payload.job.id as string);
       setFile(null);
     } catch (uploadError) {
@@ -220,6 +313,7 @@ export default function MigrationsClientPage({
       }
 
       await refreshJob(selectedJobId, {
+        filter: activeFilter,
         page: rowsResponse?.pagination.page || 1,
       });
     } catch (actionError) {
@@ -229,6 +323,25 @@ export default function MigrationsClientPage({
     } finally {
       setActing(false);
     }
+  }
+
+  function handleFilterChange(filter: MigrationPreviewFilter) {
+    setActiveFilter(filter);
+
+    if (!selectedJobId || !selectedJob) {
+      return;
+    }
+
+    if (!shouldFetchMigrationRows(selectedJob.status)) {
+      return;
+    }
+
+    void refreshJob(selectedJobId, {
+      filter,
+      includeJob: false,
+      includeRows: true,
+      page: 1,
+    });
   }
 
   return (
@@ -257,9 +370,11 @@ export default function MigrationsClientPage({
 
         <div className="space-y-6">
           <MigrationJobSummary
+            activeFilter={activeFilter}
             acting={acting}
             error={error}
             loading={loading}
+            onFilterChange={handleFilterChange}
             onCommit={() =>
               queueJobAction(`/api/import-jobs/${selectedJobId}/commit`)
             }
@@ -271,6 +386,7 @@ export default function MigrationsClientPage({
             onRefresh={() =>
               selectedJobId
                 ? refreshJob(selectedJobId, {
+                    filter: activeFilter,
                     page: rowsResponse?.pagination.page || 1,
                   })
                 : Promise.resolve()
@@ -280,9 +396,16 @@ export default function MigrationsClientPage({
 
           <MigrationPreviewTable
             entityType={selectedJob?.entity_type || entityType}
-            loading={loading}
+            filter={activeFilter}
+            loading={rowsLoading}
             onPageChange={(page) =>
-              selectedJobId && void refreshJob(selectedJobId, { page })
+              selectedJobId &&
+              void refreshJob(selectedJobId, {
+                filter: activeFilter,
+                includeJob: false,
+                includeRows: true,
+                page,
+              })
             }
             page={rowsResponse?.pagination.page || 1}
             pageSize={rowsResponse?.pagination.pageSize || 25}

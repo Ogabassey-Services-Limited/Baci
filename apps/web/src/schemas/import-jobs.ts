@@ -22,6 +22,7 @@ export const importJobParamsSchema = z.object({
 });
 
 export const importJobRowsQuerySchema = z.object({
+  filter: z.enum(['all', 'importable', 'needs_fix']).default('all'),
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(25),
 });

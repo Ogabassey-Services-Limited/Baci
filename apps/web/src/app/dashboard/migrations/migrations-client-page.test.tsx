@@ -27,33 +27,12 @@ describe('MigrationsClientPage', () => {
   });
 
   it('loads the first previewable job detail and preview rows on mount', async () => {
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(
-        createJsonResponse({
-          job: {
-            id: 'job-1',
-            entity_type: 'orders',
-            source_platform: 'bumpa',
-            status: 'preview_ready',
-            original_filename: 'orders.csv',
-            processed_rows: 10,
-            total_rows: 10,
-            summary: { validRows: 8, invalidRows: 2, receiptReadyOrders: 3 },
-            error: null,
-            created_at: '2026-03-22T10:00:00.000Z',
-            committed_at: null,
-            notified_at: null,
-            canCommit: true,
-            canNotify: false,
-          },
-        })
-      )
-      .mockResolvedValueOnce(
-        createJsonResponse({
-          rows: [],
-          pagination: { page: 1, pageSize: 25, total: 0 },
-        })
-      );
+    vi.mocked(fetch).mockResolvedValueOnce(
+      createJsonResponse({
+        rows: [],
+        pagination: { page: 1, pageSize: 25, total: 0 },
+      })
+    );
 
     render(
       <MigrationsClientPage
@@ -94,7 +73,13 @@ describe('MigrationsClientPage', () => {
     expect(
       screen.getByRole('status', { name: /^valid rows$/i })
     ).toHaveTextContent('8');
-    expect(fetch).toHaveBeenCalledWith('/api/import-jobs/job-1', {
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/import-jobs/job-1/rows?filter=all&page=1&pageSize=25',
+      {
+        cache: 'no-store',
+      }
+    );
+    expect(fetch).not.toHaveBeenCalledWith('/api/import-jobs/job-1', {
       cache: 'no-store',
     });
   });
@@ -214,11 +199,11 @@ describe('MigrationsClientPage', () => {
             id: 'job-1',
             entity_type: 'orders',
             source_platform: 'bumpa',
-            status: 'preview_ready',
+            status: 'uploaded',
             original_filename: 'orders.csv',
-            processed_rows: 12,
-            total_rows: 12,
-            summary: { validRows: 10, invalidRows: 2, receiptReadyOrders: 5 },
+            processed_rows: 0,
+            total_rows: 0,
+            summary: null,
             error: null,
             created_at: '2026-03-22T10:00:00.000Z',
             committed_at: null,
@@ -227,6 +212,8 @@ describe('MigrationsClientPage', () => {
         ]}
       />
     );
+
+    fireEvent.click(screen.getByRole('button', { name: /orders\.csv/i }));
 
     expect(
       await screen.findByText(/failed to load import job/i)
@@ -289,5 +276,57 @@ describe('MigrationsClientPage', () => {
     expect(
       screen.getByText(/no preview rows available yet/i)
     ).toBeInTheDocument();
+  });
+
+  it('refetches preview rows with the selected summary filter', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      createJsonResponse({
+        rows: [
+          {
+            id: 'row-1',
+            meta: {},
+            normalized_payload: null,
+            row_number: 2,
+            row_status: 'invalid',
+            source_external_id: null,
+            validation_errors: ['Missing order number'],
+          },
+        ],
+        pagination: { page: 1, pageSize: 25, total: 1 },
+      })
+    );
+
+    render(
+      <MigrationsClientPage
+        initialJobs={[
+          {
+            id: 'job-1',
+            entity_type: 'orders',
+            source_platform: 'bumpa',
+            status: 'preview_ready',
+            original_filename: 'orders.csv',
+            processed_rows: 10,
+            total_rows: 10,
+            summary: { validRows: 8, invalidRows: 2, receiptReadyOrders: 3 },
+            error: null,
+            created_at: '2026-03-22T11:00:00.000Z',
+            committed_at: null,
+            notified_at: null,
+          },
+        ]}
+      />
+    );
+
+    await screen.findByText(/selected job/i);
+    vi.mocked(fetch).mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: /needs fix/i }));
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/import-jobs/job-1/rows?filter=needs_fix&page=1&pageSize=25',
+        { cache: 'no-store' }
+      );
+    });
   });
 });

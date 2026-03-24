@@ -1,5 +1,3 @@
-'use client';
-
 interface ImageLoaderParams {
   src: string;
   width: number;
@@ -14,29 +12,19 @@ interface ImageLoaderParams {
  * Vercel's image optimization servers get blocked by Cloudflare WAF/bot
  * protection, causing OPTIMIZED_EXTERNAL_IMAGE_REQUEST_UNAUTHORIZED (502).
  *
- * Since all merchant images are served from CDNs with proper caching,
- * re-optimizing them through Vercel is redundant and adds latency + cost.
+ * With images.loader='custom', this function must return the final URL for
+ * every image. Local public assets therefore keep their direct path instead of
+ * delegating back to /_next/image, which is reserved for Next's default
+ * optimizer pipeline.
  */
-export default function imageLoader({
-  src,
-  width,
-  quality,
-}: ImageLoaderParams): string {
+export default function imageLoader({ src }: ImageLoaderParams): string {
   // External URLs — serve directly from their CDN
   if (src.startsWith('https://') || src.startsWith('http://')) {
     return src;
   }
 
-  // Local public assets bypass the optimizer in development so local previews
-  // do not depend on the dev image proxy.
-  if (
-    process.env.NODE_ENV === 'development' &&
-    src.startsWith('/') &&
-    !src.startsWith('//')
-  ) {
-    return src;
-  }
-
-  const q = quality || 75;
-  return `/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=${q}`;
+  // Local public assets and other app-local paths must resolve directly when a
+  // custom loader is configured. Returning /_next/image here would send them to
+  // a route owned by the default loader, which this app intentionally bypasses.
+  return src;
 }
