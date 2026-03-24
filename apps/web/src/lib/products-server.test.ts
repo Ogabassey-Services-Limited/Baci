@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
+  PRODUCT_IMAGE_PLACEHOLDER_URL,
+} from '@/lib/product-image';
 
 // ---- Mocks ----
 
@@ -525,11 +529,9 @@ describe('getProducts', () => {
     const result = await getProducts(client as never, merchantId, {});
 
     // Assert
-    expect(result.products[0].image).toBe(
-      'https://picsum.photos/seed/placeholder/80/80'
-    );
+    expect(result.products[0].image).toBe(PRODUCT_IMAGE_PLACEHOLDER_URL);
     expect(result.products[0].imageLarge).toBe(
-      'https://picsum.photos/seed/placeholder/600/400'
+      PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL
     );
   });
 
@@ -550,11 +552,9 @@ describe('getProducts', () => {
     const result = await getProducts(client as never, merchantId, {});
 
     // Assert
-    expect(result.products[0].image).toBe(
-      'https://picsum.photos/seed/placeholder/80/80'
-    );
+    expect(result.products[0].image).toBe(PRODUCT_IMAGE_PLACEHOLDER_URL);
     expect(result.products[0].imageLarge).toBe(
-      'https://picsum.photos/seed/placeholder/600/400'
+      PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL
     );
   });
 

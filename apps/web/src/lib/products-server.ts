@@ -1,4 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  getPrimaryProductImage,
+  PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
+  PRODUCT_IMAGE_PLACEHOLDER_URL,
+} from '@/lib/product-image';
 import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
 import {
   getEffectiveStock,
@@ -6,26 +11,6 @@ import {
 } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
-
-function getPrimaryProductImage(
-  images: Array<string | { url?: string | null }> | null | undefined
-): string | null {
-  if (!Array.isArray(images) || images.length === 0) {
-    return null;
-  }
-
-  const firstImage = images[0];
-
-  if (typeof firstImage === 'string') {
-    return firstImage || null;
-  }
-
-  if (firstImage && typeof firstImage === 'object') {
-    return firstImage.url || null;
-  }
-
-  return null;
-}
 
 /**
  * Extract denormalized variant attributes for fast UI rendering
@@ -155,11 +140,10 @@ export async function getProducts(
 
         // Image handling
         image:
-          getPrimaryProductImage(p.images) ||
-          'https://picsum.photos/seed/placeholder/80/80',
+          getPrimaryProductImage(p.images) || PRODUCT_IMAGE_PLACEHOLDER_URL,
         imageLarge:
           getPrimaryProductImage(p.images) ||
-          'https://picsum.photos/seed/placeholder/600/400',
+          PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
         imageHint: p.image_hint || '',
         images: p.images || [],
 

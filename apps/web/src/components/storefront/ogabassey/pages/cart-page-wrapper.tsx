@@ -4,6 +4,10 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
+import {
+  getPrimaryProductImage,
+  PRODUCT_IMAGE_PLACEHOLDER_URL,
+} from '@/lib/product-image';
 import { createClient } from '@/lib/supabase/client';
 import { CartPage } from './cart-page';
 
@@ -75,18 +79,9 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
         // Add each product to cart
         let addedCount = 0;
         for (const product of products) {
-          const firstImage = Array.isArray(product.images)
-            ? product.images[0]
-            : null;
           const resolvedImage =
-            typeof firstImage === 'string'
-              ? firstImage
-              : firstImage &&
-                  typeof firstImage === 'object' &&
-                  'url' in firstImage &&
-                  typeof firstImage.url === 'string'
-                ? firstImage.url
-                : '';
+            getPrimaryProductImage(product.images) ||
+            PRODUCT_IMAGE_PLACEHOLDER_URL;
           // Check if already in cart
           const existsInCart = cart.some(item => item.id === product.id);
           if (!existsInCart) {

@@ -6,6 +6,11 @@ import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import {
+  getPrimaryProductImage,
+  PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
+  PRODUCT_IMAGE_PLACEHOLDER_URL,
+} from '@/lib/product-image';
 import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
 import {
   getEffectiveStock,
@@ -49,26 +54,6 @@ function extractVariantAttributes(variants: Record<string, unknown>[]): {
     storage_options: [...storage],
     available_sizes: [...sizes],
   };
-}
-
-function getPrimaryProductImage(
-  images: Array<string | { url?: string | null }> | null | undefined
-): string | null {
-  if (!Array.isArray(images) || images.length === 0) {
-    return null;
-  }
-
-  const firstImage = images[0];
-
-  if (typeof firstImage === 'string') {
-    return firstImage || null;
-  }
-
-  if (firstImage && typeof firstImage === 'object') {
-    return firstImage.url || null;
-  }
-
-  return null;
 }
 
 function buildProductImagesInput(
@@ -198,11 +183,10 @@ export async function GET(request: NextRequest) {
 
           // Image handling
           image:
-            getPrimaryProductImage(p.images) ||
-            'https://picsum.photos/seed/placeholder/80/80',
+            getPrimaryProductImage(p.images) || PRODUCT_IMAGE_PLACEHOLDER_URL,
           imageLarge:
             getPrimaryProductImage(p.images) ||
-            'https://picsum.photos/seed/placeholder/600/400',
+            PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
           imageHint: p.image_hint || '',
           images: p.images || [],
 
