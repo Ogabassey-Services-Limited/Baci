@@ -436,3 +436,49 @@ describe('generateGoogleMerchantFeed — feed structure', () => {
     expect(xml).toContain('<g:identifier_exists>no</g:identifier_exists>');
   });
 });
+
+// ---------- stock / availability ----------
+describe('generateGoogleMerchantFeed — stock and availability', () => {
+  const defaultManifest: Record<string, FeedImageManifestEntry[]> = {
+    'prod-1': [manifestEntry({ is_primary: true })],
+  };
+
+  it('emits in_stock with quantity 9999 when manage_stock is false', () => {
+    const xml = generateGoogleMerchantFeed(
+      [product({ stock: 0, manage_stock: false })],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+    expect(xml).toContain('<g:availability>in_stock</g:availability>');
+    expect(xml).toContain('<g:quantity>9999</g:quantity>');
+  });
+
+  it('uses stock_quantity over legacy stock when both are present', () => {
+    const xml = generateGoogleMerchantFeed(
+      [product({ stock: 0, stock_quantity: 50 })],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+    expect(xml).toContain('<g:availability>in_stock</g:availability>');
+    expect(xml).toContain('<g:quantity>50</g:quantity>');
+  });
+
+  it('emits out_of_stock when stock is 0 and stock_quantity is undefined', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        product({
+          stock: 0,
+          stock_quantity: undefined,
+          manage_stock: undefined,
+        }),
+      ],
+      merchant(),
+      BASE_URL,
+      defaultManifest
+    );
+    expect(xml).toContain('<g:availability>out_of_stock</g:availability>');
+    expect(xml).toContain('<g:quantity>0</g:quantity>');
+  });
+});
