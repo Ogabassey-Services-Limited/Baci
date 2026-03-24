@@ -214,6 +214,7 @@ describe('OrdersScreen', () => {
     mocks.useOrders.mockReturnValue({
       data: undefined,
       isLoading: false,
+      isFetching: false,
       isFetchingNextPage: false,
       hasNextPage: false,
       fetchNextPage: vi.fn(),
@@ -249,6 +250,7 @@ describe('OrdersScreen', () => {
     mocks.useOrders.mockReturnValue({
       data: undefined,
       isLoading: false,
+      isFetching: false,
       isFetchingNextPage: false,
       hasNextPage: false,
       fetchNextPage: vi.fn(),
@@ -269,6 +271,38 @@ describe('OrdersScreen', () => {
       queryKey: ['orders', 'merchant-1'],
     });
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['order-counts', 'merchant-1'],
+    });
+  });
+
+  it('retries only the merchant query when merchant context is missing', () => {
+    mocks.useMerchant.mockReturnValue({
+      storeUrl: '',
+      merchant: null,
+      isLoading: false,
+      error: null,
+    });
+    mocks.useOrders.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isFetching: false,
+      isFetchingNextPage: false,
+      hasNextPage: false,
+      fetchNextPage: vi.fn(),
+      error: new Error('orders failed'),
+    });
+
+    render(<OrdersScreen />);
+
+    fireEvent.click(screen.getByText('Try Again'));
+
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['merchant'],
+    });
+    expect(mocks.invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: ['orders', 'merchant-1'],
+    });
+    expect(mocks.invalidateQueries).not.toHaveBeenCalledWith({
       queryKey: ['order-counts', 'merchant-1'],
     });
   });

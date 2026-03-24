@@ -289,6 +289,7 @@ export default function OrdersScreen() {
   const {
     data,
     isLoading,
+    isFetching: isOrdersFetching,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
@@ -312,7 +313,7 @@ export default function OrdersScreen() {
     ordersError: ordersError instanceof Error ? ordersError : null,
     ordersLength: allOrders.length,
   });
-  const isRefreshing = listViewState.status === 'loading';
+  const isRefreshing = isMerchantLoading || isOrdersFetching;
 
   // Fetch order counts
   const { data: counts } = useOrderCounts();
@@ -640,6 +641,8 @@ export default function OrdersScreen() {
       queryKey: ['order-counts', merchant.id],
     });
   };
+  const retryAccessibilityLabel = 'Retry';
+  const retryAccessibilityHint = 'Retry the request';
 
   const handleDateFilterSelect = (
     filter: string | { start: Date | null; end: Date | null } | null
@@ -1007,9 +1010,9 @@ export default function OrdersScreen() {
                   { backgroundColor: colors.primary },
                 ]}
                 onPress={handleRetry}
-                accessibilityLabel="Retry loading orders"
+                accessibilityLabel={retryAccessibilityLabel}
                 accessibilityRole="button"
-                accessibilityHint="Retries the merchant and orders queries"
+                accessibilityHint={retryAccessibilityHint}
               >
                 <Text
                   style={[
