@@ -96,5 +96,7 @@ describe('product column constants', () => {
 
     expect(webTokens).not.toContain('min_order_quantity');
     expect(webTokens).not.toContain('is_active');
+    expect(webTokens).not.toContain('image_small');
+    expect(webTokens).not.toContain('image_large');
   });
 });
