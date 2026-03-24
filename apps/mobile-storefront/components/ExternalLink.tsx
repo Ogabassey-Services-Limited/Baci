@@ -9,6 +9,7 @@ export function ExternalLink(
   return (
     <Link
       target="_blank"
+      rel="noopener noreferrer"
       {...props}
       href={props.href as import('expo-router').Href}
       onPress={(e) => {
