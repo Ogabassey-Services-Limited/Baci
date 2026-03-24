@@ -47,7 +47,7 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
         const { data: products, error } = await supabase
           .from('products')
           .select(
-            'id, name, description, status, price, manage_stock, stock, brand, gtin, mpn, merchant_id, images, image:image_small, imageLarge:image_large, imageHint:image_hint'
+            'id, name, description, status, price, manage_stock, stock, brand, gtin, mpn, merchant_id, images, imageHint:image_hint'
           )
           .eq('merchant_id', merchantId)
           .in('id', ids)
@@ -75,10 +75,29 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
         // Add each product to cart
         let addedCount = 0;
         for (const product of products) {
+          const firstImage = Array.isArray(product.images)
+            ? product.images[0]
+            : null;
+          const resolvedImage =
+            typeof firstImage === 'string'
+              ? firstImage
+              : firstImage &&
+                  typeof firstImage === 'object' &&
+                  'url' in firstImage &&
+                  typeof firstImage.url === 'string'
+                ? firstImage.url
+                : '';
           // Check if already in cart
           const existsInCart = cart.some(item => item.id === product.id);
           if (!existsInCart) {
-            addToCart(product, 1);
+            addToCart(
+              {
+                ...product,
+                image: resolvedImage,
+                imageLarge: resolvedImage,
+              },
+              1
+            );
             addedCount++;
           }
         }

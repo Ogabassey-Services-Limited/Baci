@@ -28,6 +28,26 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { formatZodErrors, updateProductSchema } from '@/schemas/products';
 
+function getPrimaryProductImage(
+  images: Array<string | { url?: string | null }> | null | undefined
+): string | null {
+  if (!Array.isArray(images) || images.length === 0) {
+    return null;
+  }
+
+  const firstImage = images[0];
+
+  if (typeof firstImage === 'string') {
+    return firstImage || null;
+  }
+
+  if (firstImage && typeof firstImage === 'object') {
+    return firstImage.url || null;
+  }
+
+  return null;
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -104,12 +124,10 @@ export async function GET(
       minimum_order_quantity: 1,
 
       image:
-        product.images?.[0]?.url ||
-        product.image_small ||
+        getPrimaryProductImage(product.images) ||
         'https://picsum.photos/seed/placeholder/80/80',
       imageLarge:
-        product.images?.[0]?.url ||
-        product.image_large ||
+        getPrimaryProductImage(product.images) ||
         'https://picsum.photos/seed/placeholder/600/400',
       imageHint: product.image_hint || '',
       images: product.images || [],
@@ -306,11 +324,22 @@ export async function PUT(
     // Image fields
     if (body.images !== undefined) {
       updates.images = body.images;
-      updates.image_small = body.images?.[0]?.url;
-      updates.image_large = body.images?.[0]?.url;
     }
-    if (body.image !== undefined) updates.image_small = body.image;
-    if (body.imageLarge !== undefined) updates.image_large = body.imageLarge;
+    if (body.image !== undefined || body.imageLarge !== undefined) {
+      const primaryImage = body.image ?? body.imageLarge;
+      updates.images = primaryImage
+        ? [
+            {
+              url: primaryImage,
+              alt:
+                (typeof updates.name === 'string'
+                  ? updates.name
+                  : existingProduct.name) || 'Product image',
+              order: 0,
+            },
+          ]
+        : [];
+    }
     if (body.imageHint !== undefined) updates.image_hint = body.imageHint;
 
     // Physical attributes

@@ -1045,7 +1045,7 @@ export async function getCachedCategoryPageData(
     let query = supabase
       .from('products')
       .select(
-        'id, name, slug, description, price, compare_at_price, cost_price, status, stock, stock_quantity, manage_stock, low_stock_threshold, condition, brand, category, color, images, image_small, image_large, image_hint, gtin, mpn, created_at, updated_at'
+        'id, name, slug, description, price, compare_at_price, cost_price, status, stock, stock_quantity, manage_stock, low_stock_threshold, condition, brand, category, color, images, image_hint, gtin, mpn, created_at, updated_at'
       )
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
