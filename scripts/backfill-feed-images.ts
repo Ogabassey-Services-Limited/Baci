@@ -395,7 +395,7 @@ async function main() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${cronSecret}`,
         },
-        body: JSON.stringify({ identifier: merchantSlug }),
+        body: JSON.stringify({ merchant_id: merchantId }),
         signal: AbortSignal.timeout(10_000),
       });
       if (res.ok) {

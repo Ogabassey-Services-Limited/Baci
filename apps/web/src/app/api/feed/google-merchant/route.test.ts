@@ -1,34 +1,35 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockCreateClient = vi.fn();
+const mockResolveFeedMerchant = vi.fn();
+const mockCreateAnonClient = vi.fn();
 const mockGenerateGoogleMerchantFeed = vi.fn();
+let capturedCacheTags: string[] = [];
+let capturedProductsSelect = '';
 
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: (...args: unknown[]) => mockCreateClient(...args),
+vi.mock('@/lib/feed-identifier', () => ({
+  resolveFeedMerchant: (...args: unknown[]) => mockResolveFeedMerchant(...args),
 }));
 
-vi.mock('@/env', () => ({
-  getSupabaseUrl: () => 'https://test.supabase.co',
-  getSupabaseAnonKey: () => 'test-anon-key',
+vi.mock('@/lib/supabase/anon', () => ({
+  createAnonClient: () => mockCreateAnonClient(),
 }));
 
 vi.mock('next/cache', () => ({
-  unstable_cache: (fn: () => Promise<unknown>) => fn,
+  unstable_cache: (
+    fn: () => Promise<unknown>,
+    _keys: string[],
+    opts: { tags: string[] }
+  ) => {
+    capturedCacheTags = opts.tags;
+    return fn;
+  },
 }));
 
 vi.mock('./feed-builder', () => ({
   generateGoogleMerchantFeed: (...args: unknown[]) =>
     mockGenerateGoogleMerchantFeed(...args),
 }));
-
-type MerchantRecord = {
-  id: string;
-  business_name: string;
-  country: string;
-  payout_currency: string;
-  slug: string;
-};
 
 type ProductRecord = {
   id: string;
@@ -40,25 +41,13 @@ type ProductRecord = {
   updated_at: string;
 };
 
-let merchantResult: { data: MerchantRecord | null; error: unknown };
 let domainResult: { data: { domain: string } | null; error: unknown };
 let productsResult: { data: ProductRecord[]; error: unknown };
 let manifestResult: { data: Record<string, unknown>[]; error: unknown };
-let capturedProductsSelect: string;
 
 function createMockSupabase() {
   return {
     from: (table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: () => Promise.resolve(merchantResult),
-            }),
-          }),
-        };
-      }
-
       if (table === 'domains') {
         return {
           select: () => ({
@@ -113,16 +102,16 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.resetModules();
   capturedProductsSelect = '';
-  merchantResult = {
-    data: {
-      id: 'merchant-1',
-      business_name: 'Ogabassey',
-      country: 'NG',
-      payout_currency: 'NGN',
-      slug: 'ogabassey',
-    },
-    error: null,
-  };
+  capturedCacheTags = [];
+
+  mockResolveFeedMerchant.mockResolvedValue({
+    id: 'merchant-1',
+    business_name: 'Ogabassey',
+    country: 'NG',
+    payout_currency: 'NGN',
+    slug: 'ogabassey',
+  });
+
   domainResult = {
     data: { domain: 'ogabassey.com' },
     error: null,
@@ -155,7 +144,7 @@ beforeEach(() => {
     ],
     error: null,
   };
-  mockCreateClient.mockReturnValue(createMockSupabase());
+  mockCreateAnonClient.mockReturnValue(createMockSupabase());
   mockGenerateGoogleMerchantFeed.mockReturnValue('<rss />');
 });
 
@@ -193,10 +182,7 @@ describe('GET /api/feed/google-merchant', () => {
   });
 
   it('returns 404 when merchant is not found', async () => {
-    merchantResult = {
-      data: null,
-      error: null,
-    };
+    mockResolveFeedMerchant.mockRejectedValue(new Error('Merchant not found'));
     const { GET } = await import('./route');
 
     const response = await GET(
@@ -270,6 +256,10 @@ describe('GET /api/feed/google-merchant', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(mockResolveFeedMerchant).toHaveBeenCalledWith(
+      '00000000-0000-4000-8000-000000000001',
+      false
+    );
     expect(mockGenerateGoogleMerchantFeed).toHaveBeenCalledWith(
       productsResult.data,
       expect.objectContaining({
@@ -316,5 +306,29 @@ describe('GET /api/feed/google-merchant — products query projection', () => {
     await GET(makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey'));
 
     expect(capturedProductsSelect).toContain('manage_stock');
+  });
+});
+
+describe('GET /api/feed/google-merchant — cache tag canonicalization', () => {
+  it('tags cache with merchant UUID, not slug, when request uses slug', async () => {
+    const { GET } = await import('./route');
+
+    await GET(makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey'));
+
+    // resolveFeedMerchant returns id: 'merchant-1', so cache tag should use that
+    expect(capturedCacheTags).toContain('merchant-feed-merchant-1');
+    expect(capturedCacheTags).not.toContain('merchant-feed-ogabassey');
+  });
+
+  it('tags cache with merchant UUID when request uses merchant_id', async () => {
+    const { GET } = await import('./route');
+
+    await GET(
+      makeRequest(
+        '/api/feed/google-merchant?merchant_id=00000000-0000-4000-8000-000000000001'
+      )
+    );
+
+    expect(capturedCacheTags).toContain('merchant-feed-merchant-1');
   });
 });

@@ -1,9 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
+import { resolveFeedMerchant } from '@/lib/feed-identifier';
+import { createAnonClient } from '@/lib/supabase/anon';
 import {
   type FeedProduct,
   generateGoogleMerchantFeed,
@@ -11,13 +11,6 @@ import {
 } from './feed-builder';
 import { FEED_PRODUCTS_SELECT } from './feed-query';
 import { buildMerchantBaseUrl } from './route-utils';
-
-/**
- * Module-level anon-key client is intentional: this is a public feed endpoint
- * hit by Google's crawler — no auth cookies exist. Using `@/lib/supabase/server`
- * (which reads cookies) would be incorrect here.
- */
-const supabase = createClient(getSupabaseUrl(), getSupabaseAnonKey());
 
 const _FeedQuerySchema = z
   .object({
@@ -28,28 +21,22 @@ const _FeedQuerySchema = z
     message: 'merchant_id or merchant_slug parameter is required',
   });
 
-function createCachedFeedDataFetcher(
-  merchantIdentifier: string,
-  isBySlug: boolean
-) {
+/**
+ * Cached data fetcher keyed by canonical merchant UUID.
+ * Merchant resolution happens outside the cache boundary so that
+ * cache tags always use merchant.id (never slugs).
+ * Primary domain lookup stays inside the cache — it depends on merchant.id
+ * and is cheap to cache alongside products.
+ */
+function createCachedFeedDataFetcher(merchantId: string, merchantSlug: string) {
   return unstable_cache(
     async () => {
-      const merchantQuery = supabase
-        .from('merchants')
-        .select('id, business_name, country, payout_currency, slug');
-
-      const { data: merchant, error: merchantError } = isBySlug
-        ? await merchantQuery.eq('slug', merchantIdentifier).single()
-        : await merchantQuery.eq('id', merchantIdentifier).single();
-
-      if (merchantError || !merchant) {
-        throw new Error('Merchant not found');
-      }
+      const supabase = createAnonClient();
 
       const { data: primaryDomain, error: domainError } = await supabase
         .from('domains')
         .select('domain')
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', merchantId)
         .eq('status', 'active')
         .eq('is_primary', true)
         .maybeSingle();
@@ -62,7 +49,7 @@ function createCachedFeedDataFetcher(
       const { data: products, error: productsError } = await supabase
         .from('products')
         .select(FEED_PRODUCTS_SELECT)
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', merchantId)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(10000);
@@ -78,7 +65,7 @@ function createCachedFeedDataFetcher(
         .select(
           'product_id, verified_url, verified_format, status, is_primary, position'
         )
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', merchantId)
         .eq('status', 'verified');
 
       if (manifestError) {
@@ -104,29 +91,23 @@ function createCachedFeedDataFetcher(
         imageManifest[row.product_id].push({
           verified_url: row.verified_url,
           verified_format: row.verified_format,
-          status: 'verified' as const, // Query filters .eq('status', 'verified')
+          status: 'verified' as const,
           is_primary: row.is_primary,
           position: row.position,
         });
       }
 
       return {
-        merchant: {
-          ...merchant,
-          custom_domain: primaryDomain?.domain ?? null,
-        },
+        custom_domain: primaryDomain?.domain ?? null,
+        slug: merchantSlug,
         products: (products || []) as FeedProduct[],
         imageManifest,
       };
     },
-    ['google-merchant-feed', isBySlug ? 'slug' : 'id', merchantIdentifier],
+    ['google-merchant-feed', merchantId],
     {
       revalidate: 3600,
-      tags: [
-        'google-merchant-feed',
-        'products',
-        `merchant-feed-${merchantIdentifier}`,
-      ],
+      tags: ['google-merchant-feed', 'products', `merchant-feed-${merchantId}`],
     }
   );
 }
@@ -158,17 +139,28 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { merchant_id: merchantId, merchant_slug: merchantSlug } = parsed.data;
+  const { merchant_id: merchantIdParam, merchant_slug: merchantSlug } =
+    parsed.data;
 
   try {
-    const identifier = merchantId || merchantSlug || '';
-    const getCachedFeedData = createCachedFeedDataFetcher(
-      identifier,
-      !!merchantSlug
-    );
-    const { merchant, products, imageManifest } = await getCachedFeedData();
+    // Resolve merchant outside cache so tags use canonical UUID
+    const identifier = merchantIdParam || merchantSlug || '';
+    const isBySlug = !merchantIdParam && !!merchantSlug;
+    const resolvedMerchant = await resolveFeedMerchant(identifier, isBySlug);
 
-    const baseUrl = buildMerchantBaseUrl(merchant);
+    const getCachedFeedData = createCachedFeedDataFetcher(
+      resolvedMerchant.id,
+      resolvedMerchant.slug
+    );
+    const { custom_domain, slug, products, imageManifest } =
+      await getCachedFeedData();
+
+    const merchant = {
+      ...resolvedMerchant,
+      custom_domain,
+    };
+
+    const baseUrl = buildMerchantBaseUrl({ slug, custom_domain });
 
     const feedXml = generateGoogleMerchantFeed(
       products,
