@@ -2,10 +2,8 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockResolveFeedMerchant = vi.fn();
-const mockCreateAnonClient = vi.fn();
 const mockGenerateGoogleMerchantFeed = vi.fn();
-let capturedCacheTags: string[] = [];
-let capturedProductsSelect = '';
+const mockGetCachedGoogleMerchantFeedData = vi.fn();
 
 vi.mock('@/lib/feed-identifier', () => {
   class _MerchantNotFoundError extends Error {
@@ -21,19 +19,9 @@ vi.mock('@/lib/feed-identifier', () => {
   };
 });
 
-vi.mock('@/lib/supabase/anon', () => ({
-  createAnonClient: () => mockCreateAnonClient(),
-}));
-
-vi.mock('next/cache', () => ({
-  unstable_cache: (
-    fn: () => Promise<unknown>,
-    _keys: string[],
-    opts: { tags: string[] }
-  ) => {
-    capturedCacheTags = opts.tags;
-    return fn;
-  },
+vi.mock('./feed-data', () => ({
+  getCachedGoogleMerchantFeedData: (...args: unknown[]) =>
+    mockGetCachedGoogleMerchantFeedData(...args),
 }));
 
 vi.mock('@/lib/cache-headers', () => ({
@@ -51,69 +39,6 @@ vi.mock('./feed-builder', () => ({
 
 import { MerchantNotFoundError } from '@/lib/feed-identifier';
 
-type ProductRecord = {
-  id: string;
-  name: string;
-  description: string;
-  slug: string;
-  price: number;
-  stock: number;
-  updated_at: string;
-};
-
-let domainResult: { data: { domain: string } | null; error: unknown };
-let productsResult: { data: ProductRecord[]; error: unknown };
-let manifestResult: { data: Record<string, unknown>[]; error: unknown };
-
-function createMockSupabase() {
-  return {
-    from: (table: string) => {
-      if (table === 'domains') {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                eq: () => ({
-                  maybeSingle: () => Promise.resolve(domainResult),
-                }),
-              }),
-            }),
-          }),
-        };
-      }
-
-      if (table === 'products') {
-        return {
-          select: (projection: string) => {
-            capturedProductsSelect = projection;
-            return {
-              eq: () => ({
-                eq: () => ({
-                  order: () => ({
-                    limit: () => Promise.resolve(productsResult),
-                  }),
-                }),
-              }),
-            };
-          },
-        };
-      }
-
-      if (table === 'product_feed_images') {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => Promise.resolve(manifestResult),
-            }),
-          }),
-        };
-      }
-
-      throw new Error(`Unexpected table: ${table}`);
-    },
-  };
-}
-
 function makeRequest(path: string) {
   return new NextRequest(`https://example.com${path}`);
 }
@@ -121,8 +46,6 @@ function makeRequest(path: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.resetModules();
-  capturedProductsSelect = '';
-  capturedCacheTags = [];
 
   mockResolveFeedMerchant.mockResolvedValue({
     id: 'merchant-1',
@@ -132,12 +55,10 @@ beforeEach(() => {
     slug: 'ogabassey',
   });
 
-  domainResult = {
-    data: { domain: 'ogabassey.com' },
-    error: null,
-  };
-  productsResult = {
-    data: [
+  mockGetCachedGoogleMerchantFeedData.mockResolvedValue({
+    custom_domain: 'ogabassey.com',
+    slug: 'ogabassey',
+    products: [
       {
         id: 'product-1',
         name: 'Phone',
@@ -148,23 +69,20 @@ beforeEach(() => {
         updated_at: '2026-03-17T00:00:00.000Z',
       },
     ],
-    error: null,
-  };
-  manifestResult = {
-    data: [
-      {
-        product_id: 'product-1',
-        verified_url:
-          'https://cdn.ogabassey.com/core-assets/products/phone.jpg',
-        verified_format: 'jpeg',
-        status: 'verified',
-        is_primary: true,
-        position: 0,
-      },
-    ],
-    error: null,
-  };
-  mockCreateAnonClient.mockReturnValue(createMockSupabase());
+    imageManifest: {
+      'product-1': [
+        {
+          verified_url:
+            'https://cdn.ogabassey.com/core-assets/products/phone.jpg',
+          verified_format: 'jpeg',
+          status: 'verified',
+          is_primary: true,
+          position: 0,
+        },
+      ],
+    },
+  });
+
   mockGenerateGoogleMerchantFeed.mockReturnValue('<rss />');
 });
 
@@ -181,7 +99,23 @@ describe('GET /api/feed/google-merchant', () => {
     );
   });
 
-  it('uses the primary domain from domains for canonical product links', async () => {
+  it('returns 400 when both merchant_id and merchant_slug are provided', async () => {
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      makeRequest(
+        '/api/feed/google-merchant?merchant_id=00000000-0000-4000-8000-000000000001&merchant_slug=ogabassey'
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe(
+      'Provide exactly one of merchant_id or merchant_slug, not both'
+    );
+  });
+
+  it('uses the primary domain from feed data for canonical product links', async () => {
     const { GET } = await import('./route');
 
     const response = await GET(
@@ -190,7 +124,7 @@ describe('GET /api/feed/google-merchant', () => {
 
     expect(response.status).toBe(200);
     expect(mockGenerateGoogleMerchantFeed).toHaveBeenCalledWith(
-      productsResult.data,
+      expect.any(Array),
       expect.objectContaining({
         id: 'merchant-1',
         slug: 'ogabassey',
@@ -217,45 +151,10 @@ describe('GET /api/feed/google-merchant', () => {
     expect(mockGenerateGoogleMerchantFeed).not.toHaveBeenCalled();
   });
 
-  it('returns 500 when fetching the primary domain fails', async () => {
-    domainResult = {
-      data: null,
-      error: { message: 'boom' },
-    };
-    const { GET } = await import('./route');
-
-    const response = await GET(
-      makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey')
+  it('returns 500 when feed data fetch fails', async () => {
+    mockGetCachedGoogleMerchantFeedData.mockRejectedValue(
+      new Error('Failed to fetch products')
     );
-    const body = await response.json();
-
-    expect(response.status).toBe(500);
-    expect(body.error).toBe('Failed to generate feed');
-    expect(mockGenerateGoogleMerchantFeed).not.toHaveBeenCalled();
-  });
-
-  it('returns 500 when fetching products fails', async () => {
-    productsResult = {
-      data: [],
-      error: { message: 'boom' },
-    };
-    const { GET } = await import('./route');
-
-    const response = await GET(
-      makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey')
-    );
-    const body = await response.json();
-
-    expect(response.status).toBe(500);
-    expect(body.error).toBe('Failed to generate feed');
-    expect(mockGenerateGoogleMerchantFeed).not.toHaveBeenCalled();
-  });
-
-  it('returns 500 when fetching the image manifest fails', async () => {
-    manifestResult = {
-      data: [],
-      error: { message: 'boom' },
-    };
     const { GET } = await import('./route');
 
     const response = await GET(
@@ -282,23 +181,26 @@ describe('GET /api/feed/google-merchant', () => {
       '00000000-0000-4000-8000-000000000001',
       false
     );
-    expect(mockGenerateGoogleMerchantFeed).toHaveBeenCalledWith(
-      productsResult.data,
-      expect.objectContaining({
-        id: 'merchant-1',
-        slug: 'ogabassey',
-        custom_domain: 'ogabassey.com',
-      }),
-      'https://ogabassey.com',
-      expect.any(Object)
+  });
+
+  it('passes merchant id and slug to cached data fetcher', async () => {
+    const { GET } = await import('./route');
+
+    await GET(makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey'));
+
+    expect(mockGetCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
+      'merchant-1',
+      'ogabassey'
     );
   });
 
   it('passes an empty product list through to the feed builder', async () => {
-    productsResult = {
-      data: [],
-      error: null,
-    };
+    mockGetCachedGoogleMerchantFeedData.mockResolvedValue({
+      custom_domain: 'ogabassey.com',
+      slug: 'ogabassey',
+      products: [],
+      imageManifest: {},
+    });
     const { GET } = await import('./route');
 
     const response = await GET(
@@ -312,49 +214,5 @@ describe('GET /api/feed/google-merchant', () => {
       'https://ogabassey.com',
       expect.any(Object)
     );
-  });
-});
-
-describe('GET /api/feed/google-merchant — products query projection', () => {
-  it('includes stock_quantity in the products select', async () => {
-    const { GET } = await import('./route');
-    await GET(makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey'));
-
-    expect(capturedProductsSelect).toContain('stock_quantity');
-  });
-
-  it('includes manage_stock in the products select', async () => {
-    const { GET } = await import('./route');
-    await GET(makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey'));
-
-    expect(capturedProductsSelect).toContain('manage_stock');
-  });
-});
-
-describe('GET /api/feed/google-merchant — cache tag canonicalization', () => {
-  it('tags cache with merchant UUID, not slug, when request uses slug', async () => {
-    const { GET } = await import('./route');
-
-    const response = await GET(
-      makeRequest('/api/feed/google-merchant?merchant_slug=ogabassey')
-    );
-
-    expect(response.status).toBe(200);
-    // resolveFeedMerchant returns id: 'merchant-1', so cache tag should use that
-    expect(capturedCacheTags).toContain('merchant-feed-merchant-1');
-    expect(capturedCacheTags).not.toContain('merchant-feed-ogabassey');
-  });
-
-  it('tags cache with merchant UUID when request uses merchant_id', async () => {
-    const { GET } = await import('./route');
-
-    const response = await GET(
-      makeRequest(
-        '/api/feed/google-merchant?merchant_id=00000000-0000-4000-8000-000000000001'
-      )
-    );
-
-    expect(response.status).toBe(200);
-    expect(capturedCacheTags).toContain('merchant-feed-merchant-1');
   });
 });
