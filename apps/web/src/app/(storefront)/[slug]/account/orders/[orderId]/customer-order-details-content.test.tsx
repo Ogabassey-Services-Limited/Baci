@@ -32,6 +32,7 @@ const baseOrder: StorefrontOrder = {
       product_id: 'prod-1',
       name: 'iPhone 16',
       product_name: 'iPhone 16',
+      variant_name: 'Blue / 128GB',
       quantity: 1,
       price: 100000,
     },
@@ -96,5 +97,6 @@ describe('CustomerOrderDetailsContent', () => {
       'href',
       '/ogabassey/products/prod-1'
     );
+    expect(screen.getByText('Blue / 128GB')).toBeInTheDocument();
   });
 });

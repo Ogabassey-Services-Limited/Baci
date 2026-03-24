@@ -64,6 +64,7 @@ describe('OrderCardDetails', () => {
     expect(screen.getByText('Item Details')).toBeInTheDocument();
     expect(screen.queryByText('TRK-001')).not.toBeInTheDocument();
     expect(screen.queryByText('Topship')).not.toBeInTheDocument();
+    expect(screen.queryByText('Default Variant')).not.toBeInTheDocument();
   });
 
   it('renders a detail link for non-jumia orders', () => {
