@@ -1,0 +1,218 @@
+import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+/* ------------------------------------------------------------------ */
+/*  Mocks — vi.hoisted ensures variables exist before vi.mock hoisting */
+/* ------------------------------------------------------------------ */
+
+const { mockSelect, mockSupabase, mockForIntegration, mockGetAllProducts } =
+  vi.hoisted(() => {
+    const mockSelect = vi.fn();
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: mockSelect,
+              }),
+            }),
+            upsert: () => ({
+              select: vi.fn().mockResolvedValue({
+                data: [{ id: 'new-1', sku: 'SKU-A' }],
+                error: null,
+              }),
+            }),
+          };
+        }
+        if (table === 'jumia_product_mappings') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: vi.fn().mockResolvedValue({ data: [], error: null }),
+              }),
+            }),
+            upsert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        return {};
+      }),
+    };
+    const mockForIntegration = vi.fn();
+    const mockGetAllProducts = vi.fn();
+    return {
+      mockSelect,
+      mockSupabase,
+      mockForIntegration,
+      mockGetAllProducts,
+    };
+  });
+
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
+}));
+
+vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: vi.fn().mockResolvedValue({
+    user: { id: 'u1' },
+    error: null,
+    supabase: mockSupabase,
+  }),
+  getMerchantIdForApiUser: vi
+    .fn()
+    .mockResolvedValue('00000000-0000-0000-0000-000000000001'),
+}));
+
+vi.mock('@/lib/jumia/catalog', () => ({
+  getAllProducts: (...a: unknown[]) => mockGetAllProducts(...a),
+}));
+
+vi.mock('@/lib/jumia/client', async () => {
+  const { JumiaApiError: RealJumiaApiError } = await vi.importActual<
+    typeof import('@/lib/jumia/helpers')
+  >('@/lib/jumia/helpers');
+  return {
+    JumiaClient: {
+      forIntegration: (...a: unknown[]) => mockForIntegration(...a),
+    },
+    JumiaApiError: RealJumiaApiError,
+  };
+});
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+    trace: vi.fn(),
+  },
+}));
+vi.mock('@/lib/sanitize-core', () => ({
+  sanitizeText: (v: string) => v,
+  stripHtmlTags: (v: string) => v,
+}));
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+const INT_ID = '00000000-0000-0000-0000-000000000099';
+
+function makePostRequest(body: unknown) {
+  return new NextRequest(
+    'http://localhost/api/marketplace/jumia/products/import',
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' },
+    }
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tests                                                              */
+/* ------------------------------------------------------------------ */
+
+import { POST } from './route';
+
+describe('Products Import POST', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('returns 403 on CSRF failure', async () => {
+    const { checkCsrfProtection } = await import('@/lib/csrf');
+    (checkCsrfProtection as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      valid: false,
+      response: null,
+    });
+    const res = await POST(makePostRequest({ integrationId: INT_ID }));
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 401 when unauthenticated', async () => {
+    const { authenticateApiRequest } = await import('@/lib/api-auth');
+    (authenticateApiRequest as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
+    const res = await POST(makePostRequest({ integrationId: INT_ID }));
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 400 for invalid input', async () => {
+    const res = await POST(makePostRequest({ integrationId: 'bad-uuid' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 when JumiaClient.forIntegration throws 404', async () => {
+    const { JumiaApiError } = await import('@/lib/jumia/client');
+    mockForIntegration.mockRejectedValue(new JumiaApiError(404, 'Not found'));
+    const res = await POST(makePostRequest({ integrationId: INT_ID }));
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when JumiaClient.forIntegration throws 403', async () => {
+    const { JumiaApiError } = await import('@/lib/jumia/client');
+    mockForIntegration.mockRejectedValue(new JumiaApiError(403, 'Forbidden'));
+    const res = await POST(makePostRequest({ integrationId: INT_ID }));
+    expect(res.status).toBe(403);
+  });
+
+  it('returns summary with zero totals when Jumia has no products', async () => {
+    mockForIntegration.mockResolvedValue({ shopId: 'shop1' });
+    mockGetAllProducts.mockResolvedValue([]);
+    const res = await POST(makePostRequest({ integrationId: INT_ID }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    expect(json.summary.total).toBe(0);
+  });
+
+  it('returns 500 when Supabase product query fails', async () => {
+    mockForIntegration.mockResolvedValue({ shopId: 'shop1' });
+    mockGetAllProducts.mockResolvedValue([
+      {
+        id: 'jp-1',
+        name: 'Jumia Product',
+        description: 'Desc',
+        images: [{ url: 'https://img.com/1.jpg' }],
+        variations: [{ sellerSku: 'SKU-A', globalPrice: { value: 3000 } }],
+      },
+    ]);
+    mockSelect.mockResolvedValue({
+      data: null,
+      error: { message: 'DB error' },
+    });
+    const res = await POST(makePostRequest({ integrationId: INT_ID }));
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBeDefined();
+  });
+
+  it('returns JSON summary with created/linked counts on success', async () => {
+    mockForIntegration.mockResolvedValue({ shopId: 'shop1' });
+    mockGetAllProducts.mockResolvedValue([
+      {
+        id: 'jp-1',
+        name: 'Jumia Product',
+        description: 'Desc',
+        images: [{ url: 'https://img.com/1.jpg' }],
+        variations: [{ sellerSku: 'SKU-A', globalPrice: { value: 3000 } }],
+      },
+    ]);
+    mockSelect.mockResolvedValue({ data: [], error: null });
+    const res = await POST(makePostRequest({ integrationId: INT_ID }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    expect(json.summary).toBeDefined();
+    expect(typeof json.summary.total).toBe('number');
+    expect(typeof json.summary.created).toBe('number');
+    expect(typeof json.summary.errors).toBe('number');
+    // Verify warnings counters are present
+    expect(json.warnings).toBeDefined();
+    expect(typeof json.warnings.skippedNoSku).toBe('number');
+    expect(typeof json.warnings.missingPrice).toBe('number');
+  });
+});

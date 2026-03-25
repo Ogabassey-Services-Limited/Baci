@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
+  PRODUCT_IMAGE_PLACEHOLDER_URL,
+} from '@/lib/product-image';
 
 // ---- Mocks ----
 
 vi.mock('@/lib/product-queries', () => ({
   PRODUCT_WITH_VARIANTS_QUERY:
-    'id, name, description, price, stock, stock_quantity, status, manage_stock, sku, slug, compare_at_price, cost_price, low_stock_threshold, brand, category, color, has_variants, images, image_small, image_large, image_hint, weight_value, weight_unit, dimensions, taxable, tax_code, condition, condition_detail, meta_title, meta_description, keywords, canonical_url, schema_markup, gtin, mpn, google_product_category, created_at, updated_at, merchant_id, fulfillment_details, variants:product_variants(id, product_id, merchant_id, attributes, price_override, cost_price, stock_quantity, sku, primary_image, images, created_at, updated_at)',
+    'id, name, description, price, stock, stock_quantity, status, manage_stock, sku, slug, compare_at_price, cost_price, low_stock_threshold, brand, category, color, has_variants, images, image_hint, weight_value, weight_unit, dimensions, taxable, tax_code, condition, condition_detail, meta_title, meta_description, keywords, canonical_url, schema_markup, gtin, mpn, google_product_category, created_at, updated_at, merchant_id, fulfillment_details, variants:product_variants(id, product_id, merchant_id, attributes, price_override, cost_price, stock_quantity, sku, primary_image, images, created_at, updated_at)',
 }));
 
 vi.mock('@/lib/sanitize-core', () => ({
@@ -89,8 +93,6 @@ function makeRawProduct(overrides: Record<string, unknown> = {}) {
     images: [
       { url: 'https://cdn.example.com/img.jpg', alt: 'product', order: 0 },
     ],
-    image_small: 'https://cdn.example.com/img-sm.jpg',
-    image_large: 'https://cdn.example.com/img-lg.jpg',
     image_hint: 'electronics',
     weight_value: '0.5',
     weight_unit: 'kg',
@@ -512,12 +514,10 @@ describe('getProducts', () => {
     );
   });
 
-  it('falls back to image_small/image_large when images is empty', async () => {
+  it('falls back to placeholder when image URLs are blank', async () => {
     // Arrange
     const raw = makeRawProduct({
-      images: [],
-      image_small: 'https://cdn.example.com/sm.jpg',
-      image_large: 'https://cdn.example.com/lg.jpg',
+      images: [{ url: '', alt: 'broken', order: 0 }],
     });
     const { client } = createMockSupabase({
       data: [raw],
@@ -529,9 +529,9 @@ describe('getProducts', () => {
     const result = await getProducts(client as never, merchantId, {});
 
     // Assert
-    expect(result.products[0].image).toBe('https://cdn.example.com/sm.jpg');
+    expect(result.products[0].image).toBe(PRODUCT_IMAGE_PLACEHOLDER_URL);
     expect(result.products[0].imageLarge).toBe(
-      'https://cdn.example.com/lg.jpg'
+      PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL
     );
   });
 
@@ -552,11 +552,9 @@ describe('getProducts', () => {
     const result = await getProducts(client as never, merchantId, {});
 
     // Assert
-    expect(result.products[0].image).toBe(
-      'https://picsum.photos/seed/placeholder/80/80'
-    );
+    expect(result.products[0].image).toBe(PRODUCT_IMAGE_PLACEHOLDER_URL);
     expect(result.products[0].imageLarge).toBe(
-      'https://picsum.photos/seed/placeholder/600/400'
+      PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL
     );
   });
 

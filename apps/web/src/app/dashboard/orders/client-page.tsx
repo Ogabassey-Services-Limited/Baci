@@ -63,7 +63,56 @@ export default function OrdersClientPage({
   const [selectedJumiaOrder, setSelectedJumiaOrder] = useState<Order | null>(
     null
   );
+  const [jumiaIntegrationId, setJumiaIntegrationId] = useState<string | null>(
+    null
+  );
+  const [jumiaConnectLoading, setJumiaConnectLoading] = useState(true);
+  const [jumiaConnectError, setJumiaConnectError] = useState<string | null>(
+    null
+  );
   const isHydrated = useRef(false);
+
+  // Fetch active Jumia integration ID for order management
+  useEffect(() => {
+    if (!merchant?.id) {
+      setJumiaIntegrationId(null);
+      setJumiaConnectError(null);
+      setJumiaConnectLoading(false);
+      return;
+    }
+    setJumiaIntegrationId(null);
+    setJumiaConnectLoading(true);
+    setJumiaConnectError(null);
+    const controller = new AbortController();
+    fetch('/api/marketplace/jumia/connect', { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch Jumia integrations');
+        return res.json();
+      })
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        if (data.integrations?.[0]?.id) {
+          setJumiaIntegrationId(data.integrations[0].id);
+        }
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        console.error('Failed to fetch Jumia integration:', err);
+        if (!controller.signal.aborted) {
+          setJumiaConnectError(
+            err instanceof Error
+              ? err.message
+              : 'Failed to fetch Jumia integrations'
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setJumiaConnectLoading(false);
+        }
+      });
+    return () => controller.abort();
+  }, [merchant?.id]);
 
   useEffect(() => {
     if (
@@ -349,7 +398,34 @@ export default function OrdersClientPage({
         onSelectAll={handleSelectAll}
         onSelectOrder={handleSelectOrder}
         onStatusUpdate={handleUpdateStatus}
-        onManageJumia={setSelectedJumiaOrder}
+        jumiaConnectLoading={jumiaConnectLoading}
+        onManageJumia={(order) => {
+          if (jumiaConnectLoading) {
+            toast({
+              title: 'Loading Jumia integration',
+              description: 'Fetching integration details...',
+            });
+            return;
+          }
+          if (jumiaConnectError) {
+            toast({
+              title: 'Jumia Connection Failed',
+              description: `${jumiaConnectError}. Please refresh to retry.`,
+              variant: 'destructive',
+            });
+            return;
+          }
+          if (!jumiaIntegrationId) {
+            toast({
+              title: 'Jumia Not Connected',
+              description:
+                'No active Jumia integration found. Connect your Jumia account first.',
+              variant: 'destructive',
+            });
+            return;
+          }
+          setSelectedJumiaOrder(order);
+        }}
         onMarkPaid={() => handleMarkSelectedPaymentStatus('Paid')}
         onMarkUnpaid={() => handleMarkSelectedPaymentStatus('Unpaid')}
         onFulfillOrders={handleFulfillSelectedOrders}
@@ -357,12 +433,12 @@ export default function OrdersClientPage({
         formatCurrency={formatCurrency}
       />
 
-      {selectedJumiaOrder && (
+      {selectedJumiaOrder && jumiaIntegrationId && (
         <OrderManagerModal
-          isOpen={!!selectedJumiaOrder}
           onClose={() => setSelectedJumiaOrder(null)}
           orderId={selectedJumiaOrder.id}
           orderNumber={selectedJumiaOrder.orderNumber}
+          integrationId={jumiaIntegrationId}
         />
       )}
     </div>

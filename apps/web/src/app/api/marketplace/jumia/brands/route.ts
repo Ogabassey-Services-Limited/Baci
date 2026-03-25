@@ -3,6 +3,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { getAllBrands } from '@/lib/jumia/catalog';
 import { JumiaClient } from '@/lib/jumia/client';
 import { logger } from '@/lib/logger';
 import { jumiaMerchantIdQuerySchema } from '@/schemas/marketplace';
@@ -39,15 +40,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const jumia = await JumiaClient.forMerchant(merchantId, {
-      supabase: auth.supabase,
-    });
-    if (!jumia) {
-      return NextResponse.json([]);
+    const jumiaClient = await JumiaClient.forMerchant(
+      auth.supabase,
+      merchantId
+    );
+    if (!jumiaClient) {
+      logger.warn({
+        message: 'No active Jumia integration found for merchant',
+        merchantId,
+      });
+      return NextResponse.json({ brands: [] });
     }
 
-    const brands = await jumia.getBrands();
-    return NextResponse.json(brands);
+    const brands = await getAllBrands(jumiaClient);
+    return NextResponse.json({ brands });
   } catch (error) {
     if (
       error instanceof Error &&

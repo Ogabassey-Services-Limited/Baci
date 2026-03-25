@@ -1,0 +1,325 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  exchangeJumiaCode,
+  getJumiaAuthUrl,
+  getJumiaBaseUrl,
+  getJumiaEnvironment,
+  JumiaApiError,
+  TOKEN_REFRESH_BUFFER_MS,
+} from '@/lib/jumia/helpers';
+
+describe('helpers', () => {
+  let originalEnv: string | undefined;
+
+  beforeEach(() => {
+    originalEnv = process.env.JUMIA_ENVIRONMENT;
+  });
+
+  afterEach(() => {
+    if (originalEnv === undefined) {
+      delete process.env.JUMIA_ENVIRONMENT;
+    } else {
+      process.env.JUMIA_ENVIRONMENT = originalEnv;
+    }
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  describe('getJumiaEnvironment', () => {
+    it('returns production by default', () => {
+      delete process.env.JUMIA_ENVIRONMENT;
+      expect(getJumiaEnvironment()).toBe('production');
+    });
+
+    it('returns staging when env var is staging', () => {
+      process.env.JUMIA_ENVIRONMENT = 'staging';
+      expect(getJumiaEnvironment()).toBe('staging');
+    });
+
+    it('returns production for unknown values', () => {
+      process.env.JUMIA_ENVIRONMENT = 'unknown';
+      expect(getJumiaEnvironment()).toBe('production');
+    });
+  });
+
+  describe('getJumiaBaseUrl', () => {
+    it('returns production URL by default', () => {
+      delete process.env.JUMIA_ENVIRONMENT;
+      expect(getJumiaBaseUrl()).toBe('https://vendor-api.jumia.com');
+    });
+
+    it('returns staging URL when passed staging', () => {
+      expect(getJumiaBaseUrl('staging')).toBe(
+        'https://vendor-api-staging.jumia.com'
+      );
+    });
+
+    it('returns production URL when passed production', () => {
+      expect(getJumiaBaseUrl('production')).toBe(
+        'https://vendor-api.jumia.com'
+      );
+    });
+  });
+
+  describe('TOKEN_REFRESH_BUFFER_MS', () => {
+    it('is 5 minutes in milliseconds', () => {
+      expect(TOKEN_REFRESH_BUFFER_MS).toBe(5 * 60 * 1000);
+    });
+  });
+
+  describe('getJumiaAuthUrl', () => {
+    it('builds correct authorization URL for production', () => {
+      const url = getJumiaAuthUrl({
+        clientId: 'test-client-id',
+        redirectUri: 'https://example.com/callback',
+        state: 'abc123',
+      });
+
+      expect(url).toContain('https://vendor-api.jumia.com/login?');
+      expect(url).toContain('client_id=test-client-id');
+      expect(url).toContain(
+        `redirect_uri=${encodeURIComponent('https://example.com/callback')}`
+      );
+      expect(url).toContain('response_type=code');
+      expect(url).toContain('scope=openid');
+      expect(url).toContain('prompt=login');
+      expect(url).toContain('state=abc123');
+    });
+
+    it('uses staging base URL when environment is staging', () => {
+      const url = getJumiaAuthUrl({
+        clientId: 'test',
+        redirectUri: 'https://example.com/cb',
+        state: 'xyz',
+        environment: 'staging',
+      });
+
+      expect(url).toContain('https://vendor-api-staging.jumia.com/login?');
+    });
+  });
+
+  describe('JumiaApiError', () => {
+    it('creates error with status and message', () => {
+      const err = new JumiaApiError(404, 'Not found');
+      expect(err.status).toBe(404);
+      expect(err.message).toBe('Jumia API Error (404): Not found');
+      expect(err.name).toBe('JumiaApiError');
+      expect(err).toBeInstanceOf(Error);
+    });
+
+    it('includes details when provided', () => {
+      const details = { code: 'INVALID_TOKEN' };
+      const err = new JumiaApiError(401, 'Unauthorized', details);
+      expect(err.details).toEqual(details);
+    });
+  });
+
+  describe('exchangeJumiaCode', () => {
+    it('exchanges code for tokens successfully', async () => {
+      const mockResponse = {
+        access_token: 'new-access-token',
+        expires_in: 3600,
+        refresh_token: 'new-refresh-token',
+        refresh_expires_in: 86400,
+        token_type: 'Bearer',
+      };
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        })
+      );
+
+      const result = await exchangeJumiaCode({
+        code: 'auth-code-123',
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+        redirectUri: 'https://example.com/callback',
+      });
+
+      expect(result.access_token).toBe('new-access-token');
+      expect(result.expires_in).toBe(3600);
+      expect(result.refresh_token).toBe('new-refresh-token');
+
+      const fetchCall = vi.mocked(fetch).mock.calls[0];
+      expect(fetchCall[0]).toBe('https://vendor-api.jumia.com/token');
+      expect(fetchCall[1]).toBeDefined();
+      expect(fetchCall[1]?.method).toBe('POST');
+
+      // Verify the POST body contains expected OAuth params.
+      // The body may be a string or URLSearchParams depending on the implementation,
+      // so we normalise to URLSearchParams before asserting.
+      const rawBody = fetchCall[1]?.body;
+      expect(rawBody).toBeDefined();
+      const params =
+        rawBody instanceof URLSearchParams
+          ? rawBody
+          : new URLSearchParams(rawBody as string);
+      expect(params.get('grant_type')).toBe('authorization_code');
+      expect(params.get('code')).toBe('auth-code-123');
+      expect(params.get('client_id')).toBe('client-id');
+      expect(params.get('client_secret')).toBe('client-secret');
+      expect(params.get('redirect_uri')).toBe('https://example.com/callback');
+    });
+
+    it('throws JumiaApiError on failed exchange', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 400,
+          text: () => Promise.resolve('invalid_grant'),
+        })
+      );
+
+      await expect(
+        exchangeJumiaCode({
+          code: 'bad-code',
+          clientId: 'client-id',
+          clientSecret: 'client-secret',
+          redirectUri: 'https://example.com/callback',
+        })
+      ).rejects.toThrow(JumiaApiError);
+    });
+
+    it('includes response body text as details on failed exchange', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 401,
+          text: () => Promise.resolve('{"error":"invalid_client"}'),
+        })
+      );
+
+      await expect(
+        exchangeJumiaCode({
+          code: 'bad-code',
+          clientId: 'client-id',
+          clientSecret: 'client-secret',
+          redirectUri: 'https://example.com/callback',
+        })
+      ).rejects.toMatchObject({
+        status: 401,
+        details: '{"error":"invalid_client"}',
+      });
+    });
+
+    it('falls back to "Unknown error" when response.text() rejects', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 500,
+          text: () => Promise.reject(new Error('stream broken')),
+        })
+      );
+
+      await expect(
+        exchangeJumiaCode({
+          code: 'code',
+          clientId: 'id',
+          clientSecret: 'secret',
+          redirectUri: 'https://example.com/cb',
+        })
+      ).rejects.toMatchObject({
+        status: 500,
+        details: 'Unknown error',
+      });
+    });
+
+    it('uses staging URL when environment is staging', async () => {
+      const mockResponse = {
+        access_token: 'token',
+        expires_in: 3600,
+        refresh_token: 'refresh',
+        refresh_expires_in: 86400,
+        token_type: 'Bearer',
+      };
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        })
+      );
+
+      await exchangeJumiaCode({
+        code: 'code',
+        clientId: 'id',
+        clientSecret: 'secret',
+        redirectUri: 'https://example.com/cb',
+        environment: 'staging',
+      });
+
+      const fetchCall = vi.mocked(fetch).mock.calls[0];
+      expect(fetchCall[0]).toBe('https://vendor-api-staging.jumia.com/token');
+    });
+
+    it('throws JumiaApiError when fetch rejects with a network error', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+      );
+
+      await expect(
+        exchangeJumiaCode({
+          code: 'code',
+          clientId: 'id',
+          clientSecret: 'secret',
+          redirectUri: 'https://example.com/cb',
+        })
+      ).rejects.toThrow(JumiaApiError);
+    });
+
+    it('throws JumiaApiError with 408 status when request times out', async () => {
+      const abortError = new DOMException(
+        'The operation was aborted.',
+        'AbortError'
+      );
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abortError));
+
+      await expect(
+        exchangeJumiaCode({
+          code: 'code',
+          clientId: 'id',
+          clientSecret: 'secret',
+          redirectUri: 'https://example.com/cb',
+        })
+      ).rejects.toSatisfy((err: unknown) => {
+        return err instanceof JumiaApiError && err.status === 408;
+      });
+    });
+
+    it('passes an AbortSignal to fetch', async () => {
+      const mockResponse = {
+        access_token: 'token',
+        expires_in: 3600,
+        refresh_token: 'refresh',
+        refresh_expires_in: 86400,
+        token_type: 'Bearer',
+      };
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve(mockResponse),
+        })
+      );
+
+      await exchangeJumiaCode({
+        code: 'code',
+        clientId: 'id',
+        clientSecret: 'secret',
+        redirectUri: 'https://example.com/cb',
+      });
+
+      const fetchCall = vi.mocked(fetch).mock.calls[0];
+      expect(fetchCall[1]?.signal).toBeInstanceOf(AbortSignal);
+    });
+  });
+});

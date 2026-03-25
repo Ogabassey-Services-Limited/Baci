@@ -3,6 +3,7 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
+import { getAllCategories } from '@/lib/jumia/catalog';
 import { JumiaClient } from '@/lib/jumia/client';
 import { logger } from '@/lib/logger';
 import { jumiaMerchantIdQuerySchema } from '@/schemas/marketplace';
@@ -38,16 +39,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const jumia = await JumiaClient.forMerchant(merchantId, {
-      supabase: auth.supabase,
-    });
-    if (!jumia) {
-      // Return empty if not connected, or error? Empty is safer for UI
-      return NextResponse.json([]);
+    const jumiaClient = await JumiaClient.forMerchant(
+      auth.supabase,
+      merchantId
+    );
+    if (!jumiaClient) {
+      return NextResponse.json({ categories: [], configured: false });
     }
 
-    const categories = await jumia.getCategoryTree();
-    return NextResponse.json(categories);
+    const categories = await getAllCategories(jumiaClient);
+    return NextResponse.json({ categories, configured: true });
   } catch (error) {
     if (
       error instanceof Error &&

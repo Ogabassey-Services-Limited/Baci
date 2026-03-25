@@ -43,6 +43,11 @@ const serverSchema = z.object({
   CRON_SECRET: z.string().optional(),
   IMPORT_JOB_WORKER_SECRET: z.string().optional(),
   IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
+
+  // Jumia Marketplace
+  JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('production'),
+  JUMIA_CLIENT_ID: z.string().optional(),
+  JUMIA_CLIENT_SECRET: z.string().optional(),
 });
 
 const clientSchema = z.object({
@@ -114,6 +119,9 @@ const getEnv = () => {
         CRON_SECRET: process.env.CRON_SECRET,
         IMPORT_JOB_WORKER_SECRET: process.env.IMPORT_JOB_WORKER_SECRET,
         IMPORT_JOB_WORKER_BATCH_SIZE: process.env.IMPORT_JOB_WORKER_BATCH_SIZE,
+        JUMIA_ENVIRONMENT: process.env.JUMIA_ENVIRONMENT,
+        JUMIA_CLIENT_ID: process.env.JUMIA_CLIENT_ID,
+        JUMIA_CLIENT_SECRET: process.env.JUMIA_CLIENT_SECRET,
       }
     : {};
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, ChevronsUpDown } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Command,
@@ -19,15 +19,17 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
-export interface JumiaBrand {
-  BrandId?: string | number;
-  Name: string;
+export interface JumiaBrandItem {
+  code: number;
+  name: string;
 }
+
+type FetchStatus = 'idle' | 'loading' | 'success' | 'error';
 
 interface BrandSelectorProps {
   merchantId: string;
-  value?: string; // Brand Name (Jumia often uses name as key or ID)
-  onSelect: (brandName: string) => void;
+  value?: JumiaBrandItem | null;
+  onSelect: (brand: JumiaBrandItem) => void;
 }
 
 export function JumiaBrandSelector({
@@ -36,25 +38,77 @@ export function JumiaBrandSelector({
   onSelect,
 }: BrandSelectorProps) {
   const [open, setOpen] = useState(false);
-  const [brands, setBrands] = useState<JumiaBrand[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [brands, setBrands] = useState<JumiaBrandItem[]>([]);
+  const [fetchStatus, setFetchStatus] = useState<FetchStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const fetchBrands = (currentMerchantId: string) => {
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setFetchStatus('loading');
+    setErrorMessage(null);
+    fetch(
+      `/api/marketplace/jumia/brands?merchantId=${encodeURIComponent(currentMerchantId)}`,
+      { signal: controller.signal }
+    )
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load brands');
+        return res.json();
+      })
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        const items = Array.isArray(data.brands)
+          ? data.brands.filter(
+              (b: unknown): b is JumiaBrandItem =>
+                typeof b === 'object' &&
+                b !== null &&
+                typeof (b as Record<string, unknown>).code === 'number' &&
+                typeof (b as Record<string, unknown>).name === 'string'
+            )
+          : [];
+        setBrands(items);
+        setFetchStatus('success');
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        if (controller.signal.aborted) return;
+        setErrorMessage(
+          err instanceof Error ? err.message : 'Failed to load brands'
+        );
+        setFetchStatus('error');
+      });
+  };
+
+  // Reset brands when merchantId changes to avoid stale data
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
-    if (open && brands.length === 0) {
-      setLoading(true);
-      fetch(`/api/marketplace/jumia/brands?merchantId=${merchantId}`)
-        .then((res) => res.json())
-        .then((data) => {
-          // Ensure uniq
-          setBrands(data || []);
-        })
-        .catch((err) => console.error(err))
-        .finally(() => setLoading(false));
+    setBrands([]);
+    setErrorMessage(null);
+    setFetchStatus('idle');
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, [merchantId]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004); error excluded to prevent duplicate fetch on Retry
+  useEffect(() => {
+    if (open && fetchStatus === 'idle') {
+      fetchBrands(merchantId);
     }
-  }, [open, merchantId, brands.length]);
+  }, [open, merchantId, fetchStatus]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setFetchStatus('idle');
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -62,7 +116,7 @@ export function JumiaBrandSelector({
           aria-expanded={open}
           className="w-full justify-between"
         >
-          {value || 'Select Jumia Brand...'}
+          {value?.name || 'Select Jumia Brand...'}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -70,31 +124,48 @@ export function JumiaBrandSelector({
         <Command>
           <CommandInput placeholder="Search brand..." />
           <CommandList>
-            <CommandEmpty>No brand found.</CommandEmpty>
-            {loading ? (
+            <CommandEmpty>
+              {fetchStatus === 'error' ? (
+                <div className="p-4 text-sm text-center">
+                  <p className="text-destructive">{errorMessage}</p>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => fetchBrands(merchantId)}
+                    className="mt-2 text-sm underline"
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : (
+                'No brand found.'
+              )}
+            </CommandEmpty>
+            {fetchStatus === 'loading' ? (
               <div className="p-4 text-sm text-center text-muted-foreground">
                 Loading brands...
               </div>
             ) : (
               <CommandGroup>
                 <ScrollArea className="h-72">
-                  {brands.map((brand, idx) => (
+                  {brands.map((brand) => (
                     <CommandItem
-                      key={`${brand.Name}-${idx}`}
-                      value={brand.Name}
-                      onSelect={(_currentValue) => {
-                        onSelect(brand.Name); // Use original case if possible, but Command forces lowercase val.
-                        // Better to just pass brand.Name
+                      key={brand.code}
+                      value={brand.name}
+                      onSelect={() => {
+                        onSelect(brand);
                         setOpen(false);
                       }}
                     >
                       <Check
                         className={cn(
                           'mr-2 h-4 w-4',
-                          value === brand.Name ? 'opacity-100' : 'opacity-0'
+                          value?.code === brand.code
+                            ? 'opacity-100'
+                            : 'opacity-0'
                         )}
                       />
-                      {brand.Name}
+                      {brand.name}
                     </CommandItem>
                   ))}
                 </ScrollArea>

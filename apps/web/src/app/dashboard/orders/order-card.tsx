@@ -40,6 +40,7 @@ export function OrderCard({
   onSelect,
   onStatusUpdate,
   onManageJumia,
+  jumiaConnectLoading,
   formatCurrency,
 }: {
   order: Order;
@@ -47,6 +48,7 @@ export function OrderCard({
   onSelect: (orderNumber: string, isSelected: boolean) => void;
   onStatusUpdate: (orderNumber: string, newStatus: ShippingStatus) => void;
   onManageJumia?: (order: Order) => void;
+  jumiaConnectLoading?: boolean;
   formatCurrency: (amount: number) => string;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -246,13 +248,14 @@ export function OrderCard({
                 size="sm"
                 variant="outline"
                 className="border-orange-200 hover:bg-orange-50 hover:text-orange-600 dark:border-orange-500/30 dark:hover:bg-orange-500/10"
+                disabled={jumiaConnectLoading}
                 onClick={(event) => {
                   event.stopPropagation();
                   onManageJumia?.(order);
                 }}
                 data-no-card-toggle="true"
               >
-                Manage Jumia Order
+                {jumiaConnectLoading ? 'Loading...' : 'Manage Jumia Order'}
               </Button>
             ) : (
               <StatusDropdown order={order} onStatusUpdate={onStatusUpdate} />

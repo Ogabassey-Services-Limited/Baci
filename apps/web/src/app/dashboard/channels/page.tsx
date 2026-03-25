@@ -33,7 +33,9 @@ export default function ChannelsPage() {
   const [integrations, setIntegrations] = useState<JumiaIntegration[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [syncingIntegrationId, setSyncingIntegrationId] = useState<
+    string | null
+  >(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [refreshToken, setRefreshToken] = useState('');
   const [shopName, setShopName] = useState('');
@@ -170,15 +172,24 @@ export default function ChannelsPage() {
     }
   };
 
-  const handleSyncOrders = async () => {
-    setSyncing(true);
+  const handleSyncOrders = async (integrationId?: string) => {
+    const targetId = integrationId ?? integrations.find((i) => i.is_active)?.id;
+    if (!targetId) {
+      setMessage({ type: 'error', text: 'No active Jumia integration found' });
+      return;
+    }
+
+    setSyncingIntegrationId(targetId);
     setMessage(null);
 
     try {
-      const response = await fetch('/api/marketplace/jumia/orders', {
-        method: 'POST',
-        headers: buildCsrfHeaders(),
-      });
+      const response = await fetch(
+        `/api/marketplace/jumia/orders?integrationId=${encodeURIComponent(targetId)}`,
+        {
+          method: 'POST',
+          headers: buildCsrfHeaders(),
+        }
+      );
 
       const data = await response.json();
 
@@ -197,7 +208,7 @@ export default function ChannelsPage() {
     } catch (_error) {
       setMessage({ type: 'error', text: 'Sync failed - please try again' });
     } finally {
-      setSyncing(false);
+      setSyncingIntegrationId(null);
     }
   };
 
@@ -311,11 +322,13 @@ export default function ChannelsPage() {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={handleSyncOrders}
-                      disabled={syncing}
+                      onClick={() => handleSyncOrders(integration.id)}
+                      disabled={syncingIntegrationId !== null}
                       className="px-3 py-1.5 text-sm bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded-lg hover:bg-orange-200 disabled:opacity-50"
                     >
-                      {syncing ? 'Syncing...' : 'Sync Orders'}
+                      {syncingIntegrationId === integration.id
+                        ? 'Syncing...'
+                        : 'Sync Orders'}
                     </button>
                     <button
                       type="button"

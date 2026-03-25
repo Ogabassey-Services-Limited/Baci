@@ -25,6 +25,7 @@ export function OrdersListCard({
   onSelectOrder,
   onStatusUpdate,
   onManageJumia,
+  jumiaConnectLoading,
   onMarkPaid,
   onMarkUnpaid,
   onFulfillOrders,
@@ -39,6 +40,7 @@ export function OrdersListCard({
   onSelectOrder: (orderNumber: string, isSelected: boolean) => void;
   onStatusUpdate: (orderNumber: string, newStatus: ShippingStatus) => void;
   onManageJumia: (order: Order) => void;
+  jumiaConnectLoading?: boolean;
   onMarkPaid: () => void;
   onMarkUnpaid: () => void;
   onFulfillOrders: () => void;
@@ -147,6 +149,7 @@ export function OrdersListCard({
                     onSelect={onSelectOrder}
                     onStatusUpdate={onStatusUpdate}
                     onManageJumia={onManageJumia}
+                    jumiaConnectLoading={jumiaConnectLoading}
                     formatCurrency={formatCurrency}
                   />
                 ))

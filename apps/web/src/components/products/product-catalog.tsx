@@ -71,6 +71,51 @@ export function ProductCatalog({
     new Set()
   );
   const [exportProduct, setExportProduct] = useState<Product | null>(null);
+  const [jumiaIntegrationId, setJumiaIntegrationId] = useState<string | null>(
+    null
+  );
+  const [jumiaLoading, setJumiaLoading] = useState(false);
+
+  // Fetch active Jumia integration ID for product export
+  useEffect(() => {
+    if (!merchant?.id) return;
+    // Reset to avoid stale integration data when merchant changes
+    setJumiaIntegrationId(null);
+    setJumiaLoading(true);
+    const controller = new AbortController();
+    fetch('/api/marketplace/jumia/connect', { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          throw new Error(
+            `Failed to fetch integrations: ${res.status} ${body}`
+          );
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        if (data.integrations?.[0]?.id) {
+          setJumiaIntegrationId(data.integrations[0].id);
+        }
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        console.error('Failed to fetch Jumia integration:', err);
+        toast({
+          title: 'Jumia Integration',
+          description:
+            'Could not load Jumia integration. Export may be unavailable.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setJumiaLoading(false);
+        }
+      });
+    return () => controller.abort();
+  }, [merchant?.id, toast]);
 
   const toggleProduct = (productId: string) => {
     setExpandedProducts((prev) => {
@@ -391,8 +436,18 @@ export function ProductCatalog({
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => setExportProduct(product)}
+                              disabled={jumiaLoading || !jumiaIntegrationId}
+                              title={
+                                !jumiaIntegrationId
+                                  ? 'Jumia integration required'
+                                  : undefined
+                              }
                             >
-                              <Package className="mr-2 h-4 w-4" />
+                              {jumiaLoading ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Package className="mr-2 h-4 w-4" />
+                              )}
                               Export to Jumia
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -553,7 +608,7 @@ export function ProductCatalog({
           </div>
         </div>
       )}
-      {exportProduct && merchant && (
+      {exportProduct && merchant && jumiaIntegrationId && (
         <ExportToJumiaDialog
           open={!!exportProduct}
           onOpenChange={(open) => !open && setExportProduct(null)}
@@ -566,6 +621,7 @@ export function ProductCatalog({
             images: exportProduct.image ? [exportProduct.image] : [],
           }}
           merchantId={merchant.id}
+          integrationId={jumiaIntegrationId}
         />
       )}
     </Card>
