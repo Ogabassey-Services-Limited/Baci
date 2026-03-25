@@ -13,6 +13,7 @@ import {
 } from '@/lib/gmc-feed-images';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { stripHtmlTags } from '@/lib/sanitize-core';
+import { getProductUrl } from '@/lib/seo-utils';
 
 export interface FeedProduct {
   id: string;
@@ -29,8 +30,14 @@ export interface FeedProduct {
   stock_quantity?: number;
   manage_stock?: boolean;
   condition?: 'new' | 'used' | 'refurbished';
+  condition_detail?: string;
   google_product_category?: string;
   category?: string;
+  category_slug?: string;
+  categories?: {
+    name?: string;
+    slug?: string;
+  } | null;
   weight_value?: number;
   weight_unit?: 'kg' | 'lb' | 'g' | 'oz';
   updated_at?: string;
@@ -105,7 +112,7 @@ export function generateGoogleMerchantFeed(
 
   const items = validProducts
     .map((product) => {
-      const productUrl = `${normalizedBaseUrl}/products/${product.slug || product.id}`;
+      const productUrl = `${normalizedBaseUrl}${getProductUrl(product)}`;
       if (!isValidGmcUrl(productUrl)) return null;
 
       // Resolve images from prevalidated manifest only
