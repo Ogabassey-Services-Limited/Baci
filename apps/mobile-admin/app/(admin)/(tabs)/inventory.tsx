@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SafeImage from '@/components/ui/SafeImage';
-import type { ThemeColors } from '@/constants/theme';
+import { RADIUS, SPACING, TYPOGRAPHY, type ThemeColors } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import {
   type Product,
@@ -218,7 +218,7 @@ export default function InventoryScreen() {
     if (!isFetchingNextPage) return null;
     return (
       <View style={styles.loadingFooter}>
-        <ActivityIndicator size="small" color="#3B82F6" />
+        <ActivityIndicator size="small" color={colors.primary} />
       </View>
     );
   };
@@ -243,7 +243,7 @@ export default function InventoryScreen() {
         ]}
         edges={['top']}
       >
-        <ActivityIndicator size="large" color="#3B82F6" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
           Loading inventory...
         </Text>
@@ -276,13 +276,13 @@ export default function InventoryScreen() {
           />
         </View>
         <Pressable
-          style={[styles.scanButton, { backgroundColor: '#3B82F6' }]}
+          style={[styles.scanButton, { backgroundColor: colors.primary }]}
           onPress={() => router.push('/scan')}
           accessibilityLabel="Scan barcode"
           accessibilityRole="button"
           accessibilityHint="Opens barcode scanner to find products"
         >
-          <Ionicons name="barcode-outline" size={24} color="#FFFFFF" />
+          <Ionicons name="barcode-outline" size={24} color={colors.textOnPrimary} />
         </Pressable>
       </View>
 
@@ -321,7 +321,7 @@ export default function InventoryScreen() {
           ]}
           accessibilityLabel={`${lowStockCount} products with low stock`}
         >
-          <Text style={[styles.statValue, { color: '#D97706' }]}>
+          <Text style={[styles.statValue, { color: colors.warning }]}>
             {lowStockCount}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
@@ -339,7 +339,7 @@ export default function InventoryScreen() {
           ]}
           accessibilityLabel={`${outOfStockCount} products out of stock`}
         >
-          <Text style={[styles.statValue, { color: '#DC2626' }]}>
+          <Text style={[styles.statValue, { color: colors.error }]}>
             {outOfStockCount}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
@@ -362,7 +362,7 @@ export default function InventoryScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={handleRefresh}
-            tintColor="#3B82F6"
+            tintColor={colors.primary}
           />
         }
         onEndReached={handleLoadMore}
@@ -396,68 +396,69 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   searchContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    gap: SPACING.md,
   },
   searchInputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md,
     height: 48,
-    gap: 8,
+    gap: SPACING.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 15, // Keep standard size for input
   },
   scanButton: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
   statsRow: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 12,
-    marginBottom: 12,
+    paddingHorizontal: SPACING.lg,
+    gap: SPACING.md,
+    marginBottom: SPACING.md,
   },
   statCard: {
     flex: 1,
-    padding: 12,
-    borderRadius: 12,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: TYPOGRAPHY.size['2xl'],
+    fontFamily: TYPOGRAPHY.fontFamily.extraBold,
   },
   statLabel: {
     fontSize: 11,
-    marginTop: 4,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    marginTop: SPACING.xs,
   },
   listContent: {
-    padding: 16,
+    padding: SPACING.lg,
     paddingTop: 0,
-    gap: 12,
+    gap: SPACING.md,
   },
   productCard: {
     flexDirection: 'row',
-    padding: 12,
-    borderRadius: 12,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
     alignItems: 'center',
-    gap: 12,
+    gap: SPACING.md,
   },
   productImage: {
     width: 56,
     height: 56,
-    borderRadius: 8,
+    borderRadius: RADIUS.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -466,59 +467,59 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   productName: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 15, // Custom size
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   productSku: {
-    fontSize: 12,
+    fontSize: TYPOGRAPHY.size.sm,
   },
   productPrice: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
     marginTop: 2,
   },
   stockInfo: {
     alignItems: 'center',
   },
   stockBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 6, // Specific visual alignment value
+    borderRadius: RADIUS.sm,
     minWidth: 40,
     alignItems: 'center',
   },
   stockText: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: TYPOGRAPHY.size.lg,
+    fontFamily: TYPOGRAPHY.fontFamily.extraBold,
   },
   stockLabel: {
-    fontSize: 10,
-    marginTop: 4,
+    fontSize: TYPOGRAPHY.size.xs,
+    marginTop: SPACING.xs,
   },
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
+    marginTop: SPACING.md,
+    fontSize: TYPOGRAPHY.size.md,
   },
   loadingFooter: {
-    paddingVertical: 20,
+    paddingVertical: SPACING.xl,
     alignItems: 'center',
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
-    gap: 12,
+    gap: SPACING.md,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: TYPOGRAPHY.size.xl,
+    fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   emptySubtitle: {
-    fontSize: 14,
+    fontSize: TYPOGRAPHY.size.md,
     textAlign: 'center',
   },
 });
