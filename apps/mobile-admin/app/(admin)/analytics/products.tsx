@@ -16,7 +16,7 @@ import {
 import { useTheme } from '@/hooks/useTheme';
 
 // Item height for getItemLayout optimization (padding + content + borders)
-const _PRODUCT_ITEM_HEIGHT = 63;
+const PRODUCT_ITEM_HEIGHT = 63;
 
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
   const symbols: Record<string, string> = {
@@ -44,8 +44,8 @@ export default function AnalyticsProductsScreen() {
     _data: ArrayLike<TopSellingProduct> | null | undefined,
     index: number
   ) => ({
-    length: _PRODUCT_ITEM_HEIGHT,
-    offset: _PRODUCT_ITEM_HEIGHT * index,
+    length: PRODUCT_ITEM_HEIGHT,
+    offset: PRODUCT_ITEM_HEIGHT * index,
     index,
   });
 
@@ -140,6 +140,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
+    height: PRODUCT_ITEM_HEIGHT,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rankContainer: {
