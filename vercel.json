@@ -4,5 +4,11 @@
   "outputDirectory": "apps/web/.next",
   "installCommand": "pnpm install",
   "framework": "nextjs",
-  "ignoreCommand": "exit 0"
+  "ignoreCommand": "exit 0",
+  "crons": [
+    {
+      "path": "/api/cron/cleanup-orders",
+      "schedule": "0 2 * * *"
+    }
+  ]
 }
