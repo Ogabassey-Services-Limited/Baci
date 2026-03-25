@@ -88,12 +88,26 @@ export async function PATCH(
 
     const updateData = parseResult.data;
 
-    // Reject empty updates
+    // Empty PATCH is a no-op (idempotent) — return current state
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        { error: 'No valid fields provided for update' },
-        { status: 400 }
-      );
+      const { data: discountCode, error } = await supabase
+        .from('discount_codes')
+        .select(DISCOUNT_CODE_COLUMNS)
+        .eq('id', id)
+        .eq('merchant_id', merchantId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return NextResponse.json(
+            { error: 'Discount code not found' },
+            { status: 404 }
+          );
+        }
+        throw error;
+      }
+
+      return NextResponse.json({ discountCode });
     }
 
     // Update discount code (Scope to merchant ID for defense-in-depth)

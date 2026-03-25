@@ -41,7 +41,23 @@ export const createDiscountCodeSchema = discountCodeBaseFields.refine(
   }
 );
 
-export const updateDiscountCodeSchema = discountCodeBaseFields.partial();
+export const updateDiscountCodeSchema = discountCodeBaseFields.partial().refine(
+  (data) => {
+    // Only validate applies_to relationship when applies_to is explicitly provided
+    if (data.applies_to === 'specific_products') {
+      return data.product_ids !== undefined && data.product_ids.length > 0;
+    }
+    if (data.applies_to === 'specific_categories') {
+      return data.category_ids !== undefined && data.category_ids.length > 0;
+    }
+    return true;
+  },
+  {
+    message:
+      'product_ids or category_ids must be provided when applies_to targets them',
+    path: ['applies_to'],
+  }
+);
 
 export const validateDiscountCodeSchema = z.object({
   code: z.string().trim().min(1),
