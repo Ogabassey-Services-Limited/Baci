@@ -67,7 +67,12 @@ export async function PATCH(
 
     const merchantId = merchantContext.merchantId;
 
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
     // Validate update fields
     const parseResult = updateDiscountCodeSchema.safeParse(body);
