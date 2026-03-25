@@ -37,20 +37,21 @@ export async function resolveFeedMerchant(
   isBySlug: boolean
 ): Promise<FeedMerchantRecord> {
   const supabase = createAnonClient();
-  const { data, error } = await supabase.rpc('resolve_public_feed_merchant', {
-    p_identifier: identifier,
-    p_is_by_slug: isBySlug,
-  });
+  const query = supabase
+    .from('merchants')
+    .select('id, business_name, country, payout_currency, slug');
+
+  const { data: merchant, error } = isBySlug
+    ? await query.eq('slug', identifier).single()
+    : await query.eq('id', identifier).single();
 
   if (error) {
     throw new Error('Failed to resolve merchant', { cause: error });
   }
 
-  const merchant = (data as FeedMerchantRecord[] | null)?.[0];
-
   if (!merchant) {
     throw new MerchantNotFoundError(identifier);
   }
 
-  return merchant;
+  return merchant as FeedMerchantRecord;
 }

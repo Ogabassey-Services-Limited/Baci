@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
@@ -126,22 +125,6 @@ export default async function StorefrontPage({
     notFound();
   }
 
-  // Hoist headers() — used for pathname check and schema generation below.
-  // React deduplicates this call with generateMetadata's headers() invocation.
-  const headersList = await headers();
-
-  // This page only serves the storefront homepage.
-  // If the original path had sub-segments (e.g., /product/..., /product-tag/...),
-  // it means no child route matched — return 404 instead of rendering the homepage.
-  // In subdomain/custom-domain mode, x-pathname is "/" for the homepage.
-  // In path-mode (dev), x-pathname is "/{slug}" — also a valid homepage hit.
-  const originalPathname = headersList.get('x-pathname') || '/';
-  const isHomepage =
-    originalPathname === '/' || originalPathname === `/${slug}`;
-  if (!isHomepage) {
-    notFound();
-  }
-
   // CRITICAL: Merchant lookup — request-scoped (deduplicates with layout)
   const merchant = await getRequestScopedMerchant(slug);
 
@@ -156,9 +139,7 @@ export default async function StorefrontPage({
   }
 
   // Generate schemas (fast, uses cached merchant data)
-  const host = headersList.get('host') || `${slug}.localhost:3000`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
+  const baseUrl = buildStoreUrl(merchant);
   const description =
     merchant.site_description ||
     merchant.site_tagline ||

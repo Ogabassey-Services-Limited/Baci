@@ -468,21 +468,7 @@ export async function proxy(request: NextRequest) {
   // 301 redirect old blog subdomain to new blog location
   // blog.ogabassey.com/* -> ogabassey.com/blog/*
   if (normalizeHostname(hostname) === 'blog.ogabassey.com') {
-    // Strip accidental domain prefix from path (e.g., /ogabassey.com/blog/... → /blog/...)
-    // Derive the root domain from the subdomain so this adapts automatically
-    let cleanPath = pathname;
-    const rootDomain = normalizeHostname(hostname).replace(/^blog\./, '');
-    if (
-      cleanPath.toLowerCase().startsWith(`/${rootDomain}/`) ||
-      cleanPath.toLowerCase() === `/${rootDomain}`
-    ) {
-      cleanPath = cleanPath.slice(`/${rootDomain}`.length) || '/';
-    }
-    // Avoid double /blog/ when the malformed path already includes it
-    if (cleanPath.startsWith('/blog/') || cleanPath === '/blog') {
-      cleanPath = cleanPath.slice('/blog'.length) || '/';
-    }
-    const newPath = cleanPath === '/' ? '' : cleanPath;
+    const newPath = pathname === '/' ? '' : pathname;
     const newUrl = `https://ogabassey.com/blog${newPath}`;
     return NextResponse.redirect(newUrl, { status: 301 });
   }

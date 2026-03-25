@@ -1,0 +1,6 @@
+## 2026-03-24 - Replaced legacy eslint-disable comments with biome-ignore
+**Learning:** Biome is the sole linter for the Baci project, so `// eslint-disable` comments are deprecated and have no effect. Some rules map directly (e.g. `jsx-a11y/no-autofocus` -> `lint/a11y/noAutofocus`, `prefer-const` -> `lint/style/useConst`). Other rules, like unused variables prefixed with an underscore, are handled automatically by Biome and do not require suppression.
+**Action:** Replace any remaining `// eslint-disable` comments with the corresponding `// biome-ignore lint/...` directives, or remove them entirely if Biome natively handles the case.
+## 2026-03-24 - Replaced legacy eslint-disable comments with biome-ignore
+**Learning:** Biome is the sole linter for the Baci project, so `// eslint-disable` comments are deprecated and have no effect. Some rules map directly (e.g. `jsx-a11y/no-autofocus` -> `lint/a11y/noAutofocus`, `prefer-const` -> `lint/style/useConst`). Other rules, like unused variables prefixed with an underscore, are handled automatically by Biome and do not require suppression.
+**Action:** Replace any remaining `// eslint-disable` comments with the corresponding `// biome-ignore lint/...` directives, or remove them entirely if Biome natively handles the case.

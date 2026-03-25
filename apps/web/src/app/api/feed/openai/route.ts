@@ -8,6 +8,8 @@ import {
 } from '@/lib/feed-identifier';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { stripHtmlTags } from '@/lib/sanitize-core';
+import { buildProductUrl } from '@/lib/seo-utils';
+import { buildMerchantBaseUrl } from '../google-merchant/route-utils';
 import { getCachedOpenAIFeedData, type OpenAIFeedProduct } from './feed-data';
 
 const _FeedQuerySchema = z
@@ -65,12 +67,13 @@ export async function GET(request: NextRequest) {
     const isBySlug = !merchantIdParam && !!merchantSlug;
     const merchant = await resolveFeedMerchant(identifier, isBySlug);
 
-    const { products } = await getCachedOpenAIFeedData(merchant.id);
+    const { products, custom_domain, slug } = await getCachedOpenAIFeedData(
+      merchant.id,
+      merchant.slug
+    );
 
-    // Determine base URL from request headers
-    const host = request.headers.get('host') || `${merchant.slug}.baci.app`;
-    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-    const baseUrl = `${protocol}://${host}`;
+    // Build canonical base URL from custom domain or slug (same as GMC feed)
+    const baseUrl = buildMerchantBaseUrl({ slug, custom_domain });
 
     // Generate JSONL feed
     const feedLines = generateOpenAIFeed(products, merchant, baseUrl);
@@ -195,7 +198,11 @@ function generateOpenAIFeed(
   const validProducts = products.filter((p) => p.name && p.name.trim() !== '');
 
   for (const product of validProducts) {
-    const productUrlBase = `${baseUrl}/${merchant.slug}/${product.category?.toLowerCase() || 'products'}/${product.slug || product.id}`;
+    const productPath = buildProductUrl(
+      product.slug || product.id,
+      product.category
+    );
+    const productUrlBase = `${baseUrl}${productPath}`;
 
     // Determine whether to use variants or the parent product
     const hasVariants = product.variants && product.variants.length > 0;
@@ -280,7 +287,7 @@ function generateOpenAIFeed(
           size,
 
           merchant_name: merchant.business_name,
-          merchant_url: `${baseUrl}/${merchant.slug}`,
+          merchant_url: baseUrl,
           privacy_policy_url: `${baseUrl}/privacy`,
           terms_of_service_url: `${baseUrl}/terms`,
           return_policy_url: `${baseUrl}/pages/returns`,
@@ -352,7 +359,7 @@ function generateOpenAIFeed(
         quantity: stockCount,
         shipping_weight: shippingWeight,
         merchant_name: merchant.business_name,
-        merchant_url: `${baseUrl}/${merchant.slug}`,
+        merchant_url: baseUrl,
         privacy_policy_url: `${baseUrl}/privacy`,
         terms_of_service_url: `${baseUrl}/terms`,
         return_policy_url: `${baseUrl}/pages/returns`,

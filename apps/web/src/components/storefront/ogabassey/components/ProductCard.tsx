@@ -152,7 +152,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* Using Next.js Image for LCP/FCP optimization */}
           {/* NOTE: explicit width/height required for remote images without fill, but here we want fill + object-cover */}
           {/* We use fill={true} with sizes prop for best performance */}
-          {/* biome-ignore lint/a11y/useAltText: intentional img usage */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <Image
             src={product.image || PLACEHOLDER_IMAGE}
             alt={product.name}

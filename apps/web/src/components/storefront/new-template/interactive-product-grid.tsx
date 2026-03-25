@@ -106,7 +106,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
     e.stopPropagation();
 
     // Cast to any since this template uses local mock Product type
-    // biome-ignore lint/suspicious/noExplicitAny: type assertion required
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     addToCart(product as any, 1);
 
     // Particle Animation Logic

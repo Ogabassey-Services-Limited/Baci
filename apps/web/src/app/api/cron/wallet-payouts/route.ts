@@ -1,4 +1,3 @@
-import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { payoutMerchantCommission } from '@/lib/kuda';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -20,14 +19,7 @@ export async function POST(request: Request) {
   try {
     // Verify cron secret
     const cronSecret = request.headers.get('x-cron-secret');
-    const expectedSecret = process.env.CRON_SECRET;
-
-    if (
-      !cronSecret ||
-      !expectedSecret ||
-      cronSecret.length !== expectedSecret.length ||
-      !timingSafeEqual(Buffer.from(cronSecret), Buffer.from(expectedSecret))
-    ) {
+    if (cronSecret !== process.env.CRON_SECRET) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

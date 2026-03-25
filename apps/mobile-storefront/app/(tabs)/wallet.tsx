@@ -18,7 +18,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, {
   BRAND,
-  palette,
   RADIUS,
   SHADOWS,
   SPACING,
@@ -113,43 +112,43 @@ export default function WalletTabScreen() {
         }
       >
         {/* Balance Card */}
-        <View style={[styles.balanceCard, { backgroundColor: '#0F0F0F' }]}>
-          <Text style={styles.balanceLabel}>Available Balance</Text>
-          <Text style={styles.balanceAmount}>
+        <View style={[styles.balanceCard, { backgroundColor: colors.card }]}>
+          <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>Available Balance</Text>
+          <Text style={[styles.balanceAmount, { color: colors.text }]}>
             {formatPrice(data?.wallet?.balance ?? 0)}
           </Text>
           <View style={styles.balanceActions}>
             <Pressable
-              style={styles.balanceActionButton}
+              style={[styles.balanceActionButton, { backgroundColor: colors.muted }]}
               onPress={() => router.push('/wallet')}
             >
-              <Ionicons name="add-circle-outline" size={20} color="#FFF" />
-              <Text style={styles.balanceActionText}>Add Funds</Text>
+              <Ionicons name="add-circle-outline" size={20} color={colors.text} />
+              <Text style={[styles.balanceActionText, { color: colors.text }]}>Add Funds</Text>
             </Pressable>
           </View>
         </View>
 
         {/* Points Card */}
         <View
-          style={[styles.pointsCard, { backgroundColor: palette.amber[50] }]}
+          style={[styles.pointsCard, { backgroundColor: colors.promoBackground }]}
         >
           <View style={styles.pointsHeader}>
-            <Ionicons name="sparkles" size={24} color={palette.amber[600]} />
-            <Text style={[styles.pointsLabel, { color: palette.amber[800] }]}>
+            <Ionicons name="sparkles" size={24} color={colors.primary} />
+            <Text style={[styles.pointsLabel, { color: colors.primary }]}>
               Reward Points
             </Text>
           </View>
-          <Text style={[styles.pointsAmount, { color: palette.amber[900] }]}>
+          <Text style={[styles.pointsAmount, { color: colors.primary }]}>
             {(data?.wallet?.loyalty_points ?? 0).toLocaleString()} pts
           </Text>
           <Pressable
             style={[
               styles.redeemButton,
-              { backgroundColor: palette.amber[500] },
+              { backgroundColor: colors.primary },
             ]}
             onPress={() => router.push('/wallet')}
           >
-            <Text style={styles.redeemButtonText}>Redeem Points</Text>
+            <Text style={[styles.redeemButtonText, { color: colors.primaryForeground }]}>Redeem Points</Text>
           </Pressable>
         </View>
 
@@ -179,7 +178,7 @@ export default function WalletTabScreen() {
               <Ionicons
                 name="gift-outline"
                 size={24}
-                color={palette.amber[500]}
+                color={colors.primary}
               />
               <Text style={[styles.quickActionLabel, { color: colors.text }]}>
                 Rewards
@@ -192,7 +191,7 @@ export default function WalletTabScreen() {
               <Ionicons
                 name="help-circle-outline"
                 size={24}
-                color={palette.gray[500]}
+                color={colors.icon}
               />
               <Text style={[styles.quickActionLabel, { color: colors.text }]}>
                 Help
@@ -280,13 +279,11 @@ const styles = StyleSheet.create({
   balanceLabel: {
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
-    color: 'rgba(255,255,255,0.7)',
     marginBottom: SPACING.xs,
   },
   balanceAmount: {
     fontSize: 36,
     fontFamily: 'Inter_700Bold',
-    color: '#FFFFFF',
     marginBottom: SPACING.lg,
   },
   balanceActions: {
@@ -300,12 +297,10 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     borderRadius: RADIUS.md,
-    backgroundColor: 'rgba(255,255,255,0.1)',
   },
   balanceActionText: {
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
-    color: '#FFFFFF',
   },
   pointsCard: {
     padding: SPACING.xl,
@@ -334,7 +329,6 @@ const styles = StyleSheet.create({
   redeemButtonText: {
     fontSize: 14,
     fontFamily: 'Inter_700Bold',
-    color: '#FFFFFF',
   },
   quickActionsSection: {
     marginTop: SPACING.sm,

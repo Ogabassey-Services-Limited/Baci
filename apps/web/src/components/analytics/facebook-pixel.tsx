@@ -48,6 +48,7 @@ export function FacebookPixel({ pixelId }: FacebookPixelProps) {
                 `}
       </Script>
       <noscript>
+        {/* eslint-disable-next-line @next/next/no-img-element -- Tracking pixel must use <img>, not <Image> */}
         {/* biome-ignore lint/performance/noImgElement: Tracking pixel in noscript must use standard img tag */}
         <img
           height="1"
