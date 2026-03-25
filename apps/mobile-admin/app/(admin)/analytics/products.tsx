@@ -15,6 +15,9 @@ import {
 } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 
+// Item height for getItemLayout optimization (padding + content + borders)
+const PRODUCT_ITEM_HEIGHT = 63;
+
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
   const symbols: Record<string, string> = {
     NGN: '\u20A6',
@@ -35,6 +38,16 @@ export default function AnalyticsProductsScreen() {
   const formatCurrency = (amount: number) => {
     return `${currencySymbol}${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
   };
+
+  // getItemLayout for consistent item heights (improves scroll performance)
+  const getItemLayout = (
+    _data: ArrayLike<TopSellingProduct> | null | undefined,
+    index: number
+  ) => ({
+    length: PRODUCT_ITEM_HEIGHT,
+    offset: PRODUCT_ITEM_HEIGHT * index,
+    index,
+  });
 
   const renderProductItem = ({
     item,
@@ -94,6 +107,7 @@ export default function AnalyticsProductsScreen() {
         data={topProducts}
         renderItem={renderProductItem}
         keyExtractor={(item) => item.id}
+        getItemLayout={getItemLayout}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           !isLoading ? (
@@ -126,6 +140,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.lg,
+    height: PRODUCT_ITEM_HEIGHT,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rankContainer: {
