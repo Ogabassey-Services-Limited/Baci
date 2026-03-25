@@ -53,7 +53,8 @@ export function useAuthGuard() {
     // isMounted guards against stale closures if async operations are added
     // in the future. Currently all operations are synchronous, so this is
     // defensive/future-proofing.
-    let isMounted = true; // eslint-disable-line prefer-const
+    // biome-ignore lint/style/useConst:
+    let isMounted = true;
 
     // Wait for auth to initialize and navigation to be ready
     if (!isInitialized || !navigationState?.key) {

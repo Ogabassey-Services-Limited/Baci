@@ -130,8 +130,8 @@ export function FilterSheet({
                     accessibilityLabel="Minimum price in Naira"
                     accessibilityHint="Enter the minimum price for filtering products"
                     accessibilityLabelledBy="minPriceLabel"
-                    // eslint-disable-next-line jsx-a11y/no-autofocus -- BUG-5-005: focus price input on open
-                    autoFocus
+                    // biome-ignore lint/a11y/noAutofocus: BUG-5-005: focus price input on open
+                    autoFocus={true}
                   />
                 </View>
               </View>
