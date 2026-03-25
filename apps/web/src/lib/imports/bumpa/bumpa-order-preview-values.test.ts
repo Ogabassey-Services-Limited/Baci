@@ -284,6 +284,43 @@ describe('buildItems', () => {
     );
   });
 
+  it('trims stray trailing double pipes before product-name matching', () => {
+    const row = makeRow({
+      Products:
+        'iPhone 14 Promax 128gb (premium used) | HP elitebook 840 G6 || 8th Gen || Intel Core i7 || 8 GB || 256 GB SSD || Backlit || 14 inch screen || Windows 11 || UK used ||',
+      'Product SKU': ' | ',
+      'Product Quantity': '1.00 | 1.00',
+    });
+
+    const items = buildItems(row, [
+      {
+        id: 'phone',
+        name: 'iPhone 14 Promax 128gb (premium used)',
+        sku: null,
+        price: 2250,
+        externalSource: null,
+        externalId: null,
+      },
+      {
+        id: 'laptop',
+        name: 'HP elitebook 840 G6 || 8th Gen || Intel Core i7 || 8 GB || 256 GB SSD || Backlit || 14 inch screen || Windows 11 || UK used',
+        sku: null,
+        price: 2250,
+        externalSource: null,
+        externalId: null,
+      },
+    ]);
+
+    expect(items).toHaveLength(2);
+    expect(items[1]).toMatchObject({
+      matched: true,
+      matchSource: 'name',
+      productId: 'laptop',
+      productName:
+        'HP elitebook 840 G6 || 8th Gen || Intel Core i7 || 8 GB || 256 GB SSD || Backlit || 14 inch screen || Windows 11 || UK used',
+    });
+  });
+
   it('uses matched product price for unit price', () => {
     const items = buildItems(makeRow(), existingProducts);
     expect(items[0].unitPrice).toBe(2250);
