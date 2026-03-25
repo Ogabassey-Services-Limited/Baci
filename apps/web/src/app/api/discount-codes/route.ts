@@ -7,6 +7,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
+import { createDiscountCodeSchema } from '@/schemas/discount-codes';
 
 /**
  * GET /api/discount-codes
@@ -107,10 +108,14 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // Validate required fields
-    if (!body.code || !body.discount_type || !body.discount_value) {
+    // Validate request body
+    const parseResult = createDiscountCodeSchema.safeParse(body);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        {
+          error: 'Invalid discount code data',
+          details: parseResult.error.flatten(),
+        },
         { status: 400 }
       );
     }
@@ -118,20 +123,7 @@ export async function POST(request: NextRequest) {
     // Create discount code
     const discountCodeData = {
       merchant_id: merchantId,
-      code: body.code.toUpperCase(),
-      description: body.description || null,
-      discount_type: body.discount_type,
-      discount_value: body.discount_value,
-      minimum_purchase_amount: body.minimum_purchase_amount || 0,
-      maximum_discount_amount: body.maximum_discount_amount || null,
-      usage_limit: body.usage_limit || null,
-      usage_limit_per_customer: body.usage_limit_per_customer || 1,
-      starts_at: body.starts_at || null,
-      expires_at: body.expires_at || null,
-      is_active: body.is_active !== undefined ? body.is_active : true,
-      applies_to: body.applies_to || 'all',
-      product_ids: body.product_ids || [],
-      category_ids: body.category_ids || [],
+      ...parseResult.data,
     };
 
     const { data: discountCode, error } = await supabase

@@ -7,6 +7,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
+import { updateDiscountCodeSchema } from '@/schemas/discount-codes';
 
 /**
  * PATCH /api/discount-codes/[id]
@@ -54,35 +55,26 @@ export async function PATCH(
 
     const body = await request.json();
 
-    // Allowlist of fields that can be updated (prevents mass assignment)
-    const allowedFields = [
-      'code',
-      'description',
-      'discount_type',
-      'discount_value',
-      'minimum_purchase_amount',
-      'maximum_discount_amount',
-      'usage_limit',
-      'usage_limit_per_customer',
-      'starts_at',
-      'expires_at',
-      'is_active',
-      'applies_to',
-      'product_ids',
-      'category_ids',
-    ];
-
-    // Build update object only with allowed fields
-    const updateData: Record<string, unknown> = {};
-    for (const field of allowedFields) {
-      if (field in body && body[field] !== undefined) {
-        updateData[field] = body[field];
-      }
+    // Validate update fields
+    const parseResult = updateDiscountCodeSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid update data',
+          details: parseResult.error.flatten(),
+        },
+        { status: 400 }
+      );
     }
 
-    // Uppercase the code if provided
-    if (updateData.code) {
-      updateData.code = (updateData.code as string).toUpperCase();
+    const updateData = parseResult.data;
+
+    // Reject empty updates
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { error: 'No valid fields provided for update' },
+        { status: 400 }
+      );
     }
 
     // Update discount code (Scope to merchant ID for defense-in-depth)
