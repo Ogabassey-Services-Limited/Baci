@@ -47,4 +47,34 @@ describe('generateGoogleMerchantFeed canonical URLs', () => {
       '<g:link>https://ogabassey.com/products/iphone-xr</g:link>'
     );
   });
+
+  it('falls back to /products/ paths when category data is absent', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        {
+          id: 'prod-2',
+          name: 'Generic Widget',
+          description: 'A widget without category',
+          slug: 'generic-widget',
+          price: 50,
+          stock: 5,
+        },
+      ],
+      {
+        id: 'merchant-1',
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+        payout_currency: 'NGN',
+      },
+      BASE_URL,
+      {
+        'prod-2': [manifestEntry()],
+      }
+    );
+
+    expect(xml).toContain(
+      '<g:link>https://ogabassey.com/products/generic-widget</g:link>'
+    );
+    expect(xml).not.toContain('<g:link>https://ogabassey.com//');
+  });
 });
