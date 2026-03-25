@@ -9,7 +9,9 @@ import {
   getCachedProduct,
   getCachedProductRatingStats,
   getCachedProductReviews,
+  getCachedProductWithDetails,
 } from '@/lib/cached-data';
+import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
@@ -39,9 +41,206 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+type RawProductImage = string | { url: string; alt?: string; order?: number };
+type StorefrontProductVariants = Parameters<
+  typeof normalizeStorefrontProductVariants
+>[0];
+
+interface LegacyCachedProduct {
+  id: string;
+  name: string;
+  description?: string | null;
+  status: string;
+  slug?: string | null;
+  sale_price?: number | null;
+  base_price: number;
+  track_quantity?: boolean | null;
+  quantity?: number | null;
+  images?: RawProductImage[] | null;
+  product_variants?: StorefrontProductVariants;
+  product_categories?: Array<{
+    categories:
+      | {
+          id: string;
+          name: string;
+          slug: string;
+        }
+      | Array<{
+          id: string;
+          name: string;
+          slug: string;
+        }>
+      | null;
+  }> | null;
+  specifications?: unknown;
+  product_key_specs?: unknown;
+}
+
+interface DetailedCachedProduct {
+  id: string;
+  merchant_id?: string | null;
+  name: string;
+  description?: string | null;
+  status?: string | null;
+  slug?: string | null;
+  price?: number | string | null;
+  compare_at_price?: number | string | null;
+  manage_stock?: boolean | null;
+  stock?: number | string | null;
+  stock_quantity?: number | string | null;
+  images?: RawProductImage[] | null;
+  imageHint?: string | null;
+  brand?: string | null;
+  gtin?: string | null;
+  mpn?: string | null;
+  category?: string | null;
+  categories?:
+    | {
+        id: string;
+        name: string;
+        slug: string;
+        parent_id?: string | null;
+      }
+    | Array<{
+        id: string;
+        name: string;
+        slug: string;
+        parent_id?: string | null;
+      }>
+    | null;
+  product_variants?: StorefrontProductVariants;
+  specifications?: unknown;
+  product_key_specs?: unknown;
+}
+
+function normalizeProductImages(
+  productName: string,
+  rawImages: RawProductImage[] | null | undefined
+) {
+  return rawImages?.map((img, idx) => {
+    if (typeof img === 'string') {
+      return { url: img, alt: productName, order: idx };
+    }
+    return {
+      url: img.url,
+      alt: img.alt || productName,
+      order: img.order ?? idx,
+    };
+  });
+}
+
+function mapLegacyCachedProductToProduct(
+  cachedProduct: LegacyCachedProduct,
+  merchantId: string
+): Product {
+  const rawPrimaryCategory = cachedProduct.product_categories?.[0]?.categories;
+  const primaryCategory = Array.isArray(rawPrimaryCategory)
+    ? rawPrimaryCategory[0]
+    : rawPrimaryCategory;
+  const normalizedImages = normalizeProductImages(
+    cachedProduct.name,
+    cachedProduct.images
+  );
+  const firstImage = normalizedImages?.[0]?.url || '';
+  const normalizedVariants = normalizeStorefrontProductVariants(
+    cachedProduct.product_variants,
+    {
+      merchantId,
+      productId: cachedProduct.id,
+    }
+  );
+
+  return {
+    id: cachedProduct.id,
+    name: cachedProduct.name,
+    description: cachedProduct.description || '',
+    status: cachedProduct.status as 'draft' | 'active' | 'archived',
+    slug: cachedProduct.slug || cachedProduct.id,
+    price: cachedProduct.sale_price || cachedProduct.base_price,
+    compare_at_price: cachedProduct.sale_price
+      ? cachedProduct.base_price
+      : undefined,
+    manage_stock: cachedProduct.track_quantity ?? false,
+    stock: cachedProduct.quantity ?? 0,
+    image: firstImage,
+    imageLarge: firstImage,
+    imageHint: cachedProduct.name,
+    images: normalizedImages,
+    brand: '',
+    gtin: '',
+    mpn: '',
+    category: primaryCategory?.name || undefined,
+    category_slug: primaryCategory?.slug || undefined,
+    has_variants: normalizedVariants.length > 0,
+    variants: normalizedVariants,
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
+    specifications: cachedProduct.specifications as any,
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
+    product_key_specs: cachedProduct.product_key_specs as any,
+  };
+}
+
+function mapDetailedCachedProductToProduct(
+  detailedProduct: DetailedCachedProduct,
+  merchantId: string
+): Product {
+  const rawPrimaryCategory = detailedProduct.categories;
+  const primaryCategory = Array.isArray(rawPrimaryCategory)
+    ? rawPrimaryCategory[0]
+    : rawPrimaryCategory;
+  const normalizedImages = normalizeProductImages(
+    detailedProduct.name,
+    detailedProduct.images
+  );
+  const firstImage = normalizedImages?.[0]?.url || '';
+  const normalizedVariants = normalizeStorefrontProductVariants(
+    detailedProduct.product_variants,
+    {
+      merchantId: detailedProduct.merchant_id || merchantId,
+      productId: detailedProduct.id,
+    }
+  );
+
+  return {
+    ...detailedProduct,
+    description: detailedProduct.description || '',
+    status: (detailedProduct.status || 'active') as
+      | 'draft'
+      | 'active'
+      | 'archived',
+    slug: detailedProduct.slug || detailedProduct.id,
+    price:
+      typeof detailedProduct.price === 'string'
+        ? Number.parseFloat(detailedProduct.price) || 0
+        : detailedProduct.price || 0,
+    compare_at_price:
+      typeof detailedProduct.compare_at_price === 'string'
+        ? Number.parseFloat(detailedProduct.compare_at_price) || undefined
+        : detailedProduct.compare_at_price || undefined,
+    manage_stock: detailedProduct.manage_stock ?? true,
+    stock: getEffectiveStock(detailedProduct),
+    image: firstImage,
+    imageLarge: firstImage,
+    imageHint: detailedProduct.imageHint || detailedProduct.name,
+    images: normalizedImages,
+    brand: detailedProduct.brand || '',
+    gtin: detailedProduct.gtin || '',
+    mpn: detailedProduct.mpn || '',
+    category: primaryCategory?.name || detailedProduct.category || undefined,
+    category_slug:
+      primaryCategory?.slug ||
+      (detailedProduct.category
+        ? generateSlug(detailedProduct.category)
+        : undefined),
+    has_variants: normalizedVariants.length > 0,
+    variants: normalizedVariants,
+  } as Product;
+}
+
 /**
  * Get product using cached data functions
- * Falls back to cached product lookup for better performance
+ * Falls back to the detailed storefront query so legacy /products URLs can
+ * still redirect to canonical category paths when the older projection misses.
  */
 async function getProductCached(
   storeSlug: string,
@@ -57,88 +256,30 @@ async function getProductCached(
     return null;
   }
 
-  // Get product using cached function
   const cachedProduct = await getCachedProduct(merchant.id, productSlug);
 
-  if (!cachedProduct) {
+  if (cachedProduct) {
+    return mapLegacyCachedProductToProduct(cachedProduct, merchant.id);
+  }
+
+  let detailedProduct = await getCachedProductWithDetails(
+    merchant.id,
+    productSlug
+  );
+
+  if (!detailedProduct && productSlug !== productSlug.toLowerCase()) {
+    detailedProduct = await getCachedProductWithDetails(
+      merchant.id,
+      productSlug.toLowerCase()
+    );
+  }
+
+  if (!detailedProduct) {
     console.error('Product not found:', productSlug);
     return null;
   }
 
-  // Transform cached product to match Product interface
-  // Map database fields to Product interface expected fields
-  // Images can be stored as flat strings ["url"] or objects [{url, alt, order}]
-  const rawImages = cachedProduct.images as Array<
-    string | { url: string; alt?: string; order?: number }
-  > | null;
-  const normalizedImages = rawImages?.map((img, idx) => {
-    if (typeof img === 'string') {
-      return { url: img, alt: cachedProduct.name, order: idx };
-    }
-    return {
-      url: img.url,
-      alt: img.alt || cachedProduct.name,
-      order: img.order ?? idx,
-    };
-  });
-  const firstImage = normalizedImages?.[0]?.url || '';
-  const normalizedVariants = normalizeStorefrontProductVariants(
-    cachedProduct.product_variants,
-    {
-      merchantId: merchant.id,
-      productId: cachedProduct.id,
-    }
-  );
-
-  const product: Product = {
-    id: cachedProduct.id,
-    name: cachedProduct.name,
-    description: cachedProduct.description || '',
-    status: cachedProduct.status as 'draft' | 'active' | 'archived',
-    slug: cachedProduct.slug,
-    // Map base_price to price
-    price: cachedProduct.sale_price || cachedProduct.base_price,
-    compare_at_price: cachedProduct.sale_price
-      ? cachedProduct.base_price
-      : undefined,
-    // Stock fields
-    manage_stock: cachedProduct.track_quantity ?? false,
-    stock: cachedProduct.quantity ?? 0,
-    // Image fields
-    image: firstImage,
-    imageLarge: firstImage,
-    imageHint: cachedProduct.name,
-    images: normalizedImages,
-    // Brand/identifiers (defaults for missing fields)
-    brand: '',
-    gtin: '',
-    mpn: '',
-    // Category from nested join (cast through unknown for Supabase type compatibility)
-    category:
-      (
-        cachedProduct.product_categories?.[0]?.categories as unknown as {
-          id: string;
-          name: string;
-          slug: string;
-        } | null
-      )?.name || undefined,
-    category_slug:
-      (
-        cachedProduct.product_categories?.[0]?.categories as unknown as {
-          slug: string;
-        } | null
-      )?.slug || undefined,
-    // Variants
-    has_variants: normalizedVariants.length > 0,
-    variants: normalizedVariants,
-    // Specs for SEO Schema
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    specifications: cachedProduct.specifications as any,
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    product_key_specs: cachedProduct.product_key_specs as any,
-  };
-
-  return product;
+  return mapDetailedCachedProductToProduct(detailedProduct, merchant.id);
 }
 
 export async function generateMetadata(
