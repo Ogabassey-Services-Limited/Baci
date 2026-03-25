@@ -65,14 +65,22 @@ async function maybeReportProgress(
     return;
   }
 
+  async function report() {
+    try {
+      await onProgress({ processedRows, totalRows });
+    } catch {
+      return;
+    }
+  }
+
   if (processedRows === totalRows || processedRows <= 10) {
-    await onProgress({ processedRows, totalRows });
+    await report();
     return;
   }
 
   const batchSize = Math.max(10, Math.ceil(totalRows / 50));
   if (processedRows % batchSize === 0) {
-    await onProgress({ processedRows, totalRows });
+    await report();
   }
 }
 

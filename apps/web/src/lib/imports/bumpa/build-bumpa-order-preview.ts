@@ -66,7 +66,7 @@ export async function buildBumpaOrderPreview({
     string,
     ExistingImportedOrder[]
   >();
-  const uploadedOrderNumbers = new Map<string, number>();
+  const uploadedOrderPreviewIndexes = new Map<string, number[]>();
 
   existingOrders.forEach((order) => {
     if (order.externalSource === 'bumpa' && order.externalId) {
@@ -76,23 +76,6 @@ export async function buildBumpaOrderPreview({
     const collection = existingOrdersByOrderNumber.get(order.orderNumber) || [];
     collection.push(order);
     existingOrdersByOrderNumber.set(order.orderNumber, collection);
-  });
-
-  rows.forEach((rawRow) => {
-    const validationResult = bumpaOrderRowSchema.safeParse(rawRow);
-    if (!validationResult.success) {
-      return;
-    }
-
-    const orderNumber = sanitizeText(validationResult.data['Order Number']);
-    if (!orderNumber) {
-      return;
-    }
-
-    uploadedOrderNumbers.set(
-      orderNumber,
-      (uploadedOrderNumbers.get(orderNumber) || 0) + 1
-    );
   });
 
   const previewRows: ImportPreviewRow<NormalizedImportedOrder>[] = [];
@@ -135,6 +118,8 @@ export async function buildBumpaOrderPreview({
     const orderNumber = sanitizeText(row['Order Number']);
     const existingImportedOrder =
       existingOrdersByExternalId.get(externalSourceId);
+    const previousUploadIndexes =
+      uploadedOrderPreviewIndexes.get(orderNumber) || [];
     const conflictingOrder = (
       existingOrdersByOrderNumber.get(orderNumber) || []
     ).find(
@@ -158,8 +143,9 @@ export async function buildBumpaOrderPreview({
       errors.push('Created At is invalid');
     }
 
-    if ((uploadedOrderNumbers.get(orderNumber) || 0) > 1) {
-      errors.push(`Order number ${orderNumber} is duplicated in the upload`);
+    const duplicateUploadError = `Order number ${orderNumber} is duplicated in the upload`;
+    if (previousUploadIndexes.length > 0) {
+      errors.push(duplicateUploadError);
     }
 
     const customer = buildCustomer(row);
@@ -213,7 +199,7 @@ export async function buildBumpaOrderPreview({
           } satisfies NormalizedImportedOrder)
         : null;
 
-    previewRows.push({
+    const previewRow = {
       rowNumber,
       sourceExternalId: externalSourceId,
       rowStatus:
@@ -227,7 +213,33 @@ export async function buildBumpaOrderPreview({
       meta: {
         unmatchedItemCount: items.filter((item) => !item.matched).length,
       },
-    } satisfies ImportPreviewRow<NormalizedImportedOrder>);
+    } satisfies ImportPreviewRow<NormalizedImportedOrder>;
+
+    previewRows.push(previewRow);
+
+    if (orderNumber) {
+      if (previousUploadIndexes.length > 0) {
+        for (const previewIndex of previousUploadIndexes) {
+          const previousPreviewRow = previewRows[previewIndex];
+          if (!previousPreviewRow) {
+            continue;
+          }
+
+          if (!previousPreviewRow.errors.includes(duplicateUploadError)) {
+            previousPreviewRow.errors.push(duplicateUploadError);
+          }
+
+          if (previousPreviewRow.rowStatus !== 'duplicate') {
+            previousPreviewRow.rowStatus = 'invalid';
+          }
+        }
+      }
+
+      uploadedOrderPreviewIndexes.set(orderNumber, [
+        ...previousUploadIndexes,
+        previewRows.length - 1,
+      ]);
+    }
 
     await maybeReportProgress(onProgress, index + 1, rows.length);
   }

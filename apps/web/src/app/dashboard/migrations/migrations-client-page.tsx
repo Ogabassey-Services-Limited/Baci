@@ -243,18 +243,30 @@ export default function MigrationsClientPage({
       return;
     }
 
-    const intervalId = window.setInterval(
-      () => {
-        void refreshJob(selectedJobId, {
-          background: true,
-          filter: activeFilter,
-          page: rowsResponse?.pagination.page || 1,
-        });
-      },
-      selectedJob.status === 'validating' ? 1000 : 2500
-    );
+    const pollDelay = selectedJob.status === 'validating' ? 1000 : 2500;
+    let cancelled = false;
+    let timeoutId: number | undefined;
 
-    return () => window.clearInterval(intervalId);
+    const poll = async () => {
+      await refreshJob(selectedJobId, {
+        background: true,
+        filter: activeFilter,
+        page: rowsResponse?.pagination.page || 1,
+      });
+
+      if (!cancelled) {
+        timeoutId = window.setTimeout(poll, pollDelay);
+      }
+    };
+
+    timeoutId = window.setTimeout(poll, pollDelay);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
   }, [activeFilter, rowsResponse?.pagination.page, selectedJob, selectedJobId]);
 
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {

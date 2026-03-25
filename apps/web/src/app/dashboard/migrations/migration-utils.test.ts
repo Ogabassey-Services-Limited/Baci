@@ -32,12 +32,33 @@ describe('statusBadgeClass', () => {
       'bg-muted text-muted-foreground'
     );
   });
+});
 
+describe('migration progress utils', () => {
   it('uses actual row counts for validating progress', () => {
     expect(getMigrationProgressValue('validating', 2911, 5821)).toBe(50);
     expect(getMigrationProgressValue('validating', 5821, 5821)).toBe(99);
     expect(getMigrationProgressDetail('validating', 2911, 5821)).toBe(
       '2,911 of 5,821 rows processed'
+    );
+  });
+
+  it('returns no progress detail when total rows are missing', () => {
+    expect(getMigrationProgressValue('validating', 0, 0)).toBe(0);
+    expect(getMigrationProgressDetail('validating', 0, 0)).toBeNull();
+  });
+
+  it('returns zero percent when nothing has been processed yet', () => {
+    expect(getMigrationProgressValue('validating', 0, 5821)).toBe(0);
+    expect(getMigrationProgressDetail('validating', 0, 5821)).toBe(
+      '0 of 5,821 rows processed'
+    );
+  });
+
+  it('clamps invalid negative progress inputs safely', () => {
+    expect(getMigrationProgressValue('validating', -5, 10)).toBe(0);
+    expect(getMigrationProgressDetail('validating', -5, 10)).toBe(
+      '0 of 10 rows processed'
     );
   });
 });

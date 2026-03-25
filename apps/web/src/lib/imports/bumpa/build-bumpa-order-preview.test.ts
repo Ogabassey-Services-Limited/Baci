@@ -84,6 +84,23 @@ describe('buildBumpaOrderPreview', () => {
     expect(result.summary.duplicateCount).toBe(1);
   });
 
+  it('marks duplicate order numbers in the same upload as invalid for both rows', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [baseRow, { ...baseRow, id: '4196547' }],
+      existingOrders: [],
+      existingProducts: [],
+    });
+
+    expect(result.rows[0]?.rowStatus).toBe('invalid');
+    expect(result.rows[1]?.rowStatus).toBe('invalid');
+    expect(result.rows[0]?.errors).toContain(
+      'Order number 06397 is duplicated in the upload'
+    );
+    expect(result.rows[1]?.errors).toContain(
+      'Order number 06397 is duplicated in the upload'
+    );
+  });
+
   it('marks conflicting order numbers as invalid', async () => {
     const result = await buildBumpaOrderPreview({
       rows: [baseRow],

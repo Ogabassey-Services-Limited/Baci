@@ -83,7 +83,7 @@ export function getMigrationProgressDetail(
     return null;
   }
 
-  const safeProcessedRows = Math.min(processedRows, totalRows);
+  const safeProcessedRows = Math.max(0, Math.min(processedRows, totalRows));
   return `${safeProcessedRows.toLocaleString()} of ${totalRows.toLocaleString()} rows processed`;
 }
 

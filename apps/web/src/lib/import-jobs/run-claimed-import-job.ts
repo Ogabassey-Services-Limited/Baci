@@ -167,6 +167,8 @@ async function processValidatingJob(
     .update({
       status: 'preview_ready',
       total_rows: preview.totalRows,
+      // processed_rows reflects validated input rows for the UI progress bar,
+      // so it should use preview.totalRows instead of preview.rows.length.
       processed_rows: preview.totalRows,
       summary: preview.summary,
       error: null,
@@ -183,6 +185,8 @@ async function processValidatingJob(
   return {
     id: job.id,
     status: 'preview_ready',
+    // processed reports the preview entries generated for downstream work,
+    // which can differ from processed_rows / preview.totalRows.
     processed: preview.rows.length,
   };
 }

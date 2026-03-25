@@ -128,4 +128,35 @@ describe('buildBumpaProductPreview', () => {
       totalRows: 2,
     });
   });
+
+  it('reports progress for duplicate rows before the early exit branch', async () => {
+    const onProgress = vi.fn();
+
+    const result = await buildBumpaProductPreview({
+      rows: [baseRow, { ...baseRow }],
+      existingProducts: [],
+      onProgress,
+    });
+
+    expect(result.rows[1]?.rowStatus).toBe('duplicate');
+    expect(onProgress).toHaveBeenNthCalledWith(1, {
+      processedRows: 1,
+      totalRows: 2,
+    });
+    expect(onProgress).toHaveBeenNthCalledWith(2, {
+      processedRows: 2,
+      totalRows: 2,
+    });
+  });
+
+  it('continues building product previews when progress reporting fails', async () => {
+    const result = await buildBumpaProductPreview({
+      rows: [baseRow],
+      existingProducts: [],
+      onProgress: vi.fn().mockRejectedValue(new Error('boom')),
+    });
+
+    expect(result.summary.totalRows).toBe(1);
+    expect(result.rows[0]?.rowStatus).toBe('create');
+  });
 });
