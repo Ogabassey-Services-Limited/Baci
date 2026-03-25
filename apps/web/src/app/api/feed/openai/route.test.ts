@@ -43,7 +43,6 @@ interface ProductFixture {
   stock: number;
   stock_quantity?: number;
   manage_stock?: boolean;
-  category?: string;
   images?: string[];
   updated_at: string;
   variants?: Array<{
@@ -90,8 +89,6 @@ beforeEach(() => {
 
   mockGetCachedOpenAIFeedData.mockResolvedValue({
     products: [simpleProduct()],
-    custom_domain: null,
-    slug: 'ogabassey',
   });
 });
 
@@ -139,14 +136,12 @@ describe('GET /api/feed/openai', () => {
     expect(parsed.merchant_name).toBe('Ogabassey');
   });
 
-  it('passes resolved merchant UUID and slug to cached data fetcher', async () => {
+  it('passes resolved merchant UUID (not slug) to cached data fetcher', async () => {
     const { GET } = await import('./route');
     await GET(makeRequest('/api/feed/openai?merchant_slug=ogabassey'));
 
-    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith(
-      'merchant-1',
-      'ogabassey'
-    );
+    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1');
+    expect(mockGetCachedOpenAIFeedData).not.toHaveBeenCalledWith('ogabassey');
   });
 
   it('returns 200 with JSONL for valid merchant_id', async () => {
@@ -208,84 +203,10 @@ describe('GET /api/feed/openai', () => {
   });
 });
 
-describe('GET /api/feed/openai — product URLs', () => {
-  it('uses category-based URL when product has a category', async () => {
-    mockGetCachedOpenAIFeedData.mockResolvedValue({
-      products: [simpleProduct({ slug: 'iphone-xr', category: 'Smartphones' })],
-      custom_domain: null,
-      slug: 'ogabassey',
-    });
-    const { GET } = await import('./route');
-    const response = await GET(
-      makeRequest('/api/feed/openai?merchant_slug=ogabassey')
-    );
-    const text = await response.text();
-    const parsed = JSON.parse(text);
-
-    expect(parsed.link).toBe(
-      'https://ogabassey.baci.app/smartphones/iphone-xr'
-    );
-    expect(parsed.link).not.toContain('/ogabassey/');
-  });
-
-  it('falls back to /products/ URL when product has no category', async () => {
-    mockGetCachedOpenAIFeedData.mockResolvedValue({
-      products: [simpleProduct({ slug: 'test-phone', category: undefined })],
-      custom_domain: null,
-      slug: 'ogabassey',
-    });
-    const { GET } = await import('./route');
-    const response = await GET(
-      makeRequest('/api/feed/openai?merchant_slug=ogabassey')
-    );
-    const text = await response.text();
-    const parsed = JSON.parse(text);
-
-    expect(parsed.link).toBe('https://ogabassey.baci.app/products/test-phone');
-  });
-
-  it('uses custom domain in URLs when available', async () => {
-    mockGetCachedOpenAIFeedData.mockResolvedValue({
-      products: [simpleProduct({ slug: 'iphone-xr', category: 'Smartphones' })],
-      custom_domain: 'ogabassey.com',
-      slug: 'ogabassey',
-    });
-    const { GET } = await import('./route');
-    const response = await GET(
-      makeRequest('/api/feed/openai?merchant_slug=ogabassey')
-    );
-    const text = await response.text();
-    const parsed = JSON.parse(text);
-
-    expect(parsed.link).toBe('https://ogabassey.com/smartphones/iphone-xr');
-    expect(parsed.merchant_url).toBe('https://ogabassey.com');
-  });
-
-  it('does not include merchant slug in product URL path', async () => {
-    mockGetCachedOpenAIFeedData.mockResolvedValue({
-      products: [simpleProduct()],
-      custom_domain: null,
-      slug: 'ogabassey',
-    });
-    const { GET } = await import('./route');
-    const response = await GET(
-      makeRequest('/api/feed/openai?merchant_slug=ogabassey')
-    );
-    const text = await response.text();
-    const parsed = JSON.parse(text);
-
-    // The URL path should NOT contain the merchant slug as a path segment
-    const urlPath = new URL(parsed.link).pathname;
-    expect(urlPath).not.toMatch(/^\/ogabassey\//);
-  });
-});
-
 describe('GET /api/feed/openai — stock and manage_stock', () => {
   it('emits in_stock with quantity 9999 when manage_stock is false', async () => {
     mockGetCachedOpenAIFeedData.mockResolvedValue({
       products: [simpleProduct({ stock: 0, manage_stock: false })],
-      custom_domain: null,
-      slug: 'ogabassey',
     });
     const { GET } = await import('./route');
     const response = await GET(
@@ -301,8 +222,6 @@ describe('GET /api/feed/openai — stock and manage_stock', () => {
   it('uses stock_quantity over legacy stock when both are present', async () => {
     mockGetCachedOpenAIFeedData.mockResolvedValue({
       products: [simpleProduct({ stock: 0, stock_quantity: 42 })],
-      custom_domain: null,
-      slug: 'ogabassey',
     });
     const { GET } = await import('./route');
     const response = await GET(
@@ -324,8 +243,6 @@ describe('GET /api/feed/openai — stock and manage_stock', () => {
           manage_stock: undefined,
         }),
       ],
-      custom_domain: null,
-      slug: 'ogabassey',
     });
     const { GET } = await import('./route');
     const response = await GET(
@@ -353,8 +270,6 @@ describe('GET /api/feed/openai — stock and manage_stock', () => {
           ],
         }),
       ],
-      custom_domain: null,
-      slug: 'ogabassey',
     });
     const { GET } = await import('./route');
     const response = await GET(
