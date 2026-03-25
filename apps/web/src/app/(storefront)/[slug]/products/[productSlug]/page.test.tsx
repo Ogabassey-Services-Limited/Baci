@@ -307,6 +307,29 @@ describe('products/[productSlug] page', () => {
     );
   });
 
+  it('does not retry detailed lookup with a lowercased slug', async () => {
+    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
+
+    const metadata = await generateMetadata(
+      {
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'IPHONE-15',
+        }),
+        searchParams: Promise.resolve({}),
+      },
+      Promise.resolve({}) as never
+    );
+
+    expect(metadata.title).toBe('Product Not Found');
+    expect(mockGetCachedProductWithDetails).toHaveBeenCalledTimes(1);
+    expect(mockGetCachedProductWithDetails).toHaveBeenCalledWith(
+      'merchant-1',
+      'IPHONE-15'
+    );
+  });
+
   describe('schema URL consistency', () => {
     it('uses getProductUrl for both offers and breadcrumb URLs with categorized product', async () => {
       mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
