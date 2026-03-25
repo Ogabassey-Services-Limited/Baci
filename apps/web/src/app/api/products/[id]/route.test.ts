@@ -590,6 +590,10 @@ describe('PUT /api/products/[id]', () => {
           images: explicitImages,
         })
       );
+      // When an explicit images array is supplied, legacy single-image fields
+      // must NOT be forwarded to the update payload.
+      expect(lastProductUpdatePayload).not.toHaveProperty('image');
+      expect(lastProductUpdatePayload).not.toHaveProperty('imageLarge');
     });
 
     it('updates product with variants', async () => {

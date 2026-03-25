@@ -1,10 +1,11 @@
 /**
  * Jumia Orders API Route
- * Fetch and manage Jumia orders for the merchant
+ * Fetch and sync Jumia orders for the merchant
  */
 
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { notifyJumiaOrder } from '@/lib/expo-push';
@@ -12,11 +13,29 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { JumiaClient } from '@/lib/jumia/client';
+import {
+  JumiaApiError,
+  JumiaClient,
+  jumiaErrorResponse,
+} from '@/lib/jumia/client';
+import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
+import { logger } from '@/lib/logger';
+import { sanitizeText } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
+/** Deduplicate customer name formatting from Jumia shipping address */
+function getCustomerName(
+  shippingAddress: { firstName?: string; lastName?: string } | undefined
+): string {
+  if (!shippingAddress) return 'Unknown Customer';
+  return (
+    `${shippingAddress.firstName || ''} ${shippingAddress.lastName || ''}`.trim() ||
+    'Unknown Customer'
+  );
+}
+
 /**
- * GET: Fetch Jumia orders for the merchant
+ * GET: Fetch cached Jumia orders from our database
  */
 export async function GET(request: NextRequest) {
   try {
@@ -46,12 +65,67 @@ export async function GET(request: NextRequest) {
     }
 
     const merchantId = merchantContext.merchantId;
-
-    // Get cached Jumia orders from our database
     const { searchParams } = new URL(request.url);
-    const limit = Number.parseInt(searchParams.get('limit') || '50', 10);
-    const offset = Number.parseInt(searchParams.get('offset') || '0', 10);
-    const status = searchParams.get('status');
+
+    const GetQuerySchema = z.object({
+      limit: z.coerce.number().int().min(1).max(1000).default(50),
+      offset: z.coerce.number().int().min(0).default(0),
+      status: z.string().min(1).optional(),
+      integrationId: z.string().uuid().optional(),
+    });
+
+    const queryParsed = GetQuerySchema.safeParse({
+      limit: searchParams.get('limit') ?? undefined,
+      offset: searchParams.get('offset') ?? undefined,
+      status: searchParams.get('status') || undefined,
+      integrationId: searchParams.get('integrationId') || undefined,
+    });
+
+    if (!queryParsed.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid query parameters',
+          details: queryParsed.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const { limit, offset, status, integrationId } = queryParsed.data;
+
+    // If integrationId is provided, look up the shop ID to scope orders
+    let jumiaShopId: string | undefined;
+    if (integrationId) {
+      const { data: integration, error: integrationError } = await supabase
+        .from('marketplace_integrations')
+        .select('jumia_shop_id')
+        .eq('id', integrationId)
+        .eq('merchant_id', merchantId)
+        .maybeSingle();
+
+      if (integrationError) {
+        return NextResponse.json(
+          { error: integrationError.message },
+          { status: 500 }
+        );
+      }
+      if (!integration) {
+        return NextResponse.json(
+          { error: 'Integration not found' },
+          { status: 404 }
+        );
+      }
+      if (
+        !integration.jumia_shop_id ||
+        typeof integration.jumia_shop_id !== 'string'
+      ) {
+        return NextResponse.json(
+          { error: 'Integration is missing a Jumia shop ID' },
+          { status: 400 }
+        );
+      }
+      jumiaShopId = integration.jumia_shop_id;
+    }
 
     let query = supabase
       .from('jumia_orders')
@@ -61,6 +135,10 @@ export async function GET(request: NextRequest) {
       .eq('merchant_id', merchantId)
       .order('synced_at', { ascending: false })
       .range(offset, offset + limit - 1);
+
+    if (jumiaShopId) {
+      query = query.eq('jumia_shop_id', jumiaShopId);
+    }
 
     if (status) {
       query = query.eq('status', status);
@@ -91,10 +169,11 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST: Sync orders from Jumia (manual trigger)
+ * Requires integrationId query param to specify which shop to sync.
  */
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const { valid, response } = await checkCsrfProtection(_request);
+    const { valid, response } = await checkCsrfProtection(request);
     if (!valid) {
       return (
         response ??
@@ -128,99 +207,215 @@ export async function POST(_request: NextRequest) {
     }
 
     const merchantId = merchantContext.merchantId;
+    const { searchParams } = new URL(request.url);
+    const rawIntegrationId = searchParams.get('integrationId');
 
-    // Get Jumia client for this merchant
-    const jumiaClient = await JumiaClient.forMerchant(merchantId, {
-      supabase,
-    });
-
-    if (!jumiaClient) {
+    if (!rawIntegrationId) {
       return NextResponse.json(
-        {
-          error:
-            'No Jumia integration found. Please connect your Jumia account first.',
-        },
+        { error: 'integrationId is required' },
         { status: 400 }
       );
     }
 
-    // Fetch orders from Jumia (last 7 days)
+    const integrationIdSchema = z
+      .string()
+      .uuid('integrationId must be a valid UUID');
+    const parsedIntegrationId = integrationIdSchema.safeParse(rawIntegrationId);
+    if (!parsedIntegrationId.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid integrationId',
+          details: parsedIntegrationId.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+    const integrationId = parsedIntegrationId.data;
+
+    // Map JumiaApiError from forIntegration to appropriate HTTP responses
+    let jumiaClient: JumiaClient;
+    try {
+      jumiaClient = await JumiaClient.forIntegration(
+        supabase,
+        merchantId,
+        integrationId
+      );
+    } catch (clientError) {
+      if (clientError instanceof JumiaApiError) {
+        return jumiaErrorResponse(clientError);
+      }
+      throw clientError;
+    }
+
+    // Fetch all orders from Jumia (auto-paginating) — last 7 days
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    const result = await jumiaClient.getOrders({
-      createdAfter: sevenDaysAgo.toISOString().split('T')[0], // Use YYYY-MM-DD format
+    const jumiaOrders = await getAllOrders(jumiaClient, {
+      createdAfter: sevenDaysAgo.toISOString().split('T')[0],
     });
-    const jumiaOrders = result.orders;
 
     // Sync to our database
     let newOrdersCount = 0;
 
     for (const order of jumiaOrders) {
-      const customerName = order.shippingAddress
-        ? `${order.shippingAddress.firstName || ''} ${order.shippingAddress.lastName || ''}`.trim()
-        : 'Unknown Customer';
+      const customerName = getCustomerName(order.shippingAddress);
 
-      // Upsert order
-      const { data: existingOrder } = await supabase
+      const { data: existingOrder, error: existingOrderError } = await supabase
         .from('jumia_orders')
         .select('id, notification_sent')
         .eq('jumia_order_id', order.id)
-        .single();
+        .eq('merchant_id', merchantId)
+        .maybeSingle();
+
+      if (existingOrderError) {
+        logger.error({
+          message: 'Failed to look up existing Jumia order',
+          orderId: order.id,
+          error: existingOrderError,
+        });
+        continue;
+      }
 
       const isNewOrder = !existingOrder;
 
-      const { error: upsertError } = await supabase.from('jumia_orders').upsert(
-        {
-          merchant_id: merchantId,
-          jumia_order_id: order.id,
-          jumia_order_number: String(order.number),
-          jumia_shop_id: jumiaClient.getShopId(),
-          status: order.status,
-          customer_name: customerName,
-          customer_phone: '', // List API doesn't provide phone directly
-          shipping_address: order.shippingAddress || {},
-          items: [], // List API doesn't provide items directly, fetch via /order/items if needed
-          total_amount: order.totalAmount.value,
-          currency: order.totalAmount.currency,
-          created_at_jumia: order.createdAt,
-          notification_sent: existingOrder?.notification_sent || false,
-        },
-        {
-          onConflict: 'jumia_order_id',
-        }
-      );
+      // Fetch order items from Jumia for richer data
+      let itemsFetched = false;
+      let orderItems: Array<{
+        id: string;
+        product: { name: string; sellerSku: string; imageUrl: string };
+        status: string;
+        itemPrice: number;
+        paidPrice: number;
+      }> = [];
+      try {
+        const itemsResponse = await getOrderItems(jumiaClient, order.id);
+        orderItems = itemsResponse.items.map((item) => ({
+          id: item.id,
+          product: item.product,
+          status: item.status,
+          itemPrice: item.itemPrice,
+          paidPrice: item.paidPrice,
+        }));
+        itemsFetched = true;
+      } catch (itemError) {
+        logger.error({
+          message: 'Failed to fetch items for Jumia order',
+          orderId: order.id,
+          error:
+            itemError instanceof Error
+              ? { message: itemError.message, stack: itemError.stack }
+              : itemError,
+        });
+      }
+
+      // Extract phone from shipping address if available (Jumia may include it as an extra field)
+      const shippingAddr = order.shippingAddress as
+        | (Record<string, unknown> & { phone?: string })
+        | undefined;
+      const customerPhone =
+        typeof shippingAddr?.phone === 'string' ? shippingAddr.phone : '';
+
+      // Sanitize external Jumia fields before DB storage
+      const sanitizedCustomerName = sanitizeText(customerName, 200);
+      const sanitizedShippingAddress = order.shippingAddress
+        ? Object.fromEntries(
+            Object.entries(
+              order.shippingAddress as Record<string, unknown>
+            ).map(([k, v]) => [
+              k,
+              typeof v === 'string' ? sanitizeText(v, 500) : v,
+            ])
+          )
+        : {};
+      // Build upsert payload — only include items when successfully fetched
+      // to avoid overwriting previously stored items with an empty array
+      const upsertPayload: Record<string, unknown> = {
+        merchant_id: merchantId,
+        jumia_order_id: order.id,
+        jumia_order_number: String(order.number),
+        jumia_shop_id: jumiaClient.shopId,
+        status: order.status,
+        customer_name: sanitizedCustomerName,
+        customer_phone: sanitizeText(customerPhone, 50),
+        shipping_address: sanitizedShippingAddress,
+        total_amount: order.totalAmount?.value ?? 0,
+        currency: order.totalAmount?.currency ?? 'NGN',
+        created_at_jumia: order.createdAt,
+        notification_sent: existingOrder?.notification_sent || false,
+      };
+
+      if (itemsFetched) {
+        const sanitizedItems = orderItems.map((item) => ({
+          ...item,
+          product: {
+            ...item.product,
+            name: sanitizeText(item.product.name, 300),
+          },
+        }));
+        upsertPayload.items = sanitizedItems;
+      }
+
+      const { error: upsertError } = await supabase
+        .from('jumia_orders')
+        .upsert(upsertPayload, { onConflict: 'jumia_order_id' });
 
       if (upsertError) {
         console.error('[Jumia Orders] Upsert error:', upsertError);
         continue;
       }
 
-      // Send push notification for new orders
       if (isNewOrder) {
         newOrdersCount++;
-        await notifyJumiaOrder(
-          merchantId,
-          String(order.number),
-          customerName,
-          Number(order.totalAmount.value),
-          order.totalAmount.currency
-        );
+        try {
+          await notifyJumiaOrder(
+            merchantId,
+            String(order.number),
+            sanitizedCustomerName,
+            Number(order.totalAmount?.value ?? 0),
+            order.totalAmount?.currency ?? 'NGN'
+          );
 
-        // Mark as notified
-        await supabase
-          .from('jumia_orders')
-          .update({ notification_sent: true })
-          .eq('jumia_order_id', order.id);
+          // Only mark notification_sent after successful notify
+          const { error: notifyUpdateError } = await supabase
+            .from('jumia_orders')
+            .update({ notification_sent: true })
+            .eq('jumia_order_id', order.id)
+            .eq('merchant_id', merchantId);
+          if (notifyUpdateError) {
+            logger.error({
+              message: 'Failed to update notification_sent flag',
+              orderId: order.id,
+              error: notifyUpdateError,
+            });
+          }
+        } catch (pushError) {
+          logger.error({
+            message: 'Push notification failed for Jumia order',
+            orderId: order.id,
+            orderNumber: order.number,
+            error:
+              pushError instanceof Error
+                ? { message: pushError.message, stack: pushError.stack }
+                : pushError,
+          });
+        }
       }
     }
 
-    // Update last_sync_at on integration
-    await supabase
+    // Update last_sync_at only on THIS integration row
+    const { error: syncUpdateError } = await supabase
       .from('marketplace_integrations')
       .update({ last_sync_at: new Date().toISOString(), sync_error: null })
-      .eq('merchant_id', merchantId)
-      .eq('platform', 'jumia');
+      .eq('id', integrationId)
+      .eq('merchant_id', merchantId);
+
+    if (syncUpdateError) {
+      console.error(
+        '[Jumia Orders] Failed to update last_sync_at:',
+        syncUpdateError
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -230,36 +425,6 @@ export async function POST(_request: NextRequest) {
     });
   } catch (error) {
     console.error('[Jumia Orders] Sync error:', error);
-
-    // Update sync error on integration
-    try {
-      const cookieStore = await cookies();
-      const supabase = createClient(cookieStore);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        const merchantContext = await getMerchantForApiRequest(
-          supabase,
-          user.id
-        );
-
-        if (merchantContext) {
-          await supabase
-            .from('marketplace_integrations')
-            .update({
-              sync_error:
-                error instanceof Error ? error.message : 'Unknown error',
-            })
-            .eq('merchant_id', merchantContext.merchantId)
-            .eq('platform', 'jumia');
-        }
-      }
-    } catch {
-      // Ignore error logging failure
-    }
-
     return NextResponse.json({ error: 'Order sync failed' }, { status: 500 });
   }
 }

@@ -98,6 +98,8 @@ export async function GET(
       variants = v || [];
     }
 
+    const primaryImage = getPrimaryProductImage(product.images);
+
     const fullProduct: Product = {
       id: product.id,
       name: product.name,
@@ -108,11 +110,8 @@ export async function GET(
       stock: getEffectiveStock(product),
       minimum_order_quantity: 1,
 
-      image:
-        getPrimaryProductImage(product.images) || PRODUCT_IMAGE_PLACEHOLDER_URL,
-      imageLarge:
-        getPrimaryProductImage(product.images) ||
-        PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
+      image: primaryImage || PRODUCT_IMAGE_PLACEHOLDER_URL,
+      imageLarge: primaryImage || PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
       imageHint: product.image_hint || '',
       images: product.images || [],
 
@@ -314,14 +313,17 @@ export async function PUT(
       (body.image !== undefined || body.imageLarge !== undefined)
     ) {
       const primaryImage = body.image ?? body.imageLarge;
-      updates.images = primaryImage
+      const sanitizedImage = primaryImage
+        ? sanitizeText(primaryImage)
+        : primaryImage;
+      updates.images = sanitizedImage
         ? [
             {
-              url: primaryImage,
+              url: sanitizedImage,
               alt:
                 (typeof updates.name === 'string'
                   ? updates.name
-                  : existingProduct.name) || 'Product image',
+                  : sanitizeText(existingProduct.name)) || 'Product image',
               order: 0,
             },
           ]

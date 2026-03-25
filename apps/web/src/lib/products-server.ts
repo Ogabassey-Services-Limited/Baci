@@ -128,6 +128,7 @@ export async function getProducts(
           ? schemaRating.reviewCount
           : undefined;
 
+      const primary = getPrimaryProductImage(p.images);
       return {
         id: p.id,
         name: p.name,
@@ -139,11 +140,8 @@ export async function getProducts(
         minimum_order_quantity: 1,
 
         // Image handling
-        image:
-          getPrimaryProductImage(p.images) || PRODUCT_IMAGE_PLACEHOLDER_URL,
-        imageLarge:
-          getPrimaryProductImage(p.images) ||
-          PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
+        image: primary || PRODUCT_IMAGE_PLACEHOLDER_URL,
+        imageLarge: primary || PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
         imageHint: p.image_hint || '',
         images: p.images || [],
 

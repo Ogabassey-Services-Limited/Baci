@@ -13,24 +13,47 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
-// Jumia API Configuration
-const JUMIA_API_BASE = 'https://vendor-api.jumia.com';
+// Jumia API Configuration — environment-aware
+const rawEnv = Deno.env.get('JUMIA_ENVIRONMENT') ?? 'production';
+if (rawEnv !== 'staging' && rawEnv !== 'production') {
+  throw new Error(
+    `Invalid JUMIA_ENVIRONMENT: "${rawEnv}". Must be "staging" or "production".`
+  );
+}
+const JUMIA_ENVIRONMENT = rawEnv;
+const JUMIA_API_BASE =
+  JUMIA_ENVIRONMENT === 'staging'
+    ? 'https://vendor-api-staging.jumia.com'
+    : 'https://vendor-api.jumia.com';
+const JUMIA_CLIENT_ID = Deno.env.get('JUMIA_CLIENT_ID');
+if (!JUMIA_CLIENT_ID) {
+  throw new Error('JUMIA_CLIENT_ID environment variable is required');
+}
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
+const MAX_PAGES = 100;
+
+const INTEGRATION_COLUMNS =
+  'id, merchant_id, shop_id, access_token, refresh_token, token_expires_at, last_sync_at';
 
 interface JumiaOrder {
-  orderId: string;
-  orderNumber: string;
+  id: string;
+  number: number;
   status: string;
   createdAt: string;
-  customer: {
+  shippingAddress: {
     firstName: string;
     lastName: string;
-    phone: string;
+    address: string;
+    city: string;
+    postalCode: string;
+    ward: string;
+    region: string;
+    countryName: string;
+  } | null;
+  totalAmount: {
+    currency: string;
+    value: number;
   };
-  shippingAddress: Record<string, unknown>;
-  items: unknown[];
-  totalAmount: number;
-  currency: string;
 }
 
 interface MarketplaceIntegration {
@@ -40,6 +63,7 @@ interface MarketplaceIntegration {
   access_token: string | null;
   refresh_token: string;
   token_expires_at: string | null;
+  last_sync_at: string | null;
 }
 
 // Helper: Refresh Jumia token
@@ -57,6 +81,7 @@ async function refreshToken(
     body: new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: integration.refresh_token,
+      client_id: JUMIA_CLIENT_ID,
     }),
   });
 
@@ -69,7 +94,7 @@ async function refreshToken(
   const expiresAt = new Date(Date.now() + data.expires_in * 1000);
 
   // Update in database
-  await supabase
+  const { error: updateError } = await supabase
     .from('marketplace_integrations')
     .update({
       access_token: data.access_token,
@@ -77,6 +102,17 @@ async function refreshToken(
       token_expires_at: expiresAt.toISOString(),
     })
     .eq('id', integration.id);
+
+  if (updateError) {
+    throw new Error(
+      `Failed to persist refreshed token: ${updateError.message}`
+    );
+  }
+
+  // Keep in-memory object consistent so subsequent retries use fresh tokens
+  integration.access_token = data.access_token;
+  integration.refresh_token = data.refresh_token;
+  integration.token_expires_at = expiresAt.toISOString();
 
   return data.access_token;
 }
@@ -100,32 +136,76 @@ async function getValidToken(
   return await refreshToken(supabase, integration);
 }
 
-// Helper: Fetch orders from Jumia
-async function fetchJumiaOrders(
+// Helper: Fetch all orders from Jumia with pagination
+async function fetchAllJumiaOrders(
+  supabase: ReturnType<typeof createClient>,
+  integration: MarketplaceIntegration,
   accessToken: string,
-  updatedAfter: string
+  updatedAfter: string,
+  updatedBefore: string
 ): Promise<JumiaOrder[]> {
-  const params = new URLSearchParams({
-    updatedAfter,
-    updatedBefore: new Date().toISOString(),
-  });
+  const allOrders: JumiaOrder[] = [];
+  let nextToken: string | null = null;
+  let pageCount = 0;
+  let currentToken = accessToken;
 
-  const response = await fetch(`${JUMIA_API_BASE}/orders?${params}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error('TOKEN_EXPIRED');
+  do {
+    pageCount++;
+    if (pageCount > MAX_PAGES) {
+      throw new Error(
+        `Reached max page limit (${MAX_PAGES}) — too many orders to sync in one run. ` +
+          'Aborting without advancing last_sync_at so the next run retries.'
+      );
     }
-    throw new Error(`Jumia API error: ${response.status}`);
-  }
 
-  const data = await response.json();
-  return data.orders || [];
+    const params = new URLSearchParams({
+      updatedAfter,
+      updatedBefore,
+    });
+    if (nextToken) {
+      params.set('nextToken', nextToken);
+    }
+
+    let response = await fetch(`${JUMIA_API_BASE}/orders?${params}`, {
+      headers: {
+        Authorization: `Bearer ${currentToken}`,
+        Accept: 'application/json',
+      },
+    });
+
+    // Single-retry on TOKEN_EXPIRED: force-refresh and retry once
+    if (response.status === 401) {
+      console.log(
+        `[Jumia Sync] Token expired for integration ${integration.id}, refreshing and retrying`
+      );
+      currentToken = await refreshToken(supabase, integration);
+      response = await fetch(`${JUMIA_API_BASE}/orders?${params}`, {
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+          Accept: 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const body = await response.text().catch(() => '<unreadable body>');
+        throw new Error(
+          `Jumia API error after token refresh: ${response.status} - ${body}`
+        );
+      }
+    } else if (!response.ok) {
+      const body = await response.text().catch(() => '<unreadable body>');
+      throw new Error(`Jumia API error: ${response.status} - ${body}`);
+    }
+
+    const data = await response.json();
+    const orders: JumiaOrder[] = data.orders || [];
+    allOrders.push(...orders);
+
+    nextToken = data.nextToken ?? null;
+    if (data.isLastPage) break;
+  } while (nextToken);
+
+  return allOrders;
 }
 
 // Helper: Send push notification via Expo
@@ -164,6 +244,36 @@ function formatAmount(amount: number, currency: string): string {
   }).format(amount);
 }
 
+/**
+ * Given the ordered list of notified order IDs and the settled push results,
+ * return only the order IDs where at least one push notification succeeded.
+ *
+ * Push promises are ordered outer-loop by order, inner-loop by token, so
+ * promise index = orderIdx * tokenCount + tokenIdx.
+ */
+function getSuccessfullyNotifiedOrderIds(
+  notifiedOrderIds: string[],
+  pushResults: PromiseSettledResult<void>[],
+  tokenCount: number
+): string[] {
+  const failedPushIndices = new Set<number>();
+  for (let i = 0; i < pushResults.length; i++) {
+    if (pushResults[i].status === 'rejected') {
+      failedPushIndices.add(i);
+    }
+  }
+
+  return notifiedOrderIds.filter((_, orderIdx) => {
+    for (let t = 0; t < tokenCount; t++) {
+      const promiseIdx = orderIdx * tokenCount + t;
+      if (!failedPushIndices.has(promiseIdx)) {
+        return true;
+      }
+    }
+    return false;
+  });
+}
+
 // Main handler
 Deno.serve(async (req) => {
   // Verify authorization (cron jobs send service role key)
@@ -183,7 +293,7 @@ Deno.serve(async (req) => {
     // Fetch all active Jumia integrations
     const { data: integrations, error: intError } = await supabase
       .from('marketplace_integrations')
-      .select('*')
+      .select(INTEGRATION_COLUMNS)
       .eq('platform', 'jumia')
       .eq('is_active', true);
 
@@ -211,97 +321,240 @@ Deno.serve(async (req) => {
         // Get valid token
         const accessToken = await getValidToken(supabase, integration);
 
-        // Fetch orders updated in the last 10 minutes
-        const tenMinutesAgo = new Date(
-          Date.now() - 10 * 60 * 1000
-        ).toISOString();
-        const orders = await fetchJumiaOrders(accessToken, tenMinutesAgo);
+        // Capture sync start time once to avoid timestamp drift across pages
+        // and to use as last_sync_at so no orders slip through the gap.
+        const syncStartedAt = new Date().toISOString();
+
+        // Use last_sync_at from the integration row as the lower bound so
+        // cron pauses or outages longer than 10 minutes don't miss orders.
+        // Fall back to 24 hours ago on first sync (when last_sync_at is null).
+        const updatedAfter = integration.last_sync_at
+          ? integration.last_sync_at
+          : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+        const orders = await fetchAllJumiaOrders(
+          supabase,
+          integration,
+          accessToken,
+          updatedAfter,
+          syncStartedAt
+        );
 
         console.log(
           `[Jumia Sync] Merchant ${integration.merchant_id}: ${orders.length} orders`
         );
 
-        // Process each order
-        for (const order of orders) {
-          const customerName =
-            `${order.customer.firstName} ${order.customer.lastName}`.trim();
+        if (orders.length === 0) {
+          // Use the timestamp captured before fetching so subsequent syncs
+          // don't miss orders that arrived while we were processing.
+          const { error: zeroOrdersSyncError } = await supabase
+            .from('marketplace_integrations')
+            .update({ last_sync_at: syncStartedAt, sync_error: null })
+            .eq('id', integration.id);
+          if (zeroOrdersSyncError) {
+            console.error(
+              `[Jumia Sync] Failed to update last_sync_at for merchant ${integration.merchant_id} (zero orders):`,
+              zeroOrdersSyncError.message
+            );
+          }
+          continue;
+        }
 
-          // Check if order exists
-          const { data: existingOrder } = await supabase
+        // Batch-fetch existing orders to avoid N+1 queries.
+        // Chunk the IN list to stay within PostgreSQL parameter limits.
+        const CHUNK_SIZE = 500;
+        const orderIds = orders.map((o) => o.id);
+        type ExistingOrderRow = {
+          jumia_order_id: string;
+          id: string;
+          notification_sent: boolean;
+        };
+        const existingOrdersData: ExistingOrderRow[] = [];
+        let existingOrdersError: { message: string } | null = null;
+
+        for (let i = 0; i < orderIds.length; i += CHUNK_SIZE) {
+          const chunk = orderIds.slice(i, i + CHUNK_SIZE);
+          const { data: chunkData, error: chunkError } = await supabase
             .from('jumia_orders')
-            .select('id, notification_sent')
-            .eq('jumia_order_id', order.orderId)
-            .single();
+            .select('jumia_order_id, id, notification_sent')
+            .eq('merchant_id', integration.merchant_id)
+            .in('jumia_order_id', chunk);
 
+          if (chunkError) {
+            existingOrdersError = chunkError;
+            break;
+          }
+          if (chunkData) {
+            existingOrdersData.push(...chunkData);
+          }
+        }
+
+        if (existingOrdersError) {
+          console.error(
+            `[Jumia Sync] Failed to fetch existing orders for merchant ${integration.merchant_id}:`,
+            existingOrdersError
+          );
+          errors.push(
+            `${integration.merchant_id}: existing orders query failed — ${existingOrdersError.message}`
+          );
+          continue;
+        }
+
+        const existingOrderMap = new Map(
+          existingOrdersData.map((row) => [row.jumia_order_id, row])
+        );
+
+        // Build upsert rows for all orders
+        const upsertRows: Record<string, unknown>[] = [];
+        const newOrderIds: Set<string> = new Set();
+
+        for (const order of orders) {
+          const customerName = order.shippingAddress
+            ? `${order.shippingAddress.firstName || ''} ${order.shippingAddress.lastName || ''}`.trim()
+            : 'Unknown Customer';
+
+          const existingOrder = existingOrderMap.get(order.id);
           const isNewOrder = !existingOrder;
 
-          // Upsert order
-          await supabase.from('jumia_orders').upsert(
-            {
-              merchant_id: integration.merchant_id,
-              jumia_order_id: order.orderId,
-              jumia_order_number: order.orderNumber,
-              jumia_shop_id: integration.shop_id || 'default',
-              status: order.status,
-              customer_name: customerName,
-              customer_phone: order.customer.phone,
-              shipping_address: order.shippingAddress,
-              items: order.items,
-              total_amount: order.totalAmount,
-              currency: order.currency,
-              created_at_jumia: order.createdAt,
-              notification_sent: existingOrder?.notification_sent || false,
-            },
-            { onConflict: 'jumia_order_id' }
-          );
+          const baseRow = {
+            merchant_id: integration.merchant_id,
+            jumia_order_id: order.id,
+            jumia_order_number: String(order.number),
+            jumia_shop_id: integration.shop_id,
+            status: order.status,
+            customer_name: customerName,
+            shipping_address: order.shippingAddress || {},
+            total_amount: order.totalAmount.value,
+            currency: order.totalAmount.currency,
+            created_at_jumia: order.createdAt,
+          };
 
-          totalSynced++;
+          // For new orders, include initial defaults; for existing, omit to
+          // avoid overwriting fields that may have been enriched elsewhere.
+          const upsertRow = isNewOrder
+            ? {
+                ...baseRow,
+                customer_phone: '',
+                items: [],
+                notification_sent: false,
+              }
+            : baseRow;
 
-          // Send push notification for new orders
+          upsertRows.push(upsertRow);
+
           if (isNewOrder) {
-            totalNewOrders++;
+            newOrderIds.add(order.id);
+          }
+        }
 
-            // Get merchant's push tokens
-            const { data: pushTokens } = await supabase
-              .from('push_tokens')
-              .select('token')
-              .eq('merchant_id', integration.merchant_id)
-              .eq('is_active', true);
+        // Batch upsert all orders at once
+        const { error: upsertError } = await supabase
+          .from('jumia_orders')
+          .upsert(upsertRows, { onConflict: 'jumia_order_id' });
 
-            if (pushTokens && pushTokens.length > 0) {
+        if (upsertError) {
+          const affectedOrderIds = upsertRows.map(
+            (r) => r.jumia_order_id as string
+          );
+          console.error(
+            `[Jumia Sync] Batch upsert error for merchant ${integration.merchant_id}:`,
+            upsertError
+          );
+          errors.push(
+            `${integration.merchant_id}: upsert failed for orders [${affectedOrderIds.join(', ')}] — ${upsertError.message}`
+          );
+          // Skip last_sync_at update on upsert failure to avoid advancing
+          // the cursor and silently dropping orders.
+        } else {
+          totalSynced += orders.length;
+        }
+
+        // Send push notifications for new orders (only when upsert succeeded)
+        if (newOrderIds.size > 0 && !upsertError) {
+          totalNewOrders += newOrderIds.size;
+
+          // Get merchant's push tokens
+          const { data: pushTokens } = await supabase
+            .from('push_tokens')
+            .select('token')
+            .eq('merchant_id', integration.merchant_id)
+            .eq('is_active', true);
+
+          if (pushTokens && pushTokens.length > 0) {
+            const notifiedOrderIds: string[] = [];
+            const pushPromises: Promise<void>[] = [];
+
+            for (const order of orders) {
+              if (!newOrderIds.has(order.id)) continue;
+
+              const customerName = order.shippingAddress
+                ? `${order.shippingAddress.firstName || ''} ${order.shippingAddress.lastName || ''}`.trim()
+                : 'Unknown Customer';
+
               const formattedAmount = formatAmount(
-                order.totalAmount,
-                order.currency
+                order.totalAmount.value,
+                order.totalAmount.currency
               );
 
               for (const { token } of pushTokens) {
-                await sendPushNotification(
-                  token,
-                  '🟠 Jumia Order',
-                  `Order #${order.orderNumber} from ${customerName} - ${formattedAmount}`,
-                  {
-                    type: 'jumia_order',
-                    jumia_order_number: order.orderNumber,
-                    amount: order.totalAmount,
-                    currency: order.currency,
-                  }
+                pushPromises.push(
+                  sendPushNotification(
+                    token,
+                    '🟠 Jumia Order',
+                    `Order #${order.number} from ${customerName} - ${formattedAmount}`,
+                    {
+                      type: 'jumia_order',
+                      jumia_order_number: String(order.number),
+                      amount: order.totalAmount.value,
+                      currency: order.totalAmount.currency,
+                    }
+                  )
                 );
               }
 
-              // Mark as notified
-              await supabase
+              notifiedOrderIds.push(order.id);
+            }
+
+            const pushResults = await Promise.allSettled(pushPromises);
+
+            const successfullyNotifiedOrderIds =
+              getSuccessfullyNotifiedOrderIds(
+                notifiedOrderIds,
+                pushResults,
+                pushTokens.length
+              );
+
+            if (successfullyNotifiedOrderIds.length > 0) {
+              const { error: notifUpdateError } = await supabase
                 .from('jumia_orders')
                 .update({ notification_sent: true })
-                .eq('jumia_order_id', order.orderId);
+                .eq('merchant_id', integration.merchant_id)
+                .in('jumia_order_id', successfullyNotifiedOrderIds);
+              if (notifUpdateError) {
+                console.error(
+                  `[Jumia Sync] Failed to mark orders as notified for merchant ${integration.merchant_id}:`,
+                  notifUpdateError.message
+                );
+              }
             }
           }
         }
 
-        // Update last_sync_at
-        await supabase
-          .from('marketplace_integrations')
-          .update({ last_sync_at: new Date().toISOString(), sync_error: null })
-          .eq('id', integration.id);
+        // Only update last_sync_at when the upsert succeeded so a failed
+        // sync doesn't advance the cursor and silently drop orders.
+        if (!upsertError) {
+          const { error: syncUpdateError } = await supabase
+            .from('marketplace_integrations')
+            .update({ last_sync_at: syncStartedAt, sync_error: null })
+            .eq('id', integration.id);
+
+          if (syncUpdateError) {
+            console.error(
+              `[Jumia Sync] Failed to update last_sync_at for merchant ${integration.merchant_id}:`,
+              syncUpdateError.message
+            );
+          }
+        }
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';

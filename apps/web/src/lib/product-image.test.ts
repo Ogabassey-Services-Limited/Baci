@@ -3,7 +3,7 @@ import {
   getPrimaryProductImage,
   PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
   PRODUCT_IMAGE_PLACEHOLDER_URL,
-} from './product-image';
+} from '@/lib/product-image';
 
 describe('product-image', () => {
   it('returns null for missing or empty images', () => {
@@ -44,6 +44,42 @@ describe('product-image', () => {
   it('returns null when all image entries are blank', () => {
     expect(getPrimaryProductImage([{ url: null }, { url: '' }, '   '])).toBe(
       null
+    );
+  });
+
+  it('rejects javascript: scheme URLs and returns null', () => {
+    expect(getPrimaryProductImage(['javascript:alert(1)'])).toBeNull();
+  });
+
+  it('rejects data: scheme URLs and returns null', () => {
+    expect(
+      getPrimaryProductImage([{ url: 'data:text/html,<h1>hi</h1>' }])
+    ).toBeNull();
+  });
+
+  it('skips unsafe URLs and returns the first safe one', () => {
+    expect(
+      getPrimaryProductImage([
+        'javascript:void(0)',
+        'data:image/png;base64,abc',
+        'https://cdn.example.com/safe.jpg',
+      ])
+    ).toBe('https://cdn.example.com/safe.jpg');
+  });
+
+  it('rejects case-insensitive dangerous schemes', () => {
+    expect(getPrimaryProductImage(['JaVaScRiPt:alert(1)'])).toBeNull();
+    expect(getPrimaryProductImage(['JAVASCRIPT:void(0)'])).toBeNull();
+    expect(
+      getPrimaryProductImage([{ url: 'VbScript:MsgBox("hi")' }])
+    ).toBeNull();
+    expect(getPrimaryProductImage(['file:///etc/passwd'])).toBeNull();
+    expect(getPrimaryProductImage(['FILE:///etc/passwd'])).toBeNull();
+  });
+
+  it('accepts relative paths starting with /', () => {
+    expect(getPrimaryProductImage(['/images/product.jpg'])).toBe(
+      '/images/product.jpg'
     );
   });
 
