@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockFrom = vi.fn();
+const mockRpc = vi.fn();
 
 vi.mock('@/lib/supabase/anon', () => ({
-  createAnonClient: () => ({ from: mockFrom }),
+  createAnonClient: () => ({ rpc: mockRpc }),
 }));
 
 import {
@@ -21,13 +21,7 @@ const merchantFixture = {
 };
 
 function mockQuery(result: { data: unknown; error: unknown }) {
-  mockFrom.mockReturnValue({
-    select: () => ({
-      eq: () => ({
-        single: () => Promise.resolve(result),
-      }),
-    }),
-  });
+  mockRpc.mockResolvedValue(result);
 }
 
 describe('isUuid', () => {
@@ -58,22 +52,29 @@ describe('resolveFeedMerchant', () => {
   });
 
   it('resolves a merchant by slug', async () => {
-    mockQuery({ data: merchantFixture, error: null });
+    mockQuery({ data: [merchantFixture], error: null });
 
     const result = await resolveFeedMerchant('ogabassey', true);
     expect(result).toEqual(merchantFixture);
-    expect(mockFrom).toHaveBeenCalledWith('merchants');
+    expect(mockRpc).toHaveBeenCalledWith('resolve_public_feed_merchant', {
+      p_identifier: 'ogabassey',
+      p_is_by_slug: true,
+    });
   });
 
   it('resolves a merchant by UUID', async () => {
-    mockQuery({ data: merchantFixture, error: null });
+    mockQuery({ data: [merchantFixture], error: null });
 
     const result = await resolveFeedMerchant(merchantFixture.id, false);
     expect(result).toEqual(merchantFixture);
+    expect(mockRpc).toHaveBeenCalledWith('resolve_public_feed_merchant', {
+      p_identifier: merchantFixture.id,
+      p_is_by_slug: false,
+    });
   });
 
   it('throws MerchantNotFoundError when merchant does not exist', async () => {
-    mockQuery({ data: null, error: null });
+    mockQuery({ data: [], error: null });
 
     await expect(resolveFeedMerchant('nonexistent', true)).rejects.toThrow(
       MerchantNotFoundError
