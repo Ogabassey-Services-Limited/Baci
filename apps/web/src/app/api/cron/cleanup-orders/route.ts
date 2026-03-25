@@ -6,16 +6,18 @@ import { createServiceClient } from '@/lib/supabase/service';
 // Runs daily via Vercel Cron
 export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret
-    const cronSecret = request.headers.get('x-cron-secret');
-    const expectedSecret = process.env.CRON_SECRET;
+    // Verify authentication from Vercel Cron
+    const authHeader = request.headers.get('authorization');
+    const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
 
     if (
-      !cronSecret ||
-      !expectedSecret ||
-      cronSecret.length !== expectedSecret.length ||
-      !timingSafeEqual(Buffer.from(cronSecret), Buffer.from(expectedSecret))
+      !authHeader ||
+      !process.env.CRON_SECRET ||
+      authHeader.length !== expectedToken.length ||
+      !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedToken))
     ) {
+      // Allow local development testing if needed, or stick to strict checking
+      // For now, we return 401 if unauthorized
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
