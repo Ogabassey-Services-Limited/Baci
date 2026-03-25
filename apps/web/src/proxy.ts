@@ -470,9 +470,13 @@ export async function proxy(request: NextRequest) {
   if (normalizeHostname(hostname) === 'blog.ogabassey.com') {
     // Strip accidental domain prefix from path (e.g., /ogabassey.com/blog/... → /blog/...)
     let cleanPath = pathname;
-    const domainPrefixMatch = cleanPath.match(/^\/[^/]+\.[^/]+(\/.*)?$/);
-    if (domainPrefixMatch) {
-      cleanPath = domainPrefixMatch[1] || '/';
+    const firstSegment = cleanPath.split('/')[1]?.toLowerCase();
+    const accidentalDomainPrefixes = new Set([
+      'ogabassey.com',
+      'www.ogabassey.com',
+    ]);
+    if (firstSegment && accidentalDomainPrefixes.has(firstSegment)) {
+      cleanPath = cleanPath.slice(`/${firstSegment}`.length) || '/';
     }
     // Avoid double /blog/ when the malformed path already includes it
     if (cleanPath.startsWith('/blog/') || cleanPath === '/blog') {
