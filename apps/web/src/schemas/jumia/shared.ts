@@ -28,7 +28,7 @@ export const ShippingAddressSchema = z.object({
   city: z.string().trim().min(1),
   postalCode: z.string().optional(),
   ward: z.string().optional(),
-  region: z.string().min(1),
+  region: z.string().trim().min(1),
   countryName: z.string().trim().min(1),
 });
 

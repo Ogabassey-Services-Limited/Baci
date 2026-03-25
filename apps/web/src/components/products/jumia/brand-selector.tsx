@@ -118,26 +118,25 @@ export function JumiaBrandSelector({
         <Command>
           <CommandInput placeholder="Search brand..." />
           <CommandList>
-            {fetchStatus !== 'loading' && fetchStatus !== 'idle' && (
+            {fetchStatus === 'error' && (
               <CommandEmpty>
-                {fetchStatus === 'error' ? (
-                  <div className="p-4 text-sm text-center">
-                    <p className="text-destructive">{errorMessage}</p>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      onClick={() => fetchBrands(merchantId)}
-                      className="mt-2 text-sm underline"
-                    >
-                      Retry
-                    </Button>
-                  </div>
-                ) : (
-                  'No brand found.'
-                )}
+                <div className="p-4 text-sm text-center">
+                  <p className="text-destructive">{errorMessage}</p>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => fetchBrands(merchantId)}
+                    className="mt-2 text-sm underline"
+                  >
+                    Retry
+                  </Button>
+                </div>
               </CommandEmpty>
             )}
-            {fetchStatus === 'loading' ? (
+            {fetchStatus === 'success' && brands.length === 0 && (
+              <CommandEmpty>No brand found.</CommandEmpty>
+            )}
+            {fetchStatus === 'loading' || fetchStatus === 'idle' ? (
               <div className="p-4 text-sm text-center text-muted-foreground">
                 Loading brands...
               </div>
