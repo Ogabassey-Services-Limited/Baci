@@ -193,7 +193,7 @@ describe('import-job-service', () => {
       headers: ['id'],
       rows: [{ id: 'bumpa-1' }],
     });
-    vi.mocked(buildBumpaOrderPreview).mockReturnValue({
+    vi.mocked(buildBumpaOrderPreview).mockResolvedValue({
       rows: [previewRow],
       summary: createPreviewSummary(),
     });
@@ -236,7 +236,7 @@ describe('import-job-service', () => {
       headers: ['id'],
       rows: [{ id: 'prod-1' }],
     });
-    vi.mocked(buildBumpaProductPreview).mockReturnValue({
+    vi.mocked(buildBumpaProductPreview).mockResolvedValue({
       rows: [],
       summary: createPreviewSummary(),
     });
@@ -250,6 +250,45 @@ describe('import-job-service', () => {
     expect(result.sourceRows).toEqual([{ id: 'prod-1' }]);
     expect(result.totalRows).toBe(1);
     expect(buildBumpaProductPreview).toHaveBeenCalled();
+  });
+
+  it('reports preview progress while building order previews', async () => {
+    const supabase = createSupabaseMock();
+    const onProgress = vi.fn();
+
+    vi.mocked(parseCsvText).mockReturnValue({
+      headers: ['id'],
+      rows: [{ id: 'bumpa-1' }, { id: 'bumpa-2' }],
+    });
+    vi.mocked(buildBumpaOrderPreview).mockImplementation(
+      async ({ onProgress: builderProgress }) => {
+        await builderProgress?.({ processedRows: 1, totalRows: 2 });
+
+        return {
+          rows: [],
+          summary: createPreviewSummary(),
+        };
+      }
+    );
+
+    await buildImportPreviewForJob(
+      supabase,
+      {
+        entity_type: 'orders',
+        merchant_id: 'merchant-1',
+        storage_path: 'merchant-1/orders/orders.csv',
+      },
+      onProgress
+    );
+
+    expect(onProgress).toHaveBeenNthCalledWith(1, {
+      processedRows: 0,
+      totalRows: 2,
+    });
+    expect(onProgress).toHaveBeenNthCalledWith(2, {
+      processedRows: 1,
+      totalRows: 2,
+    });
   });
 
   it('maps preview rows into import_job_rows payloads', () => {

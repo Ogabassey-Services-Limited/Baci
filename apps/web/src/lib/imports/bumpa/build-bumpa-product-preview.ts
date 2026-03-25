@@ -10,6 +10,10 @@ import type {
 interface BuildBumpaProductPreviewInput {
   rows: Record<string, string>[];
   existingProducts: ExistingImportedProduct[];
+  onProgress?: (progress: {
+    processedRows: number;
+    totalRows: number;
+  }) => Promise<void> | void;
 }
 
 function splitImageField(value: string) {
@@ -52,9 +56,30 @@ function buildSummary(rows: ImportPreviewRow<NormalizedImportedProduct>[]) {
   );
 }
 
-export function buildBumpaProductPreview({
+async function maybeReportProgress(
+  onProgress: BuildBumpaProductPreviewInput['onProgress'],
+  processedRows: number,
+  totalRows: number
+) {
+  if (!onProgress || totalRows <= 0) {
+    return;
+  }
+
+  if (processedRows === totalRows || processedRows <= 10) {
+    await onProgress({ processedRows, totalRows });
+    return;
+  }
+
+  const batchSize = Math.max(10, Math.ceil(totalRows / 50));
+  if (processedRows % batchSize === 0) {
+    await onProgress({ processedRows, totalRows });
+  }
+}
+
+export async function buildBumpaProductPreview({
   rows,
   existingProducts,
+  onProgress,
 }: BuildBumpaProductPreviewInput) {
   const seenExternalIds = new Set<string>();
   const existingByExternalId = new Map<string, ExistingImportedProduct>();
@@ -65,18 +90,22 @@ export function buildBumpaProductPreview({
     }
   });
 
-  const previewRows = rows.map((rawRow, index) => {
+  const previewRows: ImportPreviewRow<NormalizedImportedProduct>[] = [];
+
+  for (const [index, rawRow] of rows.entries()) {
     const rowNumber = index + 2;
     const validationResult = bumpaProductRowSchema.safeParse(rawRow);
     if (!validationResult.success) {
-      return {
+      previewRows.push({
         rowNumber,
         sourceExternalId: null,
         rowStatus: 'invalid',
         errors: validationResult.error.errors.map((error) => error.message),
         payload: null,
         meta: {},
-      } satisfies ImportPreviewRow<NormalizedImportedProduct>;
+      } satisfies ImportPreviewRow<NormalizedImportedProduct>);
+      await maybeReportProgress(onProgress, index + 1, rows.length);
+      continue;
     }
 
     const row = validationResult.data;
@@ -84,14 +113,16 @@ export function buildBumpaProductPreview({
     const externalSourceId = row['Product ID'] || row['Source ID'];
 
     if (seenExternalIds.has(externalSourceId)) {
-      return {
+      previewRows.push({
         rowNumber,
         sourceExternalId: externalSourceId,
         rowStatus: 'duplicate',
         errors: ['Duplicate Bumpa product id in the same file'],
         payload: null,
         meta: {},
-      } satisfies ImportPreviewRow<NormalizedImportedProduct>;
+      } satisfies ImportPreviewRow<NormalizedImportedProduct>);
+      await maybeReportProgress(onProgress, index + 1, rows.length);
+      continue;
     }
 
     seenExternalIds.add(externalSourceId);
@@ -134,7 +165,7 @@ export function buildBumpaProductPreview({
       },
     } satisfies NormalizedImportedProduct;
 
-    return {
+    previewRows.push({
       rowNumber,
       sourceExternalId: externalSourceId,
       rowStatus:
@@ -146,8 +177,9 @@ export function buildBumpaProductPreview({
       errors,
       payload: errors.length > 0 ? null : payload,
       meta: {},
-    } satisfies ImportPreviewRow<NormalizedImportedProduct>;
-  });
+    } satisfies ImportPreviewRow<NormalizedImportedProduct>);
+    await maybeReportProgress(onProgress, index + 1, rows.length);
+  }
 
   return {
     rows: previewRows,

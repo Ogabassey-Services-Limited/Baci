@@ -3,6 +3,7 @@
 import { Loader2, Mail, RefreshCw } from 'lucide-react';
 import {
   decorateImportJob,
+  getMigrationProgressDetail,
   getMigrationProgressLabel,
   getMigrationProgressValue,
   isMigrationStatusActive,
@@ -49,8 +50,19 @@ export default function MigrationJobSummary({
   const progressLabel = selectedJob
     ? getMigrationProgressLabel(selectedJob.status)
     : null;
+  const progressDetail = selectedJob
+    ? getMigrationProgressDetail(
+        selectedJob.status,
+        selectedJob.processed_rows,
+        selectedJob.total_rows
+      )
+    : null;
   const progressValue = selectedJob
-    ? getMigrationProgressValue(selectedJob.status)
+    ? getMigrationProgressValue(
+        selectedJob.status,
+        selectedJob.processed_rows,
+        selectedJob.total_rows
+      )
     : 0;
   const suggestedAction =
     activeFilter === 'importable'
@@ -249,7 +261,8 @@ export default function MigrationJobSummary({
                   value={progressValue}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Job status updates automatically while this stage is running.
+                  {progressDetail ||
+                    'Job status updates automatically while this stage is running.'}
                 </p>
               </div>
             ) : null}

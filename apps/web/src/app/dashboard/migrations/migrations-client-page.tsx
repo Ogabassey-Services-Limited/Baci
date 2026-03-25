@@ -241,13 +241,16 @@ export default function MigrationsClientPage({
       return;
     }
 
-    const intervalId = window.setInterval(() => {
-      void refreshJob(selectedJobId, {
-        background: true,
-        filter: activeFilter,
-        page: rowsResponse?.pagination.page || 1,
-      });
-    }, 5000);
+    const intervalId = window.setInterval(
+      () => {
+        void refreshJob(selectedJobId, {
+          background: true,
+          filter: activeFilter,
+          page: rowsResponse?.pagination.page || 1,
+        });
+      },
+      selectedJob.status === 'validating' ? 1000 : 2500
+    );
 
     return () => window.clearInterval(intervalId);
   }, [activeFilter, rowsResponse?.pagination.page, selectedJob, selectedJobId]);

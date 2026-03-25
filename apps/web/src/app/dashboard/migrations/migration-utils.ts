@@ -35,12 +35,26 @@ export function isMigrationStatusActive(status: ImportJobStatus) {
   return ACTIVE_MIGRATION_STATUSES.has(status);
 }
 
-export function getMigrationProgressValue(status: ImportJobStatus) {
+export function getMigrationProgressValue(
+  status: ImportJobStatus,
+  processedRows = 0,
+  totalRows = 0
+) {
   switch (status) {
     case 'uploaded':
       return 18;
     case 'validating':
-      return 56;
+      if (totalRows <= 0) {
+        return 0;
+      }
+
+      return Math.min(
+        99,
+        Math.max(
+          processedRows > 0 ? 1 : 0,
+          Math.round((processedRows / totalRows) * 100)
+        )
+      );
     case 'commit_queued':
       return 68;
     case 'committing':
@@ -58,6 +72,19 @@ export function getMigrationProgressValue(status: ImportJobStatus) {
     default:
       return 0;
   }
+}
+
+export function getMigrationProgressDetail(
+  status: ImportJobStatus,
+  processedRows = 0,
+  totalRows = 0
+) {
+  if (status !== 'validating' || totalRows <= 0) {
+    return null;
+  }
+
+  const safeProcessedRows = Math.min(processedRows, totalRows);
+  return `${safeProcessedRows.toLocaleString()} of ${totalRows.toLocaleString()} rows processed`;
 }
 
 export function getMigrationProgressLabel(status: ImportJobStatus) {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { statusBadgeClass } from './migration-utils';
+import {
+  getMigrationProgressDetail,
+  getMigrationProgressValue,
+  statusBadgeClass,
+} from './migration-utils';
 
 describe('statusBadgeClass', () => {
   it.each(['completed', 'committed'])('returns green for %s', (status) => {
@@ -24,6 +28,14 @@ describe('statusBadgeClass', () => {
   it('returns muted for unknown status', () => {
     expect(statusBadgeClass('something_else')).toBe(
       'bg-muted text-muted-foreground'
+    );
+  });
+
+  it('uses actual row counts for validating progress', () => {
+    expect(getMigrationProgressValue('validating', 2911, 5821)).toBe(50);
+    expect(getMigrationProgressValue('validating', 5821, 5821)).toBe(99);
+    expect(getMigrationProgressDetail('validating', 2911, 5821)).toBe(
+      '2,911 of 5,821 rows processed'
     );
   });
 });

@@ -92,7 +92,7 @@ describe('MigrationJobSummary', () => {
           source_platform: 'bumpa',
           status: 'validating',
           original_filename: 'orders.csv',
-          processed_rows: 0,
+          processed_rows: 2911,
           total_rows: 5821,
           summary: {
             validRows: 0,
@@ -110,6 +110,10 @@ describe('MigrationJobSummary', () => {
     );
 
     expect(screen.getByText(/building preview/i)).toBeInTheDocument();
+    expect(screen.getByText('50%')).toBeInTheDocument();
+    expect(
+      screen.getByText('2,911 of 5,821 rows processed')
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('progressbar', { name: /migration progress/i })
     ).toBeInTheDocument();
