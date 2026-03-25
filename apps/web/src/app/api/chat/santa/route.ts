@@ -129,7 +129,6 @@ const santaChatSchema = z.object({
  * Generate dynamic Santa system instruction with actual product data
  * Fetches products across multiple price ranges using cached utility
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function generateSantaPrompt(
   _supabase?: SupabaseClient
 ): Promise<string> {
