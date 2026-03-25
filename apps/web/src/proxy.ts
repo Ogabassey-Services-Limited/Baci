@@ -49,9 +49,9 @@ const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 
 // Pre-compiled regex patterns for performance (avoids recompilation on every request)
 const STATIC_FILES_REGEX =
-  /\.(jpg|jpeg|png|gif|svg|ico|webp|woff|woff2|ttf|eot|css|js|json)$/;
+  /\.(jpg|jpeg|png|gif|svg|ico|webp|avif|woff|woff2|ttf|eot|css|js|json)$/;
 const IMAGE_FILES_REGEX =
-  /\.(jpg|jpeg|png|gif|svg|ico|webp|woff|woff2|ttf|eot)$/;
+  /\.(jpg|jpeg|png|gif|svg|ico|webp|avif|woff|woff2|ttf|eot)$/;
 const BOT_USER_AGENT_REGEX =
   /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i;
 const PRODUCT_PAGE_REGEX = /^\/[^/]+\/products\/[^/]+$/;
@@ -74,6 +74,51 @@ const MAIN_APP_ROUTES = [
   '/robots.txt',
   '/manifest.webmanifest',
 ];
+
+// Prefixes whose tail segments may be case-sensitive (tracking numbers,
+// API identifiers, build IDs). Only the prefix itself is lowercased.
+// Important: do NOT derive from MAIN_APP_ROUTES wholesale — /checkout
+// overlaps real storefront paths and must stay eligible for the later
+// storefront-wide lowercase redirect.
+const CASE_PRESERVING_PREFIXES = [
+  '/api',
+  '/track',
+  '/_next',
+  '/dashboard',
+  '/auth',
+  '/login',
+  '/onboarding',
+  '/builder',
+  '/reset-password',
+  '/favicon.ico',
+  '/robots.txt',
+  '/sitemap.xml',
+  '/manifest.webmanifest',
+];
+
+/**
+ * If pathname starts with `prefix` (case-insensitive), return the corrected
+ * pathname with only the prefix lowercased and the tail untouched.
+ * Returns null when no change is needed (already correct or no match).
+ */
+function normalizeLeadingPrefix(
+  pathname: string,
+  prefix: string
+): string | null {
+  const lowerPathname = pathname.toLowerCase();
+
+  if (lowerPathname === prefix) {
+    return pathname === prefix ? null : prefix;
+  }
+
+  if (lowerPathname.startsWith(`${prefix}/`)) {
+    return pathname.startsWith(prefix)
+      ? null
+      : `${prefix}${pathname.slice(prefix.length)}`;
+  }
+
+  return null;
+}
 
 /**
  * Normalize hostname: remove port and convert to lowercase
@@ -359,6 +404,20 @@ export async function proxy(request: NextRequest) {
   const userAgent = request.headers.get('user-agent') || '';
   const pathname = request.nextUrl.pathname;
 
+  // ==== URL NORMALIZATION: STATIC PREFIXES FIRST ====
+  // Lowercase only prefixes that are EXCLUSIVELY non-storefront and/or have
+  // case-sensitive tail segments. This MUST run before API rate limiting so
+  // /API/... doesn't bypass the /api branch.
+  for (const prefix of CASE_PRESERVING_PREFIXES) {
+    const normalized = normalizeLeadingPrefix(pathname, prefix);
+    if (normalized) {
+      return NextResponse.redirect(
+        new URL(normalized + request.nextUrl.search, request.url),
+        308
+      );
+    }
+  }
+
   // ==== RATE LIMITING (API Routes) ====
   // Protect API endpoints from abuse
   if (pathname.startsWith('/api')) {
@@ -409,7 +468,21 @@ export async function proxy(request: NextRequest) {
   // 301 redirect old blog subdomain to new blog location
   // blog.ogabassey.com/* -> ogabassey.com/blog/*
   if (normalizeHostname(hostname) === 'blog.ogabassey.com') {
-    const newPath = pathname === '/' ? '' : pathname;
+    // Strip accidental domain prefix from path (e.g., /ogabassey.com/blog/... → /blog/...)
+    // Derive the root domain from the subdomain so this adapts automatically
+    let cleanPath = pathname;
+    const rootDomain = normalizeHostname(hostname).replace(/^blog\./, '');
+    if (
+      cleanPath.toLowerCase().startsWith(`/${rootDomain}/`) ||
+      cleanPath.toLowerCase() === `/${rootDomain}`
+    ) {
+      cleanPath = cleanPath.slice(`/${rootDomain}`.length) || '/';
+    }
+    // Avoid double /blog/ when the malformed path already includes it
+    if (cleanPath.startsWith('/blog/') || cleanPath === '/blog') {
+      cleanPath = cleanPath.slice('/blog'.length) || '/';
+    }
+    const newPath = cleanPath === '/' ? '' : cleanPath;
     const newUrl = `https://ogabassey.com/blog${newPath}`;
     return NextResponse.redirect(newUrl, { status: 301 });
   }
@@ -465,18 +538,33 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // ==== SEO: GLOBAL LOWERCASE REDIRECT ====
-  // Force all paths to be lowercase to prevent duplicate content crawling
-  // Skip: _next (assets), api (backend), static files
+  // ==== SEO: ENFORCE LOWERCASE CANONICAL URLS ====
+  // Full-path lowercase canonicalization for storefront routes and any other
+  // public routes not covered by the prefix-only normalization above.
+  // By the time execution reaches here, /api, /track, /_next, and other
+  // main-app prefixes have already been normalized or excluded above, and
+  // host-aware passthroughs (.well-known, llms) have been allowed through.
+  const lowerPathname = pathname.toLowerCase();
+  const isWellKnownPassthrough = lowerPathname.startsWith('/.well-known/');
+  const isLlmsPassthrough =
+    lowerPathname === '/llms.txt' || lowerPathname === '/llms-full.txt';
+  const isStaticFile = STATIC_FILES_REGEX.test(lowerPathname);
+  const isNonStorefrontPrefix = CASE_PRESERVING_PREFIXES.some(
+    (prefix) =>
+      lowerPathname === prefix || lowerPathname.startsWith(`${prefix}/`)
+  );
+
   if (
-    pathname !== pathname.toLowerCase() &&
-    !pathname.startsWith('/_next') &&
-    !pathname.startsWith('/api') &&
-    !pathname.match(STATIC_FILES_REGEX)
+    pathname !== lowerPathname &&
+    !isNonStorefrontPrefix &&
+    !isStaticFile &&
+    !isWellKnownPassthrough &&
+    !isLlmsPassthrough
   ) {
-    const url = request.nextUrl.clone();
-    url.pathname = pathname.toLowerCase();
-    return NextResponse.redirect(url, 308); // Permanent Redirect for SEO
+    return NextResponse.redirect(
+      new URL(lowerPathname + request.nextUrl.search, request.url),
+      308
+    );
   }
 
   // ==== AUTH MIDDLEWARE (Server-side session verification) ====
@@ -1119,6 +1207,6 @@ export const config = {
      * - sitemap.xml (SEO file)
      * - Static files with extensions (.svg, .png, .jpg, etc.)
      */
-    '/((?!_next/image|_next/static|favicon.ico|manifest.webmanifest|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|css|js|json)$).*)',
+    '/((?!_next/image|_next/static|favicon.ico|manifest.webmanifest|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|eot|css|js|json)$).*)',
   ],
 };

@@ -58,6 +58,11 @@ function createRequest(body: FormData) {
   } as unknown as ActualNextRequest;
 }
 
+async function flushAfterCallbacks() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 function createSupabaseMock() {
   const upload = vi.fn().mockResolvedValue({ error: null });
   const remove = vi.fn().mockResolvedValue({ error: null });
@@ -278,12 +283,8 @@ describe('POST /api/import-jobs', () => {
         storage_path: 'merchant-1/orders/orders.csv',
       })
     );
-    await vi.waitFor(() => {
-      expect(kickoffImportJob).toHaveBeenCalledWith(
-        'job-1',
-        'http://localhost'
-      );
-    });
+    await flushAfterCallbacks();
+    expect(kickoffImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');
   });
 
   it('returns 500 when storage upload fails', async () => {
@@ -404,12 +405,7 @@ describe('POST /api/import-jobs', () => {
     const response = await POST(createRequest(formData) as NextRequest);
 
     expect(response.status).toBe(202);
-    await vi.waitFor(() => {
-      expect(kickoffImportJob).toHaveBeenCalledWith(
-        'job-1',
-        'http://localhost'
-      );
-    });
+    await flushAfterCallbacks();
     await expect(response.json()).resolves.toEqual(
       expect.objectContaining({
         job: expect.objectContaining({
@@ -418,5 +414,6 @@ describe('POST /api/import-jobs', () => {
         }),
       })
     );
+    expect(kickoffImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');
   });
 });

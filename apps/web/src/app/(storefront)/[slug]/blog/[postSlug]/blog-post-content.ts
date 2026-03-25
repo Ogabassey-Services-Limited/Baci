@@ -1,6 +1,7 @@
 import { marked } from 'marked';
 import { stripHtml } from '@/lib/blog-utils';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { buildStoreUrl } from '@/lib/store-url';
 
 interface TipTapNode {
   content?: TipTapNode[];
@@ -111,6 +112,13 @@ export function getBlogPostTextPreview(
   }
 
   return fallback;
+}
+
+export function buildCanonicalBlogPostUrl(
+  merchant: { slug: string; custom_domain?: string },
+  postSlug: string
+): string {
+  return `${buildStoreUrl(merchant)}/blog/${postSlug}`;
 }
 
 export function buildBlogUrl(

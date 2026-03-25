@@ -40,6 +40,10 @@ describe('order column constants', () => {
   it('WEB_ORDER_COLUMNS does not include unsupported production columns', () => {
     expect(WEB_ORDER_COLUMNS).not.toContain('payment_reference');
   });
+
+  it('WEB_ORDER_COLUMNS does not include unsupported production columns', () => {
+    expect(WEB_ORDER_COLUMNS).not.toContain('payment_reference');
+  });
 });
 
 describe('extractOrderDeliveryAddress', () => {
