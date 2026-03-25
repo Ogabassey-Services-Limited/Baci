@@ -110,7 +110,7 @@ export const Hero: React.FC = () => {
   }, [isManualUtility]);
 
   const [showUtilityModal, setShowUtilityModal] = useState(false);
-  const [utilityTab, setUtilityTab] = useState<'airtime' | 'data' | 'tv' | 'power' | 'betting'>('airtime');
+  const [utilityTab, setUtilityTab] = useState('airtime');
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath;
 
@@ -691,7 +691,7 @@ export const Hero: React.FC = () => {
       <UtilityModal
         isOpen={showUtilityModal}
         onClose={() => setShowUtilityModal(false)}
-        initialTab={utilityTab}
+        initialTab={utilityTab as any}
       />
     </div >
   );
