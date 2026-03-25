@@ -84,7 +84,6 @@ function SetupChecklistMobileWidget({
     <button
       type="button"
       onClick={onClick}
-      aria-label="Toggle setup checklist"
       className="md:hidden w-full bg-gradient-to-br from-primary/10 to-transparent border border-primary/10 rounded-2xl p-4 flex items-center justify-between active:scale-[0.98] transition-all touch-manipulation cursor-pointer select-none"
     >
       <div className="flex items-center gap-4">
