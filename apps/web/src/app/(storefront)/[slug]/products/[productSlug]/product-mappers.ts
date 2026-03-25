@@ -172,7 +172,9 @@ export function mapDetailedCachedProductToProduct(
   );
 
   return {
-    ...detailedProduct,
+    id: detailedProduct.id,
+    merchant_id: detailedProduct.merchant_id || merchantId,
+    name: detailedProduct.name,
     description: detailedProduct.description || '',
     status: (detailedProduct.status || 'active') as
       | 'draft'
@@ -202,7 +204,19 @@ export function mapDetailedCachedProductToProduct(
       (detailedProduct.category
         ? generateSlug(detailedProduct.category)
         : undefined),
+    categories: primaryCategory
+      ? {
+          id: primaryCategory.id,
+          name: primaryCategory.name,
+          slug: primaryCategory.slug,
+          parent_id: primaryCategory.parent_id ?? undefined,
+        }
+      : null,
     has_variants: normalizedVariants.length > 0,
     variants: normalizedVariants,
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
+    specifications: detailedProduct.specifications as any,
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
+    product_key_specs: detailedProduct.product_key_specs as any,
   } as Product;
 }

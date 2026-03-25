@@ -101,8 +101,8 @@ async function resolveLegacyFeedTarget(
  */
 export async function GET(request: NextRequest) {
   const host = normalizeHost(
-    request.headers.get('x-forwarded-host') ??
-      request.headers.get('host') ??
+    request.headers.get('host') ??
+      request.headers.get('x-forwarded-host') ??
       new URL(request.url).host
   );
 

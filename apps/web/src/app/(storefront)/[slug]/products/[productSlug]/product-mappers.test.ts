@@ -111,4 +111,63 @@ describe('product-mappers', () => {
       category_slug: 'smart-phones',
     });
   });
+
+  it('extracts primary category from categories array', () => {
+    const detailedProduct = {
+      id: 'prod-3',
+      merchant_id: 'merchant-1',
+      name: 'Pixel 9',
+      description: null,
+      status: 'active',
+      slug: 'pixel-9',
+      price: 700000,
+      compare_at_price: null,
+      manage_stock: true,
+      stock: 3,
+      stock_quantity: 3,
+      images: [],
+      imageHint: null,
+      brand: null,
+      gtin: null,
+      mpn: null,
+      category: null,
+      categories: [
+        {
+          id: 'cat-2',
+          name: 'Smartphones',
+          slug: 'smartphones',
+          parent_id: null,
+        },
+        {
+          id: 'cat-3',
+          name: 'Android Phones',
+          slug: 'android-phones',
+          parent_id: 'cat-2',
+        },
+      ],
+      product_variants: [],
+      specifications: null,
+      product_key_specs: null,
+      internal_only_flag: 'should-not-leak',
+    };
+
+    const product = mapDetailedCachedProductToProduct(
+      detailedProduct,
+      'merchant-1'
+    );
+
+    expect(product).toMatchObject({
+      category: 'Smartphones',
+      category_slug: 'smartphones',
+      categories: {
+        id: 'cat-2',
+        name: 'Smartphones',
+        slug: 'smartphones',
+        parent_id: undefined,
+      },
+    });
+    expect(
+      (product as Record<string, unknown>).internal_only_flag
+    ).toBeUndefined();
+  });
 });

@@ -95,7 +95,27 @@ describe('GET /api/integrations/google-merchant-center/feed', () => {
     expect(mockResolveFeedMerchant).toHaveBeenCalledWith('ogabassey', true);
   });
 
-  it('prefers x-forwarded-host and strips ports', async () => {
+  it('prefers host over x-forwarded-host to avoid spoofing', async () => {
+    mockDomainLookup({ data: null, error: null });
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      makeRequest(
+        'https://internal.baci.app/api/integrations/google-merchant-center/feed',
+        {
+          host: 'internal.baci.app',
+          'x-forwarded-host': 'ogabassey.com:443',
+        }
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe('Merchant not found');
+    expect(mockResolveFeedMerchant).not.toHaveBeenCalled();
+  });
+
+  it('falls back to x-forwarded-host when host is missing and strips ports', async () => {
     mockDomainLookup({
       data: { merchant_id: 'merchant-1', domain: 'ogabassey.com' },
       error: null,
@@ -106,7 +126,6 @@ describe('GET /api/integrations/google-merchant-center/feed', () => {
       makeRequest(
         'https://internal.baci.app/api/integrations/google-merchant-center/feed',
         {
-          host: 'internal.baci.app',
           'x-forwarded-host': 'ogabassey.com:443',
         }
       )
