@@ -370,14 +370,33 @@ export default function EditBlogPostPage() {
     return data.url;
   };
 
-  const validateForm = (): string | null => {
+  const normalizePublishedAt = (
+    publishedAt?: string | null
+  ): string | null | undefined => {
+    if (!publishedAt) {
+      return publishedAt;
+    }
+
+    const parsedPublishedAt = new Date(publishedAt);
+
+    if (Number.isNaN(parsedPublishedAt.getTime())) {
+      return publishedAt;
+    }
+
+    return parsedPublishedAt.toISOString();
+  };
+
+  const normalizeFormData = (data: PostFormData): PostFormData => ({
+    ...data,
+    published_at: normalizePublishedAt(data.published_at),
+  });
+
+  const validateForm = (data: PostFormData): string | null => {
     // Sanitize data first
     const sanitizedData = sanitizeBlogPostData({
-      ...formData,
+      ...data,
       slug:
-        formData.slug && formData.slug !== originalPost?.slug
-          ? formData.slug
-          : undefined,
+        data.slug && data.slug !== originalPost?.slug ? data.slug : undefined,
     });
 
     const result = blogPostSchema.safeParse(sanitizedData);
@@ -393,7 +412,8 @@ export default function EditBlogPostPage() {
   const savePost = async (
     newStatus?: 'draft' | 'published' | 'archived' | 'scheduled'
   ) => {
-    const error = validateForm();
+    const normalizedFormData = normalizeFormData(formData);
+    const error = validateForm(normalizedFormData);
     if (error) {
       toast({
         title: 'Validation Error',
@@ -406,31 +426,34 @@ export default function EditBlogPostPage() {
     setIsSaving(true);
     try {
       const rawPostData = {
-        title: formData.title.trim(),
+        title: normalizedFormData.title.trim(),
         slug:
-          formData.slug && formData.slug !== originalPost?.slug
-            ? formData.slug
+          normalizedFormData.slug &&
+          normalizedFormData.slug !== originalPost?.slug
+            ? normalizedFormData.slug
             : undefined,
-        content: formData.content,
-        excerpt: formData.excerpt,
-        featured_image_url: formData.featured_image_url,
-        featured_image_alt: formData.featured_image_alt,
-        category: formData.category,
-        tags: formData.tags ? formData.tags.split(',') : [],
-        keywords: formData.keywords ? formData.keywords.split(',') : [],
-        author_name: formData.author_name,
-        author_title: formData.author_title,
-        author_bio: formData.author_bio,
-        seo_title: formData.seo_title,
-        seo_description: formData.seo_description,
-        focus_keyword: formData.focus_keyword,
-        status: newStatus || formData.status,
+        content: normalizedFormData.content,
+        excerpt: normalizedFormData.excerpt,
+        featured_image_url: normalizedFormData.featured_image_url,
+        featured_image_alt: normalizedFormData.featured_image_alt,
+        category: normalizedFormData.category,
+        tags: normalizedFormData.tags ? normalizedFormData.tags.split(',') : [],
+        keywords: normalizedFormData.keywords
+          ? normalizedFormData.keywords.split(',')
+          : [],
+        author_name: normalizedFormData.author_name,
+        author_title: normalizedFormData.author_title,
+        author_bio: normalizedFormData.author_bio,
+        seo_title: normalizedFormData.seo_title,
+        seo_description: normalizedFormData.seo_description,
+        focus_keyword: normalizedFormData.focus_keyword,
+        status: newStatus || normalizedFormData.status,
         published_at:
           newStatus === 'scheduled'
             ? scheduledDate?.toISOString()
             : newStatus === 'published'
               ? new Date().toISOString()
-              : formData.published_at,
+              : normalizedFormData.published_at,
         embedded_products: embeddedProducts.map((p) => p.id),
       };
 

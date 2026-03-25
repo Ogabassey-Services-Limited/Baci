@@ -36,8 +36,6 @@ export interface OpenAIFeedProduct {
 
 export interface OpenAIFeedData {
   products: OpenAIFeedProduct[];
-  custom_domain: string | null;
-  slug: string;
 }
 
 /**
@@ -48,27 +46,13 @@ export interface OpenAIFeedData {
  * because `'use cache'` functions must not capture request context.
  */
 export async function getCachedOpenAIFeedData(
-  merchantId: string,
-  merchantSlug: string
+  merchantId: string
 ): Promise<OpenAIFeedData> {
   'use cache';
   cacheLife('products');
   cacheTag('openai-product-feed', 'products', `merchant-feed-${merchantId}`);
 
   const supabase = createAnonClient();
-
-  const { data: primaryDomain, error: domainError } = await supabase
-    .from('domains')
-    .select('domain')
-    .eq('merchant_id', merchantId)
-    .eq('status', 'active')
-    .eq('is_primary', true)
-    .maybeSingle();
-
-  if (domainError) {
-    console.error('DB_DOMAIN_ERROR:', domainError);
-    throw new Error('Failed to fetch merchant domain');
-  }
 
   const { data: products, error: productsError } = await supabase
     .from('products')
@@ -88,9 +72,5 @@ export async function getCachedOpenAIFeedData(
     throw new Error('Failed to fetch products');
   }
 
-  return {
-    products: (products || []) as OpenAIFeedProduct[],
-    custom_domain: primaryDomain?.domain ?? null,
-    slug: merchantSlug,
-  };
+  return { products: (products || []) as OpenAIFeedProduct[] };
 }

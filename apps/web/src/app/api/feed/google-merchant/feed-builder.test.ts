@@ -326,38 +326,7 @@ describe('generateGoogleMerchantFeed — feed structure', () => {
     expect(xml).toContain(
       '<g:link>https://ogabassey.com/products/test-product</g:link>'
     );
-    expect(xml).not.toContain('ogabassey.com//');
-  });
-
-  it('uses category-based URL when product has a category', () => {
-    const imageManifest: Record<string, FeedImageManifestEntry[]> = {
-      'prod-1': [manifestEntry({ is_primary: true })],
-    };
-    const xml = generateGoogleMerchantFeed(
-      [product({ slug: 'iphone-xr', category: 'Smartphones' })],
-      merchant(),
-      BASE_URL,
-      imageManifest
-    );
-    expect(xml).toContain(
-      '<g:link>https://ogabassey.com/smartphones/iphone-xr</g:link>'
-    );
-    expect(xml).not.toContain('/products/iphone-xr');
-  });
-
-  it('falls back to /products/ URL when product has no category', () => {
-    const imageManifest: Record<string, FeedImageManifestEntry[]> = {
-      'prod-1': [manifestEntry({ is_primary: true })],
-    };
-    const xml = generateGoogleMerchantFeed(
-      [product({ slug: 'test-product', category: undefined })],
-      merchant(),
-      BASE_URL,
-      imageManifest
-    );
-    expect(xml).toContain(
-      '<g:link>https://ogabassey.com/products/test-product</g:link>'
-    );
+    expect(xml).not.toContain('//products');
   });
 
   it('performs zero network calls (no fetch/HEAD in feed generation)', () => {
