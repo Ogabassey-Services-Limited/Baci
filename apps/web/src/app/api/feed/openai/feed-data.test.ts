@@ -30,10 +30,27 @@ interface ProductFixture {
 }
 
 let productsResult: { data: ProductFixture[] | null; error: unknown };
+let domainResult: {
+  data: { domain: string } | null;
+  error: unknown;
+};
 
 function createMockSupabase() {
   return {
     from: (table: string) => {
+      if (table === 'domains') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                eq: () => ({
+                  maybeSingle: () => Promise.resolve(domainResult),
+                }),
+              }),
+            }),
+          }),
+        };
+      }
       if (table === 'products') {
         return {
           select: () => ({
@@ -79,13 +96,19 @@ beforeEach(() => {
     ],
     error: null,
   };
+
+  domainResult = {
+    data: null,
+    error: null,
+  };
+
   mockCreateAnonClient.mockReturnValue(createMockSupabase());
 });
 
 describe('getCachedOpenAIFeedData', () => {
   it('returns products with correct shape including manage_stock and variants', async () => {
     const { getCachedOpenAIFeedData } = await import('./feed-data');
-    const result = await getCachedOpenAIFeedData('merchant-1');
+    const result = await getCachedOpenAIFeedData('merchant-1', 'test-store');
 
     expect(result.products).toHaveLength(1);
     expect(result.products[0]).toEqual(
@@ -110,7 +133,7 @@ describe('getCachedOpenAIFeedData', () => {
   it('returns empty products array when no products exist', async () => {
     productsResult = { data: [], error: null };
     const { getCachedOpenAIFeedData } = await import('./feed-data');
-    const result = await getCachedOpenAIFeedData('merchant-1');
+    const result = await getCachedOpenAIFeedData('merchant-1', 'test-store');
 
     expect(result.products).toEqual([]);
   });
@@ -126,13 +149,53 @@ describe('getCachedOpenAIFeedData', () => {
     };
     const { getCachedOpenAIFeedData } = await import('./feed-data');
 
-    await expect(getCachedOpenAIFeedData('merchant-1')).rejects.toThrow(
-      'Failed to fetch products'
-    );
+    await expect(
+      getCachedOpenAIFeedData('merchant-1', 'test-store')
+    ).rejects.toThrow('Failed to fetch products');
     expect(consoleSpy).toHaveBeenCalledWith(
       'DB_PRODUCTS_ERROR:',
       expect.objectContaining({ message: 'connection error' })
     );
+    consoleSpy.mockRestore();
+  });
+
+  it('returns custom_domain when merchant has an active primary domain', async () => {
+    domainResult = { data: { domain: 'ogabassey.com' }, error: null };
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1', 'test-store');
+
+    expect(result.custom_domain).toBe('ogabassey.com');
+  });
+
+  it('returns null custom_domain when merchant has no primary domain', async () => {
+    domainResult = { data: null, error: null };
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1', 'test-store');
+
+    expect(result.custom_domain).toBeNull();
+  });
+
+  it('returns the merchant slug passed as argument', async () => {
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1', 'ogabassey');
+
+    expect(result.slug).toBe('ogabassey');
+  });
+
+  it('throws when domain query fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.error noise in tests
+      () => {}
+    );
+    domainResult = {
+      data: null,
+      error: { message: 'domain query failed' },
+    };
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+
+    await expect(
+      getCachedOpenAIFeedData('merchant-1', 'test-store')
+    ).rejects.toThrow('Failed to fetch merchant domain');
     consoleSpy.mockRestore();
   });
 });
