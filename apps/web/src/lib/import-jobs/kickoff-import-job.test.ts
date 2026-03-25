@@ -55,9 +55,23 @@ describe('kickoffImportJob', () => {
 
     await kickoffImportJob('job-1', 'https://usebaci.com');
 
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'processImportJobById returned falsy, falling back to worker',
+        jobId: 'job-1',
+        origin: 'https://usebaci.com',
+      })
+    );
     expect(triggerImportWorker).toHaveBeenCalledWith(
       'https://usebaci.com',
       'job-1'
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Import worker fallback triggered successfully',
+        jobId: 'job-1',
+        origin: 'https://usebaci.com',
+      })
     );
   });
 
@@ -83,6 +97,13 @@ describe('kickoffImportJob', () => {
     expect(triggerImportWorker).toHaveBeenCalledWith(
       'https://usebaci.com',
       'job-1'
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Import worker fallback triggered successfully',
+        jobId: 'job-1',
+        origin: 'https://usebaci.com',
+      })
     );
   });
 

@@ -9,6 +9,11 @@ import { ThemedInput } from '@/components/themed/themed-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 
+const ngnFormatter = new Intl.NumberFormat('en-NG', {
+  style: 'currency',
+  currency: 'NGN',
+});
+
 const jumiaPriceSchema = z
   .object({
     jumiaPrice: z
@@ -26,10 +31,10 @@ const jumiaPriceSchema = z
   .superRefine((data, ctx) => {
     if (!data.saleStart && !data.saleEnd) return;
 
-    const startMs = data.saleStart ? Date.parse(data.saleStart) : undefined;
-    const endMs = data.saleEnd ? Date.parse(data.saleEnd) : undefined;
+    const startMs = data.saleStart ? Date.parse(data.saleStart) : Number.NaN;
+    const endMs = data.saleEnd ? Date.parse(data.saleEnd) : Number.NaN;
 
-    if (data.saleStart && (startMs === undefined || Number.isNaN(startMs))) {
+    if (data.saleStart && Number.isNaN(startMs)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Invalid sale start date',
@@ -38,7 +43,7 @@ const jumiaPriceSchema = z
       return;
     }
 
-    if (data.saleEnd && (endMs === undefined || Number.isNaN(endMs))) {
+    if (data.saleEnd && Number.isNaN(endMs)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Invalid sale end date',
@@ -47,7 +52,7 @@ const jumiaPriceSchema = z
       return;
     }
 
-    if (startMs != null && endMs != null && endMs < startMs) {
+    if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs < startMs) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Sale end must be on or after sale start',
@@ -191,16 +196,9 @@ export function JumiaPriceForm({
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Low Price Warning</AlertTitle>
           <AlertDescription>
-            Your Jumia price (
-            {new Intl.NumberFormat('en-NG', {
-              style: 'currency',
-              currency: 'NGN',
-            }).format(Number(jumiaPrice))}
-            ) is more than 20% lower than your base price (
-            {new Intl.NumberFormat('en-NG', {
-              style: 'currency',
-              currency: 'NGN',
-            }).format(basePrice)}
+            Your Jumia price ({ngnFormatter.format(Number(jumiaPrice))}) is more
+            than 20% lower than your base price (
+            {ngnFormatter.format(basePrice)}
             ). Please verify this is intentional.
           </AlertDescription>
         </Alert>

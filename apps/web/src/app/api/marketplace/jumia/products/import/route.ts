@@ -193,6 +193,10 @@ export async function POST(req: NextRequest) {
           updated: 0,
           errors: 0,
         },
+        warnings: {
+          skippedNoSku: skippedNoSkuCount,
+          missingPrice: missingPriceCount,
+        },
       });
     }
 

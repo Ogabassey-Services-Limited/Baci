@@ -238,6 +238,7 @@ describe('Products Import POST', () => {
     // All variations skipped -- early return with total = jumiaProducts.length
     expect(json.summary.total).toBe(1);
     expect(json.summary.created).toBe(0);
+    expect(json.warnings.skippedNoSku).toBe(2);
   });
 
   it('increments missingPrice when variation has no globalPrice', async () => {
@@ -261,5 +262,6 @@ describe('Products Import POST', () => {
     // All variations skipped -- early return with total = jumiaProducts.length
     expect(json.summary.total).toBe(1);
     expect(json.summary.created).toBe(0);
+    expect(json.warnings.missingPrice).toBe(2);
   });
 });

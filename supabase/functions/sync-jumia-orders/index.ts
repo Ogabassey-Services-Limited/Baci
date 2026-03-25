@@ -457,7 +457,8 @@ Deno.serve(async (req) => {
           errors.push(
             `${integration.merchant_id}: upsert failed for orders [${affectedOrderIds.join(', ')}] — ${upsertError.message}`
           );
-          // Continue to sync timestamp update even on partial failure
+          // Skip last_sync_at update on upsert failure to avoid advancing
+          // the cursor and silently dropping orders.
         } else {
           totalSynced += orders.length;
         }

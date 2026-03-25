@@ -12,8 +12,8 @@ import {
 // ── Orders ──
 
 const JumiaOrderSchema = z.object({
-  id: z.string(),
-  shopIds: z.array(z.string()),
+  id: z.string().min(1),
+  shopIds: z.array(z.string().min(1)),
   totalItems: z.number().int().nonnegative(),
   packedItems: z.number().int().nonnegative(),
   isPrepayment: z.boolean(),
@@ -40,8 +40,8 @@ export const JumiaOrdersResponseSchema = z.object({
 // ── Order Items ──
 
 const JumiaOrderItemSchema = z.object({
-  id: z.string(),
-  shopId: z.string(),
+  id: z.string().min(1),
+  shopId: z.string().min(1),
   product: z.object({
     name: z.string(),
     sellerSku: z.string(),

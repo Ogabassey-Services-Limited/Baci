@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
       discoveredShops.push({
         id: 'oauth',
         name: 'Jumia Shop',
-        // Empty string: real email is unknown; the column is non-nullable
+        // Required by JumiaShopSchema (non-nullable); real email is unknown at OAuth time
         email: '',
         businessClients: [
           {

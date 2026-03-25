@@ -22,14 +22,14 @@ export const CountryInfoSchema = z.object({
 });
 
 export const ShippingAddressSchema = z.object({
-  firstName: z.string().min(1),
-  lastName: z.string().min(1),
-  address: z.string().min(1),
-  city: z.string().min(1),
+  firstName: z.string().trim().min(1),
+  lastName: z.string().trim().min(1),
+  address: z.string().trim().min(1),
+  city: z.string().trim().min(1),
   postalCode: z.string().optional(),
   ward: z.string().optional(),
   region: z.string().min(1),
-  countryName: z.string().min(1),
+  countryName: z.string().trim().min(1),
 });
 
 export const FulfillmentErrorItemSchema = z.object({

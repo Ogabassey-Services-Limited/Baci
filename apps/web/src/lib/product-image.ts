@@ -9,8 +9,9 @@ export const PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL = '/placeholder.png';
  * Rejects dangerous schemes like javascript:, data:, etc.
  */
 function isSafeUrl(url: string): boolean {
-  // Relative paths (e.g. "/images/foo.png") are safe — skip URL parsing
-  if (url.startsWith('/')) return true;
+  // Relative paths (e.g. "/images/foo.png") are safe — skip URL parsing.
+  // Reject protocol-relative URLs like "//evil.com" which bypass origin checks.
+  if (url.startsWith('/') && !url.startsWith('//')) return true;
   try {
     const parsed = new URL(url, 'https://placeholder.invalid');
     return parsed.protocol === 'http:' || parsed.protocol === 'https:';

@@ -70,7 +70,7 @@ export const JumiaProductSchema = z.object({
   parentSku: z.string().min(1),
   shop: z.object({ id: z.string() }),
   brand: JumiaBrandSchema,
-  category: z.object({ code: z.number(), name: z.string() }),
+  category: z.object({ code: z.number().int(), name: z.string() }),
   images: z.array(
     z.object({
       url: z.string().url(),

@@ -118,7 +118,7 @@ export function JumiaBrandSelector({
         <Command>
           <CommandInput placeholder="Search brand..." />
           <CommandList>
-            {fetchStatus !== 'loading' && (
+            {fetchStatus !== 'loading' && fetchStatus !== 'idle' && (
               <CommandEmpty>
                 {fetchStatus === 'error' ? (
                   <div className="p-4 text-sm text-center">
