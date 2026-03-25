@@ -314,7 +314,6 @@ async function checkDomainAvailabilityFallback(
       setTimeout(() => reject(new Error('WHOIS request timed out')), 5000)
     );
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const results = (await Promise.race([
       whois(domain),
       timeoutPromise,

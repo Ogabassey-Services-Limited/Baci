@@ -28,6 +28,7 @@ import { TextContentTypes, useKeyboard } from '@/hooks/use-keyboard';
 import { createLogger } from '@/lib/logger';
 import { EmailSchema, getFirstError, OtpSchema } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
+import { useShallow } from 'zustand/react/shallow';
 
 const log = createLogger('Login');
 
@@ -55,13 +56,27 @@ export default function LoginScreen() {
     }
   };
 
-  const signInWithOtp = useAuthStore((state) => state.signInWithOtp);
-  const verifyOtp = useAuthStore((state) => state.verifyOtp);
-  const signInWithGoogle = useAuthStore((state) => state.signInWithGoogle);
-  const isLoading = useAuthStore((state) => state.isLoading);
-
-  const signInWithPassword = useAuthStore((state) => state.signInWithPassword);
-  const signInWithApple = useAuthStore((state) => state.signInWithApple);
+  const {
+    signInWithOtp,
+    verifyOtp,
+    signInWithGoogle,
+    isLoading,
+    signInWithPassword,
+    signInWithApple,
+    user,
+    isInitialized,
+  } = useAuthStore(
+    useShallow((state) => ({
+      signInWithOtp: state.signInWithOtp,
+      verifyOtp: state.verifyOtp,
+      signInWithGoogle: state.signInWithGoogle,
+      isLoading: state.isLoading,
+      signInWithPassword: state.signInWithPassword,
+      signInWithApple: state.signInWithApple,
+      user: state.user,
+      isInitialized: state.isInitialized,
+    }))
+  );
 
   const [step, setStep] = useState<AuthStep>('email');
   const [authMethod, setAuthMethod] = useState<AuthMethod>('otp');
@@ -100,9 +115,6 @@ export default function LoginScreen() {
    * The onAuthStateChange listener in auth-store sets the user correctly,
    * but this screen needs to react and navigate away.
    */
-  const user = useAuthStore((state) => state.user);
-  const isInitialized = useAuthStore((state) => state.isInitialized);
-
   useEffect(() => {
     if (isInitialized && user) {
       // User is authenticated — inline navigation to avoid dep on dismissAndNavigate

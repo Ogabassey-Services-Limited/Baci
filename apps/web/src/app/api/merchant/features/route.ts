@@ -193,7 +193,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Get or create settings
-    // eslint-disable-next-line prefer-const
     let { data: settings, error } = await auth.supabase
       .from('merchant_feature_settings')
       .select(

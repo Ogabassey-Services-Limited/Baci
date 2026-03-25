@@ -37,6 +37,10 @@ export function ReceiptsEmptyState({
         <TouchableOpacity
           style={[styles.actionBtn, { backgroundColor: BRAND.primary }]}
           onPress={onClearSearch}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Clear Search"
+          accessibilityHint="Clears the current search query to show all receipts"
         >
           <Text style={styles.actionBtnText}>Clear Search</Text>
         </TouchableOpacity>
@@ -60,6 +64,10 @@ export function ReceiptsEmptyState({
       <TouchableOpacity
         style={[styles.actionBtn, { backgroundColor: BRAND.primary }]}
         onPress={() => router.push('/')}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Start Shopping"
+        accessibilityHint="Navigates to the storefront home page to start shopping"
       >
         <Text style={styles.actionBtnText}>Start Shopping</Text>
       </TouchableOpacity>

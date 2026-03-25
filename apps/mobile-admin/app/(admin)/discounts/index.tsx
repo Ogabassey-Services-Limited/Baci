@@ -23,6 +23,9 @@ import { useTheme } from '@/hooks/useTheme';
 import type { DiscountCode } from '@/lib/types/discounts';
 import { formatCurrency } from '@/utils/format';
 
+// Item height for getItemLayout optimization
+const DISCOUNT_ITEM_HEIGHT = 132;
+
 export default function DiscountsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
@@ -61,6 +64,15 @@ export default function DiscountsScreen() {
       ]
     );
   };
+
+  const getItemLayout = (
+    _data: ArrayLike<DiscountCode> | null | undefined,
+    index: number
+  ) => ({
+    length: DISCOUNT_ITEM_HEIGHT,
+    offset: DISCOUNT_ITEM_HEIGHT * index,
+    index,
+  });
 
   const renderItem = ({ item }: { item: DiscountCode }) => (
     <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
@@ -165,6 +177,7 @@ export default function DiscountsScreen() {
             data={discounts}
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
+            getItemLayout={getItemLayout}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptyState}>

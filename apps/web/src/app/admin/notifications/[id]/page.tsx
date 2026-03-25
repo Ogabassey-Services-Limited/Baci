@@ -122,7 +122,6 @@ export default function NotificationDetailsPage({
 
     fetchNotification();
     return () => abortController.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, toast]);
 
   const handleDelete = async () => {

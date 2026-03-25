@@ -1,4 +1,5 @@
 import type { Metadata, ResolvingMetadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
@@ -8,6 +9,7 @@ import {
   getCachedProduct,
   getCachedProductRatingStats,
   getCachedProductReviews,
+  getCachedProductWithDetails,
 } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
@@ -22,10 +24,15 @@ import {
   getProductUrl,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import { isDomainIdentifier } from '@/lib/validation';
 import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
+import {
+  mapDetailedCachedProductToProduct,
+  mapLegacyCachedProductToProduct,
+} from './product-mappers';
+
+// This route mostly returns 308 redirects, so PPR has limited value here.
 
 interface PageProps {
   params: Promise<{
@@ -35,15 +42,10 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-/**
- * Get product using cached data functions
- * Falls back to cached product lookup for better performance
- */
 async function getProductCached(
   storeSlug: string,
   productSlug: string
 ): Promise<Product | null> {
-  // Get merchant first to get the merchant ID (handle custom domains)
   const merchant = storeSlug.includes('.')
     ? await getCachedMerchantByDomain(storeSlug)
     : await getCachedMerchant(storeSlug);
@@ -53,88 +55,23 @@ async function getProductCached(
     return null;
   }
 
-  // Get product using cached function
   const cachedProduct = await getCachedProduct(merchant.id, productSlug);
 
-  if (!cachedProduct) {
+  if (cachedProduct) {
+    return mapLegacyCachedProductToProduct(cachedProduct, merchant.id);
+  }
+
+  const detailedProduct = await getCachedProductWithDetails(
+    merchant.id,
+    productSlug
+  );
+
+  if (!detailedProduct) {
     console.error('Product not found:', productSlug);
     return null;
   }
 
-  // Transform cached product to match Product interface
-  // Map database fields to Product interface expected fields
-  // Images can be stored as flat strings ["url"] or objects [{url, alt, order}]
-  const rawImages = cachedProduct.images as Array<
-    string | { url: string; alt?: string; order?: number }
-  > | null;
-  const normalizedImages = rawImages?.map((img, idx) => {
-    if (typeof img === 'string') {
-      return { url: img, alt: cachedProduct.name, order: idx };
-    }
-    return {
-      url: img.url,
-      alt: img.alt || cachedProduct.name,
-      order: img.order ?? idx,
-    };
-  });
-  const firstImage = normalizedImages?.[0]?.url || '';
-  const normalizedVariants = normalizeStorefrontProductVariants(
-    cachedProduct.product_variants,
-    {
-      merchantId: merchant.id,
-      productId: cachedProduct.id,
-    }
-  );
-
-  const product: Product = {
-    id: cachedProduct.id,
-    name: cachedProduct.name,
-    description: cachedProduct.description || '',
-    status: cachedProduct.status as 'draft' | 'active' | 'archived',
-    slug: cachedProduct.slug,
-    // Map base_price to price
-    price: cachedProduct.sale_price || cachedProduct.base_price,
-    compare_at_price: cachedProduct.sale_price
-      ? cachedProduct.base_price
-      : undefined,
-    // Stock fields
-    manage_stock: cachedProduct.track_quantity ?? false,
-    stock: cachedProduct.quantity ?? 0,
-    // Image fields
-    image: firstImage,
-    imageLarge: firstImage,
-    imageHint: cachedProduct.name,
-    images: normalizedImages,
-    // Brand/identifiers (defaults for missing fields)
-    brand: '',
-    gtin: '',
-    mpn: '',
-    // Category from nested join (cast through unknown for Supabase type compatibility)
-    category:
-      (
-        cachedProduct.product_categories?.[0]?.categories as unknown as {
-          id: string;
-          name: string;
-          slug: string;
-        } | null
-      )?.name || undefined,
-    category_slug:
-      (
-        cachedProduct.product_categories?.[0]?.categories as unknown as {
-          slug: string;
-        } | null
-      )?.slug || undefined,
-    // Variants
-    has_variants: normalizedVariants.length > 0,
-    variants: normalizedVariants,
-    // Specs for SEO Schema
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    specifications: cachedProduct.specifications as any,
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    product_key_specs: cachedProduct.product_key_specs as any,
-  };
-
-  return product;
+  return mapDetailedCachedProductToProduct(detailedProduct, merchant.id);
 }
 
 export async function generateMetadata(
@@ -160,7 +97,6 @@ export async function generateMetadata(
   const merchant = slug.includes('.')
     ? await getCachedMerchantByDomain(slug)
     : await getCachedMerchant(slug);
-
   const baseUrl = buildStoreUrl(
     merchant ??
       (isDomainIdentifier(slug)
@@ -168,39 +104,30 @@ export async function generateMetadata(
         : { slug, custom_domain: undefined })
   );
 
-  // If we have a category slug (explicit or generated), REDIRECT to the pretty URL (SEO Best Practice)
-  // This ensures /products/ URLs are always canonicalized to their category-based counterparts
   const effectiveCategorySlug =
     product.category_slug ||
     (product.category ? generateSlug(product.category) : undefined);
 
   if (effectiveCategorySlug) {
     const cleanSlug = product.slug || product.id;
-    // Known limitation: NODE_ENV check can break Vercel preview deployments
-    // where NODE_ENV=production but routing is path-mode (no subdomain/custom domain).
-    // Part 2 follow-up will replace this with headers()-based routing mode detection.
-    const targetPath =
-      process.env.NODE_ENV === 'development'
-        ? `/${slug}/${effectiveCategorySlug}/${cleanSlug}`
-        : `/${effectiveCategorySlug}/${cleanSlug}`;
+    const headersList = await headers();
+    const isPathMode =
+      !headersList.has('x-merchant-slug') &&
+      !headersList.has('x-custom-domain') &&
+      !isDomainIdentifier(slug);
+    const targetPath = isPathMode
+      ? `/${slug}/${effectiveCategorySlug}/${cleanSlug}`
+      : `/${effectiveCategorySlug}/${cleanSlug}`;
 
     // biome-ignore lint/suspicious/noExplicitAny: Dynamic route path requires type assertion
     permanentRedirect(targetPath as any);
   }
 
-  // Construct canonical URL:
-  // 1. Use explicit canonical from product data if available
-  // 2. OR build the base path using getProductUrl (which handles categories)
   let canonicalUrl = product.canonical_url;
 
   if (!canonicalUrl) {
-    // Generate the correct path (e.g. /category/product or /products/product)
     const productPath = getProductUrl(product);
-
-    // Construct full URL
     const basePath = `${baseUrl}${productPath}`;
-
-    // Clean params for canonical
     canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, [
       'variant',
     ]);
@@ -266,15 +193,10 @@ export default async function ProductPage({ params }: PageProps) {
     notFound();
   }
 
-  // Get cached merchant data for schema (handle custom domains)
   const merchant = slug.includes('.')
     ? await getCachedMerchantByDomain(slug)
     : await getCachedMerchant(slug);
-
-  // Fetch cached review stats for AggregateRating schema
   const reviewStats = await getCachedProductRatingStats(product.id);
-
-  // Fetch recent reviews for Review schema (SEO best practice)
   const recentReviews = await getCachedProductReviews(product.id, {
     limit: 10,
   });
@@ -295,7 +217,6 @@ export default async function ProductPage({ params }: PageProps) {
         : { slug, custom_domain: undefined })
   );
 
-  // Generate product schema (now handles merging custom schema_markup internally)
   const productSchema = generateProductSchema(
     product,
     merchant?.business_name || 'Baci Store',
@@ -303,19 +224,16 @@ export default async function ProductPage({ params }: PageProps) {
     merchant?.country || 'NG',
     merchant?.logo_url
   );
-
-  // Add URL to the schema offers (sanitized to prevent XSS)
-  // Variant products have no top-level offers (offers live on each hasVariant entry)
+  const productPath = getProductUrl(product);
+  const productUrl = `${baseUrl}${productPath}`;
   if (
     productSchema.offers &&
     !Array.isArray(productSchema.offers) &&
     productSchema.offers['@type'] !== 'AggregateOffer'
   ) {
-    const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
     productSchema.offers.url = escapeHtml(productUrl);
   }
 
-  // Add AggregateRating if reviews exist
   if (reviewStats && reviewStats.totalReviews > 0) {
     const aggregateRating = generateAggregateRating({
       averageRating: reviewStats.averageRating,
@@ -325,10 +243,6 @@ export default async function ProductPage({ params }: PageProps) {
       productSchema.aggregateRating = aggregateRating;
     }
   }
-
-  // Generate breadcrumb schema using helper function (sanitization handled in generateBreadcrumbSchema)
-  // FIXED: Use proper category path structure (/[category]/[slug]) instead of query params
-  const productUrl = `${baseUrl}/${product.category_slug || 'products'}/${product.slug || product.id}`;
 
   const categorySlug =
     product.category_slug ||
@@ -342,11 +256,7 @@ export default async function ProductPage({ params }: PageProps) {
     { name: categoryName, url: categoryUrl },
     { name: product.name, url: productUrl },
   ];
-
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
-
-  // Generate FAQ schema if product has FAQs (2025 SEO best practice)
-  // FAQs are stored in the product's faqs column as JSONB array
   const productFaqs = (product as unknown as { faqs?: FAQItem[] }).faqs;
   const faqSchema =
     productFaqs && productFaqs.length > 0
@@ -355,14 +265,12 @@ export default async function ProductPage({ params }: PageProps) {
 
   return (
     <>
-      {/* Product Schema.org JSON-LD */}
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(productSchema) }} // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
       />
 
-      {/* Breadcrumb Schema.org JSON-LD */}
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
@@ -371,7 +279,6 @@ export default async function ProductPage({ params }: PageProps) {
         }} // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
       />
 
-      {/* FAQ Schema.org JSON-LD (2025 SEO best practice) */}
       {faqSchema && (
         <script
           type="application/ld+json"
