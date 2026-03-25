@@ -1,98 +1,140 @@
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
-import { getEffectiveProductStock } from '@/lib/seo-utils';
-import { createClient } from '@/lib/supabase/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import {
+  MerchantNotFoundError,
+  resolveFeedMerchant,
+} from '@/lib/feed-identifier';
+import { createAnonClient } from '@/lib/supabase/anon';
 
-export async function GET(_request: Request) {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://baci.app';
+const DEFAULT_ROOT_DOMAIN = 'usebaci.com';
+const HOSTNAME_PATTERN =
+  /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+const MANAGED_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function normalizeHost(rawHost: string | null): string | null {
+  if (!rawHost) {
+    return null;
+  }
+
+  const firstHost = rawHost.split(',')[0]?.trim().toLowerCase();
+  if (!firstHost) {
+    return null;
+  }
+
+  return firstHost.replace(/:\d+$/, '');
+}
+
+function isSafeHostname(host: string): boolean {
+  return HOSTNAME_PATTERN.test(host);
+}
+
+function getRootDomain(): string {
+  const configuredRootDomain = normalizeHost(
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? null
+  );
+
+  return configuredRootDomain && isSafeHostname(configuredRootDomain)
+    ? configuredRootDomain
+    : DEFAULT_ROOT_DOMAIN;
+}
+
+function getManagedMerchantSlug(host: string): string | null {
+  const rootDomain = getRootDomain();
+
+  if (host === rootDomain || host === `www.${rootDomain}`) {
+    return null;
+  }
+
+  if (!host.endsWith(`.${rootDomain}`)) {
+    return null;
+  }
+
+  const candidate = host.slice(0, -`.${rootDomain}`.length);
+  return candidate && MANAGED_SLUG_PATTERN.test(candidate) ? candidate : null;
+}
+
+interface LegacyFeedTarget {
+  merchantSlug: string;
+  redirectHost: string;
+}
+
+async function resolveLegacyFeedTarget(
+  host: string
+): Promise<LegacyFeedTarget> {
+  const managedSlug = getManagedMerchantSlug(host);
+  if (managedSlug) {
+    const merchant = await resolveFeedMerchant(managedSlug, true);
+
+    return {
+      merchantSlug: merchant.slug,
+      redirectHost: `${merchant.slug}.${getRootDomain()}`,
+    };
+  }
+
+  const supabase = createAnonClient();
+  const { data: domain, error } = await supabase
+    .from('domains')
+    .select('merchant_id, domain')
+    .eq('domain', host)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (error) {
+    throw new Error('Failed to resolve merchant domain', { cause: error });
+  }
+
+  const verifiedHost = normalizeHost(domain?.domain ?? null);
+
+  if (!domain?.merchant_id || !verifiedHost || !isSafeHostname(verifiedHost)) {
+    throw new MerchantNotFoundError(host);
+  }
+
+  const merchant = await resolveFeedMerchant(domain.merchant_id, false);
+  return {
+    merchantSlug: merchant.slug,
+    redirectHost: verifiedHost,
+  };
+}
+
+/**
+ * Legacy Google Merchant feed route.
+ * Redirects old integrations to the canonical public feed endpoint.
+ */
+export async function GET(request: NextRequest) {
+  const host = normalizeHost(
+    request.headers.get('host') ??
+      request.headers.get('x-forwarded-host') ??
+      new URL(request.url).host
+  );
+
+  if (!host) {
+    return NextResponse.json(
+      { error: 'Unable to resolve merchant for legacy feed URL' },
+      { status: 400 }
+    );
+  }
 
   try {
-    // PERFORMANCE: Select only required fields and add limit to prevent OOM
-    const { data: products, error } = await supabase
-      .from('products')
-      .select(
-        `id, name, description, slug, sku, price, image, images,
-         stock, stock_quantity, manage_stock, condition, brand, gtin, mpn,
-         google_product_category, weight_value, weight_unit,
-         parent_product_id`
-      )
-      .eq('status', 'active')
-      .limit(10000);
+    const target = await resolveLegacyFeedTarget(host);
+    const redirectUrl = new URL(
+      '/api/feed/google-merchant',
+      `https://${target.redirectHost}`
+    );
+    redirectUrl.searchParams.set('merchant_slug', target.merchantSlug);
 
-    if (error) {
-      console.error('Error fetching products for feed:', error);
-      return new NextResponse('Error generating feed', { status: 500 });
+    return NextResponse.redirect(redirectUrl, 308);
+  } catch (error) {
+    console.error('LEGACY_GMC_FEED_REDIRECT_ERROR:', error);
+
+    if (error instanceof MerchantNotFoundError) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
-    // PERFORMANCE: Use array.map().join() instead of += string concatenation (O(n) vs O(n²))
-    const items = (products || [])
-      .filter((product) => product.name && product.price)
-      .map((product) => {
-        const link = `${siteUrl}/products/${product.slug || product.id}`;
-        const imageLink = product.image || '';
-        const availability =
-          product.manage_stock && !getEffectiveProductStock(product)
-            ? 'out of stock'
-            : 'in stock';
-        const price = `${product.price} USD`;
-
-        // Handle Additional Images
-        // Exclude the main image and take up to 10 unique additional images
-        const additionalImages = Array.isArray(product.images)
-          ? product.images
-              .filter((img: string) => img !== imageLink)
-              .slice(0, 10)
-              .map(
-                (img: string) =>
-                  `<g:additional_image_link>${img}</g:additional_image_link>`
-              )
-              .join('\n  ')
-          : '';
-
-        // Handle Variant Grouping
-        const itemGroupId = product.parent_product_id
-          ? `<g:item_group_id>${product.parent_product_id}</g:item_group_id>`
-          : '';
-
-        return `<item>
-  <g:id>${product.sku || product.id}</g:id>
-  <g:title><![CDATA[${product.name}]]></g:title>
-  <g:description><![CDATA[${product.description || product.name}]]></g:description>
-  <g:link>${link}</g:link>
-  <g:image_link>${imageLink}</g:image_link>
-  ${additionalImages}
-  <g:condition>${product.condition || 'new'}</g:condition>
-  <g:availability>${availability}</g:availability>
-  <g:price>${price}</g:price>
-  <g:brand><![CDATA[${product.brand || 'Baci'}]]></g:brand>
-  ${itemGroupId}
-  ${product.gtin ? `<g:gtin>${product.gtin}</g:gtin>` : ''}
-  ${product.mpn ? `<g:mpn>${product.mpn}</g:mpn>` : ''}
-  ${product.google_product_category ? `<g:google_product_category><![CDATA[${product.google_product_category}]]></g:google_product_category>` : ''}
-  ${product.weight_value ? `<g:shipping_weight>${product.weight_value} ${product.weight_unit || 'kg'}</g:shipping_weight>` : ''}
-</item>`;
-      });
-
-    const xml = `<?xml version="1.0"?>
-<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
-<channel>
-<title>Baci Store Products</title>
-<link>${siteUrl}</link>
-<description>Product feed for Google Merchant Center</description>
-${items.join('\n')}
-</channel>
-</rss>`;
-
-    return new NextResponse(xml, {
-      headers: {
-        'Content-Type': 'application/xml',
-        'Cache-Control': 's-maxage=3600, stale-while-revalidate',
-      },
-    });
-  } catch (err) {
-    console.error('Unexpected error generating feed:', err);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to resolve merchant for legacy feed URL' },
+      { status: 500 }
+    );
   }
 }
