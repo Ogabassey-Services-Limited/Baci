@@ -1,4 +1,5 @@
 import type { Metadata, ResolvingMetadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
@@ -26,6 +27,9 @@ import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-var
 import { isDomainIdentifier } from '@/lib/validation';
 import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
+
+// This route mostly returns 308 redirects (categorized products) — PPR offers near-zero benefit.
+// headers() below automatically opts this route into dynamic rendering under cacheComponents.
 
 interface PageProps {
   params: Promise<{
@@ -176,13 +180,15 @@ export async function generateMetadata(
 
   if (effectiveCategorySlug) {
     const cleanSlug = product.slug || product.id;
-    // Known limitation: NODE_ENV check can break Vercel preview deployments
-    // where NODE_ENV=production but routing is path-mode (no subdomain/custom domain).
-    // Part 2 follow-up will replace this with headers()-based routing mode detection.
-    const targetPath =
-      process.env.NODE_ENV === 'development'
-        ? `/${slug}/${effectiveCategorySlug}/${cleanSlug}`
-        : `/${effectiveCategorySlug}/${cleanSlug}`;
+    // Detect routing mode from proxy headers (matches layout.tsx:192-200)
+    const headersList = await headers();
+    const isPathMode =
+      !headersList.has('x-merchant-slug') &&
+      !headersList.has('x-custom-domain') &&
+      !isDomainIdentifier(slug);
+    const targetPath = isPathMode
+      ? `/${slug}/${effectiveCategorySlug}/${cleanSlug}`
+      : `/${effectiveCategorySlug}/${cleanSlug}`;
 
     // biome-ignore lint/suspicious/noExplicitAny: Dynamic route path requires type assertion
     permanentRedirect(targetPath as any);
@@ -304,6 +310,10 @@ export default async function ProductPage({ params }: PageProps) {
     merchant?.logo_url
   );
 
+  // Canonical product URL used for both offers and breadcrumbs (consistent SEO signals)
+  const productPath = getProductUrl(product);
+  const productUrl = `${baseUrl}${productPath}`;
+
   // Add URL to the schema offers (sanitized to prevent XSS)
   // Variant products have no top-level offers (offers live on each hasVariant entry)
   if (
@@ -311,7 +321,6 @@ export default async function ProductPage({ params }: PageProps) {
     !Array.isArray(productSchema.offers) &&
     productSchema.offers['@type'] !== 'AggregateOffer'
   ) {
-    const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
     productSchema.offers.url = escapeHtml(productUrl);
   }
 
@@ -327,8 +336,6 @@ export default async function ProductPage({ params }: PageProps) {
   }
 
   // Generate breadcrumb schema using helper function (sanitization handled in generateBreadcrumbSchema)
-  // FIXED: Use proper category path structure (/[category]/[slug]) instead of query params
-  const productUrl = `${baseUrl}/${product.category_slug || 'products'}/${product.slug || product.id}`;
 
   const categorySlug =
     product.category_slug ||
