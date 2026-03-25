@@ -112,6 +112,14 @@ describe('blogPostSchema', () => {
       expect(result.success).toBe(true);
     });
 
+    it('rejects ISO datetimes without a timezone', () => {
+      const result = blogPostSchema.safeParse({
+        title: 'Test',
+        published_at: '2026-03-24T10:00:00',
+      });
+      expect(result.success).toBe(false);
+    });
+
     it('rejects invalid date strings', () => {
       const result = blogPostSchema.safeParse({
         title: 'Test',
