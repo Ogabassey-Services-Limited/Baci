@@ -166,8 +166,6 @@ describe('product-mappers', () => {
         parent_id: undefined,
       },
     });
-    expect(
-      (product as Record<string, unknown>).internal_only_flag
-    ).toBeUndefined();
+    expect(product).not.toHaveProperty('internal_only_flag');
   });
 });
