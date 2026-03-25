@@ -189,6 +189,27 @@ describe('generateReceiptBlob', () => {
     expect(pdfText).toContain('Blue / 128GB');
   });
 
+  it('ignores whitespace-only variant labels', () => {
+    const order = {
+      ...baseOrder,
+      items: [
+        {
+          product_name: 'iPhone 16',
+          variant_name: '   ',
+          quantity: 1,
+          price: 150000,
+        },
+      ],
+      transactions: [],
+    };
+
+    const pdfText = getPdfText(order, baseMerchant);
+
+    expect(pdfText).toContain('iPhone 16');
+    expect(pdfText).not.toContain('(   )');
+    expect(pdfText).not.toContain('()');
+  });
+
   it('renders payment history when transactions are present', () => {
     const order = {
       ...baseOrder,

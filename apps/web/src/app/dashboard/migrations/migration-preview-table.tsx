@@ -1,6 +1,16 @@
 'use client';
 
+import {
+  getMigrationEmptyStateCopy,
+  getMigrationFilterDescription,
+  getMigrationFilterHeading,
+} from '@/app/dashboard/migrations/migration-filter-helpers';
 import MigrationOrderSourceChip from '@/app/dashboard/migrations/migration-order-source-chip';
+import type {
+  ImportJobRowStatus,
+  ImportJobRowsResponse,
+  MigrationPreviewFilter,
+} from '@/app/dashboard/migrations/migration-types';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -15,11 +25,6 @@ import type {
   NormalizedImportedProduct,
 } from '@/lib/imports/bumpa/bumpa-types';
 import { cn } from '@/lib/utils';
-import type {
-  ImportJobRowStatus,
-  ImportJobRowsResponse,
-  MigrationPreviewFilter,
-} from './migration-types';
 
 interface MigrationPreviewTableProps {
   entityType: 'orders' | 'products';
@@ -50,36 +55,6 @@ function getActionLabel(status: ImportJobRowStatus) {
   if (status === 'update') return 'Update existing';
   if (status === 'duplicate') return 'Duplicate / skipped';
   return 'Needs fix';
-}
-
-function getEmptyStateCopy(filter: MigrationPreviewFilter) {
-  if (filter === 'importable') {
-    return 'No rows are currently ready to import.';
-  }
-
-  if (filter === 'needs_fix') {
-    return 'No rows currently need fixes.';
-  }
-
-  return 'No preview rows available yet.';
-}
-
-function getFilterHeading(filter: MigrationPreviewFilter) {
-  if (filter === 'importable') return 'Showing rows ready to import';
-  if (filter === 'needs_fix') return 'Showing rows that need fixes';
-  return null;
-}
-
-function getFilterDescription(filter: MigrationPreviewFilter) {
-  if (filter === 'importable') {
-    return 'These rows will be created or updated when you import this job.';
-  }
-
-  if (filter === 'needs_fix') {
-    return 'These rows will be skipped until you correct the CSV and create a fresh preview.';
-  }
-
-  return null;
 }
 
 function formatPrimaryText(
@@ -172,11 +147,13 @@ export default function MigrationPreviewTable({
 
   return (
     <div className="space-y-4">
-      {getFilterHeading(filter) ? (
+      {getMigrationFilterHeading(filter) ? (
         <div className="rounded-xl border bg-muted/20 px-4 py-3">
-          <p className="text-sm font-medium">{getFilterHeading(filter)}</p>
+          <p className="text-sm font-medium">
+            {getMigrationFilterHeading(filter)}
+          </p>
           <p className="text-sm text-muted-foreground">
-            {getFilterDescription(filter)}
+            {getMigrationFilterDescription(filter)}
           </p>
         </div>
       ) : null}
@@ -210,7 +187,7 @@ export default function MigrationPreviewTable({
                   colSpan={5}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  {getEmptyStateCopy(filter)}
+                  {getMigrationEmptyStateCopy(filter)}
                 </TableCell>
               </TableRow>
             ) : (

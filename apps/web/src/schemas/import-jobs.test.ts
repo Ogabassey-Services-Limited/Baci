@@ -116,6 +116,17 @@ describe('importJobRowsQuerySchema', () => {
 
     expect(result.filter).toBe('needs_fix');
   });
+
+  it('rejects unsupported preview filters', () => {
+    const result = importJobRowsQuerySchema.safeParse({
+      filter: 'invalid_filter',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.filter).toBeTruthy();
+    }
+  });
 });
 
 describe('importJobUploadSchema', () => {

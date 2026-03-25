@@ -115,7 +115,7 @@ export default function MigrationsClientPage({
           nextJob = jobPayload.job as ImportJobDetail;
 
           if (requestId !== refreshRequestIdRef.current) {
-            return;
+            return false;
           }
 
           setSelectedJob(nextJob);
@@ -128,7 +128,7 @@ export default function MigrationsClientPage({
           if (requestId === refreshRequestIdRef.current) {
             setRowsResponse(null);
           }
-          return;
+          return true;
         }
 
         if (includeRows) {
@@ -150,14 +150,15 @@ export default function MigrationsClientPage({
           }
 
           if (requestId !== refreshRequestIdRef.current) {
-            return;
+            return false;
           }
 
           setRowsResponse(rowsPayload as ImportJobRowsResponse);
         }
+        return true;
       } catch (jobError) {
         if (requestId !== refreshRequestIdRef.current) {
-          return;
+          return false;
         }
 
         setError(
@@ -165,6 +166,7 @@ export default function MigrationsClientPage({
             ? jobError.message
             : 'Failed to load import job'
         );
+        return false;
       } finally {
         if (
           !background &&
@@ -328,9 +330,7 @@ export default function MigrationsClientPage({
     }
   }
 
-  function handleFilterChange(filter: MigrationPreviewFilter) {
-    setActiveFilter(filter);
-
+  async function handleFilterChange(filter: MigrationPreviewFilter) {
     if (!selectedJobId || !selectedJob) {
       return;
     }
@@ -339,12 +339,22 @@ export default function MigrationsClientPage({
       return;
     }
 
-    void refreshJob(selectedJobId, {
+    const previousRowsResponse = rowsResponse;
+    setRowsResponse(null);
+
+    const didRefresh = await refreshJob(selectedJobId, {
       filter,
       includeJob: false,
       includeRows: true,
       page: 1,
     });
+
+    if (didRefresh) {
+      setActiveFilter(filter);
+      return;
+    }
+
+    setRowsResponse(previousRowsResponse);
   }
 
   return (
@@ -386,14 +396,16 @@ export default function MigrationsClientPage({
                 `/api/import-jobs/${selectedJobId}/notify-customers`
               )
             }
-            onRefresh={() =>
-              selectedJobId
-                ? refreshJob(selectedJobId, {
-                    filter: activeFilter,
-                    page: rowsResponse?.pagination.page || 1,
-                  })
-                : Promise.resolve()
-            }
+            onRefresh={async () => {
+              if (!selectedJobId) {
+                return;
+              }
+
+              await refreshJob(selectedJobId, {
+                filter: activeFilter,
+                page: rowsResponse?.pagination.page || 1,
+              });
+            }}
             selectedJob={selectedJob}
           />
 

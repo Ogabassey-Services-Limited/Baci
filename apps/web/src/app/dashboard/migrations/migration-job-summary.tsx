@@ -1,6 +1,11 @@
 'use client';
 
 import { Loader2, Mail, RefreshCw } from 'lucide-react';
+import { getMigrationSuggestedAction } from '@/app/dashboard/migrations/migration-filter-helpers';
+import type {
+  ImportJobDetail,
+  MigrationPreviewFilter,
+} from '@/app/dashboard/migrations/migration-types';
 import {
   decorateImportJob,
   getMigrationProgressDetail,
@@ -14,10 +19,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import type {
-  ImportJobDetail,
-  MigrationPreviewFilter,
-} from './migration-types';
 
 interface MigrationJobSummaryProps {
   activeFilter: MigrationPreviewFilter;
@@ -64,30 +65,11 @@ export default function MigrationJobSummary({
         selectedJob.total_rows
       )
     : 0;
-  const suggestedAction =
-    activeFilter === 'importable'
-      ? {
-          description:
-            'These rows are ready to import now. Duplicates and invalid rows will stay out of this import.',
-          title: 'Ready to import',
-        }
-      : activeFilter === 'needs_fix'
-        ? {
-            description:
-              'These rows will be skipped. Review the Errors column, fix the CSV, then create a fresh preview.',
-            title: 'Needs attention',
-          }
-        : invalidRows > 0
-          ? {
-              description:
-                'Use the summary cards to focus on rows that are ready to import or rows that need fixing.',
-              title: 'Review before importing',
-            }
-          : {
-              description:
-                'Review the preview table, then import the rows that are ready.',
-              title: 'Import workflow',
-            };
+  const suggestedAction = getMigrationSuggestedAction({
+    activeFilter,
+    invalidRows,
+    validRows,
+  });
 
   return (
     <Card>
@@ -161,10 +143,12 @@ export default function MigrationJobSummary({
                 aria-pressed={activeFilter === 'importable'}
                 className={cn(
                   'rounded-xl border p-4 text-left transition-colors',
+                  validRows === 0 && 'cursor-not-allowed opacity-60',
                   activeFilter === 'importable'
                     ? 'border-emerald-500 bg-emerald-500/5'
                     : 'hover:border-emerald-500/40'
                 )}
+                disabled={validRows === 0}
                 onClick={() => onFilterChange('importable')}
                 type="button"
               >
@@ -182,10 +166,12 @@ export default function MigrationJobSummary({
                 aria-pressed={activeFilter === 'needs_fix'}
                 className={cn(
                   'rounded-xl border p-4 text-left transition-colors',
+                  invalidRows === 0 && 'cursor-not-allowed opacity-60',
                   activeFilter === 'needs_fix'
                     ? 'border-amber-500 bg-amber-500/5'
                     : 'hover:border-amber-500/40'
                 )}
+                disabled={invalidRows === 0}
                 onClick={() => onFilterChange('needs_fix')}
                 type="button"
               >

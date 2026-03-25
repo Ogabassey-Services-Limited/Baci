@@ -5,6 +5,10 @@ vi.mock('@/lib/csrf', () => ({
   buildCsrfHeaders: vi.fn(() => ({ 'x-csrf-token': 'token' })),
 }));
 
+vi.mock('@/app/dashboard/migrations/migration-order-source-chip', () => ({
+  default: () => <span>Source chip</span>,
+}));
+
 import MigrationsClientPage from '@/app/dashboard/migrations/migrations-client-page';
 
 function createJsonResponse(body: unknown): Response {
@@ -319,6 +323,22 @@ describe('MigrationsClientPage', () => {
 
     await screen.findByText(/selected job/i);
     vi.mocked(fetch).mockClear();
+    vi.mocked(fetch).mockResolvedValueOnce(
+      createJsonResponse({
+        rows: [
+          {
+            id: 'row-2',
+            meta: {},
+            normalized_payload: null,
+            row_number: 4,
+            row_status: 'invalid',
+            source_external_id: null,
+            validation_errors: ['Missing order number'],
+          },
+        ],
+        pagination: { page: 1, pageSize: 25, total: 1 },
+      })
+    );
 
     fireEvent.click(screen.getByRole('button', { name: /needs fix/i }));
 
@@ -328,5 +348,10 @@ describe('MigrationsClientPage', () => {
         { cache: 'no-store' }
       );
     });
+    expect(
+      await screen.findByText(/showing rows that need fixes/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText('Order 4')).toBeInTheDocument();
+    expect(screen.getByText('Missing order number')).toBeInTheDocument();
   });
 });

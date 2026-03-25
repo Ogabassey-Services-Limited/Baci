@@ -161,4 +161,48 @@ describe('MigrationJobSummary', () => {
 
     expect(onFilterChange).toHaveBeenCalledWith('importable');
   });
+
+  it('shows empty-filter guidance and disables empty filter cards', () => {
+    render(
+      <MigrationJobSummary
+        activeFilter="importable"
+        acting={false}
+        error={null}
+        loading={false}
+        onFilterChange={vi.fn()}
+        onCommit={vi.fn().mockResolvedValue(undefined)}
+        onNotify={vi.fn().mockResolvedValue(undefined)}
+        onRefresh={vi.fn().mockResolvedValue(undefined)}
+        selectedJob={{
+          id: 'job-4',
+          entity_type: 'orders',
+          source_platform: 'bumpa',
+          status: 'preview_ready',
+          original_filename: 'orders.csv',
+          processed_rows: 12,
+          total_rows: 12,
+          summary: {
+            validRows: 0,
+            invalidRows: 0,
+            receiptReadyOrders: 0,
+          },
+          error: null,
+          created_at: '2026-03-22T10:00:00.000Z',
+          committed_at: null,
+          notified_at: null,
+          canCommit: false,
+          canNotify: false,
+        }}
+      />
+    );
+
+    expect(screen.getByText(/^No rows ready to import$/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/currently has no rows ready to import/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /ready to import/i })
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: /needs fix/i })).toBeDisabled();
+  });
 });
