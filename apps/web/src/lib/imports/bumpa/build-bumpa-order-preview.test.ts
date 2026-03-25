@@ -142,4 +142,16 @@ describe('buildBumpaOrderPreview', () => {
       totalRows: 2,
     });
   });
+
+  it('continues building previews when progress reporting fails', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [baseRow],
+      existingOrders: [],
+      existingProducts: [],
+      onProgress: vi.fn().mockRejectedValue(new Error('boom')),
+    });
+
+    expect(result.summary.totalRows).toBe(1);
+    expect(result.rows[0]?.rowStatus).toBe('create');
+  });
 });

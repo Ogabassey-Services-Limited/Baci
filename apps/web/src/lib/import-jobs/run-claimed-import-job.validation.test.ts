@@ -234,6 +234,79 @@ describe('runClaimedImportJob validation and notification', () => {
     );
   });
 
+  it('throttles validation progress writes for larger jobs', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Date, 'now')
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(100)
+      .mockReturnValueOnce(200)
+      .mockReturnValueOnce(1300);
+
+    vi.mocked(buildImportPreviewForJob).mockImplementation(
+      async (_supabase, _job, onProgress) => {
+        await onProgress?.({ processedRows: 0, totalRows: 100 });
+        await onProgress?.({ processedRows: 10, totalRows: 100 });
+        await onProgress?.({ processedRows: 20, totalRows: 100 });
+        await onProgress?.({ processedRows: 100, totalRows: 100 });
+
+        return {
+          sourceRows: Array.from({ length: 100 }, (_, index) => ({
+            id: `order-${index + 1}`,
+          })),
+          rows: [],
+          summary: { validRows: 0 },
+          totalRows: 100,
+        } as never;
+      }
+    );
+    vi.mocked(buildImportJobRowInserts).mockReturnValue([]);
+
+    const deleteQuery = {
+      delete: vi.fn(),
+      eq: vi.fn(),
+    };
+    deleteQuery.delete.mockReturnValue(deleteQuery);
+    deleteQuery.eq.mockResolvedValue({ error: null });
+
+    const updateQuery = {
+      update: vi.fn(),
+      eq: vi.fn(),
+    };
+    updateQuery.update.mockReturnValue(updateQuery);
+    updateQuery.eq.mockResolvedValue({ error: null });
+
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'import_job_rows') {
+          return deleteQuery;
+        }
+
+        return updateQuery;
+      }),
+    } as unknown as SupabaseClient;
+
+    await runClaimedImportJob(supabase, createJob('validating'));
+
+    expect(updateQuery.update).toHaveBeenCalledWith({
+      processed_rows: 0,
+      total_rows: 100,
+    });
+    expect(updateQuery.update).toHaveBeenCalledWith({
+      processed_rows: 100,
+      total_rows: 100,
+    });
+    expect(updateQuery.update).not.toHaveBeenCalledWith({
+      processed_rows: 10,
+      total_rows: 100,
+    });
+    expect(updateQuery.update).not.toHaveBeenCalledWith({
+      processed_rows: 20,
+      total_rows: 100,
+    });
+
+    vi.useRealTimers();
+  });
+
   it('sends merchant notifications and completes notifying jobs', async () => {
     vi.mocked(sendImportNotificationCampaign).mockResolvedValue({
       sentCount: 3,

@@ -85,8 +85,12 @@ async function processValidatingJob(
   supabase: SupabaseClient,
   job: ImportJobRecord
 ) {
+  const progressRowUpdateStep = 25;
+  const progressMinUpdateMs = 1000;
   let lastProcessedRows = -1;
   let lastTotalRows = -1;
+  let lastPersistedProcessedRows = -1;
+  let lastProgressUpdateAt = 0;
   const preview = await buildImportPreviewForJob(
     supabase,
     job,
@@ -97,6 +101,23 @@ async function processValidatingJob(
 
       lastProcessedRows = processedRows;
       lastTotalRows = totalRows;
+
+      const now = Date.now();
+      const isFinalUpdate = processedRows >= totalRows;
+      const isEarlyProgress = processedRows <= 5;
+      const advancedEnough =
+        processedRows - lastPersistedProcessedRows >= progressRowUpdateStep;
+      const timeWindowElapsed =
+        now - lastProgressUpdateAt >= progressMinUpdateMs;
+
+      if (
+        !isFinalUpdate &&
+        !isEarlyProgress &&
+        !advancedEnough &&
+        !timeWindowElapsed
+      ) {
+        return;
+      }
 
       const { error: progressError } = await supabase
         .from('import_jobs')
@@ -111,6 +132,9 @@ async function processValidatingJob(
           `Failed to update import preview progress: ${progressError.message}`
         );
       }
+
+      lastPersistedProcessedRows = processedRows;
+      lastProgressUpdateAt = now;
     }
   );
   const insertRows = buildImportJobRowInserts(
