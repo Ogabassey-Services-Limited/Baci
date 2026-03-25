@@ -6,6 +6,9 @@ import {
 import { createAnonClient } from '@/lib/supabase/anon';
 
 const DEFAULT_ROOT_DOMAIN = 'usebaci.com';
+const HOSTNAME_PATTERN =
+  /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+const MANAGED_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function normalizeHost(rawHost: string | null): string | null {
   if (!rawHost) {
@@ -20,23 +23,22 @@ function normalizeHost(rawHost: string | null): string | null {
   return firstHost.replace(/:\d+$/, '');
 }
 
-function normalizeProtocol(rawProtocol: string | null): string {
-  if (!rawProtocol) {
-    return 'https';
-  }
+function isSafeHostname(host: string): boolean {
+  return HOSTNAME_PATTERN.test(host);
+}
 
-  const firstProtocol = rawProtocol
-    .split(',')[0]
-    ?.trim()
-    .toLowerCase()
-    .replace(/:$/, '');
-  return firstProtocol === 'http' ? 'http' : 'https';
+function getRootDomain(): string {
+  const configuredRootDomain = normalizeHost(
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? null
+  );
+
+  return configuredRootDomain && isSafeHostname(configuredRootDomain)
+    ? configuredRootDomain
+    : DEFAULT_ROOT_DOMAIN;
 }
 
 function getManagedMerchantSlug(host: string): string | null {
-  const rootDomain = (
-    process.env.NEXT_PUBLIC_ROOT_DOMAIN || DEFAULT_ROOT_DOMAIN
-  ).toLowerCase();
+  const rootDomain = getRootDomain();
 
   if (host === rootDomain || host === `www.${rootDomain}`) {
     return null;
@@ -47,19 +49,31 @@ function getManagedMerchantSlug(host: string): string | null {
   }
 
   const candidate = host.slice(0, -`.${rootDomain}`.length);
-  return candidate && !candidate.includes('.') ? candidate : null;
+  return candidate && MANAGED_SLUG_PATTERN.test(candidate) ? candidate : null;
 }
 
-async function resolveLegacyMerchantSlug(host: string): Promise<string> {
+interface LegacyFeedTarget {
+  merchantSlug: string;
+  redirectHost: string;
+}
+
+async function resolveLegacyFeedTarget(
+  host: string
+): Promise<LegacyFeedTarget> {
   const managedSlug = getManagedMerchantSlug(host);
   if (managedSlug) {
-    return managedSlug;
+    const merchant = await resolveFeedMerchant(managedSlug, true);
+
+    return {
+      merchantSlug: merchant.slug,
+      redirectHost: `${merchant.slug}.${getRootDomain()}`,
+    };
   }
 
   const supabase = createAnonClient();
   const { data: domain, error } = await supabase
     .from('domains')
-    .select('merchant_id')
+    .select('merchant_id, domain')
     .eq('domain', host)
     .eq('status', 'active')
     .maybeSingle();
@@ -68,12 +82,17 @@ async function resolveLegacyMerchantSlug(host: string): Promise<string> {
     throw new Error('Failed to resolve merchant domain', { cause: error });
   }
 
-  if (!domain?.merchant_id) {
+  const verifiedHost = normalizeHost(domain?.domain ?? null);
+
+  if (!domain?.merchant_id || !verifiedHost || !isSafeHostname(verifiedHost)) {
     throw new MerchantNotFoundError(host);
   }
 
   const merchant = await resolveFeedMerchant(domain.merchant_id, false);
-  return merchant.slug;
+  return {
+    merchantSlug: merchant.slug,
+    redirectHost: verifiedHost,
+  };
 }
 
 /**
@@ -86,9 +105,6 @@ export async function GET(request: NextRequest) {
       request.headers.get('host') ??
       new URL(request.url).host
   );
-  const protocol = normalizeProtocol(
-    request.headers.get('x-forwarded-proto') ?? new URL(request.url).protocol
-  );
 
   if (!host) {
     return NextResponse.json(
@@ -98,13 +114,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const merchantSlug = await resolveLegacyMerchantSlug(host);
-    const redirectUrl = new URL(request.url);
-    redirectUrl.protocol = `${protocol}:`;
-    redirectUrl.host = host;
-    redirectUrl.pathname = '/api/feed/google-merchant';
-    redirectUrl.search = '';
-    redirectUrl.searchParams.set('merchant_slug', merchantSlug);
+    const target = await resolveLegacyFeedTarget(host);
+    const redirectUrl = new URL(
+      '/api/feed/google-merchant',
+      `https://${target.redirectHost}`
+    );
+    redirectUrl.searchParams.set('merchant_slug', target.merchantSlug);
 
     return NextResponse.redirect(redirectUrl, 308);
   } catch (error) {

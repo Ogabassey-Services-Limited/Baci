@@ -57,7 +57,7 @@ beforeEach(() => {
 describe('GET /api/integrations/google-merchant-center/feed', () => {
   it('redirects custom-domain requests to the canonical public feed URL', async () => {
     mockDomainLookup({
-      data: { merchant_id: 'merchant-1' },
+      data: { merchant_id: 'merchant-1', domain: 'ogabassey.com' },
       error: null,
     });
     const { GET } = await import('./route');
@@ -92,12 +92,12 @@ describe('GET /api/integrations/google-merchant-center/feed', () => {
       'https://ogabassey.usebaci.com/api/feed/google-merchant?merchant_slug=ogabassey'
     );
     expect(mockFrom).not.toHaveBeenCalled();
-    expect(mockResolveFeedMerchant).not.toHaveBeenCalled();
+    expect(mockResolveFeedMerchant).toHaveBeenCalledWith('ogabassey', true);
   });
 
   it('prefers x-forwarded-host and strips ports', async () => {
     mockDomainLookup({
-      data: { merchant_id: 'merchant-1' },
+      data: { merchant_id: 'merchant-1', domain: 'ogabassey.com' },
       error: null,
     });
     const { GET } = await import('./route');
@@ -119,9 +119,9 @@ describe('GET /api/integrations/google-merchant-center/feed', () => {
     expect(mockResolveFeedMerchant).toHaveBeenCalledWith('merchant-1', false);
   });
 
-  it('respects x-forwarded-proto when building the redirect URL', async () => {
+  it('always redirects to the verified https feed URL', async () => {
     mockDomainLookup({
-      data: { merchant_id: 'merchant-1' },
+      data: { merchant_id: 'merchant-1', domain: 'ogabassey.com' },
       error: null,
     });
     const { GET } = await import('./route');
@@ -139,7 +139,7 @@ describe('GET /api/integrations/google-merchant-center/feed', () => {
 
     expect(response.status).toBe(308);
     expect(response.headers.get('location')).toBe(
-      'http://ogabassey.com/api/feed/google-merchant?merchant_slug=ogabassey'
+      'https://ogabassey.com/api/feed/google-merchant?merchant_slug=ogabassey'
     );
   });
 
@@ -180,7 +180,7 @@ describe('GET /api/integrations/google-merchant-center/feed', () => {
 
   it('returns 404 when merchant resolution fails after a domain lookup', async () => {
     mockDomainLookup({
-      data: { merchant_id: 'merchant-1' },
+      data: { merchant_id: 'merchant-1', domain: 'ogabassey.com' },
       error: null,
     });
     mockResolveFeedMerchant.mockRejectedValue(
@@ -198,5 +198,25 @@ describe('GET /api/integrations/google-merchant-center/feed', () => {
 
     expect(response.status).toBe(404);
     expect(body.error).toBe('Merchant not found');
+  });
+
+  it('returns 404 when the verified domain is not a safe hostname', async () => {
+    mockDomainLookup({
+      data: { merchant_id: 'merchant-1', domain: 'evil.com/path' },
+      error: null,
+    });
+    const { GET } = await import('./route');
+
+    const response = await GET(
+      makeRequest(
+        'https://ogabassey.com/api/integrations/google-merchant-center/feed',
+        { host: 'ogabassey.com' }
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe('Merchant not found');
+    expect(mockResolveFeedMerchant).not.toHaveBeenCalled();
   });
 });
