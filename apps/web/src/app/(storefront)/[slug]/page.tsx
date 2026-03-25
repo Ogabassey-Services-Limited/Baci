@@ -133,8 +133,12 @@ export default async function StorefrontPage({
   // This page only serves the storefront homepage.
   // If the original path had sub-segments (e.g., /product/..., /product-tag/...),
   // it means no child route matched — return 404 instead of rendering the homepage.
+  // In subdomain/custom-domain mode, x-pathname is "/" for the homepage.
+  // In path-mode (dev), x-pathname is "/{slug}" — also a valid homepage hit.
   const originalPathname = headersList.get('x-pathname') || '/';
-  if (originalPathname !== '/') {
+  const isHomepage =
+    originalPathname === '/' || originalPathname === `/${slug}`;
+  if (!isHomepage) {
     notFound();
   }
 
