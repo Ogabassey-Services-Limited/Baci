@@ -81,7 +81,9 @@ export function buildProductUrl(
   }
   if (typeof category === 'string') {
     const slug = generateSlug(category);
-    return `/${slug}/${productSlug}` as Route;
+    if (slug) {
+      return `/${slug}/${productSlug}` as Route;
+    }
   }
   return `/products/${productSlug}` as Route;
 }
