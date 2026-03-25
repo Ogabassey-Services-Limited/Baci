@@ -31,6 +31,7 @@
   },
   "pnpm": {
     "overrides": {
+      "smol-toml": ">=1.6.1",
       "esbuild": "^0.25.0",
       "sharp": "^0.34.5",
       "prismjs": "^1.30.0",
