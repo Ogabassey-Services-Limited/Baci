@@ -36,3 +36,7 @@
 **Vulnerability:** The `POST /api/dashboard/preferences` route lacked explicit CSRF protection, allowing cross-site request forgery attacks. An attacker could trick an authenticated merchant into silently changing their dashboard layout or visible cards, potentially hiding critical data.
 **Learning:** Even seemingly benign user preference endpoints need CSRF protection, as malicious modifications to the UI layout could be used as part of a larger social engineering attack to hide crucial information (like unauthorized orders) from the merchant.
 **Prevention:** Always use the `checkCsrfProtection` utility at the beginning of `POST`, `PATCH`, `PUT`, and `DELETE` handlers, even for endpoints that only modify UI preferences.
+## 2026-03-25 - Prevent Timing Attacks on Cron Authentication
+**Vulnerability:** String equality (`!==`) was used to compare the `x-cron-secret` header against `process.env.CRON_SECRET` in multiple cron API routes, making them susceptible to timing attacks.
+**Learning:** Basic string comparison operators short-circuit, potentially leaking the secret length or prefix over many requests.
+**Prevention:** Use `crypto.timingSafeEqual` to perform constant-time comparison for authentication tokens and webhooks. Always ensure the lengths of the buffers match before comparing to prevent `timingSafeEqual` from throwing an error.

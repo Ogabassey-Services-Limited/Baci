@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -7,7 +8,14 @@ export async function GET(request: NextRequest) {
   try {
     // Verify authentication from Vercel Cron
     const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
+
+    if (
+      !authHeader ||
+      !process.env.CRON_SECRET ||
+      authHeader.length !== expectedToken.length ||
+      !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedToken))
+    ) {
       // Allow local development testing if needed, or stick to strict checking
       // For now, we return 401 if unauthorized
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
