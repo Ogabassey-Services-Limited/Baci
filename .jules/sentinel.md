@@ -36,10 +36,18 @@
 **Vulnerability:** The `POST /api/dashboard/preferences` route lacked explicit CSRF protection, allowing cross-site request forgery attacks. An attacker could trick an authenticated merchant into silently changing their dashboard layout or visible cards, potentially hiding critical data.
 **Learning:** Even seemingly benign user preference endpoints need CSRF protection, as malicious modifications to the UI layout could be used as part of a larger social engineering attack to hide crucial information (like unauthorized orders) from the merchant.
 **Prevention:** Always use the `checkCsrfProtection` utility at the beginning of `POST`, `PATCH`, `PUT`, and `DELETE` handlers, even for endpoints that only modify UI preferences.
+
+## 2025-05-24 - Missing Input Validation in API Routes
+**Vulnerability:** Several API routes under `/api/discount-codes` were directly extracting properties from the JSON request body (e.g., `body.code`, `body.discount_type`) without applying strict structural or type validation. This could allow clients to send malformed data, unexpected types, or malicious payloads, bypassing application constraints and potentially leading to application errors or data integrity issues (like mass assignment).
+**Learning:** Even internal API routes that are authenticated and protected by CSRF checks and permissions can be vulnerable if input data isn't validated properly. Relying on simple truthiness checks (`if (!body.code)`) is not enough to ensure the structural integrity of complex objects.
+**Prevention:** Always define and use Zod schemas to explicitly validate and parse incoming request payloads before performing any business logic or database operations. Utilize `.safeParse(body)` on every API route to ensure unexpected fields are stripped, required fields exist with the correct type, and malformed requests return an explicit HTTP 400 Bad Request error.
+
 ## 2026-03-25 - Prevent Timing Attacks on Cron Authentication
 **Vulnerability:** String equality (`!==`) was used to compare the `x-cron-secret` header against `process.env.CRON_SECRET` in multiple cron API routes, making them susceptible to timing attacks.
 **Learning:** Basic string comparison operators short-circuit, potentially leaking the secret length or prefix over many requests.
 **Prevention:** Use `crypto.timingSafeEqual` to perform constant-time comparison for authentication tokens and webhooks. Always ensure the lengths of the buffers match before comparing to prevent `timingSafeEqual` from throwing an error.
+
+
 ## 2026-03-25 - Add CSRF Protection to Customer Profile API
 **Vulnerability:** The PATCH endpoint for updating customer profiles (`apps/web/src/app/api/storefront/customer/route.ts`) was missing CSRF validation, leaving the application vulnerable to cross-site request forgery attacks.
 **Learning:** In the Baci monorepo, all authenticated, mutating API routes (POST, PUT, PATCH, DELETE) must explicitly call `checkCsrfProtection()` at the start of the handler.
