@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -8,8 +9,11 @@ import { createClient } from '@/lib/supabase/server';
  * PATCH - Update customer profile
  */
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid && response) return response;
+
     const body = await request.json();
     const { merchantSlug, first_name, last_name, phone, saved_addresses } =
       body;

@@ -40,3 +40,7 @@
 **Vulnerability:** String equality (`!==`) was used to compare the `x-cron-secret` header against `process.env.CRON_SECRET` in multiple cron API routes, making them susceptible to timing attacks.
 **Learning:** Basic string comparison operators short-circuit, potentially leaking the secret length or prefix over many requests.
 **Prevention:** Use `crypto.timingSafeEqual` to perform constant-time comparison for authentication tokens and webhooks. Always ensure the lengths of the buffers match before comparing to prevent `timingSafeEqual` from throwing an error.
+## 2026-03-25 - Add CSRF Protection to Customer Profile API
+**Vulnerability:** The PATCH endpoint for updating customer profiles (`apps/web/src/app/api/storefront/customer/route.ts`) was missing CSRF validation, leaving the application vulnerable to cross-site request forgery attacks.
+**Learning:** In the Baci monorepo, all authenticated, mutating API routes (POST, PUT, PATCH, DELETE) must explicitly call `checkCsrfProtection()` at the start of the handler.
+**Prevention:** Ensure new API routes implement CSRF protection. Review existing routes periodically to ensure protection is consistently applied.

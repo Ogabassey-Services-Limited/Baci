@@ -90,6 +90,27 @@ process.env.NEXT_PUBLIC_SUPABASE_URL =
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-anon-key';
 
+// Patch Blob stream for Undici in Vitest
+if (typeof Blob !== 'undefined' && !Blob.prototype.stream) {
+  Blob.prototype.stream = function () {
+    const reader = new FileReader();
+    reader.readAsArrayBuffer(this);
+    return new ReadableStream({
+      start(controller) {
+        reader.onload = () => {
+          if (reader.result instanceof ArrayBuffer) {
+            controller.enqueue(new Uint8Array(reader.result));
+          }
+          controller.close();
+        };
+        reader.onerror = () => {
+          controller.error(new Error('Failed to read blob'));
+        };
+      },
+    });
+  };
+}
+
 // Mock Next.js Image component
 vi.mock('next/image', () => ({
   default: ({ src, alt, ...props }: MockNextImageProps) => {
