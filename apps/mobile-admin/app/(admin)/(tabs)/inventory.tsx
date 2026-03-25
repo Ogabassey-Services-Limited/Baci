@@ -19,7 +19,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SafeImage from '@/components/ui/SafeImage';
-import { RADIUS, SPACING, TYPOGRAPHY, type ThemeColors } from '@/constants/theme';
+import {
+  RADIUS,
+  SPACING,
+  type ThemeColors,
+  TYPOGRAPHY,
+} from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import {
   type Product,
@@ -184,7 +189,9 @@ export default function InventoryScreen() {
 
   // Use server-side inventory stats for accurate global counts
   const totalProducts =
-    inventoryStats?.totalProducts ?? data?.pages[0]?.totalCount ?? products.length;
+    inventoryStats?.totalProducts ??
+    data?.pages[0]?.totalCount ??
+    products.length;
   const lowStockCount = inventoryStats?.lowStockCount ?? 0;
   const outOfStockCount = inventoryStats?.outOfStockCount ?? 0;
 
@@ -282,7 +289,7 @@ export default function InventoryScreen() {
           accessibilityRole="button"
           accessibilityHint="Opens barcode scanner to find products"
         >
-          <Ionicons name="barcode-outline" size={24} color={colors.textOnPrimary} />
+          <Ionicons name="barcode-outline" size={24} color="#FFFFFF" />
         </Pressable>
       </View>
 
