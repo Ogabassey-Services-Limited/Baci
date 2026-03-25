@@ -70,6 +70,12 @@ export function CheckStockSection({
     };
   }, []);
 
+  // Reset displayed stock when integration/business context changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
+  useEffect(() => {
+    setStock(null);
+  }, [integrationId, businessClientCode]);
+
   const onSubmit = async ({ sku }: CheckStockFormData) => {
     // Abort any previous in-flight request
     abortControllerRef.current?.abort();

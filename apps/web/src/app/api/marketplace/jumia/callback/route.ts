@@ -151,12 +151,15 @@ export async function GET(request: NextRequest) {
     }
     const supabase = auth.supabase;
 
+    // Track whether we had to synthesize a fallback shop (discovery failed).
+    // Fallback shops should NOT be marked active — the merchant must manually re-connect.
+    let isFallbackShop = false;
     if (discoveredShops.length === 0) {
       logger.warn({
         message: 'Jumia Callback No shops discovered',
         merchantId,
       });
-      // Fallback to a generic integration if no shops found (unlikely but safe)
+      isFallbackShop = true;
       discoveredShops.push({
         id: 'oauth',
         name: 'Jumia Shop',
@@ -198,7 +201,7 @@ export async function GET(request: NextRequest) {
             access_token: tokens.access_token,
             refresh_token: tokens.refresh_token,
             token_expires_at: tokenExpiresAt.toISOString(),
-            is_active: true,
+            is_active: !isFallbackShop,
             sync_config: {
               products: true,
               orders: true,

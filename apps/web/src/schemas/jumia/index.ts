@@ -34,6 +34,11 @@ export {
   JumiaVariationSchema,
 } from '@/schemas/jumia/catalog';
 export {
+  type ConsignmentFormValues,
+  consignmentFormSchema,
+  consignmentProductRowSchema,
+  getLocalYYYYMMDD,
+  isValidCalendarDate,
   type JumiaConsignmentCreateResponse,
   JumiaConsignmentCreateResponseSchema,
   type JumiaConsignmentStockResponse,

@@ -12,7 +12,7 @@ import { logger } from '@/lib/logger';
 import { sanitizeText, stripHtmlTags } from '@/lib/sanitize-core';
 
 const VariationSchema = z.object({
-  sellerSku: z.string().min(1),
+  sellerSku: z.string().trim().min(1),
   price: z.number().positive(),
   currency: z.string().default('NGN'),
   stock: z.number().int().min(0).optional(),
@@ -24,7 +24,7 @@ const VariationSchema = z.object({
 const ExportSchema = z.object({
   integrationId: z.string().uuid(),
   merchantId: z.string().uuid().optional(),
-  name: z.string().min(1),
+  name: z.string().trim().min(1),
   brand: z.object({ code: z.number(), name: z.string() }),
   category: z.object({ code: z.number() }),
   description: z.string().optional(),
@@ -117,13 +117,16 @@ export async function POST(req: NextRequest) {
       const isExpired =
         errorMessage.toLowerCase().includes('expired') ||
         errorMessage.toLowerCase().includes('unauthorized');
+      const isNotFound = errorMessage.toLowerCase().includes('not found');
       return NextResponse.json(
         {
           error: isExpired
             ? 'Jumia credentials expired — please reconnect'
-            : 'Jumia integration not found',
+            : isNotFound
+              ? 'Jumia integration not found'
+              : 'Jumia integration initialization failed',
         },
-        { status: isExpired ? 401 : 404 }
+        { status: isExpired ? 401 : isNotFound ? 404 : 502 }
       );
     }
 

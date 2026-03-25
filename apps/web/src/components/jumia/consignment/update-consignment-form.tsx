@@ -20,7 +20,10 @@ import { getClientCsrfToken } from '@/lib/csrf';
 
 const updateConsignmentSchema = z
   .object({
-    purchaseOrderNumber: z.string().min(1, 'Purchase Order Number is required'),
+    purchaseOrderNumber: z
+      .string()
+      .trim()
+      .min(1, 'Purchase Order Number is required'),
     isShipped: z.boolean(),
     trackingNumber: z.string().optional(),
     actualDepartureDate: z
@@ -119,7 +122,7 @@ export function UpdateConsignmentForm({
         body: JSON.stringify({
           integrationId,
           purchaseOrderNumber: values.purchaseOrderNumber.trim(),
-          isShipped: values.isShipped,
+          ...(values.isShipped && { isShipped: true }),
           trackingNumber: values.trackingNumber?.trim() || undefined,
           actualDepartureDate: values.actualDepartureDate || undefined,
           estimatedArrivalDate: values.estimatedArrivalDate || undefined,

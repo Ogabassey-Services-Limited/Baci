@@ -170,11 +170,15 @@ describe('Connect POST', () => {
     expect(json.integration).toBeDefined();
     expect(mockUpsert).toHaveBeenCalledWith(
       expect.objectContaining({
+        merchant_id: MERCHANT_CTX.merchantId,
         refresh_token: 'tok-abc',
         shop_id: 'default',
         platform: 'jumia',
+        is_active: true,
       }),
-      expect.anything()
+      expect.objectContaining({
+        onConflict: 'merchant_id,platform,shop_id',
+      })
     );
   });
 

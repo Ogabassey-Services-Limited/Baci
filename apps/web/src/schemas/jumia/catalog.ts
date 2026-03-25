@@ -105,6 +105,7 @@ export const JumiaCategorySchema = z.object({
 
 export const JumiaCategoriesResponseSchema = z.object({
   categories: z.array(JumiaCategorySchema),
+  page: JumiaPageMetadataSchema.optional(),
 });
 
 // ── Attribute Sets ──

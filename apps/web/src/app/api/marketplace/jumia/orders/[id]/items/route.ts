@@ -20,20 +20,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Auth check first — before any input validation
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const merchantId = await getMerchantIdForApiUser(auth.supabase);
-    if (!merchantId) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 403 }
-      );
-    }
-
+    // Validate path and query params before any DB calls
     const parsedParams = jumiaOrderIdParamSchema.safeParse(await params);
     if (!parsedParams.success) {
       return NextResponse.json(
@@ -62,6 +49,20 @@ export async function GET(
       );
     }
     const integrationId = parsedIntegrationId.data;
+
+    // Auth check after input validation passes
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const merchantId = await getMerchantIdForApiUser(auth.supabase);
+    if (!merchantId) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 403 }
+      );
+    }
 
     let jumiaClient: JumiaClient;
     try {

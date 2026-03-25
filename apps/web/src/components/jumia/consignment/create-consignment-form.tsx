@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Package, Plus, Trash2 } from 'lucide-react';
 import type { FieldErrors } from 'react-hook-form';
 import { useFieldArray, useForm } from 'react-hook-form';
-import { z } from 'zod';
 import { ThemedButton } from '@/components/themed/themed-button';
 import { ThemedInput } from '@/components/themed/themed-input';
 import { Button } from '@/components/ui/button';
@@ -18,47 +17,11 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getClientCsrfToken } from '@/lib/csrf';
 import { sanitizeText } from '@/lib/sanitize-core';
-
-/** Build a yyyy-mm-dd string from local date (avoids UTC offset shifting the day). */
-function getLocalYYYYMMDD(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function isValidCalendarDate(v: string): boolean {
-  const parts = v.split('-').map(Number);
-  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n)))
-    return false;
-  const [y, m, day] = parts;
-  const d = new Date(y, m - 1, day);
-  return d.getFullYear() === y && d.getMonth() === m - 1 && d.getDate() === day;
-}
-
-const productRowSchema = z.object({
-  sku: z.string().trim().min(1, 'SKU is required'),
-  quantity: z
-    .string()
-    .min(1, 'Quantity is required')
-    .regex(/^\d+$/, 'Must be a whole number')
-    .refine((v) => Number(v) > 0, 'Must be greater than 0'),
-  labelCode: z.string(),
-});
-
-const consignmentFormSchema = z.object({
-  shippingDate: z
-    .string()
-    .min(1, 'Shipping date is required.')
-    .refine(isValidCalendarDate, { message: 'Invalid date.' })
-    .refine((v) => v >= getLocalYYYYMMDD(), {
-      message: 'Shipping date cannot be in the past.',
-    }),
-  comment: z.string(),
-  products: z
-    .array(productRowSchema)
-    .min(1, 'At least one product with SKU and quantity is required.'),
-});
-
-type ConsignmentFormValues = z.infer<typeof consignmentFormSchema>;
+import {
+  type ConsignmentFormValues,
+  consignmentFormSchema,
+  getLocalYYYYMMDD,
+} from '@/schemas/jumia/consignment';
 
 interface CreateConsignmentFormProps {
   integrationId: string;
@@ -157,15 +120,21 @@ export function CreateConsignmentForm({
       return;
     }
     if (Array.isArray(fe.products)) {
-      const rows: number[] = [];
+      const issues: string[] = [];
       for (let i = 0; i < fe.products.length; i++) {
-        if (fe.products[i]) rows.push(i + 1);
+        const rowErr = fe.products[i];
+        if (!rowErr) continue;
+        const parts: string[] = [];
+        if (rowErr.sku?.message) parts.push(rowErr.sku.message);
+        if (rowErr.quantity?.message) parts.push(rowErr.quantity.message);
+        if (parts.length > 0) {
+          issues.push(`Row ${i + 1}: ${parts.join(', ')}`);
+        }
       }
-      if (rows.length > 0) {
-        const s = rows.length > 1 ? 's' : '';
+      if (issues.length > 0) {
         toast({
           title: 'Validation Error',
-          description: `Incomplete product row${s}: ${rows.join(', ')}. Each row needs both SKU and quantity.`,
+          description: issues.join('; '),
           variant: 'destructive',
         });
         return;

@@ -116,7 +116,8 @@ export async function POST(
 
         // Recover job status so merchants can retry
         const supabase = authResult.context?.supabase;
-        if (!supabase) return;
+        const merchantId = authResult.context?.merchantContext.merchantId;
+        if (!supabase || !merchantId) return;
         try {
           const { error: recoveryError, count } = await supabase
             .from('import_jobs')
@@ -128,7 +129,8 @@ export async function POST(
               { count: 'exact' }
             )
             .eq('id', job.id)
-            .eq('status', 'notify_queued');
+            .eq('status', 'notify_queued')
+            .eq('merchant_id', merchantId);
           if (recoveryError) {
             logger.error({
               message: 'Recovery update returned error',

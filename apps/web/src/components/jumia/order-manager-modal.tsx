@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { getClientCsrfToken } from '@/lib/csrf';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 
 function isValidHttpUrl(url: string | undefined): url is string {
@@ -111,9 +112,13 @@ export function OrderManagerModal({
     setBlockedLabelUrl(null);
     setActionLoading(action);
     try {
+      const csrfToken = getClientCsrfToken();
       const res = await fetch('/api/marketplace/jumia/actions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken && { 'x-csrf-token': csrfToken }),
+        },
         body: JSON.stringify({
           action,
           integrationId,
@@ -123,17 +128,25 @@ export function OrderManagerModal({
       });
 
       let data: ActionResponse;
+      let jsonParsed = true;
       const text = await res.text();
       try {
         data = JSON.parse(text);
-      } catch (parseError) {
-        console.error('Failed to parse action response as JSON:', parseError);
+      } catch {
+        jsonParsed = false;
         const MAX_RAW_LENGTH = 200;
         const sanitized = stripHtmlTags(text).slice(0, MAX_RAW_LENGTH);
         data = { error: sanitized } as ActionResponse;
       }
 
       if (!res.ok) throw new Error(data.error || 'Action failed');
+
+      // Treat non-JSON 200 responses as failures
+      if (!jsonParsed) {
+        throw new Error(
+          data.error || 'Server returned an unexpected non-JSON response'
+        );
+      }
 
       if (action !== 'print_label') {
         toast({

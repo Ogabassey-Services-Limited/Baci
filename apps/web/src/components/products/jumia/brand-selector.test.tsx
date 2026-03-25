@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type React from 'react';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Store the onOpenChange callback so trigger can call it
@@ -11,7 +11,7 @@ vi.mock('@/components/ui/popover', () => ({
     open,
     onOpenChange,
   }: {
-    children: React.ReactNode;
+    children: ReactNode;
     open: boolean;
     onOpenChange: (o: boolean) => void;
   }) => {
@@ -25,31 +25,29 @@ vi.mock('@/components/ui/popover', () => ({
   PopoverTrigger: ({
     children,
   }: {
-    children: React.ReactNode;
+    children: ReactNode;
     asChild?: boolean;
   }) => (
     <button
       type="button"
-      data-testid="popover-trigger"
       onClick={() => popoverOnOpenChange?.(true)}
+      onKeyDown={() => popoverOnOpenChange?.(true)}
     >
       {children}
     </button>
   ),
-  PopoverContent: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="popover-content">{children}</div>
+  PopoverContent: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
   ),
 }));
 
 vi.mock('@/components/ui/command', () => ({
-  Command: ({ children }: { children: React.ReactNode }) => (
+  Command: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  CommandEmpty: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),
-  CommandEmpty: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="command-empty">{children}</div>
-  ),
-  CommandGroup: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="command-group">{children}</div>
+  CommandGroup: ({ children }: { children: ReactNode }) => (
+    <div role="listbox">{children}</div>
   ),
   CommandInput: ({ placeholder }: { placeholder?: string }) => (
     <input placeholder={placeholder} />
@@ -59,27 +57,19 @@ vi.mock('@/components/ui/command', () => ({
     onSelect,
     value,
   }: {
-    children: React.ReactNode;
+    children: ReactNode;
     onSelect: () => void;
     value: string;
   }) => (
-    <button
-      type="button"
-      data-testid={`brand-item-${value}`}
-      onClick={onSelect}
-    >
+    <button type="button" role="option" aria-label={value} onClick={onSelect}>
       {children}
     </button>
   ),
-  CommandList: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  CommandList: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
 vi.mock('@/components/ui/scroll-area', () => ({
-  ScrollArea: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  ScrollArea: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
 vi.mock('@/lib/utils', () => ({
@@ -138,7 +128,7 @@ describe('JumiaBrandSelector', () => {
     render(<JumiaBrandSelector {...defaultProps} />);
 
     // Click trigger to open the popover (calls onOpenChange(true))
-    fireEvent.click(screen.getByTestId('popover-trigger'));
+    fireEvent.click(screen.getByRole('combobox'));
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
@@ -148,8 +138,10 @@ describe('JumiaBrandSelector', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('brand-item-Samsung')).toBeInTheDocument();
-      expect(screen.getByTestId('brand-item-Apple')).toBeInTheDocument();
+      expect(
+        screen.getByRole('option', { name: 'Samsung' })
+      ).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Apple' })).toBeInTheDocument();
     });
   });
 
@@ -165,13 +157,15 @@ describe('JumiaBrandSelector', () => {
     const onSelect = vi.fn();
     render(<JumiaBrandSelector {...defaultProps} onSelect={onSelect} />);
 
-    fireEvent.click(screen.getByTestId('popover-trigger'));
+    fireEvent.click(screen.getByRole('combobox'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('brand-item-Samsung')).toBeInTheDocument();
+      expect(
+        screen.getByRole('option', { name: 'Samsung' })
+      ).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByTestId('brand-item-Samsung'));
+    fireEvent.click(screen.getByRole('option', { name: 'Samsung' }));
 
     expect(onSelect).toHaveBeenCalledWith({ code: 1, name: 'Samsung' });
   });
@@ -186,7 +180,7 @@ describe('JumiaBrandSelector', () => {
     );
 
     render(<JumiaBrandSelector {...defaultProps} />);
-    fireEvent.click(screen.getByTestId('popover-trigger'));
+    fireEvent.click(screen.getByRole('combobox'));
 
     await waitFor(() => {
       expect(screen.getByText('Failed to load brands')).toBeInTheDocument();
@@ -211,7 +205,7 @@ describe('JumiaBrandSelector', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     render(<JumiaBrandSelector {...defaultProps} />);
-    fireEvent.click(screen.getByTestId('popover-trigger'));
+    fireEvent.click(screen.getByRole('combobox'));
 
     await waitFor(() => {
       expect(screen.getByText('Retry')).toBeInTheDocument();
@@ -221,8 +215,10 @@ describe('JumiaBrandSelector', () => {
 
     await waitFor(() => {
       // After retry, brands should appear in the DOM
-      expect(screen.getByTestId('brand-item-Samsung')).toBeInTheDocument();
-      expect(screen.getByTestId('brand-item-Apple')).toBeInTheDocument();
+      expect(
+        screen.getByRole('option', { name: 'Samsung' })
+      ).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Apple' })).toBeInTheDocument();
     });
   });
 });

@@ -1,7 +1,7 @@
 import { triggerImportWorker } from '@/lib/import-jobs/import-job-service';
 import { processImportJobById } from '@/lib/import-jobs/process-import-job';
 import { logger } from '@/lib/logger';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function kickoffImportJob(
   jobId: string,
@@ -9,7 +9,7 @@ export async function kickoffImportJob(
 ): Promise<void> {
   let firstError: unknown;
   try {
-    const result = await processImportJobById(createServiceClient(), jobId);
+    const result = await processImportJobById(createAdminClient(), jobId);
     if (result) {
       return;
     }

@@ -45,7 +45,7 @@ const serverSchema = z.object({
   IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
 
   // Jumia Marketplace
-  JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('production'),
+  JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('staging'),
   JUMIA_CLIENT_ID: z.string().optional(),
   JUMIA_CLIENT_SECRET: z.string().optional(),
 });

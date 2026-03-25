@@ -142,6 +142,10 @@ export async function createProduct(
             'sellerSku',
             'createProduct'
           ),
+          globalPrice: {
+            ...variation.globalPrice,
+            currency: variation.globalPrice.currency.trim(),
+          },
         };
       }),
     };

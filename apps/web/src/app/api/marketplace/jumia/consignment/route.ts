@@ -35,14 +35,17 @@ import { createClient } from '@/lib/supabase/server';
 
 const GetQuerySchema = z.object({
   integrationId: z.string().uuid('integrationId must be a valid UUID'),
-  sku: z.string().min(1, 'sku is required'),
-  businessClientCode: z.string().min(1, 'businessClientCode is required'),
+  sku: z.string().trim().min(1, 'sku is required'),
+  businessClientCode: z
+    .string()
+    .trim()
+    .min(1, 'businessClientCode is required'),
 });
 
 const ConsignmentProductSchema = z.object({
-  sku: z.string().min(1, 'sku is required'),
+  sku: z.string().trim().min(1, 'sku is required'),
   quantity: z.number().int().positive('quantity must be a positive integer'),
-  labelCode: z.string().min(1, 'labelCode must not be empty').optional(),
+  labelCode: z.string().trim().min(1, 'labelCode must not be empty').optional(),
 });
 
 /** Validates that a YYYY-MM-DD string is a real calendar date (rejects 2024-02-31, etc.) */
@@ -59,7 +62,10 @@ const strictDateString = z
 
 const CreateConsignmentSchema = z.object({
   integrationId: z.string().uuid('integrationId must be a valid UUID'),
-  businessClientCode: z.string().min(1, 'businessClientCode is required'),
+  businessClientCode: z
+    .string()
+    .trim()
+    .min(1, 'businessClientCode is required'),
   shippingDate: strictDateString,
   products: z
     .array(ConsignmentProductSchema)
@@ -69,7 +75,10 @@ const CreateConsignmentSchema = z.object({
 
 const UpdateConsignmentSchema = z.object({
   integrationId: z.string().uuid('integrationId must be a valid UUID'),
-  purchaseOrderNumber: z.string().min(1, 'purchaseOrderNumber is required'),
+  purchaseOrderNumber: z
+    .string()
+    .trim()
+    .min(1, 'purchaseOrderNumber is required'),
   isShipped: z.boolean().optional(),
   trackingNumber: z.string().optional(),
   actualDepartureDate: strictDateString.optional(),

@@ -63,24 +63,24 @@ export default function OrdersClientPage({
   const [selectedJumiaOrder, setSelectedJumiaOrder] = useState<Order | null>(
     null
   );
-  const [jumiaIntegrationId, setJumiaIntegrationId] = useState<string | null>(
-    null
-  );
+  const [jumiaIntegrations, setJumiaIntegrations] = useState<
+    Array<{ id: string; shop_name: string }>
+  >([]);
   const [jumiaConnectLoading, setJumiaConnectLoading] = useState(true);
   const [jumiaConnectError, setJumiaConnectError] = useState<string | null>(
     null
   );
   const isHydrated = useRef(false);
 
-  // Fetch active Jumia integration ID for order management
+  // Fetch active Jumia integrations for order management
   useEffect(() => {
     if (!merchant?.id) {
-      setJumiaIntegrationId(null);
+      setJumiaIntegrations([]);
       setJumiaConnectError(null);
       setJumiaConnectLoading(false);
       return;
     }
-    setJumiaIntegrationId(null);
+    setJumiaIntegrations([]);
     setJumiaConnectLoading(true);
     setJumiaConnectError(null);
     const controller = new AbortController();
@@ -91,9 +91,17 @@ export default function OrdersClientPage({
       })
       .then((data) => {
         if (controller.signal.aborted) return;
-        if (data.integrations?.[0]?.id) {
-          setJumiaIntegrationId(data.integrations[0].id);
-        }
+        const integrations = Array.isArray(data.integrations)
+          ? data.integrations.filter(
+              (
+                i: unknown
+              ): i is { id: string; shop_name: string; [k: string]: unknown } =>
+                typeof i === 'object' &&
+                i !== null &&
+                typeof (i as Record<string, unknown>).id === 'string'
+            )
+          : [];
+        setJumiaIntegrations(integrations);
       })
       .catch((err: unknown) => {
         if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -113,6 +121,19 @@ export default function OrdersClientPage({
       });
     return () => controller.abort();
   }, [merchant?.id]);
+
+  /** Resolve the correct integration ID for a given order.
+   *  With a single integration, return it directly.
+   *  With multiple, return the first match — callers should prompt the user
+   *  when null is returned.
+   */
+  const getIntegrationIdForOrder = (_order: Order): string | null => {
+    if (jumiaIntegrations.length === 1) return jumiaIntegrations[0].id;
+    // Multiple integrations: without a per-order integration_id field,
+    // we cannot auto-resolve. Return null to signal the caller.
+    if (jumiaIntegrations.length > 1) return null;
+    return null;
+  };
 
   useEffect(() => {
     if (
@@ -415,11 +436,21 @@ export default function OrdersClientPage({
             });
             return;
           }
-          if (!jumiaIntegrationId) {
+          if (jumiaIntegrations.length === 0) {
             toast({
               title: 'Jumia Not Connected',
               description:
                 'No active Jumia integration found. Connect your Jumia account first.',
+              variant: 'destructive',
+            });
+            return;
+          }
+          const resolvedId = getIntegrationIdForOrder(order);
+          if (!resolvedId) {
+            toast({
+              title: 'Multiple Jumia shops',
+              description:
+                'Multiple Jumia integrations found. Please manage this order from the Channels page.',
               variant: 'destructive',
             });
             return;
@@ -433,12 +464,12 @@ export default function OrdersClientPage({
         formatCurrency={formatCurrency}
       />
 
-      {selectedJumiaOrder && jumiaIntegrationId && (
+      {selectedJumiaOrder && getIntegrationIdForOrder(selectedJumiaOrder) && (
         <OrderManagerModal
           onClose={() => setSelectedJumiaOrder(null)}
           orderId={selectedJumiaOrder.id}
           orderNumber={selectedJumiaOrder.orderNumber}
-          integrationId={jumiaIntegrationId}
+          integrationId={getIntegrationIdForOrder(selectedJumiaOrder) as string}
         />
       )}
     </div>

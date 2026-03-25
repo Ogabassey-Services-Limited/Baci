@@ -41,8 +41,8 @@ describe('order column constants', () => {
     expect(WEB_ORDER_COLUMNS).not.toContain('payment_reference');
   });
 
-  it('WEB_ORDER_COLUMNS does not include unsupported production columns', () => {
-    expect(WEB_ORDER_COLUMNS).not.toContain('payment_reference');
+  it('WEB_ORDER_COLUMNS includes amount_paid for payment tracking', () => {
+    expect(WEB_ORDER_COLUMNS).toContain('amount_paid');
   });
 });
 

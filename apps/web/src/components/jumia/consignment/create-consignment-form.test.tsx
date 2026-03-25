@@ -178,13 +178,12 @@ describe('CreateConsignmentForm', () => {
 
     fireEvent.submit(screen.getByText('Send to Jumia Warehouse'));
 
-    // Row has quantity but no SKU, so it is flagged as incomplete
+    // Row has quantity but no SKU, so the Zod schema rejects it
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Validation Error',
-          description:
-            'Incomplete product row: 1. Each row needs both SKU and quantity.',
+          description: 'Row 1: SKU is required',
         })
       );
     });

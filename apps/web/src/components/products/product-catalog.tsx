@@ -71,15 +71,19 @@ export function ProductCatalog({
     new Set()
   );
   const [exportProduct, setExportProduct] = useState<Product | null>(null);
+  const [jumiaIntegrations, setJumiaIntegrations] = useState<
+    Array<{ id: string; shop_name: string }>
+  >([]);
   const [jumiaIntegrationId, setJumiaIntegrationId] = useState<string | null>(
     null
   );
   const [jumiaLoading, setJumiaLoading] = useState(false);
 
-  // Fetch active Jumia integration ID for product export
+  // Fetch active Jumia integrations for product export
   useEffect(() => {
     if (!merchant?.id) return;
     // Reset to avoid stale integration data when merchant changes
+    setJumiaIntegrations([]);
     setJumiaIntegrationId(null);
     setJumiaLoading(true);
     const controller = new AbortController();
@@ -95,8 +99,20 @@ export function ProductCatalog({
       })
       .then((data) => {
         if (controller.signal.aborted) return;
-        if (data.integrations?.[0]?.id) {
-          setJumiaIntegrationId(data.integrations[0].id);
+        const integrations = Array.isArray(data.integrations)
+          ? data.integrations.filter(
+              (
+                i: unknown
+              ): i is { id: string; shop_name: string; [k: string]: unknown } =>
+                typeof i === 'object' &&
+                i !== null &&
+                typeof (i as Record<string, unknown>).id === 'string'
+            )
+          : [];
+        setJumiaIntegrations(integrations);
+        // Auto-select only when exactly one integration exists
+        if (integrations.length === 1) {
+          setJumiaIntegrationId(integrations[0].id);
         }
       })
       .catch((err: unknown) => {
@@ -434,22 +450,43 @@ export function ProductCatalog({
                               Edit Product
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => setExportProduct(product)}
-                              disabled={jumiaLoading || !jumiaIntegrationId}
-                              title={
-                                !jumiaIntegrationId
-                                  ? 'Jumia integration required'
-                                  : undefined
-                              }
-                            >
-                              {jumiaLoading ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <Package className="mr-2 h-4 w-4" />
-                              )}
-                              Export to Jumia
-                            </DropdownMenuItem>
+                            {jumiaIntegrations.length > 1 &&
+                            !jumiaIntegrationId ? (
+                              <>
+                                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                                  Select Jumia Shop
+                                </DropdownMenuLabel>
+                                {jumiaIntegrations.map((integration) => (
+                                  <DropdownMenuItem
+                                    key={integration.id}
+                                    onClick={() => {
+                                      setJumiaIntegrationId(integration.id);
+                                      setExportProduct(product);
+                                    }}
+                                  >
+                                    <Package className="mr-2 h-4 w-4" />
+                                    {integration.shop_name || 'Jumia Shop'}
+                                  </DropdownMenuItem>
+                                ))}
+                              </>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => setExportProduct(product)}
+                                disabled={jumiaLoading || !jumiaIntegrationId}
+                                title={
+                                  !jumiaIntegrationId
+                                    ? 'Jumia integration required'
+                                    : undefined
+                                }
+                              >
+                                {jumiaLoading ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Package className="mr-2 h-4 w-4" />
+                                )}
+                                Export to Jumia
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

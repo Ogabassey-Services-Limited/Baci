@@ -61,15 +61,26 @@ export function JumiaBrandSelector({
       })
       .then((data) => {
         if (controller.signal.aborted) return;
-        const items = Array.isArray(data.brands)
-          ? data.brands.filter(
-              (b: unknown): b is JumiaBrandItem =>
-                typeof b === 'object' &&
-                b !== null &&
-                typeof (b as Record<string, unknown>).code === 'number' &&
-                typeof (b as Record<string, unknown>).name === 'string'
-            )
-          : [];
+        // Differentiate malformed response from empty brands list
+        if (!data || typeof data !== 'object' || !('brands' in data)) {
+          setErrorMessage(
+            'Unexpected response from brands API — please try again'
+          );
+          setFetchStatus('error');
+          return;
+        }
+        if (!Array.isArray(data.brands)) {
+          setErrorMessage('Malformed brands data received — please try again');
+          setFetchStatus('error');
+          return;
+        }
+        const items = data.brands.filter(
+          (b: unknown): b is JumiaBrandItem =>
+            typeof b === 'object' &&
+            b !== null &&
+            typeof (b as Record<string, unknown>).code === 'number' &&
+            typeof (b as Record<string, unknown>).name === 'string'
+        );
         setBrands(items);
         setFetchStatus('success');
       })

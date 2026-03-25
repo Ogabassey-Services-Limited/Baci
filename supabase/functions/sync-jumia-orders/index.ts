@@ -33,7 +33,7 @@ const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 const MAX_PAGES = 100;
 
 const INTEGRATION_COLUMNS =
-  'id, merchant_id, shop_id, access_token, refresh_token, token_expires_at';
+  'id, merchant_id, shop_id, access_token, refresh_token, token_expires_at, last_sync_at';
 
 interface JumiaOrder {
   id: string;
@@ -63,6 +63,7 @@ interface MarketplaceIntegration {
   access_token: string | null;
   refresh_token: string;
   token_expires_at: string | null;
+  last_sync_at: string | null;
 }
 
 // Helper: Refresh Jumia token
@@ -151,10 +152,10 @@ async function fetchAllJumiaOrders(
   do {
     pageCount++;
     if (pageCount > MAX_PAGES) {
-      console.warn(
-        `[Jumia Sync] Reached max page limit (${MAX_PAGES}), stopping pagination`
+      throw new Error(
+        `Reached max page limit (${MAX_PAGES}) — too many orders to sync in one run. ` +
+          'Aborting without advancing last_sync_at so the next run retries.'
       );
-      break;
     }
 
     const params = new URLSearchParams({
@@ -323,14 +324,19 @@ Deno.serve(async (req) => {
         // Capture sync start time once to avoid timestamp drift across pages
         // and to use as last_sync_at so no orders slip through the gap.
         const syncStartedAt = new Date().toISOString();
-        const tenMinutesAgo = new Date(
-          Date.now() - 10 * 60 * 1000
-        ).toISOString();
+
+        // Use last_sync_at from the integration row as the lower bound so
+        // cron pauses or outages longer than 10 minutes don't miss orders.
+        // Fall back to 24 hours ago on first sync (when last_sync_at is null).
+        const updatedAfter = integration.last_sync_at
+          ? integration.last_sync_at
+          : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
         const orders = await fetchAllJumiaOrders(
           supabase,
           integration,
           accessToken,
-          tenMinutesAgo,
+          updatedAfter,
           syncStartedAt
         );
 

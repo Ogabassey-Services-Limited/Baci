@@ -5,6 +5,7 @@ import {
 } from '@/lib/api-auth';
 import { getAllCategories } from '@/lib/jumia/catalog';
 import { JumiaClient } from '@/lib/jumia/client';
+import { JumiaApiError } from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
 import { jumiaMerchantIdQuerySchema } from '@/schemas/marketplace';
 
@@ -13,14 +14,18 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const parsedQuery = jumiaMerchantIdQuerySchema.safeParse({
       merchantId: searchParams.get('merchantId') ?? undefined,
+      integrationId: searchParams.get('integrationId') ?? undefined,
     });
     if (!parsedQuery.success) {
       return NextResponse.json(
-        { error: 'Invalid merchantId', details: parsedQuery.error.flatten() },
+        {
+          error: 'Invalid query parameters',
+          details: parsedQuery.error.flatten(),
+        },
         { status: 400 }
       );
     }
-    const { merchantId: requestedMerchantId } = parsedQuery.data;
+    const { merchantId: requestedMerchantId, integrationId } = parsedQuery.data;
 
     const auth = await authenticateApiRequest(req);
     if (auth.error || !auth.user || !auth.supabase) {
@@ -39,12 +44,20 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const jumiaClient = await JumiaClient.forMerchant(
-      auth.supabase,
-      merchantId
-    );
-    if (!jumiaClient) {
-      return NextResponse.json({ categories: [], configured: false });
+    let jumiaClient: JumiaClient | null = null;
+    try {
+      jumiaClient = integrationId
+        ? await JumiaClient.forIntegration(
+            auth.supabase,
+            merchantId,
+            integrationId
+          )
+        : await JumiaClient.forMerchant(auth.supabase, merchantId);
+    } catch (err) {
+      if (err instanceof JumiaApiError && err.status === 404) {
+        return NextResponse.json({ categories: [], configured: false });
+      }
+      throw err;
     }
 
     const categories = await getAllCategories(jumiaClient);

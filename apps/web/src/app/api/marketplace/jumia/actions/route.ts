@@ -58,10 +58,12 @@ async function updateOrderStatus(
 const ActionSchema = z.object({
   action: z.enum(['pack', 'ready_to_ship', 'print_label', 'cancel']),
   integrationId: integrationIdSchema,
-  orderId: z.string().min(1, 'orderId is required'),
-  itemIds: z.array(z.string().min(1)).optional(),
-  shipmentProviderId: z.string().optional(),
-  trackingCode: z.string().optional(),
+  orderId: z.string().trim().min(1, 'orderId is required'),
+  itemIds: z
+    .array(z.string().trim().min(1, 'itemId must not be empty'))
+    .optional(),
+  shipmentProviderId: z.string().trim().min(1).optional(),
+  trackingCode: z.string().trim().min(1).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -88,7 +90,7 @@ export async function POST(request: NextRequest) {
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
-        { status: 403 }
+        { status: 404 }
       );
     }
 
@@ -140,7 +142,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Get item IDs if not provided
+    // Track whether the caller targeted all items (eligible for order-level status update)
     let targetItemIds = itemIds;
+    let isAllItems = false;
     if (!targetItemIds || targetItemIds.length === 0) {
       const orderItems = await getOrderItems(jumiaClient, orderId);
       if (!orderItems?.items?.length) {
@@ -150,6 +154,7 @@ export async function POST(request: NextRequest) {
         );
       }
       targetItemIds = orderItems.items.map((i) => i.id);
+      isAllItems = true;
     }
 
     if (targetItemIds.length === 0) {
@@ -213,8 +218,9 @@ export async function POST(request: NextRequest) {
           packResult.error?.total ?? 0
         );
 
+        // Only update order-level status when ALL items were targeted (not a subset)
         const syncWarning =
-          packStatus === 'full' && skippedItems.length === 0
+          packStatus === 'full' && skippedItems.length === 0 && isAllItems
             ? await updateOrderStatus(supabase, orderId, merchantId, 'Packed')
             : undefined;
 
@@ -238,8 +244,9 @@ export async function POST(request: NextRequest) {
           rtsResult.error?.total ?? 0
         );
 
+        // Only update order-level status when ALL items were targeted (not a subset)
         const rtsSyncWarning =
-          rtsStatus === 'full'
+          rtsStatus === 'full' && isAllItems
             ? await updateOrderStatus(
                 supabase,
                 orderId,
@@ -276,8 +283,9 @@ export async function POST(request: NextRequest) {
           cancelResult.error?.total ?? 0
         );
 
+        // Only update order-level status when ALL items were targeted (not a subset)
         const cancelSyncWarning =
-          cancelStatus === 'full'
+          cancelStatus === 'full' && isAllItems
             ? await updateOrderStatus(
                 supabase,
                 orderId,

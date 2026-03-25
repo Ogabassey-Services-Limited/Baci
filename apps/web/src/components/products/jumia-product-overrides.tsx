@@ -49,7 +49,7 @@ export function JumiaProductOverrides({
     async function fetchMapping() {
       try {
         const response = await fetch(
-          `/api/marketplace/jumia/products?productId=${productId}`
+          `/api/marketplace/jumia/products?productId=${productId}&integrationId=${integrationId}`
         );
         if (response.ok) {
           const data = await response.json();
@@ -78,7 +78,7 @@ export function JumiaProductOverrides({
     }
 
     fetchMapping();
-  }, [productId]);
+  }, [productId, integrationId]);
 
   const handleSave = async () => {
     if (!mapping) return;

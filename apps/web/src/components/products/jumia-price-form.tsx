@@ -4,64 +4,18 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
 import { ThemedInput } from '@/components/themed/themed-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
+import {
+  type JumiaPriceFormValues,
+  jumiaPriceSchema,
+} from '@/schemas/jumia/price-form';
 
 const ngnFormatter = new Intl.NumberFormat('en-NG', {
   style: 'currency',
   currency: 'NGN',
 });
-
-const jumiaPriceSchema = z
-  .object({
-    jumiaPrice: z
-      .union([z.literal(''), z.coerce.number().min(0, 'Price must be >= 0')])
-      .optional(),
-    jumiaSalePrice: z
-      .union([
-        z.literal(''),
-        z.coerce.number().min(0, 'Sale price must be >= 0'),
-      ])
-      .optional(),
-    saleStart: z.string().optional(),
-    saleEnd: z.string().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (!data.saleStart && !data.saleEnd) return;
-
-    const startMs = data.saleStart ? Date.parse(data.saleStart) : Number.NaN;
-    const endMs = data.saleEnd ? Date.parse(data.saleEnd) : Number.NaN;
-
-    if (data.saleStart && Number.isNaN(startMs)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Invalid sale start date',
-        path: ['saleStart'],
-      });
-      return;
-    }
-
-    if (data.saleEnd && Number.isNaN(endMs)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Invalid sale end date',
-        path: ['saleEnd'],
-      });
-      return;
-    }
-
-    if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs < startMs) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Sale end must be on or after sale start',
-        path: ['saleEnd'],
-      });
-    }
-  });
-
-type JumiaPriceFormValues = z.infer<typeof jumiaPriceSchema>;
 
 interface JumiaOverrides {
   price: string;
@@ -94,10 +48,14 @@ export function JumiaPriceForm({
     resolver: zodResolver(jumiaPriceSchema),
     mode: 'onChange',
     defaultValues: {
-      jumiaPrice: overrides.price ? Number(overrides.price) : undefined,
-      jumiaSalePrice: overrides.salePrice
-        ? Number(overrides.salePrice)
-        : undefined,
+      jumiaPrice:
+        overrides.price || overrides.price === '0'
+          ? Number(overrides.price)
+          : undefined,
+      jumiaSalePrice:
+        overrides.salePrice || overrides.salePrice === '0'
+          ? Number(overrides.salePrice)
+          : undefined,
       saleStart: overrides.saleStart || undefined,
       saleEnd: overrides.saleEnd || undefined,
     },
@@ -116,10 +74,14 @@ export function JumiaPriceForm({
     }
 
     const current = getValues();
-    const incomingPrice = overrides.price ? Number(overrides.price) : undefined;
-    const incomingSalePrice = overrides.salePrice
-      ? Number(overrides.salePrice)
-      : undefined;
+    const incomingPrice =
+      overrides.price || overrides.price === '0'
+        ? Number(overrides.price)
+        : undefined;
+    const incomingSalePrice =
+      overrides.salePrice || overrides.salePrice === '0'
+        ? Number(overrides.salePrice)
+        : undefined;
     const incomingSaleStart = overrides.saleStart || undefined;
     const incomingSaleEnd = overrides.saleEnd || undefined;
 

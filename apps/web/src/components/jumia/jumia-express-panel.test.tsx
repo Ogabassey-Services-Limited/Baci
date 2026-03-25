@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { JumiaExpressPanel } from './jumia-express-panel';
 
@@ -86,7 +85,7 @@ describe('JumiaExpressPanel', () => {
     expect(stockProps.integrationId).toBe('int-1');
     expect(stockProps.businessClientCode).toBe('jumia_ng');
 
-    // UpdateConsignmentForm intentionally does not receive businessClientCode —
+    // UpdateConsignmentForm intentionally does not receive businessClientCode --
     // it only needs integrationId because it operates on an existing consignment
     // that already has the business client context embedded.
     const update = screen.getByTestId('update-consignment-form');

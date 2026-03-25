@@ -76,6 +76,11 @@ export async function getAllProducts(
     all.push(...page.products);
     nextToken = page.nextToken;
     if (page.isLastPage) break;
+    if (!nextToken) {
+      throw new Error(
+        'getAllProducts: API returned isLastPage=false but no nextToken — aborting to prevent data loss'
+      );
+    }
   } while (nextToken);
 
   return all;
@@ -220,6 +225,11 @@ export async function getAllStock(
     all.push(...page.products);
     nextToken = page.nextToken;
     if (page.isLastPage) break;
+    if (!nextToken) {
+      throw new Error(
+        'getAllStock: API returned isLastPage=false but no nextToken — aborting to prevent data loss'
+      );
+    }
   } while (nextToken);
 
   return all;

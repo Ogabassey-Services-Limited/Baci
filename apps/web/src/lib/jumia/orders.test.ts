@@ -7,6 +7,11 @@ import {
   getShipmentProviders,
   MAX_PAGES,
 } from '@/lib/jumia/orders';
+import {
+  JumiaOrderItemsResponseSchema,
+  JumiaOrdersResponseSchema,
+  JumiaShipmentProvidersResponseSchema,
+} from '@/schemas/jumia';
 
 function createMockClient(response: unknown): JumiaClient {
   return {
@@ -35,7 +40,7 @@ describe('getOrders', () => {
     expect(client.request).toHaveBeenCalledWith(
       'GET',
       '/orders',
-      expect.anything()
+      JumiaOrdersResponseSchema
     );
     expect(result).toEqual({
       orders: [{ orderId: 'ORD-1', status: 'pending' }],
@@ -57,7 +62,7 @@ describe('getOrders', () => {
     expect(client.request).toHaveBeenCalledWith(
       'GET',
       expect.stringContaining('/orders?'),
-      expect.anything()
+      JumiaOrdersResponseSchema
     );
 
     const calledPath = getMockCalledPath(client);
@@ -167,6 +172,7 @@ describe('getAllOrders', () => {
     expect(url.searchParams.get('createdAfter')).toBe('2023-01-01');
     expect(url.searchParams.get('nextToken')).toBe('page2token');
   });
+
   it('returns empty array when first page is empty', async () => {
     const mockResponse = { orders: [], nextToken: undefined, isLastPage: true };
     const client = createMockClient(mockResponse);
@@ -188,7 +194,7 @@ describe('getOrderItems', () => {
     expect(client.request).toHaveBeenCalledWith(
       'GET',
       '/orders/items?orderId=ORD-123%2Fspecial',
-      expect.anything()
+      JumiaOrderItemsResponseSchema
     );
     expect(result).toEqual(mockResponse);
   });
@@ -231,7 +237,7 @@ describe('getShipmentProviders', () => {
     expect(client.request).toHaveBeenCalledWith(
       'GET',
       expect.stringContaining('/orders/shipment-providers?'),
-      expect.anything()
+      JumiaShipmentProvidersResponseSchema
     );
 
     const calledPath = getMockCalledPath(client);

@@ -33,9 +33,7 @@ export default function ChannelsPage() {
   const [integrations, setIntegrations] = useState<JumiaIntegration[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
-  const [syncingIntegrationId, setSyncingIntegrationId] = useState<
-    string | null
-  >(null);
+  const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [refreshToken, setRefreshToken] = useState('');
   const [shopName, setShopName] = useState('');
@@ -179,7 +177,7 @@ export default function ChannelsPage() {
       return;
     }
 
-    setSyncingIntegrationId(targetId);
+    setSyncingIds((prev) => new Set(prev).add(targetId));
     setMessage(null);
 
     try {
@@ -208,7 +206,11 @@ export default function ChannelsPage() {
     } catch (_error) {
       setMessage({ type: 'error', text: 'Sync failed - please try again' });
     } finally {
-      setSyncingIntegrationId(null);
+      setSyncingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(targetId);
+        return next;
+      });
     }
   };
 
@@ -323,10 +325,10 @@ export default function ChannelsPage() {
                     <button
                       type="button"
                       onClick={() => handleSyncOrders(integration.id)}
-                      disabled={syncingIntegrationId !== null}
+                      disabled={syncingIds.has(integration.id)}
                       className="px-3 py-1.5 text-sm bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded-lg hover:bg-orange-200 disabled:opacity-50"
                     >
-                      {syncingIntegrationId === integration.id
+                      {syncingIds.has(integration.id)
                         ? 'Syncing...'
                         : 'Sync Orders'}
                     </button>

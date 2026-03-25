@@ -8,8 +8,8 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: vi.fn(),
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(),
 }));
 
 vi.mock('@/lib/import-jobs/import-job-service', () => ({
@@ -24,13 +24,13 @@ import { triggerImportWorker } from '@/lib/import-jobs/import-job-service';
 import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { processImportJobById } from '@/lib/import-jobs/process-import-job';
 import { logger } from '@/lib/logger';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 describe('kickoffImportJob', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(createServiceClient).mockReturnValue(
-      'service-client' as unknown as ReturnType<typeof createServiceClient>
+    vi.mocked(createAdminClient).mockReturnValue(
+      'service-client' as unknown as ReturnType<typeof createAdminClient>
     );
   });
 

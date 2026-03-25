@@ -2,6 +2,10 @@ import { z } from 'zod';
 
 export const jumiaMerchantIdQuerySchema = z.object({
   merchantId: z.string().uuid('merchantId must be a valid UUID').optional(),
+  integrationId: z
+    .string()
+    .uuid('integrationId must be a valid UUID')
+    .optional(),
 });
 
 export const jumiaOrderIdParamSchema = z.object({

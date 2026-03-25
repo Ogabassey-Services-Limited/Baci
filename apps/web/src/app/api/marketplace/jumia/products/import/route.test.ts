@@ -241,6 +241,15 @@ describe('Products Import POST', () => {
     expect(json.warnings.skippedNoSku).toBe(2);
   });
 
+  it('returns 502 when getAllProducts rejects', async () => {
+    mockForIntegration.mockResolvedValue({ shopId: 'shop1' });
+    mockGetAllProducts.mockRejectedValue(new Error('Jumia API down'));
+    const res = await POST(makePostRequest({ integrationId: INT_ID }));
+    expect(res.status).toBe(502);
+    const json = await res.json();
+    expect(json.error).toBe('Failed to fetch products from Jumia');
+  });
+
   it('increments missingPrice when variation has no globalPrice', async () => {
     mockForIntegration.mockResolvedValue({ shopId: 'shop1' });
     mockGetAllProducts.mockResolvedValue([

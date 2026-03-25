@@ -6,6 +6,12 @@ import {
   printLabels,
   readyToShip,
 } from '@/lib/jumia/fulfillment';
+import {
+  JumiaCancelResponseSchema,
+  JumiaPackV2ResponseSchema,
+  JumiaPrintLabelsResponseSchema,
+  JumiaReadyToShipResponseSchema,
+} from '@/schemas/jumia';
 
 /** Minimal mock: only the `request` method is stubbed. */
 function createMockClient(
@@ -36,7 +42,7 @@ describe('packOrderV2', () => {
     expect(client.request).toHaveBeenCalledWith(
       'POST',
       '/v2/orders/pack',
-      expect.any(Object),
+      JumiaPackV2ResponseSchema,
       { packages }
     );
     expect(result).toEqual(mockResponse);
@@ -77,7 +83,7 @@ describe('readyToShip', () => {
     expect(client.request).toHaveBeenCalledWith(
       'POST',
       '/orders/ready-to-ship',
-      expect.any(Object),
+      JumiaReadyToShipResponseSchema,
       { orderItemIds: ['ITEM-1', 'ITEM-2'] }
     );
     expect(result).toEqual(mockResponse);
@@ -112,7 +118,7 @@ describe('cancelItems', () => {
     expect(client.request).toHaveBeenCalledWith(
       'PUT',
       '/orders/cancel',
-      expect.any(Object),
+      JumiaCancelResponseSchema,
       { orderItemIds: ['ITEM-3'] }
     );
     expect(result).toEqual(mockResponse);
@@ -147,7 +153,7 @@ describe('printLabels', () => {
     expect(client.request).toHaveBeenCalledWith(
       'POST',
       '/orders/print-labels',
-      expect.any(Object),
+      JumiaPrintLabelsResponseSchema,
       { orderItemIds: ['ITEM-1', 'ITEM-2'] }
     );
     expect(result).toEqual(mockResponse);

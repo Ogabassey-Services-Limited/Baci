@@ -144,12 +144,12 @@ describe('Products Export POST', () => {
     expect(json.error).toBeDefined();
   });
 
-  it('returns 404 when unknown non-expired error during integration init', async () => {
+  it('returns 502 when unknown non-expired error during integration init', async () => {
     mockForIntegration.mockRejectedValue(new Error('unexpected'));
     const res = await POST(makePostRequest(VALID_BODY));
-    // The route catch block returns 404 for non-expired generic errors
-    // ("Jumia integration not found") and 401 for expired/unauthorized errors.
-    expect(res.status).toBe(404);
+    // The route catch block returns 502 for generic errors that don't match
+    // "expired"/"unauthorized" (401) or "not found" (404) patterns.
+    expect(res.status).toBe(502);
     const json = await res.json();
     expect(json.error).toBeDefined();
   });

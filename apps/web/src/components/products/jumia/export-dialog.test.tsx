@@ -27,7 +27,6 @@ vi.mock('./brand-selector', () => ({
   }) => (
     <button
       type="button"
-      data-testid="brand-selector"
       onClick={() => onSelect({ code: 99, name: 'TestBrand' })}
     >
       Select Brand
@@ -43,11 +42,7 @@ vi.mock('./category-selector', () => ({
     value?: number;
     onSelect: (code: number) => void;
   }) => (
-    <button
-      type="button"
-      data-testid="category-selector"
-      onClick={() => onSelect(42)}
-    >
+    <button type="button" onClick={() => onSelect(42)}>
       Select Category
     </button>
   ),
@@ -124,8 +119,8 @@ describe('ExportToJumiaDialog', () => {
     );
 
     // Select category and brand
-    fireEvent.click(screen.getByTestId('category-selector'));
-    fireEvent.click(screen.getByTestId('brand-selector'));
+    fireEvent.click(screen.getByRole('button', { name: 'Select Category' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select Brand' }));
 
     // Export
     fireEvent.click(screen.getByText('Export Product'));
@@ -179,8 +174,8 @@ describe('ExportToJumiaDialog', () => {
       <ExportToJumiaDialog {...defaultProps} open onOpenChange={vi.fn()} />
     );
 
-    fireEvent.click(screen.getByTestId('category-selector'));
-    fireEvent.click(screen.getByTestId('brand-selector'));
+    fireEvent.click(screen.getByRole('button', { name: 'Select Category' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select Brand' }));
     fireEvent.click(screen.getByText('Export Product'));
 
     await waitFor(() => {

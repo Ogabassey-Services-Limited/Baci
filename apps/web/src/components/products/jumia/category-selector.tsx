@@ -128,6 +128,9 @@ export function JumiaCategorySelector({
       const match = categories.find((c) => c.code === value);
       if (match) {
         setSelectedName(match.completePath || match.name);
+      } else {
+        // Value doesn't match any loaded category — clear stale label
+        setSelectedName('');
       }
     } else if (value == null) {
       setSelectedName('');

@@ -41,7 +41,8 @@ export const FulfillmentErrorItemSchema = z.object({
 });
 
 export const FulfillmentPackageSchema = z.object({
-  orderItems: z.string(),
+  /** Comma-separated list of order item IDs (e.g. "123,456,789") */
+  orderItems: z.string().min(1, 'orderItems must not be empty'),
   trackingNumber: z.string().min(1),
 });
 

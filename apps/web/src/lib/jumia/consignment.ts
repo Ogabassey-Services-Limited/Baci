@@ -25,11 +25,11 @@ function validateISODate(raw: string, fieldName: string): string {
     );
   }
   const [year, month, day] = trimmed.split('-').map(Number);
-  const date = new Date(year, month - 1, day);
+  const date = new Date(Date.UTC(year, month - 1, day));
   if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day
   ) {
     throw new Error(
       `${fieldName} must be a valid ISO date string (YYYY-MM-DD)`
