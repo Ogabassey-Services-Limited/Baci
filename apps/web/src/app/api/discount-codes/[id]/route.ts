@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -8,6 +9,11 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 import { updateDiscountCodeSchema } from '@/schemas/discount-codes';
+
+const DISCOUNT_CODE_COLUMNS =
+  'id, code, description, discount_type, discount_value, minimum_purchase_amount, maximum_discount_amount, usage_limit, usage_limit_per_customer, usage_count, starts_at, expires_at, is_active, applies_to, product_ids, category_ids, created_at, updated_at';
+
+const idParamSchema = z.string().uuid();
 
 /**
  * PATCH /api/discount-codes/[id]
@@ -27,6 +33,14 @@ export async function PATCH(
     }
 
     const { id } = await params;
+
+    if (!idParamSchema.safeParse(id).success) {
+      return NextResponse.json(
+        { error: 'Invalid discount code ID' },
+        { status: 400 }
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -83,7 +97,7 @@ export async function PATCH(
       .update(updateData)
       .eq('id', id)
       .eq('merchant_id', merchantId)
-      .select()
+      .select(DISCOUNT_CODE_COLUMNS)
       .single();
 
     if (error) {
@@ -124,6 +138,14 @@ export async function DELETE(
     }
 
     const { id } = await params;
+
+    if (!idParamSchema.safeParse(id).success) {
+      return NextResponse.json(
+        { error: 'Invalid discount code ID' },
+        { status: 400 }
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
