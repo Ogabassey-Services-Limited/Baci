@@ -126,7 +126,6 @@ export async function POST(request: NextRequest) {
             sku: sku,
             slug: slug,
             status: 'draft', // Always draft for new imports
-            is_active: false,
             condition: 'new',
             manage_stock: true,
             brand: change.details.brand || merchantBusinessName,
@@ -159,7 +158,7 @@ export async function POST(request: NextRequest) {
           if (change.productId) {
             const { error } = await supabase
               .from('products')
-              .update({ status: 'archived', is_active: false })
+              .update({ status: 'archived' })
               .eq('id', change.productId)
               .eq('merchant_id', merchantId);
             if (error) throw error;

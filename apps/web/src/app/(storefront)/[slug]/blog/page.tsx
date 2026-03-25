@@ -1,7 +1,5 @@
 import { Rss } from 'lucide-react';
 import type { Metadata } from 'next';
-import { cookies, headers } from 'next/headers';
-
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
@@ -12,11 +10,12 @@ import {
   getCachedFeatureSettings,
   getCachedMerchant,
   getCachedMerchantByDomain,
+  getPublicSupabaseClient,
 } from '@/lib/cached-data';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
-import { createClient } from '@/lib/supabase/server';
+import { buildStoreUrl } from '@/lib/store-url';
 import { isDomainIdentifier } from '@/lib/validation';
 import { type BlogPostData, getTemplate } from '@/templates/registry';
 import { BlogList } from './blog-list';
@@ -33,8 +32,7 @@ const getMerchantAndPosts = cache(
     page = 1,
     searchQuery?: string
   ) => {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = getPublicSupabaseClient();
     const limit = BLOG_LISTING_PAGE_SIZE;
     const offset = (page - 1) * limit;
 
@@ -54,6 +52,7 @@ const getMerchantAndPosts = cache(
       slug: cachedMerchant.slug,
       logo_url: cachedMerchant.logo_url,
       template_id: cachedMerchant.template_id,
+      custom_domain: cachedMerchant.custom_domain,
     };
 
     // Check if blog is enabled using cached settings
@@ -130,11 +129,7 @@ export async function generateMetadata({
     return { title: 'Blog Not Found' };
   }
 
-  // Use request headers to determine the actual domain (supports custom domains)
-  const headersList = await headers();
-  const host = headersList.get('host') || `${data.merchant.slug}.usebaci.com`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
+  const baseUrl = buildStoreUrl(data.merchant);
   const canonicalUrl =
     currentPage > 1 ? `${baseUrl}/blog?page=${currentPage}` : `${baseUrl}/blog`;
 
@@ -197,11 +192,7 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
 
   const { merchant, posts, categories, totalPosts, searchQuery } = data;
 
-  // Use request headers to determine the actual domain (supports custom domains)
-  const headersList = await headers();
-  const host = headersList.get('host') || `${merchant.slug}.usebaci.com`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
+  const baseUrl = buildStoreUrl(merchant);
 
   // Determine base path for internal links
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;

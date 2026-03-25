@@ -7,7 +7,11 @@ vi.mock('next/server', async () => {
 
   return {
     ...actual,
-    after: (callback: () => void) => callback(),
+    after: (callback: () => void | Promise<void>) => {
+      void Promise.resolve()
+        .then(callback)
+        .catch(() => undefined);
+    },
   };
 });
 
@@ -21,8 +25,11 @@ vi.mock('@/lib/rate-limiter', () => ({
 
 vi.mock('@/lib/import-jobs/import-job-service', () => ({
   createImportStoragePath: vi.fn(),
-  triggerImportWorker: vi.fn(),
   validateImportFile: vi.fn(),
+}));
+
+vi.mock('@/lib/import-jobs/kickoff-import-job', () => ({
+  kickoffImportJob: vi.fn(),
 }));
 
 vi.mock('@/lib/import-jobs/import-job-route-auth', () => ({
@@ -38,9 +45,9 @@ import {
 } from '@/lib/import-jobs/import-job-route-auth';
 import {
   createImportStoragePath,
-  triggerImportWorker,
   validateImportFile,
 } from '@/lib/import-jobs/import-job-service';
+import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { POST } from './route';
 
@@ -49,6 +56,11 @@ function createRequest(body: FormData) {
     nextUrl: new URL('http://localhost/api/import-jobs'),
     formData: vi.fn().mockResolvedValue(body),
   } as unknown as ActualNextRequest;
+}
+
+async function flushAfterCallbacks() {
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 function createSupabaseMock() {
@@ -271,10 +283,8 @@ describe('POST /api/import-jobs', () => {
         storage_path: 'merchant-1/orders/orders.csv',
       })
     );
-    expect(triggerImportWorker).toHaveBeenCalledWith(
-      'http://localhost',
-      'job-1'
-    );
+    await flushAfterCallbacks();
+    expect(kickoffImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');
   });
 
   it('returns 500 when storage upload fails', async () => {
@@ -305,7 +315,7 @@ describe('POST /api/import-jobs', () => {
       error: 'Failed to upload CSV file',
       code: 'upload_failed',
     });
-    expect(triggerImportWorker).not.toHaveBeenCalled();
+    expect(kickoffImportJob).not.toHaveBeenCalled();
   });
 
   it('returns 500 when creating the import job fails', async () => {
@@ -337,7 +347,7 @@ describe('POST /api/import-jobs', () => {
       error: 'Failed to create import job',
       code: 'job_create_failed',
     });
-    expect(triggerImportWorker).not.toHaveBeenCalled();
+    expect(kickoffImportJob).not.toHaveBeenCalled();
   });
 
   it('cleans up the uploaded file when creating the import job fails', async () => {
@@ -368,6 +378,42 @@ describe('POST /api/import-jobs', () => {
     expect(supabaseMock.__mocks.remove).toHaveBeenCalledWith([
       'merchant-1/orders/orders.csv',
     ]);
-    expect(triggerImportWorker).not.toHaveBeenCalled();
+    expect(kickoffImportJob).not.toHaveBeenCalled();
+  });
+
+  it('returns 202 even when post-response kickoff rejects', async () => {
+    const supabaseMock = createSupabaseMock();
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: {
+        userId: 'user-1',
+        merchantContext: { merchantId: 'merchant-1' },
+        supabase: supabaseMock,
+      } as never,
+    });
+    vi.mocked(kickoffImportJob).mockRejectedValue(
+      new Error('worker unavailable')
+    );
+
+    const formData = new FormData();
+    formData.set('entityType', 'orders');
+    formData.set('sourcePlatform', 'bumpa');
+    formData.set(
+      'file',
+      new File(['id\n1'], 'orders.csv', { type: 'text/csv' })
+    );
+
+    const response = await POST(createRequest(formData) as NextRequest);
+
+    expect(response.status).toBe(202);
+    await flushAfterCallbacks();
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({
+        job: expect.objectContaining({
+          id: 'job-1',
+          status: 'uploaded',
+        }),
+      })
+    );
+    expect(kickoffImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');
   });
 });

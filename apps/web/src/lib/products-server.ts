@@ -1,4 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  getPrimaryProductImage,
+  PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
+  PRODUCT_IMAGE_PLACEHOLDER_URL,
+} from '@/lib/product-image';
 import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
 import {
   getEffectiveStock,
@@ -123,29 +128,20 @@ export async function getProducts(
           ? schemaRating.reviewCount
           : undefined;
 
+      const primary = getPrimaryProductImage(p.images);
       return {
         id: p.id,
         name: p.name,
         description: p.description || '',
-        status: p.status || (p.is_active ? 'active' : 'draft'),
+        status: p.status || 'draft',
         price: Number.parseFloat(p.price),
         manage_stock: p.manage_stock ?? true,
         stock: getEffectiveStock(p),
         minimum_order_quantity: 1,
 
         // Image handling
-        image:
-          (typeof p.images?.[0] === 'string'
-            ? p.images[0]
-            : p.images?.[0]?.url) ||
-          p.image_small ||
-          'https://picsum.photos/seed/placeholder/80/80',
-        imageLarge:
-          (typeof p.images?.[0] === 'string'
-            ? p.images[0]
-            : p.images?.[0]?.url) ||
-          p.image_large ||
-          'https://picsum.photos/seed/placeholder/600/400',
+        image: primary || PRODUCT_IMAGE_PLACEHOLDER_URL,
+        imageLarge: primary || PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
         imageHint: p.image_hint || '',
         images: p.images || [],
 

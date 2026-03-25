@@ -2,15 +2,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
-
-interface ValidationRequest {
-  code: string;
-  merchantId: string;
-  customerEmail?: string;
-  orderTotal: number;
-  productIds?: string[];
-  categoryIds?: string[];
-}
+import { validateDiscountCodeSchema } from '@/schemas/discount-codes';
 
 /**
  * POST /api/discount-codes/validate
@@ -26,22 +18,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body: ValidationRequest = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    // Validate request body
+    const parseResult = validateDiscountCodeSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid validation data',
+          details: parseResult.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
     const {
       code,
       merchantId,
       customerEmail,
       orderTotal,
-      productIds = [],
-      categoryIds = [],
-    } = body;
-
-    if (!code || !merchantId || orderTotal === undefined) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
+      productIds,
+      categoryIds,
+    } = parseResult.data;
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);

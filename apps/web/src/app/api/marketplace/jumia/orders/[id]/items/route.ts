@@ -3,47 +3,88 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
-import { JumiaClient } from '@/lib/jumia/client';
+import {
+  JumiaApiError,
+  JumiaClient,
+  jumiaErrorResponse,
+} from '@/lib/jumia/client';
+import { getOrderItems } from '@/lib/jumia/orders';
 import { logger } from '@/lib/logger';
-import { jumiaOrderIdParamSchema } from '@/schemas/marketplace';
+import {
+  integrationIdSchema,
+  jumiaOrderIdParamSchema,
+} from '@/schemas/marketplace';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> } // Params are now Promises in Next.js 15+, handling compatible way
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Validate path and query params before any DB calls
     const parsedParams = jumiaOrderIdParamSchema.safeParse(await params);
     if (!parsedParams.success) {
-      return NextResponse.json({ error: 'Invalid order id' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid order id', details: parsedParams.error.flatten() },
+        { status: 400 }
+      );
     }
     const { id } = parsedParams.data;
 
-    // Auth Check
+    const { searchParams } = new URL(request.url);
+    const rawIntegrationId = searchParams.get('integrationId');
+    if (rawIntegrationId === null) {
+      return NextResponse.json(
+        { error: 'Missing required query parameter: integrationId' },
+        { status: 400 }
+      );
+    }
+    const parsedIntegrationId = integrationIdSchema.safeParse(rawIntegrationId);
+    if (!parsedIntegrationId.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid integrationId',
+          details: parsedIntegrationId.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+    const integrationId = parsedIntegrationId.data;
+
+    // Auth check after input validation passes
     const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase)
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
-    if (!merchantId)
+    if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 403 }
       );
-
-    const jumiaClient = await JumiaClient.forMerchant(merchantId, {
-      supabase: auth.supabase,
-    });
-    if (!jumiaClient) {
-      return NextResponse.json(
-        { error: 'Jumia integration not found' },
-        { status: 404 }
-      );
     }
 
-    const items = await jumiaClient.getOrderItems(id);
+    let jumiaClient: JumiaClient;
+    try {
+      jumiaClient = await JumiaClient.forIntegration(
+        auth.supabase,
+        merchantId,
+        integrationId
+      );
+    } catch (err: unknown) {
+      if (err instanceof JumiaApiError) return jumiaErrorResponse(err);
+      throw err;
+    }
 
-    return NextResponse.json({ items });
+    const orderItems = await getOrderItems(jumiaClient, id);
+
+    return NextResponse.json({
+      orderId: orderItems.orderId,
+      orderNumber: orderItems.orderNumber,
+      items: orderItems.items,
+    });
   } catch (error: unknown) {
+    if (error instanceof JumiaApiError) return jumiaErrorResponse(error);
     logger.error({ message: 'Jumia Order Items Error', error });
     return NextResponse.json(
       { error: 'Failed to fetch items' },

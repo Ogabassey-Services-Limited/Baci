@@ -6,6 +6,11 @@ import { getCountryByCode } from '@/lib/countries';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import {
+  getPrimaryProductImage,
+  PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
+  PRODUCT_IMAGE_PLACEHOLDER_URL,
+} from '@/lib/product-image';
 import { PRODUCT_WITH_VARIANTS_QUERY } from '@/lib/product-queries';
 import {
   getEffectiveStock,
@@ -49,6 +54,22 @@ function extractVariantAttributes(variants: Record<string, unknown>[]): {
     storage_options: [...storage],
     available_sizes: [...sizes],
   };
+}
+
+function buildProductImagesInput(
+  images: Record<string, unknown>[] | undefined,
+  fallbackImage: string | undefined,
+  fallbackAlt: string
+) {
+  if (Array.isArray(images) && images.length > 0) {
+    return images;
+  }
+
+  if (!fallbackImage) {
+    return [];
+  }
+
+  return [{ url: fallbackImage, alt: fallbackAlt, order: 0 }];
 }
 
 export async function GET(request: NextRequest) {
@@ -154,7 +175,7 @@ export async function GET(request: NextRequest) {
           id: p.id,
           name: p.name,
           description: p.description || '',
-          status: p.status || (p.is_active ? 'active' : 'draft'),
+          status: p.status || 'draft',
           price: Number.parseFloat(p.price),
           manage_stock: p.manage_stock ?? true,
           stock: getEffectiveStock(p),
@@ -162,13 +183,10 @@ export async function GET(request: NextRequest) {
 
           // Image handling
           image:
-            p.images?.[0]?.url ||
-            p.image_small ||
-            'https://picsum.photos/seed/placeholder/80/80',
+            getPrimaryProductImage(p.images) || PRODUCT_IMAGE_PLACEHOLDER_URL,
           imageLarge:
-            p.images?.[0]?.url ||
-            p.image_large ||
-            'https://picsum.photos/seed/placeholder/600/400',
+            getPrimaryProductImage(p.images) ||
+            PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
           imageHint: p.image_hint || '',
           images: p.images || [],
 
@@ -433,6 +451,11 @@ export async function POST(request: NextRequest) {
     const schema_markup = body.schema_markup
       ? sanitizeSchemaMarkup(body.schema_markup)
       : generateProductSchema(productForSchema, businessName, currency);
+    const resolvedImages = buildProductImagesInput(
+      body.images,
+      body.image ?? body.imageLarge,
+      body.name
+    );
 
     // Check for duplicates (same slug for this merchant)
     const { data: existingProduct } = await supabase
@@ -466,10 +489,7 @@ export async function POST(request: NextRequest) {
         cost_price: body.cost_price,
         low_stock_threshold: body.low_stock_threshold ?? 5,
 
-        images: body.images || [],
-        // Legacy image fields for backward compatibility
-        image_small: body.images?.[0]?.url || body.image,
-        image_large: body.images?.[0]?.url || body.imageLarge,
+        images: resolvedImages,
         image_hint: body.imageHint,
 
         weight_value: body.weight_value,
@@ -477,8 +497,6 @@ export async function POST(request: NextRequest) {
         dimensions: body.dimensions,
 
         status: body.status || 'draft',
-        // Legacy is_active for backward compatibility
-        is_active: body.status === 'active',
 
         taxable: body.taxable ?? true,
         tax_code: body.tax_code,

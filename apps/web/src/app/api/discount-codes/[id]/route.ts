@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -7,6 +8,12 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
+import { updateDiscountCodeSchema } from '@/schemas/discount-codes';
+
+const DISCOUNT_CODE_COLUMNS =
+  'id, code, description, discount_type, discount_value, minimum_purchase_amount, maximum_discount_amount, usage_limit, usage_limit_per_customer, usage_count, starts_at, expires_at, is_active, applies_to, product_ids, category_ids, created_at, updated_at';
+
+const idParamSchema = z.string().uuid();
 
 /**
  * PATCH /api/discount-codes/[id]
@@ -26,6 +33,14 @@ export async function PATCH(
     }
 
     const { id } = await params;
+
+    if (!idParamSchema.safeParse(id).success) {
+      return NextResponse.json(
+        { error: 'Invalid discount code ID' },
+        { status: 400 }
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -52,37 +67,47 @@ export async function PATCH(
 
     const merchantId = merchantContext.merchantId;
 
-    const body = await request.json();
-
-    // Allowlist of fields that can be updated (prevents mass assignment)
-    const allowedFields = [
-      'code',
-      'description',
-      'discount_type',
-      'discount_value',
-      'minimum_purchase_amount',
-      'maximum_discount_amount',
-      'usage_limit',
-      'usage_limit_per_customer',
-      'starts_at',
-      'expires_at',
-      'is_active',
-      'applies_to',
-      'product_ids',
-      'category_ids',
-    ];
-
-    // Build update object only with allowed fields
-    const updateData: Record<string, unknown> = {};
-    for (const field of allowedFields) {
-      if (field in body && body[field] !== undefined) {
-        updateData[field] = body[field];
-      }
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    // Uppercase the code if provided
-    if (updateData.code) {
-      updateData.code = (updateData.code as string).toUpperCase();
+    // Validate update fields
+    const parseResult = updateDiscountCodeSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid update data',
+          details: parseResult.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const updateData = parseResult.data;
+
+    // Empty PATCH is a no-op (idempotent) — return current state
+    if (Object.keys(updateData).length === 0) {
+      const { data: discountCode, error } = await supabase
+        .from('discount_codes')
+        .select(DISCOUNT_CODE_COLUMNS)
+        .eq('id', id)
+        .eq('merchant_id', merchantId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return NextResponse.json(
+            { error: 'Discount code not found' },
+            { status: 404 }
+          );
+        }
+        throw error;
+      }
+
+      return NextResponse.json({ discountCode });
     }
 
     // Update discount code (Scope to merchant ID for defense-in-depth)
@@ -91,7 +116,7 @@ export async function PATCH(
       .update(updateData)
       .eq('id', id)
       .eq('merchant_id', merchantId)
-      .select()
+      .select(DISCOUNT_CODE_COLUMNS)
       .single();
 
     if (error) {
@@ -132,6 +157,14 @@ export async function DELETE(
     }
 
     const { id } = await params;
+
+    if (!idParamSchema.safeParse(id).success) {
+      return NextResponse.json(
+        { error: 'Invalid discount code ID' },
+        { status: 400 }
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 

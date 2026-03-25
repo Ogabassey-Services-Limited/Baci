@@ -53,8 +53,11 @@ export async function getCachedGoogleMerchantFeedData(
     throw new Error('Failed to fetch products');
   }
 
-  // Fetch prevalidated image manifest scoped to active products only
+  // Fetch prevalidated image manifest once per merchant and keep only active
+  // product entries in memory. This avoids oversized PostgREST `in(...)`
+  // filters for larger catalogs while preserving active-product scoping.
   const productIds = (products || []).map((p: { id: string }) => p.id);
+  const activeProductIds = new Set(productIds);
 
   if (productIds.length === 0) {
     return {
@@ -71,8 +74,7 @@ export async function getCachedGoogleMerchantFeedData(
       'product_id, verified_url, verified_format, status, is_primary, position'
     )
     .eq('merchant_id', merchantId)
-    .eq('status', 'verified')
-    .in('product_id', productIds);
+    .eq('status', 'verified');
 
   if (manifestError) {
     console.error('DB_MANIFEST_ERROR:', manifestError);
@@ -91,6 +93,10 @@ export async function getCachedGoogleMerchantFeedData(
 
   const imageManifest: ImageManifestMap = {};
   for (const row of (manifestRows || []) as ManifestRow[]) {
+    if (!activeProductIds.has(row.product_id)) {
+      continue;
+    }
+
     if (!imageManifest[row.product_id]) {
       imageManifest[row.product_id] = [];
     }

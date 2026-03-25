@@ -14,7 +14,7 @@ import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
  * This client doesn't use cookies, so it's suitable for caching.
  * Only use for public/read-only data that doesn't require authentication.
  */
-function getPublicSupabaseClient() {
+export function getPublicSupabaseClient() {
   const url = getSupabaseUrl();
   const key = getSupabaseAnonKey();
 
@@ -749,7 +749,6 @@ const STOREFRONT_PRODUCT_DETAIL_COLUMNS = `
   status,
   price,
   compare_at_price,
-  cost_price,
   stock,
   stock_quantity,
   manage_stock,
@@ -1045,7 +1044,7 @@ export async function getCachedCategoryPageData(
     let query = supabase
       .from('products')
       .select(
-        'id, name, slug, description, price, compare_at_price, cost_price, status, stock, stock_quantity, manage_stock, low_stock_threshold, is_active, condition, brand, category, color, images, image_small, image_large, image_hint, gtin, mpn, created_at, updated_at'
+        'id, name, slug, description, price, compare_at_price, status, stock, stock_quantity, manage_stock, low_stock_threshold, condition, brand, category, color, images, image_hint, gtin, mpn, created_at, updated_at'
       )
       .eq('merchant_id', merchantId)
       .eq('status', 'active')

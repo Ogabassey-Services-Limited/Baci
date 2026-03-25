@@ -24,6 +24,7 @@ type ManifestResult = {
 let domainResult: DomainResult;
 let productsResult: ProductsResult;
 let manifestResult: ManifestResult;
+const mockManifestStatusEq = vi.fn();
 
 function createMockSupabase() {
   return {
@@ -60,9 +61,7 @@ function createMockSupabase() {
         return {
           select: () => ({
             eq: () => ({
-              eq: () => ({
-                in: () => Promise.resolve(manifestResult),
-              }),
+              eq: mockManifestStatusEq,
             }),
           }),
         };
@@ -105,6 +104,7 @@ beforeEach(() => {
     ],
     error: null,
   };
+  mockManifestStatusEq.mockResolvedValue(manifestResult);
   mockCreateAnonClient.mockReturnValue(createMockSupabase());
 });
 
@@ -164,6 +164,40 @@ describe('getCachedGoogleMerchantFeedData', () => {
     });
   });
 
+  it('filters manifest rows down to active feed products', async () => {
+    manifestResult = {
+      data: [
+        {
+          product_id: 'product-1',
+          verified_url: 'https://cdn.example.com/phone.jpg',
+          verified_format: 'jpeg',
+          status: 'verified',
+          is_primary: true,
+          position: 0,
+        },
+        {
+          product_id: 'archived-product',
+          verified_url: 'https://cdn.example.com/archived.jpg',
+          verified_format: 'jpeg',
+          status: 'verified',
+          is_primary: true,
+          position: 0,
+        },
+      ],
+      error: null,
+    };
+    mockManifestStatusEq.mockResolvedValue(manifestResult);
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(result.imageManifest['product-1']).toHaveLength(1);
+    expect(result.imageManifest['archived-product']).toBeUndefined();
+  });
+
   it('returns empty imageManifest when no products exist (short-circuit)', async () => {
     productsResult = { data: [], error: null };
     const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
@@ -196,6 +230,7 @@ describe('getCachedGoogleMerchantFeedData', () => {
 
   it('throws when manifest query fails', async () => {
     manifestResult = { data: null, error: { message: 'manifest error' } };
+    mockManifestStatusEq.mockResolvedValue(manifestResult);
     const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
 
     await expect(

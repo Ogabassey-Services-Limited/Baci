@@ -20,6 +20,8 @@ export default async function OrdersPage() {
   ]);
 
   const orders = results[0].status === 'fulfilled' ? results[0].value : [];
+  const initialOrdersError =
+    results[0].status === 'rejected' ? 'Could not load orders.' : null;
   const stats =
     results[1].status === 'fulfilled' ? results[1].value : undefined;
 
@@ -31,5 +33,11 @@ export default async function OrdersPage() {
     console.error('Failed to fetch order stats:', results[1].reason);
   }
 
-  return <OrdersClientPage initialOrders={orders} initialStats={stats} />;
+  return (
+    <OrdersClientPage
+      initialOrders={orders}
+      initialOrdersError={initialOrdersError}
+      initialStats={stats}
+    />
+  );
 }

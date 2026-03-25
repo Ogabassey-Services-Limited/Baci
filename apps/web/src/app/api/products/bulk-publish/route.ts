@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     // Update all remaining products to active (valid statuses: draft, active, archived)
     const { data: updatedProducts, error: updateError } = await supabase
       .from('products')
-      .update({ status: 'active', is_active: true })
+      .update({ status: 'active' })
       .eq('merchant_id', merchantId)
       .neq('status', 'active')
       .select('id');
