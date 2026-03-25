@@ -121,7 +121,6 @@ vi.mock('next/image', () => ({
           ? src.default.src
           : src?.src;
 
-    // eslint-disable-next-line @next/next/no-img-element
     return React.createElement('img', { src: normalizedSrc, alt, ...props });
   },
 }));
