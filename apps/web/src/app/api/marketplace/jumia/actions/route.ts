@@ -25,6 +25,7 @@ function computeActionStatus(
   successTotal: number,
   errorTotal: number
 ): 'full' | 'partial' | 'failed' {
+  if (successTotal === 0 && errorTotal === 0) return 'failed';
   if (errorTotal === 0) return 'full';
   if (successTotal > 0) return 'partial';
   return 'failed';

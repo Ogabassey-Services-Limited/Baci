@@ -104,9 +104,10 @@ export async function getOrderItems(
   if (!trimmedOrderId) {
     throw new Error('orderId must be a non-empty string');
   }
+  const params = new URLSearchParams({ orderId: trimmedOrderId });
   return await client.request(
     'GET',
-    `/orders/items?orderId=${encodeURIComponent(trimmedOrderId)}`,
+    `/orders/items?${params.toString()}`,
     JumiaOrderItemsResponseSchema
   );
 }

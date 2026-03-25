@@ -120,10 +120,13 @@ export async function POST(
         try {
           const { error: recoveryError, count } = await supabase
             .from('import_jobs')
-            .update({
-              status: 'committed',
-              error: 'Notification delivery failed — please retry',
-            })
+            .update(
+              {
+                status: 'committed',
+                error: 'Notification delivery failed — please retry',
+              },
+              { count: 'exact' }
+            )
             .eq('id', job.id)
             .eq('status', 'notify_queued');
           if (recoveryError) {

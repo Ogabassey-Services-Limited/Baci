@@ -60,7 +60,7 @@ describe('packOrderV2', () => {
 
   it('throws when packages array is empty', async () => {
     const client = createMockClient({});
-    await expect(async () => packOrderV2(client, [])).rejects.toThrow(
+    await expect(packOrderV2(client, [])).rejects.toThrow(
       'packOrderV2: packages must be a non-empty array'
     );
     expect(client.request).not.toHaveBeenCalled();
@@ -95,7 +95,7 @@ describe('readyToShip', () => {
 
   it('throws when orderItemIds array is empty', async () => {
     const client = createMockClient({});
-    await expect(async () => readyToShip(client, [])).rejects.toThrow(
+    await expect(readyToShip(client, [])).rejects.toThrow(
       'readyToShip: orderItemIds must be a non-empty array'
     );
     expect(client.request).not.toHaveBeenCalled();
@@ -130,7 +130,7 @@ describe('cancelItems', () => {
 
   it('throws when orderItemIds array is empty', async () => {
     const client = createMockClient({});
-    await expect(async () => cancelItems(client, [])).rejects.toThrow(
+    await expect(cancelItems(client, [])).rejects.toThrow(
       'cancelItems: orderItemIds must be a non-empty array'
     );
     expect(client.request).not.toHaveBeenCalled();
@@ -165,7 +165,7 @@ describe('printLabels', () => {
 
   it('throws when orderItemIds array is empty', async () => {
     const client = createMockClient({});
-    await expect(async () => printLabels(client, [])).rejects.toThrow(
+    await expect(printLabels(client, [])).rejects.toThrow(
       'printLabels: orderItemIds must be a non-empty array'
     );
     expect(client.request).not.toHaveBeenCalled();

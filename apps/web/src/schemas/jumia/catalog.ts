@@ -29,23 +29,23 @@ const JumiaTranslation = z.object({
   value: z.string(),
 });
 
-const JumiaAttribute = z.object({
+export const JumiaAttributeSchema = z.object({
   id: z.string(),
   name: z.string(),
   value: z.string(),
   translations: z.array(JumiaTranslation),
 });
 
-const JumiaSalePrice = z.object({
+export const JumiaSalePriceSchema = z.object({
   value: z.number().nonnegative(),
   startAt: z.string().datetime({ offset: true }),
   endAt: z.string().datetime({ offset: true }),
 });
 
-const JumiaGlobalPrice = z.object({
+export const JumiaGlobalPriceSchema = z.object({
   value: z.number().nonnegative(),
   updateAt: z.string().datetime({ offset: true }),
-  salePrice: JumiaSalePrice.nullable().optional(),
+  salePrice: JumiaSalePriceSchema.nullable().optional(),
 });
 
 export const JumiaVariationSchema = z.object({
@@ -59,8 +59,8 @@ export const JumiaVariationSchema = z.object({
     )
     .optional(),
   variation: z.string(),
-  globalPrice: JumiaGlobalPrice,
-  attributes: z.array(JumiaAttribute),
+  globalPrice: JumiaGlobalPriceSchema,
+  attributes: z.array(JumiaAttributeSchema),
 });
 
 export const JumiaProductSchema = z.object({
@@ -79,7 +79,7 @@ export const JumiaProductSchema = z.object({
     })
   ),
   attributeSetId: z.string(),
-  attributes: z.array(JumiaAttribute),
+  attributes: z.array(JumiaAttributeSchema),
   createdAt: z.string().datetime({ offset: true }),
   updatedAt: z.string().datetime({ offset: true }),
   variations: z.array(JumiaVariationSchema),
@@ -94,7 +94,7 @@ export const JumiaProductsResponseSchema = z.object({
 // ── Categories ──
 
 export const JumiaCategorySchema = z.object({
-  code: z.number(),
+  code: z.number().int(),
   name: z.string().min(1),
   completePath: z.string().min(1),
   attributeSet: z.object({
@@ -173,6 +173,6 @@ export type JumiaAttributeSetResponse = z.infer<
   typeof JumiaAttributeSetResponseSchema
 >;
 export type JumiaStockResponse = z.infer<typeof JumiaStockResponseSchema>;
-export type JumiaAttributeType = z.infer<typeof JumiaAttribute>;
-export type JumiaSalePriceType = z.infer<typeof JumiaSalePrice>;
-export type JumiaGlobalPriceType = z.infer<typeof JumiaGlobalPrice>;
+export type JumiaAttributeType = z.infer<typeof JumiaAttributeSchema>;
+export type JumiaSalePriceType = z.infer<typeof JumiaSalePriceSchema>;
+export type JumiaGlobalPriceType = z.infer<typeof JumiaGlobalPriceSchema>;

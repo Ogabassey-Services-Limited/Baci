@@ -14,14 +14,14 @@ import {
 const JumiaOrderSchema = z.object({
   id: z.string(),
   shopIds: z.array(z.string()),
-  totalItems: z.number(),
-  packedItems: z.number(),
+  totalItems: z.number().int().nonnegative(),
+  packedItems: z.number().int().nonnegative(),
   isPrepayment: z.boolean(),
   hasMultipleStatus: z.boolean(),
   hasItemsFulfilledByJumia: z.boolean(),
   pendingSince: z.string().datetime({ offset: true }).optional(),
   status: z.string().min(1),
-  deliveryOption: z.string(),
+  deliveryOption: z.string().min(1),
   number: z.string().min(1),
   totalAmount: CurrencyAmountSchema,
   country: CountryInfoSchema,
@@ -52,24 +52,24 @@ const JumiaOrderItemSchema = z.object({
   // Jumia API returns empty strings for tracking URLs when not yet available
   trackingUrl: z.union([z.string().url(), z.literal('')]).optional(),
   shipmentType: z.string(),
-  deliveryOption: z.string(),
+  deliveryOption: z.string().min(1),
   isFulfilledByJumia: z.boolean(),
-  itemPrice: z.number(),
-  paidPrice: z.number(),
-  shippingAmount: z.number(),
-  itemPriceLocal: z.number(),
-  paidPriceLocal: z.number(),
-  shippingAmountLocal: z.number(),
-  exchangeRate: z.number(),
+  itemPrice: z.number().nonnegative(),
+  paidPrice: z.number().nonnegative(),
+  shippingAmount: z.number().nonnegative(),
+  itemPriceLocal: z.number().nonnegative(),
+  paidPriceLocal: z.number().nonnegative(),
+  shippingAmountLocal: z.number().nonnegative(),
+  exchangeRate: z.number().positive(),
   country: CountryInfoSchema,
-  taxAmount: z.number(),
-  voucherAmount: z.number(),
+  taxAmount: z.number().nonnegative(),
+  voucherAmount: z.number().nonnegative(),
   shippingAddress: ShippingAddressSchema,
 });
 
 export const JumiaOrderItemsResponseSchema = z.object({
-  orderId: z.string(),
-  orderNumber: z.string(),
+  orderId: z.string().min(1),
+  orderNumber: z.string().min(1),
   items: z.array(JumiaOrderItemSchema),
 });
 
@@ -78,11 +78,11 @@ export const JumiaOrderItemsResponseSchema = z.object({
 export const JumiaShipmentProvidersResponseSchema = z.object({
   orderItems: z.array(
     z.object({
-      id: z.string(),
+      id: z.string().min(1),
       shipmentProviders: z.array(
         z.object({
-          id: z.string(),
-          name: z.string(),
+          id: z.string().min(1),
+          name: z.string().min(1),
           requireTrackingCode: z.boolean(),
         })
       ),

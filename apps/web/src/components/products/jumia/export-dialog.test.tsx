@@ -151,6 +151,9 @@ describe('ExportToJumiaDialog', () => {
     expect((options?.headers as Record<string, string>)?.['Content-Type']).toBe(
       'application/json'
     );
+    expect((options?.headers as Record<string, string>)?.['x-csrf-token']).toBe(
+      'mock-csrf-token'
+    );
     const body = JSON.parse(options?.body as string);
     expect(body).toEqual(
       expect.objectContaining({

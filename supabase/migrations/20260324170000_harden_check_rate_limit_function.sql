@@ -32,8 +32,7 @@ BEGIN
     RETURN FALSE;
   END IF;
 
-  rate_limit_key :=
-    COALESCE(rate_limit_identifier, '') || ':' || COALESCE(endpoint_param, '');
+  rate_limit_key := rate_limit_identifier || ':' || endpoint_param;
   window_start_time := current_time - make_interval(mins => window_minutes);
 
   PERFORM pg_advisory_xact_lock(hashtextextended(rate_limit_key, 0));

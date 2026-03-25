@@ -15,7 +15,7 @@ export const CountryInfoSchema = z.object({
   code: z
     .string()
     .regex(/^[A-Z]{2}$/, 'Country code must be a 2-letter ISO 3166 code'),
-  name: z.string().min(1),
+  name: z.string().trim().min(1),
   currencyCode: z
     .string()
     .regex(/^[A-Z]{3}$/, 'Currency must be a 3-letter ISO code'),

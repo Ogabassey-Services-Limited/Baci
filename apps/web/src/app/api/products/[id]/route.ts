@@ -323,7 +323,7 @@ export async function PUT(
               alt:
                 (typeof updates.name === 'string'
                   ? updates.name
-                  : existingProduct.name) || 'Product image',
+                  : sanitizeText(existingProduct.name)) || 'Product image',
               order: 0,
             },
           ]

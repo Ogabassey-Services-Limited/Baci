@@ -236,5 +236,10 @@ export const getImportJobWorkerBatchSize = () =>
 
 export const isProduction = () => env?.NODE_ENV === 'production';
 
+// Jumia
+export const getJumiaEnvironment = () => env?.JUMIA_ENVIRONMENT;
+export const getJumiaClientId = () => env?.JUMIA_CLIENT_ID;
+export const getJumiaClientSecret = () => env?.JUMIA_CLIENT_SECRET;
+
 // Deprecated: No longer needed as we validate on import.
 export const validateEnvironment = () => ({ valid: true, warnings: [] });

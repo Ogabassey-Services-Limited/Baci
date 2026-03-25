@@ -160,7 +160,8 @@ export async function GET(request: NextRequest) {
       discoveredShops.push({
         id: 'oauth',
         name: 'Jumia Shop',
-        email: 'noreply@placeholder.local',
+        // Empty string: real email is unknown; the column is non-nullable
+        email: '',
         businessClients: [
           {
             name: 'Jumia Nigeria',

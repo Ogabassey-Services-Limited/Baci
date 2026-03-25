@@ -23,18 +23,38 @@ const jumiaPriceSchema = z
     saleStart: z.string().optional(),
     saleEnd: z.string().optional(),
   })
-  .refine(
-    (data) => {
-      if (data.saleStart && data.saleEnd) {
-        return Date.parse(data.saleEnd) >= Date.parse(data.saleStart);
-      }
-      return true;
-    },
-    {
-      message: 'Sale end must be on or after sale start',
-      path: ['saleEnd'],
+  .superRefine((data, ctx) => {
+    if (!data.saleStart && !data.saleEnd) return;
+
+    const startMs = data.saleStart ? Date.parse(data.saleStart) : undefined;
+    const endMs = data.saleEnd ? Date.parse(data.saleEnd) : undefined;
+
+    if (data.saleStart && (startMs === undefined || Number.isNaN(startMs))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Invalid sale start date',
+        path: ['saleStart'],
+      });
+      return;
     }
-  );
+
+    if (data.saleEnd && (endMs === undefined || Number.isNaN(endMs))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Invalid sale end date',
+        path: ['saleEnd'],
+      });
+      return;
+    }
+
+    if (startMs != null && endMs != null && endMs < startMs) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Sale end must be on or after sale start',
+        path: ['saleEnd'],
+      });
+    }
+  });
 
 type JumiaPriceFormValues = z.infer<typeof jumiaPriceSchema>;
 
@@ -171,10 +191,17 @@ export function JumiaPriceForm({
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Low Price Warning</AlertTitle>
           <AlertDescription>
-            Your Jumia price ({'\u20A6'}
-            {String(jumiaPrice)}) is more than 20% lower than your base price (
-            {'\u20A6'}
-            {basePrice}). Please verify this is intentional.
+            Your Jumia price (
+            {new Intl.NumberFormat('en-NG', {
+              style: 'currency',
+              currency: 'NGN',
+            }).format(Number(jumiaPrice))}
+            ) is more than 20% lower than your base price (
+            {new Intl.NumberFormat('en-NG', {
+              style: 'currency',
+              currency: 'NGN',
+            }).format(basePrice)}
+            ). Please verify this is intentional.
           </AlertDescription>
         </Alert>
       )}

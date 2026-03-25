@@ -4,6 +4,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('@/env', () => ({
+  env: { JUMIA_ENVIRONMENT: 'production' },
+}));
+
 // ── Mocks ──
 
 const createMockSupabase = vi.hoisted(() => {

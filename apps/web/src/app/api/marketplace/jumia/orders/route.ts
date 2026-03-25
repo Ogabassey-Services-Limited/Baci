@@ -377,11 +377,18 @@ export async function POST(request: NextRequest) {
           );
 
           // Only mark notification_sent after successful notify
-          await supabase
+          const { error: notifyUpdateError } = await supabase
             .from('jumia_orders')
             .update({ notification_sent: true })
             .eq('jumia_order_id', order.id)
             .eq('merchant_id', merchantId);
+          if (notifyUpdateError) {
+            logger.error({
+              message: 'Failed to update notification_sent flag',
+              orderId: order.id,
+              error: notifyUpdateError,
+            });
+          }
         } catch (pushError) {
           logger.error({
             message: 'Push notification failed for Jumia order',

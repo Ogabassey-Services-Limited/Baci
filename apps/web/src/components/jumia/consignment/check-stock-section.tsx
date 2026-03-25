@@ -79,9 +79,9 @@ export function CheckStockSection({
     setLoading(true);
     setStock(null);
 
-    let _timedOut = false;
+    let timedOut = false;
     const timeoutId = setTimeout(() => {
-      _timedOut = true;
+      timedOut = true;
       controller.abort();
     }, 10_000);
     try {
@@ -118,7 +118,7 @@ export function CheckStockSection({
     } catch (err: unknown) {
       if (abortControllerRef.current !== controller) return;
       if (err instanceof DOMException && err.name === 'AbortError') {
-        if (_timedOut) {
+        if (timedOut) {
           toast({
             title: 'Stock Check Timed Out',
             description: 'The request took too long. Please try again.',

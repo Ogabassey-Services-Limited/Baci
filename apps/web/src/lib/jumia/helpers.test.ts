@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const mockEnv = vi.hoisted(() => ({
+  JUMIA_ENVIRONMENT: 'production' as 'staging' | 'production',
+}));
+
+vi.mock('@/env', () => ({ env: mockEnv }));
+
 import {
   exchangeJumiaCode,
   getJumiaAuthUrl,
@@ -9,42 +16,30 @@ import {
 } from '@/lib/jumia/helpers';
 
 describe('helpers', () => {
-  let originalEnv: string | undefined;
-
-  beforeEach(() => {
-    originalEnv = process.env.JUMIA_ENVIRONMENT;
-  });
-
   afterEach(() => {
-    if (originalEnv === undefined) {
-      delete process.env.JUMIA_ENVIRONMENT;
-    } else {
-      process.env.JUMIA_ENVIRONMENT = originalEnv;
-    }
+    mockEnv.JUMIA_ENVIRONMENT = 'production';
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
   describe('getJumiaEnvironment', () => {
     it('returns production by default', () => {
-      delete process.env.JUMIA_ENVIRONMENT;
       expect(getJumiaEnvironment()).toBe('production');
     });
 
-    it('returns staging when env var is staging', () => {
-      process.env.JUMIA_ENVIRONMENT = 'staging';
+    it('returns staging when env is staging', () => {
+      mockEnv.JUMIA_ENVIRONMENT = 'staging';
       expect(getJumiaEnvironment()).toBe('staging');
     });
 
-    it('returns production for unknown values', () => {
-      process.env.JUMIA_ENVIRONMENT = 'unknown';
+    it('returns production when env is production', () => {
+      mockEnv.JUMIA_ENVIRONMENT = 'production';
       expect(getJumiaEnvironment()).toBe('production');
     });
   });
 
   describe('getJumiaBaseUrl', () => {
     it('returns production URL by default', () => {
-      delete process.env.JUMIA_ENVIRONMENT;
       expect(getJumiaBaseUrl()).toBe('https://vendor-api.jumia.com');
     });
 
@@ -149,8 +144,6 @@ describe('helpers', () => {
       expect(fetchCall[1]?.method).toBe('POST');
 
       // Verify the POST body contains expected OAuth params.
-      // The body may be a string or URLSearchParams depending on the implementation,
-      // so we normalise to URLSearchParams before asserting.
       const rawBody = fetchCall[1]?.body;
       expect(rawBody).toBeDefined();
       const params =

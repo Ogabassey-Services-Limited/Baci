@@ -252,6 +252,55 @@ describe('Consignment POST', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 404 when merchant not found', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'u1' } },
+      error: null,
+    });
+    mockGetMerchant.mockResolvedValue(null);
+    const res = await POST(
+      makeJsonRequest('POST', {
+        integrationId: INT_ID,
+        businessClientCode: 'BC1',
+        shippingDate: '2026-04-01',
+        products: [{ sku: 'SKU1', quantity: 10 }],
+      })
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when permission denied', async () => {
+    setupAuth();
+    const { hasPermission } = await import('@/lib/api-auth');
+    (hasPermission as ReturnType<typeof vi.fn>).mockReturnValueOnce(false);
+    const res = await POST(
+      makeJsonRequest('POST', {
+        integrationId: INT_ID,
+        businessClientCode: 'BC1',
+        shippingDate: '2026-04-01',
+        products: [{ sku: 'SKU1', quantity: 10 }],
+      })
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('propagates JumiaApiError status', async () => {
+    setupAuth();
+    const { JumiaApiError } = await import('@/lib/jumia/client');
+    mockForIntegration.mockRejectedValue(
+      new JumiaApiError(429, 'Rate limited')
+    );
+    const res = await POST(
+      makeJsonRequest('POST', {
+        integrationId: INT_ID,
+        businessClientCode: 'BC1',
+        shippingDate: '2026-04-01',
+        products: [{ sku: 'SKU1', quantity: 10 }],
+      })
+    );
+    expect(res.status).toBe(429);
+  });
+
   it('returns purchaseOrderNumber on success', async () => {
     setupAuth();
     mockForIntegration.mockResolvedValue({ shopId: 'shop1' });
@@ -303,6 +352,50 @@ describe('Consignment PATCH', () => {
     const res = await PATCH(makeJsonRequest('PATCH', body));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe('No update fields provided');
+  });
+
+  it('returns 404 when merchant not found', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'u1' } },
+      error: null,
+    });
+    mockGetMerchant.mockResolvedValue(null);
+    const res = await PATCH(
+      makeJsonRequest('PATCH', {
+        integrationId: INT_ID,
+        purchaseOrderNumber: 'PO-1',
+        isShipped: true,
+      })
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 403 when permission denied', async () => {
+    setupAuth();
+    const { hasPermission } = await import('@/lib/api-auth');
+    (hasPermission as ReturnType<typeof vi.fn>).mockReturnValueOnce(false);
+    const res = await PATCH(
+      makeJsonRequest('PATCH', {
+        integrationId: INT_ID,
+        purchaseOrderNumber: 'PO-1',
+        isShipped: true,
+      })
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it('propagates JumiaApiError status', async () => {
+    setupAuth();
+    const { JumiaApiError } = await import('@/lib/jumia/client');
+    mockForIntegration.mockRejectedValue(new JumiaApiError(502, 'Bad Gateway'));
+    const res = await PATCH(
+      makeJsonRequest('PATCH', {
+        integrationId: INT_ID,
+        purchaseOrderNumber: 'PO-1',
+        isShipped: true,
+      })
+    );
+    expect(res.status).toBe(502);
   });
 
   it('returns success on valid update', async () => {

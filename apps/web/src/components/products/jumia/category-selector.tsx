@@ -91,7 +91,6 @@ export function JumiaCategorySelector({
       .catch((err: unknown) => {
         if (didTimeout) {
           setError('Timeout while loading categories');
-          setLoading(false);
           return;
         }
         if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -101,7 +100,7 @@ export function JumiaCategorySelector({
       })
       .finally(() => {
         clearTimeout(timeoutId);
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted || didTimeout) {
           setLoading(false);
         }
       });
@@ -156,7 +155,7 @@ export function JumiaCategorySelector({
             (value
               ? loading
                 ? 'Loading...'
-                : `Category: ${value}`
+                : 'Category selected'
               : 'Select Jumia Category...')}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>

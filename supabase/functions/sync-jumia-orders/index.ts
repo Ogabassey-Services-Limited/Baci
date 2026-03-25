@@ -354,14 +354,34 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Batch-fetch existing orders to avoid N+1 queries
+        // Batch-fetch existing orders to avoid N+1 queries.
+        // Chunk the IN list to stay within PostgreSQL parameter limits.
+        const CHUNK_SIZE = 500;
         const orderIds = orders.map((o) => o.id);
-        const { data: existingOrdersData, error: existingOrdersError } =
-          await supabase
+        type ExistingOrderRow = {
+          jumia_order_id: string;
+          id: string;
+          notification_sent: boolean;
+        };
+        const existingOrdersData: ExistingOrderRow[] = [];
+        let existingOrdersError: { message: string } | null = null;
+
+        for (let i = 0; i < orderIds.length; i += CHUNK_SIZE) {
+          const chunk = orderIds.slice(i, i + CHUNK_SIZE);
+          const { data: chunkData, error: chunkError } = await supabase
             .from('jumia_orders')
             .select('jumia_order_id, id, notification_sent')
             .eq('merchant_id', integration.merchant_id)
-            .in('jumia_order_id', orderIds);
+            .in('jumia_order_id', chunk);
+
+          if (chunkError) {
+            existingOrdersError = chunkError;
+            break;
+          }
+          if (chunkData) {
+            existingOrdersData.push(...chunkData);
+          }
+        }
 
         if (existingOrdersError) {
           console.error(
@@ -375,7 +395,7 @@ Deno.serve(async (req) => {
         }
 
         const existingOrderMap = new Map(
-          (existingOrdersData || []).map((row) => [row.jumia_order_id, row])
+          existingOrdersData.map((row) => [row.jumia_order_id, row])
         );
 
         // Build upsert rows for all orders
@@ -513,12 +533,21 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Use the timestamp captured before fetching so subsequent syncs
-        // don't miss orders that arrived while we were processing.
-        await supabase
-          .from('marketplace_integrations')
-          .update({ last_sync_at: syncStartedAt, sync_error: null })
-          .eq('id', integration.id);
+        // Only update last_sync_at when the upsert succeeded so a failed
+        // sync doesn't advance the cursor and silently drop orders.
+        if (!upsertError) {
+          const { error: syncUpdateError } = await supabase
+            .from('marketplace_integrations')
+            .update({ last_sync_at: syncStartedAt, sync_error: null })
+            .eq('id', integration.id);
+
+          if (syncUpdateError) {
+            console.error(
+              `[Jumia Sync] Failed to update last_sync_at for merchant ${integration.merchant_id}:`,
+              syncUpdateError.message
+            );
+          }
+        }
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';

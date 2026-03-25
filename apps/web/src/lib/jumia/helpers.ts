@@ -6,6 +6,7 @@
  */
 
 import { ZodError } from 'zod';
+import { env as validatedEnv } from '@/env';
 import type { JumiaTokenResponse } from '@/schemas/jumia';
 import { JumiaTokenResponseSchema } from '@/schemas/jumia';
 
@@ -19,9 +20,7 @@ const BASE_URLS: Record<JumiaEnvironment, string> = {
 };
 
 export function getJumiaEnvironment(): JumiaEnvironment {
-  const env = process.env.JUMIA_ENVIRONMENT;
-  if (env === 'staging') return 'staging';
-  return 'production';
+  return validatedEnv.JUMIA_ENVIRONMENT;
 }
 
 export function getJumiaBaseUrl(env?: JumiaEnvironment): string {

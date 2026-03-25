@@ -37,7 +37,7 @@ function validateAndTrimIds(ids: string[], fnName: string): string[] {
  * @returns The pack response from Jumia.
  * @throws If the packages array is empty or any required field is blank.
  */
-export function packOrderV2(
+export async function packOrderV2(
   client: JumiaClient,
   packages: Array<{
     orderItems: string;
@@ -70,15 +70,20 @@ export function packOrderV2(
       }),
     };
   });
-  return client.request('POST', '/v2/orders/pack', JumiaPackV2ResponseSchema, {
-    packages: trimmedPackages,
-  });
+  return await client.request(
+    'POST',
+    '/v2/orders/pack',
+    JumiaPackV2ResponseSchema,
+    {
+      packages: trimmedPackages,
+    }
+  );
 }
 
 // ── Shared helper for order-item actions ──
 
 /** Validate IDs then fire a single request with `{ orderItemIds }` body. */
-function orderItemsAction<T>(
+async function orderItemsAction<T>(
   client: JumiaClient,
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
   path: string,
@@ -90,7 +95,9 @@ function orderItemsAction<T>(
     throw new Error(`${fnName}: orderItemIds must be a non-empty array`);
   }
   const trimmedIds = validateAndTrimIds(orderItemIds, fnName);
-  return client.request(method, path, schema, { orderItemIds: trimmedIds });
+  return await client.request(method, path, schema, {
+    orderItemIds: trimmedIds,
+  });
 }
 
 // ── Ready to Ship ──

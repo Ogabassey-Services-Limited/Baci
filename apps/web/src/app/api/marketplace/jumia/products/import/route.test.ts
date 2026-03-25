@@ -167,6 +167,7 @@ describe('Products Import POST', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.summary.total).toBe(0);
+    expect(json.warnings).toBeUndefined();
   });
 
   it('returns 500 when Supabase product query fails', async () => {
@@ -214,5 +215,51 @@ describe('Products Import POST', () => {
     expect(json.warnings).toBeDefined();
     expect(typeof json.warnings.skippedNoSku).toBe('number');
     expect(typeof json.warnings.missingPrice).toBe('number');
+  });
+
+  it('increments skippedNoSku when variation has no sellerSku', async () => {
+    mockForIntegration.mockResolvedValue({ shopId: 'shop1' });
+    mockGetAllProducts.mockResolvedValue([
+      {
+        id: 'jp-1',
+        name: 'No SKU Product',
+        description: 'Desc',
+        images: [],
+        variations: [
+          { sellerSku: '', globalPrice: { value: 1000 } },
+          { sellerSku: null, globalPrice: { value: 2000 } },
+        ],
+      },
+    ]);
+    const res = await POST(makePostRequest({ integrationId: INT_ID }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    // All variations skipped -- early return with total = jumiaProducts.length
+    expect(json.summary.total).toBe(1);
+    expect(json.summary.created).toBe(0);
+  });
+
+  it('increments missingPrice when variation has no globalPrice', async () => {
+    mockForIntegration.mockResolvedValue({ shopId: 'shop1' });
+    mockGetAllProducts.mockResolvedValue([
+      {
+        id: 'jp-1',
+        name: 'No Price Product',
+        description: 'Desc',
+        images: [],
+        variations: [
+          { sellerSku: 'SKU-MP', globalPrice: null },
+          { sellerSku: 'SKU-MP2', globalPrice: { value: null } },
+        ],
+      },
+    ]);
+    const res = await POST(makePostRequest({ integrationId: INT_ID }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    // All variations skipped -- early return with total = jumiaProducts.length
+    expect(json.summary.total).toBe(1);
+    expect(json.summary.created).toBe(0);
   });
 });

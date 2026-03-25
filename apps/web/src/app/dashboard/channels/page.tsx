@@ -172,8 +172,8 @@ export default function ChannelsPage() {
     }
   };
 
-  const handleSyncOrders = async (integrationId?: string) => {
-    const targetId = integrationId ?? integrations.find((i) => i.is_active)?.id;
+  const handleSyncOrders = async (integrationId: string) => {
+    const targetId = integrationId;
     if (!targetId) {
       setMessage({ type: 'error', text: 'No active Jumia integration found' });
       return;

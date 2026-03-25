@@ -164,6 +164,11 @@ describe('Products Export POST', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.feedId).toBe('feed-abc');
+    // Verify CSRF and auth middleware were invoked
+    const { checkCsrfProtection } = await import('@/lib/csrf');
+    const { authenticateApiRequest } = await import('@/lib/api-auth');
+    expect(checkCsrfProtection).toHaveBeenCalled();
+    expect(authenticateApiRequest).toHaveBeenCalled();
     expect(mockForIntegration).toHaveBeenCalledWith(
       expect.anything(),
       '00000000-0000-0000-0000-000000000001',

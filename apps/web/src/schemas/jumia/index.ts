@@ -10,6 +10,7 @@ export {
   JumiaTokenResponseSchema,
 } from '@/schemas/jumia/auth';
 export {
+  JumiaAttributeSchema,
   type JumiaAttributeSetResponse,
   JumiaAttributeSetResponseSchema,
   type JumiaAttributeType,
@@ -19,11 +20,13 @@ export {
   JumiaCategoriesResponseSchema,
   type JumiaCategory,
   JumiaCategorySchema,
+  JumiaGlobalPriceSchema,
   type JumiaGlobalPriceType,
   type JumiaProduct,
   JumiaProductSchema,
   type JumiaProductsResponse,
   JumiaProductsResponseSchema,
+  JumiaSalePriceSchema,
   type JumiaSalePriceType,
   type JumiaStockResponse,
   JumiaStockResponseSchema,

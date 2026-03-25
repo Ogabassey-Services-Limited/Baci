@@ -274,7 +274,7 @@ export async function POST(request: NextRequest) {
     const feedErrors: string[] = [];
 
     // Push status update if changed
-    if (overrides.is_active !== undefined) {
+    if (Object.hasOwn(overrides, 'is_active')) {
       if (!mapping.jumia_product_id) {
         feedErrors.push(
           'Status update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)'

@@ -114,7 +114,21 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Fetch all products from Jumia (auto-paginating)
-    const jumiaProducts = await getAllProducts(jumia, { status: 'active' });
+    let jumiaProducts: Awaited<ReturnType<typeof getAllProducts>>;
+    try {
+      jumiaProducts = await getAllProducts(jumia, { status: 'active' });
+    } catch (fetchErr) {
+      const message =
+        fetchErr instanceof Error ? fetchErr.message : 'Unknown error';
+      logger.error({
+        message: 'Failed to fetch products from Jumia',
+        error: message,
+      });
+      return NextResponse.json(
+        { error: 'Failed to fetch products from Jumia' },
+        { status: 502 }
+      );
+    }
 
     if (!jumiaProducts.length) {
       return NextResponse.json({

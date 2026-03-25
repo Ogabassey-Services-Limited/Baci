@@ -30,6 +30,11 @@ export async function kickoffImportJob(
 
   try {
     await triggerImportWorker(origin, jobId);
+    logger.info({
+      message: 'Import worker fallback triggered successfully',
+      jobId,
+      origin,
+    });
   } catch (secondError) {
     logger.error({
       message: 'Failed to trigger import worker fallback',

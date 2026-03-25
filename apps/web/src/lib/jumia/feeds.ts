@@ -119,16 +119,12 @@ export async function createProduct(
       'brand.name',
       'createProduct'
     );
-    if (!Number.isFinite(product.brand.code) || product.brand.code <= 0) {
-      throw new Error(
-        'createProduct: each brand.code must be a positive number'
-      );
-    }
-    if (!Number.isFinite(product.category.code) || product.category.code <= 0) {
-      throw new Error(
-        'createProduct: each category.code must be a positive number'
-      );
-    }
+    validatePositiveNumber(product.brand.code, 'brand.code', 'createProduct');
+    validatePositiveNumber(
+      product.category.code,
+      'category.code',
+      'createProduct'
+    );
     const base = {
       ...product,
       name: { value: trimmedName },

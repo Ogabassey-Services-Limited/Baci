@@ -67,6 +67,16 @@ describe('product-image', () => {
     ).toBe('https://cdn.example.com/safe.jpg');
   });
 
+  it('rejects case-insensitive dangerous schemes', () => {
+    expect(getPrimaryProductImage(['JaVaScRiPt:alert(1)'])).toBeNull();
+    expect(getPrimaryProductImage(['JAVASCRIPT:void(0)'])).toBeNull();
+    expect(
+      getPrimaryProductImage([{ url: 'VbScript:MsgBox("hi")' }])
+    ).toBeNull();
+    expect(getPrimaryProductImage(['file:///etc/passwd'])).toBeNull();
+    expect(getPrimaryProductImage(['FILE:///etc/passwd'])).toBeNull();
+  });
+
   it('accepts relative paths starting with /', () => {
     expect(getPrimaryProductImage(['/images/product.jpg'])).toBe(
       '/images/product.jpg'

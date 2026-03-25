@@ -440,12 +440,12 @@ describe('Jumia Vendor API Schemas', () => {
       }
     });
 
-    it('parses shops with empty businessClients', () => {
+    it('rejects shop with empty businessClients', () => {
       const empty = {
         shops: [{ ...validShopsResponse.shops[0], businessClients: [] }],
       };
       const result = JumiaShopsResponseSchema.safeParse(empty);
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
     });
 
     it('rejects shop without id', () => {
@@ -470,9 +470,9 @@ describe('Jumia Vendor API Schemas', () => {
       expect(result.success).toBe(false);
     });
 
-    it('parses response with empty shops array', () => {
+    it('rejects response with empty shops array', () => {
       const result = JumiaShopsResponseSchema.safeParse({ shops: [] });
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
     });
   });
 
@@ -1052,12 +1052,11 @@ describe('Jumia Vendor API Schemas', () => {
         validFeedDetailsResponse
       );
       expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.feedItems[0].sellerSKU).toBe('FAIL-SKU-001');
-        expect(result.data.feedItems[0].errors?.globalMessages).toContain(
-          'Brand code not found'
-        );
-      }
+      if (!result.success) throw new Error('Expected success');
+      expect(result.data.feedItems[0].sellerSKU).toBe('FAIL-SKU-001');
+      expect(result.data.feedItems[0].errors?.globalMessages).toContain(
+        'Brand code not found'
+      );
     });
 
     it('parses feed details with null reportUrl (in-progress feed)', () => {

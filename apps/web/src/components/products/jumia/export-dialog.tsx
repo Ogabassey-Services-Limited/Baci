@@ -81,7 +81,10 @@ export function ExportToJumiaDialog({
         integrationId,
         merchantId,
         name: sanitizeText(stripHtmlTags(product.name)),
-        brand,
+        brand: {
+          code: brand.code,
+          name: sanitizeText(stripHtmlTags(brand.name)),
+        },
         category: { code: categoryCode },
         description: sanitizeText(
           stripHtmlTags(product.description || product.name)
@@ -193,7 +196,7 @@ export function ExportToJumiaDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Export &quot;{product.name}&quot; to Jumia</DialogTitle>
+          <DialogTitle>Export "{product.name}" to Jumia</DialogTitle>
           <DialogDescription>
             Map this product to a Jumia Category and Brand to proceed.
           </DialogDescription>
@@ -221,7 +224,7 @@ export function ExportToJumiaDialog({
               onSelect={setBrand}
             />
             <p className="text-xs text-muted-foreground">
-              Must match a valid brand on Jumia or &quot;Generic&quot;.
+              Must match a valid brand on Jumia or "Generic".
             </p>
           </div>
 

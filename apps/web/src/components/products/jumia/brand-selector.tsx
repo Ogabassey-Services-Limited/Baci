@@ -94,7 +94,7 @@ export function JumiaBrandSelector({
     };
   }, [merchantId]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004); error excluded to prevent duplicate fetch on Retry
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchBrands intentionally omitted — it's a stable callback using currentMerchantId param; merchantId + fetchStatus are sufficient triggers
   useEffect(() => {
     if (open && fetchStatus === 'idle') {
       fetchBrands(merchantId);
@@ -102,13 +102,7 @@ export function JumiaBrandSelector({
   }, [open, merchantId, fetchStatus]);
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setFetchStatus('idle');
-      }}
-    >
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -124,23 +118,25 @@ export function JumiaBrandSelector({
         <Command>
           <CommandInput placeholder="Search brand..." />
           <CommandList>
-            <CommandEmpty>
-              {fetchStatus === 'error' ? (
-                <div className="p-4 text-sm text-center">
-                  <p className="text-destructive">{errorMessage}</p>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => fetchBrands(merchantId)}
-                    className="mt-2 text-sm underline"
-                  >
-                    Retry
-                  </Button>
-                </div>
-              ) : (
-                'No brand found.'
-              )}
-            </CommandEmpty>
+            {fetchStatus !== 'loading' && (
+              <CommandEmpty>
+                {fetchStatus === 'error' ? (
+                  <div className="p-4 text-sm text-center">
+                    <p className="text-destructive">{errorMessage}</p>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      onClick={() => fetchBrands(merchantId)}
+                      className="mt-2 text-sm underline"
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : (
+                  'No brand found.'
+                )}
+              </CommandEmpty>
+            )}
             {fetchStatus === 'loading' ? (
               <div className="p-4 text-sm text-center text-muted-foreground">
                 Loading brands...
