@@ -23,11 +23,6 @@ vi.mock('next/navigation', () => ({
   permanentRedirect: (url: never) => mockPermanentRedirect(url),
 }));
 
-vi.mock('react', async () => {
-  const actual = await vi.importActual('react');
-  return { ...actual };
-});
-
 vi.mock('@/components/ui/skeletons', () => ({
   ProductDetailSkeleton: () => null,
 }));
@@ -54,8 +49,31 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 }));
 
 const mockGenerateBreadcrumbSchema = vi.fn((_items: unknown) => ({}));
-const mockGetProductUrl = vi.fn(
-  (_product: unknown) => '/products/test-product'
+const mockGenerateProductSchema = vi.fn((..._args: unknown[]) => ({
+  offers: {} as Record<string, unknown>,
+}));
+type ProductUrlInput = {
+  id: string;
+  slug?: string;
+  category?: string | null;
+  categories?: { slug?: string } | null;
+  category_slug?: string;
+};
+const defaultGetProductUrl = (product: ProductUrlInput) => {
+  const productSlug = product.slug ?? product.id;
+  const categorySlug =
+    product.categories?.slug ||
+    product.category_slug ||
+    (product.category
+      ? product.category.toLowerCase().replace(/\s+/g, '-')
+      : undefined);
+
+  return categorySlug
+    ? `/${categorySlug}/${productSlug}`
+    : `/products/${productSlug}`;
+};
+const mockGetProductUrl = vi.fn((product: ProductUrlInput) =>
+  defaultGetProductUrl(product)
 );
 
 vi.mock('@/lib/seo-utils', () => ({
@@ -64,9 +82,10 @@ vi.mock('@/lib/seo-utils', () => ({
   generateBreadcrumbSchema: (items: unknown) =>
     mockGenerateBreadcrumbSchema(items),
   generateFAQSchema: () => ({}),
-  generateProductSchema: () => ({ offers: {} }),
+  generateProductSchema: (...args: unknown[]) =>
+    mockGenerateProductSchema(...args),
   generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
-  getProductUrl: (product: unknown) => mockGetProductUrl(product),
+  getProductUrl: (product: ProductUrlInput) => mockGetProductUrl(product),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -89,7 +108,7 @@ vi.mock('./product-detail-client', () => ({
   default: () => null,
 }));
 
-import { generateMetadata } from './page';
+import ProductPage, { generateMetadata } from './page';
 
 const baseMerchant = {
   id: 'merchant-1',
@@ -164,6 +183,8 @@ function makeHeaders(entries: Record<string, string> = {}) {
 describe('products/[productSlug] page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGenerateProductSchema.mockImplementation(() => ({ offers: {} }));
+    mockGetProductUrl.mockImplementation(defaultGetProductUrl);
     mockGetCachedMerchant.mockResolvedValue(baseMerchant);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductRatingStats.mockResolvedValue(null);
@@ -236,6 +257,25 @@ describe('products/[productSlug] page', () => {
       ).rejects.toThrow('NEXT_REDIRECT');
 
       expect(mockPermanentRedirect).toHaveBeenCalledWith('/phones/iphone-15');
+    });
+
+    it('redirects categorized products during page render', async () => {
+      mockGetCachedProduct.mockResolvedValue(categorizedProduct);
+      mockHeaders.mockReturnValue(makeHeaders({}));
+
+      await expect(
+        ProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'iphone-15',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      ).rejects.toThrow('NEXT_REDIRECT');
+
+      expect(mockPermanentRedirect).toHaveBeenCalledWith(
+        '/teststore/phones/iphone-15'
+      );
     });
   });
 
@@ -331,13 +371,13 @@ describe('products/[productSlug] page', () => {
   });
 
   describe('schema URL consistency', () => {
-    it('uses getProductUrl for both offers and breadcrumb URLs with categorized product', async () => {
+    it('uses getProductUrl for offer and breadcrumb URLs on fallback legacy pages', async () => {
       mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
       mockHeaders.mockReturnValue(makeHeaders({}));
-      mockGetProductUrl.mockReturnValue('/phones/iphone-15');
+      mockGetProductUrl.mockReturnValue('/products/mystery-item');
+      const productSchema = { offers: {} as Record<string, unknown> };
+      mockGenerateProductSchema.mockReturnValue(productSchema);
 
-      // Import and call the page component directly
-      const { default: ProductPage } = await import('./page');
       await ProductPage({
         params: Promise.resolve({
           slug: 'teststore',
@@ -348,31 +388,11 @@ describe('products/[productSlug] page', () => {
 
       // getProductUrl should have been called
       expect(mockGetProductUrl).toHaveBeenCalled();
-
-      // Breadcrumb schema should receive the same product URL
-      expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.objectContaining({
-            url: expect.stringContaining('/phones/iphone-15'),
-          }),
-        ])
-      );
-    });
-
-    it('uses /products/ fallback path when product has no category', async () => {
-      mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
-      mockHeaders.mockReturnValue(makeHeaders({}));
-      mockGetProductUrl.mockReturnValue('/products/mystery-item');
-
-      const { default: ProductPage } = await import('./page');
-      await ProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'mystery-item',
-        }),
-        searchParams: Promise.resolve({}),
+      expect(productSchema.offers).toMatchObject({
+        url: 'https://teststore.usebaci.com/products/mystery-item',
       });
 
+      // Breadcrumb schema should receive the same product URL
       expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
