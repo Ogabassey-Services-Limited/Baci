@@ -310,14 +310,14 @@ export default function MenuScreen() {
           >
             <View style={styles.subCardMain}>
               <View style={styles.subCardIconContainer}>
-                <Ionicons name="ribbon" size={28} color="#FFFFFF" />
+                <Ionicons name="ribbon" size={28} color={colors.textOnPrimary} />
               </View>
               <View style={styles.subCardInfo}>
                 <View style={styles.subCardStatusRow}>
-                  <Text style={styles.subCardTitle}>Baci Pro Merchant</Text>
-                  <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
+                  <Text style={[styles.subCardTitle, { color: colors.textOnPrimary }]}>Baci Pro Merchant</Text>
+                  <Ionicons name="checkmark-circle" size={16} color={colors.textOnPrimary} />
                 </View>
-                <Text style={styles.subCardStatusText}>
+                <Text style={[styles.subCardStatusText, { color: colors.textOnPrimary }]}>
                   Active{expiryDate ? `: Valid till ${expiryDate}` : ''}
                 </Text>
               </View>
@@ -519,12 +519,10 @@ const styles = StyleSheet.create({
   subCardTitle: {
     fontSize: TYPOGRAPHY.size.lg,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-    color: '#FFFFFF',
   },
   subCardStatusText: {
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
-    color: 'rgba(255,255,255,0.8)',
     marginTop: 2,
   },
   freeCardContainer: {
@@ -582,7 +580,6 @@ const styles = StyleSheet.create({
   storeAvatarText: {
     fontSize: TYPOGRAPHY.size.xl,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
-    color: '#FFFFFF',
   },
   storeInfo: {
     flex: 1,
