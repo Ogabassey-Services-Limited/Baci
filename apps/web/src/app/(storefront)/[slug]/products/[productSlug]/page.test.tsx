@@ -199,18 +199,33 @@ describe('products/[productSlug] page', () => {
   it('waits for a request-time connection before redirecting categorized legacy products', async () => {
     mockGetCachedProduct.mockResolvedValue(categorizedProduct);
     mockHeaders.mockReturnValue(makeHeaders({}));
+    let resolveConnection: (() => void) | null = null;
+    const connectionPromise = new Promise<void>((resolve) => {
+      resolveConnection = resolve;
+    });
+    mockConnection.mockImplementation(() => connectionPromise);
 
-    await expect(
-      ProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'iphone-15',
-        }),
-        searchParams: Promise.resolve({}),
-      })
-    ).rejects.toThrow('NEXT_REDIRECT');
+    const pagePromise = ProductPage({
+      params: Promise.resolve({
+        slug: 'teststore',
+        productSlug: 'iphone-15',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+    const settledSpy = vi.fn();
+    pagePromise.then(
+      () => settledSpy('fulfilled'),
+      () => settledSpy('rejected')
+    );
 
+    await Promise.resolve();
     expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(settledSpy).not.toHaveBeenCalled();
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+
+    resolveConnection?.();
+
+    await expect(pagePromise).rejects.toThrow('NEXT_REDIRECT');
     expect(mockPermanentRedirect).toHaveBeenCalledWith(
       '/teststore/phones/iphone-15'
     );
