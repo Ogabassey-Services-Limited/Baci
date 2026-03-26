@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockHeaders = vi.fn();
+const mockConnection = vi.fn(async () => undefined);
 const mockPermanentRedirect = vi.fn((_url: string) => {
   throw new Error('NEXT_REDIRECT');
 });
@@ -16,6 +17,10 @@ const mockGetCachedProductReviews = vi.fn();
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -108,7 +113,7 @@ vi.mock('./product-detail-client', () => ({
   default: () => null,
 }));
 
-import ProductPage, { dynamic, generateMetadata } from './page';
+import ProductPage, { generateMetadata } from './page';
 
 const baseMerchant = {
   id: 'merchant-1',
@@ -191,8 +196,19 @@ describe('products/[productSlug] page', () => {
     mockGetCachedProductReviews.mockResolvedValue([]);
   });
 
-  it('forces dynamic rendering for legacy redirect responses', () => {
-    expect(dynamic).toBe('force-dynamic');
+  it('waits for a request-time connection before rendering the page', async () => {
+    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+    mockHeaders.mockReturnValue(makeHeaders({}));
+
+    await ProductPage({
+      params: Promise.resolve({
+        slug: 'teststore',
+        productSlug: 'mystery-item',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockConnection).toHaveBeenCalledTimes(1);
   });
 
   describe('redirect routing mode', () => {
