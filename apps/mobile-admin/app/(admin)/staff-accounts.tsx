@@ -302,7 +302,7 @@ export default function StaffAccountsScreen() {
           >
             <Text
               style={{
-                color: '#FFF',
+                color: colors.textOnPrimary,
                 fontFamily: TYPOGRAPHY.fontFamily.semiBold,
               }}
             >
@@ -902,9 +902,9 @@ export default function StaffAccountsScreen() {
                   disabled={createAccountMutation.isPending}
                 >
                   {createAccountMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#FFF" />
+                    <ActivityIndicator size="small" color={colors.textOnPrimary} />
                   ) : (
-                    <Text style={[styles.modalButtonText, { color: '#FFF' }]}>
+                    <Text style={[styles.modalButtonText, { color: colors.textOnPrimary }]}>
                       Create
                     </Text>
                   )}
@@ -987,9 +987,9 @@ export default function StaffAccountsScreen() {
                   disabled={createBranchMutation.isPending}
                 >
                   {createBranchMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#FFF" />
+                    <ActivityIndicator size="small" color={colors.textOnPrimary} />
                   ) : (
-                    <Text style={[styles.modalButtonText, { color: '#FFF' }]}>
+                    <Text style={[styles.modalButtonText, { color: colors.textOnPrimary }]}>
                       Create
                     </Text>
                   )}
