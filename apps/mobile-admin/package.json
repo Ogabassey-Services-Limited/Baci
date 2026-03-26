@@ -39,7 +39,7 @@
     "expo-auth-session": "~55.0.6",
     "expo-build-properties": "~55.0.10",
     "expo-camera": "~55.0.9",
-    "expo-clipboard": "^55.0.8",
+    "expo-clipboard": "^55.0.9",
     "expo-constants": "~55.0.9",
     "expo-crypto": "~55.0.8",
     "expo-dev-client": "~55.0.10",
