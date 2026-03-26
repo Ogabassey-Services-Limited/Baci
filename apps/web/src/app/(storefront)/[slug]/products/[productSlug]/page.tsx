@@ -111,6 +111,8 @@ export async function generateMetadata(
     };
   }
 
+  await redirectLegacyProductRouteIfCategorized(slug, product);
+
   // Get cached merchant data (handle custom domains)
   const merchant = slug.includes('.')
     ? await getCachedMerchantByDomain(slug)
@@ -121,8 +123,6 @@ export async function generateMetadata(
         ? { slug, custom_domain: slug }
         : { slug, custom_domain: undefined })
   );
-
-  await redirectLegacyProductRouteIfCategorized(slug, product);
 
   let canonicalUrl = product.canonical_url;
 
