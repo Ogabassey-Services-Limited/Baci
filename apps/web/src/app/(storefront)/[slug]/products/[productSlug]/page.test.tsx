@@ -49,14 +49,17 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 }));
 
 const mockGenerateBreadcrumbSchema = vi.fn((_items: unknown) => ({}));
-const mockGenerateProductSchema = vi.fn(() => ({ offers: {} }));
-const defaultGetProductUrl = (product: {
+const mockGenerateProductSchema = vi.fn((..._args: unknown[]) => ({
+  offers: {} as Record<string, unknown>,
+}));
+type ProductUrlInput = {
   id: string;
   slug?: string;
   category?: string | null;
   categories?: { slug?: string } | null;
   category_slug?: string;
-}) => {
+};
+const defaultGetProductUrl = (product: ProductUrlInput) => {
   const productSlug = product.slug ?? product.id;
   const categorySlug =
     product.categories?.slug ||
@@ -69,7 +72,9 @@ const defaultGetProductUrl = (product: {
     ? `/${categorySlug}/${productSlug}`
     : `/products/${productSlug}`;
 };
-const mockGetProductUrl = vi.fn(defaultGetProductUrl);
+const mockGetProductUrl = vi.fn((product: ProductUrlInput) =>
+  defaultGetProductUrl(product)
+);
 
 vi.mock('@/lib/seo-utils', () => ({
   constructCanonicalUrl: (base: string) => base,
@@ -80,7 +85,7 @@ vi.mock('@/lib/seo-utils', () => ({
   generateProductSchema: (...args: unknown[]) =>
     mockGenerateProductSchema(...args),
   generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
-  getProductUrl: (product: unknown) => mockGetProductUrl(product),
+  getProductUrl: (product: ProductUrlInput) => mockGetProductUrl(product),
 }));
 
 vi.mock('@/lib/store-url', () => ({
