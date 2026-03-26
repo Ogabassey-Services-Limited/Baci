@@ -131,7 +131,7 @@ export default function AdminLayout() {
         />
         <Stack.Screen
           name="sales-channels"
-          options={{ title: 'Sales Channels' }}
+          options={{ title: 'Marketplaces' }}
         />
         <Stack.Screen name="social-media" options={{ title: 'Social Media' }} />
         <Stack.Screen name="subscribe" options={{ title: 'Subscribe' }} />

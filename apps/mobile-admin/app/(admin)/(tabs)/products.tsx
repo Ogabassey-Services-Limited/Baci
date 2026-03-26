@@ -4,14 +4,13 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
-  FlatList,
-  type ListRenderItemInfo,
   Modal,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -30,6 +29,7 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import {
   type Product,
+  type StockFilter,
   type TopSellingProduct,
   useCategories,
   useCreateCategory,
@@ -43,9 +43,10 @@ import {
   getProductStockBucket,
 } from '@/lib/product-inventory';
 
-// Item heights for getItemLayout optimization
-const PRODUCT_ITEM_HEIGHT = 96;
-const CATEGORY_ITEM_HEIGHT = 72;
+// Key extractors at module scope — stable references, no recreation on render
+const productKeyExtractor = (item: { id: string }) => item.id;
+const topSellingKeyExtractor = (item: { id: string }) => item.id;
+const categoryKeyExtractor = (item: { id: string }) => item.id;
 
 // Helper to get currency symbol from merchant's payout_currency
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
@@ -71,22 +72,14 @@ const formatMetric = (value: number) => {
 // Category type
 type Category = { id: string; name: string; slug: string };
 
-// Memoized Product Item component
 interface ProductItemProps {
   item: Product;
-  colors: ReturnType<typeof useTheme>['colors'];
-  shadows: ReturnType<typeof useTheme>['shadows'];
   currencySymbol: string;
   onPress: (id: string) => void;
 }
 
-function ProductItem({
-  item,
-  colors,
-  shadows,
-  currencySymbol,
-  onPress,
-}: ProductItemProps) {
+function ProductItem({ item, currencySymbol, onPress }: ProductItemProps) {
+  const { colors, shadows } = useTheme();
   const getStockStatus = () => {
     const stockBucket = getProductStockBucket(item);
     const stock = getEffectiveProductStock(item);
@@ -173,19 +166,16 @@ function ProductItem({
 // Top Selling Product Item component
 interface TopSellingProductItemProps {
   item: TopSellingProduct;
-  colors: ReturnType<typeof useTheme>['colors'];
-  shadows: ReturnType<typeof useTheme>['shadows'];
   currencySymbol: string;
   onPress: (id: string) => void;
 }
 
 function TopSellingProductItem({
   item,
-  colors,
-  shadows,
   currencySymbol,
   onPress,
 }: TopSellingProductItemProps) {
+  const { colors, shadows } = useTheme();
   const imageUrl = item.images?.[0];
 
   return (
@@ -254,12 +244,11 @@ function TopSellingProductItem({
 // Category Item component
 interface CategoryItemProps {
   item: Category;
-  colors: ReturnType<typeof useTheme>['colors'];
-  shadows: ReturnType<typeof useTheme>['shadows'];
   onPress: (id: string) => void;
 }
 
-function CategoryItem({ item, colors, shadows, onPress }: CategoryItemProps) {
+function CategoryItem({ item, onPress }: CategoryItemProps) {
+  const { colors, shadows } = useTheme();
   return (
     <Pressable
       style={({ pressed }) => [
@@ -291,6 +280,24 @@ export default function ProductsScreen() {
   const { merchant } = useMerchant();
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
 
+  const [activeTab, setActiveTab] = useState<
+    | 'all'
+    | 'in_stock'
+    | 'low_stock'
+    | 'out_of_stock'
+    | 'categories'
+    | 'top_selling'
+  >('in_stock');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Map activeTab to server-side stock filter
+  const stockFilter: StockFilter | undefined =
+    activeTab === 'in_stock' ||
+    activeTab === 'low_stock' ||
+    activeTab === 'out_of_stock'
+      ? activeTab
+      : undefined;
+
   const {
     data,
     isLoading: isProductsLoading,
@@ -298,7 +305,10 @@ export default function ProductsScreen() {
     hasNextPage,
     fetchNextPage,
     refetch: refetchProducts,
-  } = useProducts();
+  } = useProducts({
+    stockFilter,
+    search: searchQuery.trim() || undefined,
+  });
 
   const {
     data: categories,
@@ -313,16 +323,6 @@ export default function ProductsScreen() {
   } = useTopSellingProducts(20);
   const { data: inventoryStats, isLoading: isStatsLoading } =
     useInventoryStats();
-
-  const [activeTab, setActiveTab] = useState<
-    | 'all'
-    | 'in_stock'
-    | 'low_stock'
-    | 'out_of_stock'
-    | 'categories'
-    | 'top_selling'
-  >('in_stock');
-  const [searchQuery, setSearchQuery] = useState('');
 
   // Category Creation State
   const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
@@ -372,41 +372,15 @@ export default function ProductsScreen() {
     lastScrollY.current = currentScrollY;
   };
 
-  // Flatten pages into single array
-  const products = data?.pages.flatMap((page) => page.products) ?? [];
-
-  // Filter products based on active tab and search query
-  const displayData = (() => {
-    let filtered = products;
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter((p) => p.name.toLowerCase().includes(q));
-    }
-
-    switch (activeTab) {
-      case 'in_stock':
-        return filtered.filter((product) => {
-          const stockBucket = getProductStockBucket(product);
-          return stockBucket === 'in_stock' || stockBucket === 'unmanaged';
-        });
-      case 'low_stock':
-        return filtered.filter(
-          (product) => getProductStockBucket(product) === 'low_stock'
-        );
-      case 'out_of_stock':
-        return filtered.filter(
-          (product) => getProductStockBucket(product) === 'out_of_stock'
-        );
-      default:
-        return filtered;
-    }
-  })();
+  // Server-side filtering handles stock + search — just flatten pages
+  const displayData = data?.pages.flatMap((page) => page.products) ?? [];
 
   // Calculate stats
   const stats = {
     total:
-      inventoryStats?.totalProducts ?? data?.pages[0]?.totalCount ?? products.length,
+      inventoryStats?.totalProducts ??
+      data?.pages[0]?.totalCount ??
+      displayData.length,
     active: inventoryStats?.activeCount ?? 0,
     lowStock: inventoryStats?.lowStockCount ?? 0,
     outOfStock: inventoryStats?.outOfStockCount ?? 0,
@@ -434,8 +408,6 @@ export default function ProductsScreen() {
   const renderProduct = ({ item }: ListRenderItemInfo<Product>) => (
     <ProductItem
       item={item}
-      colors={colors}
-      shadows={shadows}
       currencySymbol={currencySymbol}
       onPress={handleProductPress}
     />
@@ -446,53 +418,14 @@ export default function ProductsScreen() {
   }: ListRenderItemInfo<TopSellingProduct>) => (
     <TopSellingProductItem
       item={item}
-      colors={colors}
-      shadows={shadows}
       currencySymbol={currencySymbol}
       onPress={handleProductPress}
     />
   );
 
   const renderCategory = ({ item }: ListRenderItemInfo<Category>) => (
-    <CategoryItem
-      item={item}
-      colors={colors}
-      shadows={shadows}
-      onPress={handleCategoryPress}
-    />
+    <CategoryItem item={item} onPress={handleCategoryPress} />
   );
-
-  const productKeyExtractor = (item: Product) => item.id;
-  const topSellingKeyExtractor = (item: TopSellingProduct) => item.id;
-  const categoryKeyExtractor = (item: Category) => item.id;
-
-  // getItemLayout for consistent item heights
-  const getProductItemLayout = (
-    _data: ArrayLike<Product> | null | undefined,
-    index: number
-  ) => ({
-    length: PRODUCT_ITEM_HEIGHT,
-    offset: PRODUCT_ITEM_HEIGHT * index,
-    index,
-  });
-
-  const getTopSellingItemLayout = (
-    _data: ArrayLike<TopSellingProduct> | null | undefined,
-    index: number
-  ) => ({
-    length: PRODUCT_ITEM_HEIGHT,
-    offset: PRODUCT_ITEM_HEIGHT * index,
-    index,
-  });
-
-  const getCategoryItemLayout = (
-    _data: ArrayLike<Category> | null | undefined,
-    index: number
-  ) => ({
-    length: CATEGORY_ITEM_HEIGHT,
-    offset: CATEGORY_ITEM_HEIGHT * index,
-    index,
-  });
 
   // Interactive Stat Card Component
   const StatCard = ({
@@ -708,7 +641,7 @@ export default function ProductsScreen() {
             autoCapitalize="none"
             autoCorrect={false}
           />
-          {searchQuery.length > 0 && (
+          {searchQuery.length > 0 ? (
             <Pressable
               onPress={() => setSearchQuery('')}
               accessibilityLabel="Clear search"
@@ -727,7 +660,7 @@ export default function ProductsScreen() {
                 color={colors.textMuted}
               />
             </Pressable>
-          )}
+          ) : null}
         </View>
       </Animated.View>
 
@@ -774,15 +707,11 @@ export default function ProductsScreen() {
       </View>
 
       {activeTab === 'categories' ? (
-        <FlatList
+        <FlashList
           data={categories}
           renderItem={renderCategory}
           keyExtractor={categoryKeyExtractor}
-          getItemLayout={getCategoryItemLayout}
           contentContainerStyle={[styles.listContent, { paddingBottom: 100 }]}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          windowSize={5}
           refreshControl={
             <RefreshControl
               refreshing={isCategoriesLoading}
@@ -826,15 +755,11 @@ export default function ProductsScreen() {
           scrollEventThrottle={16}
         />
       ) : activeTab === 'top_selling' ? (
-        <FlatList
+        <FlashList
           data={topSellingProducts}
           renderItem={renderTopSellingProduct}
           keyExtractor={topSellingKeyExtractor}
-          getItemLayout={getTopSellingItemLayout}
           contentContainerStyle={[styles.listContent, { paddingBottom: 100 }]}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          windowSize={5}
           refreshControl={
             <RefreshControl
               refreshing={isTopSellingLoading}
@@ -872,15 +797,11 @@ export default function ProductsScreen() {
           scrollEventThrottle={16}
         />
       ) : (
-        <FlatList
+        <FlashList
           data={displayData}
           renderItem={renderProduct}
           keyExtractor={productKeyExtractor}
-          getItemLayout={getProductItemLayout}
           contentContainerStyle={[styles.listContent, { paddingBottom: 100 }]}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          windowSize={5}
           refreshControl={
             <RefreshControl
               refreshing={isProductsLoading}

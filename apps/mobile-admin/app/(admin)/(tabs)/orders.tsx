@@ -44,15 +44,12 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useOrderCounts } from '@/hooks/useOrderCounts';
 import { type Order, useOrders, useUpdateOrderStatus } from '@/hooks/useOrders';
 import { useTheme } from '@/hooks/useTheme';
+import { getOrdersViewState } from '@/lib/orders-view-state';
 import {
   groupOrdersByRelativeDate,
   type OrderSection,
 } from '@/utils/date-utils';
 import { exportOrdersRPC } from '@/utils/export-orders';
-import { getOrdersViewState } from './orders-view-state';
-
-// Item height for getItemLayout optimization
-const _ORDER_ITEM_HEIGHT = 120;
 
 // Helper functions moved outside component
 const formatPrice = (amount: number, currency: string = 'NGN') => {
@@ -71,11 +68,9 @@ const formatTime = (dateString: string) => {
   });
 };
 
-// Memoized Order Item component
+// Order Item component — calls useTheme() internally per 2026 best practices
 interface OrderItemProps {
   item: Order;
-  colors: ReturnType<typeof useTheme>['colors'];
-  shadows: ReturnType<typeof useTheme>['shadows'];
   currency: string;
   onPress: (id: string) => void;
   onStatusPress: (
@@ -112,8 +107,6 @@ interface OrderItemProps {
 
 function OrderItem({
   item,
-  colors,
-  shadows,
   currency,
   onPress,
   onStatusPress,
@@ -121,6 +114,7 @@ function OrderItem({
   getPaymentStatusConfig,
   getSourceConfig,
 }: OrderItemProps) {
+  const { colors, shadows } = useTheme();
   const shippingConfig = getShippingStatusConfig(
     item.shipping_status as ShippingStatus
   );
@@ -672,8 +666,6 @@ export default function OrdersScreen() {
   }: SectionListRenderItemInfo<Order, OrderSection>) => (
     <OrderItem
       item={item}
-      colors={colors}
-      shadows={shadows}
       currency={merchantCurrency}
       onPress={handleOrderPress}
       onStatusPress={openStatusDropdown}
@@ -819,7 +811,7 @@ export default function OrdersScreen() {
             autoCapitalize="none"
             autoCorrect={false}
           />
-          {searchQuery.length > 0 && (
+          {searchQuery.length > 0 ? (
             <Pressable
               onPress={() => setSearchQuery('')}
               accessibilityLabel="Clear search"
@@ -838,7 +830,7 @@ export default function OrdersScreen() {
                 color={colors.textMuted}
               />
             </Pressable>
-          )}
+          ) : null}
         </View>
       </Animated.View>
 
@@ -871,7 +863,7 @@ export default function OrdersScreen() {
       ) : null}
 
       {/* Insight Card */}
-      {showInsight && pendingCount > 0 && (
+      {showInsight && pendingCount > 0 ? (
         <View
           style={[
             styles.insightCard,
@@ -941,7 +933,7 @@ export default function OrdersScreen() {
             <Ionicons name="arrow-forward" size={14} color={colors.gold} />
           </Pressable>
         </View>
-      )}
+      ) : null}
 
       {/* Filter Tabs - aligned with web app shipping statuses */}
       <View>
@@ -1115,7 +1107,7 @@ export default function OrdersScreen() {
       />
 
       {/* Status Dropdown */}
-      {showStatusDropdown && selectedOrder && (
+      {showStatusDropdown && selectedOrder ? (
         <>
           <Pressable
             style={styles.dropdownBackdrop}
@@ -1167,9 +1159,9 @@ export default function OrdersScreen() {
                   >
                     {action.label}
                   </Text>
-                  {updateStatus.isPending && (
+                  {updateStatus.isPending ? (
                     <ActivityIndicator size="small" color={action.color} />
-                  )}
+                  ) : null}
                 </Pressable>
               ))
             ) : (
@@ -1183,7 +1175,7 @@ export default function OrdersScreen() {
             )}
           </View>
         </>
-      )}
+      ) : null}
     </SafeAreaView>
   );
 }

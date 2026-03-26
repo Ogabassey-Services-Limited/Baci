@@ -134,7 +134,10 @@ export function JumiaProductOverrides({
   if (loading) {
     return (
       <ThemedCard className="animate-pulse">
-        <CardContent className="flex items-center justify-center p-12">
+        <CardContent
+          className="flex items-center justify-center p-12"
+          role="status"
+        >
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </CardContent>
       </ThemedCard>
@@ -152,7 +155,7 @@ export function JumiaProductOverrides({
           <div className="flex items-center gap-2">
             <div className="relative h-6 w-6 overflow-hidden rounded">
               <Image
-                src="/images/jumia-logo.png"
+                src="/jumia-logo.png"
                 alt="Jumia"
                 fill
                 className="object-cover"

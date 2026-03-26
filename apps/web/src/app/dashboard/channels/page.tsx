@@ -4,7 +4,7 @@ import { asRoute } from '@/lib/routes';
 import ChannelsClientPage from './client-page';
 
 export const metadata = {
-  title: 'Sales Channels | Baci',
+  title: 'Marketplaces | Baci',
   description: 'Connect marketplaces to sell on multiple platforms from Baci.',
 };
 

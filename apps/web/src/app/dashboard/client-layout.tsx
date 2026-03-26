@@ -401,7 +401,7 @@ export default function DashboardClientLayout({
     {
       href: '/dashboard/channels' as Route,
       icon: Store,
-      label: 'Sales Channels',
+      label: 'Marketplaces',
     },
     {
       href: '/dashboard/integrations' as Route,
@@ -451,7 +451,7 @@ export default function DashboardClientLayout({
       Blog: 'marketing', // Blog is usually under marketing, or its own 'blog'
       Templates: 'builder',
       'Customize Website': 'builder',
-      'Sales Channels': 'integrations',
+      Marketplaces: 'integrations',
       Integrations: 'integrations',
       Settings: 'settings',
     };

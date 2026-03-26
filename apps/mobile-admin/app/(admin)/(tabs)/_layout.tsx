@@ -7,7 +7,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
-import { RADIUS } from '@/constants/theme';
 import { useFailedOrders } from '@/hooks/useFailedOrders';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -148,8 +147,11 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   activeIcon: {
-    borderRadius: RADIUS.md,
-    padding: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: -4,
   },
 });
