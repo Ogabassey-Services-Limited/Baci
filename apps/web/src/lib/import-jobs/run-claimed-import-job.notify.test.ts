@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { buildImportPreviewForJobMock, sendImportNotificationCampaignMock } =
   vi.hoisted(() => ({
@@ -54,6 +54,10 @@ function createJob(status: 'validating' | 'notifying') {
 describe('runClaimedImportJob notification and failure flows', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('sends merchant notifications and completes notifying jobs', async () => {

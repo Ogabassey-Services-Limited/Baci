@@ -1,5 +1,10 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type {
+  ImportJobDetail,
+  ImportJobListItem,
+  ImportJobRowsResponse,
+} from '@/app/dashboard/migrations/migration-types';
 import { useMigrationJobs } from '@/app/dashboard/migrations/use-migration-jobs';
 
 function createJsonResponse(body: unknown): Response {
@@ -9,6 +14,67 @@ function createJsonResponse(body: unknown): Response {
     headers: new Headers({ 'content-type': 'application/json' }),
     json: async () => body,
   } as Response;
+}
+
+function createJob(
+  id: string,
+  status: ImportJobListItem['status'],
+  overrides: Partial<ImportJobListItem> = {}
+): ImportJobListItem {
+  return {
+    id,
+    entity_type: 'orders',
+    source_platform: 'bumpa',
+    status,
+    original_filename: `${id}.csv`,
+    processed_rows: 0,
+    total_rows: 0,
+    summary: null,
+    error: null,
+    created_at: '2026-03-22T10:00:00.000Z',
+    committed_at: null,
+    notified_at: null,
+    ...overrides,
+  };
+}
+
+function createJobDetail(
+  id: string,
+  status: ImportJobDetail['status'],
+  overrides: Partial<ImportJobDetail> = {}
+): ImportJobDetail {
+  return {
+    ...createJob(id, status, overrides),
+    canCommit: false,
+    canNotify: false,
+    ...overrides,
+  };
+}
+
+function createRowsResponse(rowId: string, total = 1): ImportJobRowsResponse {
+  return {
+    rows: [
+      {
+        id: rowId,
+        meta: {},
+        normalized_payload: null,
+        row_number: 1,
+        row_status: 'create',
+        source_external_id: null,
+        validation_errors: [],
+      },
+    ],
+    pagination: { page: 1, pageSize: 25, total },
+  };
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+
+  return { promise, resolve };
 }
 
 describe('useMigrationJobs', () => {
@@ -100,5 +166,176 @@ describe('useMigrationJobs', () => {
         { cache: 'no-store' }
       );
     });
+  });
+
+  it('does not overwrite the selected job when an older refresh resolves late', async () => {
+    const initialRows = createRowsResponse('row-a');
+    const staleDetailResponse = createDeferred<Response>();
+    const staleRowsResponse = createDeferred<Response>();
+    let jobARowsCalls = 0;
+
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = String(input);
+
+      if (url === '/api/import-jobs/job-a/rows?filter=all&page=1&pageSize=25') {
+        jobARowsCalls += 1;
+        return jobARowsCalls === 1
+          ? Promise.resolve(createJsonResponse(initialRows))
+          : staleRowsResponse.promise;
+      }
+
+      if (url === '/api/import-jobs/job-a') {
+        return staleDetailResponse.promise;
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const { result } = renderHook(() =>
+      useMigrationJobs({
+        initialJobs: [
+          createJob('job-a', 'preview_ready', {
+            processed_rows: 1,
+            total_rows: 1,
+          }),
+          createJob('job-b', 'uploaded'),
+        ],
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.rowsResponse?.rows[0]?.id).toBe('row-a');
+    });
+
+    let refreshPromise: Promise<boolean> | undefined;
+    act(() => {
+      refreshPromise = result.current.refreshJob('job-a');
+      result.current.setSelectedJobId('job-b');
+    });
+
+    await waitFor(() => {
+      expect(result.current.selectedJobId).toBe('job-b');
+      expect(result.current.selectedJob?.id).toBe('job-b');
+      expect(result.current.rowsResponse).toBeNull();
+    });
+
+    staleDetailResponse.resolve(
+      createJsonResponse({
+        job: createJobDetail('job-a', 'preview_ready', {
+          processed_rows: 2,
+          total_rows: 2,
+        }),
+      })
+    );
+    staleRowsResponse.resolve(
+      createJsonResponse(createRowsResponse('row-stale'))
+    );
+
+    await act(async () => {
+      await refreshPromise;
+    });
+
+    expect(result.current.selectedJobId).toBe('job-b');
+    expect(result.current.selectedJob?.id).toBe('job-b');
+    expect(result.current.rowsResponse).toBeNull();
+  });
+
+  it('clears foreground loading when a background refresh supersedes it', async () => {
+    const detailResponse = createDeferred<Response>();
+
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = String(input);
+
+      if (url === '/api/import-jobs/job-c') {
+        return detailResponse.promise;
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const { result } = renderHook(() =>
+      useMigrationJobs({
+        initialJobs: [],
+      })
+    );
+
+    act(() => {
+      void result.current.refreshJob('job-c', {
+        includeRows: false,
+      });
+    });
+
+    expect(result.current.loading).toBe(true);
+
+    await act(async () => {
+      await result.current.refreshJob('job-c', {
+        background: true,
+        includeJob: false,
+        includeRows: false,
+      });
+    });
+
+    detailResponse.resolve(
+      createJsonResponse({
+        job: createJobDetail('job-c', 'uploaded'),
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+  });
+
+  it('keeps the new job filter state when an old filter request finishes late', async () => {
+    const initialRows = createRowsResponse('row-a');
+    const filteredRowsResponse = createDeferred<Response>();
+
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = String(input);
+
+      if (url === '/api/import-jobs/job-a/rows?filter=all&page=1&pageSize=25') {
+        return Promise.resolve(createJsonResponse(initialRows));
+      }
+
+      if (
+        url ===
+        '/api/import-jobs/job-a/rows?filter=needs_fix&page=1&pageSize=25'
+      ) {
+        return filteredRowsResponse.promise;
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const { result } = renderHook(() =>
+      useMigrationJobs({
+        initialJobs: [
+          createJob('job-a', 'preview_ready'),
+          createJob('job-b', 'uploaded'),
+        ],
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.rowsResponse?.rows[0]?.id).toBe('row-a');
+    });
+
+    let filterPromise: Promise<void> | undefined;
+    act(() => {
+      filterPromise = result.current.handleFilterChange('needs_fix');
+      result.current.setSelectedJobId('job-b');
+    });
+
+    filteredRowsResponse.resolve(
+      createJsonResponse(createRowsResponse('row-needs-fix'))
+    );
+
+    await act(async () => {
+      await filterPromise;
+    });
+
+    expect(result.current.selectedJobId).toBe('job-b');
+    expect(result.current.activeFilter).toBe('all');
+    expect(result.current.rowsResponse).toBeNull();
   });
 });

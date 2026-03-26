@@ -32,16 +32,18 @@ export function useMigrationJobPolling({
   selectedJob,
   selectedJobId,
 }: UseMigrationJobPollingInput) {
+  const selectedJobStatus = selectedJob?.status;
+
   useEffect(() => {
     if (
       !selectedJobId ||
-      !selectedJob ||
-      !isMigrationStatusActive(selectedJob.status)
+      !selectedJobStatus ||
+      !isMigrationStatusActive(selectedJobStatus)
     ) {
       return;
     }
 
-    const pollDelay = selectedJob.status === 'validating' ? 1000 : 2500;
+    const pollDelay = selectedJobStatus === 'validating' ? 1000 : 2500;
     let cancelled = false;
     let timeoutId: number | undefined;
 
@@ -69,7 +71,7 @@ export function useMigrationJobPolling({
     activeFilter,
     refreshJob,
     rowsResponse?.pagination.page,
-    selectedJob,
+    selectedJobStatus,
     selectedJobId,
   ]);
 }

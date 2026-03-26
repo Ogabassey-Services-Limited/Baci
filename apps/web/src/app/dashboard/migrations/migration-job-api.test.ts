@@ -4,8 +4,14 @@ import {
   createImportJob,
   fetchImportJob,
   fetchImportJobRows,
+  mergeJobs,
   postImportJobAction,
 } from '@/app/dashboard/migrations/migration-job-api';
+import type {
+  ImportJobDetail,
+  ImportJobListItem,
+  ImportJobRowsResponse,
+} from '@/app/dashboard/migrations/migration-types';
 
 vi.mock('@/lib/csrf', () => ({
   buildCsrfHeaders: vi.fn(() => ({ 'x-csrf-token': 'token' })),
@@ -36,6 +42,62 @@ describe('migration-job-api', () => {
     );
   });
 
+  it('prepends new jobs and replaces existing job entries', () => {
+    const olderJob = {
+      id: 'job-1',
+      entity_type: 'orders',
+      source_platform: 'bumpa',
+      status: 'uploaded',
+      original_filename: 'orders.csv',
+      processed_rows: 0,
+      total_rows: 0,
+      summary: null,
+      error: null,
+      created_at: '2026-03-22T10:00:00.000Z',
+      committed_at: null,
+      notified_at: null,
+    } satisfies ImportJobListItem;
+    const newerJob = {
+      ...olderJob,
+      status: 'preview_ready',
+      processed_rows: 5,
+      total_rows: 5,
+    } satisfies ImportJobListItem;
+    const anotherJob = {
+      ...olderJob,
+      id: 'job-2',
+    } satisfies ImportJobListItem;
+
+    expect(mergeJobs([olderJob, anotherJob], newerJob)).toEqual([
+      newerJob,
+      anotherJob,
+    ]);
+    expect(mergeJobs([anotherJob], newerJob)).toEqual([newerJob, anotherJob]);
+  });
+
+  it('parses payload.job when loading a job succeeds', async () => {
+    const job = {
+      id: 'job-1',
+      entity_type: 'orders',
+      source_platform: 'bumpa',
+      status: 'preview_ready',
+      original_filename: 'orders.csv',
+      processed_rows: 10,
+      total_rows: 10,
+      summary: null,
+      error: null,
+      created_at: '2026-03-22T10:00:00.000Z',
+      committed_at: null,
+      notified_at: null,
+      canCommit: true,
+      canNotify: false,
+    } satisfies ImportJobDetail;
+
+    vi.mocked(fetch).mockResolvedValueOnce(createJsonResponse({ job }));
+
+    await expect(fetchImportJob('job-1')).resolves.toEqual(job);
+  });
+
   it('throws when loading a job fails', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       createJsonResponse({ error: 'Failed to load import job' }, false)
@@ -43,6 +105,29 @@ describe('migration-job-api', () => {
 
     await expect(fetchImportJob('job-1')).rejects.toThrow(
       'Failed to load import job'
+    );
+  });
+
+  it('parses rows payload when loading rows succeeds', async () => {
+    const rowsPayload = {
+      rows: [
+        {
+          id: 'row-1',
+          meta: {},
+          normalized_payload: null,
+          row_number: 1,
+          row_status: 'create',
+          source_external_id: 'src-1',
+          validation_errors: [],
+        },
+      ],
+      pagination: { page: 1, pageSize: 25, total: 1 },
+    } satisfies ImportJobRowsResponse;
+
+    vi.mocked(fetch).mockResolvedValueOnce(createJsonResponse(rowsPayload));
+
+    await expect(fetchImportJobRows('job-1', 1, 'all')).resolves.toEqual(
+      rowsPayload
     );
   });
 
@@ -84,5 +169,26 @@ describe('migration-job-api', () => {
         headers: { 'x-csrf-token': 'token' },
       })
     );
+  });
+
+  it('throws when upload creation fails', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      createJsonResponse({ error: 'Upload failed' }, false)
+    );
+
+    const formData = new FormData();
+    formData.set('file', new Blob(['id\n1']), 'orders.csv');
+
+    await expect(createImportJob(formData)).rejects.toThrow('Upload failed');
+  });
+
+  it('throws when queueing a job action fails', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      createJsonResponse({ error: 'Queue failed' }, false)
+    );
+
+    await expect(
+      postImportJobAction('/api/import-jobs/job-1/commit')
+    ).rejects.toThrow('Queue failed');
   });
 });
