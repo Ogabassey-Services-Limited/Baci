@@ -13,6 +13,10 @@ vi.mock('@/lib/import-notifications/send-import-notification-campaign', () => ({
   sendImportNotificationCampaign: vi.fn(),
 }));
 
+vi.mock('@/lib/logger', () => ({
+  logger: { error: vi.fn() },
+}));
+
 vi.mock('./import-job-service', async () => {
   const actual = await vi.importActual<typeof import('./import-job-service')>(
     './import-job-service'
@@ -26,6 +30,7 @@ vi.mock('./import-job-service', async () => {
 });
 
 import { sendImportNotificationCampaign } from '@/lib/import-notifications/send-import-notification-campaign';
+import { logger } from '@/lib/logger';
 import {
   buildImportJobRowInserts,
   buildImportPreviewForJob,
@@ -225,6 +230,120 @@ describe('runClaimedImportJob validation and notification', () => {
       processed_rows: 1,
       total_rows: 2,
     });
+    expect(updateQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'preview_ready',
+        processed_rows: 2,
+        total_rows: 2,
+      })
+    );
+  });
+
+  it('logs and continues when a progress update fails', async () => {
+    vi.mocked(buildImportPreviewForJob).mockImplementation(
+      async (_supabase, _job, onProgress) => {
+        await onProgress?.({ processedRows: 1, totalRows: 2 });
+
+        return {
+          sourceRows: [{ id: 'order-1' }, { id: 'order-2' }],
+          rows: [
+            {
+              rowNumber: 2,
+              sourceExternalId: 'order-1',
+              rowStatus: 'create',
+              errors: [],
+              payload: null,
+              meta: {},
+            },
+            {
+              rowNumber: 3,
+              sourceExternalId: 'order-2',
+              rowStatus: 'create',
+              errors: [],
+              payload: null,
+              meta: {},
+            },
+          ],
+          summary: { validRows: 2 },
+          totalRows: 2,
+        } as never;
+      }
+    );
+    vi.mocked(buildImportJobRowInserts).mockReturnValue([
+      {
+        import_job_id: 'validating-job',
+        merchant_id: 'merchant-1',
+        row_number: 2,
+        source_external_id: 'order-1',
+        row_status: 'create',
+        source_payload: { id: 'order-1' },
+        normalized_payload: null,
+        validation_errors: [],
+        meta: {},
+      },
+      {
+        import_job_id: 'validating-job',
+        merchant_id: 'merchant-1',
+        row_number: 3,
+        source_external_id: 'order-2',
+        row_status: 'create',
+        source_payload: { id: 'order-2' },
+        normalized_payload: null,
+        validation_errors: [],
+        meta: {},
+      },
+    ]);
+
+    const deleteQuery = {
+      delete: vi.fn(),
+      eq: vi.fn(),
+    };
+    deleteQuery.delete.mockReturnValue(deleteQuery);
+    deleteQuery.eq.mockResolvedValue({ error: null });
+
+    const insertQuery = {
+      insert: vi.fn(),
+    };
+    insertQuery.insert.mockResolvedValue({ error: null });
+
+    const updateQuery = {
+      update: vi.fn(),
+      eq: vi.fn(),
+    };
+    updateQuery.update.mockReturnValue(updateQuery);
+    updateQuery.eq
+      .mockResolvedValueOnce({
+        error: { message: 'boom-progress' },
+      })
+      .mockResolvedValueOnce({ error: null });
+
+    let importJobRowsCallCount = 0;
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'import_job_rows') {
+          importJobRowsCallCount += 1;
+          return importJobRowsCallCount === 1 ? deleteQuery : insertQuery;
+        }
+
+        return updateQuery;
+      }),
+    } as unknown as SupabaseClient;
+
+    const result = await runClaimedImportJob(supabase, createJob('validating'));
+
+    expect(result).toEqual({
+      id: 'validating-job',
+      status: 'preview_ready',
+      processed: 2,
+    });
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Failed to update import preview progress',
+        jobId: 'validating-job',
+        processedRows: 1,
+        totalRows: 2,
+      })
+    );
     expect(updateQuery.update).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'preview_ready',

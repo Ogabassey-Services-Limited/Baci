@@ -128,9 +128,14 @@ async function processValidatingJob(
         .eq('id', job.id);
 
       if (progressError) {
-        throw new Error(
-          `Failed to update import preview progress: ${progressError.message}`
-        );
+        logger.error({
+          message: 'Failed to update import preview progress',
+          jobId: job.id,
+          error: progressError,
+          processedRows,
+          totalRows,
+        });
+        return;
       }
 
       lastPersistedProcessedRows = processedRows;
