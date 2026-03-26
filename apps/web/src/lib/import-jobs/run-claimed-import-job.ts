@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { commitBumpaOrders } from '@/lib/import-commit/commit-bumpa-orders';
 import { commitBumpaProducts } from '@/lib/import-commit/commit-bumpa-products';
+import { createPreviewProgressReporter } from '@/lib/import-jobs/create-preview-progress-reporter';
 import {
   buildImportJobRowInserts,
   buildImportPreviewForJob,
@@ -85,62 +86,15 @@ async function processValidatingJob(
   supabase: SupabaseClient,
   job: ImportJobRecord
 ) {
-  const progressRowUpdateStep = 25;
-  const progressMinUpdateMs = 1000;
-  let lastProcessedRows = -1;
-  let lastTotalRows = -1;
-  let lastPersistedProcessedRows = -1;
-  let lastProgressUpdateAt = 0;
+  const reportPreviewProgress = createPreviewProgressReporter(
+    supabase,
+    job,
+    logger
+  );
   const preview = await buildImportPreviewForJob(
     supabase,
     job,
-    async ({ processedRows, totalRows }) => {
-      if (processedRows === lastProcessedRows && totalRows === lastTotalRows) {
-        return;
-      }
-
-      lastProcessedRows = processedRows;
-      lastTotalRows = totalRows;
-
-      const now = Date.now();
-      const isFinalUpdate = processedRows >= totalRows;
-      const isEarlyProgress = processedRows <= 5;
-      const advancedEnough =
-        processedRows - lastPersistedProcessedRows >= progressRowUpdateStep;
-      const timeWindowElapsed =
-        now - lastProgressUpdateAt >= progressMinUpdateMs;
-
-      if (
-        !isFinalUpdate &&
-        !isEarlyProgress &&
-        !advancedEnough &&
-        !timeWindowElapsed
-      ) {
-        return;
-      }
-
-      const { error: progressError } = await supabase
-        .from('import_jobs')
-        .update({
-          processed_rows: processedRows,
-          total_rows: totalRows,
-        })
-        .eq('id', job.id);
-
-      if (progressError) {
-        logger.error({
-          message: 'Failed to update import preview progress',
-          jobId: job.id,
-          error: progressError,
-          processedRows,
-          totalRows,
-        });
-        return;
-      }
-
-      lastPersistedProcessedRows = processedRows;
-      lastProgressUpdateAt = now;
-    }
+    reportPreviewProgress
   );
   const insertRows = buildImportJobRowInserts(
     job.id,
