@@ -108,7 +108,7 @@ vi.mock('./product-detail-client', () => ({
   default: () => null,
 }));
 
-import ProductPage, { generateMetadata } from './page';
+import ProductPage, { dynamic, generateMetadata } from './page';
 
 const baseMerchant = {
   id: 'merchant-1',
@@ -189,6 +189,10 @@ describe('products/[productSlug] page', () => {
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductRatingStats.mockResolvedValue(null);
     mockGetCachedProductReviews.mockResolvedValue([]);
+  });
+
+  it('forces dynamic rendering for legacy redirect responses', () => {
+    expect(dynamic).toBe('force-dynamic');
   });
 
   describe('redirect routing mode', () => {
