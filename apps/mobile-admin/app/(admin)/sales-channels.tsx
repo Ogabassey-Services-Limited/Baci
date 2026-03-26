@@ -33,34 +33,37 @@ export default function SalesChannelsScreen() {
   const router = useRouter();
   const [isConnected, setIsConnected] = useState(false);
   const [statusLoading, setStatusLoading] = useState(true);
+  const [statusError, setStatusError] = useState(false);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const checkConnectionStatus = async () => {
       try {
-        const timeoutId = setTimeout(
-          () => controller.abort(),
-          STATUS_TIMEOUT_MS
-        );
+        timeoutId = setTimeout(() => controller.abort(), STATUS_TIMEOUT_MS);
         const response = await fetch(
           `${WEB_APP_URL}/api/marketplace/jumia/status`,
           { signal: controller.signal }
         );
-        clearTimeout(timeoutId);
         if (response.ok) {
           const { connected } = await response.json();
           setIsConnected(connected);
+          setStatusError(false);
         }
       } catch {
-        // Timeout or network error — default to disconnected
+        setStatusError(true);
       } finally {
+        if (timeoutId !== undefined) clearTimeout(timeoutId);
         setStatusLoading(false);
       }
     };
 
     checkConnectionStatus();
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    };
   }, []);
 
   const handleConnectJumia = async () => {
@@ -178,11 +181,19 @@ export default function SalesChannelsScreen() {
                     style={[
                       styles.badgeText,
                       {
-                        color: isConnected ? colors.success : colors.textMuted,
+                        color: statusError
+                          ? colors.warning
+                          : isConnected
+                            ? colors.success
+                            : colors.textMuted,
                       },
                     ]}
                   >
-                    {isConnected ? 'Active' : 'Inactive'}
+                    {statusError
+                      ? 'Unavailable'
+                      : isConnected
+                        ? 'Active'
+                        : 'Inactive'}
                   </Text>
                 )}
               </View>

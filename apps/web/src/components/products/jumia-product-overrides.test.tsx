@@ -3,6 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { JumiaProductOverrides } from './jumia-product-overrides';
 
+const savedFetch = global.fetch;
+
+afterEach(() => {
+  global.fetch = savedFetch;
+});
+
 // --- Mocks ---
 
 const toastMock = vi.fn();
@@ -50,9 +56,13 @@ vi.mock('@/components/themed/themed-card', () => ({
 }));
 
 vi.mock('@/components/ui/card', () => ({
-  CardContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  CardContent: ({
+    children,
+    role,
+  }: {
+    children: React.ReactNode;
+    role?: string;
+  }) => <div role={role}>{children}</div>,
   CardDescription: ({ children }: { children: React.ReactNode }) => (
     <p>{children}</p>
   ),
@@ -76,16 +86,17 @@ vi.mock('@/components/ui/switch', () => ({
   ),
 }));
 
+// Mock response — includes API-returned columns plus fields the component
+// reads via optional chaining for the overrides form.
 const MAPPING_RESPONSE = {
   mapping: {
     id: 'map-1',
-    merchant_id: 'merch-1',
     product_id: 'prod-1',
-    variant_id: null,
     jumia_sku: 'JM-SKU-999',
-    jumia_seller_sku: null,
-    jumia_product_id: 'jp-1',
-    jumia_shop_id: 'shop-1',
+    jumia_product_url: 'https://jumia.com/p/123',
+    sync_status: 'synced' as const,
+    last_synced_at: null,
+    created_at: '2025-01-01T00:00:00Z',
     jumia_price: 5000,
     jumia_sale_price: null,
     jumia_sale_start: null,
@@ -93,11 +104,6 @@ const MAPPING_RESPONSE = {
     is_active: true,
     sync_inventory: true,
     sync_price: false,
-    sync_status: 'synced' as const,
-    last_synced_at: null,
-    sync_error: null,
-    created_at: '2025-01-01T00:00:00Z',
-    updated_at: '2025-01-01T00:00:00Z',
   },
 };
 
@@ -123,10 +129,10 @@ describe('JumiaProductOverrides', () => {
     );
 
     // Act
-    const { container } = render(<JumiaProductOverrides {...defaultProps} />);
+    render(<JumiaProductOverrides {...defaultProps} />);
 
     // Assert
-    expect(container.querySelector('.animate-spin')).toBeTruthy();
+    expect(screen.getByRole('status')).toBeInTheDocument();
   });
 
   it('returns null when no mapping exists', async () => {
