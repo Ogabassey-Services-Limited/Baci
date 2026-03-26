@@ -25,7 +25,7 @@ interface MigrationJobSummaryProps {
   acting: boolean;
   error: string | null;
   loading: boolean;
-  onFilterChange: (filter: MigrationPreviewFilter) => void;
+  onFilterChange: (filter: MigrationPreviewFilter) => void | Promise<void>;
   onCommit: () => Promise<void>;
   onNotify: () => Promise<void>;
   onRefresh: () => Promise<void>;
