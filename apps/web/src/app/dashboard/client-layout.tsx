@@ -399,6 +399,11 @@ export default function DashboardClientLayout({
       href: '/builder' as Route,
     },
     {
+      href: '/dashboard/channels' as Route,
+      icon: Store,
+      label: 'Sales Channels',
+    },
+    {
       href: '/dashboard/integrations' as Route,
       icon: Plug,
       label: 'Integrations',

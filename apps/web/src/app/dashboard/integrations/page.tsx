@@ -1,5 +1,4 @@
 import { ArrowRight, ShoppingBag } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -168,26 +167,6 @@ const integrations = [
       </svg>
     ),
     color: 'bg-orange-50 dark:bg-orange-900/10',
-  },
-  {
-    id: 'jumia',
-    name: 'Jumia Marketplace',
-    description:
-      'Manage Jumia orders, sync products, and receive real-time push notifications.',
-    href: '/dashboard/channels',
-    rawHref: true, // Use raw href instead of asRoute
-    // Official Jumia Logo
-    icon: (
-      <div className="h-10 w-10 relative">
-        <Image
-          src="/images/jumia-logo.png"
-          alt="Jumia Logo"
-          fill
-          className="object-contain"
-        />
-      </div>
-    ),
-    color: 'bg-[#f68b1e]/10 border-[#f68b1e]/20',
   },
 ];
 
