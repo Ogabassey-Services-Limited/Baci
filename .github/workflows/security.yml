@@ -137,7 +137,7 @@ jobs:
 
       - name: Upload SARIF file
         # Pin to full SHA for supply chain security
-        uses: github/codeql-action/upload-sarif@b1bff81932f5cdfc8695c7752dcee935dcd061c8 # v4.33.0
+        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v4.34.1
         if: always() && steps.verify-sarif.outputs.sarif_exists == 'true'
         with:
           sarif_file: semgrep.sarif
@@ -200,6 +200,6 @@ jobs:
 
       - name: TruffleHog OSS
         # Pin to full SHA for supply-chain security
-        uses: trufflesecurity/trufflehog@6c05c4a00b91aa542267d8e32a8254774799d68d # v3.93.8
+        uses: trufflesecurity/trufflehog@586f66d7886cd0b037c7c245d4a6e34ef357ab10 # v3.94.1
         with:
           extra_args: --only-verified
