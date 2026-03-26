@@ -62,6 +62,9 @@ export function ReceiptPreviewModal({
                 { backgroundColor: colors.backgroundLight },
               ]}
               hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Close preview"
+              accessibilityHint="Closes the receipt preview modal"
             >
               <Ionicons name="close" size={20} color={colors.text} />
             </Pressable>
@@ -106,6 +109,9 @@ export function ReceiptPreviewModal({
               styles.shareBtn,
               { backgroundColor: isPaid ? '#059669' : colors.primary },
             ]}
+            accessibilityRole="button"
+            accessibilityLabel="Share as PDF"
+            accessibilityHint="Shares the receipt preview as a PDF document"
           >
             <Ionicons name="share-outline" size={20} color="#FFF" />
             <Text style={styles.shareBtnText}>Share as PDF</Text>
