@@ -171,8 +171,8 @@ importers:
         specifier: ~55.0.9
         version: 55.0.9(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(typescript@5.9.3)
       expo-crypto:
-        specifier: ~55.0.8
-        version: 55.0.8(expo@55.0.3)
+        specifier: ~55.0.10
+        version: 55.0.10(expo@55.0.3)
       expo-dev-client:
         specifier: ~55.0.10
         version: 55.0.10(expo@55.0.3)(typescript@5.9.3)
@@ -397,8 +397,8 @@ importers:
         specifier: ~55.0.9
         version: 55.0.9(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(typescript@5.9.3)
       expo-crypto:
-        specifier: ~55.0.8
-        version: 55.0.8(expo@55.0.3)
+        specifier: ~55.0.10
+        version: 55.0.10(expo@55.0.3)
       expo-dev-client:
         specifier: ~55.0.10
         version: 55.0.10(expo@55.0.3)(typescript@5.9.3)
@@ -8490,8 +8490,8 @@ packages:
       expo: '*'
       react-native: '*'
 
-  expo-crypto@55.0.8:
-    resolution: {integrity: sha512-s4G4l1gRgSv3rS4JeKbybXzobWFUcO/B1F6nffjtoGS4WWU5+DNrmbiMnF9mvW21/ozYKtUu21u3pl2+7cGWnw==}
+  expo-crypto@55.0.10:
+    resolution: {integrity: sha512-3emt67pWch07F7DPQutn7CUpaiCJI8OOFxCGiwmzeSqSjuWP9upGOXkLQNVWf+29KZQRTVgf88LhDC2GFshMNA==}
     peerDependencies:
       expo: '*'
 
@@ -24440,7 +24440,7 @@ snapshots:
     dependencies:
       expo-application: 55.0.8(expo@55.0.3)
       expo-constants: 55.0.9(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(typescript@5.9.3)
-      expo-crypto: 55.0.8(expo@55.0.3)
+      expo-crypto: 55.0.10(expo@55.0.3)
       expo-linking: 55.0.7(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
       expo-web-browser: 55.0.9(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))
       invariant: 2.2.4
@@ -24485,7 +24485,7 @@ snapshots:
       - supports-color
       - typescript
 
-  expo-crypto@55.0.8(expo@55.0.3):
+  expo-crypto@55.0.10(expo@55.0.3):
     dependencies:
       expo: 55.0.3(@babel/core@7.29.0)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@6.1.2)(expo-router@55.0.4)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
 
