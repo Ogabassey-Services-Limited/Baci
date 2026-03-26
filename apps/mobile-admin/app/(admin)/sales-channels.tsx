@@ -1,5 +1,5 @@
 /**
- * Sales Channels Screen
+ * Marketplaces Screen
  * Manage external marketplace connections like Jumia, Konga, etc.
  */
 
@@ -26,33 +26,41 @@ import { useTheme } from '@/hooks/useTheme';
 const WEB_APP_URL =
   process.env.EXPO_PUBLIC_WEB_API_URL || 'https://usebaci.com';
 
+const STATUS_TIMEOUT_MS = 5_000;
+
 export default function SalesChannelsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
-  // null = loading, boolean = loaded state
-  const [isConnected, setIsConnected] = useState<boolean | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(true);
   const [loading, setLoading] = useState(false);
-
-  // Fetch actual connection status on mount
   useEffect(() => {
+    const controller = new AbortController();
+
     const checkConnectionStatus = async () => {
       try {
-        const response = await fetch(
-          `${WEB_APP_URL}/api/marketplace/jumia/status`
+        const timeoutId = setTimeout(
+          () => controller.abort(),
+          STATUS_TIMEOUT_MS
         );
+        const response = await fetch(
+          `${WEB_APP_URL}/api/marketplace/jumia/status`,
+          { signal: controller.signal }
+        );
+        clearTimeout(timeoutId);
         if (response.ok) {
           const { connected } = await response.json();
           setIsConnected(connected);
-        } else {
-          setIsConnected(false);
         }
-      } catch (error) {
-        console.error('Failed to fetch connection status:', error);
-        setIsConnected(false);
+      } catch {
+        // Timeout or network error — default to disconnected
+      } finally {
+        setStatusLoading(false);
       }
     };
 
     checkConnectionStatus();
+    return () => controller.abort();
   }, []);
 
   const handleConnectJumia = async () => {
@@ -109,7 +117,7 @@ export default function SalesChannelsScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Sales Channels',
+          title: 'Marketplaces',
           headerLeft: () => (
             <Pressable onPress={() => router.back()} style={styles.backButton}>
               <Ionicons name="arrow-back" size={24} color={colors.text} />
@@ -163,7 +171,7 @@ export default function SalesChannelsScreen() {
                   },
                 ]}
               >
-                {isConnected === null ? (
+                {statusLoading ? (
                   <ActivityIndicator size="small" color={colors.textMuted} />
                 ) : (
                   <Text
@@ -186,20 +194,20 @@ export default function SalesChannelsScreen() {
 
             <Pressable
               onPress={handleConnectJumia}
-              disabled={loading || isConnected === true || isConnected === null}
+              disabled={loading || isConnected || statusLoading}
               style={[
                 styles.connectButton,
                 {
                   backgroundColor: isConnected
                     ? colors.cardHover
                     : colors.primary,
-                  opacity: loading || isConnected === null ? 0.7 : 1,
+                  opacity: loading || statusLoading ? 0.7 : 1,
                 },
               ]}
             >
-              {loading || isConnected === null ? (
+              {loading || statusLoading ? (
                 <ActivityIndicator
-                  color={isConnected === null ? colors.textMuted : '#FFF'}
+                  color={statusLoading ? colors.textMuted : '#FFF'}
                 />
               ) : (
                 <Text
