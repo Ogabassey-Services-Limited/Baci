@@ -451,6 +451,7 @@ export default function DashboardClientLayout({
       Blog: 'marketing', // Blog is usually under marketing, or its own 'blog'
       Templates: 'builder',
       'Customize Website': 'builder',
+      'Sales Channels': 'integrations',
       Integrations: 'integrations',
       Settings: 'settings',
     };
