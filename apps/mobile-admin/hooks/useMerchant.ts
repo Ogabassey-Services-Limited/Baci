@@ -4,16 +4,31 @@
  * 2025 Best Practice: Uses authenticated user ID
  */
 
-import {
-  RegisteredAddressSchema,
-  type RegisteredAddress,
-  SocialMediaSchema,
-  type SocialMediaValues,
-} from '@baci/shared';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+
+// Defined locally to avoid Zod v3/v4 cross-version incompatibility
+// (shared package uses root zod v3, mobile-admin uses zod v4)
+const SocialMediaSchema = z.object({
+  instagram: z.string().optional(),
+  facebook: z.string().optional(),
+  twitter: z.string().optional(),
+  tiktok: z.string().optional(),
+  youtube: z.string().optional(),
+  pinterest: z.string().optional(),
+  linkedin: z.string().optional(),
+  snapchat: z.string().optional(),
+});
+
+const RegisteredAddressSchema = z.object({
+  street: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  state: z.string().nullable().optional(),
+  postal_code: z.string().nullable().optional(),
+  country: z.string().nullable().optional(),
+});
 
 export const MerchantSchema = z.object({
   id: z.string(),
@@ -44,14 +59,8 @@ export const MerchantSchema = z.object({
   support_email: z.string().email().nullable(),
   support_phone: z.string().nullable(),
   business_address: z.string().nullable(),
-  social_media:
-    SocialMediaSchema.nullable() as unknown as z.ZodType<
-      SocialMediaValues | null
-    >,
-  registered_address:
-    RegisteredAddressSchema.nullable().optional() as unknown as z.ZodType<
-      RegisteredAddress | null | undefined
-    >,
+  social_media: SocialMediaSchema.nullable(),
+  registered_address: RegisteredAddressSchema.nullable().optional(),
   state_code: z.string().nullable().optional(),
   google_analytics_id: z.string().nullable(),
   facebook_pixel_id: z.string().nullable(),
@@ -108,7 +117,7 @@ export interface MerchantData {
   error: Error | null;
 }
 
-async function fetchMerchantData(
+export async function fetchMerchantData(
   userId: string
 ): Promise<{ merchant: Merchant | null; primaryDomain: Domain | null }> {
   if (__DEV__) {
