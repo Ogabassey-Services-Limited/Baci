@@ -13,28 +13,58 @@ export interface JumiaIntegration {
   sync_error: string | null;
 }
 
+async function fetchJumiaIntegrations(): Promise<{
+  integrations: JumiaIntegration[];
+  error: string | null;
+}> {
+  try {
+    const response = await fetch('/api/marketplace/jumia/connect');
+    if (!response.ok) {
+      return {
+        integrations: [],
+        error: `Failed to load integrations (${response.status})`,
+      };
+    }
+    const data = await response.json();
+    return { integrations: data.integrations || [], error: null };
+  } catch {
+    return {
+      integrations: [],
+      error: 'Failed to load integrations — please try again',
+    };
+  }
+}
+
 export function useJumiaIntegrations() {
   const [integrations, setIntegrations] = useState<JumiaIntegration[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const fetchIntegrations = async () => {
-    try {
-      const response = await fetch('/api/marketplace/jumia/connect');
-      if (!response.ok) return;
-      const data = await response.json();
-      setIntegrations(data.integrations || []);
-    } catch {
-      // Silently fail — caller handles UI feedback
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchIntegrations();
-  }, [fetchIntegrations]);
+    let cancelled = false;
 
-  return { integrations, setIntegrations, loading, refetch: fetchIntegrations };
+    fetchJumiaIntegrations().then((result) => {
+      if (cancelled) return;
+      setIntegrations(result.integrations);
+      setError(result.error);
+      setLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const refetch = async () => {
+    setLoading(true);
+    setError(null);
+    const result = await fetchJumiaIntegrations();
+    setIntegrations(result.integrations);
+    setError(result.error);
+    setLoading(false);
+  };
+
+  return { integrations, setIntegrations, loading, error, refetch };
 }
 
 export async function connectWithToken(

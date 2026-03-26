@@ -61,8 +61,13 @@ export default function ChannelsClientPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { integrations, setIntegrations, loading, refetch } =
-    useJumiaIntegrations();
+  const {
+    integrations,
+    setIntegrations,
+    loading,
+    error: fetchError,
+    refetch,
+  } = useJumiaIntegrations();
 
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
@@ -72,7 +77,6 @@ export default function ChannelsClientPage() {
   useEffect(() => {
     const success = searchParams.get('success');
     const error = searchParams.get('error');
-    const errorDescription = searchParams.get('error_description');
 
     if (success === 'jumia_connected') {
       toast({ title: 'Jumia account connected successfully!' });
@@ -81,11 +85,7 @@ export default function ChannelsClientPage() {
     } else if (error) {
       toast({
         title: 'Connection Error',
-        description:
-          OAUTH_ERROR_MESSAGES[error] ||
-          (errorDescription
-            ? decodeURIComponent(errorDescription)
-            : `Error: ${error}`),
+        description: OAUTH_ERROR_MESSAGES[error] || `Error: ${error}`,
         variant: 'destructive',
       });
       router.replace('/dashboard/channels');
@@ -150,6 +150,26 @@ export default function ChannelsClientPage() {
           Connect marketplaces to sell on multiple platforms from Baci
         </p>
       </div>
+
+      {fetchError && (
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              {fetchError}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={refetch}
+            >
+              <RefreshCw className="h-4 w-4 mr-1.5" />
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Jumia Card */}
       <Card>
@@ -234,6 +254,7 @@ export default function ChannelsClientPage() {
                     size="sm"
                     className="text-destructive hover:text-destructive"
                     onClick={() => setDisconnectId(integration.id)}
+                    aria-label={`Disconnect ${integration.shop_name || 'shop'}`}
                   >
                     <Unlink className="h-4 w-4" />
                   </Button>

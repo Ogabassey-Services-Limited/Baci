@@ -55,8 +55,17 @@ export function ConnectJumiaDialog({
     }
   };
 
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      setRefreshToken('');
+      setShopName('');
+      setShowManualForm(false);
+    }
+    onOpenChange(isOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Connect Jumia Account</DialogTitle>
