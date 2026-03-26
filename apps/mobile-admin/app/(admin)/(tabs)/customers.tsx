@@ -3,16 +3,16 @@
  * View customer list and details with real-time data
  */
 
-import { Ionicons } from '@expo/vector-icons';
 import { getCustomerDisplayName } from '@baci/shared';
+import { Ionicons } from '@expo/vector-icons';
+import type { ListRenderItemInfo } from '@shopify/flash-list';
+import { FlashList } from '@shopify/flash-list';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import React, { useRef } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  FlatList,
-  type ListRenderItemInfo,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -33,9 +33,6 @@ import {
 import { type FailedOrder, useFailedOrders } from '@/hooks/useFailedOrders';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
-
-// Item height for getItemLayout optimization (card padding + content + gap)
-const _CUSTOMER_ITEM_HEIGHT = 88;
 
 // Helper to get currency symbol from merchant's payout_currency
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
@@ -87,22 +84,19 @@ const handleEmail = (email: string) => {
   Linking.openURL(`mailto:${email}`);
 };
 
-// Memoized Failed Order Item component
+// Failed Order Item component
 interface FailedOrderItemProps {
   item: FailedOrder;
-  colors: ReturnType<typeof useTheme>['colors'];
-  shadows: ReturnType<typeof useTheme>['shadows'];
   currencySymbol: string;
   onPress: (item: FailedOrder) => void;
 }
 
 function FailedOrderItem({
   item,
-  colors,
-  shadows,
   currencySymbol,
   onPress,
 }: FailedOrderItemProps) {
+  const { colors, shadows } = useTheme();
   const STATUS_LABELS: Record<string, string> = {
     bnpl_pending: 'BNPL Drop-off',
     failed: 'Payment Failed',
@@ -244,19 +238,12 @@ function FailedOrderItem({
 // Customer Item component
 interface CustomerItemProps {
   item: Customer;
-  colors: ReturnType<typeof useTheme>['colors'];
-  shadows: ReturnType<typeof useTheme>['shadows'];
   currencySymbol: string;
   onPress: (id: string) => void;
 }
 
-function CustomerItem({
-  item,
-  colors,
-  shadows,
-  currencySymbol,
-  onPress,
-}: CustomerItemProps) {
+function CustomerItem({ item, currencySymbol, onPress }: CustomerItemProps) {
+  const { colors, shadows } = useTheme();
   const displayName = getDisplayName(item);
   const customerEmail = item.email ?? null;
   const customerEmailLabel = customerEmail ?? 'No email';
@@ -380,6 +367,9 @@ function CustomerItem({
   );
 }
 
+const customerKeyExtractor = (item: { id: string }) => item.id;
+const failedOrderKeyExtractor = (item: { id: string }) => item.id;
+
 export default function CustomersScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant } = useMerchant();
@@ -497,8 +487,6 @@ export default function CustomersScreen() {
   const renderCustomer = ({ item }: ListRenderItemInfo<Customer>) => (
     <CustomerItem
       item={item}
-      colors={colors}
-      shadows={shadows}
       currencySymbol={currencySymbol}
       onPress={handleCustomerPress}
     />
@@ -507,26 +495,10 @@ export default function CustomersScreen() {
   const renderFailedOrder = ({ item }: ListRenderItemInfo<FailedOrder>) => (
     <FailedOrderItem
       item={item}
-      colors={colors}
-      shadows={shadows}
       currencySymbol={currencySymbol}
       onPress={handleFailedOrderPress}
     />
   );
-
-  const customerKeyExtractor = (item: Customer) => item.id;
-
-  const failedOrderKeyExtractor = (item: FailedOrder) => item.id;
-
-  // getItemLayout for consistent item heights (improves scroll performance)
-  const getItemLayout = (
-    _data: ArrayLike<Customer | FailedOrder> | null | undefined,
-    index: number
-  ) => ({
-    length: _CUSTOMER_ITEM_HEIGHT,
-    offset: _CUSTOMER_ITEM_HEIGHT * index,
-    index,
-  });
 
   return (
     <SafeAreaView
@@ -570,7 +542,7 @@ export default function CustomersScreen() {
             autoCapitalize="none"
             autoCorrect={false}
           />
-          {searchQuery.length > 0 && (
+          {searchQuery.length > 0 ? (
             <Pressable
               onPress={() => setSearchQuery('')}
               accessibilityLabel="Clear search"
@@ -589,7 +561,7 @@ export default function CustomersScreen() {
                 color={colors.textMuted}
               />
             </Pressable>
-          )}
+          ) : null}
         </View>
       </Animated.View>
 
@@ -702,7 +674,7 @@ export default function CustomersScreen() {
           </View>
 
           {/* Customers List */}
-          <FlatList
+          <FlashList
             data={customers}
             renderItem={renderCustomer}
             keyExtractor={customerKeyExtractor}
@@ -719,9 +691,6 @@ export default function CustomersScreen() {
             onEndReachedThreshold={0.5}
             onScroll={handleScroll}
             scrollEventThrottle={16}
-            removeClippedSubviews={true}
-            maxToRenderPerBatch={10}
-            windowSize={5}
             ListFooterComponent={
               isFetchingNextPage ? (
                 <View style={styles.footerLoader}>
@@ -753,16 +722,12 @@ export default function CustomersScreen() {
         </>
       ) : (
         /* Failed Transactions List */
-        <FlatList
+        <FlashList
           data={filteredFailedOrders}
           renderItem={renderFailedOrder}
           keyExtractor={failedOrderKeyExtractor}
-          getItemLayout={getItemLayout}
           onScroll={handleScroll}
           scrollEventThrottle={16}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          windowSize={5}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl

@@ -50,7 +50,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.baci',
-    buildNumber: '10',
+    buildNumber: '11',
     // www.usebaci.com excluded: Vercel 308-redirects www → bare domain,
     // and Apple/Android reject redirects for verification files.
     associatedDomains: ['applinks:usebaci.com'],
