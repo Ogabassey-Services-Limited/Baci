@@ -462,6 +462,79 @@ export async function proxy(request: NextRequest) {
         );
       }
     }
+
+    // ==== CSRF: ORIGIN-BASED PROTECTION (2026 Best Practice) ====
+    // Verify the Origin header on state-changing requests to prevent CSRF.
+    // Modern browsers always send Origin on cross-origin requests; SameSite=Lax
+    // cookies (Supabase default) add defense-in-depth. This single middleware
+    // check replaces per-route checkCsrfProtection() calls — no client-side
+    // token wiring needed, zero risk of breaking callers.
+    const mutationMethod = request.method;
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(mutationMethod)) {
+      // Skip: Bearer-authenticated requests (mobile apps) — tokens aren't
+      // auto-attached like cookies, so CSRF doesn't apply.
+      const authHeader = request.headers.get('Authorization');
+      const isBearerAuth = authHeader?.startsWith('Bearer ');
+
+      // Skip: Webhook endpoints — called by external services, not browsers.
+      const isWebhook = pathname.startsWith('/api/webhooks/');
+
+      // Skip: Auth callback routes — called by OAuth providers.
+      const isAuthCallback = pathname.startsWith('/api/auth/');
+
+      // Skip: Cron endpoints — called by Vercel cron, not browsers.
+      const isCron = pathname.startsWith('/api/cron/');
+
+      // Skip: Public analytics endpoint
+      const isPublicAnalytics = pathname === '/api/platform/events';
+
+      if (
+        !isBearerAuth &&
+        !isWebhook &&
+        !isAuthCallback &&
+        !isCron &&
+        !isPublicAnalytics
+      ) {
+        const origin = request.headers.get('origin');
+
+        // Origin is required on cross-site requests by all modern browsers.
+        // Same-origin requests may omit it (e.g., form submissions), but
+        // fetch() always sends it for non-GET methods.
+        if (origin) {
+          let originHostname: string;
+          try {
+            originHostname = new URL(origin).hostname.toLowerCase();
+          } catch {
+            return NextResponse.json(
+              { error: 'Invalid Origin header' },
+              { status: 403 }
+            );
+          }
+
+          const normalizedRoot = ROOT_DOMAIN.toLowerCase();
+
+          // Allow: exact root domain, any subdomain of root domain,
+          // localhost/dev, and Vercel preview deployments.
+          const isAllowed =
+            originHostname === normalizedRoot ||
+            originHostname.endsWith(`.${normalizedRoot}`) ||
+            isLocalhost(originHostname) ||
+            isVercelPreview(originHostname);
+
+          if (!isAllowed) {
+            // Check custom domains: look up whether this origin is a
+            // registered merchant custom domain.
+            const customSlug = await getSlugForCustomDomain(originHostname);
+            if (!customSlug) {
+              return NextResponse.json(
+                { error: 'Cross-origin request blocked' },
+                { status: 403 }
+              );
+            }
+          }
+        }
+      }
+    }
   }
 
   // ==== BLOG MIGRATION REDIRECTS ====
