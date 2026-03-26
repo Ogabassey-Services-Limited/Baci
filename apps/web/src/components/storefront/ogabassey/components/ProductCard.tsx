@@ -58,7 +58,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const toggleLike = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    toggleSaved(product as any);
+    toggleSaved(product);
   };
 
   const toggleCompare = (e: React.MouseEvent) => {
@@ -67,7 +67,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     if (isComparing) {
       removeFromCompare(product.id);
     } else {
-      addToCompare(product as any);
+      addToCompare(product);
     }
   };
 
@@ -111,9 +111,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </Link>
 
         {/* Badge: Platform or Condition - Positioned relative to card, not image */}
-        {((product as any).variant_attributes?.Platform || product.condition) && (
+        {(product.variant_attributes?.Platform || product.condition) && (
           (() => {
-            const platform = (product as any).variant_attributes?.Platform;
+            const platform = product.variant_attributes?.Platform;
             let badgeColor = 'bg-amber-500';
             // biome-ignore lint/suspicious/noExplicitAny: platform can be various types
             let badgeText = String(product.condition || '');
@@ -275,9 +275,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           sizes="(max-width: 768px) 112px, 192px"
           className="object-cover md:group-hover:scale-110 transition-transform duration-500"
         />
-        {((product as any).variant_attributes?.Platform || product.condition) && (
+        {(product.variant_attributes?.Platform || product.condition) && (
           (() => {
-            const platform = (product as any).variant_attributes?.Platform;
+            const platform = product.variant_attributes?.Platform;
             let badgeColor = 'bg-amber-500';
             // biome-ignore lint/suspicious/noExplicitAny: platform can be various types
             let badgeText = String(product.condition || '');
