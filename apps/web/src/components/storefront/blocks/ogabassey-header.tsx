@@ -96,6 +96,7 @@ export function OgabasseyHeader({
             <button
               type="button"
               className="text-gray-400 hover:text-white transition-colors"
+              aria-label="Toggle menu"
             >
               <LayoutGrid size={24} />
             </button>
@@ -141,6 +142,7 @@ export function OgabasseyHeader({
                       'p-2 text-gray-400 hover:text-gray-600',
                       query ? 'block' : 'hidden'
                     )}
+                    aria-label="Clear search"
                   >
                     <X size={16} />
                   </button>
@@ -149,6 +151,7 @@ export function OgabasseyHeader({
                     type="submit"
                     disabled={isSearching}
                     className="px-4 h-full text-gray-500 hover:text-red-600 transition-colors"
+                    aria-label="Submit search"
                   >
                     {isSearching ? (
                       <Loader2 className="animate-spin" size={20} />
@@ -228,6 +231,7 @@ export function OgabasseyHeader({
               <button
                 type="button"
                 className="relative hover:text-white transition-colors"
+                aria-label="Notifications"
               >
                 <Bell size={22} />
               </button>
@@ -236,6 +240,7 @@ export function OgabasseyHeader({
               <button
                 type="button"
                 className="relative hover:text-white transition-colors"
+                aria-label={`Shopping cart with ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}
               >
                 <ShoppingCart size={22} />
                 {cartCount > 0 && (
@@ -249,6 +254,7 @@ export function OgabasseyHeader({
               <button
                 type="button"
                 className="hover:text-white transition-colors"
+                aria-label="User account"
               >
                 <User size={22} />
               </button>
