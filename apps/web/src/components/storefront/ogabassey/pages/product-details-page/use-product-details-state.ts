@@ -193,7 +193,7 @@ export function useProductDetailsState(serverProduct: Product) {
     );
 
   const handleToggleSaved = () => {
-    toggleSaved(relatedProductsProduct);
+    toggleSaved(serverProduct);
   };
 
   const handleShare = async () => {
