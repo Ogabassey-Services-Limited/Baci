@@ -196,19 +196,24 @@ describe('products/[productSlug] page', () => {
     mockGetCachedProductReviews.mockResolvedValue([]);
   });
 
-  it('waits for a request-time connection before rendering the page', async () => {
-    mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+  it('waits for a request-time connection before redirecting categorized legacy products', async () => {
+    mockGetCachedProduct.mockResolvedValue(categorizedProduct);
     mockHeaders.mockReturnValue(makeHeaders({}));
 
-    await ProductPage({
-      params: Promise.resolve({
-        slug: 'teststore',
-        productSlug: 'mystery-item',
-      }),
-      searchParams: Promise.resolve({}),
-    });
+    await expect(
+      ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'iphone-15',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT');
 
     expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      '/teststore/phones/iphone-15'
+    );
   });
 
   describe('redirect routing mode', () => {
