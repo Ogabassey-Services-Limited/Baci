@@ -109,6 +109,24 @@ describe('GET /api/import-jobs/[jobId]/rows', () => {
     });
   });
 
+  it('returns 400 for unsupported preview filters', async () => {
+    const routeContext = createRouteContext();
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: routeContext,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost/api/import-jobs/${jobId}/rows?filter=unsupported&page=1&pageSize=25`
+      ),
+      { params: Promise.resolve({ jobId }) }
+    );
+
+    expect(response.status).toBe(400);
+    expect(getImportJobForMerchant).not.toHaveBeenCalled();
+    expect(routeContext.supabase.from).not.toHaveBeenCalled();
+  });
+
   it('returns 401 when authentication fails', async () => {
     vi.mocked(resolveImportRouteContext).mockResolvedValueOnce({
       response: new Response(JSON.stringify({ error: 'Unauthorized' }), {

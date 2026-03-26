@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { statusBadgeClass } from './migration-utils';
+import {
+  decorateImportJob,
+  filterMigrationRows,
+  getMigrationProgressDetail,
+  getMigrationProgressValue,
+  statusBadgeClass,
+} from '@/app/dashboard/migrations/migration-utils';
 
 describe('statusBadgeClass', () => {
   it.each(['completed', 'committed'])('returns green for %s', (status) => {
@@ -25,5 +31,127 @@ describe('statusBadgeClass', () => {
     expect(statusBadgeClass('something_else')).toBe(
       'bg-muted text-muted-foreground'
     );
+  });
+});
+
+describe('migration progress utils', () => {
+  it('uses actual row counts for validating progress', () => {
+    expect(getMigrationProgressValue('validating', 2911, 5821)).toBe(50);
+    expect(getMigrationProgressValue('validating', 5821, 5821)).toBe(99);
+    expect(getMigrationProgressDetail('validating', 2911, 5821)).toBe(
+      '2,911 of 5,821 rows processed'
+    );
+  });
+
+  it('returns no progress detail when total rows are missing', () => {
+    expect(getMigrationProgressValue('validating', 0, 0)).toBe(0);
+    expect(getMigrationProgressDetail('validating', 0, 0)).toBeNull();
+  });
+
+  it('returns zero percent when nothing has been processed yet', () => {
+    expect(getMigrationProgressValue('validating', 0, 5821)).toBe(0);
+    expect(getMigrationProgressDetail('validating', 0, 5821)).toBe(
+      '0 of 5,821 rows processed'
+    );
+  });
+
+  it('clamps invalid negative progress inputs safely', () => {
+    expect(getMigrationProgressValue('validating', -5, 10)).toBe(0);
+    expect(getMigrationProgressDetail('validating', -5, 10)).toBe(
+      '0 of 10 rows processed'
+    );
+  });
+});
+
+describe('decorateImportJob', () => {
+  const baseJob = {
+    committed_at: null,
+    created_at: '2026-03-22T10:00:00.000Z',
+    entity_type: 'orders' as const,
+    error: null,
+    id: 'job-1',
+    notified_at: null,
+    original_filename: 'orders.csv',
+    processed_rows: 10,
+    source_platform: 'bumpa' as const,
+    status: 'preview_ready' as const,
+    summary: null,
+    total_rows: 10,
+  };
+
+  it('allows commit only when preview is ready with positive valid rows', () => {
+    expect(
+      decorateImportJob({
+        ...baseJob,
+        summary: { validRows: 3 },
+      }).canCommit
+    ).toBe(true);
+
+    expect(
+      decorateImportJob({
+        ...baseJob,
+        summary: { validRows: 0 },
+      }).canCommit
+    ).toBe(false);
+  });
+
+  it('handles missing or non-numeric valid rows safely', () => {
+    expect(
+      decorateImportJob({
+        ...baseJob,
+        summary: {},
+      }).canCommit
+    ).toBe(false);
+
+    expect(
+      decorateImportJob({
+        ...baseJob,
+        summary: { validRows: '3' },
+      }).canCommit
+    ).toBe(false);
+  });
+
+  it('allows notify only for committed orders with valid rows', () => {
+    expect(
+      decorateImportJob({
+        ...baseJob,
+        status: 'committed',
+        summary: { validRows: 2 },
+      }).canNotify
+    ).toBe(true);
+
+    expect(
+      decorateImportJob({
+        ...baseJob,
+        entity_type: 'products',
+        status: 'committed',
+        summary: { validRows: 2 },
+      }).canNotify
+    ).toBe(false);
+  });
+});
+
+describe('filterMigrationRows', () => {
+  const rows = [
+    { id: 'row-1', row_status: 'create', importable: true },
+    { id: 'row-2', row_status: 'update', importable: true },
+    { id: 'row-3', row_status: 'duplicate', importable: false },
+    { id: 'row-4', row_status: 'invalid', importable: false },
+  ] as const;
+
+  it('returns only importable create and update rows for the importable filter', () => {
+    expect(filterMigrationRows([...rows], 'importable')).toEqual([
+      rows[0],
+      rows[1],
+    ]);
+  });
+
+  it('returns only invalid rows for the needs_fix filter', () => {
+    expect(filterMigrationRows([...rows], 'needs_fix')).toEqual([rows[3]]);
+  });
+
+  it('returns all rows for the default filter and handles empty arrays', () => {
+    expect(filterMigrationRows([...rows], 'all')).toEqual([...rows]);
+    expect(filterMigrationRows([], 'needs_fix')).toEqual([]);
   });
 });

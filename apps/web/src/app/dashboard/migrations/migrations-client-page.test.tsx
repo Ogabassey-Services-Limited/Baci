@@ -1,8 +1,18 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/csrf', () => ({
   buildCsrfHeaders: vi.fn(() => ({ 'x-csrf-token': 'token' })),
+}));
+
+vi.mock('@/app/dashboard/migrations/migration-order-source-chip', () => ({
+  default: () => <span>Source chip</span>,
 }));
 
 import MigrationsClientPage from '@/app/dashboard/migrations/migrations-client-page';
@@ -16,12 +26,22 @@ function createJsonResponse(body: unknown): Response {
   } as Response;
 }
 
+function createDeferredResponse() {
+  let resolve!: (value: Response) => void;
+  const promise = new Promise<Response>((innerResolve) => {
+    resolve = innerResolve;
+  });
+
+  return { promise, resolve };
+}
+
 describe('MigrationsClientPage', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
@@ -319,6 +339,22 @@ describe('MigrationsClientPage', () => {
 
     await screen.findByText(/selected job/i);
     vi.mocked(fetch).mockClear();
+    vi.mocked(fetch).mockResolvedValueOnce(
+      createJsonResponse({
+        rows: [
+          {
+            id: 'row-2',
+            meta: {},
+            normalized_payload: null,
+            row_number: 4,
+            row_status: 'invalid',
+            source_external_id: null,
+            validation_errors: ['Missing order number'],
+          },
+        ],
+        pagination: { page: 1, pageSize: 25, total: 1 },
+      })
+    );
 
     fireEvent.click(screen.getByRole('button', { name: /needs fix/i }));
 
@@ -328,5 +364,101 @@ describe('MigrationsClientPage', () => {
         { cache: 'no-store' }
       );
     });
+    expect(
+      await screen.findByText(/showing rows that need fixes/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText('Order 4')).toBeInTheDocument();
+    expect(screen.getByText('Missing order number')).toBeInTheDocument();
+  });
+
+  it('does not overlap validating poll requests while a refresh is in flight', async () => {
+    vi.useFakeTimers();
+    const deferredRefresh = createDeferredResponse();
+
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          job: {
+            id: 'job-1',
+            entity_type: 'orders',
+            source_platform: 'bumpa',
+            status: 'validating',
+            original_filename: 'orders.csv',
+            processed_rows: 1,
+            total_rows: 10,
+            summary: { validRows: 0, invalidRows: 0, receiptReadyOrders: 0 },
+            error: null,
+            created_at: '2026-03-22T10:00:00.000Z',
+            committed_at: null,
+            notified_at: null,
+            canCommit: false,
+            canNotify: false,
+          },
+        })
+      )
+      .mockReturnValueOnce(deferredRefresh.promise);
+
+    const { unmount } = render(
+      <MigrationsClientPage
+        initialJobs={[
+          {
+            id: 'job-1',
+            entity_type: 'orders',
+            source_platform: 'bumpa',
+            status: 'uploaded',
+            original_filename: 'orders.csv',
+            processed_rows: 0,
+            total_rows: 0,
+            summary: null,
+            error: null,
+            created_at: '2026-03-22T10:00:00.000Z',
+            committed_at: null,
+            notified_at: null,
+          },
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /orders\.csv/i }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText(/building preview/i)).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      deferredRefresh.resolve(
+        createJsonResponse({
+          job: {
+            id: 'job-1',
+            entity_type: 'orders',
+            source_platform: 'bumpa',
+            status: 'validating',
+            original_filename: 'orders.csv',
+            processed_rows: 2,
+            total_rows: 10,
+            summary: { validRows: 0, invalidRows: 0, receiptReadyOrders: 0 },
+            error: null,
+            created_at: '2026-03-22T10:00:00.000Z',
+            committed_at: null,
+            notified_at: null,
+            canCommit: false,
+            canNotify: false,
+          },
+        })
+      );
+      await Promise.resolve();
+    });
+
+    unmount();
   });
 });

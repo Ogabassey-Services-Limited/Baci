@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { buildBumpaProductPreview } from '@/lib/imports/bumpa/build-bumpa-product-preview';
 
 const baseRow = {
@@ -49,8 +49,8 @@ const baseRow = {
 };
 
 describe('buildBumpaProductPreview', () => {
-  it('builds normalized product preview rows', () => {
-    const result = buildBumpaProductPreview({
+  it('builds normalized product preview rows', async () => {
+    const result = await buildBumpaProductPreview({
       rows: [baseRow],
       existingProducts: [],
     });
@@ -63,8 +63,8 @@ describe('buildBumpaProductPreview', () => {
     });
   });
 
-  it('marks repeated product ids as duplicates', () => {
-    const result = buildBumpaProductPreview({
+  it('marks repeated product ids as duplicates', async () => {
+    const result = await buildBumpaProductPreview({
       rows: [baseRow, { ...baseRow }],
       existingProducts: [],
     });
@@ -73,8 +73,8 @@ describe('buildBumpaProductPreview', () => {
     expect(result.summary.duplicateCount).toBe(1);
   });
 
-  it('marks existing imported products as updates', () => {
-    const result = buildBumpaProductPreview({
+  it('marks existing imported products as updates', async () => {
+    const result = await buildBumpaProductPreview({
       rows: [baseRow],
       existingProducts: [
         {
@@ -91,8 +91,8 @@ describe('buildBumpaProductPreview', () => {
     expect(result.rows[0]?.rowStatus).toBe('update');
   });
 
-  it('marks invalid rows and increments the invalid summary count', () => {
-    const result = buildBumpaProductPreview({
+  it('marks invalid rows and increments the invalid summary count', async () => {
+    const result = await buildBumpaProductPreview({
       rows: [
         {
           ...baseRow,
@@ -105,5 +105,58 @@ describe('buildBumpaProductPreview', () => {
 
     expect(result.rows[0]?.rowStatus).toBe('invalid');
     expect(result.summary.invalidRows).toBe(1);
+  });
+
+  it('reports live row progress while building product previews', async () => {
+    const onProgress = vi.fn();
+
+    await buildBumpaProductPreview({
+      rows: [
+        baseRow,
+        { ...baseRow, 'Product ID': '4527982', Title: 'Iphone 17 Air' },
+      ],
+      existingProducts: [],
+      onProgress,
+    });
+
+    expect(onProgress).toHaveBeenNthCalledWith(1, {
+      processedRows: 1,
+      totalRows: 2,
+    });
+    expect(onProgress).toHaveBeenNthCalledWith(2, {
+      processedRows: 2,
+      totalRows: 2,
+    });
+  });
+
+  it('reports progress for duplicate rows before the early exit branch', async () => {
+    const onProgress = vi.fn();
+
+    const result = await buildBumpaProductPreview({
+      rows: [baseRow, { ...baseRow }],
+      existingProducts: [],
+      onProgress,
+    });
+
+    expect(result.rows[1]?.rowStatus).toBe('duplicate');
+    expect(onProgress).toHaveBeenNthCalledWith(1, {
+      processedRows: 1,
+      totalRows: 2,
+    });
+    expect(onProgress).toHaveBeenNthCalledWith(2, {
+      processedRows: 2,
+      totalRows: 2,
+    });
+  });
+
+  it('continues building product previews when progress reporting fails', async () => {
+    const result = await buildBumpaProductPreview({
+      rows: [baseRow],
+      existingProducts: [],
+      onProgress: vi.fn().mockRejectedValue(new Error('boom')),
+    });
+
+    expect(result.summary.totalRows).toBe(1);
+    expect(result.rows[0]?.rowStatus).toBe('create');
   });
 });

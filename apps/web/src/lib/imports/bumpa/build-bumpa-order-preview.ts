@@ -20,12 +20,45 @@ interface BuildBumpaOrderPreviewInput {
   rows: Record<string, string>[];
   existingOrders: ExistingImportedOrder[];
   existingProducts: ExistingImportedProduct[];
+  onProgress?: (progress: {
+    processedRows: number;
+    totalRows: number;
+  }) => Promise<void> | void;
 }
 
-export function buildBumpaOrderPreview({
+async function maybeReportProgress(
+  onProgress: BuildBumpaOrderPreviewInput['onProgress'],
+  processedRows: number,
+  totalRows: number
+) {
+  if (!onProgress || totalRows <= 0) {
+    return;
+  }
+
+  async function report() {
+    try {
+      await onProgress?.({ processedRows, totalRows });
+    } catch {
+      return;
+    }
+  }
+
+  if (processedRows === totalRows || processedRows <= 10) {
+    await report();
+    return;
+  }
+
+  const batchSize = Math.max(10, Math.ceil(totalRows / 50));
+  if (processedRows % batchSize === 0) {
+    await report();
+  }
+}
+
+export async function buildBumpaOrderPreview({
   rows,
   existingOrders,
   existingProducts,
+  onProgress,
 }: BuildBumpaOrderPreviewInput) {
   const seenExternalIds = new Set<string>();
   const existingOrdersByExternalId = new Map<string, ExistingImportedOrder>();
@@ -33,7 +66,7 @@ export function buildBumpaOrderPreview({
     string,
     ExistingImportedOrder[]
   >();
-  const uploadedOrderNumbers = new Map<string, number>();
+  const uploadedOrderPreviewIndexes = new Map<string, number[]>();
 
   existingOrders.forEach((order) => {
     if (order.externalSource === 'bumpa' && order.externalId) {
@@ -45,35 +78,22 @@ export function buildBumpaOrderPreview({
     existingOrdersByOrderNumber.set(order.orderNumber, collection);
   });
 
-  rows.forEach((rawRow) => {
-    const validationResult = bumpaOrderRowSchema.safeParse(rawRow);
-    if (!validationResult.success) {
-      return;
-    }
+  const previewRows: ImportPreviewRow<NormalizedImportedOrder>[] = [];
 
-    const orderNumber = sanitizeText(validationResult.data['Order Number']);
-    if (!orderNumber) {
-      return;
-    }
-
-    uploadedOrderNumbers.set(
-      orderNumber,
-      (uploadedOrderNumbers.get(orderNumber) || 0) + 1
-    );
-  });
-
-  const previewRows = rows.map((rawRow, index) => {
+  for (const [index, rawRow] of rows.entries()) {
     const rowNumber = index + 2;
     const validationResult = bumpaOrderRowSchema.safeParse(rawRow);
     if (!validationResult.success) {
-      return {
+      previewRows.push({
         rowNumber,
         sourceExternalId: null,
         rowStatus: 'invalid',
         errors: validationResult.error.errors.map((error) => error.message),
         payload: null,
         meta: {},
-      } satisfies ImportPreviewRow<NormalizedImportedOrder>;
+      } satisfies ImportPreviewRow<NormalizedImportedOrder>);
+      await maybeReportProgress(onProgress, index + 1, rows.length);
+      continue;
     }
 
     const row = validationResult.data;
@@ -81,14 +101,16 @@ export function buildBumpaOrderPreview({
     const externalSourceId = row.id;
 
     if (seenExternalIds.has(externalSourceId)) {
-      return {
+      previewRows.push({
         rowNumber,
         sourceExternalId: externalSourceId,
         rowStatus: 'duplicate',
         errors: ['Duplicate Bumpa order id in the same file'],
         payload: null,
         meta: {},
-      } satisfies ImportPreviewRow<NormalizedImportedOrder>;
+      } satisfies ImportPreviewRow<NormalizedImportedOrder>);
+      await maybeReportProgress(onProgress, index + 1, rows.length);
+      continue;
     }
 
     seenExternalIds.add(externalSourceId);
@@ -96,6 +118,8 @@ export function buildBumpaOrderPreview({
     const orderNumber = sanitizeText(row['Order Number']);
     const existingImportedOrder =
       existingOrdersByExternalId.get(externalSourceId);
+    const previousUploadIndexes =
+      uploadedOrderPreviewIndexes.get(orderNumber) || [];
     const conflictingOrder = (
       existingOrdersByOrderNumber.get(orderNumber) || []
     ).find(
@@ -119,8 +143,9 @@ export function buildBumpaOrderPreview({
       errors.push('Created At is invalid');
     }
 
-    if ((uploadedOrderNumbers.get(orderNumber) || 0) > 1) {
-      errors.push(`Order number ${orderNumber} is duplicated in the upload`);
+    const duplicateUploadError = `Order number ${orderNumber} is duplicated in the upload`;
+    if (previousUploadIndexes.length > 0) {
+      errors.push(duplicateUploadError);
     }
 
     const customer = buildCustomer(row);
@@ -174,7 +199,7 @@ export function buildBumpaOrderPreview({
           } satisfies NormalizedImportedOrder)
         : null;
 
-    return {
+    const previewRow = {
       rowNumber,
       sourceExternalId: externalSourceId,
       rowStatus:
@@ -189,7 +214,35 @@ export function buildBumpaOrderPreview({
         unmatchedItemCount: items.filter((item) => !item.matched).length,
       },
     } satisfies ImportPreviewRow<NormalizedImportedOrder>;
-  });
+
+    previewRows.push(previewRow);
+
+    if (orderNumber) {
+      if (previousUploadIndexes.length > 0) {
+        for (const previewIndex of previousUploadIndexes) {
+          const previousPreviewRow = previewRows[previewIndex];
+          if (!previousPreviewRow) {
+            continue;
+          }
+
+          if (!previousPreviewRow.errors.includes(duplicateUploadError)) {
+            previousPreviewRow.errors.push(duplicateUploadError);
+          }
+
+          if (previousPreviewRow.rowStatus !== 'duplicate') {
+            previousPreviewRow.rowStatus = 'invalid';
+          }
+        }
+      }
+
+      uploadedOrderPreviewIndexes.set(orderNumber, [
+        ...previousUploadIndexes,
+        previewRows.length - 1,
+      ]);
+    }
+
+    await maybeReportProgress(onProgress, index + 1, rows.length);
+  }
 
   return {
     rows: previewRows,

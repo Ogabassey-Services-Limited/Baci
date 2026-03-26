@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { commitBumpaOrders } from '@/lib/import-commit/commit-bumpa-orders';
 import { commitBumpaProducts } from '@/lib/import-commit/commit-bumpa-products';
+import { createPreviewProgressReporter } from '@/lib/import-jobs/create-preview-progress-reporter';
 import {
   buildImportJobRowInserts,
   buildImportPreviewForJob,
@@ -85,7 +86,16 @@ async function processValidatingJob(
   supabase: SupabaseClient,
   job: ImportJobRecord
 ) {
-  const preview = await buildImportPreviewForJob(supabase, job);
+  const reportPreviewProgress = createPreviewProgressReporter(
+    supabase,
+    job,
+    logger
+  );
+  const preview = await buildImportPreviewForJob(
+    supabase,
+    job,
+    reportPreviewProgress
+  );
   const insertRows = buildImportJobRowInserts(
     job.id,
     job.merchant_id,
@@ -116,7 +126,9 @@ async function processValidatingJob(
     .update({
       status: 'preview_ready',
       total_rows: preview.totalRows,
-      processed_rows: preview.rows.length,
+      // processed_rows reflects validated input rows for the UI progress bar,
+      // so it should use preview.totalRows instead of preview.rows.length.
+      processed_rows: preview.totalRows,
       summary: preview.summary,
       error: null,
       error_details: null,
@@ -132,6 +144,8 @@ async function processValidatingJob(
   return {
     id: job.id,
     status: 'preview_ready',
+    // processed reports the preview entries generated for downstream work,
+    // which can differ from processed_rows / preview.totalRows.
     processed: preview.rows.length,
   };
 }
