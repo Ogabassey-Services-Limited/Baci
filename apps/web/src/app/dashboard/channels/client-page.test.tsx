@@ -108,7 +108,7 @@ describe('ChannelsClientPage', () => {
       render(<ChannelsClientPage />);
 
       expect(screen.getByTestId('bag-loader')).toBeInTheDocument();
-      expect(screen.queryByText('Sales Channels')).not.toBeInTheDocument();
+      expect(screen.queryByText('Marketplaces')).not.toBeInTheDocument();
     });
   });
 
@@ -138,7 +138,7 @@ describe('ChannelsClientPage', () => {
       setupHook({});
       render(<ChannelsClientPage />);
 
-      expect(screen.getByText('Sales Channels')).toBeInTheDocument();
+      expect(screen.getByText('Marketplaces')).toBeInTheDocument();
       expect(screen.getByText('Jumia')).toBeInTheDocument();
       expect(
         screen.getByText("Africa's largest e-commerce platform")

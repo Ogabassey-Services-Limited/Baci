@@ -4,15 +4,16 @@
  */
 
 import {
+  MOBILE_ADMIN_PRODUCT_WITH_RELATIONS_QUERY,
+  MOBILE_ADMIN_PRODUCT_COLUMNS as PRODUCT_COLUMNS,
+} from '@baci/shared';
+import {
+  keepPreviousData,
   useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import {
-  MOBILE_ADMIN_PRODUCT_COLUMNS as PRODUCT_COLUMNS,
-  MOBILE_ADMIN_PRODUCT_WITH_RELATIONS_QUERY,
-} from '@baci/shared';
 import { normalizeProductInventory } from '@/lib/product-inventory';
 import { sanitizeSearchQuery, sanitizeText } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
@@ -81,8 +82,7 @@ function toProductSlug(name: string): string {
 
 function isDuplicateConstraintError(error: { code?: string; message: string }) {
   return (
-    error.code === '23505' ||
-    error.message.toLowerCase().includes('duplicate')
+    error.code === '23505' || error.message.toLowerCase().includes('duplicate')
   );
 }
 
@@ -111,8 +111,10 @@ async function assertNoDuplicateProduct(args: {
     slugQuery = slugQuery.neq('id', args.excludeProductId);
   }
 
-  const [{ count: nameMatches, error: nameError }, { count: slugMatches, error: slugError }] =
-    await Promise.all([nameQuery, slugQuery]);
+  const [
+    { count: nameMatches, error: nameError },
+    { count: slugMatches, error: slugError },
+  ] = await Promise.all([nameQuery, slugQuery]);
 
   if (nameError) throw new Error(nameError.message);
   if (slugError) throw new Error(slugError.message);
@@ -122,10 +124,17 @@ async function assertNoDuplicateProduct(args: {
   }
 }
 
+export type StockFilter = 'in_stock' | 'low_stock' | 'out_of_stock';
+
 async function fetchProducts(
   merchantId: string,
   cursor: number = 0,
-  filters?: { status?: ProductStatus; search?: string; category?: string }
+  filters?: {
+    status?: ProductStatus;
+    search?: string;
+    category?: string;
+    stockFilter?: StockFilter;
+  }
 ): Promise<ProductsPage> {
   let query = supabase
     .from('products')
@@ -148,6 +157,18 @@ async function fetchProducts(
     if (term) {
       query = query.or(`name.ilike.%${term}%,sku.ilike.%${term}%`);
     }
+  }
+
+  // Server-side stock filtering to avoid loading all products client-side
+  if (filters?.stockFilter === 'out_of_stock') {
+    query = query.eq('manage_stock', true).lte('stock_quantity', 0);
+  } else if (filters?.stockFilter === 'low_stock') {
+    query = query
+      .eq('manage_stock', true)
+      .gt('stock_quantity', 0)
+      .lte('stock_quantity', 5);
+  } else if (filters?.stockFilter === 'in_stock') {
+    query = query.or('manage_stock.eq.false,stock_quantity.gt.5');
   }
 
   const { data, error, count } = await query;
@@ -205,6 +226,7 @@ export function useProducts(filters?: {
   status?: ProductStatus;
   search?: string;
   category?: string;
+  stockFilter?: StockFilter;
 }) {
   const { merchant } = useMerchant();
   const merchantId = merchant?.id;
@@ -217,6 +239,7 @@ export function useProducts(filters?: {
     initialPageParam: 0,
     enabled: !!merchantId,
     staleTime: 1000 * 60 * 2, // 2 minutes
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -264,10 +287,9 @@ export function useProduct(productId: string) {
         ...normalizeProductInventory(withRelations),
         categories: category ? { name: category.name } : undefined,
         brands: brand ? { name: brand.name } : undefined,
-        variants:
-          ((variants as Product[] | null) ?? []).map((variant) =>
-            normalizeProductInventory(variant)
-          ),
+        variants: ((variants as Product[] | null) ?? []).map((variant) =>
+          normalizeProductInventory(variant)
+        ),
       } as Product & {
         categories?: { name: string };
         brands?: { name: string };
@@ -587,6 +609,8 @@ export function useTopSellingProducts(limit: number = 20) {
         .filter(Boolean) as TopSellingProduct[];
     },
     enabled: !!merchant?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes — analytics data doesn't change rapidly
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -620,5 +644,6 @@ export function useInventoryStats() {
     },
     enabled: !!merchantId,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    placeholderData: keepPreviousData,
   });
 }
