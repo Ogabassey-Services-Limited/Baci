@@ -1,4 +1,3 @@
-import type { Editor } from '@tiptap/core';
 import {
   CheckSquare,
   Code,
@@ -12,10 +11,18 @@ import {
   Text,
   TextQuote,
 } from 'lucide-react';
-import { Command, createSuggestionItems, renderItems } from 'novel';
+import {
+  Command,
+  createSuggestionItems,
+  type EditorInstance,
+  renderItems,
+} from 'novel';
 import { uploadFn } from './image-upload';
 
-type CommandProps = { editor: Editor; range: { from: number; to: number } };
+type CommandProps = {
+  editor: EditorInstance;
+  range: { from: number; to: number };
+};
 
 export const suggestionItems = createSuggestionItems([
   {
