@@ -706,7 +706,6 @@ export default function CustomersScreen() {
             data={customers}
             renderItem={renderCustomer}
             keyExtractor={customerKeyExtractor}
-            getItemLayout={getItemLayout}
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl
