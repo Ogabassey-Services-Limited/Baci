@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockHeaders = vi.fn();
+const mockConnection = vi.fn(async () => undefined);
 const mockPermanentRedirect = vi.fn((_url: string) => {
   throw new Error('NEXT_REDIRECT');
 });
@@ -16,6 +17,10 @@ const mockGetCachedProductReviews = vi.fn();
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
+}));
+
+vi.mock('next/server', () => ({
+  connection: () => mockConnection(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -189,6 +194,47 @@ describe('products/[productSlug] page', () => {
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductRatingStats.mockResolvedValue(null);
     mockGetCachedProductReviews.mockResolvedValue([]);
+  });
+
+  it('waits for a request-time connection before redirecting categorized legacy products', async () => {
+    mockGetCachedProduct.mockResolvedValue(categorizedProduct);
+    mockHeaders.mockReturnValue(makeHeaders({}));
+    const deferredConnection: {
+      promise: Promise<undefined>;
+      resolve: () => void;
+    } = {
+      promise: Promise.resolve(undefined),
+      resolve: () => undefined,
+    };
+    deferredConnection.promise = new Promise<undefined>((resolve) => {
+      deferredConnection.resolve = () => resolve(undefined);
+    });
+    mockConnection.mockImplementation(() => deferredConnection.promise);
+
+    const pagePromise = ProductPage({
+      params: Promise.resolve({
+        slug: 'teststore',
+        productSlug: 'iphone-15',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+    const settledSpy = vi.fn();
+    pagePromise.then(
+      () => settledSpy('fulfilled'),
+      () => settledSpy('rejected')
+    );
+
+    await Promise.resolve();
+    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(settledSpy).not.toHaveBeenCalled();
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+
+    deferredConnection.resolve();
+
+    await expect(pagePromise).rejects.toThrow('NEXT_REDIRECT');
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      '/teststore/phones/iphone-15'
+    );
   });
 
   describe('redirect routing mode', () => {
