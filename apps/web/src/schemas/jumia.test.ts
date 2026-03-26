@@ -406,6 +406,27 @@ describe('Jumia Vendor API Schemas', () => {
       });
       expect(result.success).toBe(false);
     });
+
+    it('coerces string-encoded numeric expires_in', () => {
+      const result = JumiaTokenResponseSchema.safeParse({
+        ...validTokenResponse,
+        expires_in: '3600',
+        refresh_expires_in: '7776000',
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.expires_in).toBe(3600);
+        expect(result.data.refresh_expires_in).toBe(7776000);
+      }
+    });
+
+    it('accepts any non-empty token_type string', () => {
+      const result = JumiaTokenResponseSchema.safeParse({
+        ...validTokenResponse,
+        token_type: 'bearer',
+      });
+      expect(result.success).toBe(true);
+    });
   });
 
   describe('JumiaShopsResponseSchema', () => {
