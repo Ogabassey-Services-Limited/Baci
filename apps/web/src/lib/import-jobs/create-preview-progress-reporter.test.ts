@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createPreviewProgressReporter } from './create-preview-progress-reporter';
+import type { ImportJobRecord } from './import-job-service';
 
 function createSupabase(progressError: unknown = null) {
   const updateQuery = {
@@ -13,6 +14,27 @@ function createSupabase(progressError: unknown = null) {
   return {
     from: vi.fn(() => updateQuery),
     updateQuery,
+  };
+}
+
+function createJob(overrides: Partial<ImportJobRecord> = {}): ImportJobRecord {
+  return {
+    id: 'job-1',
+    merchant_id: 'merchant-1',
+    created_by: 'user-1',
+    source_platform: 'bumpa',
+    entity_type: 'orders',
+    status: 'validating',
+    original_filename: 'orders.csv',
+    storage_path: 'merchant-1/orders/orders.csv',
+    content_type: 'text/csv',
+    file_size_bytes: 1024,
+    total_rows: 0,
+    processed_rows: 0,
+    summary: null,
+    error: null,
+    created_at: '2026-03-26T08:00:00.000Z',
+    ...overrides,
   };
 }
 
@@ -34,7 +56,7 @@ describe('createPreviewProgressReporter', () => {
     const logger = { error: vi.fn() };
     const reportProgress = createPreviewProgressReporter(
       { from } as unknown as SupabaseClient,
-      { id: 'job-1' } as { id: string },
+      createJob(),
       logger
     );
 
@@ -67,7 +89,7 @@ describe('createPreviewProgressReporter', () => {
     const logger = { error: vi.fn() };
     const reportProgress = createPreviewProgressReporter(
       { from } as unknown as SupabaseClient,
-      { id: 'job-1' } as { id: string },
+      createJob(),
       logger
     );
 
