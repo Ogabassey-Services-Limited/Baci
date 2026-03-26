@@ -240,7 +240,7 @@ export function OgabasseyHeader({
               <button
                 type="button"
                 className="relative hover:text-white transition-colors"
-                aria-label={`Shopping cart with ${cartCount} items`}
+                aria-label={`Shopping cart with ${cartCount} ${cartCount === 1 ? 'item' : 'items'}`}
               >
                 <ShoppingCart size={22} />
                 {cartCount > 0 && (
