@@ -63,7 +63,7 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
       ? 'New & Used'
       : mapCondition(p.condition);
 
-    const rawCategories = (p as any).categories;
+    const rawCategories = p.categories;
     const categoryObj = Array.isArray(rawCategories) ? rawCategories[0] : rawCategories;
 
     return {
@@ -364,7 +364,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                       cartQuantity={getCartQuantity(product.id)}
                       viewMode="grid"
                       isWishlisted={isWishlisted}
-                      onToggleWishlist={(e) => { e.preventDefault(); toggleSaved(product as any); }}
+                      onToggleWishlist={(e) => { e.preventDefault(); toggleSaved(product); }}
                       storeSlug={storeSlug}
                     />
                   ) : (
@@ -377,7 +377,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                           cartQuantity={getCartQuantity(product.id)}
                           viewMode="list"
                           isWishlisted={isWishlisted}
-                          onToggleWishlist={(e) => { e.preventDefault(); toggleSaved(product as any); }}
+                          onToggleWishlist={(e) => { e.preventDefault(); toggleSaved(product); }}
                           storeSlug={storeSlug}
                         />
                       </div>
@@ -387,7 +387,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                           onAddToCart={handleAddToCart}
                           isAdded={isAdded}
                           isWishlisted={isWishlisted}
-                          onToggleWishlist={(e) => { e.preventDefault(); toggleSaved(product as any); }}
+                          onToggleWishlist={(e) => { e.preventDefault(); toggleSaved(product); }}
                           storeSlug={storeSlug}
                         />
                       </div>
