@@ -67,7 +67,7 @@ async function maybeReportProgress(
 
   async function report() {
     try {
-      await onProgress({ processedRows, totalRows });
+      await onProgress?.({ processedRows, totalRows });
     } catch {
       return;
     }
