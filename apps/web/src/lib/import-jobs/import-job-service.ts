@@ -53,6 +53,11 @@ interface PreviewBuildResult {
   totalRows: number;
 }
 
+interface PreviewBuildProgress {
+  processedRows: number;
+  totalRows: number;
+}
+
 interface ImportJobRowInsert {
   import_job_id: string;
   merchant_id: string;
@@ -188,7 +193,8 @@ async function loadExistingProducts(
 
 export async function buildImportPreviewForJob(
   supabase: SupabaseClient,
-  job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>
+  job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>,
+  onProgress?: (progress: PreviewBuildProgress) => Promise<void> | void
 ): Promise<PreviewBuildResult> {
   const [orders, products, fileText] = await Promise.all([
     loadExistingOrders(supabase, job.merchant_id),
@@ -197,12 +203,17 @@ export async function buildImportPreviewForJob(
   ]);
 
   const rawRows = parseCsvText(fileText).rows;
+  await onProgress?.({
+    processedRows: 0,
+    totalRows: rawRows.length,
+  });
 
   if (job.entity_type === 'orders') {
-    const preview = buildBumpaOrderPreview({
+    const preview = await buildBumpaOrderPreview({
       rows: rawRows,
       existingOrders: orders,
       existingProducts: products,
+      onProgress,
     });
 
     return {
@@ -213,9 +224,10 @@ export async function buildImportPreviewForJob(
     };
   }
 
-  const preview = buildBumpaProductPreview({
+  const preview = await buildBumpaProductPreview({
     rows: rawRows,
     existingProducts: products,
+    onProgress,
   });
 
   return {

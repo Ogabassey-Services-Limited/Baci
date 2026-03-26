@@ -92,7 +92,7 @@ describe('MigrationJobSummary', () => {
           source_platform: 'bumpa',
           status: 'validating',
           original_filename: 'orders.csv',
-          processed_rows: 0,
+          processed_rows: 2911,
           total_rows: 5821,
           summary: {
             validRows: 0,
@@ -110,6 +110,10 @@ describe('MigrationJobSummary', () => {
     );
 
     expect(screen.getByText(/building preview/i)).toBeInTheDocument();
+    expect(screen.getByText('50%')).toBeInTheDocument();
+    expect(
+      screen.getByText('2,911 of 5,821 rows processed')
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('progressbar', { name: /migration progress/i })
     ).toBeInTheDocument();
@@ -156,5 +160,49 @@ describe('MigrationJobSummary', () => {
     fireEvent.click(screen.getByRole('button', { name: /show ready rows/i }));
 
     expect(onFilterChange).toHaveBeenCalledWith('importable');
+  });
+
+  it('shows empty-filter guidance and disables empty filter cards', () => {
+    render(
+      <MigrationJobSummary
+        activeFilter="importable"
+        acting={false}
+        error={null}
+        loading={false}
+        onFilterChange={vi.fn()}
+        onCommit={vi.fn().mockResolvedValue(undefined)}
+        onNotify={vi.fn().mockResolvedValue(undefined)}
+        onRefresh={vi.fn().mockResolvedValue(undefined)}
+        selectedJob={{
+          id: 'job-4',
+          entity_type: 'orders',
+          source_platform: 'bumpa',
+          status: 'preview_ready',
+          original_filename: 'orders.csv',
+          processed_rows: 12,
+          total_rows: 12,
+          summary: {
+            validRows: 0,
+            invalidRows: 0,
+            receiptReadyOrders: 0,
+          },
+          error: null,
+          created_at: '2026-03-22T10:00:00.000Z',
+          committed_at: null,
+          notified_at: null,
+          canCommit: false,
+          canNotify: false,
+        }}
+      />
+    );
+
+    expect(screen.getByText(/^No rows ready to import$/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/currently has no rows ready to import/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /ready to import/i })
+    ).toBeDisabled();
+    expect(screen.getByRole('button', { name: /needs fix/i })).toBeDisabled();
   });
 });

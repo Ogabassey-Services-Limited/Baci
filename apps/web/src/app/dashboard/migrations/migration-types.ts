@@ -4,13 +4,14 @@ import type {
 } from '@/lib/imports/bumpa/bumpa-types';
 import type {
   ImportJobEntityType,
+  ImportJobRowsQuery,
   ImportJobSourcePlatform,
   ImportJobStatus,
 } from '@/schemas/import-jobs';
 
 export type ImportJobRowStatus = 'create' | 'update' | 'duplicate' | 'invalid';
 
-export type MigrationPreviewFilter = 'all' | 'importable' | 'needs_fix';
+export type MigrationPreviewFilter = ImportJobRowsQuery['filter'];
 
 export interface ImportJobListItem {
   committed_at: string | null;

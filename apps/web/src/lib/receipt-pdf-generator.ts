@@ -70,10 +70,12 @@ function getReceiptItemVariantName(item: ReceiptOrder['items'][number]) {
     variant_name?: unknown;
   };
 
-  return typeof candidate.variant_name === 'string' &&
-    candidate.variant_name.length > 0
-    ? candidate.variant_name
-    : null;
+  if (typeof candidate.variant_name !== 'string') {
+    return null;
+  }
+
+  const variantName = candidate.variant_name.trim();
+  return variantName.length > 0 ? variantName : null;
 }
 
 export function generateReceiptPDF(
