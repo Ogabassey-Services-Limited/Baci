@@ -32,8 +32,6 @@ import {
   mapLegacyCachedProductToProduct,
 } from './product-mappers';
 
-// This route mostly returns 308 redirects, so PPR has limited value here.
-
 interface PageProps {
   params: Promise<{
     slug: string; // Store slug
@@ -74,6 +72,26 @@ async function getProductCached(
   return mapDetailedCachedProductToProduct(detailedProduct, merchant.id);
 }
 
+async function redirectLegacyProductRouteIfCategorized(
+  storeSlug: string,
+  product: Product
+) {
+  const productPath = getProductUrl(product);
+  if (productPath.startsWith('/products/')) {
+    return;
+  }
+
+  const headersList = await headers();
+  const isPathMode =
+    !headersList.has('x-merchant-slug') &&
+    !headersList.has('x-custom-domain') &&
+    !isDomainIdentifier(storeSlug);
+  const targetPath = isPathMode ? `/${storeSlug}${productPath}` : productPath;
+
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic route path requires type assertion
+  permanentRedirect(targetPath as any);
+}
+
 export async function generateMetadata(
   { params, searchParams }: PageProps,
   __parent: ResolvingMetadata
@@ -104,24 +122,7 @@ export async function generateMetadata(
         : { slug, custom_domain: undefined })
   );
 
-  const effectiveCategorySlug =
-    product.category_slug ||
-    (product.category ? generateSlug(product.category) : undefined);
-
-  if (effectiveCategorySlug) {
-    const cleanSlug = product.slug || product.id;
-    const headersList = await headers();
-    const isPathMode =
-      !headersList.has('x-merchant-slug') &&
-      !headersList.has('x-custom-domain') &&
-      !isDomainIdentifier(slug);
-    const targetPath = isPathMode
-      ? `/${slug}/${effectiveCategorySlug}/${cleanSlug}`
-      : `/${effectiveCategorySlug}/${cleanSlug}`;
-
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic route path requires type assertion
-    permanentRedirect(targetPath as any);
-  }
+  await redirectLegacyProductRouteIfCategorized(slug, product);
 
   let canonicalUrl = product.canonical_url;
 
@@ -192,6 +193,8 @@ export default async function ProductPage({ params }: PageProps) {
   if (!product) {
     notFound();
   }
+
+  await redirectLegacyProductRouteIfCategorized(slug, product);
 
   const merchant = slug.includes('.')
     ? await getCachedMerchantByDomain(slug)
