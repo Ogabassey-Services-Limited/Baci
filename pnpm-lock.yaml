@@ -219,8 +219,8 @@ importers:
         specifier: ~55.0.8
         version: 55.0.8(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))
       expo-web-browser:
-        specifier: ^55.0.9
-        version: 55.0.9(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))
+        specifier: ^55.0.10
+        version: 55.0.10(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))
       react:
         specifier: 19.2.0
         version: 19.2.0
@@ -457,8 +457,8 @@ importers:
         specifier: ~55.0.12
         version: 55.0.12(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
       expo-web-browser:
-        specifier: ~55.0.9
-        version: 55.0.9(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))
+        specifier: ~55.0.10
+        version: 55.0.10(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))
       lottie-react-native:
         specifier: ~7.3.5
         version: 7.3.5(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0)
@@ -8728,8 +8728,8 @@ packages:
       react: '*'
       react-native: '*'
 
-  expo-web-browser@55.0.9:
-    resolution: {integrity: sha512-PvAVsG401QmZabtTsYh1cYcpPiqvBPs8oiOkSrp0jIXnneiM466HxmeNtvo+fNxqJ2nwOBz9qLPiWRO91VBfsQ==}
+  expo-web-browser@55.0.10:
+    resolution: {integrity: sha512-2d6qVrg/nt0JvW5uAqOMDG/xITIXFe1Prkq1ri+I3PrC0QmV5cMYNSagU9ykfC8S7YKWxF1qO7Qsih9fxNa9dw==}
     peerDependencies:
       expo: '*'
       react-native: '*'
@@ -24442,7 +24442,7 @@ snapshots:
       expo-constants: 55.0.9(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(typescript@5.9.3)
       expo-crypto: 55.0.8(expo@55.0.3)
       expo-linking: 55.0.7(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
-      expo-web-browser: 55.0.9(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))
+      expo-web-browser: 55.0.10(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))
       invariant: 2.2.4
       react: 19.2.0
       react-native: 0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0)
@@ -24821,7 +24821,7 @@ snapshots:
       - supports-color
       - typescript
 
-  expo-web-browser@55.0.9(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0)):
+  expo-web-browser@55.0.10(expo@55.0.3)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0)):
     dependencies:
       expo: 55.0.3(@babel/core@7.29.0)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@6.1.2)(expo-router@55.0.4)(react-dom@19.2.0(react@19.2.0))(react-native-webview@13.16.0(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
       react-native: 0.83.2(@babel/core@7.29.0)(@types/react@19.2.13)(react@19.2.0)
