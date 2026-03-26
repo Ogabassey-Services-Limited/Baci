@@ -257,7 +257,11 @@ export async function GET(request: NextRequest) {
       error:
         error instanceof Error
           ? { name: error.name, message: error.message, stack: error.stack }
-          : error,
+          : {
+              kind: 'NonError',
+              type: typeof error,
+              summary: String(error).slice(0, 200),
+            },
     });
     const platform = request.cookies.get('jumia_oauth_platform')?.value;
     const redirectBase =
