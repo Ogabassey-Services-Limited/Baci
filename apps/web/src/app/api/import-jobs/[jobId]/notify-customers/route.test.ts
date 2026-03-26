@@ -42,6 +42,9 @@ import { POST } from './route';
 
 const jobId = '00000000-0000-4000-8000-000000000001';
 
+// Two consecutive awaits are needed because the `after()` mock wraps the
+// callback in `Promise.resolve().then(callback)`, so the first await settles
+// the outer promise and the second settles the inner `.then(callback)` chain.
 async function flushAfterCallbacks() {
   await Promise.resolve();
   await Promise.resolve();

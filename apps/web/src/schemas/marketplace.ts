@@ -1,7 +1,11 @@
 import { z } from 'zod';
 
 export const jumiaMerchantIdQuerySchema = z.object({
-  merchantId: z.string().uuid().optional(),
+  merchantId: z.string().uuid('merchantId must be a valid UUID').optional(),
+  integrationId: z
+    .string()
+    .uuid('integrationId must be a valid UUID')
+    .optional(),
 });
 
 export const jumiaOrderIdParamSchema = z.object({
@@ -9,3 +13,9 @@ export const jumiaOrderIdParamSchema = z.object({
 });
 
 export type JumiaOrderIdParam = z.infer<typeof jumiaOrderIdParamSchema>;
+
+export const integrationIdSchema = z
+  .string()
+  .uuid('integrationId must be a valid UUID');
+
+export type IntegrationId = z.infer<typeof integrationIdSchema>;

@@ -31,19 +31,18 @@ describe('order column constants', () => {
   });
 
   it('column constants do not use select(*)', () => {
-    const allConstants = [
-      WEB_ORDER_COLUMNS,
-      WEB_ORDER_ITEMS_COLUMNS,
-      WEB_ORDER_WITH_ITEMS_QUERY,
-      MOBILE_ADMIN_ORDER_COLUMNS,
-    ];
-    for (const col of allConstants) {
-      expect(col).not.toContain('*');
-    }
+    expect(WEB_ORDER_COLUMNS).not.toContain('*');
+    expect(WEB_ORDER_ITEMS_COLUMNS).not.toContain('*');
+    expect(WEB_ORDER_WITH_ITEMS_QUERY).not.toContain('*');
+    expect(MOBILE_ADMIN_ORDER_COLUMNS).not.toContain('*');
   });
 
   it('WEB_ORDER_COLUMNS does not include unsupported production columns', () => {
     expect(WEB_ORDER_COLUMNS).not.toContain('payment_reference');
+  });
+
+  it('WEB_ORDER_COLUMNS includes amount_paid for payment tracking', () => {
+    expect(WEB_ORDER_COLUMNS).toContain('amount_paid');
   });
 });
 

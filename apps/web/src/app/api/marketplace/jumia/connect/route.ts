@@ -13,7 +13,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { getJumiaAuthUrl } from '@/lib/jumia/client';
+import { getJumiaAuthUrl } from '@/lib/jumia/helpers';
 import { createClient } from '@/lib/supabase/server';
 
 const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [

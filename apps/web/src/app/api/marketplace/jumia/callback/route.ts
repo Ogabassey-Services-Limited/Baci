@@ -8,7 +8,8 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
-import { exchangeJumiaCode, JumiaClient } from '@/lib/jumia/client';
+import { JumiaClient } from '@/lib/jumia/client';
+import { exchangeJumiaCode } from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
 
 // biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
@@ -131,19 +132,49 @@ export async function GET(request: NextRequest) {
       supabase: auth.supabase,
     });
 
-    const discoveredShops = await tempClient.getShops();
+    let discoveredShops: Awaited<ReturnType<typeof tempClient.getShops>>;
+    try {
+      discoveredShops = await tempClient.getShops();
+    } catch (shopError) {
+      logger.error({
+        message: 'Jumia Callback Failed to fetch shops, using fallback',
+        merchantId,
+        error:
+          shopError instanceof Error
+            ? {
+                message: shopError.message,
+                code: (shopError as Error & { code?: string }).code,
+              }
+            : 'Unknown error',
+      });
+      discoveredShops = [];
+    }
     const supabase = auth.supabase;
 
+    // Track whether we had to synthesize a fallback shop (discovery failed).
+    // Fallback shops should NOT be marked active — the merchant must manually re-connect.
+    let isFallbackShop = false;
     if (discoveredShops.length === 0) {
       logger.warn({
         message: 'Jumia Callback No shops discovered',
         merchantId,
       });
-      // Fallback to a generic integration if no shops found (unlikely but safe)
+      isFallbackShop = true;
       discoveredShops.push({
         id: 'oauth',
         name: 'Jumia Shop',
-        country: { code: 'NG' },
+        // Required by JumiaShopSchema (non-nullable); real email is unknown at OAuth time
+        email: '',
+        businessClients: [
+          {
+            name: 'Jumia Nigeria',
+            code: 'jumia_ng',
+            countryCode: 'NG',
+            countryName: 'Nigeria',
+            status: 'active',
+            shortCode: 'NG',
+          },
+        ],
       });
     }
 
@@ -151,7 +182,12 @@ export async function GET(request: NextRequest) {
     for (const shop of discoveredShops) {
       const shopId = shop.id;
       const shopName = shop.name || 'Jumia Shop';
-      const countryCode = shop.country?.code || 'NG';
+      // Nigeria-pilot: prefer NG business client, fall back to first entry, then 'NG' default
+      const countryCode = shop.businessClients?.some(
+        (bc) => bc.countryCode === 'NG'
+      )
+        ? 'NG'
+        : (shop.businessClients?.[0]?.countryCode ?? 'NG');
 
       const { error: insertError } = await supabase
         .from('marketplace_integrations')
@@ -165,8 +201,13 @@ export async function GET(request: NextRequest) {
             access_token: tokens.access_token,
             refresh_token: tokens.refresh_token,
             token_expires_at: tokenExpiresAt.toISOString(),
-            is_active: true,
-            sync_config: { products: true, orders: true, stock: true },
+            is_active: !isFallbackShop,
+            sync_config: {
+              products: true,
+              orders: true,
+              stock: true,
+              businessClients: shop.businessClients ?? [],
+            },
           },
           {
             onConflict: 'merchant_id,platform,shop_id',
@@ -218,9 +259,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(
       new URL(
-        `${redirectBase}?error=connection_failed&error_description=${encodeURIComponent(
-          error instanceof Error ? error.message : 'Unknown error'
-        )}`,
+        `${redirectBase}?error=connection_failed`,
         platform === 'mobile' ? undefined : request.url
       )
     );

@@ -103,7 +103,18 @@ export async function POST(
       );
     }
 
-    after(() => kickoffImportJob(job.id, request.nextUrl.origin));
+    after(async () => {
+      try {
+        await kickoffImportJob(job.id, request.nextUrl.origin);
+      } catch (err) {
+        logger.error({
+          message: 'Background kickoff failed',
+          jobId: job.id,
+          origin: request.nextUrl.origin,
+          error: err,
+        });
+      }
+    });
 
     return NextResponse.json(
       { jobId: job.id, status: 'commit_queued' },

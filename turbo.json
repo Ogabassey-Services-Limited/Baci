@@ -11,7 +11,10 @@
         "NEXT_PUBLIC_ROOT_DOMAIN",
         "SUPABASE_SERVICE_ROLE_KEY",
         "UPSTASH_REDIS_REST_URL",
-        "UPSTASH_REDIS_REST_TOKEN"
+        "UPSTASH_REDIS_REST_TOKEN",
+        "JUMIA_CLIENT_ID",
+        "JUMIA_CLIENT_SECRET",
+        "JUMIA_ENVIRONMENT"
       ]
     },
     "dev": {

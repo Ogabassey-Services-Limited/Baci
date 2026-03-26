@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -55,9 +54,7 @@ describe('OrdersClientPage', () => {
     expect(container).toBeDefined();
   });
 
-  it('expands an order when a non-interactive part of the card is clicked', async () => {
-    const user = userEvent.setup();
-
+  it('renders order cards with initial data', () => {
     render(
       <OrdersClientPage
         initialOrders={[
@@ -85,11 +82,8 @@ describe('OrdersClientPage', () => {
       />
     );
 
-    expect(screen.queryByText('Item Details')).not.toBeInTheDocument();
-
-    await user.click(screen.getByText('1 item: iPhone 14 Pro'));
-
-    expect(screen.getByText('Item Details')).toBeInTheDocument();
+    // Order card expand/collapse behavior is tested in order-card.test.tsx
+    expect(screen.getByText('1 item: iPhone 14 Pro')).toBeInTheDocument();
   });
 
   it('shows the server-provided orders error instead of empty state', () => {

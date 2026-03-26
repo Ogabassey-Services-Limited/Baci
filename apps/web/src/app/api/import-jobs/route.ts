@@ -156,7 +156,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    after(() => kickoffImportJob(job.id, request.nextUrl.origin));
+    const origin = request.nextUrl.origin;
+    after(async () => {
+      try {
+        await kickoffImportJob(job.id, origin);
+      } catch (err) {
+        logger.error({
+          message: 'Background kickoff failed',
+          jobId: job.id,
+          origin,
+          error: err,
+        });
+      }
+    });
 
     return NextResponse.json({ job }, { status: 202 });
   } catch (error) {

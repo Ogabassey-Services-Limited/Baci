@@ -103,7 +103,56 @@ export async function POST(
       );
     }
 
-    after(() => kickoffImportJob(job.id, request.nextUrl.origin));
+    after(async () => {
+      try {
+        await kickoffImportJob(job.id, request.nextUrl.origin);
+      } catch (err) {
+        logger.error({
+          message: 'Background kickoff failed',
+          jobId: job.id,
+          origin: request.nextUrl.origin,
+          error: err,
+        });
+
+        // Recover job status so merchants can retry
+        const supabase = authResult.context?.supabase;
+        const merchantId = authResult.context?.merchantContext.merchantId;
+        if (!supabase || !merchantId) return;
+        try {
+          const { error: recoveryError, count } = await supabase
+            .from('import_jobs')
+            .update(
+              {
+                status: 'committed',
+                error: 'Notification delivery failed — please retry',
+              },
+              { count: 'exact' }
+            )
+            .eq('id', job.id)
+            .eq('status', 'notify_queued')
+            .eq('merchant_id', merchantId);
+          if (recoveryError) {
+            logger.error({
+              message: 'Recovery update returned error',
+              jobId: job.id,
+              error: recoveryError,
+            });
+          } else if (count === 0) {
+            logger.warn({
+              message:
+                'Recovery update matched zero rows — job may have already transitioned',
+              jobId: job.id,
+            });
+          }
+        } catch (recoveryErr) {
+          logger.error({
+            message: 'Failed to recover job status after kickoff failure',
+            jobId: job.id,
+            error: recoveryErr,
+          });
+        }
+      }
+    });
 
     return NextResponse.json(
       { jobId: job.id, status: 'notify_queued' },

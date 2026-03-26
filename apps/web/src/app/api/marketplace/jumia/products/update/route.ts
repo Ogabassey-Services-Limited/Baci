@@ -1,14 +1,146 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { JumiaClient } from '@/lib/jumia/client';
+import { updatePrice, updateStatus } from '@/lib/jumia/feeds';
+import { JumiaApiError } from '@/lib/jumia/helpers';
+import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 
-export async function POST(request: Request) {
+/** Strict ISO 8601 date or datetime: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS with optional offset/Z */
+const isoDateRegex =
+  /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])(T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?(Z|[+-]([01]\d|2[0-3]):[0-5]\d)?)?$/;
+
+/** Verify the date portion represents a real calendar date (rejects e.g. Feb 31). */
+function isValidCalendarDate(v: string): boolean {
+  const datePart = v.split('T')[0];
+  const [yearStr, monthStr, dayStr] = datePart.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!year || !month || !day) return false;
+  const d = new Date(Date.UTC(year, month - 1, day));
+  return (
+    d.getUTCFullYear() === year &&
+    d.getUTCMonth() + 1 === month &&
+    d.getUTCDate() === day
+  );
+}
+
+interface SalePriceResult {
+  value: number;
+  startAt: string | null;
+  endAt: string | null;
+}
+
+/** Resolve the sale-price payload for a Jumia price feed. */
+function resolveSalePrice(
+  overrides: {
+    jumia_sale_price?: number | null;
+    jumia_sale_start?: string | null;
+    jumia_sale_end?: string | null;
+  },
+  mapping: {
+    jumia_sale_price: number | null;
+    jumia_sale_start: string | null;
+    jumia_sale_end: string | null;
+  }
+): SalePriceResult | undefined {
+  // Explicit sale price in overrides
+  if (
+    Object.hasOwn(overrides, 'jumia_sale_price') &&
+    overrides.jumia_sale_price != null
+  ) {
+    return {
+      value: overrides.jumia_sale_price,
+      startAt: Object.hasOwn(overrides, 'jumia_sale_start')
+        ? (overrides.jumia_sale_start ?? null)
+        : (mapping.jumia_sale_start ?? null),
+      endAt: Object.hasOwn(overrides, 'jumia_sale_end')
+        ? (overrides.jumia_sale_end ?? null)
+        : (mapping.jumia_sale_end ?? null),
+    };
+  }
+  // Sale price cleared explicitly
+  if (
+    Object.hasOwn(overrides, 'jumia_sale_price') &&
+    overrides.jumia_sale_price == null
+  ) {
+    return undefined;
+  }
+  // Only dates changed — use existing sale price if available
+  if (
+    (Object.hasOwn(overrides, 'jumia_sale_start') ||
+      Object.hasOwn(overrides, 'jumia_sale_end')) &&
+    mapping.jumia_sale_price != null
+  ) {
+    return {
+      value: mapping.jumia_sale_price,
+      startAt: Object.hasOwn(overrides, 'jumia_sale_start')
+        ? (overrides.jumia_sale_start ?? null)
+        : (mapping.jumia_sale_start ?? null),
+      endAt: Object.hasOwn(overrides, 'jumia_sale_end')
+        ? (overrides.jumia_sale_end ?? null)
+        : (mapping.jumia_sale_end ?? null),
+    };
+  }
+  return undefined;
+}
+
+const UpdateSchema = z.object({
+  productId: z.string().uuid(),
+  integrationId: z.string().uuid(),
+  overrides: z
+    .object({
+      jumia_price: z.number().positive().optional(),
+      jumia_sale_price: z.number().positive().nullable().optional(),
+      jumia_sale_start: z
+        .string()
+        .regex(isoDateRegex, 'Must be YYYY-MM-DD or ISO 8601 datetime')
+        .refine(isValidCalendarDate, {
+          message: 'Calendar-invalid date (e.g. Feb 31)',
+        })
+        .nullable()
+        .optional(),
+      jumia_sale_end: z
+        .string()
+        .regex(isoDateRegex, 'Must be YYYY-MM-DD or ISO 8601 datetime')
+        .refine(isValidCalendarDate, {
+          message: 'Calendar-invalid date (e.g. Feb 31)',
+        })
+        .nullable()
+        .optional(),
+      is_active: z.boolean().optional(),
+    })
+    .refine(
+      (o) => {
+        const hasStart = Object.hasOwn(o, 'jumia_sale_start');
+        const hasEnd = Object.hasOwn(o, 'jumia_sale_end');
+        // If one is provided, the other must be too
+        if (hasStart !== hasEnd) return false;
+        return true;
+      },
+      {
+        message:
+          'Both jumia_sale_start and jumia_sale_end must be provided together',
+      }
+    )
+    .refine(
+      (o) => {
+        if (o.jumia_sale_start && o.jumia_sale_end) {
+          return new Date(o.jumia_sale_start) < new Date(o.jumia_sale_end);
+        }
+        return true;
+      },
+      { message: 'jumia_sale_start must be before jumia_sale_end' }
+    ),
+});
+
+export async function POST(request: NextRequest) {
   try {
-    // CSRF protection
     const { valid: csrfValid, response: csrfResponse } =
-      await checkCsrfProtection(request as NextRequest);
+      await checkCsrfProtection(request);
     if (!csrfValid) {
       return (
         csrfResponse ??
@@ -16,17 +148,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = await request.json();
-    const { productId, overrides } = body;
-
-    if (!productId || !overrides) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    const supabase = createClient(await cookies());
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -35,11 +158,57 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify product ownership and get mapping
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const parsed = UpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { productId, integrationId, overrides } = parsed.data;
+
+    // Get merchant ID from user context
+    const { data: merchant, error: merchantError } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (merchantError) {
+      if (merchantError.code === 'PGRST116') {
+        return NextResponse.json(
+          { error: 'Merchant not found' },
+          { status: 404 }
+        );
+      }
+      logger.error({
+        message: 'Failed to query merchant',
+        error: merchantError,
+      });
+      return NextResponse.json(
+        { error: 'Failed to look up merchant' },
+        { status: 500 }
+      );
+    }
+
+    const merchantId = merchant.id;
+
+    // Verify product mapping exists and belongs to this merchant
     const { data: mapping, error: mappingError } = await supabase
       .from('jumia_product_mappings')
-      .select('*, marketplace_integrations(*)')
+      .select(
+        'id, product_id, jumia_sku, jumia_product_id, jumia_price, jumia_sale_price, jumia_sale_start, jumia_sale_end, is_active'
+      )
       .eq('product_id', productId)
+      .eq('merchant_id', merchantId)
       .single();
 
     if (mappingError || !mapping) {
@@ -49,78 +218,135 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Update local database
+    // Initialize Jumia client BEFORE any DB mutations.
+    // forIntegration enforces merchant ownership by querying with both merchant_id and id.
+    let client: JumiaClient;
+    try {
+      client = await JumiaClient.forIntegration(
+        supabase,
+        merchantId,
+        integrationId
+      );
+    } catch (err: unknown) {
+      if (err instanceof JumiaApiError && err.status === 404) {
+        return NextResponse.json(
+          { error: `Jumia integration not found: ${integrationId}` },
+          { status: 404 }
+        );
+      }
+      throw err;
+    }
+
+    // Update local mapping (include sale fields if provided)
+    const mappingUpdate: Record<string, unknown> = {
+      jumia_price: overrides.jumia_price ?? mapping.jumia_price,
+      is_active: overrides.is_active ?? mapping.is_active,
+      updated_at: new Date().toISOString(),
+    };
+    if (Object.hasOwn(overrides, 'jumia_sale_price')) {
+      mappingUpdate.jumia_sale_price = overrides.jumia_sale_price;
+    }
+    if (Object.hasOwn(overrides, 'jumia_sale_start')) {
+      mappingUpdate.jumia_sale_start = overrides.jumia_sale_start;
+    }
+    if (Object.hasOwn(overrides, 'jumia_sale_end')) {
+      mappingUpdate.jumia_sale_end = overrides.jumia_sale_end;
+    }
+
     const { error: updateError } = await supabase
       .from('jumia_product_mappings')
-      .update({
-        jumia_price: overrides.jumia_price,
-        jumia_sale_price: overrides.jumia_sale_price,
-        jumia_sale_start: overrides.jumia_sale_start,
-        jumia_sale_end: overrides.jumia_sale_end,
-        is_active: overrides.is_active,
-        sync_inventory: overrides.sync_inventory,
-        sync_price: overrides.sync_price,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('product_id', productId);
+      .update(mappingUpdate)
+      .eq('id', mapping.id)
+      .eq('merchant_id', merchantId);
 
     if (updateError) {
-      throw new Error(`Local update failed: ${updateError.message}`);
+      logger.error({
+        message: 'Local mapping update failed',
+        error: updateError,
+      });
+      return NextResponse.json(
+        { error: 'Failed to update local mapping' },
+        { status: 500 }
+      );
     }
 
-    // 2. Initialize Jumia Client
-    const integration = mapping.marketplace_integrations;
-    if (!integration) {
-      throw new Error('Integration credentials not found');
+    const feedIds: string[] = [];
+    const feedErrors: string[] = [];
+
+    // Push status update if changed
+    if (Object.hasOwn(overrides, 'is_active')) {
+      if (!mapping.jumia_product_id) {
+        feedErrors.push(
+          'Status update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)'
+        );
+      } else {
+        try {
+          const statusFeedId = await updateStatus(client, [
+            {
+              id: mapping.jumia_product_id,
+              sellerSku: mapping.jumia_sku,
+              status: overrides.is_active ? 'active' : 'inactive',
+            },
+          ]);
+          feedIds.push(statusFeedId);
+        } catch (err) {
+          logger.error({ message: 'Jumia status feed failed', error: err });
+          feedErrors.push(
+            `Status update failed: ${err instanceof Error ? err.message : 'Unknown error'}`
+          );
+        }
+      }
     }
 
-    const client = new JumiaClient({
-      integrationId: integration.id,
-      merchantId: integration.merchant_id,
-      shopId: integration.shop_id,
-      accessToken: integration.access_token,
-      refreshToken: integration.refresh_token,
-      tokenExpiresAt: integration.expires_at
-        ? new Date(integration.expires_at)
-        : null,
-      supabase,
+    // Push price update if provided (use `in` check so null values still trigger the block)
+    if (
+      Object.hasOwn(overrides, 'jumia_price') ||
+      Object.hasOwn(overrides, 'jumia_sale_price') ||
+      Object.hasOwn(overrides, 'jumia_sale_start') ||
+      Object.hasOwn(overrides, 'jumia_sale_end')
+    ) {
+      if (!mapping.jumia_product_id) {
+        feedErrors.push(
+          'Price update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)'
+        );
+      } else {
+        const resolvedPrice = overrides.jumia_price ?? mapping.jumia_price;
+        if (resolvedPrice == null) {
+          feedErrors.push(
+            'Price update skipped: no price available (override or existing)'
+          );
+        } else {
+          try {
+            const priceFeedId = await updatePrice(client, [
+              {
+                id: mapping.jumia_product_id,
+                sellerSku: mapping.jumia_sku,
+                price: {
+                  value: resolvedPrice,
+                  // TODO: Nigeria-pilot only — parameterise when expanding to other countries
+                  currency: 'NGN',
+                  salePrice: resolveSalePrice(overrides, mapping),
+                },
+              },
+            ]);
+            feedIds.push(priceFeedId);
+          } catch (err) {
+            logger.error({ message: 'Jumia price feed failed', error: err });
+            feedErrors.push(
+              `Price update failed: ${err instanceof Error ? err.message : 'Unknown error'}`
+            );
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({
+      success: feedErrors.length === 0,
+      feedIds,
+      ...(feedErrors.length > 0 && { errors: feedErrors }),
     });
-
-    // 3. Push Status Update if changed
-    if (overrides.is_active !== undefined) {
-      await client.updateStatus([
-        {
-          id: mapping.jumia_product_id,
-          sellerSku: mapping.jumia_sku,
-          active: overrides.is_active,
-        },
-      ]);
-    }
-
-    // 4. Push Price Update if provided
-    if (overrides.jumia_price || overrides.jumia_sale_price) {
-      await client.updatePrice([
-        {
-          id: mapping.jumia_product_id,
-          sellerSku: mapping.jumia_sku,
-          price: {
-            value: overrides.jumia_price || 0, // Should use base price if override is null in real impl
-            currency: integration.currency || 'NGN',
-            salePrice: overrides.jumia_sale_price
-              ? {
-                  value: overrides.jumia_sale_price,
-                  startAt: overrides.jumia_sale_start,
-                  endAt: overrides.jumia_sale_end,
-                }
-              : undefined,
-          },
-        },
-      ]);
-    }
-
-    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Update Jumia Product Error:', error);
+    logger.error({ message: 'Update Jumia Product Error', error });
     return NextResponse.json(
       {
         error:

@@ -14,8 +14,14 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { getClientCsrfToken } from '@/lib/csrf';
+import { sanitizeText, stripHtmlTags } from '@/lib/sanitize-core';
 import { JumiaBrandSelector } from './brand-selector';
 import { JumiaCategorySelector } from './category-selector';
+
+type ExportResponse =
+  | { success: true; feedId: string }
+  | { success: false; error: string; feedErrors?: string[] };
 
 interface ExportToJumiaDialogProps {
   product: {
@@ -27,6 +33,7 @@ interface ExportToJumiaDialogProps {
     images?: string[];
   };
   merchantId: string;
+  integrationId: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   trigger?: React.ReactNode;
@@ -35,6 +42,7 @@ interface ExportToJumiaDialogProps {
 export function ExportToJumiaDialog({
   product,
   merchantId,
+  integrationId,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
   trigger,
@@ -42,15 +50,23 @@ export function ExportToJumiaDialog({
   const { toast } = useToast();
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
-  const setOpen = controlledOnOpenChange ?? setInternalOpen;
+  const setOpen = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      // Reset selections when dialog closes
+      setCategoryCode(null);
+      setBrand(null);
+    }
+    (controlledOnOpenChange ?? setInternalOpen)(nextOpen);
+  };
 
   const [loading, setLoading] = useState(false);
-  const [categoryId, setCategoryId] = useState<string>('');
-  const [_categoryName, setCategoryName] = useState<string>('');
-  const [brand, setBrand] = useState<string>('Generic');
+  const [categoryCode, setCategoryCode] = useState<number | null>(null);
+  const [brand, setBrand] = useState<{ code: number; name: string } | null>(
+    null
+  );
 
   const handleExport = async () => {
-    if (!categoryId || !brand) {
+    if (!categoryCode || !brand) {
       toast({
         title: 'Selection Required',
         description: 'Please select a Category and Brand',
@@ -62,34 +78,95 @@ export function ExportToJumiaDialog({
     setLoading(true);
     try {
       const payload = {
+        integrationId,
         merchantId,
-        productData: {
-          SellerSku: product.sku,
-          Name: product.name,
-          Brand: brand,
-          Description: product.description || product.name,
-          TaxClass: 'Default', // Default for now
-          Price: Number(product.price),
-          Status: 'Active',
-          PrimaryCategory: categoryId,
-          MainImage: product.images?.[0] || '',
-          Images: product.images || [],
-          ProductData: {
-            // Optional attributes could go here
-          },
+        name: sanitizeText(stripHtmlTags(product.name)),
+        brand: {
+          code: brand.code,
+          name: sanitizeText(stripHtmlTags(brand.name)),
         },
+        category: { code: categoryCode },
+        description: sanitizeText(
+          stripHtmlTags(product.description || product.name)
+        ),
+        images: (product.images ?? [])
+          .filter((url) => {
+            if (!url) return false;
+            try {
+              const parsed = new URL(url);
+              return (
+                parsed.protocol === 'http:' || parsed.protocol === 'https:'
+              );
+            } catch {
+              return false;
+            }
+          })
+          .map((url, i) => ({
+            url,
+            primary: i === 0,
+          })),
+        variations: [
+          {
+            sellerSku: product.sku,
+            price: product.price,
+            // NGN is Nigeria-pilot specific; derive from merchant config when multi-country support is added
+            currency: 'NGN',
+          },
+        ],
       };
 
+      const csrfToken = getClientCsrfToken();
       const res = await fetch('/api/marketplace/jumia/products/export', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken && { 'x-csrf-token': csrfToken }),
+        },
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(data.error || 'Export failed');
+        let message = res.statusText || 'Export failed';
+        try {
+          const errorBody = await res.json();
+          if (errorBody.error) message = errorBody.error;
+        } catch {
+          // Response body is not JSON, use statusText
+        }
+        throw new Error(message);
+      }
+
+      let data: ExportResponse;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Invalid response from server');
+      }
+
+      if (!data.success) {
+        const MAX_DISPLAYED_ERRORS = 3;
+        const MAX_ERROR_LENGTH = 200;
+        const MAX_TOTAL_LENGTH = 500;
+        let feedDetail = '';
+        if (data.feedErrors && data.feedErrors.length > 0) {
+          const displayed = data.feedErrors
+            .slice(0, MAX_DISPLAYED_ERRORS)
+            .map((e) => {
+              const safe = sanitizeText(e);
+              return safe.length > MAX_ERROR_LENGTH
+                ? `${safe.slice(0, MAX_ERROR_LENGTH)}...`
+                : safe;
+            });
+          feedDetail = `\n${displayed.join('\n')}`;
+          if (data.feedErrors.length > MAX_DISPLAYED_ERRORS) {
+            feedDetail += `\n... (${data.feedErrors.length - MAX_DISPLAYED_ERRORS} more errors)`;
+          }
+        }
+        let message = sanitizeText(data.error || 'Export failed') + feedDetail;
+        if (message.length > MAX_TOTAL_LENGTH) {
+          message = `${message.slice(0, MAX_TOTAL_LENGTH)}... (truncated)`;
+        }
+        throw new Error(message);
       }
 
       toast({
@@ -131,10 +208,9 @@ export function ExportToJumiaDialog({
             <Label>Jumia Category (Required)</Label>
             <JumiaCategorySelector
               merchantId={merchantId}
-              value={categoryId}
-              onSelect={(id, name) => {
-                setCategoryId(id);
-                setCategoryName(name);
+              value={categoryCode ?? undefined}
+              onSelect={(code) => {
+                setCategoryCode(code);
               }}
             />
           </div>
