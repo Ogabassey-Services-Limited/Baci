@@ -52,3 +52,8 @@
 **Vulnerability:** The PATCH endpoint for updating customer profiles (`apps/web/src/app/api/storefront/customer/route.ts`) was missing CSRF validation, leaving the application vulnerable to cross-site request forgery attacks.
 **Learning:** In the Baci monorepo, all authenticated, mutating API routes (POST, PUT, PATCH, DELETE) must explicitly call `checkCsrfProtection()` at the start of the handler.
 **Prevention:** Ensure new API routes implement CSRF protection. Review existing routes periodically to ensure protection is consistently applied.
+## 2026-03-26 - Missing CSRF validation in Storefront Auth and Utility API Routes
+
+**Vulnerability:** The POST endpoints for storefront customer logout (`/api/storefront/auth/logout`), loyalty enrollment and redemption (`/api/storefront/loyalty/enroll`, `/api/storefront/loyalty/redeem`), price negotiation (`/api/storefront/negotiate`), and IMEI checks (`/api/storefront/imei-check`) were missing CSRF validation. This left the application vulnerable to cross-site request forgery attacks, allowing attackers to perform actions on behalf of the customer, such as logging them out, spending loyalty points, or initiating unwanted requests.
+**Learning:** In the Baci monorepo, CSRF protection is not strictly limited to the merchant dashboard or high-level admin routes. It must also be strictly enforced on authenticated, mutating storefront API routes (POST, PUT, PATCH, DELETE) to protect the end-customer.
+**Prevention:** Ensure that `checkCsrfProtection(request)` is explicitly called at the beginning of all state-changing API handlers (POST, PUT, PATCH, DELETE), across both the admin and storefront boundaries.

@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getDeviceImage } from '@/lib/device-images';
 
 const SICKW_API_URL = 'https://sickw.com/api.php';
@@ -320,6 +321,10 @@ function parseSickwResponse(
 
 export async function POST(request: NextRequest) {
   try {
+    const { valid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!valid && csrfResponse) return csrfResponse;
+
     const body = await request.json();
     const { imei, tier = 'full' } = body;
 

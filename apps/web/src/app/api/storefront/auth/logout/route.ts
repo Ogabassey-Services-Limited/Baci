@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -8,8 +9,11 @@ import { createClient } from '@/lib/supabase/server';
  * POST - Logs out the current customer session
  */
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid && response) return response;
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
