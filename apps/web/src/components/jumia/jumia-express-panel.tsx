@@ -22,7 +22,7 @@ export function JumiaExpressPanel({
           <div className="flex items-center gap-3">
             <div className="relative h-8 w-8 overflow-hidden rounded border border-gray-100 bg-white">
               <Image
-                src="/images/jumia-logo.png"
+                src="/jumia-logo.png"
                 alt="Jumia"
                 fill
                 sizes="32px"
