@@ -229,8 +229,20 @@ export const getConfiguredAppUrl = (): string | null => {
   }
 
   try {
-    // Validate the configured app URL before using it in OAuth callbacks.
-    new URL(appUrl);
+    // OAuth callbacks must use a publicly reachable origin, not a local dev URL.
+    const parsedUrl = new URL(appUrl);
+    const hostname = parsedUrl.hostname.toLowerCase();
+
+    if (
+      hostname === 'localhost' ||
+      hostname === '0.0.0.0' ||
+      hostname === '::1' ||
+      hostname.startsWith('127.') ||
+      hostname.endsWith('.localhost')
+    ) {
+      return null;
+    }
+
     return appUrl;
   } catch {
     return null;

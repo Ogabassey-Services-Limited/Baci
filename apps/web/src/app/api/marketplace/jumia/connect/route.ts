@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getJumiaClientId } from '@/env';
+import { getConfiguredAppUrl, getJumiaClientId } from '@/env';
 import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -138,13 +138,14 @@ export async function POST(request: NextRequest) {
     } else {
       // OAuth flow: Redirect to Jumia authorization
       const jumiaClientId = getJumiaClientId();
-      if (!jumiaClientId) {
+      const appUrl = getConfiguredAppUrl();
+      if (!jumiaClientId || !appUrl) {
         return NextResponse.json(
           { error: 'Jumia OAuth not configured' },
           { status: 500 }
         );
       }
-      const jumiaRedirectUri = getJumiaRedirectUri();
+      const jumiaRedirectUri = getJumiaRedirectUri(appUrl);
 
       // Generate state for CSRF protection
       const state = crypto.randomBytes(16).toString('hex');
@@ -238,13 +239,14 @@ export async function GET(request: NextRequest) {
     // Handle OAuth Redirect Flow
     if (connectionType === 'oauth') {
       const jumiaClientId = getJumiaClientId();
-      if (!jumiaClientId) {
+      const appUrl = getConfiguredAppUrl();
+      if (!jumiaClientId || !appUrl) {
         return NextResponse.json(
           { error: 'Jumia OAuth not configured' },
           { status: 500 }
         );
       }
-      const jumiaRedirectUri = getJumiaRedirectUri();
+      const jumiaRedirectUri = getJumiaRedirectUri(appUrl);
 
       const platform = searchParams.get('platform'); // 'mobile' or undefined
 
