@@ -39,13 +39,13 @@ export function getMigrationProgressValue(
   status: ImportJobStatus,
   processedRows = 0,
   totalRows = 0
-) {
+): number | null {
   switch (status) {
     case 'uploaded':
       return 18;
     case 'validating':
       if (totalRows <= 0) {
-        return 0;
+        return null;
       }
 
       return Math.min(
@@ -79,8 +79,12 @@ export function getMigrationProgressDetail(
   processedRows = 0,
   totalRows = 0
 ) {
-  if (status !== 'validating' || totalRows <= 0) {
+  if (status !== 'validating') {
     return null;
+  }
+
+  if (totalRows <= 0) {
+    return 'Loading and parsing file...';
   }
 
   const safeProcessedRows = Math.max(0, Math.min(processedRows, totalRows));

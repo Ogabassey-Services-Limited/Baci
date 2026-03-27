@@ -219,8 +219,32 @@ export function useMigrationJobs({
     }
   }, [jobs, selectedJobId]);
 
+  const handleRealtimeJobUpdate = useEffectEvent(
+    (partial: Partial<ImportJobListItem>) => {
+      if (!partial.id) {
+        return;
+      }
+
+      setJobs((currentJobs) => {
+        const existing = currentJobs.find((j) => j.id === partial.id);
+        if (!existing) {
+          return currentJobs;
+        }
+
+        const merged = { ...existing, ...partial } as ImportJobListItem;
+        return mergeJobs(currentJobs, merged);
+      });
+    }
+  );
+
+  const handleRefreshRequestIdBump = useEffectEvent(() => {
+    refreshRequestIdRef.current++;
+  });
+
   useMigrationJobPolling({
     activeFilter,
+    onRealtimeJobUpdate: handleRealtimeJobUpdate,
+    onRefreshRequestIdBump: handleRefreshRequestIdBump,
     refreshJob,
     rowsResponse,
     selectedJob,
