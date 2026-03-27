@@ -338,4 +338,47 @@ describe('useMigrationJobs', () => {
     expect(result.current.activeFilter).toBe('all');
     expect(result.current.rowsResponse).toBeNull();
   });
+
+  it('does not surface a user-facing error when a background refresh fails', async () => {
+    const initialRows = createRowsResponse('row-a');
+    let firstRowsRequest = true;
+
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = String(input);
+
+      if (
+        url === '/api/import-jobs/job-bg/rows?filter=all&page=1&pageSize=25'
+      ) {
+        if (firstRowsRequest) {
+          firstRowsRequest = false;
+          return Promise.resolve(createJsonResponse(initialRows));
+        }
+
+        return Promise.reject(new Error('Too many requests'));
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const { result } = renderHook(() =>
+      useMigrationJobs({
+        initialJobs: [createJob('job-bg', 'preview_ready')],
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.rowsResponse?.rows[0]?.id).toBe('row-a');
+    });
+
+    await act(async () => {
+      await result.current.refreshJob('job-bg', {
+        background: true,
+        includeJob: false,
+        includeRows: true,
+      });
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.rowsResponse?.rows[0]?.id).toBe('row-a');
+  });
 });
