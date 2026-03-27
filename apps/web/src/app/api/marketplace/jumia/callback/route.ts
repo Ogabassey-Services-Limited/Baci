@@ -4,6 +4,7 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
+import { getAppUrl } from '@/env';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
@@ -16,7 +17,7 @@ import { logger } from '@/lib/logger';
 const JUMIA_CLIENT_ID = process.env.JUMIA_CLIENT_ID!;
 // biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
 const JUMIA_CLIENT_SECRET = process.env.JUMIA_CLIENT_SECRET!;
-const JUMIA_REDIRECT_URI = `${process.env.NEXT_PUBLIC_SITE_URL}/api/marketplace/jumia/callback`;
+const JUMIA_REDIRECT_URI = `${getAppUrl().replace(/\/+$/, '')}/api/marketplace/jumia/callback`;
 
 export async function GET(request: NextRequest) {
   try {
@@ -110,12 +111,38 @@ export async function GET(request: NextRequest) {
     }
 
     // Exchange code for tokens
-    const tokens = await exchangeJumiaCode({
-      code,
-      clientId: JUMIA_CLIENT_ID,
-      clientSecret: JUMIA_CLIENT_SECRET,
-      redirectUri: JUMIA_REDIRECT_URI,
-    });
+    let tokens: Awaited<ReturnType<typeof exchangeJumiaCode>>;
+    try {
+      tokens = await exchangeJumiaCode({
+        code,
+        clientId: JUMIA_CLIENT_ID,
+        clientSecret: JUMIA_CLIENT_SECRET,
+        redirectUri: JUMIA_REDIRECT_URI,
+      });
+    } catch (tokenError) {
+      logger.error({
+        message: 'Jumia Callback Token exchange failed',
+        merchantId,
+        redirectUri: JUMIA_REDIRECT_URI,
+        error:
+          tokenError instanceof Error
+            ? {
+                name: tokenError.name,
+                message: tokenError.message,
+                status: (tokenError as Error & { status?: number }).status,
+              }
+            : String(tokenError).slice(0, 200),
+      });
+      const platform = request.cookies.get('jumia_oauth_platform')?.value;
+      const redirectBase =
+        platform === 'mobile' ? 'baciadmin://' : '/dashboard/channels';
+      return NextResponse.redirect(
+        new URL(
+          `${redirectBase}?error=token_exchange_failed`,
+          platform === 'mobile' ? undefined : request.url
+        )
+      );
+    }
 
     // Calculate token expiry
     const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);

@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getAppUrl } from '@/env';
 import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -32,7 +33,7 @@ const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [
 // For Self Authorization flow, only refresh token is needed
 // For OAuth flow, you'll need client_id/secret from Jumia partner dashboard
 const JUMIA_CLIENT_ID = process.env.JUMIA_CLIENT_ID;
-const JUMIA_REDIRECT_URI = `${process.env.NEXT_PUBLIC_SITE_URL}/api/marketplace/jumia/callback`;
+const JUMIA_REDIRECT_URI = `${getAppUrl().replace(/\/+$/, '')}/api/marketplace/jumia/callback`;
 
 export async function POST(request: NextRequest) {
   try {

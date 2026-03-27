@@ -47,6 +47,9 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   session_expired: 'Session expired — please try again',
   database_error: 'Failed to save connection — please try again',
   connection_failed: 'Connection failed — please try again',
+  token_exchange_failed:
+    'Jumia rejected the token exchange — check redirect URI and credentials',
+  merchant_not_found: 'Merchant account not found — please log in again',
 };
 
 function formatLastSync(dateString: string | null) {
