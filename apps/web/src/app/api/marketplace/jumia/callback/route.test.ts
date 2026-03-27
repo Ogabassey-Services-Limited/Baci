@@ -12,6 +12,9 @@ const mockGetShops = vi.fn();
 const mockLoggerError = vi.fn();
 const mockLoggerWarn = vi.fn();
 const mockUpsert = vi.fn().mockResolvedValue({ error: null });
+let mockExistingIntegrations: Array<{ shop_id: string; is_active: boolean }> =
+  [];
+let mockExistingIntegrationsError: unknown = null;
 const { mockGetConfiguredAppUrl, mockGetJumiaRedirectUri } = vi.hoisted(() => {
   const getValidatedAppUrl = () => {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
@@ -50,9 +53,31 @@ const { mockGetConfiguredAppUrl, mockGetJumiaRedirectUri } = vi.hoisted(() => {
 });
 
 const mockSupabase = {
-  from: vi.fn(() => ({
-    upsert: (...args: unknown[]) => mockUpsert(...args),
-  })),
+  from: vi.fn((table: string) => {
+    if (table !== 'marketplace_integrations') {
+      throw new Error(`Unexpected table: ${table}`);
+    }
+
+    return {
+      select: vi.fn(() => {
+        const filters: Record<string, unknown> = {};
+
+        return {
+          eq(column: string, value: unknown) {
+            filters[column] = value;
+            if ('merchant_id' in filters && 'platform' in filters) {
+              return Promise.resolve({
+                data: mockExistingIntegrations,
+                error: mockExistingIntegrationsError,
+              });
+            }
+            return this;
+          },
+        };
+      }),
+      upsert: (...args: unknown[]) => mockUpsert(...args),
+    };
+  }),
 };
 
 vi.mock('@/lib/api-auth', () => ({
@@ -139,6 +164,8 @@ function makeCallbackRequest({
 describe('Jumia callback route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockExistingIntegrations = [];
+    mockExistingIntegrationsError = null;
     process.env.NEXT_PUBLIC_APP_URL = PUBLIC_APP_URL;
     process.env.JUMIA_CLIENT_ID = 'test-client-id';
     process.env.JUMIA_CLIENT_SECRET = 'test-client-secret';
@@ -202,6 +229,9 @@ describe('Jumia callback route', () => {
     const response = await GET(request);
 
     expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain(
+      'success=jumia_connected&shops=shop-1'
+    );
     expect(mockUpsert).toHaveBeenCalledTimes(1);
     expect(mockUpsert).toHaveBeenCalledWith(
       expect.arrayContaining([
@@ -231,6 +261,49 @@ describe('Jumia callback route', () => {
         clientSecret: 'test-client-secret',
         redirectUri: PUBLIC_CALLBACK_URL,
       })
+    );
+  });
+
+  it('redirects with only newly activated shops after upsert', async () => {
+    mockExistingIntegrations = [{ shop_id: 'shop-1', is_active: true }];
+    mockGetShops.mockResolvedValue([
+      {
+        id: 'shop-1',
+        name: 'Existing Shop',
+        email: 'existing@example.com',
+        businessClients: [
+          {
+            name: 'Jumia Nigeria',
+            code: 'jumia_ng',
+            countryCode: 'NG',
+            countryName: 'Nigeria',
+            status: 'active',
+            shortCode: 'NG',
+          },
+        ],
+      },
+      {
+        id: 'shop-2',
+        name: 'New Shop',
+        email: 'new@example.com',
+        businessClients: [
+          {
+            name: 'Jumia Nigeria',
+            code: 'jumia_ng',
+            countryCode: 'NG',
+            countryName: 'Nigeria',
+            status: 'active',
+            shortCode: 'NG',
+          },
+        ],
+      },
+    ]);
+
+    const response = await GET(makeCallbackRequest());
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain(
+      'success=jumia_connected&shops=shop-2'
     );
   });
 

@@ -262,6 +262,7 @@ export function ProductCard({
       heartAnimatedStyle={heartAnimatedStyle}
       gridWidth={gridWidth}
       shadowColor={colors.black}
+      colors={colors}
     />
   );
 }
