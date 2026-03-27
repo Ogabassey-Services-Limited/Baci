@@ -50,6 +50,7 @@ export class JumiaClient {
   private environment: JumiaEnvironment;
   private supabase: SupabaseClient | null;
   private lastRequestAt: number;
+  private requestGate: Promise<void>;
 
   constructor(config: {
     integrationId: string;
@@ -70,6 +71,7 @@ export class JumiaClient {
     this.environment = config.environment ?? getJumiaEnvironment();
     this.supabase = config.supabase ?? null;
     this.lastRequestAt = 0;
+    this.requestGate = Promise.resolve();
   }
 
   // ── Factory: load by integration ID (scoped to merchant) ──
@@ -216,6 +218,35 @@ export class JumiaClient {
     return this.accessToken;
   }
 
+  private async awaitRequestSlot(): Promise<void> {
+    const previousGate = this.requestGate;
+    let releaseGate: (() => void) | null = null;
+
+    this.requestGate = new Promise<void>((resolve) => {
+      releaseGate = resolve;
+    });
+
+    await previousGate;
+
+    try {
+      const elapsed = Date.now() - this.lastRequestAt;
+      if (elapsed < MIN_REQUEST_INTERVAL_MS) {
+        await sleep(MIN_REQUEST_INTERVAL_MS - elapsed);
+      }
+      this.lastRequestAt = Date.now();
+    } finally {
+      releaseGate?.();
+    }
+  }
+
+  private async fetchWithThrottle(
+    url: string,
+    init: RequestInit
+  ): Promise<Response> {
+    await this.awaitRequestSlot();
+    return fetch(url, init);
+  }
+
   // ── Generic request ──
 
   async request(
@@ -236,13 +267,6 @@ export class JumiaClient {
     schema?: z.ZodSchema<T>,
     body?: unknown
   ): Promise<T | unknown> {
-    // Throttle: enforce min 250ms between requests (Jumia rate limit: 4 req/sec)
-    const elapsed = Date.now() - this.lastRequestAt;
-    if (elapsed < MIN_REQUEST_INTERVAL_MS) {
-      await sleep(MIN_REQUEST_INTERVAL_MS - elapsed);
-    }
-    this.lastRequestAt = Date.now();
-
     const token = await this.getValidToken();
     const url = `${this.apiBase}${path}`;
     const headers: Record<string, string> = {
@@ -255,7 +279,7 @@ export class JumiaClient {
     const timeout = setTimeout(() => controller.abort(), 30_000);
 
     try {
-      let response = await fetch(url, {
+      let response = await this.fetchWithThrottle(url, {
         method,
         headers,
         body: body ? JSON.stringify(body) : undefined,
@@ -274,7 +298,7 @@ export class JumiaClient {
         const retryController = new AbortController();
         const retryTimeout = setTimeout(() => retryController.abort(), 30_000);
         try {
-          response = await fetch(url, {
+          response = await this.fetchWithThrottle(url, {
             method,
             headers: {
               ...headers,

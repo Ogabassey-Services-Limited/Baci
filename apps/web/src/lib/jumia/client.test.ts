@@ -567,6 +567,80 @@ describe('JumiaClient', () => {
       expect(elapsed).toBeGreaterThanOrEqual(400);
       expect(mockFetch).toHaveBeenCalledTimes(3);
     });
+
+    it('serializes concurrent requests through the throttle gate', async () => {
+      const client = createDefaultClient();
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      const callTimes: number[] = [];
+
+      mockFetch.mockImplementation(() => {
+        callTimes.push(Date.now());
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ok: true }),
+        };
+      });
+
+      await Promise.all([
+        client.request('GET', '/a'),
+        client.request('GET', '/b'),
+        client.request('GET', '/c'),
+      ]);
+
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(200);
+      expect(callTimes[2] - callTimes[1]).toBeGreaterThanOrEqual(200);
+    });
+
+    it('applies throttling to the retried request after a 401', async () => {
+      const supabase = createMockSupabase({ data: null, error: null });
+      const client = new JumiaClient({
+        integrationId: 'int-123',
+        merchantId: 'merchant-abc',
+        shopId: 'shop-456',
+        accessToken: 'stale-token',
+        refreshToken: 'refresh-tok',
+        tokenExpiresAt: new Date(Date.now() + 3600_000),
+        environment: 'production',
+        supabase,
+      });
+
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      const callTimes: number[] = [];
+
+      mockFetch.mockImplementation((input: RequestInfo | URL) => {
+        callTimes.push(Date.now());
+
+        if (String(input).endsWith('/protected')) {
+          if (callTimes.filter((_, index) => index !== 1).length === 1) {
+            return {
+              ok: false,
+              status: 401,
+              text: async () => 'Unauthorized',
+            };
+          }
+
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ retried: true }),
+          };
+        }
+
+        return {
+          ok: true,
+          status: 200,
+          json: async () => TOKEN_RESPONSE,
+        };
+      });
+
+      const result = await client.request('GET', '/protected');
+
+      expect(result).toEqual({ retried: true });
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(callTimes[2] - callTimes[0]).toBeGreaterThanOrEqual(200);
+    });
   });
 
   // ── getShops() ──
