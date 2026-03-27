@@ -1,5 +1,5 @@
-import { timingSafeEqual } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // Cron job to clean up abandoned/unpaid orders
@@ -13,8 +13,7 @@ export async function GET(request: NextRequest) {
     if (
       !authHeader ||
       !process.env.CRON_SECRET ||
-      authHeader.length !== expectedToken.length ||
-      !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedToken))
+      !constantTimeEqual(authHeader, expectedToken)
     ) {
       // Allow local development testing if needed, or stick to strict checking
       // For now, we return 401 if unauthorized

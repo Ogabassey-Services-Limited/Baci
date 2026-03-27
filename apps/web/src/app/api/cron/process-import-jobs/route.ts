@@ -1,6 +1,6 @@
-import { timingSafeEqual } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret, getImportJobWorkerBatchSize } from '@/env';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { processImportJobQueue } from '@/lib/import-jobs/process-import-job';
 import { logger } from '@/lib/logger';
@@ -19,14 +19,11 @@ function hasValidCronSecret(request: Request) {
   const legacyHeader = request.headers.get('x-cron-secret');
   const candidateSecret = bearerToken || legacyHeader;
 
-  if (!candidateSecret || candidateSecret.length !== expectedSecret.length) {
+  if (!candidateSecret) {
     return false;
   }
 
-  return timingSafeEqual(
-    Buffer.from(candidateSecret),
-    Buffer.from(expectedSecret)
-  );
+  return constantTimeEqual(candidateSecret, expectedSecret);
 }
 
 function summarizeResults(results: Record<string, unknown>[]) {

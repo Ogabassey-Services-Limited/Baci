@@ -15,6 +15,7 @@ function getServiceClient() {
 }
 
 import crypto from 'node:crypto';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { notifyOrderStatusChange } from '@/lib/expo-push';
 import type {
   NormalizedShipmentStatus,
@@ -66,18 +67,7 @@ function verifyWebhookSignature(
     .update(payload)
     .digest('hex');
 
-  // Security: Handle buffer length mismatch before timingSafeEqual
-  // timingSafeEqual throws TypeError if buffers have different lengths
-  const signatureBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expectedSignature);
-
-  if (signatureBuffer.length !== expectedBuffer.length) {
-    console.error('[Webhook] Signature length mismatch', { provider });
-    return false;
-  }
-
-  // Compare signatures (timing-safe)
-  return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
+  return constantTimeEqual(signature, expectedSignature);
 }
 
 // =============================================================================
