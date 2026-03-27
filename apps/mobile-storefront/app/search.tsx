@@ -5,13 +5,12 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { router, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Keyboard,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -23,8 +22,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { useNetworkState } from '@/hooks/use-network-state';
 import { useCategories, useProducts } from '@/hooks';
+import { useNetworkState } from '@/hooks/use-network-state';
 import { syncStorage as storage } from '@/lib/storage';
 import type { Product } from '@/types/product';
 
@@ -215,7 +214,7 @@ export default function SearchScreen() {
     }
 
     return (
-      <FlatList
+      <FlashList
         data={products}
         renderItem={({ item, index }) => (
           <View
@@ -233,16 +232,9 @@ export default function SearchScreen() {
         keyExtractor={(item) => item.id}
         numColumns={2}
         contentContainerStyle={styles.resultsContainer}
-        columnWrapperStyle={styles.row}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        // 2026 Best Practice: FlatList performance optimizations
-        removeClippedSubviews={Platform.OS === 'android'}
-        maxToRenderPerBatch={6}
-        windowSize={5}
-        initialNumToRender={6}
-        updateCellsBatchingPeriod={50}
       />
     );
   };

@@ -5,12 +5,12 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { useQueryClient } from '@tanstack/react-query';
 import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   RefreshControl,
   StyleSheet,
   Text,
@@ -218,7 +218,7 @@ export default function ReceiptsScreen() {
         </View>
       )}
 
-      <FlatList
+      <FlashList
         data={filteredReceipts}
         renderItem={({ item }) => (
           <ReceiptCard
