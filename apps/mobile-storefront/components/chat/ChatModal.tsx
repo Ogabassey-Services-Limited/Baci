@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import type { RefObject } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -24,7 +24,7 @@ interface ChatModalProps {
   messages: ChatMessage[];
   input: string;
   isLoading: boolean;
-  flatListRef: RefObject<FlatList | null>;
+  flatListRef: RefObject<FlashListRef<ChatMessage> | null>;
   inputRef: RefObject<TextInput | null>;
   onClose: () => void;
   onSend: (text: string) => void;
@@ -208,7 +208,7 @@ export function ChatModal({
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
-          <FlatList
+          <FlashList
             ref={flatListRef}
             data={messages}
             renderItem={renderMessage}
