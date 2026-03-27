@@ -28,6 +28,10 @@ interface RateLimitResult {
 // ---------------------------------------------------------------------------
 
 const RATE_LIMITS: Record<string, RateLimitConfig> = {
+  // Migration preview validation polls the active job about once per second.
+  // Keep this prefix above the default ceiling so the UI can stream progress
+  // without tripping middleware rate limiting during normal use.
+  '/api/import-jobs': { maxRequests: 240, windowMs: 60_000 },
   '/api/orders': { maxRequests: 10, windowMs: 60_000 },
   '/api/products': { maxRequests: 30, windowMs: 60_000 },
   '/api/storefront': { maxRequests: 100, windowMs: 60_000 },

@@ -138,6 +138,10 @@ export function useMigrationJobs({
           return false;
         }
 
+        if (background) {
+          return false;
+        }
+
         if (selectedJobIdRef.current === jobId || !selectedJobIdRef.current) {
           setError(
             jobError instanceof Error
