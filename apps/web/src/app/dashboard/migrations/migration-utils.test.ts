@@ -43,9 +43,11 @@ describe('migration progress utils', () => {
     );
   });
 
-  it('returns no progress detail when total rows are missing', () => {
-    expect(getMigrationProgressValue('validating', 0, 0)).toBe(0);
-    expect(getMigrationProgressDetail('validating', 0, 0)).toBeNull();
+  it('returns null (indeterminate) when validating with no total rows', () => {
+    expect(getMigrationProgressValue('validating', 0, 0)).toBeNull();
+    expect(getMigrationProgressDetail('validating', 0, 0)).toBe(
+      'Loading and parsing file...'
+    );
   });
 
   it('returns zero percent when nothing has been processed yet', () => {

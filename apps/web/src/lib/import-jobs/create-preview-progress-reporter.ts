@@ -16,8 +16,9 @@ export function createPreviewProgressReporter(
   job: ImportJobRecord,
   logger: PreviewProgressLogger
 ) {
-  const progressRowUpdateStep = 25;
-  const progressMinUpdateMs = 1000;
+  const progressMinUpdateMs = 500;
+  let adaptiveStep = 25;
+  let adaptiveStepComputed = false;
   let lastProcessedRows = -1;
   let lastTotalRows = -1;
   let lastPersistedProcessedRows = -1;
@@ -37,11 +38,16 @@ export function createPreviewProgressReporter(
     lastProcessedRows = processedRows;
     lastTotalRows = totalRows;
 
+    if (!adaptiveStepComputed && totalRows > 0) {
+      adaptiveStep = Math.max(10, Math.floor(totalRows / 20));
+      adaptiveStepComputed = true;
+    }
+
     const now = Date.now();
     const isFinalUpdate = processedRows >= totalRows;
     const isEarlyProgress = processedRows <= 5;
     const advancedEnough =
-      processedRows - lastPersistedProcessedRows >= progressRowUpdateStep;
+      processedRows - lastPersistedProcessedRows >= adaptiveStep;
     const timeWindowElapsed = now - lastProgressUpdateAt >= progressMinUpdateMs;
 
     if (

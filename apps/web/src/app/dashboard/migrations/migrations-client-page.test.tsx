@@ -432,12 +432,12 @@ describe('MigrationsClientPage', () => {
     expect(screen.getByText(/building preview/i)).toBeInTheDocument();
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(5000);
     });
     expect(fetch).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(5000);
     });
     expect(fetch).toHaveBeenCalledTimes(2);
 
