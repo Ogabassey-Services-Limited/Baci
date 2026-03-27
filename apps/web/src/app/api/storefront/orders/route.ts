@@ -83,6 +83,8 @@ export async function GET(request: NextRequest) {
         discount_amount,
         amount_paid,
         currency,
+        external_source,
+        import_job_id,
         payment_status,
         shipping_status,
         shipping_address,
@@ -138,10 +140,14 @@ export async function GET(request: NextRequest) {
         current_document_kind: getCurrentDocumentKind({
           paymentStatus,
           shippingStatus,
+          externalSource: order.external_source,
+          importJobId: order.import_job_id,
         }),
         receipt_eligible: isReceiptEligible({
           paymentStatus,
           shippingStatus,
+          externalSource: order.external_source,
+          importJobId: order.import_job_id,
         }),
         items: order.order_items || [],
       };

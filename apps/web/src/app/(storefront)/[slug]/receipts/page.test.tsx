@@ -75,7 +75,7 @@ describe('ReceiptsPage', () => {
     vi.clearAllMocks();
   });
 
-  it('shows only shipped and delivered orders in the archive', async () => {
+  it('shows fulfilled orders plus imported paid receipts in the archive', async () => {
     vi.mocked(fetch).mockResolvedValue(
       createJsonResponse({
         orders: [
@@ -87,6 +87,7 @@ describe('ReceiptsPage', () => {
             currency: 'NGN',
             shipping_status: 'processing',
             current_document_kind: 'invoice',
+            receipt_eligible: false,
             items: [
               {
                 id: 'item-1',
@@ -104,6 +105,7 @@ describe('ReceiptsPage', () => {
             currency: 'NGN',
             shipping_status: 'shipped',
             current_document_kind: 'invoice',
+            receipt_eligible: false,
             items: [
               {
                 id: 'item-2',
@@ -121,12 +123,31 @@ describe('ReceiptsPage', () => {
             currency: 'NGN',
             shipping_status: 'delivered',
             current_document_kind: 'receipt',
+            receipt_eligible: true,
             items: [
               {
                 id: 'item-3',
                 name: 'Delivered Item',
                 quantity: 1,
                 price: 30000,
+              },
+            ],
+          },
+          {
+            id: 'order-imported-receipt',
+            order_number: 'ORD-1003',
+            created_at: '2026-03-24T10:00:00.000Z',
+            total: 40000,
+            currency: 'NGN',
+            shipping_status: 'processing',
+            current_document_kind: 'receipt',
+            receipt_eligible: true,
+            items: [
+              {
+                id: 'item-4',
+                name: 'Imported Paid Item',
+                quantity: 1,
+                price: 40000,
               },
             ],
           },
@@ -138,6 +159,7 @@ describe('ReceiptsPage', () => {
 
     expect(await screen.findByText('#ORD-1001')).toBeInTheDocument();
     expect(screen.getByText('#ORD-1002')).toBeInTheDocument();
+    expect(screen.getByText('#ORD-1003')).toBeInTheDocument();
     expect(screen.queryByText('#ORD-1000')).not.toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /download invoice/i })
@@ -146,10 +168,16 @@ describe('ReceiptsPage', () => {
       '/api/storefront/account/orders/order-shipped/invoice?merchantSlug=ogabassey'
     );
     expect(
-      screen.getByRole('link', { name: /download receipt/i })
+      screen.getAllByRole('link', { name: /download receipt/i })[0]
     ).toHaveAttribute(
       'href',
       '/api/storefront/account/orders/order-delivered/receipt?merchantSlug=ogabassey'
+    );
+    expect(
+      screen.getAllByRole('link', { name: /download receipt/i })[1]
+    ).toHaveAttribute(
+      'href',
+      '/api/storefront/account/orders/order-imported-receipt/receipt?merchantSlug=ogabassey'
     );
   });
 

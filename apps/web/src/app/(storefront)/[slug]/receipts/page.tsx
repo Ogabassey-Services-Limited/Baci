@@ -90,8 +90,10 @@ export default function ReceiptsPage() {
     };
   }, [customerId, merchantSlug]);
 
-  const archiveOrders = orders.filter((order) =>
-    ARCHIVE_STATUSES.has(normalizeShippingStatus(order.shipping_status))
+  const archiveOrders = orders.filter(
+    (order) =>
+      Boolean(order.receipt_eligible) ||
+      ARCHIVE_STATUSES.has(normalizeShippingStatus(order.shipping_status))
   );
 
   const query = searchQuery.trim().toLowerCase();
@@ -176,7 +178,7 @@ export default function ReceiptsPage() {
           <div>
             <h1 className="text-2xl font-bold">Receipts & Invoices</h1>
             <p className="text-sm text-muted-foreground">
-              Shipped orders appear here once documents are available.
+              Orders appear here once their receipt or invoice is available.
             </p>
           </div>
         </div>

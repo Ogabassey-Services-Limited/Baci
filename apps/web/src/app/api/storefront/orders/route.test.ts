@@ -54,6 +54,8 @@ function createSupabaseMock(input?: {
       discount_amount: number;
       amount_paid: number;
       currency: string;
+      external_source?: string | null;
+      import_job_id?: string | null;
       payment_status: string;
       shipping_status: string;
       shipping_address: Record<string, unknown> | null;
@@ -236,6 +238,8 @@ describe('GET /api/storefront/orders', () => {
                 discount_amount: 0,
                 amount_paid: 150000,
                 currency: 'NGN',
+                external_source: null,
+                import_job_id: null,
                 payment_status: 'PAID',
                 shipping_status: 'Delivered',
                 shipping_address: { city: 'Lagos' },
@@ -298,6 +302,59 @@ describe('GET /api/storefront/orders', () => {
             },
           ],
         },
+      ],
+    });
+  });
+
+  it('treats imported paid orders as receipt-ready even when shipping is still processing', async () => {
+    vi.mocked(authenticateApiRequest).mockResolvedValue(
+      createAuthenticatedAuthResult(
+        createSupabaseMock({
+          orders: {
+            data: [
+              {
+                id: 'order-imported',
+                order_number: 'ORD-2001',
+                created_at: '2026-03-22T10:00:00.000Z',
+                total: 150000,
+                subtotal: 140000,
+                shipping_fee: 5000,
+                tax_amount: 10000,
+                discount_amount: 0,
+                amount_paid: 150000,
+                currency: 'NGN',
+                external_source: 'bumpa',
+                import_job_id: 'job-1',
+                payment_status: 'PAID',
+                shipping_status: 'Processing',
+                shipping_address: { city: 'Lagos' },
+                tracking_number: null,
+                shipping_provider: null,
+                payment_method: 'imported',
+                order_items: [],
+              },
+            ],
+            error: null,
+          },
+        })
+      )
+    );
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/storefront/orders?merchantSlug=ogabassey'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      orders: [
+        expect.objectContaining({
+          id: 'order-imported',
+          shipping_status: 'processing',
+          current_document_kind: 'receipt',
+          receipt_eligible: true,
+        }),
       ],
     });
   });

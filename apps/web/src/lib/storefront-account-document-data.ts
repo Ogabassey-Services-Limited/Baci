@@ -11,10 +11,12 @@ import type {
   StorefrontAccountDocumentTransactionRow,
 } from '@/lib/storefront-account-document-bundle.types';
 
+const RECEIPT_READY_STATUSES = new Set(['shipped', 'delivered']);
+
 const MERCHANT_COLUMNS =
   'id, slug, business_name, logo_url, email, phone, support_email, support_phone, business_address, cac_rc_number, tax_identification_number, legal_entity_name, brand_colors, vat_registration_status, vat_rate, bank_code, bank_account_number, bank_name, bank_account_name, social_media, pages, registered_address';
 
-const ORDER_SELECT = `${ORDER_COLUMNS}, is_credit_order, notes, invoice_type_code, invoice_issue_date, tax_point_date, payment_due_date, buyer_reference, purchase_order_reference, tax_exclusive_amount, tax_inclusive_amount, invoice_note, firs_irn, firs_csid, firs_qr_code, payment_terms`;
+const ORDER_SELECT = `${ORDER_COLUMNS}, external_source, import_job_id, is_credit_order, notes, invoice_type_code, invoice_issue_date, tax_point_date, payment_due_date, buyer_reference, purchase_order_reference, tax_exclusive_amount, tax_inclusive_amount, invoice_note, firs_irn, firs_csid, firs_qr_code, payment_terms`;
 
 interface StorefrontAccountDocumentParams {
   supabase: SupabaseClient;
@@ -42,16 +44,37 @@ export function normalizeShippingStatus(status: string | null | undefined) {
   return status?.trim().toLowerCase().replace(/\s+/g, '_') ?? '';
 }
 
+function isImportedHistoricalOrder(input: {
+  externalSource?: string | null;
+  importJobId?: string | null;
+}) {
+  return Boolean(input.externalSource || input.importJobId);
+}
+
 export function isReceiptEligible(input: {
   paymentStatus: string | null | undefined;
   shippingStatus: string | null | undefined;
+  externalSource?: string | null;
+  importJobId?: string | null;
 }) {
-  return normalizePaymentStatus(input.paymentStatus) === 'paid';
+  if (normalizePaymentStatus(input.paymentStatus) !== 'paid') {
+    return false;
+  }
+
+  if (isImportedHistoricalOrder(input)) {
+    return true;
+  }
+
+  return RECEIPT_READY_STATUSES.has(
+    normalizeShippingStatus(input.shippingStatus)
+  );
 }
 
 export function getCurrentDocumentKind(input: {
   paymentStatus: string | null | undefined;
   shippingStatus: string | null | undefined;
+  externalSource?: string | null;
+  importJobId?: string | null;
 }) {
   return isReceiptEligible(input) ? 'receipt' : 'invoice';
 }
@@ -159,6 +182,8 @@ export async function getStorefrontAccountDocumentData({
   const currentDocumentKind = getCurrentDocumentKind({
     paymentStatus: order.payment_status,
     shippingStatus: order.shipping_status,
+    externalSource: order.external_source,
+    importJobId: order.import_job_id,
   });
 
   return buildStorefrontAccountDocumentBundle({
