@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const PUBLIC_APP_URL = 'https://example.com/';
+const PUBLIC_CALLBACK_URL =
+  'https://example.com/api/marketplace/jumia/callback';
+
 const mockAuthenticateApiRequest = vi.fn();
 const mockGetMerchantIdForApiUser = vi.fn();
 const mockExchangeJumiaCode = vi.fn();
@@ -8,11 +12,42 @@ const mockGetShops = vi.fn();
 const mockLoggerError = vi.fn();
 const mockLoggerWarn = vi.fn();
 const mockUpsert = vi.fn().mockResolvedValue({ error: null });
-const { mockGetConfiguredAppUrl } = vi.hoisted(() => ({
-  mockGetConfiguredAppUrl: vi.fn(
-    () => process.env.NEXT_PUBLIC_APP_URL?.trim() ?? null
-  ),
-}));
+const { mockGetConfiguredAppUrl, mockGetJumiaRedirectUri } = vi.hoisted(() => {
+  const getValidatedAppUrl = () => {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+
+    if (!appUrl) {
+      return null;
+    }
+
+    try {
+      const parsedUrl = new URL(appUrl);
+      const hostname = parsedUrl.hostname.toLowerCase();
+
+      if (
+        hostname === 'localhost' ||
+        hostname === '0.0.0.0' ||
+        hostname === '::1' ||
+        hostname.startsWith('127.') ||
+        hostname.endsWith('.localhost')
+      ) {
+        return null;
+      }
+
+      return appUrl;
+    } catch {
+      return null;
+    }
+  };
+
+  return {
+    mockGetConfiguredAppUrl: vi.fn(getValidatedAppUrl),
+    mockGetJumiaRedirectUri: vi.fn((appUrl?: string) => {
+      const baseUrl = (appUrl ?? 'http://localhost:3000').replace(/\/+$/, '');
+      return `${baseUrl}/api/marketplace/jumia/callback`;
+    }),
+  };
+});
 
 const mockSupabase = {
   from: vi.fn(() => ({
@@ -29,9 +64,7 @@ vi.mock('@/lib/api-auth', () => ({
 
 vi.mock('@/lib/jumia/helpers', () => ({
   exchangeJumiaCode: (...args: unknown[]) => mockExchangeJumiaCode(...args),
-  getJumiaRedirectUri: vi.fn(
-    () => 'http://localhost:3000/api/marketplace/jumia/callback'
-  ),
+  getJumiaRedirectUri: (appUrl?: string) => mockGetJumiaRedirectUri(appUrl),
 }));
 
 vi.mock('@/lib/jumia/client', () => ({
@@ -99,12 +132,9 @@ function makeCallbackRequest({
 describe('Jumia callback route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000/';
+    process.env.NEXT_PUBLIC_APP_URL = PUBLIC_APP_URL;
     process.env.JUMIA_CLIENT_ID = 'test-client-id';
     process.env.JUMIA_CLIENT_SECRET = 'test-client-secret';
-    mockGetConfiguredAppUrl.mockImplementation(
-      () => process.env.NEXT_PUBLIC_APP_URL?.trim() ?? null
-    );
     mockAuthenticateApiRequest.mockResolvedValue({
       user: { id: 'user-1' },
       error: null,
@@ -192,7 +222,7 @@ describe('Jumia callback route', () => {
         code: 'auth-code',
         clientId: 'test-client-id',
         clientSecret: 'test-client-secret',
-        redirectUri: 'http://localhost:3000/api/marketplace/jumia/callback',
+        redirectUri: PUBLIC_CALLBACK_URL,
       })
     );
   });

@@ -172,7 +172,7 @@ describe('buildBumpaOrderPreviewSummary', () => {
     expect(result.unmatchedItems).toBe(1);
   });
 
-  it('counts receipt-ready orders (paid + shipped/delivered)', () => {
+  it('counts receipt-ready orders using payment status only', () => {
     const rows = [
       makeRow({}, { paymentStatus: 'paid', shippingStatus: 'delivered' }),
       makeRow({}, { paymentStatus: 'paid', shippingStatus: 'shipped' }),
@@ -180,7 +180,7 @@ describe('buildBumpaOrderPreviewSummary', () => {
       makeRow({}, { paymentStatus: 'unpaid', shippingStatus: 'delivered' }),
     ];
     const result = buildBumpaOrderPreviewSummary(rows);
-    expect(result.receiptReadyOrders).toBe(2);
+    expect(result.receiptReadyOrders).toBe(3);
   });
 
   it('does not count customer or item stats for rows with null payload', () => {

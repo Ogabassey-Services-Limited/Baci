@@ -140,6 +140,26 @@ describe('buildBumpaOrderPreview', () => {
     expect(result.rows[0]?.payload?.receiptReady).toBe(false);
   });
 
+  it('marks paid orders as receipt-ready even when shipping is not updated', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          id: 'order-3',
+          'Order Number': '06398',
+          'Payment Status': 'PAID',
+          Status: 'OPEN',
+          'Shipping Status': '',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [],
+    });
+
+    expect(result.summary.receiptReadyOrders).toBe(1);
+    expect(result.rows[0]?.payload?.receiptReady).toBe(true);
+  });
+
   it('reports live row progress while building previews', async () => {
     const onProgress = vi.fn();
 

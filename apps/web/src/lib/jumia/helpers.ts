@@ -51,8 +51,8 @@ export function getJumiaAuthUrl(config: {
   return `${baseUrl}/login?${params.toString()}`;
 }
 
-export function getJumiaRedirectUri(): string {
-  return `${getAppUrl().replace(/\/+$/, '')}/api/marketplace/jumia/callback`;
+export function getJumiaRedirectUri(appUrl = getAppUrl()): string {
+  return `${appUrl.replace(/\/+$/, '')}/api/marketplace/jumia/callback`;
 }
 
 // ── OAuth: Code exchange ──

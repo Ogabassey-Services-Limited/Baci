@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
-      const jumiaRedirectUri = getJumiaRedirectUri();
+      const jumiaRedirectUri = getJumiaRedirectUri(appUrl);
 
       // Generate state for CSRF protection
       const state = crypto.randomBytes(16).toString('hex');
@@ -246,7 +246,7 @@ export async function GET(request: NextRequest) {
           { status: 500 }
         );
       }
-      const jumiaRedirectUri = getJumiaRedirectUri();
+      const jumiaRedirectUri = getJumiaRedirectUri(appUrl);
 
       const platform = searchParams.get('platform'); // 'mobile' or undefined
 

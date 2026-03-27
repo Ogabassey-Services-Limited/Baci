@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
       });
       return createPlatformRedirect(request, 'error=oauth_not_configured');
     }
-    const jumiaRedirectUri = getJumiaRedirectUri();
+    const jumiaRedirectUri = getJumiaRedirectUri(appUrl);
 
     // Exchange code for tokens
     let tokens: Awaited<ReturnType<typeof exchangeJumiaCode>>;

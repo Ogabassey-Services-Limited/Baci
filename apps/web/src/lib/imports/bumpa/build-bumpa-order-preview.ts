@@ -186,9 +186,7 @@ export async function buildBumpaOrderPreview({
             updatedAt: parseIsoDate(row['Updated At']),
             couponCode: sanitizeText(row['Coupon Code']) || null,
             shippingOption: sanitizeText(row['Shipping Option']) || null,
-            receiptReady:
-              paymentStatus === 'paid' &&
-              ['shipped', 'delivered'].includes(shippingStatus),
+            receiptReady: paymentStatus === 'paid',
             items,
             importMetadata: {
               rawStatus: row.Status,
