@@ -406,6 +406,58 @@ describe('Jumia Vendor API Schemas', () => {
       });
       expect(result.success).toBe(false);
     });
+
+    it('coerces string-encoded numeric expires_in', () => {
+      const result = JumiaTokenResponseSchema.safeParse({
+        ...validTokenResponse,
+        expires_in: '3600',
+        refresh_expires_in: '7776000',
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.expires_in).toBe(3600);
+        expect(result.data.refresh_expires_in).toBe(7776000);
+      }
+    });
+
+    it('accepts any non-empty token_type string', () => {
+      const result = JumiaTokenResponseSchema.safeParse({
+        ...validTokenResponse,
+        token_type: 'bearer',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects empty or null token_type', () => {
+      for (const token_type of ['', '   ', null]) {
+        const result = JumiaTokenResponseSchema.safeParse({
+          ...validTokenResponse,
+          token_type,
+        });
+        expect(result.success).toBe(false);
+      }
+    });
+
+    it('rejects non-numeric string expires_in and refresh_expires_in', () => {
+      for (const bad of ['abc', '', 'true']) {
+        const result = JumiaTokenResponseSchema.safeParse({
+          ...validTokenResponse,
+          expires_in: bad,
+          refresh_expires_in: bad,
+        });
+        expect(result.success).toBe(false);
+      }
+    });
+
+    it('rejects boolean and array values for expires_in', () => {
+      for (const bad of [true, false, [3600]]) {
+        const result = JumiaTokenResponseSchema.safeParse({
+          ...validTokenResponse,
+          expires_in: bad,
+        });
+        expect(result.success).toBe(false);
+      }
+    });
   });
 
   describe('JumiaShopsResponseSchema', () => {

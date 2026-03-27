@@ -252,7 +252,17 @@ export async function GET(request: NextRequest) {
     ) {
       throw error;
     }
-    logger.error({ message: 'Jumia Callback internal error', error });
+    logger.error({
+      message: 'Jumia Callback internal error',
+      error:
+        error instanceof Error
+          ? { name: error.name, message: error.message, stack: error.stack }
+          : {
+              kind: 'NonError',
+              type: typeof error,
+              summary: String(error).slice(0, 200),
+            },
+    });
     const platform = request.cookies.get('jumia_oauth_platform')?.value;
     const redirectBase =
       platform === 'mobile' ? 'baciadmin://' : '/dashboard/channels';
