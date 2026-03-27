@@ -178,7 +178,7 @@ export default function ChannelsClientPage() {
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-lg flex items-center justify-center border overflow-hidden p-1.5">
                 <Image
-                  src="/images/jumia-logo.png"
+                  src="/jumia-logo.png"
                   alt="Jumia"
                   width={40}
                   height={40}
