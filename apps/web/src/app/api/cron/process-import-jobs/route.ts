@@ -19,14 +19,18 @@ function hasValidCronSecret(request: Request) {
   const legacyHeader = request.headers.get('x-cron-secret');
   const candidateSecret = bearerToken || legacyHeader;
 
-  if (!candidateSecret || candidateSecret.length !== expectedSecret.length) {
+  if (!candidateSecret || !expectedSecret) {
     return false;
   }
 
-  return timingSafeEqual(
-    Buffer.from(candidateSecret),
-    Buffer.from(expectedSecret)
-  );
+  const candidateBuffer = Buffer.from(candidateSecret);
+  const expectedBuffer = Buffer.from(expectedSecret);
+
+  if (candidateBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(candidateBuffer, expectedBuffer);
 }
 
 function summarizeResults(results: Record<string, unknown>[]) {

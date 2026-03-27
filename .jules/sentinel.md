@@ -52,3 +52,7 @@
 **Vulnerability:** The PATCH endpoint for updating customer profiles (`apps/web/src/app/api/storefront/customer/route.ts`) was missing CSRF validation, leaving the application vulnerable to cross-site request forgery attacks.
 **Learning:** In the Baci monorepo, all authenticated, mutating API routes (POST, PUT, PATCH, DELETE) must explicitly call `checkCsrfProtection()` at the start of the handler.
 **Prevention:** Ensure new API routes implement CSRF protection. Review existing routes periodically to ensure protection is consistently applied.
+## 2026-03-08 - Unhandled Exception (DoS) in timingSafeEqual via String Length Bypass
+**Vulnerability:** Node's `crypto.timingSafeEqual(buf1, buf2)` throws an unhandled `TypeError` if `buf1.length !== buf2.length`. Previous checks compared string lengths (`str1.length === str2.length`) before converting to buffers. Since Unicode characters can have a string length of 1 but a byte length of 2-4, an attacker could bypass the string check but crash the server when `timingSafeEqual` was called.
+**Learning:** Always convert strings to `Buffer` objects *first*, and compare the `Buffer.length` explicitly before calling `timingSafeEqual`.
+**Prevention:** In strict authentication endpoints, validate both that variables exist and that their byte lengths match perfectly.

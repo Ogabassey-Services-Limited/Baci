@@ -21,14 +21,14 @@ function hasValidWorkerSecret(
   }
 
   const receivedSecret = authHeader.slice('Bearer '.length);
-  if (receivedSecret.length !== expectedSecret.length) {
+  const receivedBuffer = Buffer.from(receivedSecret);
+  const expectedBuffer = Buffer.from(expectedSecret);
+
+  if (receivedBuffer.length !== expectedBuffer.length) {
     return false;
   }
 
-  return timingSafeEqual(
-    Buffer.from(receivedSecret),
-    Buffer.from(expectedSecret)
-  );
+  return timingSafeEqual(receivedBuffer, expectedBuffer);
 }
 
 export async function POST(request: NextRequest) {

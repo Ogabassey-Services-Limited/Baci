@@ -10,11 +10,17 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
     const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
 
+    const authHeaderBuffer = authHeader ? Buffer.from(authHeader) : null;
+    const expectedTokenBuffer = expectedToken
+      ? Buffer.from(expectedToken)
+      : null;
+
     if (
-      !authHeader ||
+      !authHeaderBuffer ||
       !process.env.CRON_SECRET ||
-      authHeader.length !== expectedToken.length ||
-      !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedToken))
+      !expectedTokenBuffer ||
+      authHeaderBuffer.length !== expectedTokenBuffer.length ||
+      !timingSafeEqual(authHeaderBuffer, expectedTokenBuffer)
     ) {
       // Allow local development testing if needed, or stick to strict checking
       // For now, we return 401 if unauthorized

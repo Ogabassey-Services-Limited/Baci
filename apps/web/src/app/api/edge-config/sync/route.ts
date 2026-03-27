@@ -66,15 +66,15 @@ export async function POST(request: Request) {
     const isAuthorized =
       providedToken.length > 0 &&
       allowedTokens.some((allowedToken) => {
-        if (providedToken.length !== allowedToken.length) {
+        const providedBuffer = Buffer.from(providedToken);
+        const allowedBuffer = Buffer.from(allowedToken);
+
+        if (providedBuffer.length !== allowedBuffer.length) {
           return false;
         }
 
         try {
-          return timingSafeEqual(
-            Buffer.from(providedToken),
-            Buffer.from(allowedToken)
-          );
+          return timingSafeEqual(providedBuffer, allowedBuffer);
         } catch {
           return false;
         }

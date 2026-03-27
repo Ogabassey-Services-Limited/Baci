@@ -21,11 +21,16 @@ export async function POST(request: Request) {
     const cronSecret = request.headers.get('x-cron-secret');
     const expectedSecret = process.env.CRON_SECRET;
 
+    const cronSecretBuffer = cronSecret ? Buffer.from(cronSecret) : null;
+    const expectedSecretBuffer = expectedSecret
+      ? Buffer.from(expectedSecret)
+      : null;
+
     if (
-      !cronSecret ||
-      !expectedSecret ||
-      cronSecret.length !== expectedSecret.length ||
-      !timingSafeEqual(Buffer.from(cronSecret), Buffer.from(expectedSecret))
+      !cronSecretBuffer ||
+      !expectedSecretBuffer ||
+      cronSecretBuffer.length !== expectedSecretBuffer.length ||
+      !timingSafeEqual(cronSecretBuffer, expectedSecretBuffer)
     ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
