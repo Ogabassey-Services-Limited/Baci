@@ -120,14 +120,15 @@ describe('createPreviewProgressReporter', () => {
     for (let i = step; i < totalRows; i += step) {
       await reportProgress({ processedRows: i, totalRows });
     }
-    // 5. Just below a step boundary — throttled
-    await reportProgress({ processedRows: step * 2 + 1, totalRows });
+    // 5. Just below a step boundary (after last step=5529) — throttled
+    await reportProgress({ processedRows: 5530, totalRows });
+    await reportProgress({ processedRows: 5600, totalRows });
     // 6. Final — persisted
     await reportProgress({ processedRows: totalRows, totalRows });
 
     // Expected persisted writes:
     //   1 (row 0) + 5 (early 1-5) + 19 (step boundaries: 291..5529) + 1 (final 5822) = 26
-    // Rows 6, 100, and step*2+1 should be throttled
+    // Rows 6, 100, 5530, and 5600 should be throttled
     expect(updateQuery.update).toHaveBeenCalledTimes(26);
     expect(updateQuery.update).not.toHaveBeenCalledWith({
       processed_rows: 6,
@@ -135,6 +136,14 @@ describe('createPreviewProgressReporter', () => {
     });
     expect(updateQuery.update).not.toHaveBeenCalledWith({
       processed_rows: 100,
+      total_rows: totalRows,
+    });
+    expect(updateQuery.update).not.toHaveBeenCalledWith({
+      processed_rows: 5530,
+      total_rows: totalRows,
+    });
+    expect(updateQuery.update).not.toHaveBeenCalledWith({
+      processed_rows: 5600,
       total_rows: totalRows,
     });
     expect(updateQuery.update).toHaveBeenCalledWith({
@@ -161,10 +170,8 @@ describe('createPreviewProgressReporter', () => {
       await reportProgress({ processedRows: i, totalRows });
     }
 
-    // With step=10 for 100 rows: ~10 step-based writes + early progress + final
-    const writeCount = updateQuery.update.mock.calls.length;
-    expect(writeCount).toBeLessThanOrEqual(20);
-    expect(writeCount).toBeGreaterThanOrEqual(8);
+    // Exact count: 6 (early: 0-5) + 9 (step: 15,25,35,45,55,65,75,85,95) + 1 (final: 100) = 16
+    expect(updateQuery.update).toHaveBeenCalledTimes(16);
   });
 
   it('always persists the first report when totalRows becomes known', async () => {
