@@ -1,6 +1,6 @@
 import type { ImageProps } from 'expo-image';
 import type { StyleProp, ViewStyle } from 'react-native';
-import Colors from '@/constants/Colors';
+import type { default as Colors } from '@/constants/Colors';
 import type { Product } from '@/types/product';
 
 export interface BaseProductCardVariantProps {
@@ -22,11 +22,11 @@ export interface BaseProductCardVariantProps {
 export interface GridProductCardProps extends BaseProductCardVariantProps {
   gridWidth: number;
   shadowColor: string;
-  colors?: (typeof Colors)['light'];
+  colors?: Colors['light'];
 }
 
 export interface ListProductCardProps extends BaseProductCardVariantProps {
-  colors?: (typeof Colors)['light'];
+  colors?: Colors['light'];
 }
 
 export interface EditorialProductCardProps extends BaseProductCardVariantProps {
