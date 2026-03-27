@@ -11,8 +11,6 @@ import type {
   StorefrontAccountDocumentTransactionRow,
 } from '@/lib/storefront-account-document-bundle.types';
 
-const RECEIPT_READY_STATUSES = new Set(['shipped', 'delivered']);
-
 const MERCHANT_COLUMNS =
   'id, slug, business_name, logo_url, email, phone, support_email, support_phone, business_address, cac_rc_number, tax_identification_number, legal_entity_name, brand_colors, vat_registration_status, vat_rate, bank_code, bank_account_number, bank_name, bank_account_name, social_media, pages, registered_address';
 
@@ -48,10 +46,7 @@ export function isReceiptEligible(input: {
   paymentStatus: string | null | undefined;
   shippingStatus: string | null | undefined;
 }) {
-  return (
-    normalizePaymentStatus(input.paymentStatus) === 'paid' &&
-    RECEIPT_READY_STATUSES.has(normalizeShippingStatus(input.shippingStatus))
-  );
+  return normalizePaymentStatus(input.paymentStatus) === 'paid';
 }
 
 export function getCurrentDocumentKind(input: {

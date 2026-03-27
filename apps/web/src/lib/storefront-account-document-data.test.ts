@@ -68,7 +68,7 @@ describe('storefront account document status helpers', () => {
     );
   });
 
-  it('marks receipts as eligible only when order is paid and shipped', () => {
+  it('marks receipts as eligible whenever the order is paid', () => {
     expect(
       isReceiptEligible({
         paymentStatus: 'paid',
@@ -88,7 +88,7 @@ describe('storefront account document status helpers', () => {
         paymentStatus: 'paid',
         shippingStatus: 'processing',
       })
-    ).toBe(false);
+    ).toBe(true);
 
     expect(
       isReceiptEligible({
@@ -109,21 +109,21 @@ describe('storefront account document status helpers', () => {
         paymentStatus: 'paid',
         shippingStatus: undefined,
       })
-    ).toBe(false);
+    ).toBe(true);
 
     expect(
       isReceiptEligible({
         paymentStatus: 'paid',
         shippingStatus: 'cancelled',
       })
-    ).toBe(false);
+    ).toBe(true);
 
     expect(
       isReceiptEligible({
         paymentStatus: 'paid',
         shippingStatus: 'returned',
       })
-    ).toBe(false);
+    ).toBe(true);
 
     expect(
       isReceiptEligible({
@@ -159,7 +159,7 @@ describe('storefront account document status helpers', () => {
         paymentStatus: 'paid',
         shippingStatus: 'processing',
       })
-    ).toBe('invoice');
+    ).toBe('receipt');
 
     expect(
       getCurrentDocumentKind({
@@ -180,14 +180,14 @@ describe('storefront account document status helpers', () => {
         paymentStatus: 'paid',
         shippingStatus: 'cancelled',
       })
-    ).toBe('invoice');
+    ).toBe('receipt');
 
     expect(
       getCurrentDocumentKind({
         paymentStatus: 'paid',
         shippingStatus: 'pending',
       })
-    ).toBe('invoice');
+    ).toBe('receipt');
 
     expect(
       getCurrentDocumentKind({
