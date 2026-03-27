@@ -15,6 +15,7 @@ import {
   getJumiaEnvironment,
   getJumiaRedirectUri,
   JumiaApiError,
+  sanitizeJumiaErrorDetails,
   TOKEN_REFRESH_BUFFER_MS,
 } from '@/lib/jumia/helpers';
 
@@ -63,6 +64,28 @@ describe('helpers', () => {
   describe('TOKEN_REFRESH_BUFFER_MS', () => {
     it('is 5 minutes in milliseconds', () => {
       expect(TOKEN_REFRESH_BUFFER_MS).toBe(5 * 60 * 1000);
+    });
+  });
+
+  describe('sanitizeJumiaErrorDetails', () => {
+    it('parses structured errors and redacts sensitive fields', () => {
+      const sanitized = sanitizeJumiaErrorDetails(
+        JSON.stringify({
+          error: 'invalid_grant',
+          error_description:
+            'The requested redirect_uri is missing in the client configuration.',
+          code: 'auth-code-123',
+          client_secret: 'super-secret',
+        })
+      );
+
+      expect(sanitized).toEqual({
+        error: 'invalid_grant',
+        error_description:
+          'The requested redirect_uri is missing in the client configuration.',
+        code: '[REDACTED]',
+        client_secret: '[REDACTED]',
+      });
     });
   });
 

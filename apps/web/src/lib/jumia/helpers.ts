@@ -68,6 +68,39 @@ export class JumiaApiError extends Error {
   }
 }
 
+function redactJumiaErrorDetails(raw: string): string {
+  return raw
+    .replace(
+      /"(access_token|refresh_token|client_secret|code)"\s*:\s*"[^"]*"/gi,
+      '"$1":"[REDACTED]"'
+    )
+    .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
+    .replace(/(?<=[?&])(client_secret|code)=[^&\s"]*/gi, '$1=[REDACTED]');
+}
+
+export function sanitizeJumiaErrorDetails(
+  details: unknown,
+  maxLength = 1_000
+): unknown {
+  if (details == null) {
+    return undefined;
+  }
+
+  const raw =
+    typeof details === 'string' ? details : JSON.stringify(details, null, 2);
+  const redacted = redactJumiaErrorDetails(raw);
+
+  if (redacted.length > maxLength) {
+    return `${redacted.slice(0, maxLength)}...[truncated]`;
+  }
+
+  try {
+    return JSON.parse(redacted) as unknown;
+  } catch {
+    return redacted;
+  }
+}
+
 export async function exchangeJumiaCode(config: {
   code: string;
   clientId: string;
@@ -123,21 +156,7 @@ export async function exchangeJumiaCode(config: {
  * Preserves meaningful Jumia API status codes (400-599), falls back to 500.
  */
 export function jumiaErrorResponse(err: JumiaApiError): Response {
-  // Redact tokens/credentials from details before logging
-  let safeDetails: unknown = err.details;
-  if (safeDetails != null) {
-    const raw =
-      typeof safeDetails === 'string'
-        ? safeDetails
-        : JSON.stringify(safeDetails);
-    safeDetails = raw
-      .replace(
-        /"(access_token|refresh_token|client_secret|code)"\s*:\s*"[^"]*"/gi,
-        '"$1":"[REDACTED]"'
-      )
-      .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
-      .replace(/(?<=[?&])(client_secret|code)=[^&\s"]*/gi, '$1=[REDACTED]');
-  }
+  const safeDetails = sanitizeJumiaErrorDetails(err.details);
   console.error('[Jumia API]', {
     message: err.message,
     details: safeDetails,
