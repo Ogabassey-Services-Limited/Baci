@@ -42,8 +42,8 @@ const { mockGetConfiguredAppUrl, mockGetJumiaRedirectUri } = vi.hoisted(() => {
 
   return {
     mockGetConfiguredAppUrl: vi.fn(getValidatedAppUrl),
-    mockGetJumiaRedirectUri: vi.fn((appUrl?: string) => {
-      const baseUrl = (appUrl ?? 'http://localhost:3000').replace(/\/+$/, '');
+    mockGetJumiaRedirectUri: vi.fn((appUrl: string) => {
+      const baseUrl = appUrl.replace(/\/+$/, '');
       return `${baseUrl}/api/marketplace/jumia/callback`;
     }),
   };
@@ -64,7 +64,7 @@ vi.mock('@/lib/api-auth', () => ({
 
 vi.mock('@/lib/jumia/helpers', () => ({
   exchangeJumiaCode: (...args: unknown[]) => mockExchangeJumiaCode(...args),
-  getJumiaRedirectUri: (appUrl?: string) => mockGetJumiaRedirectUri(appUrl),
+  getJumiaRedirectUri: (appUrl: string) => mockGetJumiaRedirectUri(appUrl),
 }));
 
 vi.mock('@/lib/jumia/client', () => ({

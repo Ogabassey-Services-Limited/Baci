@@ -43,8 +43,8 @@ const { mockGetConfiguredAppUrl, mockGetJumiaRedirectUri } = vi.hoisted(() => {
 
   return {
     mockGetConfiguredAppUrl: vi.fn(getValidatedAppUrl),
-    mockGetJumiaRedirectUri: vi.fn((appUrl?: string) => {
-      const baseUrl = (appUrl ?? 'http://localhost:3000').replace(/\/+$/, '');
+    mockGetJumiaRedirectUri: vi.fn((appUrl: string) => {
+      const baseUrl = appUrl.replace(/\/+$/, '');
       return `${baseUrl}/api/marketplace/jumia/callback`;
     }),
   };
@@ -80,7 +80,7 @@ vi.mock('@/lib/api-auth', () => ({
 
 vi.mock('@/lib/jumia/helpers', () => ({
   getJumiaAuthUrl: (...args: unknown[]) => mockGetJumiaAuthUrl(...args),
-  getJumiaRedirectUri: (appUrl?: string) => mockGetJumiaRedirectUri(appUrl),
+  getJumiaRedirectUri: (appUrl: string) => mockGetJumiaRedirectUri(appUrl),
 }));
 
 vi.mock('@/env', () => ({
@@ -404,6 +404,18 @@ describe('Connect GET', () => {
 
   it('returns 500 for oauth when NEXT_PUBLIC_APP_URL is malformed', async () => {
     process.env.NEXT_PUBLIC_APP_URL = 'not-a-url';
+
+    const res = await GET(makeGetRequest('?connectionType=oauth'));
+
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBe('Jumia OAuth not configured');
+    expect(mockGetConfiguredAppUrl).toHaveBeenCalled();
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 for oauth when NEXT_PUBLIC_APP_URL is localhost', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
 
     const res = await GET(makeGetRequest('?connectionType=oauth'));
 

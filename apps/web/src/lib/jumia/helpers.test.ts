@@ -6,9 +6,6 @@ const mockEnv = vi.hoisted(() => ({
 
 vi.mock('@/env', () => ({
   env: mockEnv,
-  getAppUrl: vi.fn(
-    () => process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  ),
 }));
 
 import {
@@ -102,34 +99,20 @@ describe('helpers', () => {
 
   describe('getJumiaRedirectUri', () => {
     it('returns the callback path when the app URL has no trailing slash', () => {
-      process.env.NEXT_PUBLIC_APP_URL = 'https://usebaci.com';
-
-      expect(getJumiaRedirectUri()).toBe(
+      expect(getJumiaRedirectUri('https://usebaci.com')).toBe(
         'https://usebaci.com/api/marketplace/jumia/callback'
       );
     });
 
     it('returns the callback path when the app URL has a single trailing slash', () => {
-      process.env.NEXT_PUBLIC_APP_URL = 'https://usebaci.com/';
-
-      expect(getJumiaRedirectUri()).toBe(
+      expect(getJumiaRedirectUri('https://usebaci.com/')).toBe(
         'https://usebaci.com/api/marketplace/jumia/callback'
       );
     });
 
     it('normalizes trailing slashes on the app URL', () => {
-      process.env.NEXT_PUBLIC_APP_URL = 'https://usebaci.com///';
-
-      expect(getJumiaRedirectUri()).toBe(
+      expect(getJumiaRedirectUri('https://usebaci.com///')).toBe(
         'https://usebaci.com/api/marketplace/jumia/callback'
-      );
-    });
-
-    it('falls back to localhost when the app URL is not set', () => {
-      delete process.env.NEXT_PUBLIC_APP_URL;
-
-      expect(getJumiaRedirectUri()).toBe(
-        'http://localhost:3000/api/marketplace/jumia/callback'
       );
     });
   });
