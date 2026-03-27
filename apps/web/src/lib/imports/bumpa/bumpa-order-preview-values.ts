@@ -98,6 +98,96 @@ function splitPipeField(value: string) {
   );
 }
 
+function trimEmptyEdges(parts: string[]) {
+  let start = 0;
+  let end = parts.length;
+
+  while (start < end && !parts[start]?.trim()) {
+    start += 1;
+  }
+
+  while (end > start && !parts[end - 1]?.trim()) {
+    end -= 1;
+  }
+
+  return parts.slice(start, end);
+}
+
+function buildProductNames(
+  value: string,
+  expectedCount: number,
+  customerName: string
+) {
+  const rawParts = trimEmptyEdges(splitPipeField(value));
+  const customerNameKey = normalizeNameKey(customerName);
+
+  if (rawParts.length === 0) {
+    return [];
+  }
+
+  if (expectedCount <= 1) {
+    const compactParts = rawParts.filter(Boolean);
+    const mergedName = compactParts.join(' | ');
+
+    if (
+      compactParts.length === 2 &&
+      normalizeNameKey(compactParts[0] || '') === customerNameKey
+    ) {
+      return [compactParts[1] || ''];
+    }
+
+    return [mergedName];
+  }
+
+  const groupedParts = rawParts.reduce<string[][]>((groups, part) => {
+    if (!part) {
+      if (groups.length > 0 && (groups[groups.length - 1]?.length ?? 0) > 0) {
+        groups.push([]);
+      }
+
+      return groups;
+    }
+
+    if (groups.length === 0) {
+      groups.push([]);
+    }
+
+    groups[groups.length - 1]?.push(part);
+    return groups;
+  }, []);
+
+  const nonEmptyGroups = groupedParts.filter((group) => group.length > 0);
+
+  if (nonEmptyGroups.length === expectedCount) {
+    return nonEmptyGroups.map((group) => group.join(' | '));
+  }
+
+  while (nonEmptyGroups.length < expectedCount) {
+    const splitIndex = [...nonEmptyGroups]
+      .reverse()
+      .findIndex((group) => group.length > 1);
+
+    if (splitIndex === -1) {
+      break;
+    }
+
+    const groupIndex = nonEmptyGroups.length - 1 - splitIndex;
+    const targetGroup = nonEmptyGroups[groupIndex];
+    if (!targetGroup) {
+      break;
+    }
+
+    const tail = targetGroup.pop();
+    if (!tail) {
+      break;
+    }
+
+    nonEmptyGroups.splice(groupIndex + 1, 0, [tail]);
+  }
+
+  return nonEmptyGroups.map((group) => group.join(' | '));
+}
+
 export function buildCustomer(row: BumpaOrderRow): NormalizedImportedCustomer {
   const fullName = sanitizeText(row['Customer Name']) || 'Customer';
   const { firstName, lastName } = splitCustomerName(fullName);
@@ -219,9 +309,18 @@ export function buildItems(
     productsByName.set(normalizeNameKey(product.name), product);
   });
 
-  const names = splitPipeField(row.Products);
-  const skus = splitPipeField(row['Product SKU']);
   const quantities = splitPipeField(row['Product Quantity']);
+  const skus = splitPipeField(row['Product SKU']);
+  const expectedNameCount = Math.max(
+    1,
+    quantities.filter(Boolean).length,
+    skus.length > 1 ? skus.length : 0
+  );
+  const names = buildProductNames(
+    row.Products,
+    expectedNameCount,
+    row['Customer Name']
+  );
   const itemCount = Math.max(names.length, skus.length, quantities.length);
 
   const provisionalItems = Array.from({ length: itemCount }, (_, index) => {
