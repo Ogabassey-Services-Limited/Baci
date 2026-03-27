@@ -85,6 +85,13 @@ export class JumiaClient {
   }
 
   async refreshAccessToken(): Promise<void> {
+    if (!this.refreshToken?.trim()) {
+      throw new JumiaApiError(
+        401,
+        'Refresh token is missing or invalid — user re-authorization required'
+      );
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
