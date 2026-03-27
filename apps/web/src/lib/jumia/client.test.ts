@@ -545,6 +545,28 @@ describe('JumiaClient', () => {
       const [, options] = mockFetch.mock.calls[0];
       expect(options.body).toBe(JSON.stringify({ name: 'Test' }));
     });
+
+    it('throttles rapid sequential requests to respect 4 req/sec limit', async () => {
+      const client = createDefaultClient();
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      const okResponse = {
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true }),
+      };
+
+      mockFetch.mockResolvedValue(okResponse);
+
+      const start = Date.now();
+      await client.request('GET', '/a');
+      await client.request('GET', '/b');
+      await client.request('GET', '/c');
+      const elapsed = Date.now() - start;
+
+      // 3 requests should take at least ~500ms (2 intervals of 250ms)
+      expect(elapsed).toBeGreaterThanOrEqual(400);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
   });
 
   // ── getShops() ──

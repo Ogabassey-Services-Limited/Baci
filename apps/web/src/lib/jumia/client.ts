@@ -28,6 +28,16 @@ export { JumiaApiError, jumiaErrorResponse } from '@/lib/jumia/helpers';
 const INTEGRATION_COLUMNS =
   'id, merchant_id, shop_id, shop_name, country_code, access_token, refresh_token, token_expires_at, is_active' as const;
 
+// ── Rate limiting ──
+// Jumia Vendor Center: 200 req/min, 4 req/sec at MasterShop level.
+// Enforce min 250ms between requests per client instance.
+
+const MIN_REQUEST_INTERVAL_MS = 250;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ── Client ──
 
 export class JumiaClient {
@@ -39,6 +49,7 @@ export class JumiaClient {
   private refreshToken: string;
   private environment: JumiaEnvironment;
   private supabase: SupabaseClient | null;
+  private lastRequestAt: number;
 
   constructor(config: {
     integrationId: string;
@@ -58,6 +69,7 @@ export class JumiaClient {
     this.tokenExpiresAt = config.tokenExpiresAt;
     this.environment = config.environment ?? getJumiaEnvironment();
     this.supabase = config.supabase ?? null;
+    this.lastRequestAt = 0;
   }
 
   // ── Factory: load by integration ID (scoped to merchant) ──
@@ -224,6 +236,13 @@ export class JumiaClient {
     schema?: z.ZodSchema<T>,
     body?: unknown
   ): Promise<T | unknown> {
+    // Throttle: enforce min 250ms between requests (Jumia rate limit: 4 req/sec)
+    const elapsed = Date.now() - this.lastRequestAt;
+    if (elapsed < MIN_REQUEST_INTERVAL_MS) {
+      await sleep(MIN_REQUEST_INTERVAL_MS - elapsed);
+    }
+    this.lastRequestAt = Date.now();
+
     const token = await this.getValidToken();
     const url = `${this.apiBase}${path}`;
     const headers: Record<string, string> = {
