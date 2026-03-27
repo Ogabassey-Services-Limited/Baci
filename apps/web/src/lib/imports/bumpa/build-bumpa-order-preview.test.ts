@@ -219,6 +219,70 @@ describe('buildBumpaOrderPreview', () => {
     expect(result.rows[0]?.errors).toEqual([]);
   });
 
+  it('uses quantity hints to avoid exploding mixed laptop-plus-accessory rows', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          id: '3791497',
+          'Order Number': '05492',
+          Products:
+            'Dell Inspiron 7440-7304BLU 2-IN-1 CONVERTIBLE 14th Gen Intel Core TM 7 150U 1.8GHz up to 5.40GHz (LATEST MODEL) 512GB SSD | 16GB RAM | 14" (1920x1200) TOUCHSCREEN Display Windows 11 | ICE BLUE | BACKLIT KEYBOARD | | Dell Inspiron 16 Plus 7640 Intel Core T™ Ultra 7 155H 1.4Ghz up to 4.90GHz 1TB SSD | 16GB RAM | 16" (1920x1200) Display | Windows 11 BLUE | BACKLIT KEYBOARD | FingerPrint Reader | Samsung A56 256gb | Pouch | Screen Protector | Insurance | Delivery',
+          'Customer Name': 'Shyft Power',
+          'Customer Email': 'finance@shyftpower.com',
+          'Customer Phone': '',
+          'Product SKU': ' |  |  |  |  |  | ',
+          'Product Quantity': '1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00',
+          Total: '3661200.00',
+          'Sub Total': '3661200.00',
+          'Amount Paid': '3661200.00',
+          'Order Date': '2025-11-26 10:20:03',
+          'Created At': '2025-11-26',
+          'Updated At': '2025-11-26',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [],
+    });
+
+    expect(result.rows[0]?.rowStatus).toBe('create');
+    expect(result.rows[0]?.payload?.items).toHaveLength(7);
+    expect(result.rows[0]?.errors).not.toContain(
+      'One or more imported items are missing a product name'
+    );
+  });
+
+  it('ignores a trailing solitary pipe after a single laptop description', async () => {
+    const result = await buildBumpaOrderPreview({
+      rows: [
+        {
+          ...baseRow,
+          id: '1516411',
+          'Order Number': '02994',
+          Products:
+            'HP elitebook X360 1030 G2 || 7th Gen || Intel Core i5 || 16 GB || 256 GB SSD || Face ID || Backlit || 13.3 inch screen || Screen touch || Windows 11 |',
+          'Customer Name': 'OGUNSEHINDE OLUWADUNSIN',
+          'Customer Email': 'dundeeoguns@gmail.com',
+          'Customer Phone': '',
+          'Product SKU': '',
+          'Product Quantity': '1.00',
+          Total: '325000.00',
+          'Sub Total': '325000.00',
+          'Amount Paid': '325000.00',
+          'Order Date': '2024-12-18 18:22:35',
+          'Created At': '2024-12-18',
+          'Updated At': '2024-12-18',
+        },
+      ],
+      existingOrders: [],
+      existingProducts: [],
+    });
+
+    expect(result.rows[0]?.rowStatus).toBe('create');
+    expect(result.rows[0]?.payload?.items).toHaveLength(1);
+    expect(result.rows[0]?.errors).toEqual([]);
+  });
+
   it('accepts rows with blank customer names when an email exists', async () => {
     const result = await buildBumpaOrderPreview({
       rows: [
