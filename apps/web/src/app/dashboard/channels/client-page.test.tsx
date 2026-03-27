@@ -41,7 +41,7 @@ vi.mock('@/components/ui/bag-loader', () => ({
   BagLoader: () => <div data-testid="bag-loader">Loading...</div>,
 }));
 
-const mockRefetch = vi.fn().mockResolvedValue([]);
+const mockRefetch = vi.fn(async (): Promise<JumiaIntegration[]> => []);
 const mockSetIntegrations = vi.fn();
 const mockDisconnectIntegration = vi.fn();
 const mockSyncOrders = vi.fn();
@@ -407,11 +407,11 @@ describe('ChannelsClientPage', () => {
       setupHook({});
       render(<ChannelsClientPage />);
 
-      expect(mockToast).toHaveBeenCalledWith({
-        title: 'Jumia account connected successfully!',
-      });
-      expect(mockRefetch).toHaveBeenCalled();
       await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: 'Jumia account connected successfully!',
+        });
+        expect(mockRefetch).toHaveBeenCalled();
         expect(mockReplace).toHaveBeenCalledWith('/dashboard/channels');
       });
     });

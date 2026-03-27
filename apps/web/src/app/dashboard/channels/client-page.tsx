@@ -12,7 +12,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,20 +77,31 @@ export default function ChannelsClientPage() {
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
   const [disconnectId, setDisconnectId] = useState<string | null>(null);
+  const handledOauthParamsRef = useRef<string | null>(null);
 
-  // Handle OAuth callback params
   useEffect(() => {
     const success = searchParams.get('success');
     const error = searchParams.get('error');
+    const handledKey = success
+      ? `success:${success}:${searchParams.get('shops') ?? ''}`
+      : error
+        ? `error:${error}`
+        : null;
+
+    if (!handledKey || handledOauthParamsRef.current === handledKey) {
+      return;
+    }
+    handledOauthParamsRef.current = handledKey;
 
     if (success === 'jumia_connected') {
       const newShopIds =
         searchParams.get('shops')?.split(',').filter(Boolean) ?? [];
       toast({ title: 'Jumia account connected successfully!' });
 
-      refetch().then((freshIntegrations) => {
+      void refetch().then(async (freshIntegrations) => {
         router.replace('/dashboard/channels');
-        if (newShopIds.length === 0 || !freshIntegrations) return;
+
+        if (newShopIds.length === 0) return;
 
         const newOnes = freshIntegrations.filter((i) =>
           newShopIds.includes(i.shop_id)
@@ -98,20 +109,19 @@ export default function ChannelsClientPage() {
         if (newOnes.length === 0) return;
 
         toast({ title: 'Syncing your Jumia orders...' });
-        Promise.all(newOnes.map((i) => syncOrders(i.id))).then((results) => {
-          const ok = results.filter((r) => r.ok);
-          if (ok.length > 0) {
-            toast({ title: ok[0].message || 'Orders synced!' });
-            refetch();
-          } else {
-            const fail = results.find((r) => !r.ok);
-            toast({
-              title: 'Order sync failed',
-              description: fail?.error || 'Please try again',
-              variant: 'destructive',
-            });
-          }
-        });
+        const results = await Promise.all(newOnes.map((i) => syncOrders(i.id)));
+        const ok = results.filter((r) => r.ok);
+        if (ok.length > 0) {
+          toast({ title: ok[0].message || 'Orders synced!' });
+          await refetch();
+        } else {
+          const fail = results.find((r) => !r.ok);
+          toast({
+            title: 'Order sync failed',
+            description: fail?.error || 'Please try again',
+            variant: 'destructive',
+          });
+        }
       });
     } else if (error) {
       toast({
