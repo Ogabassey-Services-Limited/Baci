@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   generateOrderConfirmationEmail,
