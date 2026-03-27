@@ -29,6 +29,9 @@ vi.mock('@/lib/csrf', () => ({
 
 const mockGetMerchant = vi.fn();
 const mockToUserAccess = vi.fn();
+const mockGetJumiaAuthUrl = vi
+  .fn()
+  .mockReturnValue('https://jumia.com/auth?state=xyz');
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: (...a: unknown[]) => mockGetMerchant(...a),
   toUserAccess: (...a: unknown[]) => mockToUserAccess(...a),
@@ -39,7 +42,14 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 
 vi.mock('@/lib/jumia/helpers', () => ({
-  getJumiaAuthUrl: vi.fn().mockReturnValue('https://jumia.com/auth?state=xyz'),
+  getJumiaAuthUrl: (...a: unknown[]) => mockGetJumiaAuthUrl(...a),
+  getJumiaRedirectUri: vi.fn(
+    () => 'http://localhost:3000/api/marketplace/jumia/callback'
+  ),
+}));
+
+vi.mock('@/env', () => ({
+  getJumiaClientId: vi.fn(() => process.env.JUMIA_CLIENT_ID),
 }));
 
 /* ------------------------------------------------------------------ */
@@ -86,6 +96,7 @@ describe('Connect POST', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSelect.mockReturnValue({ single: vi.fn() });
+    mockGetJumiaAuthUrl.mockReturnValue('https://jumia.com/auth?state=xyz');
   });
 
   it('returns 403 on CSRF failure', async () => {
@@ -210,16 +221,19 @@ describe('Connect POST', () => {
 
   it('returns 200 with auth URL when OAuth is configured', async () => {
     setupAuth();
-    // JUMIA_CLIENT_ID is captured at module load time, so re-import with it set
     process.env.JUMIA_CLIENT_ID = 'test-client-id';
     try {
-      vi.resetModules();
-      const { POST: freshPost } = await import('./route');
-      const res = await freshPost(makePostRequest({ connectionType: 'oauth' }));
+      const res = await POST(makePostRequest({ connectionType: 'oauth' }));
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.success).toBe(true);
       expect(json.redirectUrl).toBe('https://jumia.com/auth?state=xyz');
+      expect(mockGetJumiaAuthUrl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clientId: 'test-client-id',
+          redirectUri: 'http://localhost:3000/api/marketplace/jumia/callback',
+        })
+      );
     } finally {
       delete process.env.JUMIA_CLIENT_ID;
     }

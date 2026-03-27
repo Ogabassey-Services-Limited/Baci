@@ -7,13 +7,14 @@ import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getJumiaClientId } from '@/env';
 import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { getJumiaAuthUrl } from '@/lib/jumia/helpers';
+import { getJumiaAuthUrl, getJumiaRedirectUri } from '@/lib/jumia/helpers';
 import { createClient } from '@/lib/supabase/server';
 
 const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [
@@ -28,11 +29,6 @@ const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [
     connectionType: z.literal('oauth'),
   }),
 ]);
-
-// For Self Authorization flow, only refresh token is needed
-// For OAuth flow, you'll need client_id/secret from Jumia partner dashboard
-const JUMIA_CLIENT_ID = process.env.JUMIA_CLIENT_ID;
-const JUMIA_REDIRECT_URI = `${process.env.NEXT_PUBLIC_SITE_URL}/api/marketplace/jumia/callback`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -141,12 +137,14 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // OAuth flow: Redirect to Jumia authorization
-      if (!JUMIA_CLIENT_ID) {
+      const jumiaClientId = getJumiaClientId();
+      if (!jumiaClientId) {
         return NextResponse.json(
           { error: 'Jumia OAuth not configured' },
           { status: 500 }
         );
       }
+      const jumiaRedirectUri = getJumiaRedirectUri();
 
       // Generate state for CSRF protection
       const state = crypto.randomBytes(16).toString('hex');
@@ -155,8 +153,8 @@ export async function POST(request: NextRequest) {
       const response = NextResponse.json({
         success: true,
         redirectUrl: getJumiaAuthUrl({
-          clientId: JUMIA_CLIENT_ID,
-          redirectUri: JUMIA_REDIRECT_URI,
+          clientId: jumiaClientId,
+          redirectUri: jumiaRedirectUri,
           state,
         }),
       });
@@ -239,12 +237,14 @@ export async function GET(request: NextRequest) {
 
     // Handle OAuth Redirect Flow
     if (connectionType === 'oauth') {
-      if (!JUMIA_CLIENT_ID) {
+      const jumiaClientId = getJumiaClientId();
+      if (!jumiaClientId) {
         return NextResponse.json(
           { error: 'Jumia OAuth not configured' },
           { status: 500 }
         );
       }
+      const jumiaRedirectUri = getJumiaRedirectUri();
 
       const platform = searchParams.get('platform'); // 'mobile' or undefined
 
@@ -252,8 +252,8 @@ export async function GET(request: NextRequest) {
       const state = crypto.randomBytes(16).toString('hex');
 
       const redirectUrl = getJumiaAuthUrl({
-        clientId: JUMIA_CLIENT_ID,
-        redirectUri: JUMIA_REDIRECT_URI,
+        clientId: jumiaClientId,
+        redirectUri: jumiaRedirectUri,
         state,
       });
 
