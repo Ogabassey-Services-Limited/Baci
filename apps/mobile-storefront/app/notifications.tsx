@@ -4,13 +4,14 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { Redirect, router, Stack } from 'expo-router';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { useAuthStore } from '@/stores/auth-store';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface Notification {
   id: string;
@@ -109,7 +110,7 @@ export default function NotificationsScreen() {
           title: 'Notifications',
         }}
       />
-      <FlatList
+      <FlashList
         data={notifications}
         renderItem={renderNotification}
         keyExtractor={(item) => item.id}

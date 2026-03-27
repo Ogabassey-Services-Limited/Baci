@@ -4,12 +4,11 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React from 'react';
 import {
   ActivityIndicator,
-  FlatList,
-  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -172,17 +171,6 @@ export default function CategoryScreen() {
     );
   };
 
-  const androidVirtualizationProps =
-    Platform.OS === 'android'
-      ? {
-          removeClippedSubviews: true,
-          maxToRenderPerBatch: 6,
-          windowSize: 5,
-          initialNumToRender: 6,
-          updateCellsBatchingPeriod: 50,
-        }
-      : {};
-
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -193,7 +181,7 @@ export default function CategoryScreen() {
           title: getCategoryTitle(slug || ''),
         }}
       />
-      <FlatList
+      <FlashList
         data={products}
         renderItem={renderProduct}
         keyExtractor={(item) => item.id}
@@ -212,8 +200,6 @@ export default function CategoryScreen() {
         }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        columnWrapperStyle={styles.row}
-        {...androidVirtualizationProps}
       />
     </SafeAreaView>
   );
@@ -226,9 +212,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingTop: 16,
     paddingBottom: 24,
-  },
-  row: {
-    paddingHorizontal: 16,
   },
   productWrapper: {
     flex: 1,
