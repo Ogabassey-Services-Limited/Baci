@@ -41,7 +41,7 @@ vi.mock('@/components/ui/bag-loader', () => ({
   BagLoader: () => <div data-testid="bag-loader">Loading...</div>,
 }));
 
-const mockRefetch = vi.fn();
+const mockRefetch = vi.fn().mockResolvedValue(undefined);
 const mockSetIntegrations = vi.fn();
 const mockDisconnectIntegration = vi.fn();
 const mockSyncOrders = vi.fn();
@@ -402,7 +402,7 @@ describe('ChannelsClientPage', () => {
   });
 
   describe('OAuth callback params', () => {
-    it('shows success toast and refetches on success=jumia_connected', () => {
+    it('shows success toast and refetches on success=jumia_connected', async () => {
       mockSearchParams = new URLSearchParams('success=jumia_connected');
       setupHook({});
       render(<ChannelsClientPage />);
@@ -411,7 +411,9 @@ describe('ChannelsClientPage', () => {
         title: 'Jumia account connected successfully!',
       });
       expect(mockRefetch).toHaveBeenCalled();
-      expect(mockReplace).toHaveBeenCalledWith('/dashboard/channels');
+      await waitFor(() => {
+        expect(mockReplace).toHaveBeenCalledWith('/dashboard/channels');
+      });
     });
 
     it('shows error toast for known error code', () => {

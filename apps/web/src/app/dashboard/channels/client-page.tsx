@@ -85,8 +85,7 @@ export default function ChannelsClientPage() {
 
     if (success === 'jumia_connected') {
       toast({ title: 'Jumia account connected successfully!' });
-      refetch();
-      router.replace('/dashboard/channels');
+      refetch().then(() => router.replace('/dashboard/channels'));
     } else if (error) {
       toast({
         title: 'Connection Error',
