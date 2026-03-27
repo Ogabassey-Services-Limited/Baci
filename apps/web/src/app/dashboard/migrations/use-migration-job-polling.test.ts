@@ -5,10 +5,17 @@ import type { ImportJobDetail } from '@/app/dashboard/migrations/migration-types
 import { useMigrationJobPolling } from '@/app/dashboard/migrations/use-migration-job-polling';
 
 function createMockChannel() {
+  let subscribeCallback: ((status: string) => void) | undefined;
   const channel = {
     on: vi.fn().mockReturnThis(),
-    subscribe: vi.fn().mockReturnThis(),
+    subscribe: vi.fn((cb?: (status: string) => void) => {
+      subscribeCallback = cb;
+      return channel;
+    }),
     unsubscribe: vi.fn(),
+    triggerSubscribeStatus: (status: string) => {
+      subscribeCallback?.(status);
+    },
   };
   return channel;
 }
@@ -298,6 +305,62 @@ describe('useMigrationJobPolling', () => {
 
     // Should have bumped the request ID to invalidate the in-flight poll
     expect(onRefreshRequestIdBump).toHaveBeenCalled();
+  });
+
+  it('passes background: true when triggering row fetch on terminal transition', () => {
+    const refreshJob = vi.fn().mockResolvedValue(true);
+
+    renderHook(() =>
+      useMigrationJobPolling({
+        activeFilter: 'all',
+        refreshJob,
+        rowsResponse: null,
+        selectedJob: createJob('validating'),
+        selectedJobId: 'job-1',
+      })
+    );
+
+    const realtimeCallback = mockChannel.on.mock.calls[0][2];
+
+    act(() => {
+      realtimeCallback({
+        new: {
+          id: 'job-1',
+          status: 'preview_ready',
+          processed_rows: 5822,
+          total_rows: 5822,
+        },
+      });
+    });
+
+    expect(refreshJob).toHaveBeenCalledWith(
+      'job-1',
+      expect.objectContaining({
+        background: true,
+        includeRows: true,
+        includeJob: false,
+      })
+    );
+  });
+
+  it('removes channel when subscribe reports CHANNEL_ERROR', () => {
+    const refreshJob = vi.fn().mockResolvedValue(true);
+
+    renderHook(() =>
+      useMigrationJobPolling({
+        activeFilter: 'all',
+        refreshJob,
+        rowsResponse: null,
+        selectedJob: createJob('validating'),
+        selectedJobId: 'job-1',
+      })
+    );
+
+    act(() => {
+      mockChannel.triggerSubscribeStatus('CHANNEL_ERROR');
+    });
+
+    expect(mockSupabase.removeChannel).toHaveBeenCalledWith(mockChannel);
   });
 
   it('does not overlap polling when selected job object changes mid-poll', async () => {

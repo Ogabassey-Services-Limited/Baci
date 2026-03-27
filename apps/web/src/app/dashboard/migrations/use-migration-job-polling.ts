@@ -94,6 +94,7 @@ export function useMigrationJobPolling({
             shouldFetchMigrationRows(newStatus)
           ) {
             void refreshJob(selectedJobId, {
+              background: true,
               includeJob: false,
               includeRows: true,
               filter: activeFilter,
@@ -102,7 +103,12 @@ export function useMigrationJobPolling({
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          // Subscription failed — polling fallback will keep the UI updated
+          supabase.removeChannel(channel);
+        }
+      });
 
     // Fallback: poll every 5s for resilience
     const poll = async () => {

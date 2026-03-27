@@ -110,10 +110,10 @@ describe('createPreviewProgressReporter', () => {
       await reportProgress({ processedRows: i, totalRows });
     }
 
-    // Should NOT have 233 writes (old 25-step) — should be ~20-30 writes
+    // Should NOT have 233 writes (old 25-step) — should be ~20-27 writes
     const writeCount = updateQuery.update.mock.calls.length;
-    expect(writeCount).toBeLessThanOrEqual(35);
-    expect(writeCount).toBeGreaterThanOrEqual(10);
+    expect(writeCount).toBeLessThanOrEqual(27);
+    expect(writeCount).toBeGreaterThanOrEqual(20);
   });
 
   it('floors adaptive step at 10 for small files', async () => {

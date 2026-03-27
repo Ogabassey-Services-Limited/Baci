@@ -202,6 +202,7 @@ describe('MigrationJobSummary', () => {
       name: /migration progress/i,
     });
     expect(progressBar).toBeInTheDocument();
+    expect(progressBar).not.toHaveAttribute('aria-valuenow');
   });
 
   it('shows empty-filter guidance and disables empty filter cards', () => {
