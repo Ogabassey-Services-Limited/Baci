@@ -41,7 +41,7 @@ vi.mock('@/components/ui/bag-loader', () => ({
   BagLoader: () => <div data-testid="bag-loader">Loading...</div>,
 }));
 
-const mockRefetch = vi.fn();
+const mockRefetch = vi.fn(async (): Promise<JumiaIntegration[]> => []);
 const mockSetIntegrations = vi.fn();
 const mockDisconnectIntegration = vi.fn();
 const mockSyncOrders = vi.fn();
@@ -402,16 +402,55 @@ describe('ChannelsClientPage', () => {
   });
 
   describe('OAuth callback params', () => {
-    it('shows success toast and refetches on success=jumia_connected', () => {
+    it('shows success toast and refetches on success=jumia_connected', async () => {
       mockSearchParams = new URLSearchParams('success=jumia_connected');
       setupHook({});
       render(<ChannelsClientPage />);
 
-      expect(mockToast).toHaveBeenCalledWith({
-        title: 'Jumia account connected successfully!',
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith({
+          title: 'Jumia account connected successfully!',
+        });
+        expect(mockRefetch).toHaveBeenCalled();
+        expect(mockReplace).toHaveBeenCalledWith('/dashboard/channels');
       });
-      expect(mockRefetch).toHaveBeenCalled();
-      expect(mockReplace).toHaveBeenCalledWith('/dashboard/channels');
+    });
+
+    it('auto-syncs only newly connected shops after connect', async () => {
+      const existingShop: JumiaIntegration = {
+        id: 'int-1',
+        shop_id: 'shop-1',
+        shop_name: 'Existing Shop',
+        country_code: 'NG',
+        is_active: true,
+        last_sync_at: null,
+        sync_error: null,
+      };
+      const newShop: JumiaIntegration = {
+        id: 'int-new',
+        shop_id: 'shop-new',
+        shop_name: 'New Shop',
+        country_code: 'NG',
+        is_active: true,
+        last_sync_at: null,
+        sync_error: null,
+      };
+      mockRefetch.mockResolvedValueOnce([existingShop, newShop]);
+      mockSyncOrders.mockResolvedValueOnce({
+        ok: true,
+        message: 'Synced 3 orders (3 new)',
+      });
+
+      mockSearchParams = new URLSearchParams(
+        'success=jumia_connected&shops=shop-new'
+      );
+      setupHook({ integrations: [existingShop] });
+      render(<ChannelsClientPage />);
+
+      await waitFor(() => {
+        expect(mockSyncOrders).toHaveBeenCalledWith('int-new');
+      });
+      expect(mockSyncOrders).toHaveBeenCalledTimes(1);
     });
 
     it('shows error toast for known error code', () => {
