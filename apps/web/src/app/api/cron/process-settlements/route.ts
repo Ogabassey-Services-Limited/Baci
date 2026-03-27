@@ -1,5 +1,5 @@
+import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
@@ -24,7 +24,8 @@ export async function POST(request: Request) {
     if (
       !cronSecret ||
       !expectedSecret ||
-      !constantTimeEqual(cronSecret, expectedSecret)
+      cronSecret.length !== expectedSecret.length ||
+      !timingSafeEqual(Buffer.from(cronSecret), Buffer.from(expectedSecret))
     ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

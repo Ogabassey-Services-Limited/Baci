@@ -102,7 +102,7 @@ describe('JumiaExpressPanel', () => {
     render(<JumiaExpressPanel {...defaultProps} />);
     const img = screen.getByAltText('Jumia');
     expect(img).toBeInTheDocument();
-    expect(img).toHaveAttribute('src', '/jumia-logo.png');
+    expect(img).toHaveAttribute('src', '/images/jumia-logo.png');
     expect(img).toHaveAttribute('sizes', '32px');
   });
 });

@@ -1,5 +1,4 @@
 import type { NextRequest } from 'next/server';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
 
 /**
  * Verifies the OpenAI Agentic Commerce API key from the request authorization header.
@@ -22,7 +21,16 @@ export function verifyAgenticApiKey(request: NextRequest): boolean {
     return false;
   }
 
-  return constantTimeEqual(token, expectedToken);
+  // Use constant-time comparison to prevent timing attacks
+  const tokenBuffer = Buffer.from(token);
+  const expectedBuffer = Buffer.from(expectedToken);
+
+  if (tokenBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  const crypto = require('node:crypto');
+  return crypto.timingSafeEqual(tokenBuffer, expectedBuffer);
 }
 
 /**

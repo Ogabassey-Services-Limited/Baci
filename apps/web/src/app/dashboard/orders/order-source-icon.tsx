@@ -143,7 +143,7 @@ export function OrderSourceIcon({ source }: { source: string }) {
       <BrandIconFrame label={label}>
         <div className="relative h-6 w-6 overflow-hidden rounded-full border border-gray-100 bg-white shadow-sm">
           <Image
-            src="/jumia-logo.png"
+            src="/images/jumia-logo.png"
             alt=""
             fill
             sizes="24px"

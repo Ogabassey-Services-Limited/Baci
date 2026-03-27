@@ -210,7 +210,7 @@ export function OrderManagerModal({
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 relative flex-shrink-0 border border-gray-100 rounded-md overflow-hidden bg-white">
               <Image
-                src="/jumia-logo.png"
+                src="/images/jumia-logo.png"
                 alt="Jumia Logo"
                 fill
                 sizes="40px"
