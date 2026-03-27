@@ -13,6 +13,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import jumiaLogo from '@/assets/jumia-logo.png';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,7 +35,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import jumiaLogo from '../../../../public/jumia-logo.png';
 import { ConnectJumiaDialog } from './connect-jumia-dialog';
 import {
   disconnectIntegration,
