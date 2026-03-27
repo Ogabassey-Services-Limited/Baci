@@ -162,6 +162,11 @@ function buildProductNames(
     return nonEmptyGroups.map((group) => group.join(' | '));
   }
 
+  // When nonEmptyGroups still undershoots expectedCount, peel fragments from the
+  // end by finding splitIndex (the last group with length > 1), mapping it back
+  // to groupIndex, popping tail from that targetGroup, and inserting tail as its
+  // own single-item group immediately after the source group. Repeat until
+  // nonEmptyGroups reaches expectedCount or no splittable group remains.
   while (nonEmptyGroups.length < expectedCount) {
     const splitIndex = [...nonEmptyGroups]
       .reverse()
