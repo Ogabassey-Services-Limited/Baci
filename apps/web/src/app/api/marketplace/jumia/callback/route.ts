@@ -5,18 +5,33 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import {
+  getConfiguredAppUrl,
+  getJumiaClientId,
+  getJumiaClientSecret,
+} from '@/env';
+import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
-import { exchangeJumiaCode } from '@/lib/jumia/helpers';
+import { exchangeJumiaCode, getJumiaRedirectUri } from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
 
-// biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
-const JUMIA_CLIENT_ID = process.env.JUMIA_CLIENT_ID!;
-// biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
-const JUMIA_CLIENT_SECRET = process.env.JUMIA_CLIENT_SECRET!;
-const JUMIA_REDIRECT_URI = `${process.env.NEXT_PUBLIC_SITE_URL}/api/marketplace/jumia/callback`;
+function createPlatformRedirect(
+  request: NextRequest,
+  query: string
+): NextResponse {
+  const platform = request.cookies.get('jumia_oauth_platform')?.value;
+  const redirectBase =
+    platform === 'mobile' ? 'baciadmin://' : '/dashboard/channels';
+
+  return NextResponse.redirect(
+    new URL(
+      `${redirectBase}?${query}`,
+      platform === 'mobile' ? undefined : request.url
+    )
+  );
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,9 +52,7 @@ export async function GET(request: NextRequest) {
         state: `${state?.slice(0, 8)}...`,
         storedState: `${storedState?.slice(0, 8)}...`,
       });
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=invalid_state', request.url)
-      );
+      return createPlatformRedirect(request, 'error=invalid_state');
     }
 
     // 2. Auth: verify user session
@@ -49,18 +62,14 @@ export async function GET(request: NextRequest) {
         message: 'Jumia Callback Unauthorized',
         error: auth.error,
       });
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=session_expired', request.url)
-      );
+      return createPlatformRedirect(request, 'error=session_expired');
     }
 
     // 3. Merchant: verify ownership
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       logger.error({ message: 'Jumia Callback Merchant not found' });
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=merchant_not_found', request.url)
-      );
+      return createPlatformRedirect(request, 'error=merchant_not_found');
     }
 
     if (cookieMerchantId && cookieMerchantId !== merchantId) {
@@ -69,9 +78,7 @@ export async function GET(request: NextRequest) {
         cookieMerchantId,
         merchantId,
       });
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=session_expired', request.url)
-      );
+      return createPlatformRedirect(request, 'error=session_expired');
     }
 
     // ── OAuth response handling (after security checks pass) ──
@@ -95,27 +102,57 @@ export async function GET(request: NextRequest) {
         error: safeError,
         merchantId,
       });
-      return NextResponse.redirect(
-        new URL(
-          `/dashboard/channels?error=${encodeURIComponent(safeError)}`,
-          request.url
-        )
+      return createPlatformRedirect(
+        request,
+        `error=${encodeURIComponent(safeError)}`
       );
     }
 
     if (!code || code.length > 2048) {
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=no_code', request.url)
-      );
+      return createPlatformRedirect(request, 'error=no_code');
     }
 
+    const jumiaClientId = getJumiaClientId();
+    const jumiaClientSecret = getJumiaClientSecret();
+    const appUrl = getConfiguredAppUrl();
+
+    if (!jumiaClientId || !jumiaClientSecret || !appUrl) {
+      logger.error({
+        message: 'Jumia Callback OAuth credentials missing',
+        merchantId,
+        hasClientId: Boolean(jumiaClientId),
+        hasClientSecret: Boolean(jumiaClientSecret),
+        hasAppUrl: Boolean(appUrl),
+      });
+      return createPlatformRedirect(request, 'error=oauth_not_configured');
+    }
+    const jumiaRedirectUri = getJumiaRedirectUri();
+
     // Exchange code for tokens
-    const tokens = await exchangeJumiaCode({
-      code,
-      clientId: JUMIA_CLIENT_ID,
-      clientSecret: JUMIA_CLIENT_SECRET,
-      redirectUri: JUMIA_REDIRECT_URI,
-    });
+    let tokens: Awaited<ReturnType<typeof exchangeJumiaCode>>;
+    try {
+      tokens = await exchangeJumiaCode({
+        code,
+        clientId: jumiaClientId,
+        clientSecret: jumiaClientSecret,
+        redirectUri: jumiaRedirectUri,
+      });
+    } catch (tokenError) {
+      logger.error({
+        message: 'Jumia Callback Token exchange failed',
+        merchantId,
+        redirectUri: jumiaRedirectUri,
+        error:
+          tokenError instanceof Error
+            ? {
+                name: tokenError.name,
+                message: tokenError.message,
+                status: (tokenError as Error & { status?: number }).status,
+              }
+            : String(tokenError).slice(0, 200),
+      });
+      return createPlatformRedirect(request, 'error=token_exchange_failed');
+    }
 
     // Calculate token expiry
     const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);
@@ -178,64 +215,44 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Upsert all discovered shops (Master Shops have multiple)
-    for (const shop of discoveredShops) {
-      const shopId = shop.id;
-      const shopName = shop.name || 'Jumia Shop';
-      // Nigeria-pilot: prefer NG business client, fall back to first entry, then 'NG' default
-      const countryCode = shop.businessClients?.some(
-        (bc) => bc.countryCode === 'NG'
-      )
+    const integrationRows = discoveredShops.map((shop) => ({
+      merchant_id: merchantId,
+      platform: 'jumia' as const,
+      shop_id: shop.id,
+      shop_name: shop.name || 'Jumia Shop',
+      country_code: shop.businessClients?.some((bc) => bc.countryCode === 'NG')
         ? 'NG'
-        : (shop.businessClients?.[0]?.countryCode ?? 'NG');
+        : (shop.businessClients?.[0]?.countryCode ?? 'NG'),
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      token_expires_at: tokenExpiresAt.toISOString(),
+      is_active: !isFallbackShop,
+      sync_config: {
+        products: true,
+        orders: true,
+        stock: true,
+        businessClients: shop.businessClients ?? [],
+      },
+    }));
 
-      const { error: insertError } = await supabase
-        .from('marketplace_integrations')
-        .upsert(
-          {
-            merchant_id: merchantId,
-            platform: 'jumia',
-            shop_id: shopId,
-            shop_name: shopName,
-            country_code: countryCode,
-            access_token: tokens.access_token,
-            refresh_token: tokens.refresh_token,
-            token_expires_at: tokenExpiresAt.toISOString(),
-            is_active: !isFallbackShop,
-            sync_config: {
-              products: true,
-              orders: true,
-              stock: true,
-              businessClients: shop.businessClients ?? [],
-            },
-          },
-          {
-            onConflict: 'merchant_id,platform,shop_id',
-          }
-        );
+    const { error: insertError } = await supabase
+      .from('marketplace_integrations')
+      .upsert(integrationRows, {
+        onConflict: 'merchant_id,platform,shop_id',
+      });
 
-      if (insertError) {
-        logger.error({
-          message: 'Jumia Callback Database error for shop',
-          shopId,
-          error: insertError,
-        });
-      }
+    if (insertError) {
+      logger.error({
+        message: 'Jumia Callback Database error while persisting shops',
+        shopIds: integrationRows.map((row) => row.shop_id),
+        error: insertError,
+      });
+      return createPlatformRedirect(request, 'error=database_error');
     }
 
-    const platform = request.cookies.get('jumia_oauth_platform')?.value;
-
-    // Check where to redirect
-    const redirectBase =
-      platform === 'mobile' ? 'baciadmin://' : '/dashboard/channels';
-
     // Clear OAuth cookies
-    const response = NextResponse.redirect(
-      new URL(
-        `${redirectBase}?success=jumia_connected`,
-        platform === 'mobile' ? undefined : request.url
-      )
-    );
+    const response = createPlatformRedirect(request, 'success=jumia_connected');
+    const platform = request.cookies.get('jumia_oauth_platform')?.value;
 
     response.cookies.delete('jumia_oauth_state');
     response.cookies.delete('jumia_merchant_id');
@@ -263,15 +280,6 @@ export async function GET(request: NextRequest) {
               summary: String(error).slice(0, 200),
             },
     });
-    const platform = request.cookies.get('jumia_oauth_platform')?.value;
-    const redirectBase =
-      platform === 'mobile' ? 'baciadmin://' : '/dashboard/channels';
-
-    return NextResponse.redirect(
-      new URL(
-        `${redirectBase}?error=connection_failed`,
-        platform === 'mobile' ? undefined : request.url
-      )
-    );
+    return createPlatformRedirect(request, 'error=connection_failed');
   }
 }
