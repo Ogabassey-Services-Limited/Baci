@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { BRAND } from '@/constants/Colors';
+import Colors, { BRAND } from '@/constants/Colors';
 import { formatPrice } from '@/types/product';
 import styles from '../ProductCard.styles';
 import type { GridProductCardProps } from './types';
@@ -25,6 +25,7 @@ export default function GridProductCard({
   heartAnimatedStyle,
   gridWidth,
   shadowColor,
+  colors = Colors.light,
 }: GridProductCardProps) {
   const rating = product.rating;
 
@@ -34,8 +35,8 @@ export default function GridProductCard({
         styles.gridContainer,
         {
           width: gridWidth,
-          backgroundColor: '#FFF',
-          borderColor: '#F3F4F6',
+          backgroundColor: colors.card,
+          borderColor: colors.border,
           shadowColor,
         },
         animatedStyle,
@@ -46,7 +47,7 @@ export default function GridProductCard({
       accessibilityLabel={`${product.name}, ${formatPrice(product.price)}`}
       accessibilityRole="button"
     >
-      <View style={[styles.imageWrapper, { backgroundColor: '#F9FAFB' }]}>
+      <View style={[styles.imageWrapper, { backgroundColor: colors.muted }]}>
         <Pressable
           onPress={handleWishlistPress}
           style={styles.wishlistBtn}
@@ -63,7 +64,7 @@ export default function GridProductCard({
             <Ionicons
               name={isSaved ? 'heart' : 'heart-outline'}
               size={18}
-              color={isSaved ? '#EF4444' : '#9CA3AF'}
+              color={isSaved ? colors.destructive : colors.mutedForeground}
             />
           </Animated.View>
         </Pressable>
@@ -73,8 +74,8 @@ export default function GridProductCard({
             style={[
               styles.badgeContainer,
               product.condition === 'New'
-                ? { backgroundColor: '#111827' }
-                : { backgroundColor: '#4F46E5' },
+                ? { backgroundColor: colors.text }
+                : { backgroundColor: colors.primary },
             ]}
           >
             <Text style={styles.badgeText}>{product.condition}</Text>
@@ -87,7 +88,7 @@ export default function GridProductCard({
             accessibilityLabel={`No image available for ${product.name}`}
             testID="grid-product-placeholder"
           >
-            <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+            <Ionicons name="image-outline" size={40} color={colors.mutedForeground} />
           </View>
         ) : (
           <Image
@@ -138,7 +139,7 @@ export default function GridProductCard({
           </View>
         )}
 
-        <Text style={[styles.gridName, { color: '#111827' }]} numberOfLines={2}>
+        <Text style={[styles.gridName, { color: colors.text }]} numberOfLines={2}>
           {product.name}
         </Text>
 
