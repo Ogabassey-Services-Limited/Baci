@@ -4,8 +4,6 @@ import type {
   NormalizedImportedOrder,
 } from './bumpa-types';
 
-const RECEIPT_READY_STATUSES = new Set(['shipped', 'delivered']);
-
 export function buildBumpaOrderPreviewSummary(
   rows: ImportPreviewRow<NormalizedImportedOrder>[]
 ) {
@@ -36,10 +34,7 @@ export function buildBumpaOrderPreviewSummary(
           (item) => !item.matched
         ).length;
 
-        if (
-          row.payload.paymentStatus === 'paid' &&
-          RECEIPT_READY_STATUSES.has(row.payload.shippingStatus)
-        ) {
+        if (row.payload.paymentStatus === 'paid') {
           summary.receiptReadyOrders += 1;
         }
       }
