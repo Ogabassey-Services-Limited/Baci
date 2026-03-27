@@ -88,10 +88,8 @@ export default function ChannelsClientPage() {
         searchParams.get('shops')?.split(',').filter(Boolean) ?? [];
       toast({ title: 'Jumia account connected successfully!' });
 
-      // Clear URL params first to prevent re-trigger on re-render
-      router.replace('/dashboard/channels');
-
       refetch().then((freshIntegrations) => {
+        router.replace('/dashboard/channels');
         if (newShopIds.length === 0 || !freshIntegrations) return;
 
         const newOnes = freshIntegrations.filter((i) =>

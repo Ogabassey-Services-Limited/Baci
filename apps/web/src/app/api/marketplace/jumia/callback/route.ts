@@ -261,7 +261,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Clear OAuth cookies — pass newly connected shop IDs so the client can auto-sync them
-    const shopIds = integrationRows.map((r) => r.shop_id).join(',');
+    const shopIds = integrationRows
+      .filter((r) => r.is_active)
+      .map((r) => r.shop_id)
+      .join(',');
     const response = createPlatformRedirect(
       request,
       `success=jumia_connected&shops=${encodeURIComponent(shopIds)}`
