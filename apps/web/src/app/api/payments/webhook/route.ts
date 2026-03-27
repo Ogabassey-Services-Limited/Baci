@@ -1,7 +1,6 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   generateOrderConfirmationEmail,
@@ -89,7 +88,15 @@ function verifyKorapayWebhookSignature(
       .update(payload)
       .digest('hex');
 
-    return constantTimeEqual(String(signature), String(expectedSignature));
+    // Use timing-safe comparison to prevent timing attacks
+    const signatureBuffer = Buffer.from(String(signature), 'hex');
+    const expectedBuffer = Buffer.from(String(expectedSignature), 'hex');
+
+    if (signatureBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+
+    return timingSafeEqual(signatureBuffer, expectedBuffer);
   } catch (error) {
     logger.error({
       message: 'Korapay webhook signature verification error',
@@ -126,7 +133,15 @@ function verifyPaystackWebhookSignature(
       .update(payload)
       .digest('hex');
 
-    return constantTimeEqual(String(signature), String(expectedSignature));
+    // Use timing-safe comparison to prevent timing attacks
+    const signatureBuffer = Buffer.from(String(signature), 'hex');
+    const expectedBuffer = Buffer.from(String(expectedSignature), 'hex');
+
+    if (signatureBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+
+    return timingSafeEqual(signatureBuffer, expectedBuffer);
   } catch (error) {
     logger.error({
       message: 'Paystack webhook signature verification error',

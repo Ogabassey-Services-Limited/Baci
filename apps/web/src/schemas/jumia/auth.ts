@@ -4,26 +4,17 @@
 
 import { z } from 'zod';
 
-/**
- * Accepts a number or a numeric string (digits only), rejects booleans/arrays.
- * Preserves `.int().positive()` semantics after conversion.
- */
-const numericOrString = z
-  .union([z.number(), z.string().regex(/^\d+$/)])
-  .transform(Number)
-  .pipe(z.number().int().positive());
-
 export const JumiaTokenResponseSchema = z.object({
-  access_token: z.string().trim().min(1),
-  expires_in: numericOrString,
-  refresh_token: z.string().trim().min(1),
-  refresh_expires_in: numericOrString,
-  token_type: z.string().trim().min(1),
+  access_token: z.string().min(1),
+  expires_in: z.number().int().positive(),
+  refresh_token: z.string().min(1),
+  refresh_expires_in: z.number().int().positive(),
+  token_type: z.enum(['Bearer', 'N_A']),
 });
 
 export const JumiaTokenErrorSchema = z.object({
-  error: z.string().trim().min(1),
-  error_description: z.string().trim().min(1),
+  error: z.string().min(1),
+  error_description: z.string().min(1),
 });
 
 export type JumiaTokenResponse = z.infer<typeof JumiaTokenResponseSchema>;

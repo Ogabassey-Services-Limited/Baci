@@ -8,7 +8,6 @@
  */
 
 import crypto from 'node:crypto';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
 
 // ============================================================================
 // Types
@@ -136,12 +135,18 @@ export function verifyWebhookSignature(
   signature: string,
   secret: string
 ): boolean {
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('hex');
+  const hmac = crypto.createHmac('sha256', secret);
+  hmac.update(payload);
+  const expectedSignature = hmac.digest('hex');
 
-  return constantTimeEqual(signature, expectedSignature);
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expectedSignature);
+
+  if (signatureBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
 }
 
 /**
