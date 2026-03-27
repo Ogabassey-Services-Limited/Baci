@@ -294,9 +294,11 @@ export function PhoneInput({
           onPress={() => setShowCountryPicker(true)}
           accessibilityRole="button"
           accessibilityLabel={`Select country. Current: ${selectedCountry.name}`}
+          accessibilityHint="Opens a modal to select a different country code"
+          activeOpacity={0.7}
         >
-          <Text style={styles.flag}>{selectedCountry.flag}</Text>
-          <Ionicons name="chevron-down" size={14} color={palette.gray[500]} />
+          <Text style={styles.flag} accessibilityElementsHidden={true} importantForAccessibility="no">{selectedCountry.flag}</Text>
+          <Ionicons name="chevron-down" size={14} color={palette.gray[500]} accessibilityElementsHidden={true} importantForAccessibility="no" />
         </TouchableOpacity>
 
         {/* Divider */}
@@ -334,13 +336,16 @@ export function PhoneInput({
         <View style={styles.modalContainer}>
           {/* Header */}
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Country</Text>
+          <Text style={styles.modalTitle} accessibilityRole="header">Select Country</Text>
             <TouchableOpacity
               onPress={() => {
                 setShowCountryPicker(false);
                 setSearchQuery('');
               }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Close country picker"
+            activeOpacity={0.7}
             >
               <Ionicons name="close" size={24} color={palette.gray[900]} />
             </TouchableOpacity>
@@ -348,7 +353,7 @@ export function PhoneInput({
 
           {/* Search Bar */}
           <View style={styles.searchContainer}>
-            <Ionicons name="search" size={18} color={palette.gray[400]} />
+          <Ionicons name="search" size={18} color={palette.gray[400]} accessibilityElementsHidden={true} importantForAccessibility="no" />
             <TextInput
               style={styles.searchInput}
               placeholder="Search country..."
@@ -357,6 +362,7 @@ export function PhoneInput({
               onChangeText={setSearchQuery}
               autoCapitalize="none"
               autoCorrect={false}
+            accessibilityLabel="Search for a country"
             />
           </View>
 
@@ -372,15 +378,21 @@ export function PhoneInput({
                     styles.countryRowSelected,
                 ]}
                 onPress={() => handleCountrySelect(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name}, ${item.dialCode}`}
+              accessibilityState={{ selected: item.code === selectedCountry.code }}
+              activeOpacity={0.7}
               >
-                <Text style={styles.countryFlag}>{item.flag}</Text>
-                <Text style={styles.countryName}>{item.name}</Text>
-                <Text style={styles.countryDialCode}>{item.dialCode}</Text>
+              <Text style={styles.countryFlag} accessibilityElementsHidden={true} importantForAccessibility="no">{item.flag}</Text>
+              <Text style={styles.countryName} accessibilityElementsHidden={true} importantForAccessibility="no">{item.name}</Text>
+              <Text style={styles.countryDialCode} accessibilityElementsHidden={true} importantForAccessibility="no">{item.dialCode}</Text>
                 {item.code === selectedCountry.code && (
                   <Ionicons
                     name="checkmark"
                     size={20}
                     color={palette.red[600]}
+                  accessibilityElementsHidden={true}
+                  importantForAccessibility="no"
                   />
                 )}
               </TouchableOpacity>
