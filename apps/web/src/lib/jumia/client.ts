@@ -220,7 +220,7 @@ export class JumiaClient {
 
   private async awaitRequestSlot(): Promise<void> {
     const previousGate = this.requestGate;
-    let releaseGate: (() => void) | null = null;
+    let releaseGate!: () => void;
 
     this.requestGate = new Promise<void>((resolve) => {
       releaseGate = resolve;
@@ -235,7 +235,7 @@ export class JumiaClient {
       }
       this.lastRequestAt = Date.now();
     } finally {
-      releaseGate?.();
+      releaseGate();
     }
   }
 
