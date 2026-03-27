@@ -16,8 +16,8 @@ const numericOrString = z
 export const JumiaTokenResponseSchema = z.object({
   access_token: z.string().trim().min(1),
   expires_in: numericOrString,
-  refresh_token: z.string().trim().min(1),
-  refresh_expires_in: numericOrString,
+  refresh_token: z.string().trim().min(1).optional(),
+  refresh_expires_in: numericOrString.optional(),
   token_type: z.string().trim().min(1),
 });
 
