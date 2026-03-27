@@ -260,8 +260,12 @@ export async function GET(request: NextRequest) {
       return createPlatformRedirect(request, 'error=database_error');
     }
 
-    // Clear OAuth cookies
-    const response = createPlatformRedirect(request, 'success=jumia_connected');
+    // Clear OAuth cookies — pass newly connected shop IDs so the client can auto-sync them
+    const shopIds = integrationRows.map((r) => r.shop_id).join(',');
+    const response = createPlatformRedirect(
+      request,
+      `success=jumia_connected&shops=${encodeURIComponent(shopIds)}`
+    );
     const platform = request.cookies.get('jumia_oauth_platform')?.value;
 
     response.cookies.delete('jumia_oauth_state');

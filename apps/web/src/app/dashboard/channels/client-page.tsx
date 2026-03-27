@@ -85,8 +85,37 @@ export default function ChannelsClientPage() {
     const error = searchParams.get('error');
 
     if (success === 'jumia_connected') {
+      const newShopIds =
+        searchParams.get('shops')?.split(',').filter(Boolean) ?? [];
       toast({ title: 'Jumia account connected successfully!' });
-      refetch().then(() => router.replace('/dashboard/channels'));
+
+      // Clear URL params first to prevent re-trigger on re-render
+      router.replace('/dashboard/channels');
+
+      refetch().then((freshIntegrations) => {
+        if (newShopIds.length === 0 || !freshIntegrations) return;
+
+        const newOnes = freshIntegrations.filter((i) =>
+          newShopIds.includes(i.shop_id)
+        );
+        if (newOnes.length === 0) return;
+
+        toast({ title: 'Syncing your Jumia orders...' });
+        Promise.all(newOnes.map((i) => syncOrders(i.id))).then((results) => {
+          const ok = results.filter((r) => r.ok);
+          if (ok.length > 0) {
+            toast({ title: ok[0].message || 'Orders synced!' });
+            refetch();
+          } else {
+            const fail = results.find((r) => !r.ok);
+            toast({
+              title: 'Order sync failed',
+              description: fail?.error || 'Please try again',
+              variant: 'destructive',
+            });
+          }
+        });
+      });
     } else if (error) {
       toast({
         title: 'Connection Error',
