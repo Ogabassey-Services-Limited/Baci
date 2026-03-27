@@ -158,6 +158,11 @@ async function fetchAllJumiaOrders(
       );
     }
 
+    // Rate limit: Jumia allows 4 req/sec at MasterShop level
+    if (pageCount > 1) {
+      await new Promise((r) => setTimeout(r, 250));
+    }
+
     const params = new URLSearchParams({
       updatedAfter,
       updatedBefore,

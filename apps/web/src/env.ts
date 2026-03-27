@@ -218,6 +218,24 @@ export const getBlogPreviewSecret = (): string => {
 export const getRootDomain = () => env?.NEXT_PUBLIC_ROOT_DOMAIN;
 export const getAppUrl = () =>
   env?.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+// OAuth routes need to know whether NEXT_PUBLIC_APP_URL was explicitly configured.
+// Reading process.env directly avoids the Zod fallback so missing config does not
+// silently degrade to localhost in callback URLs.
+export const getConfiguredAppUrl = (): string | null => {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+
+  if (!appUrl) {
+    return null;
+  }
+
+  try {
+    // Validate the configured app URL before using it in OAuth callbacks.
+    new URL(appUrl);
+    return appUrl;
+  } catch {
+    return null;
+  }
+};
 
 export const getMyCoverWebhookSecret = (): string => {
   if (typeof window !== 'undefined')

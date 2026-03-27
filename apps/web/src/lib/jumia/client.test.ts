@@ -84,6 +84,10 @@ vi.mock('@/schemas/jumia', async () => {
 });
 
 import { JumiaApiError, JumiaClient } from '@/lib/jumia/client';
+import {
+  MIN_REQUEST_INTERVAL_MS,
+  resetJumiaRateLimiterForTests,
+} from '@/lib/jumia/jumia-rate-limiter';
 
 // ── Mock helpers ──
 
@@ -133,11 +137,13 @@ describe('JumiaClient', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     globalThis.fetch = vi.fn();
+    resetJumiaRateLimiterForTests();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     globalThis.fetch = originalFetch;
+    resetJumiaRateLimiterForTests();
     vi.restoreAllMocks();
   });
 
@@ -374,6 +380,7 @@ describe('JumiaClient', () => {
           refresh_token: 'new-refresh-token',
         })
       );
+      expect(mockFetch.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
     });
 
     it('triggers refresh when accessToken is null', async () => {
@@ -423,6 +430,30 @@ describe('JumiaClient', () => {
       const token = await client.getValidToken();
 
       expect(token).toBe('new-access-token');
+    });
+
+    it('throws a timeout error when token refresh is aborted', async () => {
+      const supabase = createMockSupabase({ data: null, error: null });
+      const client = new JumiaClient({
+        integrationId: 'int-123',
+        merchantId: 'merchant-abc',
+        shopId: 'shop-456',
+        accessToken: 'expired-token',
+        refreshToken: 'refresh-tok',
+        tokenExpiresAt: new Date(Date.now() - 1000),
+        environment: 'production',
+        supabase,
+      });
+
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      mockFetch.mockRejectedValueOnce(
+        new DOMException('The operation was aborted.', 'AbortError')
+      );
+
+      await expect(client.getValidToken()).rejects.toMatchObject({
+        status: 408,
+        message: 'Jumia API Error (408): Token refresh request timed out',
+      });
     });
   });
 
@@ -544,6 +575,132 @@ describe('JumiaClient', () => {
 
       const [, options] = mockFetch.mock.calls[0];
       expect(options.body).toBe(JSON.stringify({ name: 'Test' }));
+    });
+
+    it('throttles rapid sequential requests to respect 4 req/sec limit', async () => {
+      const client = createDefaultClient();
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      const okResponse = {
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true }),
+      };
+
+      mockFetch.mockResolvedValue(okResponse);
+
+      const start = Date.now();
+      await client.request('GET', '/a');
+      await client.request('GET', '/b');
+      await client.request('GET', '/c');
+      const elapsed = Date.now() - start;
+
+      expect(elapsed).toBeGreaterThanOrEqual(MIN_REQUEST_INTERVAL_MS * 2 - 50);
+      expect(elapsed).toBeLessThan(700);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('serializes concurrent requests through the throttle gate', async () => {
+      const client = createDefaultClient();
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      const callTimes: number[] = [];
+
+      mockFetch.mockImplementation(() => {
+        callTimes.push(Date.now());
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ok: true }),
+        };
+      });
+
+      await Promise.all([
+        client.request('GET', '/a'),
+        client.request('GET', '/b'),
+        client.request('GET', '/c'),
+      ]);
+
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(200);
+      expect(callTimes[2] - callTimes[1]).toBeGreaterThanOrEqual(200);
+    });
+
+    it('serializes requests across client instances for the same merchant', async () => {
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      const callTimes: number[] = [];
+      const clients = [
+        createDefaultClient({ integrationId: 'int-1' }),
+        createDefaultClient({ integrationId: 'int-2' }),
+        createDefaultClient({ integrationId: 'int-3' }),
+      ];
+
+      mockFetch.mockImplementation(() => {
+        callTimes.push(Date.now());
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ok: true }),
+        };
+      });
+
+      await Promise.all(
+        clients.map((client, index) => client.request('GET', `/shops/${index}`))
+      );
+
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(200);
+      expect(callTimes[2] - callTimes[1]).toBeGreaterThanOrEqual(200);
+    });
+
+    it('applies throttling to the retried request after a 401', async () => {
+      const supabase = createMockSupabase({ data: null, error: null });
+      const client = new JumiaClient({
+        integrationId: 'int-123',
+        merchantId: 'merchant-abc',
+        shopId: 'shop-456',
+        accessToken: 'stale-token',
+        refreshToken: 'refresh-tok',
+        tokenExpiresAt: new Date(Date.now() + 3600_000),
+        environment: 'production',
+        supabase,
+      });
+
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      const callTimes: number[] = [];
+      let protectedCallCount = 0;
+
+      mockFetch.mockImplementation((input: RequestInfo | URL) => {
+        callTimes.push(Date.now());
+
+        if (String(input).endsWith('/protected')) {
+          protectedCallCount += 1;
+          if (protectedCallCount === 1) {
+            return {
+              ok: false,
+              status: 401,
+              text: async () => 'Unauthorized',
+            };
+          }
+
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({ retried: true }),
+          };
+        }
+
+        return {
+          ok: true,
+          status: 200,
+          json: async () => TOKEN_RESPONSE,
+        };
+      });
+
+      const result = await client.request('GET', '/protected');
+
+      expect(result).toEqual({ retried: true });
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(200);
+      expect(callTimes[2] - callTimes[1]).toBeGreaterThanOrEqual(200);
     });
   });
 
