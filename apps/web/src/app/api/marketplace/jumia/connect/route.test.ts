@@ -320,7 +320,6 @@ describe('Connect POST', () => {
 
   it('returns 200 with auth URL when OAuth is configured', async () => {
     setupAuth();
-
     const res = await POST(makePostRequest({ connectionType: 'oauth' }));
 
     expect(res.status).toBe(200);
