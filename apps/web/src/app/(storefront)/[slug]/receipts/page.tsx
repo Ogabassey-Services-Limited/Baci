@@ -237,7 +237,8 @@ export default function ReceiptsPage() {
               <ReceiptText className="mx-auto mb-4 h-14 w-14 text-muted-foreground/60" />
               <h2 className="mb-2 text-lg font-semibold">No documents yet</h2>
               <p className="text-muted-foreground">
-                Orders appear here after they have been shipped or delivered.
+                Receipts or invoices will appear here when they become
+                available.
               </p>
             </CardContent>
           </Card>
