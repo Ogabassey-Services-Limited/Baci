@@ -135,18 +135,20 @@ export function verifyWebhookSignature(
   signature: string,
   secret: string
 ): boolean {
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(payload);
-  const expectedSignature = hmac.digest('hex');
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
 
-  const signatureBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expectedSignature);
-
-  if (signatureBuffer.length !== expectedBuffer.length) {
-    return false;
-  }
-
-  return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
+  // HMAC-based constant-time comparison: normalizes length via digest,
+  // so timingSafeEqual never throws and no length info leaks.
+  const key = crypto.randomBytes(32);
+  const hmacA = crypto.createHmac('sha256', key).update(signature).digest();
+  const hmacB = crypto
+    .createHmac('sha256', key)
+    .update(expectedSignature)
+    .digest();
+  return crypto.timingSafeEqual(hmacA, hmacB);
 }
 
 /**
