@@ -234,7 +234,7 @@ export async function GET(request: NextRequest) {
         ? 'NG'
         : (shop.businessClients?.[0]?.countryCode ?? 'NG'),
       access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
+      refresh_token: tokens.refresh_token ?? null,
       token_expires_at: tokenExpiresAt.toISOString(),
       is_active: !isFallbackShop,
       sync_config: {
