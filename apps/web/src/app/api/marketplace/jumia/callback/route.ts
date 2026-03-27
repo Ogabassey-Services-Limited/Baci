@@ -4,7 +4,7 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { getAppUrl } from '@/env';
+import { getAppUrl, getJumiaClientId, getJumiaClientSecret } from '@/env';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
@@ -13,11 +13,9 @@ import { JumiaClient } from '@/lib/jumia/client';
 import { exchangeJumiaCode } from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
 
-// biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
-const JUMIA_CLIENT_ID = process.env.JUMIA_CLIENT_ID!;
-// biome-ignore lint/style/noNonNullAssertion: Env vars checked in config
-const JUMIA_CLIENT_SECRET = process.env.JUMIA_CLIENT_SECRET!;
-const JUMIA_REDIRECT_URI = `${getAppUrl().replace(/\/+$/, '')}/api/marketplace/jumia/callback`;
+function getJumiaRedirectUri(): string {
+  return `${getAppUrl().replace(/\/+$/, '')}/api/marketplace/jumia/callback`;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -110,20 +108,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const jumiaClientId = getJumiaClientId();
+    const jumiaClientSecret = getJumiaClientSecret();
+    const jumiaRedirectUri = getJumiaRedirectUri();
+
     // Exchange code for tokens
     let tokens: Awaited<ReturnType<typeof exchangeJumiaCode>>;
     try {
       tokens = await exchangeJumiaCode({
         code,
-        clientId: JUMIA_CLIENT_ID,
-        clientSecret: JUMIA_CLIENT_SECRET,
-        redirectUri: JUMIA_REDIRECT_URI,
+        clientId: jumiaClientId || '',
+        clientSecret: jumiaClientSecret || '',
+        redirectUri: jumiaRedirectUri,
       });
     } catch (tokenError) {
       logger.error({
         message: 'Jumia Callback Token exchange failed',
         merchantId,
-        redirectUri: JUMIA_REDIRECT_URI,
+        redirectUri: jumiaRedirectUri,
         error:
           tokenError instanceof Error
             ? {

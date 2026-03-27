@@ -45,6 +45,11 @@ vi.mock('@/lib/jumia/helpers', () => ({
   getJumiaAuthUrl: (...a: unknown[]) => mockGetJumiaAuthUrl(...a),
 }));
 
+vi.mock('@/env', () => ({
+  getAppUrl: vi.fn(() => 'http://localhost:3000/'),
+  getJumiaClientId: vi.fn(() => process.env.JUMIA_CLIENT_ID),
+}));
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -214,12 +219,9 @@ describe('Connect POST', () => {
 
   it('returns 200 with auth URL when OAuth is configured', async () => {
     setupAuth();
-    // JUMIA_CLIENT_ID is captured at module load time, so re-import with it set
     process.env.JUMIA_CLIENT_ID = 'test-client-id';
     try {
-      vi.resetModules();
-      const { POST: freshPost } = await import('./route');
-      const res = await freshPost(makePostRequest({ connectionType: 'oauth' }));
+      const res = await POST(makePostRequest({ connectionType: 'oauth' }));
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.success).toBe(true);
