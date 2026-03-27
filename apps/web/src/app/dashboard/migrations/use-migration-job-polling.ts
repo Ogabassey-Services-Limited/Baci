@@ -84,7 +84,10 @@ export function useMigrationJobPolling({
           // Route through normalize path
           onRealtimeJobUpdate?.(newJob);
 
-          // Terminal transition: fetch rows when job becomes row-fetchable
+          // Terminal transition: fetch rows when job becomes row-fetchable.
+          // Must use includeJob: true because selectedJobRef still holds the
+          // stale status (React hasn't re-rendered yet) and refreshJob uses it
+          // to decide whether rows should be fetched.
           const previousStatus = selectedJobStatusRef.current;
           const newStatus = newJob.status;
           if (
@@ -95,7 +98,7 @@ export function useMigrationJobPolling({
           ) {
             void refreshJob(selectedJobId, {
               background: true,
-              includeJob: false,
+              includeJob: true,
               includeRows: true,
               filter: activeFilter,
               page: rowsResponse?.pagination.page || 1,

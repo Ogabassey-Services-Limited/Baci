@@ -104,16 +104,43 @@ describe('createPreviewProgressReporter', () => {
     );
 
     const totalRows = 5822;
-    // Expected adaptive step: max(10, floor(5822/20)) = 291
-    // Calls: first (0), early (1-5), then every 291 rows, plus final
-    for (let i = 0; i <= totalRows; i++) {
+    const step = 291; // max(10, floor(5822/20))
+
+    // Exercise boundaries instead of iterating every row:
+    // 1. First report (totalRows becomes known) — persisted
+    await reportProgress({ processedRows: 0, totalRows });
+    // 2. Early progress (1-5) — each persisted
+    for (let i = 1; i <= 5; i++) {
       await reportProgress({ processedRows: i, totalRows });
     }
+    // 3. Sub-step intermediate — throttled
+    await reportProgress({ processedRows: 6, totalRows });
+    await reportProgress({ processedRows: 100, totalRows });
+    // 4. Step boundaries — persisted
+    for (let i = step; i < totalRows; i += step) {
+      await reportProgress({ processedRows: i, totalRows });
+    }
+    // 5. Just below a step boundary — throttled
+    await reportProgress({ processedRows: step * 2 + 1, totalRows });
+    // 6. Final — persisted
+    await reportProgress({ processedRows: totalRows, totalRows });
 
-    // Should NOT have 233 writes (old 25-step) — should be ~20-27 writes
-    const writeCount = updateQuery.update.mock.calls.length;
-    expect(writeCount).toBeLessThanOrEqual(27);
-    expect(writeCount).toBeGreaterThanOrEqual(20);
+    // Expected persisted writes:
+    //   1 (row 0) + 5 (early 1-5) + 19 (step boundaries: 291..5529) + 1 (final 5822) = 26
+    // Rows 6, 100, and step*2+1 should be throttled
+    expect(updateQuery.update).toHaveBeenCalledTimes(26);
+    expect(updateQuery.update).not.toHaveBeenCalledWith({
+      processed_rows: 6,
+      total_rows: totalRows,
+    });
+    expect(updateQuery.update).not.toHaveBeenCalledWith({
+      processed_rows: 100,
+      total_rows: totalRows,
+    });
+    expect(updateQuery.update).toHaveBeenCalledWith({
+      processed_rows: totalRows,
+      total_rows: totalRows,
+    });
   });
 
   it('floors adaptive step at 10 for small files', async () => {

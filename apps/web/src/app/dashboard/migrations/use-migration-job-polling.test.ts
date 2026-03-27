@@ -251,12 +251,13 @@ describe('useMigrationJobPolling', () => {
       });
     });
 
-    // Should trigger row fetch for the terminal state
+    // Should trigger full refresh (includeJob: true so refreshJob reads
+    // the fresh status, not the stale selectedJobRef) for the terminal state
     expect(refreshJob).toHaveBeenCalledWith(
       'job-1',
       expect.objectContaining({
         includeRows: true,
-        includeJob: false,
+        includeJob: true,
       })
     );
   });
@@ -338,7 +339,7 @@ describe('useMigrationJobPolling', () => {
       expect.objectContaining({
         background: true,
         includeRows: true,
-        includeJob: false,
+        includeJob: true,
       })
     );
   });
