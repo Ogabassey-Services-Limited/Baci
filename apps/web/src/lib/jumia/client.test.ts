@@ -568,8 +568,9 @@ describe('JumiaClient', () => {
       await client.request('GET', '/c');
       const elapsed = Date.now() - start;
 
-      // 3 requests should take at least ~500ms (2 intervals of 250ms)
-      expect(elapsed).toBeGreaterThanOrEqual(400);
+      // 3 requests should take roughly two 250ms intervals.
+      expect(elapsed).toBeGreaterThanOrEqual(450);
+      expect(elapsed).toBeLessThan(700);
       expect(mockFetch).toHaveBeenCalledTimes(3);
     });
 
@@ -673,7 +674,8 @@ describe('JumiaClient', () => {
 
       expect(result).toEqual({ retried: true });
       expect(mockFetch).toHaveBeenCalledTimes(3);
-      expect(callTimes[2] - callTimes[0]).toBeGreaterThanOrEqual(200);
+      expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(200);
+      expect(callTimes[2] - callTimes[1]).toBeGreaterThanOrEqual(200);
     });
   });
 

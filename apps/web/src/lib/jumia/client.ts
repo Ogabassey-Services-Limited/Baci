@@ -217,7 +217,7 @@ export class JumiaClient {
   }
 
   async refreshAccessToken(): Promise<void> {
-    const response = await fetch(`${this.apiBase}/token`, {
+    const response = await this.fetchWithThrottle(`${this.apiBase}/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({

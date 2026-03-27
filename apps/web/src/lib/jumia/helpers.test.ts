@@ -7,7 +7,7 @@ const mockEnv = vi.hoisted(() => ({
 vi.mock('@/env', () => ({
   env: mockEnv,
   getAppUrl: vi.fn(
-    () => process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000/'
+    () => process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   ),
 }));
 

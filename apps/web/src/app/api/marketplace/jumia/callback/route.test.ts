@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockAuthenticateApiRequest = vi.fn();
 const mockGetMerchantIdForApiUser = vi.fn();
@@ -54,16 +54,22 @@ vi.mock('@/env', () => ({
 
 import { GET } from './route';
 
+const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+const originalJumiaClientId = process.env.JUMIA_CLIENT_ID;
+const originalJumiaClientSecret = process.env.JUMIA_CLIENT_SECRET;
+
 function makeCallbackRequest({
   code = 'auth-code',
   state = 'test-state',
   cookieState = 'test-state',
   merchantCookie = '00000000-0000-0000-0000-000000000001',
+  platform,
 }: {
   code?: string | null;
   state?: string;
   cookieState?: string;
   merchantCookie?: string | null;
+  platform?: 'mobile';
 } = {}) {
   const url = new URL('http://localhost:3000/api/marketplace/jumia/callback');
 
@@ -75,6 +81,9 @@ function makeCallbackRequest({
   const cookieParts = [`jumia_oauth_state=${cookieState}`];
   if (merchantCookie) {
     cookieParts.push(`jumia_merchant_id=${merchantCookie}`);
+  }
+  if (platform) {
+    cookieParts.push(`jumia_oauth_platform=${platform}`);
   }
 
   return new NextRequest(url, {
@@ -124,6 +133,26 @@ describe('Jumia callback route', () => {
     ]);
   });
 
+  afterEach(() => {
+    if (originalAppUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_APP_URL;
+    } else {
+      process.env.NEXT_PUBLIC_APP_URL = originalAppUrl;
+    }
+
+    if (originalJumiaClientId === undefined) {
+      delete process.env.JUMIA_CLIENT_ID;
+    } else {
+      process.env.JUMIA_CLIENT_ID = originalJumiaClientId;
+    }
+
+    if (originalJumiaClientSecret === undefined) {
+      delete process.env.JUMIA_CLIENT_SECRET;
+    } else {
+      process.env.JUMIA_CLIENT_SECRET = originalJumiaClientSecret;
+    }
+  });
+
   it('exchanges the code using the validated app callback URL', async () => {
     const request = makeCallbackRequest();
 
@@ -169,6 +198,22 @@ describe('Jumia callback route', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toContain('error=invalid_state');
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('uses the mobile deep link for invalid_state on mobile callbacks', async () => {
+    const response = await GET(
+      makeCallbackRequest({
+        state: 'other-state',
+        platform: 'mobile',
+      })
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'baciadmin://?error=invalid_state'
+    );
     expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
     expect(mockUpsert).not.toHaveBeenCalled();
   });

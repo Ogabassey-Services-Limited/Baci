@@ -48,9 +48,7 @@ export async function GET(request: NextRequest) {
         state: `${state?.slice(0, 8)}...`,
         storedState: `${storedState?.slice(0, 8)}...`,
       });
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=invalid_state', request.url)
-      );
+      return createPlatformRedirect(request, 'error=invalid_state');
     }
 
     // 2. Auth: verify user session
@@ -60,18 +58,14 @@ export async function GET(request: NextRequest) {
         message: 'Jumia Callback Unauthorized',
         error: auth.error,
       });
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=session_expired', request.url)
-      );
+      return createPlatformRedirect(request, 'error=session_expired');
     }
 
     // 3. Merchant: verify ownership
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       logger.error({ message: 'Jumia Callback Merchant not found' });
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=merchant_not_found', request.url)
-      );
+      return createPlatformRedirect(request, 'error=merchant_not_found');
     }
 
     if (cookieMerchantId && cookieMerchantId !== merchantId) {
@@ -80,9 +74,7 @@ export async function GET(request: NextRequest) {
         cookieMerchantId,
         merchantId,
       });
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=session_expired', request.url)
-      );
+      return createPlatformRedirect(request, 'error=session_expired');
     }
 
     // ── OAuth response handling (after security checks pass) ──
@@ -106,18 +98,14 @@ export async function GET(request: NextRequest) {
         error: safeError,
         merchantId,
       });
-      return NextResponse.redirect(
-        new URL(
-          `/dashboard/channels?error=${encodeURIComponent(safeError)}`,
-          request.url
-        )
+      return createPlatformRedirect(
+        request,
+        `error=${encodeURIComponent(safeError)}`
       );
     }
 
     if (!code || code.length > 2048) {
-      return NextResponse.redirect(
-        new URL('/dashboard/channels?error=no_code', request.url)
-      );
+      return createPlatformRedirect(request, 'error=no_code');
     }
 
     const jumiaClientId = getJumiaClientId();
