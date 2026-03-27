@@ -8,6 +8,11 @@ const mockGetShops = vi.fn();
 const mockLoggerError = vi.fn();
 const mockLoggerWarn = vi.fn();
 const mockUpsert = vi.fn().mockResolvedValue({ error: null });
+const { mockGetConfiguredAppUrl } = vi.hoisted(() => ({
+  mockGetConfiguredAppUrl: vi.fn(
+    () => process.env.NEXT_PUBLIC_APP_URL?.trim() ?? null
+  ),
+}));
 
 const mockSupabase = {
   from: vi.fn(() => ({
@@ -45,9 +50,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 vi.mock('@/env', () => ({
-  getAppUrl: vi.fn(
-    () => process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000/'
-  ),
+  getConfiguredAppUrl: mockGetConfiguredAppUrl,
   getJumiaClientId: vi.fn(() => process.env.JUMIA_CLIENT_ID),
   getJumiaClientSecret: vi.fn(() => process.env.JUMIA_CLIENT_SECRET),
 }));
@@ -99,6 +102,9 @@ describe('Jumia callback route', () => {
     process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000/';
     process.env.JUMIA_CLIENT_ID = 'test-client-id';
     process.env.JUMIA_CLIENT_SECRET = 'test-client-secret';
+    mockGetConfiguredAppUrl.mockImplementation(
+      () => process.env.NEXT_PUBLIC_APP_URL?.trim() ?? null
+    );
     mockAuthenticateApiRequest.mockResolvedValue({
       user: { id: 'user-1' },
       error: null,
@@ -161,20 +167,22 @@ describe('Jumia callback route', () => {
     expect(response.status).toBe(307);
     expect(mockUpsert).toHaveBeenCalledTimes(1);
     expect(mockUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchant_id: '00000000-0000-0000-0000-000000000001',
-        platform: 'jumia',
-        shop_id: 'shop-1',
-        shop_name: 'Jumia Shop',
-        access_token: 'access',
-        refresh_token: 'refresh',
-        is_active: true,
-        sync_config: expect.objectContaining({
-          products: true,
-          orders: true,
-          stock: true,
+      expect.arrayContaining([
+        expect.objectContaining({
+          merchant_id: '00000000-0000-0000-0000-000000000001',
+          platform: 'jumia',
+          shop_id: 'shop-1',
+          shop_name: 'Jumia Shop',
+          access_token: 'access',
+          refresh_token: 'refresh',
+          is_active: true,
+          sync_config: expect.objectContaining({
+            products: true,
+            orders: true,
+            stock: true,
+          }),
         }),
-      }),
+      ]),
       expect.objectContaining({
         onConflict: 'merchant_id,platform,shop_id',
       })
@@ -292,6 +300,19 @@ describe('Jumia callback route', () => {
 
   it('redirects with oauth_not_configured when Jumia client secret is missing', async () => {
     delete process.env.JUMIA_CLIENT_SECRET;
+
+    const response = await GET(makeCallbackRequest());
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain(
+      'error=oauth_not_configured'
+    );
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects with oauth_not_configured when NEXT_PUBLIC_APP_URL is missing', async () => {
+    delete process.env.NEXT_PUBLIC_APP_URL;
 
     const response = await GET(makeCallbackRequest());
 

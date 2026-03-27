@@ -4,7 +4,11 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { getJumiaClientId, getJumiaClientSecret } from '@/env';
+import {
+  getConfiguredAppUrl,
+  getJumiaClientId,
+  getJumiaClientSecret,
+} from '@/env';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
@@ -110,18 +114,19 @@ export async function GET(request: NextRequest) {
 
     const jumiaClientId = getJumiaClientId();
     const jumiaClientSecret = getJumiaClientSecret();
-    const jumiaRedirectUri = getJumiaRedirectUri();
+    const appUrl = getConfiguredAppUrl();
 
-    if (!jumiaClientId || !jumiaClientSecret || !jumiaRedirectUri) {
+    if (!jumiaClientId || !jumiaClientSecret || !appUrl) {
       logger.error({
         message: 'Jumia Callback OAuth credentials missing',
         merchantId,
         hasClientId: Boolean(jumiaClientId),
         hasClientSecret: Boolean(jumiaClientSecret),
-        hasRedirectUri: Boolean(jumiaRedirectUri),
+        hasAppUrl: Boolean(appUrl),
       });
       return createPlatformRedirect(request, 'error=oauth_not_configured');
     }
+    const jumiaRedirectUri = getJumiaRedirectUri();
 
     // Exchange code for tokens
     let tokens: Awaited<ReturnType<typeof exchangeJumiaCode>>;
@@ -210,50 +215,39 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Upsert all discovered shops (Master Shops have multiple)
-    for (const shop of discoveredShops) {
-      const shopId = shop.id;
-      const shopName = shop.name || 'Jumia Shop';
-      // Nigeria-pilot: prefer NG business client, fall back to first entry, then 'NG' default
-      const countryCode = shop.businessClients?.some(
-        (bc) => bc.countryCode === 'NG'
-      )
+    const integrationRows = discoveredShops.map((shop) => ({
+      merchant_id: merchantId,
+      platform: 'jumia' as const,
+      shop_id: shop.id,
+      shop_name: shop.name || 'Jumia Shop',
+      country_code: shop.businessClients?.some((bc) => bc.countryCode === 'NG')
         ? 'NG'
-        : (shop.businessClients?.[0]?.countryCode ?? 'NG');
+        : (shop.businessClients?.[0]?.countryCode ?? 'NG'),
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      token_expires_at: tokenExpiresAt.toISOString(),
+      is_active: !isFallbackShop,
+      sync_config: {
+        products: true,
+        orders: true,
+        stock: true,
+        businessClients: shop.businessClients ?? [],
+      },
+    }));
 
-      const { error: insertError } = await supabase
-        .from('marketplace_integrations')
-        .upsert(
-          {
-            merchant_id: merchantId,
-            platform: 'jumia',
-            shop_id: shopId,
-            shop_name: shopName,
-            country_code: countryCode,
-            access_token: tokens.access_token,
-            refresh_token: tokens.refresh_token,
-            token_expires_at: tokenExpiresAt.toISOString(),
-            is_active: !isFallbackShop,
-            sync_config: {
-              products: true,
-              orders: true,
-              stock: true,
-              businessClients: shop.businessClients ?? [],
-            },
-          },
-          {
-            onConflict: 'merchant_id,platform,shop_id',
-          }
-        );
+    const { error: insertError } = await supabase
+      .from('marketplace_integrations')
+      .upsert(integrationRows, {
+        onConflict: 'merchant_id,platform,shop_id',
+      });
 
-      if (insertError) {
-        logger.error({
-          message: 'Jumia Callback Database error for shop',
-          shopId,
-          error: insertError,
-        });
-        return createPlatformRedirect(request, 'error=database_error');
-      }
+    if (insertError) {
+      logger.error({
+        message: 'Jumia Callback Database error while persisting shops',
+        shopIds: integrationRows.map((row) => row.shop_id),
+        error: insertError,
+      });
+      return createPlatformRedirect(request, 'error=database_error');
     }
 
     // Clear OAuth cookies

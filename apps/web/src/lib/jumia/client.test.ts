@@ -84,6 +84,10 @@ vi.mock('@/schemas/jumia', async () => {
 });
 
 import { JumiaApiError, JumiaClient } from '@/lib/jumia/client';
+import {
+  MIN_REQUEST_INTERVAL_MS,
+  resetJumiaRateLimiterForTests,
+} from '@/lib/jumia/jumia-rate-limiter';
 
 // ── Mock helpers ──
 
@@ -129,20 +133,17 @@ const TOKEN_RESPONSE = {
 
 describe('JumiaClient', () => {
   const originalFetch = globalThis.fetch;
-  const rateLimiterScope = globalThis as typeof globalThis & {
-    __baciJumiaRequestLimiter?: unknown;
-  };
 
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     globalThis.fetch = vi.fn();
-    delete rateLimiterScope.__baciJumiaRequestLimiter;
+    resetJumiaRateLimiterForTests();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     globalThis.fetch = originalFetch;
-    delete rateLimiterScope.__baciJumiaRequestLimiter;
+    resetJumiaRateLimiterForTests();
     vi.restoreAllMocks();
   });
 
@@ -379,6 +380,7 @@ describe('JumiaClient', () => {
           refresh_token: 'new-refresh-token',
         })
       );
+      expect(mockFetch.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
     });
 
     it('triggers refresh when accessToken is null', async () => {
@@ -428,6 +430,30 @@ describe('JumiaClient', () => {
       const token = await client.getValidToken();
 
       expect(token).toBe('new-access-token');
+    });
+
+    it('throws a timeout error when token refresh is aborted', async () => {
+      const supabase = createMockSupabase({ data: null, error: null });
+      const client = new JumiaClient({
+        integrationId: 'int-123',
+        merchantId: 'merchant-abc',
+        shopId: 'shop-456',
+        accessToken: 'expired-token',
+        refreshToken: 'refresh-tok',
+        tokenExpiresAt: new Date(Date.now() - 1000),
+        environment: 'production',
+        supabase,
+      });
+
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      mockFetch.mockRejectedValueOnce(
+        new DOMException('The operation was aborted.', 'AbortError')
+      );
+
+      await expect(client.getValidToken()).rejects.toMatchObject({
+        status: 408,
+        message: 'Jumia API Error (408): Token refresh request timed out',
+      });
     });
   });
 
@@ -568,8 +594,7 @@ describe('JumiaClient', () => {
       await client.request('GET', '/c');
       const elapsed = Date.now() - start;
 
-      // 3 requests should take roughly two 250ms intervals.
-      expect(elapsed).toBeGreaterThanOrEqual(450);
+      expect(elapsed).toBeGreaterThanOrEqual(MIN_REQUEST_INTERVAL_MS * 2 - 50);
       expect(elapsed).toBeLessThan(700);
       expect(mockFetch).toHaveBeenCalledTimes(3);
     });
