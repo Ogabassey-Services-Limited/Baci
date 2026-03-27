@@ -13,6 +13,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import jumiaLogo from '@/assets/jumia-logo.png';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -219,7 +220,7 @@ export default function ChannelsClientPage() {
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-lg flex items-center justify-center border overflow-hidden p-1.5">
                 <Image
-                  src="/jumia-logo.png"
+                  src={jumiaLogo}
                   alt="Jumia"
                   width={40}
                   height={40}
