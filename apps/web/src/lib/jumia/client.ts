@@ -30,12 +30,70 @@ const INTEGRATION_COLUMNS =
 
 // ── Rate limiting ──
 // Jumia Vendor Center: 200 req/min, 4 req/sec at MasterShop level.
-// Enforce min 250ms between requests per client instance.
+// Enforce min 250ms between requests across all client instances for a merchant.
 
 const MIN_REQUEST_INTERVAL_MS = 250;
+const RATE_LIMITER_TTL_MS = 5 * 60 * 1000;
+const JUMIA_RATE_LIMITER_KEY = '__baciJumiaRequestLimiter';
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+type JumiaRateLimiterState = {
+  gateByKey: Map<string, Promise<void>>;
+  lastRequestAtByKey: Map<string, number>;
+};
+
+function getSharedJumiaRateLimiter(): JumiaRateLimiterState {
+  const scope = globalThis as typeof globalThis & {
+    [JUMIA_RATE_LIMITER_KEY]?: JumiaRateLimiterState;
+  };
+
+  scope[JUMIA_RATE_LIMITER_KEY] ??= {
+    gateByKey: new Map(),
+    lastRequestAtByKey: new Map(),
+  };
+
+  const now = Date.now();
+  for (const [rateLimitKey, lastRequestAt] of scope[
+    JUMIA_RATE_LIMITER_KEY
+  ].lastRequestAtByKey.entries()) {
+    if (
+      !scope[JUMIA_RATE_LIMITER_KEY].gateByKey.has(rateLimitKey) &&
+      now - lastRequestAt > RATE_LIMITER_TTL_MS
+    ) {
+      scope[JUMIA_RATE_LIMITER_KEY].lastRequestAtByKey.delete(rateLimitKey);
+    }
+  }
+
+  return scope[JUMIA_RATE_LIMITER_KEY];
+}
+
+async function waitForJumiaRequestSlot(rateLimitKey: string): Promise<void> {
+  const limiter = getSharedJumiaRateLimiter();
+  const previousGate = limiter.gateByKey.get(rateLimitKey) ?? Promise.resolve();
+  let releaseGate!: () => void;
+  const currentGate = new Promise<void>((resolve) => {
+    releaseGate = resolve;
+  });
+
+  limiter.gateByKey.set(rateLimitKey, currentGate);
+
+  try {
+    await previousGate;
+    const lastRequestAt = limiter.lastRequestAtByKey.get(rateLimitKey) ?? 0;
+    const elapsed = Date.now() - lastRequestAt;
+    if (elapsed < MIN_REQUEST_INTERVAL_MS) {
+      await sleep(MIN_REQUEST_INTERVAL_MS - elapsed);
+    }
+    limiter.lastRequestAtByKey.set(rateLimitKey, Date.now());
+  } finally {
+    releaseGate();
+    if (limiter.gateByKey.get(rateLimitKey) === currentGate) {
+      limiter.gateByKey.delete(rateLimitKey);
+    }
+  }
 }
 
 // ── Client ──
@@ -49,8 +107,6 @@ export class JumiaClient {
   private refreshToken: string;
   private environment: JumiaEnvironment;
   private supabase: SupabaseClient | null;
-  private lastRequestAt: number;
-  private requestGate: Promise<void>;
 
   constructor(config: {
     integrationId: string;
@@ -70,8 +126,6 @@ export class JumiaClient {
     this.tokenExpiresAt = config.tokenExpiresAt;
     this.environment = config.environment ?? getJumiaEnvironment();
     this.supabase = config.supabase ?? null;
-    this.lastRequestAt = 0;
-    this.requestGate = Promise.resolve();
   }
 
   // ── Factory: load by integration ID (scoped to merchant) ──
@@ -219,24 +273,7 @@ export class JumiaClient {
   }
 
   private async awaitRequestSlot(): Promise<void> {
-    const previousGate = this.requestGate;
-    let releaseGate!: () => void;
-
-    this.requestGate = new Promise<void>((resolve) => {
-      releaseGate = resolve;
-    });
-
-    await previousGate;
-
-    try {
-      const elapsed = Date.now() - this.lastRequestAt;
-      if (elapsed < MIN_REQUEST_INTERVAL_MS) {
-        await sleep(MIN_REQUEST_INTERVAL_MS - elapsed);
-      }
-      this.lastRequestAt = Date.now();
-    } finally {
-      releaseGate();
-    }
+    await waitForJumiaRequestSlot(this.merchantId);
   }
 
   private async fetchWithThrottle(

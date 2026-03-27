@@ -43,10 +43,12 @@ vi.mock('@/lib/api-auth', () => ({
 
 vi.mock('@/lib/jumia/helpers', () => ({
   getJumiaAuthUrl: (...a: unknown[]) => mockGetJumiaAuthUrl(...a),
+  getJumiaRedirectUri: vi.fn(
+    () => 'http://localhost:3000/api/marketplace/jumia/callback'
+  ),
 }));
 
 vi.mock('@/env', () => ({
-  getAppUrl: vi.fn(() => 'http://localhost:3000/'),
   getJumiaClientId: vi.fn(() => process.env.JUMIA_CLIENT_ID),
 }));
 

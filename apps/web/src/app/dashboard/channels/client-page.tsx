@@ -50,6 +50,8 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   token_exchange_failed:
     'Jumia rejected the token exchange — check redirect URI and credentials',
   merchant_not_found: 'Merchant account not found — please log in again',
+  oauth_not_configured:
+    'Jumia OAuth is not configured — please contact support or try again later',
 };
 
 function formatLastSync(dateString: string | null) {

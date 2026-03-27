@@ -4,17 +4,29 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { getAppUrl, getJumiaClientId, getJumiaClientSecret } from '@/env';
+import { getJumiaClientId, getJumiaClientSecret } from '@/env';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
-import { exchangeJumiaCode } from '@/lib/jumia/helpers';
+import { exchangeJumiaCode, getJumiaRedirectUri } from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
 
-function getJumiaRedirectUri(): string {
-  return `${getAppUrl().replace(/\/+$/, '')}/api/marketplace/jumia/callback`;
+function createPlatformRedirect(
+  request: NextRequest,
+  query: string
+): NextResponse {
+  const platform = request.cookies.get('jumia_oauth_platform')?.value;
+  const redirectBase =
+    platform === 'mobile' ? 'baciadmin://' : '/dashboard/channels';
+
+  return NextResponse.redirect(
+    new URL(
+      `${redirectBase}?${query}`,
+      platform === 'mobile' ? undefined : request.url
+    )
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -112,13 +124,24 @@ export async function GET(request: NextRequest) {
     const jumiaClientSecret = getJumiaClientSecret();
     const jumiaRedirectUri = getJumiaRedirectUri();
 
+    if (!jumiaClientId || !jumiaClientSecret || !jumiaRedirectUri) {
+      logger.error({
+        message: 'Jumia Callback OAuth credentials missing',
+        merchantId,
+        hasClientId: Boolean(jumiaClientId),
+        hasClientSecret: Boolean(jumiaClientSecret),
+        hasRedirectUri: Boolean(jumiaRedirectUri),
+      });
+      return createPlatformRedirect(request, 'error=oauth_not_configured');
+    }
+
     // Exchange code for tokens
     let tokens: Awaited<ReturnType<typeof exchangeJumiaCode>>;
     try {
       tokens = await exchangeJumiaCode({
         code,
-        clientId: jumiaClientId || '',
-        clientSecret: jumiaClientSecret || '',
+        clientId: jumiaClientId,
+        clientSecret: jumiaClientSecret,
         redirectUri: jumiaRedirectUri,
       });
     } catch (tokenError) {
@@ -135,15 +158,7 @@ export async function GET(request: NextRequest) {
               }
             : String(tokenError).slice(0, 200),
       });
-      const platform = request.cookies.get('jumia_oauth_platform')?.value;
-      const redirectBase =
-        platform === 'mobile' ? 'baciadmin://' : '/dashboard/channels';
-      return NextResponse.redirect(
-        new URL(
-          `${redirectBase}?error=token_exchange_failed`,
-          platform === 'mobile' ? undefined : request.url
-        )
-      );
+      return createPlatformRedirect(request, 'error=token_exchange_failed');
     }
 
     // Calculate token expiry
@@ -249,22 +264,13 @@ export async function GET(request: NextRequest) {
           shopId,
           error: insertError,
         });
+        return createPlatformRedirect(request, 'error=database_error');
       }
     }
 
-    const platform = request.cookies.get('jumia_oauth_platform')?.value;
-
-    // Check where to redirect
-    const redirectBase =
-      platform === 'mobile' ? 'baciadmin://' : '/dashboard/channels';
-
     // Clear OAuth cookies
-    const response = NextResponse.redirect(
-      new URL(
-        `${redirectBase}?success=jumia_connected`,
-        platform === 'mobile' ? undefined : request.url
-      )
-    );
+    const response = createPlatformRedirect(request, 'success=jumia_connected');
+    const platform = request.cookies.get('jumia_oauth_platform')?.value;
 
     response.cookies.delete('jumia_oauth_state');
     response.cookies.delete('jumia_merchant_id');
@@ -292,15 +298,6 @@ export async function GET(request: NextRequest) {
               summary: String(error).slice(0, 200),
             },
     });
-    const platform = request.cookies.get('jumia_oauth_platform')?.value;
-    const redirectBase =
-      platform === 'mobile' ? 'baciadmin://' : '/dashboard/channels';
-
-    return NextResponse.redirect(
-      new URL(
-        `${redirectBase}?error=connection_failed`,
-        platform === 'mobile' ? undefined : request.url
-      )
-    );
+    return createPlatformRedirect(request, 'error=connection_failed');
   }
 }

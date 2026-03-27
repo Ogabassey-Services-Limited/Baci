@@ -129,15 +129,20 @@ const TOKEN_RESPONSE = {
 
 describe('JumiaClient', () => {
   const originalFetch = globalThis.fetch;
+  const rateLimiterScope = globalThis as typeof globalThis & {
+    __baciJumiaRequestLimiter?: unknown;
+  };
 
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     globalThis.fetch = vi.fn();
+    delete rateLimiterScope.__baciJumiaRequestLimiter;
   });
 
   afterEach(() => {
     vi.useRealTimers();
     globalThis.fetch = originalFetch;
+    delete rateLimiterScope.__baciJumiaRequestLimiter;
     vi.restoreAllMocks();
   });
 
@@ -593,6 +598,33 @@ describe('JumiaClient', () => {
       expect(callTimes[2] - callTimes[1]).toBeGreaterThanOrEqual(200);
     });
 
+    it('serializes requests across client instances for the same merchant', async () => {
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      const callTimes: number[] = [];
+      const clients = [
+        createDefaultClient({ integrationId: 'int-1' }),
+        createDefaultClient({ integrationId: 'int-2' }),
+        createDefaultClient({ integrationId: 'int-3' }),
+      ];
+
+      mockFetch.mockImplementation(() => {
+        callTimes.push(Date.now());
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ ok: true }),
+        };
+      });
+
+      await Promise.all(
+        clients.map((client, index) => client.request('GET', `/shops/${index}`))
+      );
+
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(200);
+      expect(callTimes[2] - callTimes[1]).toBeGreaterThanOrEqual(200);
+    });
+
     it('applies throttling to the retried request after a 401', async () => {
       const supabase = createMockSupabase({ data: null, error: null });
       const client = new JumiaClient({
@@ -608,12 +640,14 @@ describe('JumiaClient', () => {
 
       const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
       const callTimes: number[] = [];
+      let protectedCallCount = 0;
 
       mockFetch.mockImplementation((input: RequestInfo | URL) => {
         callTimes.push(Date.now());
 
         if (String(input).endsWith('/protected')) {
-          if (callTimes.filter((_, index) => index !== 1).length === 1) {
+          protectedCallCount += 1;
+          if (protectedCallCount === 1) {
             return {
               ok: false,
               status: 401,

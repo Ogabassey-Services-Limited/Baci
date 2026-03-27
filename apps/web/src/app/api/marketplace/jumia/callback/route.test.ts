@@ -7,14 +7,11 @@ const mockExchangeJumiaCode = vi.fn();
 const mockGetShops = vi.fn();
 const mockLoggerError = vi.fn();
 const mockLoggerWarn = vi.fn();
-const mockUpsert = vi.fn();
+const mockUpsert = vi.fn().mockResolvedValue({ error: null });
 
 const mockSupabase = {
   from: vi.fn(() => ({
-    upsert: (...args: unknown[]) => {
-      mockUpsert(...args);
-      return Promise.resolve({ error: null });
-    },
+    upsert: (...args: unknown[]) => mockUpsert(...args),
   })),
 };
 
@@ -27,6 +24,9 @@ vi.mock('@/lib/api-auth', () => ({
 
 vi.mock('@/lib/jumia/helpers', () => ({
   exchangeJumiaCode: (...args: unknown[]) => mockExchangeJumiaCode(...args),
+  getJumiaRedirectUri: vi.fn(
+    () => 'http://localhost:3000/api/marketplace/jumia/callback'
+  ),
 }));
 
 vi.mock('@/lib/jumia/client', () => ({
@@ -54,6 +54,36 @@ vi.mock('@/env', () => ({
 
 import { GET } from './route';
 
+function makeCallbackRequest({
+  code = 'auth-code',
+  state = 'test-state',
+  cookieState = 'test-state',
+  merchantCookie = '00000000-0000-0000-0000-000000000001',
+}: {
+  code?: string | null;
+  state?: string;
+  cookieState?: string;
+  merchantCookie?: string | null;
+} = {}) {
+  const url = new URL('http://localhost:3000/api/marketplace/jumia/callback');
+
+  if (code !== null) {
+    url.searchParams.set('code', code);
+  }
+  url.searchParams.set('state', state);
+
+  const cookieParts = [`jumia_oauth_state=${cookieState}`];
+  if (merchantCookie) {
+    cookieParts.push(`jumia_merchant_id=${merchantCookie}`);
+  }
+
+  return new NextRequest(url, {
+    headers: {
+      cookie: cookieParts.join('; '),
+    },
+  });
+}
+
 describe('Jumia callback route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -65,6 +95,7 @@ describe('Jumia callback route', () => {
       error: null,
       supabase: mockSupabase,
     });
+    mockUpsert.mockResolvedValue({ error: null });
     mockGetMerchantIdForApiUser.mockResolvedValue(
       '00000000-0000-0000-0000-000000000001'
     );
@@ -94,17 +125,7 @@ describe('Jumia callback route', () => {
   });
 
   it('exchanges the code using the validated app callback URL', async () => {
-    const request = new NextRequest(
-      'http://localhost:3000/api/marketplace/jumia/callback?code=auth-code&state=test-state',
-      {
-        headers: {
-          cookie: [
-            'jumia_oauth_state=test-state',
-            'jumia_merchant_id=00000000-0000-0000-0000-000000000001',
-          ].join('; '),
-        },
-      }
-    );
+    const request = makeCallbackRequest();
 
     const response = await GET(request);
 
@@ -137,5 +158,116 @@ describe('Jumia callback route', () => {
         redirectUri: 'http://localhost:3000/api/marketplace/jumia/callback',
       })
     );
+  });
+
+  it('redirects with invalid_state when the OAuth state does not match', async () => {
+    const response = await GET(
+      makeCallbackRequest({
+        state: 'other-state',
+      })
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('error=invalid_state');
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects with no_code when the callback omits the code', async () => {
+    const response = await GET(makeCallbackRequest({ code: null }));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('error=no_code');
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects with no_code when the callback provides an empty code', async () => {
+    const response = await GET(makeCallbackRequest({ code: '' }));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('error=no_code');
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects with token_exchange_failed when the token exchange throws', async () => {
+    mockExchangeJumiaCode.mockRejectedValueOnce(new Error('boom'));
+
+    const response = await GET(makeCallbackRequest());
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain(
+      'error=token_exchange_failed'
+    );
+    expect(mockExchangeJumiaCode).toHaveBeenCalledTimes(1);
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects with session_expired when the callback request is unauthenticated', async () => {
+    mockAuthenticateApiRequest.mockResolvedValueOnce({
+      user: null,
+      error: 'unauthorized',
+      supabase: null,
+    });
+
+    const response = await GET(makeCallbackRequest({ merchantCookie: null }));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('error=session_expired');
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects with merchant_not_found when the authenticated user has no merchant', async () => {
+    mockGetMerchantIdForApiUser.mockResolvedValueOnce(null);
+
+    const response = await GET(makeCallbackRequest());
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain(
+      'error=merchant_not_found'
+    );
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects with oauth_not_configured when Jumia client id is missing', async () => {
+    delete process.env.JUMIA_CLIENT_ID;
+
+    const response = await GET(makeCallbackRequest());
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain(
+      'error=oauth_not_configured'
+    );
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects with oauth_not_configured when Jumia client secret is missing', async () => {
+    delete process.env.JUMIA_CLIENT_SECRET;
+
+    const response = await GET(makeCallbackRequest());
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain(
+      'error=oauth_not_configured'
+    );
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects with database_error when persisting the integration fails', async () => {
+    mockUpsert.mockResolvedValueOnce({
+      error: { message: 'DB error' },
+    });
+
+    const response = await GET(makeCallbackRequest());
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('error=database_error');
+    expect(mockExchangeJumiaCode).toHaveBeenCalledTimes(1);
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
   });
 });
