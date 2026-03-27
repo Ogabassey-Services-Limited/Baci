@@ -21,9 +21,16 @@ export function verifyAgenticApiKey(request: NextRequest): boolean {
     return false;
   }
 
-  // Use constant-time comparison in production if crypto.timingSafeEqual is available
-  // For now, simple string comparison is acceptable for this MVP
-  return token === expectedToken;
+  // Use constant-time comparison to prevent timing attacks
+  const tokenBuffer = Buffer.from(token);
+  const expectedBuffer = Buffer.from(expectedToken);
+
+  if (tokenBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  const crypto = require('node:crypto');
+  return crypto.timingSafeEqual(tokenBuffer, expectedBuffer);
 }
 
 /**
