@@ -6,7 +6,7 @@
  */
 
 import { ZodError } from 'zod';
-import { getAppUrl, env as validatedEnv } from '@/env';
+import { env as validatedEnv } from '@/env';
 import type { JumiaTokenResponse } from '@/schemas/jumia';
 import { JumiaTokenResponseSchema } from '@/schemas/jumia';
 
@@ -51,8 +51,8 @@ export function getJumiaAuthUrl(config: {
   return `${baseUrl}/login?${params.toString()}`;
 }
 
-export function getJumiaRedirectUri(): string {
-  return `${getAppUrl().replace(/\/+$/, '')}/api/marketplace/jumia/callback`;
+export function getJumiaRedirectUri(appUrl: string): string {
+  return `${appUrl.replace(/\/+$/, '')}/api/marketplace/jumia/callback`;
 }
 
 // ── OAuth: Code exchange ──

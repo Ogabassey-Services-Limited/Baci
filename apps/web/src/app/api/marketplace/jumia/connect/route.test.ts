@@ -1,18 +1,60 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-/* ------------------------------------------------------------------ */
-/*  Mocks                                                              */
-/* ------------------------------------------------------------------ */
+const PUBLIC_APP_URL = 'https://example.com/';
+const PUBLIC_CALLBACK_URL =
+  'https://example.com/api/marketplace/jumia/callback';
 
 const mockGetUser = vi.fn();
 const mockUpsert = vi.fn();
 const mockSelect = vi.fn().mockReturnValue({ single: vi.fn() });
+const mockGetMerchant = vi.fn();
+const mockToUserAccess = vi.fn();
+const mockGetJumiaAuthUrl = vi
+  .fn()
+  .mockReturnValue('https://jumia.com/auth?state=xyz');
+const { mockGetConfiguredAppUrl, mockGetJumiaRedirectUri } = vi.hoisted(() => {
+  const getValidatedAppUrl = () => {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+
+    if (!appUrl) {
+      return null;
+    }
+
+    try {
+      const parsedUrl = new URL(appUrl);
+      const hostname = parsedUrl.hostname.toLowerCase();
+
+      if (
+        hostname === 'localhost' ||
+        hostname === '0.0.0.0' ||
+        hostname === '::1' ||
+        hostname.startsWith('127.') ||
+        hostname.endsWith('.localhost')
+      ) {
+        return null;
+      }
+
+      return appUrl;
+    } catch {
+      return null;
+    }
+  };
+
+  return {
+    mockGetConfiguredAppUrl: vi.fn(getValidatedAppUrl),
+    mockGetJumiaRedirectUri: vi.fn((appUrl: string) => {
+      const baseUrl = appUrl.replace(/\/+$/, '');
+      return `${baseUrl}/api/marketplace/jumia/callback`;
+    }),
+  };
+});
+
 const mockSupabase = {
   auth: { getUser: mockGetUser },
   from: vi.fn(() => ({
-    upsert: (...a: unknown[]) => {
-      mockUpsert(...a);
+    upsert: (...args: unknown[]) => {
+      mockUpsert(...args);
       return { select: () => mockSelect() };
     },
   })),
@@ -27,14 +69,9 @@ vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
 }));
 
-const mockGetMerchant = vi.fn();
-const mockToUserAccess = vi.fn();
-const mockGetJumiaAuthUrl = vi
-  .fn()
-  .mockReturnValue('https://jumia.com/auth?state=xyz');
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
-  getMerchantForApiRequest: (...a: unknown[]) => mockGetMerchant(...a),
-  toUserAccess: (...a: unknown[]) => mockToUserAccess(...a),
+  getMerchantForApiRequest: (...args: unknown[]) => mockGetMerchant(...args),
+  toUserAccess: (...args: unknown[]) => mockToUserAccess(...args),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -42,19 +79,14 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 
 vi.mock('@/lib/jumia/helpers', () => ({
-  getJumiaAuthUrl: (...a: unknown[]) => mockGetJumiaAuthUrl(...a),
-  getJumiaRedirectUri: vi.fn(
-    () => 'http://localhost:3000/api/marketplace/jumia/callback'
-  ),
+  getJumiaAuthUrl: (...args: unknown[]) => mockGetJumiaAuthUrl(...args),
+  getJumiaRedirectUri: (appUrl: string) => mockGetJumiaRedirectUri(appUrl),
 }));
 
 vi.mock('@/env', () => ({
+  getConfiguredAppUrl: mockGetConfiguredAppUrl,
   getJumiaClientId: vi.fn(() => process.env.JUMIA_CLIENT_ID),
 }));
-
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
 
 const MERCHANT_CTX = {
   merchantId: '00000000-0000-0000-0000-000000000001',
@@ -74,6 +106,12 @@ function makePostRequest(body: unknown) {
   });
 }
 
+function makeGetRequest(search = '') {
+  return new NextRequest(
+    `http://localhost/api/marketplace/jumia/connect${search}`
+  );
+}
+
 function setupAuth() {
   mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
   mockGetMerchant.mockResolvedValue(MERCHANT_CTX);
@@ -86,17 +124,36 @@ function setupAuth() {
   });
 }
 
-/* ------------------------------------------------------------------ */
-/*  Tests                                                              */
-/* ------------------------------------------------------------------ */
+import { GET, POST } from './route';
 
-import { POST } from './route';
+const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+const originalJumiaClientId = process.env.JUMIA_CLIENT_ID;
+
+function restoreEnv() {
+  if (originalAppUrl === undefined) {
+    delete process.env.NEXT_PUBLIC_APP_URL;
+  } else {
+    process.env.NEXT_PUBLIC_APP_URL = originalAppUrl;
+  }
+
+  if (originalJumiaClientId === undefined) {
+    delete process.env.JUMIA_CLIENT_ID;
+  } else {
+    process.env.JUMIA_CLIENT_ID = originalJumiaClientId;
+  }
+}
 
 describe('Connect POST', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.NEXT_PUBLIC_APP_URL = PUBLIC_APP_URL;
+    process.env.JUMIA_CLIENT_ID = 'test-client-id';
     mockSelect.mockReturnValue({ single: vi.fn() });
     mockGetJumiaAuthUrl.mockReturnValue('https://jumia.com/auth?state=xyz');
+  });
+
+  afterEach(() => {
+    restoreEnv();
   });
 
   it('returns 403 on CSRF failure', async () => {
@@ -105,7 +162,9 @@ describe('Connect POST', () => {
       valid: false,
       response: null,
     });
+
     const res = await POST(makePostRequest({ connectionType: 'oauth' }));
+
     expect(res.status).toBe(403);
     const json = await res.json();
     expect(json.error).toBeDefined();
@@ -116,12 +175,14 @@ describe('Connect POST', () => {
       data: { user: null },
       error: { message: 'no' },
     });
+
     const res = await POST(
       makePostRequest({
         connectionType: 'self_authorization',
         refreshToken: 'tok',
       })
     );
+
     expect(res.status).toBe(401);
   });
 
@@ -131,12 +192,14 @@ describe('Connect POST', () => {
       error: null,
     });
     mockGetMerchant.mockResolvedValue(null);
+
     const res = await POST(
       makePostRequest({
         connectionType: 'self_authorization',
         refreshToken: 'tok',
       })
     );
+
     expect(res.status).toBe(404);
   });
 
@@ -144,20 +207,24 @@ describe('Connect POST', () => {
     setupAuth();
     const { hasPermission } = await import('@/lib/api-auth');
     (hasPermission as ReturnType<typeof vi.fn>).mockReturnValueOnce(false);
+
     const res = await POST(
       makePostRequest({
         connectionType: 'self_authorization',
         refreshToken: 'tok',
       })
     );
+
     expect(res.status).toBe(403);
   });
 
   it('returns 400 for invalid body', async () => {
     setupAuth();
+
     const res = await POST(
       makePostRequest({ connectionType: 'self_authorization' })
     );
+
     expect(res.status).toBe(400);
   });
 
@@ -169,12 +236,14 @@ describe('Connect POST', () => {
         error: null,
       }),
     });
+
     const res = await POST(
       makePostRequest({
         connectionType: 'self_authorization',
         refreshToken: 'tok-abc',
       })
     );
+
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.success).toBe(true);
@@ -201,41 +270,175 @@ describe('Connect POST', () => {
         error: { message: 'unique violation' },
       }),
     });
+
     const res = await POST(
       makePostRequest({
         connectionType: 'self_authorization',
         refreshToken: 'tok',
       })
     );
+
     expect(res.status).toBe(500);
   });
 
   it('returns 500 for oauth when JUMIA_CLIENT_ID is not configured', async () => {
     setupAuth();
-    // JUMIA_CLIENT_ID is captured at module load time, so it is undefined in test
+    delete process.env.JUMIA_CLIENT_ID;
+
     const res = await POST(makePostRequest({ connectionType: 'oauth' }));
+
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json.error).toBe('Jumia OAuth not configured');
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 for oauth when NEXT_PUBLIC_APP_URL is not configured', async () => {
+    setupAuth();
+    delete process.env.NEXT_PUBLIC_APP_URL;
+
+    const res = await POST(makePostRequest({ connectionType: 'oauth' }));
+
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBe('Jumia OAuth not configured');
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 for oauth when NEXT_PUBLIC_APP_URL is localhost', async () => {
+    setupAuth();
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
+
+    const res = await POST(makePostRequest({ connectionType: 'oauth' }));
+
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBe('Jumia OAuth not configured');
+    expect(mockGetConfiguredAppUrl).toHaveBeenCalled();
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
   });
 
   it('returns 200 with auth URL when OAuth is configured', async () => {
     setupAuth();
+    const res = await POST(makePostRequest({ connectionType: 'oauth' }));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    expect(json.redirectUrl).toBe('https://jumia.com/auth?state=xyz');
+    expect(mockGetJumiaRedirectUri).toHaveBeenCalledWith(PUBLIC_APP_URL);
+    expect(mockGetJumiaAuthUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientId: 'test-client-id',
+        redirectUri: PUBLIC_CALLBACK_URL,
+      })
+    );
+  });
+});
+
+describe('Connect GET', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.NEXT_PUBLIC_APP_URL = PUBLIC_APP_URL;
     process.env.JUMIA_CLIENT_ID = 'test-client-id';
-    try {
-      const res = await POST(makePostRequest({ connectionType: 'oauth' }));
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.success).toBe(true);
-      expect(json.redirectUrl).toBe('https://jumia.com/auth?state=xyz');
-      expect(mockGetJumiaAuthUrl).toHaveBeenCalledWith(
-        expect.objectContaining({
-          clientId: 'test-client-id',
-          redirectUri: 'http://localhost:3000/api/marketplace/jumia/callback',
-        })
-      );
-    } finally {
-      delete process.env.JUMIA_CLIENT_ID;
-    }
+    mockGetJumiaAuthUrl.mockReturnValue('https://jumia.com/auth?state=xyz');
+    setupAuth();
+  });
+
+  afterEach(() => {
+    restoreEnv();
+  });
+
+  it('returns 401 when unauthenticated', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: 'no' },
+    });
+
+    const res = await GET(makeGetRequest('?connectionType=oauth'));
+
+    expect(res.status).toBe(401);
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when merchant not found', async () => {
+    mockGetMerchant.mockResolvedValue(null);
+
+    const res = await GET(makeGetRequest('?connectionType=oauth'));
+
+    expect(res.status).toBe(404);
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when permission is denied', async () => {
+    const { hasPermission } = await import('@/lib/api-auth');
+    (hasPermission as ReturnType<typeof vi.fn>).mockReturnValueOnce(false);
+
+    const res = await GET(makeGetRequest('?connectionType=oauth'));
+
+    expect(res.status).toBe(403);
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when JUMIA_CLIENT_ID is not configured', async () => {
+    delete process.env.JUMIA_CLIENT_ID;
+
+    const res = await GET(makeGetRequest('?connectionType=oauth'));
+
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBe('Jumia OAuth not configured');
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 for oauth when NEXT_PUBLIC_APP_URL is not configured', async () => {
+    delete process.env.NEXT_PUBLIC_APP_URL;
+
+    const res = await GET(makeGetRequest('?connectionType=oauth'));
+
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBe('Jumia OAuth not configured');
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 for oauth when NEXT_PUBLIC_APP_URL is malformed', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'not-a-url';
+
+    const res = await GET(makeGetRequest('?connectionType=oauth'));
+
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBe('Jumia OAuth not configured');
+    expect(mockGetConfiguredAppUrl).toHaveBeenCalled();
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 for oauth when NEXT_PUBLIC_APP_URL is localhost', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
+
+    const res = await GET(makeGetRequest('?connectionType=oauth'));
+
+    expect(res.status).toBe(500);
+    const json = await res.json();
+    expect(json.error).toBe('Jumia OAuth not configured');
+    expect(mockGetConfiguredAppUrl).toHaveBeenCalled();
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('redirects to Jumia when OAuth is configured', async () => {
+    const res = await GET(makeGetRequest('?connectionType=oauth'));
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toBe(
+      'https://jumia.com/auth?state=xyz'
+    );
+    expect(mockGetJumiaRedirectUri).toHaveBeenCalledWith(PUBLIC_APP_URL);
+    expect(mockGetJumiaAuthUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientId: 'test-client-id',
+        redirectUri: PUBLIC_CALLBACK_URL,
+      })
+    );
   });
 });
