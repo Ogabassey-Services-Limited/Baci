@@ -13,6 +13,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -36,6 +37,14 @@ export default function CategoryScreen() {
   const { data: categories = [], isLoading: categoriesLoading } =
     useCategories();
   const categoryId = categories.find((c) => c.slug === slug)?.id;
+
+  const { width } = useWindowDimensions();
+  const PRODUCT_ITEM_HEIGHT = (width - 48) / 2 + 110;
+  const getItemLayout = (data: ArrayLike<Product> | null | undefined, index: number) => {
+    const length = PRODUCT_ITEM_HEIGHT;
+    const offset = length * Math.floor(index / 2);
+    return { length, offset, index };
+  };
 
   const { products, isLoading, error, hasMore, refetch, loadMore } =
     useProducts({
@@ -213,6 +222,7 @@ export default function CategoryScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         columnWrapperStyle={styles.row}
+        getItemLayout={getItemLayout}
         {...androidVirtualizationProps}
       />
     </SafeAreaView>

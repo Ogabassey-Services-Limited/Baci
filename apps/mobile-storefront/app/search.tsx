@@ -16,6 +16,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -129,6 +130,14 @@ export default function SearchScreen() {
     });
   };
 
+  const { width } = useWindowDimensions();
+  const PRODUCT_ITEM_HEIGHT = (width - 48) / 2 + 110;
+  const getItemLayout = (data: ArrayLike<Product> | null | undefined, index: number) => {
+    const length = PRODUCT_ITEM_HEIGHT;
+    const offset = length * Math.floor(index / 2);
+    return { length, offset, index };
+  };
+
   const { products, isLoading } = useProducts({
     search: query.length >= 2 ? query : undefined,
     limit: 20,
@@ -237,6 +246,7 @@ export default function SearchScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        getItemLayout={getItemLayout}
         // 2026 Best Practice: FlatList performance optimizations
         removeClippedSubviews={Platform.OS === 'android'}
         maxToRenderPerBatch={6}
