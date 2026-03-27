@@ -237,9 +237,11 @@ export default function MigrationJobSummary({
               <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-medium">{progressLabel}</p>
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {progressValue}%
-                  </span>
+                  {progressValue != null ? (
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {progressValue}%
+                    </span>
+                  ) : null}
                 </div>
                 <Progress
                   aria-label="Migration progress"

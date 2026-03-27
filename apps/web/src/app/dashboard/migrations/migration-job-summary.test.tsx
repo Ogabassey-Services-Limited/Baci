@@ -162,6 +162,48 @@ describe('MigrationJobSummary', () => {
     expect(onFilterChange).toHaveBeenCalledWith('importable');
   });
 
+  it('shows indeterminate progress bar when validating with no total rows', () => {
+    render(
+      <MigrationJobSummary
+        activeFilter="all"
+        acting={false}
+        error={null}
+        loading={false}
+        onFilterChange={vi.fn()}
+        onCommit={vi.fn().mockResolvedValue(undefined)}
+        onNotify={vi.fn().mockResolvedValue(undefined)}
+        onRefresh={vi.fn().mockResolvedValue(undefined)}
+        selectedJob={{
+          id: 'job-5',
+          entity_type: 'orders',
+          source_platform: 'bumpa',
+          status: 'validating',
+          original_filename: 'orders.csv',
+          processed_rows: 0,
+          total_rows: 0,
+          summary: null,
+          error: null,
+          created_at: '2026-03-22T10:00:00.000Z',
+          committed_at: null,
+          notified_at: null,
+          canCommit: false,
+          canNotify: false,
+        }}
+      />
+    );
+
+    expect(screen.getByText(/building preview/i)).toBeInTheDocument();
+    // Should NOT show "0%" — indeterminate state hides percentage
+    expect(screen.queryByText('0%')).not.toBeInTheDocument();
+    // Should show loading detail text
+    expect(screen.getByText(/loading and parsing file/i)).toBeInTheDocument();
+    // Progress bar should be present with null value (indeterminate)
+    const progressBar = screen.getByRole('progressbar', {
+      name: /migration progress/i,
+    });
+    expect(progressBar).toBeInTheDocument();
+  });
+
   it('shows empty-filter guidance and disables empty filter cards', () => {
     render(
       <MigrationJobSummary

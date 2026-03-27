@@ -46,11 +46,12 @@ describe('createPreviewProgressReporter', () => {
 
   it('throttles intermediate progress writes but persists final progress', async () => {
     vi.useFakeTimers();
+    // All calls within 500ms time window
     vi.spyOn(Date, 'now')
       .mockReturnValueOnce(0)
+      .mockReturnValueOnce(50)
       .mockReturnValueOnce(100)
-      .mockReturnValueOnce(200)
-      .mockReturnValueOnce(1300);
+      .mockReturnValueOnce(150);
 
     const { from, updateQuery } = createSupabase();
     const logger = { error: vi.fn() };
@@ -60,28 +61,130 @@ describe('createPreviewProgressReporter', () => {
       logger
     );
 
-    await reportProgress({ processedRows: 0, totalRows: 100 });
-    await reportProgress({ processedRows: 10, totalRows: 100 });
-    await reportProgress({ processedRows: 20, totalRows: 100 });
-    await reportProgress({ processedRows: 100, totalRows: 100 });
+    // totalRows=1000: adaptive step = max(10, floor(1000/20)) = 50
+    // Row 0: first report with totalRows → persisted (early progress)
+    // Row 10: early progress (<=5 already passed), not enough step → throttled
+    // Row 20: same → throttled
+    // Row 1000: final → persisted
+    await reportProgress({ processedRows: 0, totalRows: 1000 });
+    await reportProgress({ processedRows: 10, totalRows: 1000 });
+    await reportProgress({ processedRows: 20, totalRows: 1000 });
+    await reportProgress({ processedRows: 1000, totalRows: 1000 });
 
     expect(updateQuery.update).toHaveBeenCalledWith({
       processed_rows: 0,
-      total_rows: 100,
+      total_rows: 1000,
     });
     expect(updateQuery.update).toHaveBeenCalledWith({
-      processed_rows: 100,
-      total_rows: 100,
+      processed_rows: 1000,
+      total_rows: 1000,
     });
     expect(updateQuery.update).not.toHaveBeenCalledWith({
       processed_rows: 10,
-      total_rows: 100,
+      total_rows: 1000,
     });
     expect(updateQuery.update).not.toHaveBeenCalledWith({
       processed_rows: 20,
-      total_rows: 100,
+      total_rows: 1000,
     });
     expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('uses adaptive step based on totalRows, targeting ~20 writes for large files', async () => {
+    vi.useFakeTimers();
+    // Simulate fast processing: all timestamps close together
+    vi.spyOn(Date, 'now').mockReturnValue(0);
+
+    const { from, updateQuery } = createSupabase();
+    const logger = { error: vi.fn() };
+    const reportProgress = createPreviewProgressReporter(
+      { from } as unknown as SupabaseClient,
+      createJob(),
+      logger
+    );
+
+    const totalRows = 5822;
+    // Expected adaptive step: max(10, floor(5822/20)) = 291
+    // Calls: first (0), early (1-5), then every 291 rows, plus final
+    for (let i = 0; i <= totalRows; i++) {
+      await reportProgress({ processedRows: i, totalRows });
+    }
+
+    // Should NOT have 233 writes (old 25-step) — should be ~20-30 writes
+    const writeCount = updateQuery.update.mock.calls.length;
+    expect(writeCount).toBeLessThanOrEqual(35);
+    expect(writeCount).toBeGreaterThanOrEqual(10);
+  });
+
+  it('floors adaptive step at 10 for small files', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Date, 'now').mockReturnValue(0);
+
+    const { from, updateQuery } = createSupabase();
+    const logger = { error: vi.fn() };
+    const reportProgress = createPreviewProgressReporter(
+      { from } as unknown as SupabaseClient,
+      createJob(),
+      logger
+    );
+
+    const totalRows = 100;
+    // Expected adaptive step: max(10, floor(100/20)) = 10
+    for (let i = 0; i <= totalRows; i++) {
+      await reportProgress({ processedRows: i, totalRows });
+    }
+
+    // With step=10 for 100 rows: ~10 step-based writes + early progress + final
+    const writeCount = updateQuery.update.mock.calls.length;
+    expect(writeCount).toBeLessThanOrEqual(20);
+    expect(writeCount).toBeGreaterThanOrEqual(8);
+  });
+
+  it('always persists the first report when totalRows becomes known', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Date, 'now').mockReturnValue(0);
+
+    const { from, updateQuery } = createSupabase();
+    const logger = { error: vi.fn() };
+    const reportProgress = createPreviewProgressReporter(
+      { from } as unknown as SupabaseClient,
+      createJob(),
+      logger
+    );
+
+    await reportProgress({ processedRows: 0, totalRows: 5000 });
+
+    expect(updateQuery.update).toHaveBeenCalledWith({
+      processed_rows: 0,
+      total_rows: 5000,
+    });
+  });
+
+  it('uses 500ms minimum time gap instead of 1000ms', async () => {
+    vi.useFakeTimers();
+    const nowMock = vi.spyOn(Date, 'now');
+    // First call at t=0 (early progress, will persist)
+    nowMock.mockReturnValueOnce(0);
+    // Second call at t=600ms (past 500ms gap, should persist)
+    nowMock.mockReturnValueOnce(600);
+
+    const { from, updateQuery } = createSupabase();
+    const logger = { error: vi.fn() };
+    const reportProgress = createPreviewProgressReporter(
+      { from } as unknown as SupabaseClient,
+      createJob(),
+      logger
+    );
+
+    // First call: early progress persists
+    await reportProgress({ processedRows: 1, totalRows: 5000 });
+    // Second call at t=600ms: should persist because 600 > 500ms gap
+    await reportProgress({ processedRows: 7, totalRows: 5000 });
+
+    expect(updateQuery.update).toHaveBeenCalledWith({
+      processed_rows: 7,
+      total_rows: 5000,
+    });
   });
 
   it('logs and continues when persisting progress fails', async () => {

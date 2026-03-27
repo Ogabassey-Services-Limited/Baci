@@ -4,7 +4,30 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ImportJobDetail } from '@/app/dashboard/migrations/migration-types';
 import { useMigrationJobPolling } from '@/app/dashboard/migrations/use-migration-job-polling';
 
-function createJob(status: ImportJobDetail['status']): ImportJobDetail {
+function createMockChannel() {
+  const channel = {
+    on: vi.fn().mockReturnThis(),
+    subscribe: vi.fn().mockReturnThis(),
+    unsubscribe: vi.fn(),
+  };
+  return channel;
+}
+
+function createMockSupabase(channel: ReturnType<typeof createMockChannel>) {
+  return {
+    channel: vi.fn().mockReturnValue(channel),
+    removeChannel: vi.fn(),
+  };
+}
+
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: vi.fn(),
+}));
+
+function createJob(
+  status: ImportJobDetail['status'],
+  overrides: Partial<ImportJobDetail> = {}
+): ImportJobDetail {
   return {
     id: 'job-1',
     entity_type: 'orders',
@@ -20,6 +43,7 @@ function createJob(status: ImportJobDetail['status']): ImportJobDetail {
     notified_at: null,
     canCommit: false,
     canNotify: false,
+    ...overrides,
   };
 }
 
@@ -33,13 +57,247 @@ function createDeferred<T>() {
 }
 
 describe('useMigrationJobPolling', () => {
-  beforeEach(() => {
+  let mockChannel: ReturnType<typeof createMockChannel>;
+  let mockSupabase: ReturnType<typeof createMockSupabase>;
+
+  beforeEach(async () => {
     vi.useFakeTimers();
+    mockChannel = createMockChannel();
+    mockSupabase = createMockSupabase(mockChannel);
+
+    const { createClient } = await import('@/lib/supabase/client');
+    vi.mocked(createClient).mockReturnValue(mockSupabase as never);
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it('subscribes to Realtime channel when job is in active status', () => {
+    const refreshJob = vi.fn().mockResolvedValue(true);
+
+    renderHook(() =>
+      useMigrationJobPolling({
+        activeFilter: 'all',
+        refreshJob,
+        rowsResponse: null,
+        selectedJob: createJob('validating'),
+        selectedJobId: 'job-1',
+      })
+    );
+
+    expect(mockSupabase.channel).toHaveBeenCalledWith('import-job-job-1');
+    expect(mockChannel.on).toHaveBeenCalledWith(
+      'postgres_changes',
+      expect.objectContaining({
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'import_jobs',
+        filter: 'id=eq.job-1',
+      }),
+      expect.any(Function)
+    );
+    expect(mockChannel.subscribe).toHaveBeenCalled();
+  });
+
+  it('does NOT subscribe when no job is selected', () => {
+    const refreshJob = vi.fn().mockResolvedValue(true);
+
+    renderHook(() =>
+      useMigrationJobPolling({
+        activeFilter: 'all',
+        refreshJob,
+        rowsResponse: null,
+        selectedJob: null,
+        selectedJobId: null,
+      })
+    );
+
+    expect(mockSupabase.channel).not.toHaveBeenCalled();
+  });
+
+  it('does NOT subscribe when job status is inactive', () => {
+    const refreshJob = vi.fn().mockResolvedValue(true);
+
+    renderHook(() =>
+      useMigrationJobPolling({
+        activeFilter: 'all',
+        refreshJob,
+        rowsResponse: null,
+        selectedJob: createJob('preview_ready'),
+        selectedJobId: 'job-1',
+      })
+    );
+
+    expect(mockSupabase.channel).not.toHaveBeenCalled();
+  });
+
+  it('removes Realtime channel on cleanup', () => {
+    const refreshJob = vi.fn().mockResolvedValue(true);
+
+    const { unmount } = renderHook(() =>
+      useMigrationJobPolling({
+        activeFilter: 'all',
+        refreshJob,
+        rowsResponse: null,
+        selectedJob: createJob('validating'),
+        selectedJobId: 'job-1',
+      })
+    );
+
+    unmount();
+
+    expect(mockSupabase.removeChannel).toHaveBeenCalledWith(mockChannel);
+  });
+
+  it('keeps a 5s polling fallback alongside Realtime', async () => {
+    const refreshJob = vi.fn().mockResolvedValue(true);
+
+    renderHook(() =>
+      useMigrationJobPolling({
+        activeFilter: 'all',
+        refreshJob,
+        rowsResponse: {
+          rows: [],
+          pagination: { page: 1, pageSize: 25, total: 0 },
+        },
+        selectedJob: createJob('validating'),
+        selectedJobId: 'job-1',
+      })
+    );
+
+    // Should NOT poll at 1s (old behavior)
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+    expect(refreshJob).not.toHaveBeenCalled();
+
+    // Should poll at 5s
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+      await Promise.resolve();
+    });
+    expect(refreshJob).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes Realtime payload through onRealtimeJobUpdate callback', () => {
+    const refreshJob = vi.fn().mockResolvedValue(true);
+    const onRealtimeJobUpdate = vi.fn();
+
+    renderHook(() =>
+      useMigrationJobPolling({
+        activeFilter: 'all',
+        refreshJob,
+        rowsResponse: null,
+        selectedJob: createJob('validating'),
+        selectedJobId: 'job-1',
+        onRealtimeJobUpdate,
+      })
+    );
+
+    // Get the Realtime callback
+    const realtimeCallback = mockChannel.on.mock.calls[0][2];
+    const payload = {
+      new: {
+        id: 'job-1',
+        status: 'validating',
+        processed_rows: 500,
+        total_rows: 5822,
+      },
+    };
+
+    act(() => {
+      realtimeCallback(payload);
+    });
+
+    expect(onRealtimeJobUpdate).toHaveBeenCalledWith(payload.new);
+  });
+
+  it('triggers refreshJob with includeRows when job transitions from active to row-fetchable', () => {
+    const refreshJob = vi.fn().mockResolvedValue(true);
+    const onRealtimeJobUpdate = vi.fn();
+
+    renderHook(() =>
+      useMigrationJobPolling({
+        activeFilter: 'all',
+        refreshJob,
+        rowsResponse: null,
+        selectedJob: createJob('validating'),
+        selectedJobId: 'job-1',
+        onRealtimeJobUpdate,
+      })
+    );
+
+    // Simulate Realtime reporting terminal transition
+    const realtimeCallback = mockChannel.on.mock.calls[0][2];
+
+    act(() => {
+      realtimeCallback({
+        new: {
+          id: 'job-1',
+          status: 'preview_ready',
+          processed_rows: 5822,
+          total_rows: 5822,
+        },
+      });
+    });
+
+    // Should trigger row fetch for the terminal state
+    expect(refreshJob).toHaveBeenCalledWith(
+      'job-1',
+      expect.objectContaining({
+        includeRows: true,
+        includeJob: false,
+      })
+    );
+  });
+
+  it('invalidates in-flight polls when Realtime update arrives', async () => {
+    const firstRefresh = createDeferred<boolean>();
+    const refreshJob = vi.fn().mockReturnValue(firstRefresh.promise);
+    const onRealtimeJobUpdate = vi.fn();
+    const onRefreshRequestIdBump = vi.fn();
+
+    renderHook(() =>
+      useMigrationJobPolling({
+        activeFilter: 'all',
+        refreshJob,
+        rowsResponse: {
+          rows: [],
+          pagination: { page: 1, pageSize: 25, total: 0 },
+        },
+        selectedJob: createJob('validating'),
+        selectedJobId: 'job-1',
+        onRealtimeJobUpdate,
+        onRefreshRequestIdBump,
+      })
+    );
+
+    // Trigger fallback poll
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+
+    expect(refreshJob).toHaveBeenCalledTimes(1);
+
+    // While poll is in-flight, Realtime update arrives
+    const realtimeCallback = mockChannel.on.mock.calls[0][2];
+    act(() => {
+      realtimeCallback({
+        new: {
+          id: 'job-1',
+          status: 'validating',
+          processed_rows: 1000,
+          total_rows: 5822,
+        },
+      });
+    });
+
+    // Should have bumped the request ID to invalidate the in-flight poll
+    expect(onRefreshRequestIdBump).toHaveBeenCalled();
   });
 
   it('does not overlap polling when selected job object changes mid-poll', async () => {
@@ -64,7 +322,7 @@ describe('useMigrationJobPolling', () => {
     );
 
     await act(async () => {
-      vi.advanceTimersByTime(2500);
+      vi.advanceTimersByTime(5000);
       await Promise.resolve();
     });
 
@@ -78,10 +336,11 @@ describe('useMigrationJobPolling', () => {
     });
 
     await act(async () => {
-      vi.advanceTimersByTime(2500);
+      vi.advanceTimersByTime(5000);
       await Promise.resolve();
     });
 
+    // Should still only be 1 call since first hasn't resolved
     expect(refreshJob).toHaveBeenCalledTimes(1);
 
     await act(async () => {
