@@ -14,7 +14,11 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
-import { exchangeJumiaCode, getJumiaRedirectUri } from '@/lib/jumia/helpers';
+import {
+  exchangeJumiaCode,
+  getJumiaRedirectUri,
+  sanitizeJumiaErrorDetails,
+} from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
 
 function createPlatformRedirect(
@@ -138,6 +142,9 @@ export async function GET(request: NextRequest) {
         redirectUri: jumiaRedirectUri,
       });
     } catch (tokenError) {
+      const tokenErrorDetails = sanitizeJumiaErrorDetails(
+        (tokenError as Error & { details?: unknown }).details
+      );
       logger.error({
         message: 'Jumia Callback Token exchange failed',
         merchantId,
@@ -148,6 +155,9 @@ export async function GET(request: NextRequest) {
                 name: tokenError.name,
                 message: tokenError.message,
                 status: (tokenError as Error & { status?: number }).status,
+                ...(tokenErrorDetails === undefined
+                  ? {}
+                  : { details: tokenErrorDetails }),
               }
             : String(tokenError).slice(0, 200),
       });

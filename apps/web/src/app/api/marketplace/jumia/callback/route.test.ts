@@ -62,10 +62,17 @@ vi.mock('@/lib/api-auth', () => ({
     mockGetMerchantIdForApiUser(...args),
 }));
 
-vi.mock('@/lib/jumia/helpers', () => ({
-  exchangeJumiaCode: (...args: unknown[]) => mockExchangeJumiaCode(...args),
-  getJumiaRedirectUri: (appUrl: string) => mockGetJumiaRedirectUri(appUrl),
-}));
+vi.mock('@/lib/jumia/helpers', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/jumia/helpers')>(
+    '@/lib/jumia/helpers'
+  );
+
+  return {
+    ...actual,
+    exchangeJumiaCode: (...args: unknown[]) => mockExchangeJumiaCode(...args),
+    getJumiaRedirectUri: (appUrl: string) => mockGetJumiaRedirectUri(appUrl),
+  };
+});
 
 vi.mock('@/lib/jumia/client', () => ({
   JumiaClient: class {
@@ -284,6 +291,47 @@ describe('Jumia callback route', () => {
       'error=token_exchange_failed'
     );
     expect(mockExchangeJumiaCode).toHaveBeenCalledTimes(1);
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('logs sanitized Jumia token error details when token exchange is rejected', async () => {
+    mockExchangeJumiaCode.mockRejectedValueOnce(
+      Object.assign(new Error('Token exchange failed'), {
+        status: 401,
+        details: JSON.stringify({
+          error: 'invalid_grant',
+          error_description:
+            'The requested redirect_uri is missing in the client configuration.',
+          code: 'auth-code-123',
+          client_secret: 'top-secret',
+        }),
+      })
+    );
+
+    const response = await GET(makeCallbackRequest());
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain(
+      'error=token_exchange_failed'
+    );
+    expect(mockLoggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Jumia Callback Token exchange failed',
+        redirectUri: PUBLIC_CALLBACK_URL,
+        error: expect.objectContaining({
+          name: 'Error',
+          message: 'Token exchange failed',
+          status: 401,
+          details: expect.objectContaining({
+            error: 'invalid_grant',
+            error_description:
+              'The requested redirect_uri is missing in the client configuration.',
+            code: '[REDACTED]',
+            client_secret: '[REDACTED]',
+          }),
+        }),
+      })
+    );
     expect(mockUpsert).not.toHaveBeenCalled();
   });
 

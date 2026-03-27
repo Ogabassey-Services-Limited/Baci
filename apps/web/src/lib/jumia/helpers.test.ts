@@ -15,6 +15,7 @@ import {
   getJumiaEnvironment,
   getJumiaRedirectUri,
   JumiaApiError,
+  sanitizeJumiaErrorDetails,
   TOKEN_REFRESH_BUFFER_MS,
 } from '@/lib/jumia/helpers';
 
@@ -63,6 +64,64 @@ describe('helpers', () => {
   describe('TOKEN_REFRESH_BUFFER_MS', () => {
     it('is 5 minutes in milliseconds', () => {
       expect(TOKEN_REFRESH_BUFFER_MS).toBe(5 * 60 * 1000);
+    });
+  });
+
+  describe('sanitizeJumiaErrorDetails', () => {
+    it('parses structured errors and redacts sensitive fields', () => {
+      const sanitized = sanitizeJumiaErrorDetails(
+        JSON.stringify({
+          error: 'invalid_grant',
+          error_description:
+            'The requested redirect_uri is missing in the client configuration.',
+          code: 'auth-code-123',
+          client_secret: 'super-secret',
+        })
+      );
+
+      expect(sanitized).toEqual({
+        error: 'invalid_grant',
+        error_description:
+          'The requested redirect_uri is missing in the client configuration.',
+        code: '[REDACTED]',
+        client_secret: '[REDACTED]',
+      });
+    });
+
+    it('returns malformed JSON strings unchanged when parsing fails', () => {
+      expect(sanitizeJumiaErrorDetails('{invalid:}')).toBe('{invalid:}');
+    });
+
+    it('returns plain text strings unchanged when parsing fails', () => {
+      expect(sanitizeJumiaErrorDetails('unexpected error text')).toBe(
+        'unexpected error text'
+      );
+    });
+
+    it('redacts query params when sensitive parameters appear at the start of the string', () => {
+      expect(
+        sanitizeJumiaErrorDetails(
+          'code=auth-code-123&client_secret=super-secret&error=invalid_grant'
+        )
+      ).toBe('code=[REDACTED]&client_secret=[REDACTED]&error=invalid_grant');
+    });
+
+    it('serializes BigInt and circular objects without throwing', () => {
+      const details: {
+        error: string;
+        expires_in: bigint;
+        self?: unknown;
+      } = {
+        error: 'invalid_grant',
+        expires_in: 3600n,
+      };
+      details.self = details;
+
+      expect(sanitizeJumiaErrorDetails(details)).toEqual({
+        error: 'invalid_grant',
+        expires_in: '3600',
+        self: '[Circular]',
+      });
     });
   });
 
