@@ -87,6 +87,42 @@ describe('helpers', () => {
         client_secret: '[REDACTED]',
       });
     });
+
+    it('returns malformed JSON strings unchanged when parsing fails', () => {
+      expect(sanitizeJumiaErrorDetails('{invalid:}')).toBe('{invalid:}');
+    });
+
+    it('returns plain text strings unchanged when parsing fails', () => {
+      expect(sanitizeJumiaErrorDetails('unexpected error text')).toBe(
+        'unexpected error text'
+      );
+    });
+
+    it('redacts query params when sensitive parameters appear at the start of the string', () => {
+      expect(
+        sanitizeJumiaErrorDetails(
+          'code=auth-code-123&client_secret=super-secret&error=invalid_grant'
+        )
+      ).toBe('code=[REDACTED]&client_secret=[REDACTED]&error=invalid_grant');
+    });
+
+    it('serializes BigInt and circular objects without throwing', () => {
+      const details: {
+        error: string;
+        expires_in: bigint;
+        self?: unknown;
+      } = {
+        error: 'invalid_grant',
+        expires_in: 3600n,
+      };
+      details.self = details;
+
+      expect(sanitizeJumiaErrorDetails(details)).toEqual({
+        error: 'invalid_grant',
+        expires_in: '3600',
+        self: '[Circular]',
+      });
+    });
   });
 
   describe('getJumiaAuthUrl', () => {

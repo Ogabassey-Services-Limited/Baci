@@ -75,7 +75,44 @@ function redactJumiaErrorDetails(raw: string): string {
       '"$1":"[REDACTED]"'
     )
     .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
-    .replace(/(?<=[?&])(client_secret|code)=[^&\s"]*/gi, '$1=[REDACTED]');
+    .replace(/(^|[?&])(client_secret|code)=[^&\s"]*/gi, '$1$2=[REDACTED]');
+}
+
+function safeStringifyJumiaErrorDetails(details: unknown): string {
+  if (typeof details === 'string') {
+    return details;
+  }
+
+  const seen = new WeakSet<object>();
+
+  try {
+    const stringified = JSON.stringify(
+      details,
+      (_key, value: unknown) => {
+        if (typeof value === 'bigint') {
+          return value.toString();
+        }
+
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value)) {
+            return '[Circular]';
+          }
+          seen.add(value);
+        }
+
+        return value;
+      },
+      2
+    );
+
+    if (typeof stringified === 'string') {
+      return stringified;
+    }
+  } catch {
+    // Fall through to String(details)
+  }
+
+  return String(details);
 }
 
 export function sanitizeJumiaErrorDetails(
@@ -86,8 +123,7 @@ export function sanitizeJumiaErrorDetails(
     return undefined;
   }
 
-  const raw =
-    typeof details === 'string' ? details : JSON.stringify(details, null, 2);
+  const raw = safeStringifyJumiaErrorDetails(details);
   const redacted = redactJumiaErrorDetails(raw);
 
   if (redacted.length > maxLength) {
