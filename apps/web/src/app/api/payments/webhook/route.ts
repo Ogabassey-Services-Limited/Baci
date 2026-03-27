@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
@@ -88,15 +88,7 @@ function verifyKorapayWebhookSignature(
       .update(payload)
       .digest('hex');
 
-    // Use timing-safe comparison to prevent timing attacks
-    const signatureBuffer = Buffer.from(String(signature), 'hex');
-    const expectedBuffer = Buffer.from(String(expectedSignature), 'hex');
-
-    if (signatureBuffer.length !== expectedBuffer.length) {
-      return false;
-    }
-
-    return timingSafeEqual(signatureBuffer, expectedBuffer);
+    return constantTimeEqual(String(signature), String(expectedSignature));
   } catch (error) {
     logger.error({
       message: 'Korapay webhook signature verification error',
@@ -133,15 +125,7 @@ function verifyPaystackWebhookSignature(
       .update(payload)
       .digest('hex');
 
-    // Use timing-safe comparison to prevent timing attacks
-    const signatureBuffer = Buffer.from(String(signature), 'hex');
-    const expectedBuffer = Buffer.from(String(expectedSignature), 'hex');
-
-    if (signatureBuffer.length !== expectedBuffer.length) {
-      return false;
-    }
-
-    return timingSafeEqual(signatureBuffer, expectedBuffer);
+    return constantTimeEqual(String(signature), String(expectedSignature));
   } catch (error) {
     logger.error({
       message: 'Paystack webhook signature verification error',

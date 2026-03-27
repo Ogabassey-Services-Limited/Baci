@@ -8,6 +8,7 @@
  */
 
 import crypto from 'node:crypto';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 
 // ============================================================================
 // Types
@@ -140,15 +141,7 @@ export function verifyWebhookSignature(
     .update(payload)
     .digest('hex');
 
-  // HMAC-based constant-time comparison: normalizes length via digest,
-  // so timingSafeEqual never throws and no length info leaks.
-  const key = crypto.randomBytes(32);
-  const hmacA = crypto.createHmac('sha256', key).update(signature).digest();
-  const hmacB = crypto
-    .createHmac('sha256', key)
-    .update(expectedSignature)
-    .digest();
-  return crypto.timingSafeEqual(hmacA, hmacB);
+  return constantTimeEqual(signature, expectedSignature);
 }
 
 /**

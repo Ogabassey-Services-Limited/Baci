@@ -1,7 +1,7 @@
-import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     if (
       !cronSecret ||
       !expectedSecret ||
-      !timingSafeEqual(Buffer.from(cronSecret), Buffer.from(expectedSecret))
+      !constantTimeEqual(cronSecret, expectedSecret)
     ) {
       console.warn('Unauthorized cron attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

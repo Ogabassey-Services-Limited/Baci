@@ -1,17 +1,5 @@
-import crypto from 'node:crypto';
 import type { NextRequest } from 'next/server';
-
-/**
- * Constant-time string comparison using HMAC.
- * Unlike timingSafeEqual, this handles different-length inputs safely
- * without leaking length information via timing or thrown errors.
- */
-function constantTimeEqual(a: string, b: string): boolean {
-  const key = crypto.randomBytes(32);
-  const hmacA = crypto.createHmac('sha256', key).update(a).digest();
-  const hmacB = crypto.createHmac('sha256', key).update(b).digest();
-  return crypto.timingSafeEqual(hmacA, hmacB);
-}
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 
 /**
  * Verifies the OpenAI Agentic Commerce API key from the request authorization header.
