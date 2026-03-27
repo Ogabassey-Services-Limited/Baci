@@ -34,7 +34,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import jumiaLogo from '../../../../public/jumia-logo.png';
 import { ConnectJumiaDialog } from './connect-jumia-dialog';
 import {
   disconnectIntegration,
@@ -212,7 +211,7 @@ export default function ChannelsClientPage() {
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-lg flex items-center justify-center border overflow-hidden p-1.5">
                 <Image
-                  src={jumiaLogo}
+                  src="/jumia-logo.png"
                   alt="Jumia"
                   width={40}
                   height={40}
