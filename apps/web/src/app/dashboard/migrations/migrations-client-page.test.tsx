@@ -204,7 +204,7 @@ describe('MigrationsClientPage', () => {
     expect(await screen.findByText('products.csv')).toBeInTheDocument();
   });
 
-  it('shows an error when loading the selected job fails', async () => {
+  it('keeps the current UI state when a background job refresh fails', async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: false,
       status: 500,
@@ -235,9 +235,15 @@ describe('MigrationsClientPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /orders\.csv/i }));
 
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith('/api/import-jobs/job-1', {
+        cache: 'no-store',
+      });
+    });
+
     expect(
-      await screen.findByText(/failed to load import job/i)
-    ).toBeInTheDocument();
+      screen.queryByText(/failed to load import job/i)
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/no validation errors/i)).not.toBeInTheDocument();
   });
 
