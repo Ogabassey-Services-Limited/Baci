@@ -1,8 +1,3 @@
-/**
- * Jumia OAuth Callback Route
- * Handles the return from Jumia OAuth authorization flow
- */
-
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   getConfiguredAppUrl,
@@ -45,11 +40,7 @@ export async function GET(request: NextRequest) {
     const rawError = searchParams.get('error');
     const cookieMerchantId = request.cookies.get('jumia_merchant_id')?.value;
 
-    // ── Security checks FIRST — must not be bypassable by query params ──
-
-    // 1. CSRF: verify state matches (OAuth 2.0 §10.12)
     const storedState = request.cookies.get('jumia_oauth_state')?.value;
-
     if (!storedState || storedState !== state) {
       logger.error({
         message: 'Jumia Callback State mismatch',
@@ -59,7 +50,6 @@ export async function GET(request: NextRequest) {
       return createPlatformRedirect(request, 'error=invalid_state');
     }
 
-    // 2. Auth: verify user session
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       logger.error({
@@ -69,7 +59,6 @@ export async function GET(request: NextRequest) {
       return createPlatformRedirect(request, 'error=session_expired');
     }
 
-    // 3. Merchant: verify ownership
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       logger.error({ message: 'Jumia Callback Merchant not found' });
@@ -85,9 +74,6 @@ export async function GET(request: NextRequest) {
       return createPlatformRedirect(request, 'error=session_expired');
     }
 
-    // ── OAuth response handling (after security checks pass) ──
-
-    // Map OAuth error to a known safe value to prevent reflection of arbitrary user input
     const KNOWN_OAUTH_ERRORS = new Set([
       'access_denied',
       'invalid_request',
@@ -132,7 +118,6 @@ export async function GET(request: NextRequest) {
     }
     const jumiaRedirectUri = getJumiaRedirectUri(appUrl);
 
-    // Exchange code for tokens
     let tokens: Awaited<ReturnType<typeof exchangeJumiaCode>>;
     try {
       tokens = await exchangeJumiaCode({
@@ -164,17 +149,14 @@ export async function GET(request: NextRequest) {
       return createPlatformRedirect(request, 'error=token_exchange_failed');
     }
 
-    // Calculate token expiry
     const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);
 
-    // 2026 Best Practice: Use the unified JumiaClient to discover all shops (Master or Regular)
-    // with Zod validation to ensure "No Guessing" implementation.
     const tempClient = new JumiaClient({
       integrationId: 'temp',
       merchantId,
       shopId: 'oauth',
       accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token || '', // Handle missing refresh token gracefully
+      refreshToken: tokens.refresh_token || '',
       tokenExpiresAt: tokenExpiresAt,
       supabase: auth.supabase,
     });
@@ -197,9 +179,27 @@ export async function GET(request: NextRequest) {
       discoveredShops = [];
     }
     const supabase = auth.supabase;
+    const { data: existingIntegrations, error: existingIntegrationsError } =
+      await supabase
+        .from('marketplace_integrations')
+        .select('shop_id,is_active')
+        .eq('merchant_id', merchantId)
+        .eq('platform', 'jumia');
 
-    // Track whether we had to synthesize a fallback shop (discovery failed).
-    // Fallback shops should NOT be marked active — the merchant must manually re-connect.
+    if (existingIntegrationsError) {
+      logger.error({
+        message: 'Jumia Callback Failed to load existing integrations',
+        merchantId,
+        error: existingIntegrationsError,
+      });
+      return createPlatformRedirect(request, 'error=database_error');
+    }
+    const existingActiveShopIds = new Set(
+      (existingIntegrations ?? [])
+        .filter((integration) => integration.is_active)
+        .map((integration) => integration.shop_id)
+    );
+
     let isFallbackShop = false;
     if (discoveredShops.length === 0) {
       logger.warn({
@@ -210,7 +210,6 @@ export async function GET(request: NextRequest) {
       discoveredShops.push({
         id: 'oauth',
         name: 'Jumia Shop',
-        // Required by JumiaShopSchema (non-nullable); real email is unknown at OAuth time
         email: '',
         businessClients: [
           {
@@ -260,8 +259,18 @@ export async function GET(request: NextRequest) {
       return createPlatformRedirect(request, 'error=database_error');
     }
 
-    // Clear OAuth cookies
-    const response = createPlatformRedirect(request, 'success=jumia_connected');
+    const newShopIds = integrationRows
+      .filter(
+        (integration) =>
+          integration.is_active &&
+          !existingActiveShopIds.has(integration.shop_id)
+      )
+      .map((integration) => integration.shop_id);
+    const redirectQuery =
+      newShopIds.length > 0
+        ? `success=jumia_connected&shops=${encodeURIComponent(newShopIds.join(','))}`
+        : 'success=jumia_connected';
+    const response = createPlatformRedirect(request, redirectQuery);
     const platform = request.cookies.get('jumia_oauth_platform')?.value;
 
     response.cookies.delete('jumia_oauth_state');

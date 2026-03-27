@@ -213,9 +213,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 24,
   },
-  row: {
-    paddingHorizontal: 16,
-  },
   productWrapper: {
     flex: 1,
   },

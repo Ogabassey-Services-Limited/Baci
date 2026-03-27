@@ -4,9 +4,10 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
+import { useRef } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, Layout } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +27,7 @@ export default function SavedItemsScreen() {
   const removeItem = useSavedStore((state) => state.removeItem);
   const clearSaved = useSavedStore((state) => state.clearSaved);
   const addToCart = useCartStore((state) => state.addItem);
+  const flashListRef = useRef<FlashListRef<SavedItem>>(null);
 
   const handleRemove = (item: SavedItem) => {
     Alert.alert('Remove Item', `Remove "${item.name}" from saved items?`, [
@@ -33,7 +35,10 @@ export default function SavedItemsScreen() {
       {
         text: 'Remove',
         style: 'destructive',
-        onPress: () => removeItem(item.product_id),
+        onPress: () => {
+          flashListRef.current?.prepareForLayoutAnimationRender();
+          removeItem(item.product_id);
+        },
       },
     ]);
   };
@@ -44,7 +49,14 @@ export default function SavedItemsScreen() {
       'Are you sure you want to remove all saved items?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear All', style: 'destructive', onPress: clearSaved },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: () => {
+            flashListRef.current?.prepareForLayoutAnimationRender();
+            clearSaved();
+          },
+        },
       ]
     );
   };
@@ -235,6 +247,7 @@ export default function SavedItemsScreen() {
       />
 
       <FlashList
+        ref={flashListRef}
         data={items}
         renderItem={renderSavedItem}
         keyExtractor={(item) => item.id}

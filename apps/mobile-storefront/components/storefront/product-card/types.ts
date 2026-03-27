@@ -22,6 +22,7 @@ export interface BaseProductCardVariantProps {
 export interface GridProductCardProps extends BaseProductCardVariantProps {
   gridWidth: number;
   shadowColor: string;
+  colors?: (typeof Colors)['light'];
 }
 
 export interface ListProductCardProps extends BaseProductCardVariantProps {

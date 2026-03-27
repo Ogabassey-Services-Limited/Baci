@@ -55,13 +55,14 @@ export function useJumiaIntegrations() {
     };
   }, []);
 
-  const refetch = async () => {
+  const refetch = async (): Promise<JumiaIntegration[]> => {
     setLoading(true);
     setError(null);
     const result = await fetchJumiaIntegrations();
     setIntegrations(result.integrations);
     setError(result.error);
     setLoading(false);
+    return result.integrations;
   };
 
   return { integrations, setIntegrations, loading, error, refetch };
