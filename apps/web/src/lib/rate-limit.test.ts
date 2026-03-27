@@ -77,6 +77,16 @@ describe('Rate Limit — in-memory fallback', () => {
     expect(result.limit).toBe(5);
   });
 
+  it('uses the elevated migration limit for nested import job routes', async () => {
+    const req = new NextRequest(
+      'http://localhost:3000/api/import-jobs/job-1/rows?page=1&pageSize=25'
+    );
+    req.headers.set('x-forwarded-for', '3.3.3.30');
+
+    const result = await checkRateLimit(req);
+    expect(result.limit).toBe(240);
+  });
+
   it('enforces stricter limit for newsletter unsubscribe', async () => {
     const req = new NextRequest(
       'http://localhost:3000/api/newsletter/unsubscribe'
