@@ -1,6 +1,7 @@
+import type { FlashListRef } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
-import { type FlatList, Platform, type TextInput } from 'react-native';
+import { Platform, type TextInput } from 'react-native';
 import { createLogger } from '@/lib/logger';
 import { useUIStore } from '@/stores/ui-store';
 import { API_BASE_URL } from './constants';
@@ -16,7 +17,7 @@ export function useChat(santaMode: boolean) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const flatListRef = useRef<FlatList>(null);
+  const flatListRef = useRef<FlashListRef<ChatMessage>>(null);
   const inputRef = useRef<TextInput>(null);
   const _msgCounter = useRef(0);
 

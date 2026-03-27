@@ -5,11 +5,11 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { Redirect, router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   RefreshControl,
   StyleSheet,
   Text,
@@ -490,7 +490,7 @@ export default function OrdersScreen() {
         </View>
       )}
 
-      <FlatList
+      <FlashList
         data={filteredOrders}
         renderItem={renderOrderItem}
         keyExtractor={(item) => item.id}

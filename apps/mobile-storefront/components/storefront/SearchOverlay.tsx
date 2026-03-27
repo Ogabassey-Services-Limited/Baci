@@ -14,11 +14,11 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Keyboard,
   Pressable,
   StyleSheet,
@@ -36,11 +36,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
-import {
-  type Category,
-  useCategories,
-  useProducts,
-} from '@/hooks';
+import { type Category, useCategories, useProducts } from '@/hooks';
 import { useSearchStorage } from '@/hooks/use-search-storage';
 import type { Product } from '@/types/product';
 
@@ -231,7 +227,7 @@ export function SearchOverlay({
     }
 
     return (
-      <FlatList
+      <FlashList
         data={products}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (

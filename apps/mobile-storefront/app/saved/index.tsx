@@ -4,17 +4,11 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
-import {
-  Alert,
-  FlatList,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { useRef } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, Layout } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
@@ -33,6 +27,7 @@ export default function SavedItemsScreen() {
   const removeItem = useSavedStore((state) => state.removeItem);
   const clearSaved = useSavedStore((state) => state.clearSaved);
   const addToCart = useCartStore((state) => state.addItem);
+  const flashListRef = useRef<FlashListRef<SavedItem>>(null);
 
   const handleRemove = (item: SavedItem) => {
     Alert.alert('Remove Item', `Remove "${item.name}" from saved items?`, [
@@ -40,7 +35,10 @@ export default function SavedItemsScreen() {
       {
         text: 'Remove',
         style: 'destructive',
-        onPress: () => removeItem(item.product_id),
+        onPress: () => {
+          flashListRef.current?.prepareForLayoutAnimationRender();
+          removeItem(item.product_id);
+        },
       },
     ]);
   };
@@ -51,7 +49,14 @@ export default function SavedItemsScreen() {
       'Are you sure you want to remove all saved items?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Clear All', style: 'destructive', onPress: clearSaved },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: () => {
+            flashListRef.current?.prepareForLayoutAnimationRender();
+            clearSaved();
+          },
+        },
       ]
     );
   };
@@ -230,24 +235,6 @@ export default function SavedItemsScreen() {
 
   // Approximate height of saved item card:
   // padding SPACING.md (16) * 2 = 32
-  // image height: 100
-  // actionsRow paddingBottom: SPACING.md (16)
-  // actionsRow button height approx: font 13 + paddingVertical SPACING.sm (12) * 2 = 37
-  // total item content height = 32 + 100 + 16 + 37 = 185
-  const ITEM_CONTENT_HEIGHT = 185;
-  const ITEM_SEPARATOR_HEIGHT = SPACING.md;
-  // Header is a single text row with a bottom margin.
-  const HEADER_HEIGHT = 20 + SPACING.md;
-  const getItemLayout = (
-    _data: ArrayLike<SavedItem> | null | undefined,
-    index: number
-  ) => ({
-    length: ITEM_CONTENT_HEIGHT,
-    offset:
-      HEADER_HEIGHT + (ITEM_CONTENT_HEIGHT + ITEM_SEPARATOR_HEIGHT) * index,
-    index,
-  });
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen
@@ -259,15 +246,11 @@ export default function SavedItemsScreen() {
         }}
       />
 
-      <FlatList
+      <FlashList
+        ref={flashListRef}
         data={items}
         renderItem={renderSavedItem}
         keyExtractor={(item) => item.id}
-        getItemLayout={getItemLayout}
-        removeClippedSubviews={Platform.OS === 'android'}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        initialNumToRender={8}
         contentContainerStyle={[
           styles.listContent,
           items.length === 0 && styles.emptyListContent,

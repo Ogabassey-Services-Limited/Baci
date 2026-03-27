@@ -4,23 +4,17 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import {
-  FlatList,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { useNetworkState } from '@/hooks/use-network-state';
-import { type SavedItem, useSavedStore } from '@/stores/saved-store';
+import { useSavedStore } from '@/stores/saved-store';
 
 export default function SavedTabScreen() {
   const colorScheme = useColorScheme();
@@ -29,17 +23,6 @@ export default function SavedTabScreen() {
     useShallow((s) => ({ items: s.items, removeItem: s.removeItem }))
   );
   const { isOnline, refresh } = useNetworkState();
-
-  const SAVED_ITEM_HEIGHT = 80 + SPACING.md * 2; // Image height + 2 * padding
-  const SAVED_ITEM_GAP = SPACING.md;
-  const getItemLayout = (
-    _data: ArrayLike<SavedItem> | null | undefined,
-    index: number
-  ) => ({
-    length: SAVED_ITEM_HEIGHT,
-    offset: (SAVED_ITEM_HEIGHT + SAVED_ITEM_GAP) * index,
-    index,
-  });
 
   const handleProductPress = (slug: string) => {
     // M12 FIX: Guard navigation - only navigate if slug is truthy
@@ -137,14 +120,9 @@ export default function SavedTabScreen() {
         />
       )}
 
-      <FlatList
+      <FlashList
         data={items}
         keyExtractor={(item) => item.id}
-        getItemLayout={getItemLayout}
-        removeClippedSubviews={Platform.OS === 'android'}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        initialNumToRender={8}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
