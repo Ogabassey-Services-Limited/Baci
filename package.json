@@ -88,7 +88,8 @@
       "unhead": "^2.1.12",
       "@unhead/vue": "^2.1.12",
       "happy-dom": ">=20.8.8",
-      "node-forge": "1.4.0"
+      "node-forge": "1.4.0",
+      "path-to-regexp": ">=0.1.13"
     },
     "patchedDependencies": {
       "novel@1.0.2": "patches/novel@1.0.2.patch"
