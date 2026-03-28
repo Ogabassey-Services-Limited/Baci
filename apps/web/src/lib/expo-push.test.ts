@@ -70,9 +70,6 @@ let notifyNewOrder: typeof import('./expo-push').notifyNewOrder;
 let notifyPaymentReceived: typeof import('./expo-push').notifyPaymentReceived;
 let notifyLowStock: typeof import('./expo-push').notifyLowStock;
 let notifyNewReview: typeof import('./expo-push').notifyNewReview;
-let notifyNegotiationRequest: typeof import('./expo-push').notifyNegotiationRequest;
-let notifyNegotiationResponse: typeof import('./expo-push').notifyNegotiationResponse;
-
 beforeEach(async () => {
   vi.clearAllMocks();
 
@@ -85,8 +82,6 @@ beforeEach(async () => {
   notifyPaymentReceived = mod.notifyPaymentReceived;
   notifyLowStock = mod.notifyLowStock;
   notifyNewReview = mod.notifyNewReview;
-  notifyNegotiationRequest = mod.notifyNegotiationRequest;
-  notifyNegotiationResponse = mod.notifyNegotiationResponse;
 });
 
 afterEach(() => {
@@ -440,128 +435,5 @@ describe('notifyNewReview', () => {
     expect(sentMessages[0].body).toContain('Jane');
     expect(sentMessages[0].body).toContain('5');
     expect(sentMessages[0].body).toContain('Blue Shirt');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Negotiation helpers
-// ---------------------------------------------------------------------------
-describe('notifyNegotiationRequest', () => {
-  it('sends single-item negotiation with discount', async () => {
-    const mockChain = createChainableMock([{ token: 'ExponentPushToken[m1]' }]);
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi.fn().mockReturnValue(mockChain),
-    } as never);
-
-    mockSendPushNotificationsAsync.mockResolvedValueOnce([
-      { status: 'ok', id: 't1' },
-    ]);
-
-    await notifyNegotiationRequest(
-      'merchant-1',
-      'single',
-      8000,
-      'neg-123',
-      'Laptop Stand',
-      10000
-    );
-
-    const sentMessages = mockChunkPushNotifications.mock
-      .calls[0][0] as ExpoPushMessage[];
-    expect(sentMessages[0].title).toContain('Negotiation');
-    expect(sentMessages[0].body).toContain('Laptop Stand');
-    expect(sentMessages[0].body).toContain('20%'); // (10000-8000)/10000 = 20%
-    expect(sentMessages[0].channelId).toBe('orders');
-    expect(sentMessages[0].data).toEqual(
-      expect.objectContaining({
-        type: 'negotiation',
-        negotiation_id: 'neg-123',
-      })
-    );
-  });
-
-  it('sends cart-level negotiation without item name', async () => {
-    const mockChain = createChainableMock([{ token: 'ExponentPushToken[m1]' }]);
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi.fn().mockReturnValue(mockChain),
-    } as never);
-
-    mockSendPushNotificationsAsync.mockResolvedValueOnce([
-      { status: 'ok', id: 't1' },
-    ]);
-
-    await notifyNegotiationRequest(
-      'merchant-1',
-      'total',
-      25000,
-      'neg-456',
-      null,
-      null
-    );
-
-    const sentMessages = mockChunkPushNotifications.mock
-      .calls[0][0] as ExpoPushMessage[];
-    expect(sentMessages[0].body).toContain('Cart total');
-    expect(sentMessages[0].body).not.toContain('undefined');
-  });
-});
-
-describe('notifyNegotiationResponse', () => {
-  it('sends accepted notification for single item', async () => {
-    const mockChain = createChainableMock([{ token: 'ExponentPushToken[c1]' }]);
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi.fn().mockReturnValue(mockChain),
-    } as never);
-
-    mockSendPushNotificationsAsync.mockResolvedValueOnce([
-      { status: 'ok', id: 't1' },
-    ]);
-
-    await notifyNegotiationResponse(
-      'user-1',
-      'single',
-      'accepted',
-      'neg-id-123',
-      'Laptop Stand',
-      8000
-    );
-
-    const sentMessages = mockChunkPushNotifications.mock
-      .calls[0][0] as ExpoPushMessage[];
-    expect(sentMessages[0].title).toContain('Accepted');
-    expect(sentMessages[0].body).toContain('Laptop Stand');
-    expect(sentMessages[0].body).toContain('accepted');
-    expect(sentMessages[0].data).toEqual(
-      expect.objectContaining({
-        type: 'negotiation_response',
-        negotiation_id: 'neg-id-123',
-      })
-    );
-  });
-
-  it('sends rejected notification for cart-level negotiation', async () => {
-    const mockChain = createChainableMock([{ token: 'ExponentPushToken[c1]' }]);
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi.fn().mockReturnValue(mockChain),
-    } as never);
-
-    mockSendPushNotificationsAsync.mockResolvedValueOnce([
-      { status: 'ok', id: 't1' },
-    ]);
-
-    await notifyNegotiationResponse(
-      'user-1',
-      'total',
-      'rejected',
-      'neg-id-456',
-      null,
-      null
-    );
-
-    const sentMessages = mockChunkPushNotifications.mock
-      .calls[0][0] as ExpoPushMessage[];
-    expect(sentMessages[0].title).toContain('Declined');
-    expect(sentMessages[0].body).toContain('cart offer');
-    expect(sentMessages[0].body).not.toContain('undefined');
   });
 });

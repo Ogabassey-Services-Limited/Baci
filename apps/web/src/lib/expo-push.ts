@@ -15,7 +15,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 /**
  * Format amount as currency (e.g. ₦5,000)
  */
-function formatCurrency(amount: number, currency = 'NGN'): string {
+export function formatCurrency(amount: number, currency = 'NGN'): string {
   return new Intl.NumberFormat('en-NG', {
     style: 'currency',
     currency,
@@ -500,91 +500,6 @@ export async function notifyJumiaOrder(
       jumia_order_number: jumiaOrderNumber,
       amount,
       currency,
-    },
-    'orders'
-  );
-}
-
-// =============================================================================
-// NEGOTIATION NOTIFICATION HELPERS
-// =============================================================================
-
-/**
- * Notify merchant of a new price negotiation request.
- *
- * Handles both `type='single'` (single item with name/price) and `type='total'`
- * (cart-level negotiation where `item_info` is null).
- */
-export async function notifyNegotiationRequest(
-  merchantId: string,
-  negotiationType: 'single' | 'total',
-  offeredPrice: number,
-  negotiationId: string,
-  itemName?: string | null,
-  currentPrice?: number | null
-): Promise<void> {
-  const formattedOffer = formatCurrency(offeredPrice);
-
-  let body: string;
-  if (negotiationType === 'total' || !itemName || !currentPrice) {
-    body = `Cart total negotiation — ${formattedOffer} offered`;
-  } else {
-    const discount = Math.round(
-      ((currentPrice - offeredPrice) / currentPrice) * 100
-    );
-    body =
-      discount > 0
-        ? `${itemName} — ${formattedOffer} offered (${discount}% off)`
-        : `${itemName} — ${formattedOffer} offered`;
-  }
-
-  await notifyMerchant(
-    merchantId,
-    '🤝 New Price Negotiation',
-    body,
-    { type: 'negotiation', negotiation_id: negotiationId },
-    'orders'
-  );
-}
-
-/**
- * Notify customer of a negotiation response (accepted/rejected).
- *
- * Handles both single-item and cart-level negotiations.
- */
-export async function notifyNegotiationResponse(
-  userId: string,
-  negotiationType: 'single' | 'total',
-  status: 'accepted' | 'rejected',
-  negotiationId: string,
-  itemName?: string | null,
-  offeredPrice?: number | null
-): Promise<void> {
-  const isAccepted = status === 'accepted';
-  const title = isAccepted ? '✅ Offer Accepted!' : '❌ Offer Declined';
-
-  let body: string;
-  if (negotiationType === 'total' || !itemName) {
-    body = isAccepted
-      ? 'Your cart offer has been accepted! Complete your purchase now.'
-      : 'Your cart offer was declined. Try a new offer or buy at the listed price.';
-  } else {
-    const formattedPrice =
-      offeredPrice != null ? formatCurrency(offeredPrice) : '';
-
-    body = isAccepted
-      ? `Your offer${formattedPrice ? ` of ${formattedPrice}` : ''} for ${itemName} has been accepted!`
-      : `Your offer for ${itemName} was declined. Try a new offer or buy at the listed price.`;
-  }
-
-  await notifyCustomer(
-    userId,
-    title,
-    body,
-    {
-      type: 'negotiation_response',
-      negotiation_id: negotiationId,
-      status,
     },
     'orders'
   );

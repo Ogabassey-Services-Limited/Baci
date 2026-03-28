@@ -5,7 +5,7 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
-import { notifyNegotiationResponse } from '@/lib/expo-push';
+import { notifyNegotiationResponse } from '@/lib/negotiation-notifications';
 
 const bodySchema = z.object({
   negotiationId: z.string().uuid(),
