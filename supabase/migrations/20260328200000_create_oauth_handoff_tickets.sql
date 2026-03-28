@@ -17,8 +17,13 @@ CREATE TABLE IF NOT EXISTS oauth_handoff_tickets (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_oauth_tickets_lookup
-  ON oauth_handoff_tickets (id, status, expires_at);
+-- Covers UPDATE ... WHERE status = ? AND expires_at > now() lookups
+CREATE INDEX IF NOT EXISTS idx_oauth_tickets_status_expires
+  ON oauth_handoff_tickets (status, expires_at);
+
+-- Covers cleanup_old_oauth_handoff_tickets() WHERE created_at < threshold
+CREATE INDEX IF NOT EXISTS idx_oauth_tickets_created_at
+  ON oauth_handoff_tickets (created_at);
 
 ALTER TABLE oauth_handoff_tickets ENABLE ROW LEVEL SECURITY;
 -- Service-role only. No user-facing RLS policies needed.

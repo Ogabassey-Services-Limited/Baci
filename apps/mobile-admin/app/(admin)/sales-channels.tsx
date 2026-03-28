@@ -21,6 +21,7 @@ import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { apiClient } from '@/lib/api-client';
 
 export default function SalesChannelsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -108,6 +109,12 @@ export default function SalesChannelsScreen() {
               exchangeData.error || 'Failed to complete connection'
             );
           }
+        } else if (queryParams?.code || queryParams?.ticketId) {
+          // Partial deep link — code or ticket missing (e.g. interrupted flow)
+          Alert.alert(
+            'Connection Incomplete',
+            'The Jumia authorization flow was interrupted. Please try again.'
+          );
         }
       }
     } catch (error) {

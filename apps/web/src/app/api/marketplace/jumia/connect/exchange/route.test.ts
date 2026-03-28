@@ -176,6 +176,12 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     expect(res.status).toBe(400);
   });
 
+  // All three ticket-failure scenarios below use setupTicketConsume(false).
+  // The route's atomic UPDATE ... WHERE status='redeemed' AND user_id=? AND
+  // merchant_id=? AND expires_at > now() catches every failure mode in a single
+  // query — wrong user, wrong status, or expired ticket all produce 0 rows.
+  // Separate mocks per scenario would be redundant.
+
   it('returns 403 when ticket does not match authenticated user', async () => {
     setupAuth();
     setupTicketConsume(false);
@@ -186,7 +192,7 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
 
   it('returns 403 when ticket is already exchanged', async () => {
     setupAuth();
-    setupTicketConsume(false); // status != 'redeemed' → no rows
+    setupTicketConsume(false);
 
     const res = await POST(makeRequest({ code: 'abc', ticketId: TICKET_ID }));
     expect(res.status).toBe(403);
@@ -194,7 +200,7 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
 
   it('returns 403 when ticket is redeemed but expired', async () => {
     setupAuth();
-    setupTicketConsume(false); // expires_at < now → no rows from gt()
+    setupTicketConsume(false);
 
     const res = await POST(makeRequest({ code: 'abc', ticketId: TICKET_ID }));
     expect(res.status).toBe(403);

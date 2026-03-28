@@ -228,7 +228,7 @@ export async function GET(request: NextRequest) {
         .eq('id', ticketParsed.data)
         .eq('status', 'pending')
         .gt('expires_at', new Date().toISOString())
-        .select('merchant_id, user_id')
+        .select('merchant_id')
         .single();
 
       if (ticketError || !ticketData) {
@@ -248,10 +248,20 @@ export async function GET(request: NextRequest) {
       const state = crypto.randomBytes(16).toString('hex');
 
       // Bind OAuth state to the ticket for end-to-end verification
-      await adminClient
+      const { error: stateUpdateError } = await adminClient
         .from('oauth_handoff_tickets')
         .update({ oauth_state: state })
         .eq('id', ticketParsed.data);
+
+      if (stateUpdateError) {
+        console.error(
+          '[Jumia Connect] Failed to bind OAuth state to ticket:',
+          stateUpdateError
+        );
+        return NextResponse.redirect(
+          new URL('baciadmin://?error=ticket_invalid')
+        );
+      }
 
       const redirectUrl = getJumiaAuthUrl({
         clientId: jumiaClientId,
@@ -264,25 +274,25 @@ export async function GET(request: NextRequest) {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 600,
+        maxAge: 60 * 10, // 10 minutes
       });
       response.cookies.set('jumia_merchant_id', ticketData.merchant_id, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 600,
+        maxAge: 60 * 10, // 10 minutes
       });
       response.cookies.set('jumia_oauth_platform', 'mobile', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 600,
+        maxAge: 60 * 10, // 10 minutes
       });
       response.cookies.set('jumia_ticket_id', ticketParsed.data, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 600,
+        maxAge: 60 * 10, // 10 minutes
       });
 
       return response;

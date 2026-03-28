@@ -40,7 +40,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -110,7 +116,11 @@ export async function POST(request: NextRequest) {
     let discoveredShops: Awaited<ReturnType<typeof tempClient.getShops>>;
     try {
       discoveredShops = await tempClient.getShops();
-    } catch {
+    } catch (shopError) {
+      console.error(
+        '[Jumia Exchange] Failed to fetch shops, using fallback:',
+        shopError
+      );
       discoveredShops = [];
     }
 
@@ -192,6 +202,7 @@ export async function POST(request: NextRequest) {
       shops: newShopIds,
     });
   } catch (error) {
+    console.error('[Jumia Exchange] Unexpected error:', error);
     const message = error instanceof Error ? error.message : 'Exchange failed';
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -16,6 +16,16 @@ import {
 } from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
 
+/** RFC 6749 standard error codes plus common Jumia-specific ones. */
+const KNOWN_OAUTH_ERRORS = new Set([
+  'access_denied',
+  'invalid_request',
+  'unauthorized_client',
+  'server_error',
+  'temporarily_unavailable',
+  'invalid_scope',
+]);
+
 function clearOAuthCookies(response: NextResponse): NextResponse {
   response.cookies.delete('jumia_oauth_state');
   response.cookies.delete('jumia_merchant_id');
@@ -63,14 +73,6 @@ export async function GET(request: NextRequest) {
     // Mobile flow: pass code back via deep link, don't exchange here
     if (request.cookies.get('jumia_oauth_platform')?.value === 'mobile') {
       if (rawError) {
-        const KNOWN_OAUTH_ERRORS = new Set([
-          'access_denied',
-          'invalid_request',
-          'unauthorized_client',
-          'server_error',
-          'temporarily_unavailable',
-          'invalid_scope',
-        ]);
         const safeError = KNOWN_OAUTH_ERRORS.has(rawError)
           ? rawError
           : 'oauth_error';
@@ -93,7 +95,7 @@ export async function GET(request: NextRequest) {
 
       const response = NextResponse.redirect(
         new URL(
-          `baciadmin://?code=${encodeURIComponent(code)}&ticketId=${ticketId}`
+          `baciadmin://?code=${encodeURIComponent(code)}&ticketId=${encodeURIComponent(ticketId)}`
         )
       );
       return clearOAuthCookies(response);
@@ -122,15 +124,6 @@ export async function GET(request: NextRequest) {
       });
       return createPlatformRedirect(request, 'error=session_expired');
     }
-
-    const KNOWN_OAUTH_ERRORS = new Set([
-      'access_denied',
-      'invalid_request',
-      'unauthorized_client',
-      'server_error',
-      'temporarily_unavailable',
-      'invalid_scope',
-    ]);
 
     if (rawError) {
       const safeError = KNOWN_OAUTH_ERRORS.has(rawError)

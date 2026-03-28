@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError || !ticket) {
+      console.error('[Jumia Ticket] Insert failed:', insertError);
       return NextResponse.json(
         { error: 'Failed to create ticket' },
         { status: 500 }
@@ -65,7 +66,8 @@ export async function POST(request: NextRequest) {
     const authUrl = `${baseUrl}/api/marketplace/jumia/connect?connectionType=oauth&ticket=${ticket.id}&platform=mobile`;
 
     return NextResponse.json({ ticket: ticket.id, authUrl });
-  } catch {
+  } catch (error) {
+    console.error('[Jumia Ticket] Unexpected error:', error);
     return NextResponse.json(
       { error: 'Failed to create ticket' },
       { status: 500 }
