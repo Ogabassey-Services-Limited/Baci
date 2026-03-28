@@ -17,6 +17,7 @@ const RegisterTokenSchema = z.object({
   platform: z.enum(['ios', 'android']),
   device_name: z.string().optional(),
   merchant_id: z.string().uuid().optional(),
+  app_type: z.enum(['admin', 'storefront']).default('admin'),
 });
 
 export async function POST(request: NextRequest) {
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { token, platform, device_name, merchant_id } = parsed.data;
+    const { token, platform, device_name, merchant_id, app_type } = parsed.data;
 
     // Get merchant - either from request or find user's merchant (owner or staff)
     let resolvedMerchantId = merchant_id;
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
             merchant_id: resolvedMerchantId,
             platform,
             device_name: device_name || null,
+            app_type,
             is_active: true,
             last_used_at: new Date().toISOString(),
           })
@@ -104,6 +106,7 @@ export async function POST(request: NextRequest) {
             merchant_id: resolvedMerchantId,
             platform,
             device_name: device_name || null,
+            app_type,
             is_active: true,
             last_used_at: new Date().toISOString(),
           })
@@ -134,6 +137,7 @@ export async function POST(request: NextRequest) {
         token,
         platform,
         device_name: device_name || null,
+        app_type,
         is_active: true,
       })
       .select('id')

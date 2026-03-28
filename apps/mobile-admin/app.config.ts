@@ -134,6 +134,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-font',
     'expo-sharing',
     'react-native-edge-to-edge',
+    './plugins/with-ios-release-hardening',
   ],
   web: {
     bundler: 'metro',

@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { notifyNewReview } from '@/lib/expo-push';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -180,7 +181,7 @@ export async function POST(request: NextRequest) {
     // Check if product exists
     const { data: product, error: productError } = await supabase
       .from('products')
-      .select('id, merchant_id')
+      .select('id, merchant_id, name')
       .eq('id', productId)
       .single();
 
@@ -255,6 +256,14 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Notify merchant of new review (fire-and-forget)
+    notifyNewReview(
+      merchantId,
+      product.name || 'Product',
+      rating,
+      customerName || 'A customer'
+    ).catch((err) => console.error('Review notification failed:', err));
 
     return NextResponse.json({
       success: true,

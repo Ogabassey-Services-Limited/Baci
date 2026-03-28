@@ -1,9 +1,10 @@
 import { cookies } from 'next/headers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
+import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import {
   type JuicywayWebhookPayload,
   verifyWebhookSignature,
@@ -277,6 +278,43 @@ export async function POST(request: NextRequest) {
             error: emailError,
           });
         }
+
+        // Notify merchant of new order and payment (non-blocking)
+        const orderNum =
+          order.order_number || order.id.slice(0, 8).toUpperCase();
+        const total = Number.parseFloat(order.total || '0');
+        const currency = order.currency || 'NGN';
+        const customerName = order.customer_name || 'Customer';
+        after(async () => {
+          try {
+            await notifyNewOrder(
+              transaction.merchant_id,
+              orderNum,
+              customerName,
+              total,
+              currency
+            );
+          } catch (err) {
+            logger.error({
+              message: 'New order push notification failed',
+              error: err,
+            });
+          }
+
+          try {
+            await notifyPaymentReceived(
+              transaction.merchant_id,
+              total,
+              currency,
+              orderNum
+            );
+          } catch (err) {
+            logger.error({
+              message: 'Payment received push notification failed',
+              error: err,
+            });
+          }
+        });
 
         // Send offline conversion events to ad platforms
         try {

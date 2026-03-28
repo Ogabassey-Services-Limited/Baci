@@ -151,11 +151,7 @@ export async function GET(request: NextRequest) {
         p_end_date: new Date().toISOString().split('T')[0],
       }),
       getAdminMerchantHealthRows(supabase),
-      supabase
-        .from('platform_growth')
-        .select('month, new_merchants')
-        .order('month', { ascending: false })
-        .limit(2),
+      supabase.rpc('get_admin_platform_growth', { p_limit: 2 }),
       supabase
         .from('merchants')
         .select(
