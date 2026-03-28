@@ -6,6 +6,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
 // Validation schema
@@ -42,6 +43,9 @@ interface NegotiationResult {
 
 export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid && response) return response;
+
     const body = await request.json();
     const validatedData = NegotiationSchema.parse(body);
 

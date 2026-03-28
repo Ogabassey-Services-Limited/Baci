@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { createAnonClient } from '@/lib/supabase/anon';
 import {
@@ -17,6 +18,9 @@ import {
  */
 export async function POST(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid && response) return response;
+
     let body: unknown;
     try {
       body = await request.json();
