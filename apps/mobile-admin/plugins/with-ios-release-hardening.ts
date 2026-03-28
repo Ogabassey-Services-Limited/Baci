@@ -5,7 +5,7 @@
  * production-ready settings that survive `expo prebuild --clean`.
  *
  * Fixes: APNs entitlements, code signing, Info.plist cleanup,
- * LIBRARY_SEARCH_PATHS, privacy manifest, local network description.
+ * privacy manifest, local network description.
  */
 
 import {
@@ -78,25 +78,10 @@ const withIosReleaseHardening: ConfigPlugin<HardeningOptions | undefined> = (
         const buildSettings = configurations[key]?.buildSettings;
         if (!buildSettings) continue;
 
-        // Fix LIBRARY_SEARCH_PATHS — ensure inherited and Swift paths are always present,
-        // while preserving any additional paths that other plugins may have added
-        {
-          const paths = buildSettings.LIBRARY_SEARCH_PATHS;
-          const required = ['$(inherited)', '$(SDKROOT)/usr/lib/swift'];
-
-          let existing: string[] = [];
-          if (typeof paths === 'string') {
-            // Tokenize respecting quoted values (handles paths with spaces)
-            existing = (paths.match(/"[^"]*"|\S+/g) || [])
-              .map((p: string) => p.replace(/^"|"$/g, ''))
-              .filter(Boolean);
-          } else if (Array.isArray(paths)) {
-            existing = paths.map((p: string) => p.replace(/^"|"$/g, ''));
-          }
-          // Merge required + existing, dedupe, and quote
-          const all = [...new Set([...required, ...existing])];
-          buildSettings.LIBRARY_SEARCH_PATHS = all.map((p: string) => `"${p}"`);
-        }
+        // Note: LIBRARY_SEARCH_PATHS is managed by Expo/RN prebuild.
+        // Do not modify it here — the xcode npm pbxproj parser cannot
+        // re-parse $() variable references after writeSync, breaking
+        // downstream mods like withEntitlementsPlist.
 
         // Set deployment target to match Info.plist MinimumOSVersion
         buildSettings.IPHONEOS_DEPLOYMENT_TARGET = minimumOSVersion;

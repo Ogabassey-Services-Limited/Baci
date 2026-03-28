@@ -75,6 +75,7 @@ describe('MigrationPreviewTable', () => {
             row_number: 2,
             row_status: 'create',
             source_external_id: 'bumpa-1',
+            source_payload: {},
             validation_errors: [],
           },
         ]}
@@ -147,6 +148,7 @@ describe('MigrationPreviewTable', () => {
             row_number: 2,
             row_status: 'create',
             source_external_id: 'bumpa-1',
+            source_payload: {},
             validation_errors: [],
           },
         ]}
@@ -159,6 +161,53 @@ describe('MigrationPreviewTable', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(/these rows will be created or updated/i)
+    ).toBeInTheDocument();
+  });
+
+  it('renders invalid rows with source payload context instead of generic labels', () => {
+    render(
+      <MigrationPreviewTable
+        entityType="orders"
+        filter="needs_fix"
+        loading={false}
+        onPageChange={vi.fn()}
+        page={1}
+        pageSize={25}
+        rows={[
+          {
+            id: 'row-invalid',
+            meta: {},
+            normalized_payload: null,
+            row_number: 4749,
+            row_status: 'invalid',
+            source_external_id: null,
+            source_payload: {
+              'Order Number': '01160',
+              'Customer Name': 'Ajewole Oluwatoni',
+              'Customer Email': 'ajewoleoluwatoni@gmail.com',
+              Origin: 'whatsapp',
+              Channel: 'MOBILE',
+              Total: '575700.00',
+            },
+            validation_errors: [
+              'Products is missing',
+              'Product quantity is missing',
+            ],
+          },
+        ]}
+        total={1}
+      />
+    );
+
+    expect(screen.getByText('01160')).toBeInTheDocument();
+    expect(screen.getByText('CSV Row 4749')).toBeInTheDocument();
+    expect(screen.getByText('Ajewole Oluwatoni')).toBeInTheDocument();
+    expect(screen.getByText('WhatsApp')).toBeInTheDocument();
+    expect(
+      screen.getByText('575700.00 NGN · ajewoleoluwatoni@gmail.com')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Products is missing, Product quantity is missing')
     ).toBeInTheDocument();
   });
 });
