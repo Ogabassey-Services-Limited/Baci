@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import MigrationJobSummary from '@/app/dashboard/migrations/migration-job-summary';
 import MigrationPreviewTable from '@/app/dashboard/migrations/migration-preview-table';
 import MigrationShopifyPlaceholder from '@/app/dashboard/migrations/migration-shopify-placeholder';
@@ -10,20 +10,19 @@ import MigrationSourceSelector, {
 } from '@/app/dashboard/migrations/migration-source-selector';
 import type { ImportJobListItem } from '@/app/dashboard/migrations/migration-types';
 import { useMigrationJobs } from '@/app/dashboard/migrations/use-migration-jobs';
+import { Card, CardContent } from '@/components/ui/card';
 
 function assertUnreachable(value: never): never {
   throw new Error(`Unhandled platform: ${value}`);
 }
 
-export default function MigrationsClientPage({
+function BumpaMigrationWorkflow({
   initialError,
   initialJobs,
 }: {
   initialError?: string | null;
   initialJobs: ImportJobListItem[];
 }) {
-  const [sourcePlatform, setSourcePlatform] =
-    useState<MigrationSourcePlatform>('bumpa');
   const {
     activeFilter,
     acting,
@@ -48,7 +47,7 @@ export default function MigrationsClientPage({
     initialJobs,
   });
 
-  const bumpaContent = (
+  return (
     <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
       <MigrationSidebar
         entityType={entityType}
@@ -108,11 +107,46 @@ export default function MigrationsClientPage({
       </div>
     </div>
   );
+}
 
-  let sourceContent: React.ReactNode;
+export default function MigrationsClientPage({
+  initialError,
+  initialJobs,
+}: {
+  initialError?: string | null;
+  initialJobs: ImportJobListItem[];
+}) {
+  const [sourcePlatform, setSourcePlatform] =
+    useState<MigrationSourcePlatform | null>(null);
+
+  let sourceContent: ReactNode;
   switch (sourcePlatform) {
+    case null:
+      sourceContent = (
+        <Card className="border-dashed border-border/70 bg-background/70">
+          <CardContent className="flex flex-col gap-2 p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/80">
+              Start here
+            </p>
+            <h2 className="text-xl font-semibold tracking-tight">
+              Choose a source to continue
+            </h2>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+              Select the platform you are migrating from. Bumpa is ready for CSV
+              imports now, and Shopify will open its own guided connection flow
+              when it is available.
+            </p>
+          </CardContent>
+        </Card>
+      );
+      break;
     case 'bumpa':
-      sourceContent = bumpaContent;
+      sourceContent = (
+        <BumpaMigrationWorkflow
+          initialError={initialError}
+          initialJobs={initialJobs}
+        />
+      );
       break;
     case 'shopify':
       sourceContent = <MigrationShopifyPlaceholder />;
@@ -128,9 +162,8 @@ export default function MigrationsClientPage({
           Commerce Migrations
         </h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Bring historical orders and products into Baci through a source-aware
-          migration flow instead of forcing every importer through the same
-          shape.
+          Choose the platform you are migrating from, then preview and import
+          historical data into Baci with the right workflow.
         </p>
       </div>
 

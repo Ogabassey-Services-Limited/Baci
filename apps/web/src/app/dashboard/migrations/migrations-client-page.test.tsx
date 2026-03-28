@@ -90,6 +90,13 @@ describe('MigrationsClientPage', () => {
       />
     );
 
+    expect(
+      screen.getByRole('heading', { name: /choose a source to continue/i })
+    ).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /bumpa/i }));
+
     expect(await screen.findByText(/selected job/i)).toBeInTheDocument();
     expect(
       screen.getByRole('status', { name: /^valid rows$/i })
@@ -114,18 +121,19 @@ describe('MigrationsClientPage', () => {
       screen.getByRole('heading', { name: /commerce migrations/i })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('tab', { name: /bumpa/i, selected: true })
+      screen.getByRole('heading', { name: /choose a source to continue/i })
     ).toBeInTheDocument();
-    expect(screen.getByText(/upload csv/i)).toBeInTheDocument();
+    expect(screen.queryByText(/upload csv/i)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: /shopify/i }));
+    await user.click(screen.getByRole('button', { name: /shopify/i }));
 
-    expect(
-      screen.getByRole('tab', { name: /shopify/i, selected: true })
-    ).toBeInTheDocument();
     expect(await screen.findByText(/shopify migration/i)).toBeInTheDocument();
     expect(screen.getByText(/connect store/i)).toBeInTheDocument();
     expect(screen.queryByText(/upload csv/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /bumpa/i }));
+
+    expect(screen.getByText(/upload csv/i)).toBeInTheDocument();
   });
 
   it('does not auto-select stale queued jobs when no previewable job exists', async () => {
@@ -149,6 +157,10 @@ describe('MigrationsClientPage', () => {
         ]}
       />
     );
+
+    expect(fetch).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /bumpa/i }));
 
     expect(
       await screen.findByText(/select a job to inspect its preview rows/i)
@@ -205,6 +217,8 @@ describe('MigrationsClientPage', () => {
 
     render(<MigrationsClientPage initialJobs={[]} />);
 
+    fireEvent.click(screen.getByRole('button', { name: /bumpa/i }));
+
     fireEvent.change(screen.getByLabelText(/import type/i), {
       target: { value: 'products' },
     });
@@ -256,6 +270,8 @@ describe('MigrationsClientPage', () => {
         ]}
       />
     );
+
+    fireEvent.click(screen.getByRole('button', { name: /bumpa/i }));
 
     fireEvent.click(screen.getByRole('button', { name: /orders\.csv/i }));
 
@@ -314,6 +330,8 @@ describe('MigrationsClientPage', () => {
 
     render(<MigrationsClientPage initialJobs={[]} />);
 
+    await userEvent.click(screen.getByRole('button', { name: /bumpa/i }));
+
     fireEvent.change(screen.getByLabelText(/csv file/i), {
       target: {
         files: [new File(['id\n1'], 'orders.csv', { type: 'text/csv' })],
@@ -367,6 +385,8 @@ describe('MigrationsClientPage', () => {
         ]}
       />
     );
+
+    await userEvent.click(screen.getByRole('button', { name: /bumpa/i }));
 
     await screen.findByText(/selected job/i);
     vi.mocked(fetch).mockClear();
@@ -451,19 +471,21 @@ describe('MigrationsClientPage', () => {
       />
     );
 
+    fireEvent.click(screen.getByRole('button', { name: /bumpa/i }));
+
     fireEvent.click(screen.getByRole('button', { name: /orders\.csv/i }));
     await act(async () => {
       await Promise.resolve();
     });
     expect(screen.getByText(/building preview/i)).toBeInTheDocument();
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5000);
+    act(() => {
+      vi.advanceTimersByTime(5000);
     });
     expect(fetch).toHaveBeenCalledTimes(2);
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(5000);
+    act(() => {
+      vi.advanceTimersByTime(5000);
     });
     expect(fetch).toHaveBeenCalledTimes(2);
 

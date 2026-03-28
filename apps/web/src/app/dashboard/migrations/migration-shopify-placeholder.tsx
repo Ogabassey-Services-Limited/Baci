@@ -10,12 +10,12 @@ export default function MigrationShopifyPlaceholder() {
             Shopify migration
           </p>
           <CardTitle className="text-2xl">
-            Direct store connection is the next source on this screen
+            Shopify connection is the next migration path
           </CardTitle>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            Instead of forcing Shopify into a CSV upload flow, the final version
-            should connect the store, pull the right entities, and drop them
-            into the same review-and-import pipeline you already have for Bumpa.
+            When this source goes live, you will connect the store, pull the
+            right data, and review everything before import. There is nothing to
+            upload manually for Shopify yet.
           </p>
         </div>
       </CardHeader>
@@ -27,8 +27,8 @@ export default function MigrationShopifyPlaceholder() {
             Connect store
           </div>
           <p className="text-sm text-muted-foreground">
-            Authenticate the merchant’s Shopify shop and confirm the source
-            account before pulling any data.
+            Sign in to the merchant&apos;s Shopify store and confirm the source
+            before Baci pulls any data.
           </p>
         </div>
         <div className="rounded-2xl border border-border/60 bg-background/70 p-4">
@@ -37,8 +37,8 @@ export default function MigrationShopifyPlaceholder() {
             Pull and preview
           </div>
           <p className="text-sm text-muted-foreground">
-            Import orders or products into the same preview table with source
-            aware actions, validation, and safe replay behavior.
+            Pull products or orders into the same review flow so you can check
+            the data before anything is imported.
           </p>
         </div>
         <div className="rounded-2xl border border-border/60 bg-background/70 p-4">
@@ -47,8 +47,8 @@ export default function MigrationShopifyPlaceholder() {
             Merchant-safe launch
           </div>
           <p className="text-sm text-muted-foreground">
-            Keep Bumpa live today while Shopify remains an explicit option on
-            the page instead of hidden future scope.
+            Launch the Shopify path when it is ready without hiding it from
+            merchants or forcing it through the Bumpa upload steps.
           </p>
         </div>
       </CardContent>
