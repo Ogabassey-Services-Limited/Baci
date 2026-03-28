@@ -147,10 +147,13 @@ export function getMigrationRowSourceDetails(
   }
 
   if (isNormalizedImportedOrder(row.normalized_payload)) {
-    return {
-      sourceChannel: row.normalized_payload.sourceChannel,
-      sourceOrigin: row.normalized_payload.sourceOrigin,
-    };
+    const { sourceChannel, sourceOrigin } = row.normalized_payload;
+
+    if (!sourceChannel && !sourceOrigin) {
+      return null;
+    }
+
+    return { sourceChannel, sourceOrigin };
   }
 
   const sourceChannel = getSourcePayloadValue(row.source_payload, 'Channel');

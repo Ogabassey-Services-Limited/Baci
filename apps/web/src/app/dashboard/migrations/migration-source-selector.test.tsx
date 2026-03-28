@@ -8,13 +8,15 @@ import MigrationSourceSelector, {
 } from '@/app/dashboard/migrations/migration-source-selector';
 
 function StatefulSelector({
-  initialValue = 'bumpa',
+  initialValue = null,
   onValueChange,
 }: {
-  initialValue?: MigrationSourcePlatform;
+  initialValue?: MigrationSourcePlatform | null;
   onValueChange: (value: MigrationSourcePlatform) => void;
 }) {
-  const [value, setValue] = useState<MigrationSourcePlatform>(initialValue);
+  const [value, setValue] = useState<MigrationSourcePlatform | null>(
+    initialValue
+  );
 
   return (
     <MigrationSourceSelector
@@ -28,31 +30,61 @@ function StatefulSelector({
 }
 
 describe('MigrationSourceSelector', () => {
-  it('renders copy for each source platform', () => {
-    render(<MigrationSourceSelector onValueChange={vi.fn()} value="bumpa" />);
+  it('renders the merchant-facing copy for each source card', () => {
+    render(<MigrationSourceSelector onValueChange={vi.fn()} value={null} />);
+
+    expect(
+      screen.getByRole('heading', { name: /choose your migration source/i })
+    ).toBeInTheDocument();
 
     for (const source of Object.values(SOURCE_COPY)) {
       expect(screen.getByText(source.title)).toBeInTheDocument();
       expect(screen.getByText(source.eyebrow)).toBeInTheDocument();
       expect(screen.getByText(source.description)).toBeInTheDocument();
+      expect(screen.getByText(source.availability)).toBeInTheDocument();
     }
   });
 
-  it('switches tabs and reports the selected source platform', async () => {
+  it('selects a source card and reports the chosen platform', async () => {
     const user = userEvent.setup();
     const onValueChange = vi.fn();
 
     render(<StatefulSelector onValueChange={onValueChange} />);
 
-    expect(
-      screen.getByRole('tab', { name: /bumpa/i, selected: true })
-    ).toBeInTheDocument();
+    const bumpaButton = screen.getByRole('button', { name: /bumpa/i });
+    const shopifyButton = screen.getByRole('button', { name: /shopify/i });
 
-    await user.click(screen.getByRole('tab', { name: /shopify/i }));
+    expect(bumpaButton).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(shopifyButton);
 
     expect(onValueChange).toHaveBeenCalledWith('shopify');
-    expect(
-      screen.getByRole('tab', { name: /shopify/i, selected: true })
-    ).toBeInTheDocument();
+    expect(shopifyButton).toHaveAttribute('aria-pressed', 'true');
+    expect(bumpaButton).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('supports keyboard selection via Tab and Enter/Space', async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+
+    render(<StatefulSelector onValueChange={onValueChange} />);
+
+    const bumpaButton = screen.getByRole('button', { name: /bumpa/i });
+    const shopifyButton = screen.getByRole('button', { name: /shopify/i });
+
+    await user.tab();
+    expect(bumpaButton).toHaveFocus();
+
+    await user.keyboard('{Enter}');
+    expect(onValueChange).toHaveBeenCalledWith('bumpa');
+    expect(bumpaButton).toHaveAttribute('aria-pressed', 'true');
+
+    await user.tab();
+    expect(shopifyButton).toHaveFocus();
+
+    await user.keyboard(' ');
+    expect(onValueChange).toHaveBeenCalledWith('shopify');
+    expect(shopifyButton).toHaveAttribute('aria-pressed', 'true');
+    expect(bumpaButton).toHaveAttribute('aria-pressed', 'false');
   });
 });
