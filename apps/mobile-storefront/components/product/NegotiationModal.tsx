@@ -177,6 +177,11 @@ export function NegotiationModal({
   };
 
   const submitMerchantRequest = async (evidenceUrl?: string) => {
+    if (!merchantId) {
+      Alert.alert('Error', 'Unable to identify merchant. Please try again.');
+      return;
+    }
+
     setStatus('processing');
     const offerAmount =
       Number.parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;

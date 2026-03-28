@@ -126,6 +126,8 @@ const getEnv = () => {
         JUMIA_ENVIRONMENT: process.env.JUMIA_ENVIRONMENT,
         JUMIA_CLIENT_ID: process.env.JUMIA_CLIENT_ID,
         JUMIA_CLIENT_SECRET: process.env.JUMIA_CLIENT_SECRET,
+        INTERNAL_API_SECRET: process.env.INTERNAL_API_SECRET,
+        EXPO_ACCESS_TOKEN: process.env.EXPO_ACCESS_TOKEN,
       }
     : {};
 
@@ -263,7 +265,11 @@ export const getMyCoverWebhookSecret = (): string => {
 
 export const getCronSecret = () => env?.CRON_SECRET;
 
-export const getInternalApiSecret = () => env?.INTERNAL_API_SECRET;
+export const getInternalApiSecret = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('INTERNAL_API_SECRET cannot be accessed on the client');
+  return env?.INTERNAL_API_SECRET;
+};
 
 export const getImportJobWorkerSecret = () => env?.IMPORT_JOB_WORKER_SECRET;
 
@@ -282,7 +288,11 @@ export const getJumiaClientSecret = () => {
 };
 
 // Push Notifications
-export const getExpoAccessToken = () => env?.EXPO_ACCESS_TOKEN;
+export const getExpoAccessToken = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('EXPO_ACCESS_TOKEN cannot be accessed on the client');
+  return env?.EXPO_ACCESS_TOKEN;
+};
 
 // Deprecated: No longer needed as we validate on import.
 export const validateEnvironment = () => ({ valid: true, warnings: [] });

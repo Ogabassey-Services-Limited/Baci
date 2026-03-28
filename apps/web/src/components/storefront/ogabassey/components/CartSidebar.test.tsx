@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import type React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -103,6 +104,10 @@ import { CartSidebar } from './CartSidebar';
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('CartSidebar', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('renders cart items when open', () => {
     render(<CartSidebar />);
     expect(screen.getByText('Test Shoe')).toBeInTheDocument();

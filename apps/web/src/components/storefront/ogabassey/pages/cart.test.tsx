@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────

@@ -98,7 +98,13 @@ export async function POST(request: NextRequest) {
     );
     return NextResponse.json({ notified: true });
   } catch (error) {
-    console.error('Failed to send negotiation notification:', error);
+    // Use structured logging for production observability
+    const { logger } = await import('@/lib/logger');
+    logger.error({
+      message: 'Failed to send negotiation notification',
+      error,
+      negotiationId,
+    });
     return NextResponse.json(
       { notified: false, reason: 'notification_failed' },
       { status: 500 }

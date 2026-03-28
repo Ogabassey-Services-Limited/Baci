@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Batch update failed tickets (grouped by error details for efficiency)
+  // Update failed tickets individually (each may have different error details)
   for (const ft of failedTickets) {
     const { error: failedError } = await supabase
       .from('push_notification_tickets')

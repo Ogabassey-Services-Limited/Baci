@@ -282,16 +282,17 @@ export async function POST(request: NextRequest) {
         // Notify merchant of new order and payment (non-blocking)
         const orderNum =
           order.order_number || order.id.slice(0, 8).toUpperCase();
+        const total = Number.parseFloat(order.total || '0');
+        const currency = order.currency || 'NGN';
+        const customerName = order.customer_name || 'Customer';
         after(async () => {
-          const total = Number.parseFloat(order.total || '0');
-
           try {
             await notifyNewOrder(
               transaction.merchant_id,
               orderNum,
-              order.customer_name || 'Customer',
+              customerName,
               total,
-              order.currency || 'NGN'
+              currency
             );
           } catch (err) {
             logger.error({
@@ -304,7 +305,7 @@ export async function POST(request: NextRequest) {
             await notifyPaymentReceived(
               transaction.merchant_id,
               total,
-              order.currency || 'NGN',
+              currency,
               orderNum
             );
           } catch (err) {
