@@ -1138,6 +1138,20 @@ export async function getCachedCategoryPageData(
   let productsError = null;
 
   if (category?.id) {
+    const { data: categoryScope } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('merchant_id', merchantId)
+      .or(`id.eq.${category.id},parent_id.eq.${category.id}`);
+
+    const categoryIds = Array.from(
+      new Set(
+        [category.id, ...(categoryScope || []).map((item) => item.id)].filter(
+          Boolean
+        )
+      )
+    );
+
     const { data: productData, error: err } = await supabase
       .from('products')
       .select(`
@@ -1156,7 +1170,7 @@ export async function getCachedCategoryPageData(
         `)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
-      .eq('product_categories.category_id', category.id)
+      .in('product_categories.category_id', categoryIds)
       .limit(50);
 
     products = productData || [];

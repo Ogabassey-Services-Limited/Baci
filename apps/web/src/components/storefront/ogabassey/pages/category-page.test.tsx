@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const originalMatchMedia = window.matchMedia;
@@ -81,6 +82,39 @@ describe('CategoryPage', () => {
 
     expect(
       screen.queryByRole('region', { name: /category banner carousel/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('paginates category products with a load more button', async () => {
+    mockMatchMedia(true);
+
+    const user = userEvent.setup();
+    const products = Array.from({ length: 25 }, (_, index) => ({
+      id: String(index + 1),
+      name: `Product ${index + 1}`,
+      slug: `product-${index + 1}`,
+      price: `₦${index + 1}`,
+      rawPrice: index + 1,
+      image: '',
+    }));
+
+    render(<CategoryPage products={products} />);
+
+    expect(screen.getAllByTestId('product-card')).toHaveLength(20);
+    expect(
+      screen.getByText('Showing 20 of 25 products')
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: /load more products/i })
+    );
+
+    expect(screen.getAllByTestId('product-card')).toHaveLength(25);
+    expect(
+      screen.getByText('Showing 25 of 25 products')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /load more products/i })
     ).not.toBeInTheDocument();
   });
 });
