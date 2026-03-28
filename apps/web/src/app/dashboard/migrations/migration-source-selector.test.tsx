@@ -62,4 +62,29 @@ describe('MigrationSourceSelector', () => {
     expect(shopifyButton).toHaveAttribute('aria-pressed', 'true');
     expect(bumpaButton).toHaveAttribute('aria-pressed', 'false');
   });
+
+  it('supports keyboard selection via Tab and Enter/Space', async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+
+    render(<StatefulSelector onValueChange={onValueChange} />);
+
+    const bumpaButton = screen.getByRole('button', { name: /bumpa/i });
+    const shopifyButton = screen.getByRole('button', { name: /shopify/i });
+
+    await user.tab();
+    expect(bumpaButton).toHaveFocus();
+
+    await user.keyboard('{Enter}');
+    expect(onValueChange).toHaveBeenCalledWith('bumpa');
+    expect(bumpaButton).toHaveAttribute('aria-pressed', 'true');
+
+    await user.tab();
+    expect(shopifyButton).toHaveFocus();
+
+    await user.keyboard(' ');
+    expect(onValueChange).toHaveBeenCalledWith('shopify');
+    expect(shopifyButton).toHaveAttribute('aria-pressed', 'true');
+    expect(bumpaButton).toHaveAttribute('aria-pressed', 'false');
+  });
 });

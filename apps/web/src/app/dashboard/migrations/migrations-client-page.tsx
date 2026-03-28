@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useState } from 'react';
+import { useState } from 'react';
 import MigrationJobSummary from '@/app/dashboard/migrations/migration-job-summary';
 import MigrationPreviewTable from '@/app/dashboard/migrations/migration-preview-table';
 import MigrationShopifyPlaceholder from '@/app/dashboard/migrations/migration-shopify-placeholder';
@@ -11,10 +11,6 @@ import MigrationSourceSelector, {
 import type { ImportJobListItem } from '@/app/dashboard/migrations/migration-types';
 import { useMigrationJobs } from '@/app/dashboard/migrations/use-migration-jobs';
 import { Card, CardContent } from '@/components/ui/card';
-
-function assertUnreachable(value: never): never {
-  throw new Error(`Unhandled platform: ${value}`);
-}
 
 interface MigrationWorkflowProps {
   initialError?: string | null;
@@ -117,11 +113,35 @@ export default function MigrationsClientPage({
 }: MigrationWorkflowProps) {
   const [sourcePlatform, setSourcePlatform] =
     useState<MigrationSourcePlatform | null>(null);
+  const [bumpaEverSelected, setBumpaEverSelected] = useState(false);
 
-  let sourceContent: ReactNode;
-  switch (sourcePlatform) {
-    case null:
-      sourceContent = (
+  const bumpaVisited = sourcePlatform === 'bumpa' || bumpaEverSelected;
+
+  const handleSourceChange = (next: MigrationSourcePlatform) => {
+    setSourcePlatform(next);
+    if (next === 'bumpa') {
+      setBumpaEverSelected(true);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-semibold tracking-tight">
+          Commerce Migrations
+        </h1>
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          Choose the platform you are migrating from, then preview and import
+          historical data into Baci with the right workflow.
+        </p>
+      </div>
+
+      <MigrationSourceSelector
+        onValueChange={handleSourceChange}
+        value={sourcePlatform}
+      />
+
+      {sourcePlatform === null && (
         <Card className="border-dashed border-border/70 bg-background/70">
           <CardContent className="flex flex-col gap-2 p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary/80">
@@ -137,41 +157,18 @@ export default function MigrationsClientPage({
             </p>
           </CardContent>
         </Card>
-      );
-      break;
-    case 'bumpa':
-      sourceContent = (
-        <BumpaMigrationWorkflow
-          initialError={initialError}
-          initialJobs={initialJobs}
-        />
-      );
-      break;
-    case 'shopify':
-      sourceContent = <MigrationShopifyPlaceholder />;
-      break;
-    default:
-      sourceContent = assertUnreachable(sourcePlatform);
-  }
+      )}
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Commerce Migrations
-        </h1>
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          Choose the platform you are migrating from, then preview and import
-          historical data into Baci with the right workflow.
-        </p>
-      </div>
+      {bumpaVisited && (
+        <div className={sourcePlatform !== 'bumpa' ? 'hidden' : undefined}>
+          <BumpaMigrationWorkflow
+            initialError={initialError}
+            initialJobs={initialJobs}
+          />
+        </div>
+      )}
 
-      <MigrationSourceSelector
-        onValueChange={setSourcePlatform}
-        value={sourcePlatform}
-      />
-
-      {sourceContent}
+      {sourcePlatform === 'shopify' && <MigrationShopifyPlaceholder />}
     </div>
   );
 }
