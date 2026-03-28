@@ -375,7 +375,7 @@ export async function GET(request: NextRequest) {
         label: 'Signed Up',
         merchants: totalMerchants,
         completionRate: completionRate(totalMerchants),
-        description: 'All non-admin merchant records',
+        description: 'All merchant records',
       },
       {
         key: 'business_type_set',
