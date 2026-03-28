@@ -16,6 +16,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
  */
 export async function POST(request: NextRequest) {
   try {
+    // No CSRF check required — this endpoint uses Bearer token auth (mobile app),
+    // not cookie-based auth. CSRF attacks only exploit automatic cookie inclusion.
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

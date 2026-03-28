@@ -222,6 +222,23 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     expect(body.shops).toContain('shop-1');
   });
 
+  it('returns incomplete when only fallback shop is created', async () => {
+    setupAuth();
+    setupTicketConsume(true);
+    setupTokenExchange();
+    mockGetShops.mockResolvedValue([]); // No shops discovered
+
+    const res = await POST(
+      makeRequest({ code: 'valid-code', ticketId: TICKET_ID })
+    );
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.incomplete).toBe(true);
+    expect(body.shops).toEqual([]);
+  });
+
   it('calls exchangeJumiaCode with correct parameters', async () => {
     setupAuth();
     setupTicketConsume(true);

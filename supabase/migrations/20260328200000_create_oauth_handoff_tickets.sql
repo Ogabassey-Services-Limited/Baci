@@ -29,6 +29,13 @@ CREATE INDEX IF NOT EXISTS idx_oauth_tickets_created_at
 CREATE UNIQUE INDEX IF NOT EXISTS idx_oauth_tickets_state_unique
   ON oauth_handoff_tickets (oauth_state) WHERE oauth_state IS NOT NULL;
 
+-- FK indexes for efficient CASCADE deletes
+CREATE INDEX IF NOT EXISTS idx_oauth_tickets_merchant_id
+  ON oauth_handoff_tickets (merchant_id);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_tickets_user_id
+  ON oauth_handoff_tickets (user_id);
+
 ALTER TABLE oauth_handoff_tickets ENABLE ROW LEVEL SECURITY;
 -- Service-role only. No user-facing RLS policies needed.
 

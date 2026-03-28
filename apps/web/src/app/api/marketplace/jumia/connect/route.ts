@@ -239,6 +239,7 @@ export async function GET(request: NextRequest) {
           status: 'redeemed',
           redeemed_at: new Date().toISOString(),
           oauth_state: state,
+          expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
         })
         .eq('id', ticketParsed.data)
         .eq('status', 'pending')

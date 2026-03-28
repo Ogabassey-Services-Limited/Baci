@@ -27,6 +27,8 @@ const bodySchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
+    // No CSRF check required — this endpoint uses Bearer token auth (mobile app),
+    // not cookie-based auth. CSRF attacks only exploit automatic cookie inclusion.
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -201,6 +203,16 @@ export async function POST(request: NextRequest) {
     const newShopIds = integrationRows
       .filter((i) => i.is_active && !existingActiveShopIds.has(i.shop_id))
       .map((i) => i.shop_id);
+
+    if (isFallbackShop && newShopIds.length === 0) {
+      return NextResponse.json({
+        success: false,
+        incomplete: true,
+        message:
+          'Connected but no active shops discovered. Please check your Jumia Vendor Center.',
+        shops: [],
+      });
+    }
 
     return NextResponse.json({
       success: true,
