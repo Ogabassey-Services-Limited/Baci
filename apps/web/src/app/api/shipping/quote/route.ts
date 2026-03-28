@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
-import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -64,16 +63,7 @@ function resolveMerchantStationLookup(
 
 export async function POST(request: NextRequest) {
   try {
-    // CSRF protection
-    const { valid: csrfValid, response: csrfResponse } =
-      await checkCsrfProtection(request);
-    if (!csrfValid) {
-      return (
-        csrfResponse ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
+    // CSRF: handled by Origin-based middleware in proxy.ts (guest storefront route)
     const {
       receiverCity,
       senderCity: _senderCity,
