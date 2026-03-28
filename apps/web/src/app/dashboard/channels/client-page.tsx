@@ -2,6 +2,7 @@
 
 import {
   AlertTriangle,
+  ArrowUpDown,
   ExternalLink,
   Loader2,
   Package,
@@ -39,6 +40,7 @@ import { ConnectJumiaDialog } from './connect-jumia-dialog';
 import {
   disconnectIntegration,
   syncOrders,
+  syncStock,
   useJumiaIntegrations,
 } from './use-jumia-integrations';
 
@@ -77,6 +79,9 @@ export default function ChannelsClientPage() {
 
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
+  const [stockSyncingIds, setStockSyncingIds] = useState<Set<string>>(
+    new Set()
+  );
   const [disconnectId, setDisconnectId] = useState<string | null>(null);
   const handledOauthParamsRef = useRef<string | null>(null);
 
@@ -167,6 +172,28 @@ export default function ChannelsClientPage() {
     }
 
     setSyncingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(integrationId);
+      return next;
+    });
+  };
+
+  const handleStockSync = async (integrationId: string) => {
+    setStockSyncingIds((prev) => new Set(prev).add(integrationId));
+    const result = await syncStock(integrationId);
+
+    if (result.ok) {
+      toast({ title: result.message });
+      refetch();
+    } else {
+      toast({
+        title: 'Stock sync failed',
+        description: result.error,
+        variant: 'destructive',
+      });
+    }
+
+    setStockSyncingIds((prev) => {
       const next = new Set(prev);
       next.delete(integrationId);
       return next;
@@ -288,7 +315,26 @@ export default function ChannelsClientPage() {
                       <RefreshCw className="h-4 w-4" />
                     )}
                     <span className="ml-1.5">
-                      {syncingIds.has(integration.id) ? 'Syncing' : 'Sync'}
+                      {syncingIds.has(integration.id)
+                        ? 'Syncing Orders'
+                        : 'Sync Orders'}
+                    </span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleStockSync(integration.id)}
+                    disabled={stockSyncingIds.has(integration.id)}
+                  >
+                    {stockSyncingIds.has(integration.id) ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ArrowUpDown className="h-4 w-4" />
+                    )}
+                    <span className="ml-1.5">
+                      {stockSyncingIds.has(integration.id)
+                        ? 'Syncing Stock'
+                        : 'Sync Stock'}
                     </span>
                   </Button>
                   <Button
