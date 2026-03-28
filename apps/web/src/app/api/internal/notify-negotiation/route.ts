@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getInternalApiSecret } from '@/env';
@@ -26,7 +27,7 @@ const bodySchema = z.discriminatedUnion('negotiationType', [
 ]);
 
 export async function POST(request: NextRequest) {
-  // Auth: verify internal API secret
+  // Auth: verify internal API secret (timing-safe comparison)
   const authHeader = request.headers.get('Authorization');
   const expectedSecret = getInternalApiSecret();
 
@@ -38,7 +39,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (authHeader !== `Bearer ${expectedSecret}`) {
+  const expectedToken = `Bearer ${expectedSecret}`;
+  if (
+    !authHeader ||
+    authHeader.length !== expectedToken.length ||
+    !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedToken))
+  ) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

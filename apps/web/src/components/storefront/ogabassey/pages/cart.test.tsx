@@ -91,6 +91,7 @@ import { OgabasseyV2CartPage } from './cart';
 
 describe('OgabasseyV2CartPage', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     mockMerchant = { id: 'merchant-xyz', slug: 'test-store' };
   });
 

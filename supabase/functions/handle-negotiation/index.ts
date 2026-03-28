@@ -48,8 +48,16 @@ Deno.serve(async (req: Request) => {
           negotiationType: record.type,
           offeredPrice: record.offered_price,
           negotiationId: record.id,
-          itemName: record.item_info?.name ?? null,
-          currentPrice: record.item_info?.current_price ?? null,
+          // For type='single', item_info should have name/current_price
+          // For type='total', item_info is null — helper handles both cases
+          itemName:
+            record.type === 'single' && record.item_info
+              ? (record.item_info.name ?? null)
+              : null,
+          currentPrice:
+            record.type === 'single' && record.item_info
+              ? (record.item_info.current_price ?? null)
+              : null,
         }),
       })
         .then((res) => {

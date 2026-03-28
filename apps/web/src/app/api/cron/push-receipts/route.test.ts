@@ -174,6 +174,7 @@ describe('GET /api/cron/push-receipts', () => {
       expect.objectContaining({ status: 'delivered' })
     );
     expect(mockTicketIn).toHaveBeenCalledWith('id', ['row-1']);
+    expect(mockRpc).toHaveBeenCalledWith('cleanup_old_push_tickets');
   });
 
   it('returns 207 when a chunk fails', async () => {
