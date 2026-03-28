@@ -389,6 +389,18 @@ describe('migration-preview-row-display', () => {
 
     expect(
       getMigrationRowSourceDetails(
+        'orders',
+        createRow({
+          normalized_payload: createOrderPayload({
+            sourceChannel: null,
+            sourceOrigin: null,
+          }),
+        })
+      )
+    ).toBeNull();
+
+    expect(
+      getMigrationRowSourceDetails(
         'products',
         createRow({
           normalized_payload: createProductPayload(),
