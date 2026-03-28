@@ -175,8 +175,9 @@ describe('error handling', () => {
   });
 
   it('deactivates tokens when Expo returns DeviceNotRegistered', async () => {
+    const mockIn = vi.fn().mockResolvedValue({ error: null });
     const mockUpdate = vi.fn().mockReturnValue({
-      in: vi.fn().mockResolvedValue({ error: null }),
+      in: mockIn,
     });
     mockFrom.mockReturnValue({
       select: () => ({
@@ -207,5 +208,6 @@ describe('error handling', () => {
     await notifyNegotiationRequest('m1', 'single', 1000, 'n3', 'Item', null);
 
     expect(mockUpdate).toHaveBeenCalledWith({ is_active: false });
+    expect(mockIn).toHaveBeenCalledWith('token', ['ExponentPushToken[dead]']);
   });
 });
