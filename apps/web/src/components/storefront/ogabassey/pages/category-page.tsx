@@ -82,11 +82,14 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   };
 
   const [filters, setFilters] = useState<FilterState>(initialFilterState);
+  const PRODUCTS_PER_PAGE = 20;
+  const [displayCount, setDisplayCount] = useState(PRODUCTS_PER_PAGE);
 
   // Scroll to top when category changes & Reset filters
   useEffect(() => {
     window.scrollTo(0, 0);
     setFilters(initialFilterState);
+    setDisplayCount(PRODUCTS_PER_PAGE);
   }, [categoryName]); // Add categoryName dependency for proper reset
 
   useEffect(() => {
@@ -236,6 +239,13 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       return true;
     });
   })();
+
+  useEffect(() => {
+    setDisplayCount(PRODUCTS_PER_PAGE);
+  }, [filters]);
+
+  const visibleProducts = filteredProducts.slice(0, displayCount);
+  const hasMoreProducts = displayCount < filteredProducts.length;
 
   const handleFilterChange = (
     section: keyof FilterState,
@@ -402,7 +412,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                     : 'flex flex-col gap-4'
                 }
               >
-                {filteredProducts.map((product, index) => {
+                {visibleProducts.map((product, index) => {
                   const isAdded = addedItems.includes(
                     typeof product.id === 'string'
                       ? Number.parseInt(product.id, 10)
@@ -430,6 +440,24 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                     </React.Fragment>
                   );
                 })}
+              </div>
+            )}
+
+            {filteredProducts.length > 0 && hasMoreProducts && (
+              <div className="mt-8 flex flex-col items-center gap-2">
+                <button
+                  onClick={() =>
+                    setDisplayCount((prev) => prev + PRODUCTS_PER_PAGE)
+                  }
+                  type="button"
+                  className="rounded-xl bg-[var(--store-background-text,#111827)] px-8 py-3 font-semibold text-[var(--store-background,#ffffff)] transition-all duration-200 active:scale-95 hover:bg-[var(--store-primary)]"
+                >
+                  Load More Products
+                </button>
+                <span className="text-sm text-[var(--store-background-text,#111827)]/50">
+                  Showing {visibleProducts.length} of {filteredProducts.length}{' '}
+                  products
+                </span>
               </div>
             )}
           </div>

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  getCachedCategoryPageData,
   getCachedProduct,
   getCachedProducts,
   getCachedProductWithDetails,
@@ -272,5 +273,50 @@ describe('cached-data product query projections', () => {
         p_product_ids: ['product-123'],
       }
     );
+  });
+
+  it('getCachedCategoryPageData includes products from child categories', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'cat-smartphones',
+        name: 'Smartphones',
+        slug: 'smartphones',
+        description: 'Phones',
+        image_url: null,
+        seo_heading: null,
+        seo_description: null,
+        seo_features: null,
+        seo_faq: null,
+        parent: null,
+      },
+      error: null,
+    });
+
+    harness.mockListResult.data = [
+      { id: 'cat-smartphones' },
+      { id: 'cat-iphone' },
+    ];
+    const productQueryResult = {
+      data: [
+        { id: 'product-1', name: 'iPhone 15', brand: 'Apple' },
+        { id: 'product-2', name: 'Galaxy S24', brand: 'Samsung' },
+      ],
+      error: null,
+    };
+    harness.mockQueryExecution
+      .mockImplementationOnce(() => Promise.resolve(harness.mockListResult))
+      .mockImplementationOnce(() => Promise.resolve(productQueryResult));
+
+    const result = await getCachedCategoryPageData(
+      'merchant-123',
+      'smartphones',
+      'test-store'
+    );
+
+    expect(harness.mockIn).toHaveBeenCalledWith(
+      'product_categories.category_id',
+      ['cat-smartphones', 'cat-iphone']
+    );
+    expect(result.products).toEqual(productQueryResult.data);
   });
 });
