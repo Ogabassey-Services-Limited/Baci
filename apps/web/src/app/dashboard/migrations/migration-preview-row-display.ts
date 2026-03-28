@@ -29,7 +29,7 @@ function getSourcePayloadValue(
 }
 
 function formatOrderInvalidSecondaryText(
-  sourcePayload: ImportJobSourcePayload
+  sourcePayload: ImportJobSourcePayload | null | undefined
 ) {
   const total = getSourcePayloadValue(sourcePayload, 'Total');
   const email = getSourcePayloadValue(sourcePayload, 'Customer Email');
@@ -126,7 +126,7 @@ export function getMigrationRowSecondaryText(
     }
 
     const items = payload.items.length;
-    const unmatched = Number(row.meta.unmatchedItemCount || 0);
+    const unmatched = Number(row.meta?.unmatchedItemCount ?? 0);
     const itemLabel = items === 1 ? 'item' : 'items';
     return `${payload.total || 0} ${payload.currency || 'NGN'} · ${items} ${itemLabel}${unmatched > 0 ? ` · ${unmatched} unmatched` : ''}`;
   }
