@@ -1,4 +1,3 @@
-import { timingSafeEqual } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
@@ -59,13 +58,7 @@ export async function POST(request: NextRequest) {
   }
 
   const authHeader = request.headers.get('authorization');
-  const expectedAuth = `Bearer ${cronSecret}`;
-
-  if (
-    !authHeader ||
-    authHeader.length !== expectedAuth.length ||
-    !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedAuth))
-  ) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
