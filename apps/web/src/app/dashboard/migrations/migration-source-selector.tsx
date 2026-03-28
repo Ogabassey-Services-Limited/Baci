@@ -11,7 +11,7 @@ interface MigrationSourceSelectorProps {
   value: MigrationSourcePlatform;
 }
 
-const SOURCE_COPY: Record<
+export const SOURCE_COPY: Record<
   MigrationSourcePlatform,
   {
     eyebrow: string;
@@ -35,8 +35,6 @@ const SOURCE_COPY: Record<
     icon: ShoppingBag,
   },
 };
-
-export { SOURCE_COPY };
 
 export default function MigrationSourceSelector({
   onValueChange,
@@ -62,9 +60,11 @@ export default function MigrationSourceSelector({
 
         <Tabs
           className="w-full lg:w-auto"
-          onValueChange={(nextValue) =>
-            onValueChange(nextValue as MigrationSourcePlatform)
-          }
+          onValueChange={(nextValue) => {
+            if (nextValue === 'bumpa' || nextValue === 'shopify') {
+              onValueChange(nextValue);
+            }
+          }}
           value={value}
         >
           <TabsList className="grid h-auto w-full grid-cols-2 gap-2 rounded-2xl bg-muted/50 p-2 lg:min-w-[360px]">

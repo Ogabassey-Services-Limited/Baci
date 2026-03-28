@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -8,19 +9,29 @@ import { createClient } from '@/lib/supabase/server';
  * PATCH - Update customer profile
  */
 
+const patchCustomerSchema = z.object({
+  merchantSlug: z.string().min(1, 'Merchant slug is required'),
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  phone: z.string().optional(),
+  saved_addresses: z.array(z.record(z.unknown())).optional(),
+});
+
 export async function PATCH(request: NextRequest) {
   try {
     // CSRF: handled by Origin-based middleware in proxy.ts (guest storefront route)
     const body = await request.json();
-    const { merchantSlug, first_name, last_name, phone, saved_addresses } =
-      body;
+    const result = patchCustomerSchema.safeParse(body);
 
-    if (!merchantSlug) {
+    if (!result.success) {
       return NextResponse.json(
-        { error: 'Merchant slug is required' },
+        { error: 'Invalid input', details: result.error.flatten() },
         { status: 400 }
       );
     }
+
+    const { merchantSlug, first_name, last_name, phone, saved_addresses } =
+      result.data;
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -79,13 +90,6 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (saved_addresses !== undefined) {
-      // Validate addresses structure
-      if (!Array.isArray(saved_addresses)) {
-        return NextResponse.json(
-          { error: 'Invalid addresses format' },
-          { status: 400 }
-        );
-      }
       updateData.saved_addresses = saved_addresses;
     }
 
