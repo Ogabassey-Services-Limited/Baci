@@ -93,9 +93,11 @@ describe('CategoryPage', () => {
       id: String(index + 1),
       name: `Product ${index + 1}`,
       slug: `product-${index + 1}`,
+      description: `Description ${index + 1}`,
       price: `₦${index + 1}`,
       rawPrice: index + 1,
       image: '',
+      condition: 'New' as const,
     }));
 
     render(<CategoryPage products={products} />);
