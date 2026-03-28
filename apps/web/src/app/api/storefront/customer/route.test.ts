@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PATCH } from './route';
+import { PATCH } from '@/app/api/storefront/customer/route';
 
 // --- Mocks ---
 
