@@ -3,7 +3,7 @@
 import { ChevronRight, Filter, LayoutGrid, List, X } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { SafeHtml } from '@/components/ui/safe-html';
@@ -120,14 +120,13 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   }, [isMobileFilterOpen]);
 
   // Derived Data: Products in the current Category (from props)
-  const categoryProducts = (() => {
-    // Use server-provided products directly - no additional filtering needed
-    // since server already filters by category_id or category TEXT field
-    return products;
-  })();
+  // Use server-provided products directly - no additional filtering needed
+  // since server already filters by category_id or category TEXT field
+  const categoryProducts = products;
 
   // Derived Data: Available Options based on products in category
-  const availableOptions = (() => {
+  // ⚡ Bolt: Memoized to prevent O(N) iteration over products on every render (e.g. when mobile filter toggles)
+  const availableOptions = useMemo(() => {
     const options = {
       brand: new Set<string>(),
       condition: new Set<string>(),
@@ -173,10 +172,11 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       displayType: Array.from(options.displayType).sort(),
       displaySize: Array.from(options.displaySize).sort(),
     };
-  })();
+  }, [categoryProducts]);
 
   // Derived Data: Filtered Products based on user selection
-  const filteredProducts = (() => {
+  // ⚡ Bolt: Memoized to prevent O(N) filtering on every render (e.g. when viewMode changes)
+  const filteredProducts = useMemo(() => {
     return categoryProducts.filter((p) => {
       // Price
       if (
@@ -235,7 +235,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
 
       return true;
     });
-  })();
+  }, [categoryProducts, filters]);
 
   const handleFilterChange = (
     section: keyof FilterState,

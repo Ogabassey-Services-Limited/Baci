@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { AdUnit } from './ad-unit';
 import { AdvancedProductFilters } from './advanced-product-filters';
@@ -50,56 +50,61 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Derive categories and brands dynamically from products
-  const categories = (() => {
+  // ⚡ Bolt: Memoized derived data to avoid O(N) iteration over products on every render (e.g. viewMode toggle)
+  const categories = useMemo(() => {
     // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map())
     const categorySet = new Set<string>();
     for (const p of gridProducts) {
       if (p.category) categorySet.add(p.category);
     }
     return ['All', ...Array.from(categorySet)];
-  })();
+  }, [gridProducts]);
 
-  const brands = (() => {
+  // ⚡ Bolt: Memoized derived data to avoid O(N) iteration over products on every render
+  const brands = useMemo(() => {
     // PERFORMANCE OPTIMIZATION: Avoid intermediate array allocations (.map().filter())
     const brandSet = new Set<string>();
     for (const p of gridProducts) {
       if (p.brand) brandSet.add(p.brand);
     }
     return Array.from(brandSet);
-  })();
+  }, [gridProducts]);
 
-  const filteredProducts = gridProducts.filter((product) => {
-    // Category Filter
-    if (selectedCategory !== 'All' && product.category !== selectedCategory) {
-      return false;
-    }
-    // Brand Filter
-    if (selectedBrand !== 'All' && product.brand !== selectedBrand) {
-      return false;
-    }
-    // Condition Filter
-    if (
-      selectedCondition !== 'All' &&
-      product.condition !== selectedCondition
-    ) {
-      return false;
-    }
-    // Rating Filter
-    if (product.rating < minRating) {
-      return false;
-    }
-    // Price Filter
-    const productPrice =
-      product.rawPrice ??
-      (typeof product.price === 'number' ? product.price : 0);
-    if (
-      productPrice < priceRange.min ||
-      (priceRange.max > 0 && productPrice > priceRange.max)
-    ) {
-      return false;
-    }
-    return true;
-  });
+  // ⚡ Bolt: Memoized filtered array to prevent O(N) iteration on every render (e.g. viewMode toggle)
+  const filteredProducts = useMemo(() => {
+    return gridProducts.filter((product) => {
+      // Category Filter
+      if (selectedCategory !== 'All' && product.category !== selectedCategory) {
+        return false;
+      }
+      // Brand Filter
+      if (selectedBrand !== 'All' && product.brand !== selectedBrand) {
+        return false;
+      }
+      // Condition Filter
+      if (
+        selectedCondition !== 'All' &&
+        product.condition !== selectedCondition
+      ) {
+        return false;
+      }
+      // Rating Filter
+      if (product.rating < minRating) {
+        return false;
+      }
+      // Price Filter
+      const productPrice =
+        product.rawPrice ??
+        (typeof product.price === 'number' ? product.price : 0);
+      if (
+        productPrice < priceRange.min ||
+        (priceRange.max > 0 && productPrice > priceRange.max)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [gridProducts, selectedCategory, selectedBrand, selectedCondition, minRating, priceRange]);
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();
