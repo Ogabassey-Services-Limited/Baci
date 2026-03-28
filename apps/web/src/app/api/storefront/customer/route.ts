@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -10,7 +11,9 @@ import { createClient } from '@/lib/supabase/server';
 
 export async function PATCH(request: NextRequest) {
   try {
-    // CSRF: handled by Origin-based middleware in proxy.ts (guest storefront route)
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid && response) return response;
+
     const body = await request.json();
     const { merchantSlug, first_name, last_name, phone, saved_addresses } =
       body;

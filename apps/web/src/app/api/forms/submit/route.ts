@@ -1,12 +1,22 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { escapeHtml, isValidUuid, sanitizeText } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 
 export async function POST(request: NextRequest) {
   try {
-    // CSRF: handled by Origin-based middleware in proxy.ts (guest storefront route)
+    // CSRF protection
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
     const body = await request.json();

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
 const wishlistCreateSchema = z.object({
@@ -105,7 +106,14 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    // CSRF: handled by Origin-based middleware in proxy.ts (guest storefront route)
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const parsed = wishlistCreateSchema.safeParse(await request.json());
     if (!parsed.success) {
       return NextResponse.json(
@@ -178,7 +186,13 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    // CSRF: handled by Origin-based middleware in proxy.ts (guest storefront route)
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) {
+      return (
+        response ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get('id');
     const sessionToken = searchParams.get('session');
