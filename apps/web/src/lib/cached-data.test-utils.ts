@@ -76,32 +76,23 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
   const mockLimit = vi.fn();
   const mockOr = vi.fn();
   const mockOrder = vi.fn();
-  const mockQueryExecution = vi.fn(() => Promise.resolve(mockListResult));
+  const mockQueryExecution = vi.fn(() => mockListResult);
   const mockRange = vi.fn();
   const mockRpc = vi.fn().mockResolvedValue({ data: [], error: null });
   const mockSingle = vi.fn();
-  const mockQueryBuilderBase = Promise.resolve(mockListResult) as Promise<{
-    data: unknown;
-    error: unknown;
-  }> &
-    MockQueryBuilder;
-  const mockQueryBuilder = new Proxy(mockQueryBuilderBase, {
-    get(target, prop, receiver) {
-      if (prop === 'then') {
-        const then = Reflect.get(
-          target,
-          prop,
-          receiver
-        ) as Promise<MockListResult>['then'];
-        return (...args: Parameters<Promise<MockListResult>['then']>) => {
-          mockQueryExecution();
-          return then.apply(target, args);
-        };
-      }
+  const mockQueryBuilder = new Proxy(
+    {},
+    {
+      get(target, prop, receiver) {
+        if (prop === 'then') {
+          return (...args: Parameters<Promise<MockListResult>['then']>) =>
+            Promise.resolve(mockQueryExecution()).then(...args);
+        }
 
-      return Reflect.get(target, prop, receiver);
-    },
-  }) as Promise<{
+        return Reflect.get(target, prop, receiver);
+      },
+    }
+  ) as Promise<{
     data: unknown;
     error: unknown;
   }> &
