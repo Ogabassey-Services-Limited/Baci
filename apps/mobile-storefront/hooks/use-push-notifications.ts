@@ -7,6 +7,7 @@ import type { EventSubscription } from 'expo-modules-core';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 import { createLogger } from '@/lib/logger';
 import {
   clearBadge,
@@ -15,13 +16,13 @@ import {
   removePushTokenFromServer,
   savePushTokenToServer,
 } from '@/services/push-notifications';
-import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('PushNotifications');
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-let Notifications: any = null;
+let Notifications: typeof import('expo-notifications') | null = null;
+let _notificationsReady: Promise<void>;
 
 const loadNativeModules = async () => {
   if (Platform.OS === 'web') return;
@@ -38,7 +39,7 @@ const loadNativeModules = async () => {
   }
 };
 
-loadNativeModules();
+_notificationsReady = loadNativeModules();
 
 interface UsePushNotificationsReturn {
   pushToken: string | null;
@@ -55,10 +56,12 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { user, merchantId } = useAuthStore(useShallow((state) => ({
-    user: state.user,
-    merchantId: state.merchantId,
-  })));
+  const { user, merchantId } = useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      merchantId: state.merchantId,
+    }))
+  );
   const notificationListener = useRef<EventSubscription | null>(null);
   const responseListener = useRef<EventSubscription | null>(null);
 
@@ -130,46 +133,56 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     }
   };
 
-  // Set up notification listeners on mount
+  // Set up notification listeners on mount — wait for dynamic import to resolve
   useEffect(() => {
-    if (!Notifications) return;
+    const cancelledRef = { current: false };
 
-    // BUG-4-001 FIX: Remove old listeners before adding new ones to prevent memory leaks
-    if (notificationListener.current) {
-      notificationListener.current.remove();
-      notificationListener.current = null;
-    }
-    if (responseListener.current) {
-      responseListener.current.remove();
-      responseListener.current = null;
-    }
+    _notificationsReady.then(() => {
+      if (cancelledRef.current || !Notifications) return;
 
-    // Listener for notifications received while app is foregrounded
-    notificationListener.current =
-      Notifications.addNotificationReceivedListener((notification: any) => {
-        log.info('Notification received:', notification);
-        // You can show an in-app toast/banner here if desired
-      });
-
-    // Listener for when user taps on a notification
-    responseListener.current =
-      Notifications.addNotificationResponseReceivedListener((response: any) => {
-        log.info('Notification tapped:', response);
-        handleNotificationResponse(response, navigate);
-        // Clear badge when user interacts with notification
-        clearBadge();
-      });
-
-    // Check for notification that launched the app
-    Notifications.getLastNotificationResponseAsync().then((response: any) => {
-      if (response) {
-        log.info('App launched from notification:', response);
-        handleNotificationResponse(response, navigate);
+      // BUG-4-001 FIX: Remove old listeners before adding new ones to prevent memory leaks
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+        notificationListener.current = null;
       }
+      if (responseListener.current) {
+        responseListener.current.remove();
+        responseListener.current = null;
+      }
+
+      // Listener for notifications received while app is foregrounded
+      notificationListener.current =
+        Notifications.addNotificationReceivedListener(
+          (notification: import('expo-notifications').Notification) => {
+            log.info('Notification received:', notification);
+          }
+        );
+
+      // Listener for when user taps on a notification
+      responseListener.current =
+        Notifications.addNotificationResponseReceivedListener(
+          (response: import('expo-notifications').NotificationResponse) => {
+            log.info('Notification tapped:', response);
+            handleNotificationResponse(response, navigate);
+            clearBadge();
+          }
+        );
+
+      // Check for notification that launched the app
+      Notifications.getLastNotificationResponseAsync().then(
+        (
+          response: import('expo-notifications').NotificationResponse | null
+        ) => {
+          if (response && !cancelledRef.current) {
+            log.info('App launched from notification:', response);
+            handleNotificationResponse(response, navigate);
+          }
+        }
+      );
     });
 
-    // Cleanup listeners on unmount
     return () => {
+      cancelledRef.current = true;
       if (notificationListener.current) {
         notificationListener.current.remove();
       }
@@ -188,7 +201,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         }
       );
     }
-  }, [user?.id, pushToken, isRegistered, merchantId]);
+  }, [isRegistered, merchantId, pushToken, user?.id]);
 
   return {
     pushToken,

@@ -615,6 +615,7 @@ async function sendPushNotificationsToMerchants(
     // Deactivate tokens that are no longer registered
     const tokensToDeactivate = tickets
       .map((ticket, index) =>
+        ticket.status === 'error' &&
         ticket.details?.error === 'DeviceNotRegistered'
           ? tokens[index].token
           : null

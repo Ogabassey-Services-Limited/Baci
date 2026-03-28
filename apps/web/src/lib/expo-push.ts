@@ -1,47 +1,36 @@
 /**
  * Expo Push Notification Service
- * Sends push notifications to merchant mobile apps via Expo's push service
+ * Sends push notifications via the official expo-server-sdk.
  *
  * @see https://docs.expo.dev/push-notifications/sending-notifications/
  */
 
+import Expo, {
+  type ExpoPushMessage,
+  type ExpoPushTicket,
+} from 'expo-server-sdk';
+import { getExpoAccessToken } from '@/env';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+// ── Lazy-initialized Expo client (avoids module-level constructor for testability) ──
 
-/**
- * Expo push notification message format
- */
-export interface ExpoPushMessage {
-  to: string | string[];
-  title?: string;
-  body: string;
-  data?: Record<string, unknown>;
-  sound?: 'default' | null;
-  badge?: number;
-  channelId?: string;
-  priority?: 'default' | 'normal' | 'high';
-  ttl?: number;
-  expiration?: number;
-  categoryId?: string;
+let _expo: Expo | null = null;
+function _getExpo(): Expo {
+  if (!_expo) {
+    const accessToken = getExpoAccessToken();
+    if (!accessToken) {
+      console.warn(
+        '[expo-push] EXPO_ACCESS_TOKEN is not set — push notifications may fail or be rate-limited'
+      );
+    }
+    _expo = new Expo({ accessToken });
+  }
+  return _expo;
 }
 
-/**
- * Expo push response ticket
- */
-export interface ExpoPushTicket {
-  id?: string;
-  status: 'ok' | 'error';
-  message?: string;
-  details?: {
-    error?:
-      | 'DeviceNotRegistered'
-      | 'MessageTooBig'
-      | 'MessageRateExceeded'
-      | 'InvalidCredentials'
-      | string;
-  };
-}
+// ── Public types ─────────────────────────────────────────────────────────────
+
+export type { ExpoPushMessage, ExpoPushTicket };
 
 /**
  * Notification channel types for Android
@@ -53,8 +42,10 @@ export type NotificationChannel =
   | 'general'
   | 'promotions';
 
+// ── Core send functions ──────────────────────────────────────────────────────
+
 /**
- * Send push notification to a single token
+ * Send push notification to a single token.
  */
 export async function sendPushNotification(
   token: string,
@@ -80,44 +71,85 @@ export async function sendPushNotification(
 }
 
 /**
- * Send push notifications to multiple tokens
+ * Send push notifications to multiple tokens.
+ *
+ * - Validates tokens with `Expo.isExpoPushToken()`
+ * - Chunks messages to stay within Expo API limits
+ * - Returns a ticket per original message (invalid tokens get synthetic error tickets)
  */
 export async function sendPushNotifications(
   messages: ExpoPushMessage[]
 ): Promise<ExpoPushTicket[]> {
-  try {
-    const response = await fetch(EXPO_PUSH_URL, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Accept-Encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(messages),
-    });
+  if (messages.length === 0) return [];
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Expo push API error:', error);
-      return messages.map(() => ({
-        status: 'error' as const,
-        message: `HTTP ${response.status}: ${error}`,
-      }));
+  // Separate valid and invalid token messages, preserving original indices
+  const validMessages: ExpoPushMessage[] = [];
+  const resultMap: { index: number; ticket?: ExpoPushTicket }[] = [];
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    const tokens = Array.isArray(msg.to) ? msg.to : [msg.to];
+    const allValid = tokens.every((t) => Expo.isExpoPushToken(t));
+
+    if (allValid) {
+      resultMap.push({ index: i });
+      validMessages.push(msg);
+    } else {
+      const invalidToken = tokens.find((t) => !Expo.isExpoPushToken(t));
+      resultMap.push({
+        index: i,
+        ticket: {
+          status: 'error',
+          message: `Invalid Expo push token: ${invalidToken}`,
+          details: { error: 'DeviceNotRegistered' },
+        },
+      });
     }
-
-    const result = await response.json();
-    return result.data as ExpoPushTicket[];
-  } catch (error) {
-    console.error('Error sending push notifications:', error);
-    return messages.map(() => ({
-      status: 'error' as const,
-      message: error instanceof Error ? error.message : 'Unknown error',
-    }));
   }
+
+  if (validMessages.length === 0) {
+    return resultMap.map((r) => r.ticket as ExpoPushTicket);
+  }
+
+  // Chunk and send
+  const chunks = _getExpo().chunkPushNotifications(validMessages);
+  const sdkTickets: ExpoPushTicket[] = [];
+
+  for (const chunk of chunks) {
+    try {
+      const chunkTickets = await _getExpo().sendPushNotificationsAsync(chunk);
+      sdkTickets.push(...chunkTickets);
+    } catch (error) {
+      // Synthesize error tickets for the failed chunk
+      for (const _ of chunk) {
+        sdkTickets.push({
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          details: { error: 'ExpoError' },
+        });
+      }
+    }
+  }
+
+  // Reassemble in original order
+  let sdkIndex = 0;
+  const finalTickets: ExpoPushTicket[] = [];
+
+  for (const entry of resultMap) {
+    if (entry.ticket) {
+      finalTickets.push(entry.ticket);
+    } else {
+      finalTickets.push(sdkTickets[sdkIndex++]);
+    }
+  }
+
+  return finalTickets;
 }
 
+// ── Merchant / Customer delivery ─────────────────────────────────────────────
+
 /**
- * Send notification to all active tokens for a merchant
+ * Send notification to all active **admin** tokens for a merchant.
  */
 export async function notifyMerchant(
   merchantId: string,
@@ -128,12 +160,12 @@ export async function notifyMerchant(
 ): Promise<{ sent: number; failed: number; errors: string[] }> {
   const supabase = createAdminClient();
 
-  // Get all active push tokens for this merchant
   const { data: tokens, error } = await supabase
     .from('push_tokens')
     .select('token')
     .eq('merchant_id', merchantId)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .eq('app_type', 'admin');
 
   if (error) {
     console.error('Error fetching push tokens:', error);
@@ -144,55 +176,30 @@ export async function notifyMerchant(
     return { sent: 0, failed: 0, errors: [] };
   }
 
-  // Create messages for all tokens
   const messages: ExpoPushMessage[] = tokens.map((t) => ({
     to: t.token,
     title,
     body,
     data,
-    sound: 'default',
+    sound: 'default' as const,
     channelId,
-    priority: channelId === 'orders' ? 'high' : 'default',
+    priority: (channelId === 'orders' ? 'high' : 'default') as
+      | 'high'
+      | 'default',
   }));
 
-  // Send all notifications
   const tickets = await sendPushNotifications(messages);
 
-  // Count results
-  let sent = 0;
-  let failed = 0;
-  const errors: string[] = [];
-  const tokensToDeactivate: string[] = [];
-
-  tickets.forEach((ticket, index) => {
-    if (ticket.status === 'ok') {
-      sent++;
-    } else {
-      failed++;
-      if (ticket.message) {
-        errors.push(ticket.message);
-      }
-      // Handle invalid tokens
-      if (ticket.details?.error === 'DeviceNotRegistered') {
-        tokensToDeactivate.push(tokens[index].token);
-      }
-    }
+  return processTickets(tickets, tokens, supabase, {
+    merchantId,
+    appType: 'admin',
+    channel: channelId,
+    notificationType: (data?.type as string) ?? undefined,
   });
-
-  // Deactivate invalid tokens
-  if (tokensToDeactivate.length > 0) {
-    await supabase
-      .from('push_tokens')
-      .update({ is_active: false })
-      .in('token', tokensToDeactivate);
-  }
-
-  return { sent, failed, errors };
 }
 
 /**
- * Send notification to a specific customer by user_id
- * Used for customer-facing mobile apps (like Ogabassey storefront)
+ * Send notification to all active **storefront** tokens for a customer.
  */
 export async function notifyCustomer(
   userId: string,
@@ -203,12 +210,12 @@ export async function notifyCustomer(
 ): Promise<{ sent: number; failed: number; errors: string[] }> {
   const supabase = createAdminClient();
 
-  // Get all active push tokens for this user
   const { data: tokens, error } = await supabase
     .from('push_tokens')
     .select('token')
     .eq('user_id', userId)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .eq('app_type', 'storefront');
 
   if (error) {
     console.error('Error fetching customer push tokens:', error);
@@ -219,46 +226,107 @@ export async function notifyCustomer(
     return { sent: 0, failed: 0, errors: [] };
   }
 
-  // Create messages for all tokens
   const messages: ExpoPushMessage[] = tokens.map((t) => ({
     to: t.token,
     title,
     body,
     data,
-    sound: 'default',
+    sound: 'default' as const,
     channelId,
-    priority: channelId === 'orders' ? 'high' : 'default',
+    priority: (channelId === 'orders' ? 'high' : 'default') as
+      | 'high'
+      | 'default',
   }));
 
-  // Send all notifications
   const tickets = await sendPushNotifications(messages);
 
-  // Count results
+  return processTickets(tickets, tokens, supabase, {
+    userId,
+    appType: 'storefront',
+    channel: channelId,
+    notificationType: (data?.type as string) ?? undefined,
+  });
+}
+
+// ── Shared ticket processing ─────────────────────────────────────────────────
+
+interface TicketContext {
+  merchantId?: string;
+  userId?: string;
+  appType?: 'admin' | 'storefront';
+  channel?: string;
+  notificationType?: string;
+}
+
+async function processTickets(
+  tickets: ExpoPushTicket[],
+  tokens: { token: string }[],
+  supabase: ReturnType<typeof createAdminClient>,
+  context?: TicketContext
+): Promise<{ sent: number; failed: number; errors: string[] }> {
   let sent = 0;
   let failed = 0;
   const errors: string[] = [];
   const tokensToDeactivate: string[] = [];
+  const ticketsToStore: Array<{
+    ticket_id: string;
+    push_token: string;
+    merchant_id: string | null;
+    user_id: string | null;
+    app_type: string;
+    channel: string | null;
+    notification_type: string | null;
+    status: 'pending';
+  }> = [];
 
-  tickets.forEach((ticket, index) => {
+  for (let i = 0; i < tickets.length; i++) {
+    const ticket = tickets[i];
     if (ticket.status === 'ok') {
       sent++;
+      // Store ok tickets for receipt polling (they have a ticket.id)
+      ticketsToStore.push({
+        ticket_id: ticket.id,
+        push_token: tokens[i].token,
+        merchant_id: context?.merchantId ?? null,
+        user_id: context?.userId ?? null,
+        app_type: context?.appType ?? 'admin',
+        channel: context?.channel ?? null,
+        notification_type: context?.notificationType ?? null,
+        status: 'pending',
+      });
     } else {
       failed++;
       if (ticket.message) {
         errors.push(ticket.message);
       }
       if (ticket.details?.error === 'DeviceNotRegistered') {
-        tokensToDeactivate.push(tokens[index].token);
+        tokensToDeactivate.push(tokens[i].token);
       }
     }
-  });
+  }
 
-  // Deactivate invalid tokens
   if (tokensToDeactivate.length > 0) {
-    await supabase
+    const { error: deactivateError } = await supabase
       .from('push_tokens')
       .update({ is_active: false })
       .in('token', tokensToDeactivate);
+    if (deactivateError) {
+      console.error(
+        'Failed to deactivate invalid push tokens:',
+        deactivateError
+      );
+    }
+  }
+
+  // Store successful tickets for receipt polling
+  if (ticketsToStore.length > 0) {
+    const { error: insertError } = await supabase
+      .from('push_notification_tickets')
+      .insert(ticketsToStore);
+    if (insertError) {
+      console.error('Failed to store push tickets:', insertError);
+      errors.push(`Ticket storage failed: ${insertError.message}`);
+    }
   }
 
   return { sent, failed, errors };
@@ -269,7 +337,7 @@ export async function notifyCustomer(
 // =============================================================================
 
 /**
- * Notify merchant of a new order
+ * Notify merchant of a new order.
  */
 export async function notifyNewOrder(
   merchantId: string,
@@ -299,7 +367,7 @@ export async function notifyNewOrder(
 }
 
 /**
- * Notify merchant of payment received
+ * Notify merchant of payment received.
  */
 export async function notifyPaymentReceived(
   merchantId: string,
@@ -332,7 +400,7 @@ export async function notifyPaymentReceived(
 }
 
 /**
- * Notify merchant of low stock
+ * Notify merchant of low stock.
  */
 export async function notifyLowStock(
   merchantId: string,
@@ -355,7 +423,7 @@ export async function notifyLowStock(
 }
 
 /**
- * Notify merchant of a new review
+ * Notify merchant of a new review.
  */
 export async function notifyNewReview(
   merchantId: string,
@@ -380,7 +448,7 @@ export async function notifyNewReview(
 }
 
 /**
- * Notify merchant of withdrawal processed
+ * Notify merchant of withdrawal processed.
  */
 export async function notifyWithdrawalProcessed(
   merchantId: string,
@@ -413,7 +481,7 @@ export async function notifyWithdrawalProcessed(
 }
 
 /**
- * Notify merchant of a new Jumia order
+ * Notify merchant of a new Jumia order.
  */
 export async function notifyJumiaOrder(
   merchantId: string,
@@ -438,7 +506,102 @@ export async function notifyJumiaOrder(
       amount,
       currency,
     },
-    'orders' // Uses orders channel (HIGH priority)
+    'orders'
+  );
+}
+
+// =============================================================================
+// NEGOTIATION NOTIFICATION HELPERS
+// =============================================================================
+
+/**
+ * Notify merchant of a new price negotiation request.
+ *
+ * Handles both `type='single'` (single item with name/price) and `type='total'`
+ * (cart-level negotiation where `item_info` is null).
+ */
+export async function notifyNegotiationRequest(
+  merchantId: string,
+  negotiationType: 'single' | 'total',
+  offeredPrice: number,
+  negotiationId: string,
+  itemName?: string | null,
+  currentPrice?: number | null
+): Promise<void> {
+  const formattedOffer = new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 0,
+  }).format(offeredPrice);
+
+  let body: string;
+  if (negotiationType === 'total' || !itemName || !currentPrice) {
+    body = `Cart total negotiation — ${formattedOffer} offered`;
+  } else {
+    const discount = Math.round(
+      ((currentPrice - offeredPrice) / currentPrice) * 100
+    );
+    body =
+      discount > 0
+        ? `${itemName} — ${formattedOffer} offered (${discount}% off)`
+        : `${itemName} — ${formattedOffer} offered`;
+  }
+
+  await notifyMerchant(
+    merchantId,
+    '🤝 New Price Negotiation',
+    body,
+    { type: 'negotiation', negotiation_id: negotiationId },
+    'orders'
+  );
+}
+
+/**
+ * Notify customer of a negotiation response (accepted/rejected).
+ *
+ * Handles both single-item and cart-level negotiations.
+ */
+export async function notifyNegotiationResponse(
+  userId: string,
+  negotiationType: 'single' | 'total',
+  status: 'accepted' | 'rejected',
+  negotiationId: string,
+  itemName?: string | null,
+  offeredPrice?: number | null
+): Promise<void> {
+  const isAccepted = status === 'accepted';
+  const title = isAccepted ? '✅ Offer Accepted!' : '❌ Offer Declined';
+
+  let body: string;
+  if (negotiationType === 'total' || !itemName) {
+    body = isAccepted
+      ? 'Your cart offer has been accepted! Complete your purchase now.'
+      : 'Your cart offer was declined. Try a new offer or buy at the listed price.';
+  } else {
+    const formattedPrice =
+      offeredPrice != null
+        ? new Intl.NumberFormat('en-NG', {
+            style: 'currency',
+            currency: 'NGN',
+            minimumFractionDigits: 0,
+          }).format(offeredPrice)
+        : '';
+
+    body = isAccepted
+      ? `Your offer${formattedPrice ? ` of ${formattedPrice}` : ''} for ${itemName} has been accepted!`
+      : `Your offer for ${itemName} was declined. Try a new offer or buy at the listed price.`;
+  }
+
+  await notifyCustomer(
+    userId,
+    title,
+    body,
+    {
+      type: 'negotiation_response',
+      negotiation_id: negotiationId,
+      status,
+    },
+    'orders'
   );
 }
 
@@ -447,7 +610,7 @@ export async function notifyJumiaOrder(
 // =============================================================================
 
 /**
- * Notify customer of order status change
+ * Notify customer of order status change.
  */
 export async function notifyOrderStatusChange(
   userId: string,
@@ -497,7 +660,7 @@ export async function notifyOrderStatusChange(
 }
 
 /**
- * Notify customer of promotional offer
+ * Notify customer of promotional offer.
  */
 export async function notifyCustomerPromotion(
   userId: string,
@@ -520,7 +683,7 @@ export async function notifyCustomerPromotion(
 }
 
 /**
- * Notify customer that a product is back in stock
+ * Notify customer that a product is back in stock.
  */
 export async function notifyBackInStock(
   userId: string,
@@ -540,7 +703,7 @@ export async function notifyBackInStock(
 }
 
 /**
- * Notify customer of price drop on a wishlisted item
+ * Notify customer of price drop on a wishlisted item.
  */
 export async function notifyPriceDrop(
   userId: string,

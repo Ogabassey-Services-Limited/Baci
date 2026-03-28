@@ -977,12 +977,12 @@ describe('POST /api/payments/webhook', () => {
         'merchant-123',
         'ORD-260323-A7K3-2',
         'Jane Doe',
-        10000,
+        11000, // subtotal (10000) + shipping_fee (1000)
         'NGN'
       );
       expect(vi.mocked(notifyPaymentReceived)).toHaveBeenCalledWith(
         'merchant-123',
-        10000,
+        11000, // subtotal (10000) + shipping_fee (1000)
         'NGN',
         'ORD-260323-A7K3-2'
       );

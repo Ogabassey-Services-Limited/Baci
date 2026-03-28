@@ -14,9 +14,21 @@ interface NegotiationModalProps {
   onSuccess: (finalPrice: number) => void;
   type: 'single' | 'total';
   itemId?: string;
+  merchantId: string;
 }
 
 type NegotiationStatus = 'input' | 'processing' | 'success' | 'failed' | 'upload' | 'submitted';
+
+const SESSION_KEY = 'ogabassey_guest_session';
+
+function getOrCreateSessionId(): string {
+  if (typeof window === 'undefined') return `web-${Date.now()}`;
+  const existing = window.sessionStorage.getItem(SESSION_KEY);
+  if (existing) return existing;
+  const id = `web-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`}`;
+  window.sessionStorage.setItem(SESSION_KEY, id);
+  return id;
+}
 
 export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   isOpen,
@@ -26,6 +38,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   onSuccess,
   type,
   itemId,
+  merchantId,
 }) => {
   const [offer, setOffer] = useState('');
   const [status, setStatus] = useState<NegotiationStatus>('input');
@@ -108,15 +121,27 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   };
 
   const submitMerchantRequest = async (evidenceUrl?: string) => {
+    if (!merchantId) {
+      alert('Unable to submit request — merchant context unavailable.');
+      return;
+    }
+
     setStatus('processing');
     const offerAmount = Number.parseFloat(offer);
 
     try {
+      // Get authenticated user if available (null for guests)
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        console.warn('Auth check failed, continuing as guest:', authError.message);
+      }
+
       const { error } = await supabase
         .from('negotiation_requests')
         .insert({
-          merchant_id: '868f0fdc-5654-469b-9807-695ca1206d20', // Default merchant for Baci
-          session_id: 'web-session', // In prod, get actual session/user
+          merchant_id: merchantId,
+          session_id: getOrCreateSessionId(),
+          customer_id: user?.id ?? null,
           type,
           item_info: type === 'single' ? {
             id: itemId,
@@ -154,6 +179,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
       <div
+        data-testid="modal-backdrop"
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
@@ -314,6 +340,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   <input
                     type="file"
                     accept="image/*"
+                    aria-label="Upload proof"
                     onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     required
