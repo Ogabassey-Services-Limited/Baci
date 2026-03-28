@@ -116,5 +116,11 @@ describe('bumpaOrderRowSchema', () => {
     });
 
     expect(result.success).toBe(false);
+    expect(result.error?.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: 'Products is missing' }),
+        expect.objectContaining({ message: 'Product quantity is missing' }),
+      ])
+    );
   });
 });

@@ -57,6 +57,7 @@ describe('migration-types', () => {
           row_number: 1,
           row_status: 'create',
           source_external_id: '12345',
+          source_payload: { 'Order Number': '12345' },
           validation_errors: [],
         },
       ],
