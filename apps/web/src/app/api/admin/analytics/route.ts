@@ -170,8 +170,7 @@ export async function GET(request: NextRequest) {
             'support_email',
             'support_phone',
           ].join(', ')
-        )
-        .not('is_platform_admin', 'is', true),
+        ),
       supabase.rpc('get_admin_top_merchants'),
     ]);
     const merchantProfiles = (merchantProfilesResult.data ||
