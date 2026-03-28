@@ -4,7 +4,7 @@ import type { AdminMerchantHealthRow } from '@/types/admin-merchants';
 export async function getAdminMerchantHealthRows(
   supabase: SupabaseClient
 ): Promise<{
-  data: AdminMerchantHealthRow[] | null;
+  data: AdminMerchantHealthRow[];
   error: { code?: string | null; message?: string | null } | null;
 }> {
   const rpcResult = await supabase.rpc('get_admin_merchant_health');
