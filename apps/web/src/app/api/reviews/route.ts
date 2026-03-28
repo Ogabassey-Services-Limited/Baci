@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
-import { checkCsrfProtection } from '@/lib/csrf';
 import { notifyNewReview } from '@/lib/expo-push';
 import {
   getMerchantForApiRequest,
@@ -142,16 +141,7 @@ export async function GET(request: NextRequest) {
 // POST - Submit a new review
 export async function POST(request: NextRequest) {
   try {
-    // CSRF protection
-    const { valid: csrfValid, response: csrfResponse } =
-      await checkCsrfProtection(request);
-    if (!csrfValid) {
-      return (
-        csrfResponse ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
+    // CSRF: handled by Origin-based middleware in proxy.ts (guest storefront route)
     const rawBody = await request.json();
     const validationResult = reviewSubmissionSchema.safeParse(rawBody);
 
