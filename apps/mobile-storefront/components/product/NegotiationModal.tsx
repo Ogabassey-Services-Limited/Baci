@@ -181,10 +181,16 @@ export function NegotiationModal({
     const offerAmount =
       Number.parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
 
+    // Get authenticated user if available (null for guests)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     try {
       const { error } = await supabase.from('negotiation_requests').insert({
         merchant_id: merchantId || '868f0fdc-5654-469b-9807-695ca1206d20',
-        session_id: 'mobile-session',
+        session_id: `mobile-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`,
+        customer_id: user?.id ?? null,
         type,
         item_info:
           type === 'single'

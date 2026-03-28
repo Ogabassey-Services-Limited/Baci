@@ -7,6 +7,7 @@ import type { EventSubscription } from 'expo-modules-core';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
 import { createLogger } from '@/lib/logger';
 import {
   clearBadge,
@@ -15,13 +16,12 @@ import {
   removePushTokenFromServer,
   savePushTokenToServer,
 } from '@/services/push-notifications';
-import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('PushNotifications');
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
-let Notifications: any = null;
+let Notifications: typeof import('expo-notifications') | null = null;
 
 const loadNativeModules = async () => {
   if (Platform.OS === 'web') return;
@@ -55,10 +55,12 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { user, merchantId } = useAuthStore(useShallow((state) => ({
-    user: state.user,
-    merchantId: state.merchantId,
-  })));
+  const { user, merchantId } = useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      merchantId: state.merchantId,
+    }))
+  );
   const notificationListener = useRef<EventSubscription | null>(null);
   const responseListener = useRef<EventSubscription | null>(null);
 

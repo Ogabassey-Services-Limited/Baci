@@ -32,6 +32,27 @@ Deno.serve(async (req: Request) => {
       },
     });
 
+    // Send push notification to merchant via centralized Next.js endpoint (fire-and-forget)
+    const siteUrl = Deno.env.get('NEXT_PUBLIC_SITE_URL')?.replace(/\/+$/, '');
+    const internalSecret = Deno.env.get('INTERNAL_API_SECRET');
+    if (siteUrl && internalSecret) {
+      fetch(`${siteUrl}/api/internal/notify-negotiation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${internalSecret}`,
+        },
+        body: JSON.stringify({
+          merchantId: record.merchant_id,
+          negotiationType: record.type,
+          offeredPrice: record.offered_price,
+          negotiationId: record.id,
+          itemName: record.item_info?.name ?? null,
+          currentPrice: record.item_info?.current_price ?? null,
+        }),
+      }).catch((err) => console.error('Notification request failed:', err));
+    }
+
     return new Response(JSON.stringify({ message: 'Notification sent' }), {
       headers: { 'Content-Type': 'application/json' },
     });

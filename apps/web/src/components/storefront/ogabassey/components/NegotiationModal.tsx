@@ -111,12 +111,16 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     setStatus('processing');
     const offerAmount = Number.parseFloat(offer);
 
+    // Get authenticated user if available (null for guests)
+    const { data: { user } } = await supabase.auth.getUser();
+
     try {
       const { error } = await supabase
         .from('negotiation_requests')
         .insert({
-          merchant_id: '868f0fdc-5654-469b-9807-695ca1206d20', // Default merchant for Baci
-          session_id: 'web-session', // In prod, get actual session/user
+          merchant_id: '868f0fdc-5654-469b-9807-695ca1206d20',
+          session_id: `web-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`,
+          customer_id: user?.id ?? null,
           type,
           item_info: type === 'single' ? {
             id: itemId,

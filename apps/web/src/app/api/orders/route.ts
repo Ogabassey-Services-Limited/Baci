@@ -5,6 +5,7 @@ import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
+import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
 import {
   getMerchantForApiRequest,
@@ -671,6 +672,22 @@ export async function POST(request: NextRequest) {
           error: emailError,
         });
       }
+    }
+
+    // Notify merchant of new order (fire-and-forget)
+    const orderNum = order.order_number || order.id.slice(0, 8).toUpperCase();
+    notifyNewOrder(merchant_id, orderNum, customer_name, orderTotal).catch(
+      (err) => logger.error({ message: 'Push notification failed', error: err })
+    );
+
+    if (isWalletFullyPaid) {
+      notifyPaymentReceived(merchant_id, orderTotal, 'NGN', orderNum).catch(
+        (err) =>
+          logger.error({
+            message: 'Payment push notification failed',
+            error: err,
+          })
+      );
     }
 
     const responseOrder = isWalletFullyPaid

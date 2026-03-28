@@ -6,6 +6,19 @@ import { POST } from './route';
 // Mocks
 // ============================================================================
 
+// Mock Next.js server with after function
+vi.mock('next/server', async () => {
+  const actual = await vi.importActual('next/server');
+  return {
+    ...actual,
+    after: vi.fn((callback: () => void | Promise<void>) => {
+      Promise.resolve(callback()).catch(() => {
+        // Ignore background task errors in tests
+      });
+    }),
+  };
+});
+
 vi.mock('@/lib/credit-direct', () => ({
   getWebhookSecret: vi.fn(),
   verifyWebhookSignature: vi.fn(),

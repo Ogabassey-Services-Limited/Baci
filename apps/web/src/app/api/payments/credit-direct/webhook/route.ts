@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import {
   type CreditDirectWebhookPayload,
   calculateMerchantAmount,
@@ -7,6 +7,7 @@ import {
   parseWebhookPayload,
   verifyWebhookSignature,
 } from '@/lib/credit-direct';
+import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
 import { purchaseInsuranceForPaidOrder } from '@/services/insurance';
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
     const { data: orders, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, merchant_id, total, payment_status, customer_email, customer_name, notes'
+        'id, merchant_id, total, payment_status, customer_email, customer_name, order_number, notes'
       )
       .eq('payment_method', 'credit_direct')
       .ilike('notes', `%${payload.checkoutTransactionId}%`);
@@ -114,6 +115,7 @@ export async function POST(request: NextRequest) {
       payment_status: string;
       customer_email: string;
       customer_name: string;
+      order_number: string | null;
       notes: string | null;
     } | null = orders?.[0] ?? null;
 
@@ -121,7 +123,7 @@ export async function POST(request: NextRequest) {
       const { data: orderById } = await supabase
         .from('orders')
         .select(
-          'id, merchant_id, total, payment_status, customer_email, customer_name, notes'
+          'id, merchant_id, total, payment_status, customer_email, customer_name, order_number, notes'
         )
         .eq('id', payload.metaData)
         .single();
@@ -309,6 +311,28 @@ export async function POST(request: NextRequest) {
             // Don't fail the webhook - order is already updated
           }
         }
+
+        // Notify merchant of new order and payment (non-blocking)
+        after(async () => {
+          try {
+            const orderNum =
+              order.order_number || order.id.slice(0, 8).toUpperCase();
+            await notifyNewOrder(
+              order.merchant_id,
+              orderNum,
+              order.customer_name || 'Customer',
+              Number(order.total)
+            );
+            await notifyPaymentReceived(
+              order.merchant_id,
+              Number(order.total),
+              'NGN',
+              orderNum
+            );
+          } catch (err) {
+            logger.error({ message: 'Push notification failed', error: err });
+          }
+        });
 
         // Send confirmation email
         try {

@@ -21,11 +21,11 @@ import {
   View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+import { useShallow } from 'zustand/react/shallow';
 import { BRAND, palette, SHADOWS } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
 import { formatPrice, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
-import { useShallow } from 'zustand/react/shallow';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 let ImagePicker: typeof import('expo-image-picker') | null = null;
@@ -196,10 +196,16 @@ export const NegotiationModal: React.FC = () => {
     const offerAmount =
       Number.parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
 
+    // Get authenticated user if available (null for guests)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     try {
       const { error } = await supabase.from('negotiation_requests').insert({
         merchant_id: '3bc72679-c0f7-4db4-9054-6a4a4a95a498',
         session_id: `mobile-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`,
+        customer_id: user?.id ?? null,
         type,
         item_info:
           type === 'single'

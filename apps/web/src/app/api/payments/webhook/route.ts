@@ -613,28 +613,30 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Send push notification to merchant
-        try {
-          const orderAmount = Number(chatOrder.subtotal) || 0;
-          await notifyNewOrder(
-            chatOrder.merchant_id,
-            orderNumber,
-            chatOrder.customer_name || 'Customer',
-            orderAmount,
-            'NGN'
-          );
-          await notifyPaymentReceived(
-            chatOrder.merchant_id,
-            orderAmount,
-            'NGN',
-            orderNumber
-          );
-        } catch (pushErr) {
-          logger.warn({
-            message: 'Push notification failed for chat order',
-            error: pushErr,
-          });
-        }
+        // Send push notification to merchant (non-blocking)
+        after(async () => {
+          try {
+            const orderAmount = Number(chatOrder.subtotal) || 0;
+            await notifyNewOrder(
+              chatOrder.merchant_id,
+              orderNumber,
+              chatOrder.customer_name || 'Customer',
+              orderAmount,
+              'NGN'
+            );
+            await notifyPaymentReceived(
+              chatOrder.merchant_id,
+              orderAmount,
+              'NGN',
+              orderNumber
+            );
+          } catch (pushErr) {
+            logger.warn({
+              message: 'Push notification failed for chat order',
+              error: pushErr,
+            });
+          }
+        });
 
         // Send order confirmation email
         try {
@@ -1217,41 +1219,40 @@ export async function POST(request: NextRequest) {
           orderId: transaction.order_id,
         });
 
-        // Send push notification to merchant
-        try {
-          const orderAmount = Number.parseFloat(order.total || '0');
-          const orderNumber =
-            order.order_number || order.id.slice(0, 8).toUpperCase();
+        // Send push notification to merchant (non-blocking)
+        after(async () => {
+          try {
+            const orderAmount = Number.parseFloat(order.total || '0');
+            const orderNumber =
+              order.order_number || order.id.slice(0, 8).toUpperCase();
 
-          // Notify merchant of new paid order
-          await notifyNewOrder(
-            transaction.merchant_id,
-            orderNumber,
-            order.customer_name || 'Customer',
-            orderAmount,
-            order.currency || 'NGN'
-          );
+            await notifyNewOrder(
+              transaction.merchant_id,
+              orderNumber,
+              order.customer_name || 'Customer',
+              orderAmount,
+              order.currency || 'NGN'
+            );
 
-          // Also notify payment received
-          await notifyPaymentReceived(
-            transaction.merchant_id,
-            orderAmount,
-            order.currency || 'NGN',
-            orderNumber
-          );
+            await notifyPaymentReceived(
+              transaction.merchant_id,
+              orderAmount,
+              order.currency || 'NGN',
+              orderNumber
+            );
 
-          logger.info({
-            message: 'Push notification sent to merchant',
-            merchantId: transaction.merchant_id,
-            orderId: transaction.order_id,
-          });
-        } catch (pushError) {
-          // Don't fail the webhook if push fails
-          logger.warn({
-            message: 'Failed to send push notification',
-            error: pushError,
-          });
-        }
+            logger.info({
+              message: 'Push notification sent to merchant',
+              merchantId: transaction.merchant_id,
+              orderId: transaction.order_id,
+            });
+          } catch (pushError) {
+            logger.warn({
+              message: 'Failed to send push notification',
+              error: pushError,
+            });
+          }
+        });
 
         // Send order confirmation email
         try {

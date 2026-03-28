@@ -1,0 +1,180 @@
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { NegotiationModal } from './NegotiationModal';
+
+// ── Mocks ────────────────────────────────────────────────────────────────────
+
+vi.mock('@/env', () => ({
+  getSupabaseUrl: () => 'https://test.supabase.co',
+  getSupabaseAnonKey: () => 'test-anon-key',
+  getSupabaseServiceRoleKey: () => 'test-service-role-key',
+  getRootDomain: () => 'localhost',
+}));
+
+const mockInsert = vi.fn().mockResolvedValue({ error: null });
+const mockGetUser = vi.fn();
+
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
+    from: () => ({ insert: mockInsert }),
+    auth: { getUser: mockGetUser },
+  }),
+}));
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const defaultProps = {
+  isOpen: true,
+  onClose: vi.fn(),
+  productName: 'Test Product',
+  currentPrice: 10000,
+  onSuccess: vi.fn(),
+  type: 'single' as const,
+  itemId: 'item-123',
+};
+
+/** Submit a low offer and advance fake timers past the 1500ms setTimeout */
+async function submitLowOffer(value: string) {
+  const input = screen.getByPlaceholderText('Enter amount...');
+  fireEvent.change(input, { target: { value } });
+  fireEvent.click(screen.getByRole('button', { name: 'Submit Offer' }));
+  // Advance past the 1500ms simulated AI delay
+  act(() => {
+    vi.advanceTimersByTime(1600);
+  });
+}
+
+// ── Tests ────────────────────────────────────────────────────────────────────
+
+describe('NegotiationModal', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.clearAllMocks();
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-abc' } },
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('returns null when not open', () => {
+    const { container } = render(
+      <NegotiationModal {...defaultProps} isOpen={false} />
+    );
+    expect(container.innerHTML).toBe('');
+  });
+
+  it('renders product name and price', () => {
+    render(<NegotiationModal {...defaultProps} />);
+    expect(screen.getByText('Test Product')).toBeInTheDocument();
+    expect(screen.getByText(/10,000/)).toBeInTheDocument();
+  });
+
+  it('shows the offer input form initially', () => {
+    render(<NegotiationModal {...defaultProps} />);
+    expect(
+      screen.getByPlaceholderText('Enter amount...')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Submit Offer' })
+    ).toBeInTheDocument();
+  });
+
+  it('accepts an offer within the 5% threshold', () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    const input = screen.getByPlaceholderText('Enter amount...');
+    fireEvent.change(input, { target: { value: '9600' } }); // 4% off
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Offer' }));
+
+    act(() => {
+      vi.advanceTimersByTime(1600);
+    });
+
+    expect(defaultProps.onSuccess).toHaveBeenCalledWith(9600);
+  });
+
+  it('shows counter offer for a low first attempt', () => {
+    render(<NegotiationModal {...defaultProps} />);
+    submitLowOffer('1000');
+
+    expect(screen.getByText('Counter Offer')).toBeInTheDocument();
+    expect(screen.getByText("That's a bit low. But I can do:")).toBeInTheDocument();
+  });
+
+  it('includes customer_id and unique session_id in the insert payload', async () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    // Three low offers to reach upload state
+    submitLowOffer('1000');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('1000');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('1000');
+
+    // Now in upload state — provide file and submit form directly
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(fileInput).not.toBeNull();
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    // Switch to real timers — the async submitMerchantRequest flow
+    // (getUser + insert) needs real microtask scheduling, not fake timers
+    vi.useRealTimers();
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+
+    const insertPayload = mockInsert.mock.calls[0][0];
+    expect(insertPayload).toMatchObject({
+      customer_id: 'user-abc',
+      type: 'single',
+      offered_price: 1000,
+      status: 'pending',
+    });
+    // session_id should be a unique web-prefixed string, not the old hardcoded 'web-session'
+    expect(insertPayload.session_id).toMatch(/^web-/);
+    expect(insertPayload.session_id).not.toBe('web-session');
+  });
+
+  it('sets customer_id to null for unauthenticated users', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+
+    render(<NegotiationModal {...defaultProps} />);
+
+    submitLowOffer('500');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('500');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('500');
+
+    // Switch to real timers before async form submission
+    vi.useRealTimers();
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    expect(mockInsert.mock.calls[0][0].customer_id).toBeNull();
+  });
+
+  it('calls onClose when backdrop is clicked', () => {
+    render(<NegotiationModal {...defaultProps} />);
+    const backdrop = document.querySelector('.bg-black\\/60');
+    expect(backdrop).not.toBeNull();
+    fireEvent.click(backdrop!);
+    expect(defaultProps.onClose).toHaveBeenCalled();
+  });
+});

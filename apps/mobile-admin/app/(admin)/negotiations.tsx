@@ -13,20 +13,22 @@ import {
   View,
 } from 'react-native';
 import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
+import { apiClient } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency as formatPrice } from '@/utils/format';
 
 interface NegotiationRequest {
   id: string;
-  customer_id: string;
+  customer_id: string | null;
   type: 'single' | 'total';
   status: 'pending' | 'accepted' | 'rejected' | 'countered';
   offered_price: number;
-  current_price: number;
+  current_price: number | null;
   item_info: {
     name: string;
     image?: string;
-  };
+    current_price?: number;
+  } | null;
   created_at: string;
   evidence_url?: string;
 }
@@ -112,6 +114,15 @@ export default function NegotiationsScreen() {
       if (error) throw error;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       fetchRequests();
+
+      // Notify customer if they're authenticated (best-effort)
+      const negotiation = requests.find((r) => r.id === id);
+      if (negotiation?.customer_id) {
+        apiClient('/api/negotiations/notify', {
+          method: 'POST',
+          body: JSON.stringify({ negotiationId: id, status }),
+        }).catch(() => {}); // Best-effort
+      }
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       const message =
@@ -152,24 +163,33 @@ export default function NegotiationsScreen() {
       </View>
 
       <Text style={styles.itemName} numberOfLines={1}>
-        {item.item_info.name}
+        {item.item_info?.name ?? 'Cart Negotiation'}
       </Text>
 
       <View style={styles.priceRow}>
-        <View>
-          <Text style={styles.label}>Current</Text>
-          <Text style={styles.oldPrice}>{formatPrice(item.current_price)}</Text>
-        </View>
-        <Ionicons name="arrow-forward" size={16} color={palette.gray[400]} />
+        {item.current_price != null && (
+          <View>
+            <Text style={styles.label}>Current</Text>
+            <Text style={styles.oldPrice}>
+              {formatPrice(item.current_price)}
+            </Text>
+          </View>
+        )}
+        {item.current_price != null && (
+          <Ionicons name="arrow-forward" size={16} color={palette.gray[400]} />
+        )}
         <View>
           <Text style={styles.label}>Offered</Text>
           <Text style={styles.newPrice}>{formatPrice(item.offered_price)}</Text>
         </View>
-        <View style={styles.savingsBadge}>
-          <Text style={styles.savingsText}>
-            -{Math.round((1 - item.offered_price / item.current_price) * 100)}%
-          </Text>
-        </View>
+        {item.current_price != null && item.current_price > 0 && (
+          <View style={styles.savingsBadge}>
+            <Text style={styles.savingsText}>
+              -{Math.round((1 - item.offered_price / item.current_price) * 100)}
+              %
+            </Text>
+          </View>
+        )}
       </View>
 
       {item.evidence_url ? (

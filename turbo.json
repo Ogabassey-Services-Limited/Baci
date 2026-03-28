@@ -14,7 +14,10 @@
         "UPSTASH_REDIS_REST_TOKEN",
         "JUMIA_CLIENT_ID",
         "JUMIA_CLIENT_SECRET",
-        "JUMIA_ENVIRONMENT"
+        "JUMIA_ENVIRONMENT",
+        "EXPO_ACCESS_TOKEN",
+        "INTERNAL_API_SECRET",
+        "CRON_SECRET"
       ]
     },
     "dev": {
