@@ -126,7 +126,7 @@ describe('AdminDashboardPage', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/admin/analytics?period=30d'
+        '/api/admin/analytics?period=all'
       );
     });
 
@@ -141,7 +141,7 @@ describe('AdminDashboardPage', () => {
     await waitFor(() => {
       expect(global.fetch).toHaveBeenNthCalledWith(
         2,
-        '/api/admin/analytics?period=30d'
+        '/api/admin/analytics?period=all'
       );
     });
   });
