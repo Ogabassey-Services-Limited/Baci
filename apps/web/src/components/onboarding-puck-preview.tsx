@@ -371,7 +371,7 @@ export function OnboardingPuckPreview({
                 <path d="M18 6 6 18" />
                 <path d="m6 6 12 12" />
               </svg>
-              <span className="sr-only">Close Preview</span>
+              <span className="sr-only">Close preview</span>
             </Button>
           </div>
 

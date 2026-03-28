@@ -135,7 +135,7 @@ export function BuilderSidebar({
               className="h-8 w-8"
               onClick={() => setActiveTab(null)}
             >
-              <span className="sr-only">Close</span>
+              <span className="sr-only">Close settings</span>
               <svg
                 width="15"
                 height="15"
