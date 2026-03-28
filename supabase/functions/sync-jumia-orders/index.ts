@@ -33,7 +33,7 @@ const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 const MAX_PAGES = 100;
 
 const INTEGRATION_COLUMNS =
-  'id, merchant_id, shop_id, access_token, refresh_token, token_expires_at, last_sync_at';
+  'id, merchant_id, shop_id, access_token, refresh_token, token_expires_at, last_sync_at, sync_config';
 
 interface JumiaOrder {
   id: string;
@@ -64,6 +64,20 @@ interface MarketplaceIntegration {
   refresh_token: string;
   token_expires_at: string | null;
   last_sync_at: string | null;
+  sync_config: {
+    stock?: boolean;
+    products?: boolean;
+    orders?: boolean;
+  } | null;
+}
+
+interface ProductMapping {
+  id: string;
+  product_id: string;
+  variant_id: string | null;
+  jumia_seller_sku: string | null;
+  jumia_product_id: string | null;
+  baci_stock_at_last_sync: number | null;
 }
 
 // Helper: Refresh Jumia token
@@ -277,6 +291,218 @@ function getSuccessfullyNotifiedOrderIds(
     }
     return false;
   });
+}
+
+// ── Stock Sync Helpers ──
+
+/**
+ * Resolve effective stock for a product, matching getEffectiveProductStock()
+ * from packages/shared/src/lib/product-inventory.ts.
+ * Prefers stock_quantity when present and non-zero, falls back to legacy stock.
+ */
+function resolveEffectiveStock(product: {
+  stock: unknown;
+  stock_quantity: unknown;
+}): number {
+  const toNonNeg = (v: unknown): number => {
+    if (typeof v === 'number' && Number.isFinite(v))
+      return Math.max(0, Math.trunc(v));
+    if (typeof v === 'string' && v.trim().length > 0) {
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+    }
+    return 0;
+  };
+
+  const stockQuantity = toNonNeg(product.stock_quantity);
+  const legacyStock = toNonNeg(product.stock);
+
+  if (product.stock_quantity == null) return legacyStock;
+  if (stockQuantity === 0 && legacyStock > 0) return legacyStock;
+  return stockQuantity;
+}
+
+/**
+ * Push Baci stock changes to Jumia for a single integration.
+ * Returns count of items updated.
+ */
+async function syncStockForIntegration(
+  supabase: ReturnType<typeof createClient>,
+  integration: MarketplaceIntegration,
+  accessToken: string
+): Promise<{ updated: number; skipped: number }> {
+  const { data: mappings, error: mappingsError } = await supabase
+    .from('jumia_product_mappings')
+    .select(
+      'id, product_id, variant_id, jumia_seller_sku, jumia_product_id, baci_stock_at_last_sync'
+    )
+    .eq('merchant_id', integration.merchant_id)
+    .eq('jumia_shop_id', integration.shop_id)
+    .eq('sync_status', 'synced');
+
+  if (mappingsError || !mappings || mappings.length === 0) {
+    return { updated: 0, skipped: 0 };
+  }
+
+  // Filter to push-ready mappings
+  const pushReady: ProductMapping[] = [];
+  let skipped = 0;
+
+  for (const m of mappings) {
+    if (!m.jumia_seller_sku?.trim() || !m.jumia_product_id?.trim()) {
+      skipped++;
+      continue;
+    }
+    pushReady.push(m as ProductMapping);
+  }
+
+  if (pushReady.length === 0) return { updated: 0, skipped };
+
+  // Batch-resolve stock: collect product IDs and variant IDs
+  const variantIds = pushReady
+    .filter((m) => m.variant_id)
+    .map((m) => m.variant_id!);
+  const productOnlyIds = pushReady
+    .filter((m) => !m.variant_id)
+    .map((m) => m.product_id);
+
+  // Fetch variant stock
+  const variantStockMap = new Map<string, number>();
+  if (variantIds.length > 0) {
+    const { data: variants, error: variantsError } = await supabase
+      .from('product_variants')
+      .select('id, stock_quantity')
+      .in('id', variantIds);
+    if (variantsError) {
+      console.error(
+        `[Jumia Sync] Stock: failed to fetch variant stock for merchant ${integration.merchant_id}:`,
+        variantsError.message
+      );
+    }
+    for (const v of variants || []) {
+      variantStockMap.set(
+        v.id,
+        Math.max(0, Math.trunc(Number(v.stock_quantity) || 0))
+      );
+    }
+  }
+
+  // Fetch product stock
+  const productStockMap = new Map<string, number>();
+  if (productOnlyIds.length > 0) {
+    const { data: products, error: productsError } = await supabase
+      .from('products')
+      .select('id, stock, stock_quantity')
+      .in('id', productOnlyIds);
+    if (productsError) {
+      console.error(
+        `[Jumia Sync] Stock: failed to fetch product stock for merchant ${integration.merchant_id}:`,
+        productsError.message
+      );
+    }
+    for (const p of products || []) {
+      productStockMap.set(p.id, resolveEffectiveStock(p));
+    }
+  }
+
+  // Build updates for changed stock only
+  const stockUpdates: Array<{
+    mappingId: string;
+    sellerSku: string;
+    id: string;
+    stock: number;
+  }> = [];
+
+  for (const mapping of pushReady) {
+    const stock = mapping.variant_id
+      ? variantStockMap.get(mapping.variant_id)
+      : productStockMap.get(mapping.product_id);
+
+    if (stock === undefined) {
+      skipped++;
+      continue;
+    }
+
+    if (stock === mapping.baci_stock_at_last_sync) continue;
+
+    stockUpdates.push({
+      mappingId: mapping.id,
+      sellerSku: mapping.jumia_seller_sku!,
+      id: mapping.jumia_product_id!,
+      stock,
+    });
+  }
+
+  if (stockUpdates.length === 0) return { updated: 0, skipped };
+
+  // Push to Jumia
+  const stockPayload = {
+    products: stockUpdates.map(({ sellerSku, id, stock }) => ({
+      sellerSku,
+      id,
+      stock,
+    })),
+  };
+
+  let currentToken = accessToken;
+  let response = await fetch(`${JUMIA_API_BASE}/feeds/products/stock`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${currentToken}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(stockPayload),
+  });
+
+  // Retry on 401
+  if (response.status === 401) {
+    currentToken = await refreshToken(supabase, integration);
+    response = await fetch(`${JUMIA_API_BASE}/feeds/products/stock`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${currentToken}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(stockPayload),
+    });
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => '<unreadable body>');
+    throw new Error(`Jumia stock feed error: ${response.status} - ${body}`);
+  }
+
+  const feedData = await response.json();
+  const feedId = feedData.feedId || null;
+  const now = new Date().toISOString();
+
+  // Update tracking columns in parallel
+  // Supabase client resolves (not rejects) on error, so check .error on each result
+  const updateResults = await Promise.all(
+    stockUpdates.map(async (update) => {
+      const { error } = await supabase
+        .from('jumia_product_mappings')
+        .update({
+          baci_stock_at_last_sync: update.stock,
+          last_stock_synced_at: now,
+          ...(feedId ? { last_feed_id: feedId } : {}),
+        })
+        .eq('id', update.mappingId);
+      return { mappingId: update.mappingId, error };
+    })
+  );
+
+  const trackingFailures = updateResults.filter((r) => r.error !== null);
+  if (trackingFailures.length > 0) {
+    console.error(
+      `[Jumia Sync] Stock: ${trackingFailures.length} mapping update(s) failed for merchant ${integration.merchant_id}:`,
+      trackingFailures.map((f) => f.mappingId)
+    );
+  }
+
+  return { updated: stockUpdates.length, skipped };
 }
 
 // Main handler
@@ -558,6 +784,33 @@ Deno.serve(async (req) => {
               `[Jumia Sync] Failed to update last_sync_at for merchant ${integration.merchant_id}:`,
               syncUpdateError.message
             );
+          }
+        }
+
+        // Piggyback stock sync if enabled for this integration
+        if (integration.sync_config?.stock === true) {
+          try {
+            const stockToken = await getValidToken(supabase, integration);
+            const stockResult = await syncStockForIntegration(
+              supabase,
+              integration,
+              stockToken
+            );
+            if (stockResult.updated > 0) {
+              console.log(
+                `[Jumia Sync] Stock: pushed ${stockResult.updated} updates for merchant ${integration.merchant_id}`
+              );
+            }
+          } catch (stockError) {
+            const stockMsg =
+              stockError instanceof Error
+                ? stockError.message
+                : 'Unknown stock sync error';
+            console.error(
+              `[Jumia Sync] Stock sync error for merchant ${integration.merchant_id}:`,
+              stockMsg
+            );
+            // Stock sync failure doesn't block order sync — just log it
           }
         }
       } catch (error) {

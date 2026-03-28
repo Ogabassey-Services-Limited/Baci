@@ -122,7 +122,7 @@ export async function syncOrders(
     const data = await response.json();
     if (!response.ok) {
       const detail = data.details
-        ? `${data.error}\nDetails: ${data.details}`
+        ? `${data.error || 'Sync failed'}\nDetails: ${data.details}`
         : data.error || 'Sync failed';
       return { ok: false, error: detail };
     }
@@ -132,5 +132,26 @@ export async function syncOrders(
     };
   } catch {
     return { ok: false, error: 'Sync failed — please try again' };
+  }
+}
+
+export async function syncStock(
+  integrationId: string
+): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(
+      `/api/marketplace/jumia/products/stock?integrationId=${encodeURIComponent(integrationId)}`,
+      { method: 'POST', headers: buildCsrfHeaders() }
+    );
+    const data = await response.json();
+    if (!response.ok) {
+      const detail = data.details
+        ? `${data.error || 'Stock sync failed'}\nDetails: ${data.details}`
+        : data.error || 'Stock sync failed';
+      return { ok: false, error: detail };
+    }
+    return { ok: true, message: data.message || 'Stock synced' };
+  } catch {
+    return { ok: false, error: 'Stock sync failed — please try again' };
   }
 }
