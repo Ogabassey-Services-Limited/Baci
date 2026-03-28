@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 import { validateDiscountCodeSchema } from '@/schemas/discount-codes';
 
@@ -10,14 +9,7 @@ import { validateDiscountCodeSchema } from '@/schemas/discount-codes';
  */
 export async function POST(request: NextRequest) {
   try {
-    const { valid, response } = await checkCsrfProtection(request);
-    if (!valid) {
-      return (
-        response ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
+    // CSRF: handled by Origin-based middleware in proxy.ts (guest storefront route)
     let body: unknown;
     try {
       body = await request.json();
