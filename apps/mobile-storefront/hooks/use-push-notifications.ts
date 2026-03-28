@@ -152,14 +152,16 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
       // Listener for notifications received while app is foregrounded
       notificationListener.current =
-        Notifications.addNotificationReceivedListener((notification: any) => {
-          log.info('Notification received:', notification);
-        });
+        Notifications.addNotificationReceivedListener(
+          (notification: import('expo-notifications').Notification) => {
+            log.info('Notification received:', notification);
+          }
+        );
 
       // Listener for when user taps on a notification
       responseListener.current =
         Notifications.addNotificationResponseReceivedListener(
-          (response: any) => {
+          (response: import('expo-notifications').NotificationResponse) => {
             log.info('Notification tapped:', response);
             handleNotificationResponse(response, navigate);
             clearBadge();
@@ -167,12 +169,16 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         );
 
       // Check for notification that launched the app
-      Notifications.getLastNotificationResponseAsync().then((response: any) => {
-        if (response) {
-          log.info('App launched from notification:', response);
-          handleNotificationResponse(response, navigate);
+      Notifications.getLastNotificationResponseAsync().then(
+        (
+          response: import('expo-notifications').NotificationResponse | null
+        ) => {
+          if (response && !cancelledRef.current) {
+            log.info('App launched from notification:', response);
+            handleNotificationResponse(response, navigate);
+          }
         }
-      });
+      );
     });
 
     return () => {

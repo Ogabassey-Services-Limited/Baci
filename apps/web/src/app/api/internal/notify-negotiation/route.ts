@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getInternalApiSecret } from '@/env';
 import { notifyNegotiationRequest } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
 
@@ -15,9 +16,17 @@ const bodySchema = z.object({
 export async function POST(request: NextRequest) {
   // Auth: verify internal API secret
   const authHeader = request.headers.get('Authorization');
-  const expectedSecret = process.env.INTERNAL_API_SECRET;
+  const expectedSecret = getInternalApiSecret();
 
-  if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
+  if (!expectedSecret) {
+    logger.error({ message: 'INTERNAL_API_SECRET not configured' });
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    );
+  }
+
+  if (authHeader !== `Bearer ${expectedSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

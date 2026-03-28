@@ -256,7 +256,11 @@ export function handleNotificationResponse(
       break;
 
     case 'negotiation_response':
-      navigate('home');
+      if (data.productSlug) {
+        navigate('product', { slug: data.productSlug as string });
+      } else {
+        navigate('home');
+      }
       break;
 
     default:

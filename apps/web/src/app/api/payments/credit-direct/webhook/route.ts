@@ -314,15 +314,24 @@ export async function POST(request: NextRequest) {
 
         // Notify merchant of new order and payment (non-blocking)
         after(async () => {
+          const orderNum =
+            order.order_number || order.id.slice(0, 8).toUpperCase();
+
           try {
-            const orderNum =
-              order.order_number || order.id.slice(0, 8).toUpperCase();
             await notifyNewOrder(
               order.merchant_id,
               orderNum,
               order.customer_name || 'Customer',
               Number(order.total)
             );
+          } catch (err) {
+            logger.error({
+              message: 'New order push notification failed',
+              error: err,
+            });
+          }
+
+          try {
             await notifyPaymentReceived(
               order.merchant_id,
               Number(order.total),
@@ -330,7 +339,10 @@ export async function POST(request: NextRequest) {
               orderNum
             );
           } catch (err) {
-            logger.error({ message: 'Push notification failed', error: err });
+            logger.error({
+              message: 'Payment received push notification failed',
+              error: err,
+            });
           }
         });
 

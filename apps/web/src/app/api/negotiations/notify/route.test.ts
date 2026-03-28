@@ -16,7 +16,6 @@ vi.mock('@/lib/expo-push', () => ({
 const mockUser = { id: 'user-123' } as never;
 const mockSupabase = {
   from: vi.fn(),
-  rpc: vi.fn(),
 };
 
 vi.mock('@/lib/api-auth', () => ({
@@ -44,6 +43,21 @@ const validBody = {
   negotiationId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   status: 'accepted' as const,
 };
+
+function mockSupabaseQuery(
+  data: unknown,
+  error: { message: string } | null = null
+) {
+  mockSupabase.from.mockReturnValue({
+    select: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data, error }),
+        }),
+      }),
+    }),
+  });
+}
 
 async function setupAuth(options: {
   authenticated?: boolean;
@@ -119,19 +133,7 @@ describe('POST /api/negotiations/notify', () => {
 
   it('returns 404 when negotiation not found', async () => {
     await setupAuth({ authenticated: true, hasAccess: true });
-
-    mockSupabase.from.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: null,
-              error: { message: 'Not found' },
-            }),
-          }),
-        }),
-      }),
-    });
+    mockSupabaseQuery(null, { message: 'Not found' });
 
     const request = createRequest(validBody);
     const response = await POST(request);
@@ -147,18 +149,7 @@ describe('POST /api/negotiations/notify', () => {
     });
 
     // Scoped query .eq('merchant_id', 'merchant-123') finds nothing for a different merchant
-    mockSupabase.from.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: null,
-              error: { message: 'Not found' },
-            }),
-          }),
-        }),
-      }),
-    });
+    mockSupabaseQuery(null, { message: 'Not found' });
 
     const request = createRequest(validBody);
     const response = await POST(request);
@@ -173,25 +164,14 @@ describe('POST /api/negotiations/notify', () => {
       merchantId: 'merchant-123',
     });
 
-    mockSupabase.from.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: {
-                id: validBody.negotiationId,
-                merchant_id: 'merchant-123',
-                customer_id: null,
-                type: 'single',
-                item_info: { name: 'Product' },
-                offered_price: 5000,
-                status: 'pending',
-              },
-              error: null,
-            }),
-          }),
-        }),
-      }),
+    mockSupabaseQuery({
+      id: validBody.negotiationId,
+      merchant_id: 'merchant-123',
+      customer_id: null,
+      type: 'single',
+      item_info: { name: 'Product' },
+      offered_price: 5000,
+      status: 'pending',
     });
 
     const request = createRequest(validBody);
@@ -210,25 +190,14 @@ describe('POST /api/negotiations/notify', () => {
       merchantId: 'merchant-123',
     });
 
-    mockSupabase.from.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: {
-                id: validBody.negotiationId,
-                merchant_id: 'merchant-123',
-                customer_id: 'customer-456',
-                type: 'single',
-                item_info: { name: 'Cool Sneakers' },
-                offered_price: 5000,
-                status: 'pending',
-              },
-              error: null,
-            }),
-          }),
-        }),
-      }),
+    mockSupabaseQuery({
+      id: validBody.negotiationId,
+      merchant_id: 'merchant-123',
+      customer_id: 'customer-456',
+      type: 'single',
+      item_info: { name: 'Cool Sneakers' },
+      offered_price: 5000,
+      status: 'pending',
     });
 
     const request = createRequest(validBody);
@@ -247,6 +216,60 @@ describe('POST /api/negotiations/notify', () => {
     );
   });
 
+  it('returns 400 for invalid negotiation type', async () => {
+    await setupAuth({
+      authenticated: true,
+      hasAccess: true,
+      merchantId: 'merchant-123',
+    });
+
+    mockSupabaseQuery({
+      id: validBody.negotiationId,
+      merchant_id: 'merchant-123',
+      customer_id: 'customer-456',
+      type: 'invalid_type',
+      item_info: null,
+      offered_price: 5000,
+      status: 'pending',
+    });
+
+    const request = createRequest(validBody);
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.error).toBe('Invalid negotiation type');
+  });
+
+  it('returns 500 when notification delivery fails', async () => {
+    await setupAuth({
+      authenticated: true,
+      hasAccess: true,
+      merchantId: 'merchant-123',
+    });
+
+    mockSupabaseQuery({
+      id: validBody.negotiationId,
+      merchant_id: 'merchant-123',
+      customer_id: 'customer-456',
+      type: 'single',
+      item_info: { name: 'Product' },
+      offered_price: 5000,
+      status: 'pending',
+    });
+
+    mockNotifyNegotiationResponse.mockRejectedValueOnce(
+      new Error('Push service unavailable')
+    );
+
+    const request = createRequest(validBody);
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ notified: false, reason: 'notification_failed' });
+  });
+
   it('passes null acceptedPrice for rejected negotiations', async () => {
     await setupAuth({
       authenticated: true,
@@ -254,25 +277,14 @@ describe('POST /api/negotiations/notify', () => {
       merchantId: 'merchant-123',
     });
 
-    mockSupabase.from.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: {
-                id: validBody.negotiationId,
-                merchant_id: 'merchant-123',
-                customer_id: 'customer-456',
-                type: 'total',
-                item_info: null,
-                offered_price: 8000,
-                status: 'pending',
-              },
-              error: null,
-            }),
-          }),
-        }),
-      }),
+    mockSupabaseQuery({
+      id: validBody.negotiationId,
+      merchant_id: 'merchant-123',
+      customer_id: 'customer-456',
+      type: 'total',
+      item_info: null,
+      offered_price: 8000,
+      status: 'pending',
     });
 
     const request = createRequest({

@@ -1,5 +1,6 @@
 import { Expo } from 'expo-server-sdk';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getCronSecret } from '@/env';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -7,7 +8,7 @@ const expo = new Expo({ accessToken: process.env.EXPO_ACCESS_TOKEN });
 
 export async function GET(request: NextRequest) {
   // Auth: fail-closed when CRON_SECRET is not configured
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = getCronSecret();
   if (!cronSecret) {
     return NextResponse.json(
       { error: 'Server misconfigured' },
@@ -35,20 +36,27 @@ export async function GET(request: NextRequest) {
       message: 'Failed to fetch pending push tickets',
       error: fetchError,
     });
-    await supabase.rpc('cleanup_old_push_tickets');
     return NextResponse.json({ error: 'Database read error' }, { status: 500 });
   }
 
   if (!pendingTickets || pendingTickets.length === 0) {
+    // Still run cleanup on empty results — this is the only invocation per cron run
     await supabase.rpc('cleanup_old_push_tickets');
     return NextResponse.json({ checked: 0, cleaned: true });
   }
 
+  // Build O(1) lookup map instead of O(n) .find() per receipt
+  const ticketMap = new Map(pendingTickets.map((t) => [t.ticket_id, t]));
+
   const receiptIds = pendingTickets.map((t) => t.ticket_id);
   const chunks = expo.chunkPushNotificationReceiptIds(receiptIds);
 
-  let delivered = 0;
-  let failed = 0;
+  const deliveredIds: string[] = [];
+  const failedTickets: Array<{
+    id: string;
+    error_type: string | null;
+    error_message: string | null;
+  }> = [];
   const tokensToDeactivate: string[] = [];
 
   for (const chunk of chunks) {
@@ -56,51 +64,65 @@ export async function GET(request: NextRequest) {
       const receipts = await expo.getPushNotificationReceiptsAsync(chunk);
 
       for (const [receiptId, receipt] of Object.entries(receipts)) {
-        const ticket = pendingTickets.find((t) => t.ticket_id === receiptId);
+        const ticket = ticketMap.get(receiptId);
         if (!ticket) continue;
 
         if (receipt.status === 'ok') {
-          delivered++;
-          const { error: updateError } = await supabase
-            .from('push_notification_tickets')
-            .update({
-              status: 'delivered',
-              checked_at: new Date().toISOString(),
-            })
-            .eq('id', ticket.id);
-          if (updateError) {
-            logger.error({
-              message: 'Failed to update ticket as delivered',
-              ticketId: ticket.id,
-              error: updateError,
-            });
-          }
+          deliveredIds.push(ticket.id);
         } else {
-          failed++;
-          const { error: updateError } = await supabase
-            .from('push_notification_tickets')
-            .update({
-              status: 'failed',
-              error_type: receipt.details?.error ?? null,
-              error_message: receipt.message ?? null,
-              checked_at: new Date().toISOString(),
-            })
-            .eq('id', ticket.id);
-          if (updateError) {
-            logger.error({
-              message: 'Failed to update ticket as failed',
-              ticketId: ticket.id,
-              error: updateError,
-            });
-          }
+          failedTickets.push({
+            id: ticket.id,
+            error_type: receipt.details?.error ?? null,
+            error_message: receipt.message ?? null,
+          });
 
-          if (receipt.details?.error === 'DeviceNotRegistered') {
+          if (
+            receipt.details?.error === 'DeviceNotRegistered' &&
+            ticket.push_token
+          ) {
             tokensToDeactivate.push(ticket.push_token);
           }
         }
       }
     } catch (error) {
       logger.error({ message: 'Receipt polling chunk failed', error });
+    }
+  }
+
+  // Batch update delivered tickets
+  if (deliveredIds.length > 0) {
+    const { error: deliveredError } = await supabase
+      .from('push_notification_tickets')
+      .update({
+        status: 'delivered',
+        checked_at: new Date().toISOString(),
+      })
+      .in('id', deliveredIds);
+    if (deliveredError) {
+      logger.error({
+        message: 'Failed to batch-update delivered tickets',
+        error: deliveredError,
+      });
+    }
+  }
+
+  // Batch update failed tickets (grouped by error details for efficiency)
+  for (const ft of failedTickets) {
+    const { error: failedError } = await supabase
+      .from('push_notification_tickets')
+      .update({
+        status: 'failed',
+        error_type: ft.error_type,
+        error_message: ft.error_message,
+        checked_at: new Date().toISOString(),
+      })
+      .eq('id', ft.id);
+    if (failedError) {
+      logger.error({
+        message: 'Failed to update ticket as failed',
+        ticketId: ft.id,
+        error: failedError,
+      });
     }
   }
 
@@ -123,7 +145,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     checked: pendingTickets.length,
-    delivered,
-    failed,
+    delivered: deliveredIds.length,
+    failed: failedTickets.length,
   });
 }

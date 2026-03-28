@@ -82,14 +82,23 @@ const withIosReleaseHardening: ConfigPlugin<HardeningOptions | undefined> = (
         // while preserving any additional paths that other plugins may have added
         if (buildSettings.LIBRARY_SEARCH_PATHS) {
           const paths = buildSettings.LIBRARY_SEARCH_PATHS;
-          if (typeof paths === 'string' && paths.includes('$(inherited)')) {
-            // Parse space-separated string, deduplicate, ensure required paths
-            const parsed = paths
-              .split(/\s+/)
+          const required = ['$(inherited)', '$(SDKROOT)/usr/lib/swift'];
+
+          if (typeof paths === 'string') {
+            // Tokenize respecting quoted values (handles paths with spaces)
+            const parsed = (paths.match(/"[^"]*"|\S+/g) || [])
               .map((p: string) => p.replace(/^"|"$/g, ''))
               .filter(Boolean);
-            const required = ['$(inherited)', '$(SDKROOT)/usr/lib/swift'];
             const all = [...new Set([...required, ...parsed])];
+            buildSettings.LIBRARY_SEARCH_PATHS = all.map(
+              (p: string) => `"${p}"`
+            );
+          } else if (Array.isArray(paths)) {
+            // Ensure required paths in array format
+            const normalized = paths.map((p: string) =>
+              p.replace(/^"|"$/g, '')
+            );
+            const all = [...new Set([...required, ...normalized])];
             buildSettings.LIBRARY_SEARCH_PATHS = all.map(
               (p: string) => `"${p}"`
             );

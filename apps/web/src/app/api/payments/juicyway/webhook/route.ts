@@ -280,27 +280,38 @@ export async function POST(request: NextRequest) {
         }
 
         // Notify merchant of new order and payment (non-blocking)
+        const orderNum =
+          order.order_number || order.id.slice(0, 8).toUpperCase();
         after(async () => {
+          const total = Number.parseFloat(order.total || '0');
+
           try {
-            const orderNum =
-              order.order_number || order.id.slice(0, 8).toUpperCase();
-            await Promise.all([
-              notifyNewOrder(
-                transaction.merchant_id,
-                orderNum,
-                order.customer_name || 'Customer',
-                Number(order.total),
-                order.currency || 'NGN'
-              ),
-              notifyPaymentReceived(
-                transaction.merchant_id,
-                Number(order.total),
-                order.currency || 'NGN',
-                orderNum
-              ),
-            ]);
+            await notifyNewOrder(
+              transaction.merchant_id,
+              orderNum,
+              order.customer_name || 'Customer',
+              total,
+              order.currency || 'NGN'
+            );
           } catch (err) {
-            logger.error({ message: 'Push notification failed', error: err });
+            logger.error({
+              message: 'New order push notification failed',
+              error: err,
+            });
+          }
+
+          try {
+            await notifyPaymentReceived(
+              transaction.merchant_id,
+              total,
+              order.currency || 'NGN',
+              orderNum
+            );
+          } catch (err) {
+            logger.error({
+              message: 'Payment received push notification failed',
+              error: err,
+            });
           }
         });
 

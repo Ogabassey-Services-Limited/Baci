@@ -615,10 +615,11 @@ export async function POST(request: NextRequest) {
 
         // Send push notification to merchant (non-blocking)
         after(async () => {
+          const orderAmount =
+            (Number(chatOrder.subtotal) || 0) +
+            (Number(chatOrder.shipping_fee) || 0);
+
           try {
-            const orderAmount =
-              (Number(chatOrder.subtotal) || 0) +
-              (Number(chatOrder.shipping_fee) || 0);
             await notifyNewOrder(
               chatOrder.merchant_id,
               orderNumber,
@@ -626,6 +627,14 @@ export async function POST(request: NextRequest) {
               orderAmount,
               'NGN'
             );
+          } catch (pushErr) {
+            logger.warn({
+              message: 'New order push notification failed for chat order',
+              error: pushErr,
+            });
+          }
+
+          try {
             await notifyPaymentReceived(
               chatOrder.merchant_id,
               orderAmount,
@@ -634,7 +643,8 @@ export async function POST(request: NextRequest) {
             );
           } catch (pushErr) {
             logger.warn({
-              message: 'Push notification failed for chat order',
+              message:
+                'Payment received push notification failed for chat order',
               error: pushErr,
             });
           }
@@ -1223,11 +1233,11 @@ export async function POST(request: NextRequest) {
 
         // Send push notification to merchant (non-blocking)
         after(async () => {
-          try {
-            const orderAmount = Number.parseFloat(order.total || '0');
-            const orderNumber =
-              order.order_number || order.id.slice(0, 8).toUpperCase();
+          const orderAmount = Number.parseFloat(order.total || '0');
+          const orderNumber =
+            order.order_number || order.id.slice(0, 8).toUpperCase();
 
+          try {
             await notifyNewOrder(
               transaction.merchant_id,
               orderNumber,
@@ -1235,14 +1245,20 @@ export async function POST(request: NextRequest) {
               orderAmount,
               order.currency || 'NGN'
             );
+          } catch (pushError) {
+            logger.warn({
+              message: 'New order push notification failed',
+              error: pushError,
+            });
+          }
 
+          try {
             await notifyPaymentReceived(
               transaction.merchant_id,
               orderAmount,
               order.currency || 'NGN',
               orderNumber
             );
-
             logger.info({
               message: 'Push notification sent to merchant',
               merchantId: transaction.merchant_id,
@@ -1250,7 +1266,7 @@ export async function POST(request: NextRequest) {
             });
           } catch (pushError) {
             logger.warn({
-              message: 'Failed to send push notification',
+              message: 'Payment received push notification failed',
               error: pushError,
             });
           }

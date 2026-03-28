@@ -24,6 +24,7 @@ import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 import { useShallow } from 'zustand/react/shallow';
 import { BRAND, palette, SHADOWS } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/stores/auth-store';
 import { formatPrice, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
 
@@ -65,6 +66,7 @@ export const NegotiationModal: React.FC = () => {
         closeNegotiation: s.closeNegotiation,
       }))
     );
+  const merchantId = useAuthStore((s) => s.merchantId);
   const [offer, setOffer] = useState('');
   const [status, setStatus] = useState<NegotiationStatus>('input');
   const [message, setMessage] = useState('');
@@ -196,15 +198,15 @@ export const NegotiationModal: React.FC = () => {
     const offerAmount =
       Number.parseFloat(offer.replace(/[^0-9.]/g, '')) || currentPrice * 0.9;
 
-    // Get authenticated user if available (null for guests)
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
     try {
+      // Get authenticated user if available (null for guests)
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       const { error } = await supabase.from('negotiation_requests').insert({
-        merchant_id: '3bc72679-c0f7-4db4-9054-6a4a4a95a498',
-        session_id: `mobile-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`,
+        merchant_id: merchantId,
+        session_id: `mobile-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`}`,
         customer_id: user?.id ?? null,
         type,
         item_info:

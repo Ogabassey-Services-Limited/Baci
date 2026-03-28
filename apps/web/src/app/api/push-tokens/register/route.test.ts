@@ -197,10 +197,14 @@ describe('POST /api/push-tokens/register', () => {
     );
 
     expect(res.status).toBe(200);
-    // The Zod schema defaults app_type to 'admin'
-    // Verify by checking insert was called (new token path)
     const json = await res.json();
     expect(json.success).toBe(true);
+
+    // Verify the Zod default actually persisted app_type='admin' in the insert
+    expect(insertCalls.length).toBe(1);
+    expect(insertCalls[0]).toEqual(
+      expect.objectContaining({ app_type: 'admin' })
+    );
   });
 
   it('updates existing token when user_id matches', async () => {

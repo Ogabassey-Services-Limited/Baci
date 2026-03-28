@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type CartItem, useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import { AdUnit } from '../components/AdUnit';
 import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
@@ -45,6 +46,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
     toggleAssurance,
     cartTotal,
   } = useCart();
+  const merchantContext = useMerchantSafe();
   const [negotiationState, setNegotiationState] =
     useState<NegotiationState | null>(null);
   const _router = useRouter();
@@ -380,8 +382,8 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
         )}
       </div>
 
-      {/* Negotiation Modal */}
-      {negotiationState && (
+      {/* Negotiation Modal — only render when merchant context is available */}
+      {negotiationState && merchantContext?.merchant?.id && (
         <NegotiationModal
           isOpen={negotiationState.isOpen}
           onClose={() => setNegotiationState(null)}
@@ -390,7 +392,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
           onSuccess={handleNegotiationSuccess}
           type={negotiationState.type}
           itemId={negotiationState.item?.cartItemId}
-          merchantId=""
+          merchantId={merchantContext.merchant.id}
         />
       )}
     </div>

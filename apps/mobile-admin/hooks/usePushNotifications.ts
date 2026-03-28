@@ -213,7 +213,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
             }
 
             if (navParams.screen === 'negotiations') {
-              router.push('/(admin)/negotiations' as Href);
+              router.push('/(admin)/negotiations');
               return;
             }
 

@@ -8,9 +8,21 @@ import { POST } from './route';
 
 const mockNotifyNegotiationRequest = vi.fn().mockResolvedValue(undefined);
 
+const mockGetInternalApiSecret = vi.fn(
+  (): string | undefined => 'test-internal-secret'
+);
+
+vi.mock('@/env', () => ({
+  getInternalApiSecret: () => mockGetInternalApiSecret(),
+}));
+
 vi.mock('@/lib/expo-push', () => ({
   notifyNegotiationRequest: (...args: unknown[]) =>
     mockNotifyNegotiationRequest(...args),
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
 // =============================================================================
@@ -50,7 +62,15 @@ const validBody = {
 describe('POST /api/internal/notify-negotiation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.INTERNAL_API_SECRET = 'test-internal-secret';
+  });
+
+  it('returns 500 when INTERNAL_API_SECRET is not configured', async () => {
+    mockGetInternalApiSecret.mockReturnValueOnce(undefined);
+    const request = createRequest(validBody);
+    const response = await POST(request);
+    expect(response.status).toBe(500);
+    const json = await response.json();
+    expect(json.error).toBe('Internal Server Error');
   });
 
   it('returns 401 when Authorization header is missing', async () => {

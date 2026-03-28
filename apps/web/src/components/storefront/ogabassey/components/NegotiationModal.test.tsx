@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NegotiationModal } from './NegotiationModal';
 
@@ -35,7 +35,7 @@ const defaultProps = {
 };
 
 /** Submit a low offer and advance fake timers past the 1500ms setTimeout */
-async function submitLowOffer(value: string) {
+function submitLowOffer(value: string) {
   const input = screen.getByPlaceholderText('Enter amount...');
   fireEvent.change(input, { target: { value } });
   fireEvent.click(screen.getByRole('button', { name: 'Submit Offer' }));
@@ -173,7 +173,7 @@ describe('NegotiationModal', () => {
 
   it('shows alert when insert fails', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-    mockInsert.mockReturnValue({
+    mockInsert.mockResolvedValue({
       error: { message: 'DB insert failed' },
     });
 
@@ -206,9 +206,8 @@ describe('NegotiationModal', () => {
 
   it('calls onClose when backdrop is clicked', () => {
     render(<NegotiationModal {...defaultProps} />);
-    const backdrop = document.querySelector('.bg-black\\/60');
-    expect(backdrop).not.toBeNull();
-    fireEvent.click(backdrop!);
+    const backdrop = screen.getByTestId('modal-backdrop');
+    fireEvent.click(backdrop);
     expect(defaultProps.onClose).toHaveBeenCalled();
   });
 });

@@ -24,13 +24,6 @@ vi.mock('expo-server-sdk', () => {
 });
 
 // Mock Supabase admin client
-const _mockFrom = vi.fn();
-const _mockInsert = vi.fn();
-const _mockSelect = vi.fn();
-const _mockEq = vi.fn();
-const _mockIn = vi.fn();
-const _mockUpdate = vi.fn();
-
 function createChainableMock(
   returnData: unknown = [],
   returnError: unknown = null
@@ -56,6 +49,10 @@ function createChainableMock(
 
   return chain;
 }
+
+vi.mock('@/env', () => ({
+  getExpoAccessToken: () => 'test-expo-token',
+}));
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(),

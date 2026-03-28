@@ -110,18 +110,26 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   };
 
   const submitMerchantRequest = async (evidenceUrl?: string) => {
+    if (!merchantId) {
+      alert('Unable to submit request — merchant context unavailable.');
+      return;
+    }
+
     setStatus('processing');
     const offerAmount = Number.parseFloat(offer);
 
-    // Get authenticated user if available (null for guests)
-    const { data: { user } } = await supabase.auth.getUser();
-
     try {
+      // Get authenticated user if available (null for guests)
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        console.warn('Auth check failed, continuing as guest:', authError.message);
+      }
+
       const { error } = await supabase
         .from('negotiation_requests')
         .insert({
           merchant_id: merchantId,
-          session_id: `web-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`,
+          session_id: `web-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`}`,
           customer_id: user?.id ?? null,
           type,
           item_info: type === 'single' ? {
@@ -160,6 +168,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
       <div
+        data-testid="modal-backdrop"
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />

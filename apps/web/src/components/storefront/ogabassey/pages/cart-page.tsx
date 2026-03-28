@@ -449,8 +449,8 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
         )}
       </div>
 
-      {/* Negotiation Modal */}
-      {negotiationState && (
+      {/* Negotiation Modal — only render when merchant context is available */}
+      {negotiationState && merchant?.id && (
         <NegotiationModal
           isOpen={negotiationState.isOpen}
           onClose={() => setNegotiationState(null)}
@@ -458,7 +458,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
           currentPrice={negotiationState.currentPrice}
           onSuccess={handleNegotiationSuccess}
           type="single"
-          merchantId={merchant?.id || ''}
+          merchantId={merchant.id}
         />
       )}
 

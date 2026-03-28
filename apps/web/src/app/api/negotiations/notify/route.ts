@@ -73,19 +73,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ notified: false, reason: 'no_customer_id' });
   }
 
-  const negotiationType = negotiation.type as 'single' | 'total';
+  const negotiationType = negotiation.type;
+  if (negotiationType !== 'single' && negotiationType !== 'total') {
+    return NextResponse.json(
+      { error: 'Invalid negotiation type' },
+      { status: 400 }
+    );
+  }
+
   const itemName = negotiation.item_info?.name ?? null;
   const acceptedPrice =
-    status === 'accepted' ? Number(negotiation.offered_price) : null;
+    status === 'accepted' && negotiation.offered_price != null
+      ? Number(negotiation.offered_price)
+      : null;
 
-  await notifyNegotiationResponse(
-    negotiation.customer_id,
-    negotiationType,
-    status,
-    negotiationId,
-    itemName,
-    acceptedPrice
-  );
-
-  return NextResponse.json({ notified: true });
+  try {
+    await notifyNegotiationResponse(
+      negotiation.customer_id,
+      negotiationType,
+      status,
+      negotiationId,
+      itemName,
+      acceptedPrice
+    );
+    return NextResponse.json({ notified: true });
+  } catch (error) {
+    console.error('Failed to send negotiation notification:', error);
+    return NextResponse.json(
+      { notified: false, reason: 'notification_failed' },
+      { status: 500 }
+    );
+  }
 }

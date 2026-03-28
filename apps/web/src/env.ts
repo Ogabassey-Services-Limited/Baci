@@ -41,8 +41,12 @@ const serverSchema = z.object({
   JUICYWAY_BASE_URL: z.string().default('https://api.spendjuice.com'),
   MYCOVER_WEBHOOK_SECRET: z.string().optional(),
   CRON_SECRET: z.string().optional(),
+  INTERNAL_API_SECRET: z.string().optional(),
   IMPORT_JOB_WORKER_SECRET: z.string().optional(),
   IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
+
+  // Push Notifications
+  EXPO_ACCESS_TOKEN: z.string().optional(),
 
   // Jumia Marketplace
   JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('staging'),
@@ -259,6 +263,8 @@ export const getMyCoverWebhookSecret = (): string => {
 
 export const getCronSecret = () => env?.CRON_SECRET;
 
+export const getInternalApiSecret = () => env?.INTERNAL_API_SECRET;
+
 export const getImportJobWorkerSecret = () => env?.IMPORT_JOB_WORKER_SECRET;
 
 export const getImportJobWorkerBatchSize = () =>
@@ -274,6 +280,9 @@ export const getJumiaClientSecret = () => {
     throw new Error('JUMIA_CLIENT_SECRET cannot be accessed on the client');
   return env?.JUMIA_CLIENT_SECRET;
 };
+
+// Push Notifications
+export const getExpoAccessToken = () => env?.EXPO_ACCESS_TOKEN;
 
 // Deprecated: No longer needed as we validate on import.
 export const validateEnvironment = () => ({ valid: true, warnings: [] });

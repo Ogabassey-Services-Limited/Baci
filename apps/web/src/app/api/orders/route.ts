@@ -481,6 +481,7 @@ export async function POST(request: NextRequest) {
     const orderSubtotal = Number(order.subtotal ?? 0);
     const orderShippingFee = Number(order.shipping_fee ?? shippingFeeValue);
     const customer_id = order.customer_id || null;
+    const orderNum = order.order_number || order.id.slice(0, 8).toUpperCase();
 
     // === WALLET REDEMPTION (2025 Best Practice: Auto-apply at checkout) ===
     // Process wallet credit redemption atomically after order creation
@@ -608,8 +609,7 @@ export async function POST(request: NextRequest) {
 
           // Generate email content
           const emailData = {
-            orderNumber:
-              order.order_number || order.id.slice(0, 8).toUpperCase(),
+            orderNumber: orderNum,
             customerName: customer_name,
             items: emailItems,
             subtotal: orderSubtotal,
@@ -675,7 +675,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Notify merchant of new order (fire-and-forget)
-    const orderNum = order.order_number || order.id.slice(0, 8).toUpperCase();
     notifyNewOrder(merchant_id, orderNum, customer_name, orderTotal).catch(
       (err) => logger.error({ message: 'Push notification failed', error: err })
     );

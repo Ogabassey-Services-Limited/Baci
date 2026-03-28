@@ -1,9 +1,18 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { getCronSecret } from '@/env';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(request: NextRequest) {
+  const cronSecret = getCronSecret();
+  if (!cronSecret) {
+    return NextResponse.json(
+      { error: 'Server misconfigured' },
+      { status: 500 }
+    );
+  }
+
   const authHeader = request.headers.get('Authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

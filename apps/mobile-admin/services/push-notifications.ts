@@ -292,7 +292,12 @@ export function getNotificationNavigationParams(
       return { screen: 'orders' };
 
     case 'negotiation':
-      return { screen: 'negotiations' };
+      return data.negotiation_id
+        ? {
+            screen: 'negotiation',
+            params: { id: data.negotiation_id as string },
+          }
+        : { screen: 'negotiations' };
 
     default:
       return { screen: 'index' };

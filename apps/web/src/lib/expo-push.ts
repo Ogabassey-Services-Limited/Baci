@@ -9,6 +9,7 @@ import Expo, {
   type ExpoPushMessage,
   type ExpoPushTicket,
 } from 'expo-server-sdk';
+import { getExpoAccessToken } from '@/env';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // ── Lazy-initialized Expo client (avoids module-level constructor for testability) ──
@@ -16,12 +17,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 let _expo: Expo | null = null;
 function _getExpo(): Expo {
   if (!_expo) {
-    if (!process.env.EXPO_ACCESS_TOKEN) {
+    const accessToken = getExpoAccessToken();
+    if (!accessToken) {
       console.warn(
         '[expo-push] EXPO_ACCESS_TOKEN is not set — push notifications may fail or be rate-limited'
       );
     }
-    _expo = new Expo({ accessToken: process.env.EXPO_ACCESS_TOKEN });
+    _expo = new Expo({ accessToken });
   }
   return _expo;
 }
@@ -86,17 +88,19 @@ export async function sendPushNotifications(
 
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
-    const token = Array.isArray(msg.to) ? msg.to[0] : msg.to;
+    const tokens = Array.isArray(msg.to) ? msg.to : [msg.to];
+    const allValid = tokens.every((t) => Expo.isExpoPushToken(t));
 
-    if (Expo.isExpoPushToken(token)) {
+    if (allValid) {
       resultMap.push({ index: i });
       validMessages.push(msg);
     } else {
+      const invalidToken = tokens.find((t) => !Expo.isExpoPushToken(t));
       resultMap.push({
         index: i,
         ticket: {
           status: 'error',
-          message: `Invalid Expo push token: ${token}`,
+          message: `Invalid Expo push token: ${invalidToken}`,
           details: { error: 'DeviceNotRegistered' },
         },
       });
@@ -302,10 +306,16 @@ async function processTickets(
   }
 
   if (tokensToDeactivate.length > 0) {
-    await supabase
+    const { error: deactivateError } = await supabase
       .from('push_tokens')
       .update({ is_active: false })
       .in('token', tokensToDeactivate);
+    if (deactivateError) {
+      console.error(
+        'Failed to deactivate invalid push tokens:',
+        deactivateError
+      );
+    }
   }
 
   // Store successful tickets for receipt polling
@@ -531,7 +541,10 @@ export async function notifyNegotiationRequest(
     const discount = Math.round(
       ((currentPrice - offeredPrice) / currentPrice) * 100
     );
-    body = `${itemName} — ${formattedOffer} offered (${discount}% off)`;
+    body =
+      discount > 0
+        ? `${itemName} — ${formattedOffer} offered (${discount}% off)`
+        : `${itemName} — ${formattedOffer} offered`;
   }
 
   await notifyMerchant(

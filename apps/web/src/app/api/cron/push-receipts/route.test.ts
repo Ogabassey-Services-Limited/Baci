@@ -22,13 +22,18 @@ vi.mock('expo-server-sdk', () => {
 });
 
 const mockUpdate = vi.fn().mockReturnThis();
-const mockEq = vi.fn().mockReturnThis();
-const mockIn = vi.fn().mockResolvedValue({ error: null });
+const mockEq = vi.fn().mockResolvedValue({ error: null });
+const mockTicketIn = vi.fn().mockResolvedValue({ error: null });
+const mockTokenIn = vi.fn().mockResolvedValue({ error: null });
 const mockRpc = vi.fn().mockResolvedValue({ error: null });
 let mockSelectResult: { data: unknown; error: unknown } = {
   data: [],
   error: null,
 };
+
+vi.mock('@/env', () => ({
+  getCronSecret: () => process.env.CRON_SECRET,
+}));
 
 vi.mock('@/lib/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -48,13 +53,16 @@ vi.mock('@/lib/supabase/admin', () => ({
           }),
           update: vi.fn((data: unknown) => {
             mockUpdate(data);
-            return { eq: mockEq };
+            return {
+              eq: mockEq,
+              in: mockTicketIn,
+            };
           }),
         };
       }
       if (table === 'push_tokens') {
         return {
-          update: vi.fn().mockReturnValue({ in: mockIn }),
+          update: vi.fn().mockReturnValue({ in: mockTokenIn }),
         };
       }
       return {};
@@ -132,7 +140,8 @@ describe('GET /api/cron/push-receipts', () => {
 
     expect(response.status).toBe(500);
     expect(data).toEqual({ error: 'Database read error' });
-    expect(mockRpc).toHaveBeenCalledWith('cleanup_old_push_tickets');
+    // Cleanup is NOT called on fetch error — only runs after successful processing
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('processes delivered receipts and updates status', async () => {
@@ -161,6 +170,7 @@ describe('GET /api/cron/push-receipts', () => {
     expect(mockUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'delivered' })
     );
+    expect(mockTicketIn).toHaveBeenCalledWith('id', ['row-1']);
   });
 
   it('deactivates tokens for DeviceNotRegistered errors', async () => {
@@ -187,7 +197,7 @@ describe('GET /api/cron/push-receipts', () => {
     const data = await response.json();
 
     expect(data.failed).toBe(1);
-    expect(mockIn).toHaveBeenCalledWith('token', [
+    expect(mockTokenIn).toHaveBeenCalledWith('token', [
       'ExponentPushToken[expired]',
     ]);
   });

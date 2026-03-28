@@ -105,6 +105,8 @@ export default function NegotiationsScreen() {
   const handleAction = async (id: string, status: 'accepted' | 'rejected') => {
     if (actionLoadingId) return; // Prevent double-submit
     setActionLoadingId(id);
+    // Capture before state update to avoid stale closure after fetchRequests()
+    const negotiation = requests.find((r) => r.id === id);
     try {
       const { error } = await supabase
         .from('negotiation_requests')
@@ -115,13 +117,17 @@ export default function NegotiationsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await fetchRequests();
 
-      // Notify customer if they're authenticated (best-effort)
-      const negotiation = requests.find((r) => r.id === id);
+      // Notify customer if they're authenticated
       if (negotiation?.customer_id) {
-        apiClient('/api/negotiations/notify', {
-          method: 'POST',
-          body: JSON.stringify({ negotiationId: id, status }),
-        }).catch(() => {}); // Best-effort
+        try {
+          await apiClient('/api/negotiations/notify', {
+            method: 'POST',
+            body: JSON.stringify({ negotiationId: id, status }),
+          });
+        } catch (notifyErr) {
+          // Non-fatal: status update succeeded, but notification failed
+          console.warn('Customer notification failed:', notifyErr);
+        }
       }
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -182,14 +188,19 @@ export default function NegotiationsScreen() {
           <Text style={styles.label}>Offered</Text>
           <Text style={styles.newPrice}>{formatPrice(item.offered_price)}</Text>
         </View>
-        {item.current_price != null && item.current_price > 0 && (
-          <View style={styles.savingsBadge}>
-            <Text style={styles.savingsText}>
-              -{Math.round((1 - item.offered_price / item.current_price) * 100)}
-              %
-            </Text>
-          </View>
-        )}
+        {item.current_price != null &&
+          item.current_price > 0 &&
+          item.offered_price < item.current_price && (
+            <View style={styles.savingsBadge}>
+              <Text style={styles.savingsText}>
+                -
+                {Math.round(
+                  (1 - item.offered_price / item.current_price) * 100
+                )}
+                %
+              </Text>
+            </View>
+          )}
       </View>
 
       {item.evidence_url ? (
