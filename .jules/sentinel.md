@@ -52,3 +52,8 @@
 **Vulnerability:** The PATCH endpoint for updating customer profiles (`apps/web/src/app/api/storefront/customer/route.ts`) was missing CSRF validation, leaving the application vulnerable to cross-site request forgery attacks.
 **Learning:** In the Baci monorepo, all authenticated, mutating API routes (POST, PUT, PATCH, DELETE) must explicitly call `checkCsrfProtection()` at the start of the handler.
 **Prevention:** Ensure new API routes implement CSRF protection. Review existing routes periodically to ensure protection is consistently applied.
+
+## 2024-03-28 - Timing Attack Vulnerability in AI Worker API Auth
+**Vulnerability:** The `POST /api/ai-jobs/worker` route used a standard string comparison (`authHeader !== \`Bearer \${expectedToken}\``) to verify the authorization token. This allows a timing attack where an attacker could theoretically guess the secret token by observing the response time, as standard string comparison returns `false` as soon as it finds a mismatch.
+**Learning:** Any API route that authenticates requests using a secret token (like webhooks or worker endpoints) must use constant-time comparison to prevent timing attacks.
+**Prevention:** Always use `crypto.timingSafeEqual` from `node:crypto` to compare secret tokens. Ensure that both strings are converted to `Buffer` objects and that their lengths are checked first, because `timingSafeEqual` will throw an error if the buffers are of different lengths.
