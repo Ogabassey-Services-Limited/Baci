@@ -16,13 +16,15 @@ function assertUnreachable(value: never): never {
   throw new Error(`Unhandled platform: ${value}`);
 }
 
+interface MigrationWorkflowProps {
+  initialError?: string | null;
+  initialJobs: ImportJobListItem[];
+}
+
 function BumpaMigrationWorkflow({
   initialError,
   initialJobs,
-}: {
-  initialError?: string | null;
-  initialJobs: ImportJobListItem[];
-}) {
+}: MigrationWorkflowProps) {
   const {
     activeFilter,
     acting,
@@ -112,10 +114,7 @@ function BumpaMigrationWorkflow({
 export default function MigrationsClientPage({
   initialError,
   initialJobs,
-}: {
-  initialError?: string | null;
-  initialJobs: ImportJobListItem[];
-}) {
+}: MigrationWorkflowProps) {
   const [sourcePlatform, setSourcePlatform] =
     useState<MigrationSourcePlatform | null>(null);
 

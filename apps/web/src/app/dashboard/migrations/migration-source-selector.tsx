@@ -61,14 +61,10 @@ export default function MigrationSourceSelector({
         </div>
 
         <div className="grid gap-3 lg:grid-cols-2">
-          {(
-            Object.entries(SOURCE_COPY) as [
-              MigrationSourcePlatform,
-              (typeof SOURCE_COPY)[MigrationSourcePlatform],
-            ][]
-          ).map(([sourceKey, source]) => {
+          {Object.entries(SOURCE_COPY).map(([sourceKey, source]) => {
+            const key = sourceKey as MigrationSourcePlatform;
             const Icon = source.icon;
-            const selected = value === sourceKey;
+            const selected = value === key;
 
             return (
               <button
@@ -79,8 +75,8 @@ export default function MigrationSourceSelector({
                     ? 'border-primary/40 bg-background shadow-sm ring-1 ring-primary/20'
                     : 'border-border/60'
                 )}
-                key={sourceKey}
-                onClick={() => onValueChange(sourceKey)}
+                key={key}
+                onClick={() => onValueChange(key)}
                 type="button"
               >
                 <div className="flex w-full items-start justify-between gap-4">
