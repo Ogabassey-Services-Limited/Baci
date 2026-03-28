@@ -540,6 +540,82 @@ export async function notifyBackInStock(
 }
 
 /**
+ * Notify merchant of a new negotiation request from a customer
+ */
+export async function notifyNegotiationRequest(
+  merchantId: string,
+  negotiationType: 'single' | 'total',
+  offeredPrice: number,
+  negotiationId: string,
+  itemName: string | null,
+  currentPrice: number | null
+): Promise<void> {
+  const label =
+    negotiationType === 'single' ? (itemName ?? 'an item') : 'their cart total';
+
+  const priceStr = new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 0,
+  }).format(offeredPrice);
+
+  const title = '🤝 New Price Negotiation';
+  const body = currentPrice
+    ? `A customer offered ${priceStr} for ${label} (listed at ₦${currentPrice.toLocaleString()})`
+    : `A customer offered ${priceStr} for ${label}`;
+
+  await notifyMerchant(merchantId, title, body, {
+    type: 'negotiation_request',
+    negotiationId,
+    negotiationType,
+    offeredPrice,
+    currentPrice,
+  });
+}
+
+/**
+ * Notify customer of a merchant's response to their negotiation
+ */
+export async function notifyNegotiationResponse(
+  customerId: string,
+  negotiationType: 'single' | 'total',
+  status: 'accepted' | 'rejected',
+  itemName: string | null,
+  acceptedPrice: number | null
+): Promise<void> {
+  const label =
+    negotiationType === 'single'
+      ? (itemName ?? 'your item')
+      : 'your cart total';
+
+  if (status === 'accepted') {
+    const priceStr = acceptedPrice
+      ? new Intl.NumberFormat('en-NG', {
+          style: 'currency',
+          currency: 'NGN',
+          minimumFractionDigits: 0,
+        }).format(acceptedPrice)
+      : 'your offer';
+
+    await notifyCustomer(
+      customerId,
+      '✅ Offer Accepted!',
+      `The merchant accepted ${priceStr} for ${label}. Complete your purchase now!`,
+      { type: 'negotiation_accepted', negotiationType, acceptedPrice },
+      'orders'
+    );
+  } else {
+    await notifyCustomer(
+      customerId,
+      '❌ Offer Declined',
+      `The merchant declined your offer for ${label}. You can try a new offer or buy at the listed price.`,
+      { type: 'negotiation_rejected', negotiationType },
+      'orders'
+    );
+  }
+}
+
+/**
  * Notify customer of price drop on a wishlisted item
  */
 export async function notifyPriceDrop(

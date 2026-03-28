@@ -296,6 +296,41 @@ describe('POST /api/marketplace/jumia/products/stock', () => {
     expect(body.skipped).toBe(1);
   });
 
+  it('pushes stock update for variant-level mapping', async () => {
+    setupAuth();
+    mockForIntegration.mockResolvedValue({ shopId: 'shop-1' });
+    mockMappingsSelect.mockResolvedValue({
+      data: [
+        {
+          id: 'm2',
+          product_id: 'p1',
+          variant_id: 'v1',
+          jumia_seller_sku: 'SKU-V1',
+          jumia_product_id: 'JP-V1',
+          baci_stock_at_last_sync: 3,
+        },
+      ],
+      error: null,
+    });
+    mockVariantsIn.mockResolvedValue({
+      data: [{ id: 'v1', stock_quantity: 8 }],
+      error: null,
+    });
+    mockUpdateStock.mockResolvedValue('feed-var-1');
+
+    const res = await POST(makeRequest(INT_ID));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.updated).toBe(1);
+    expect(body.feedId).toBe('feed-var-1');
+    expect(mockUpdateStock).toHaveBeenCalledWith(expect.anything(), [
+      { sellerSku: 'SKU-V1', id: 'JP-V1', stock: 8 },
+    ]);
+    // Should NOT call the products table for variant mappings
+    expect(mockProductsIn).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when Jumia API call fails', async () => {
     setupAuth();
     mockForIntegration.mockResolvedValue({ shopId: 'shop-1' });

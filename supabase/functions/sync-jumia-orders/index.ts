@@ -436,6 +436,14 @@ async function syncStockForIntegration(
   if (stockUpdates.length === 0) return { updated: 0, skipped };
 
   // Push to Jumia
+  const stockPayload = {
+    products: stockUpdates.map(({ sellerSku, id, stock }) => ({
+      sellerSku,
+      id,
+      stock,
+    })),
+  };
+
   let currentToken = accessToken;
   let response = await fetch(`${JUMIA_API_BASE}/feeds/products/stock`, {
     method: 'POST',
@@ -444,13 +452,7 @@ async function syncStockForIntegration(
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
-    body: JSON.stringify({
-      products: stockUpdates.map(({ sellerSku, id, stock }) => ({
-        sellerSku,
-        id,
-        stock,
-      })),
-    }),
+    body: JSON.stringify(stockPayload),
   });
 
   // Retry on 401
@@ -463,13 +465,7 @@ async function syncStockForIntegration(
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body: JSON.stringify({
-        products: stockUpdates.map(({ sellerSku, id, stock }) => ({
-          sellerSku,
-          id,
-          stock,
-        })),
-      }),
+      body: JSON.stringify(stockPayload),
     });
   }
 
@@ -483,25 +479,26 @@ async function syncStockForIntegration(
   const now = new Date().toISOString();
 
   // Update tracking columns in parallel
-  const updateResults = await Promise.allSettled(
-    stockUpdates.map((update) =>
-      supabase
+  // Supabase client resolves (not rejects) on error, so check .error on each result
+  const updateResults = await Promise.all(
+    stockUpdates.map(async (update) => {
+      const { error } = await supabase
         .from('jumia_product_mappings')
         .update({
           baci_stock_at_last_sync: update.stock,
           last_stock_synced_at: now,
           ...(feedId ? { last_feed_id: feedId } : {}),
         })
-        .eq('id', update.mappingId)
-    )
+        .eq('id', update.mappingId);
+      return { mappingId: update.mappingId, error };
+    })
   );
 
-  const trackingFailures = updateResults.filter(
-    (r) => r.status === 'rejected'
-  ).length;
-  if (trackingFailures > 0) {
+  const trackingFailures = updateResults.filter((r) => r.error !== null);
+  if (trackingFailures.length > 0) {
     console.error(
-      `[Jumia Sync] Stock: ${trackingFailures} mapping update(s) failed for merchant ${integration.merchant_id}`
+      `[Jumia Sync] Stock: ${trackingFailures.length} mapping update(s) failed for merchant ${integration.merchant_id}:`,
+      trackingFailures.map((f) => f.mappingId)
     );
   }
 

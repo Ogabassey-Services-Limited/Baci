@@ -615,17 +615,19 @@ export async function POST(request: NextRequest) {
 
         // Send push notification to merchant
         try {
-          const orderAmount = Number(chatOrder.subtotal) || 0;
+          const orderTotal =
+            (Number(chatOrder.subtotal) || 0) +
+            (Number(chatOrder.shipping_fee) || 0);
           await notifyNewOrder(
             chatOrder.merchant_id,
             orderNumber,
             chatOrder.customer_name || 'Customer',
-            orderAmount,
+            orderTotal,
             'NGN'
           );
           await notifyPaymentReceived(
             chatOrder.merchant_id,
-            orderAmount,
+            orderTotal,
             'NGN',
             orderNumber
           );

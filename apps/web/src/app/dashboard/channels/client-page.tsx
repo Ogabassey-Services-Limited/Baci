@@ -162,7 +162,7 @@ export default function ChannelsClientPage() {
 
     if (result.ok) {
       toast({ title: result.message });
-      refetch();
+      void refetch();
     } else {
       toast({
         title: 'Sync failed',
@@ -184,7 +184,7 @@ export default function ChannelsClientPage() {
 
     if (result.ok) {
       toast({ title: result.message });
-      refetch();
+      void refetch();
     } else {
       toast({
         title: 'Stock sync failed',

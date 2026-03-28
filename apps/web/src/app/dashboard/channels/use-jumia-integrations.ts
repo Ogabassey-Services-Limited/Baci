@@ -145,7 +145,10 @@ export async function syncStock(
     );
     const data = await response.json();
     if (!response.ok) {
-      return { ok: false, error: data.error || 'Stock sync failed' };
+      const detail = data.details
+        ? `${data.error}\nDetails: ${data.details}`
+        : data.error || 'Stock sync failed';
+      return { ok: false, error: detail };
     }
     return { ok: true, message: data.message || 'Stock synced' };
   } catch {
