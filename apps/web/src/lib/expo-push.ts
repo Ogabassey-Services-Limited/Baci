@@ -698,7 +698,8 @@ export async function notifyPriceDrop(
   newPrice: number,
   currency = 'NGN'
 ): Promise<void> {
-  const discount = Math.round(((oldPrice - newPrice) / oldPrice) * 100);
+  const discount =
+    oldPrice > 0 ? Math.round(((oldPrice - newPrice) / oldPrice) * 100) : 0;
 
   await notifyCustomer(
     userId,
