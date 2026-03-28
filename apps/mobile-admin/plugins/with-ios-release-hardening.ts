@@ -68,7 +68,7 @@ const withIosReleaseHardening: ConfigPlugin<HardeningOptions | undefined> = (
     return mod;
   });
 
-  // 3. Xcode project: signing, search paths, team
+  // 3. Xcode project: signing, team
   config = withXcodeProject(config, (mod) => {
     const project = mod.modResults;
     const configurations = project.pbxXCBuildConfigurationSection?.();
