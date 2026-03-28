@@ -231,7 +231,9 @@ describe('ChannelsClientPage', () => {
       setupHook({ integrations: mockIntegrations });
       render(<ChannelsClientPage />);
 
-      const syncButtons = screen.getAllByRole('button', { name: /sync/i });
+      const syncButtons = screen.getAllByRole('button', {
+        name: /sync orders/i,
+      });
       expect(syncButtons).toHaveLength(2);
     });
 
@@ -368,7 +370,7 @@ describe('ChannelsClientPage', () => {
       const user = userEvent.setup();
       render(<ChannelsClientPage />);
 
-      await user.click(screen.getByRole('button', { name: /sync/i }));
+      await user.click(screen.getByRole('button', { name: /sync orders/i }));
 
       await waitFor(() => {
         expect(mockSyncOrders).toHaveBeenCalledWith('int-1');
@@ -389,7 +391,7 @@ describe('ChannelsClientPage', () => {
       const user = userEvent.setup();
       render(<ChannelsClientPage />);
 
-      await user.click(screen.getByRole('button', { name: /sync/i }));
+      await user.click(screen.getByRole('button', { name: /sync orders/i }));
 
       await waitFor(() => {
         expect(mockToast).toHaveBeenCalledWith({

@@ -12,6 +12,17 @@ import Expo, {
 import { getExpoAccessToken } from '@/env';
 import { createAdminClient } from '@/lib/supabase/admin';
 
+/**
+ * Format amount as currency (e.g. ₦5,000)
+ */
+export function formatCurrency(amount: number, currency = 'NGN'): string {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 0,
+  }).format(amount);
+}
+
 // ── Lazy-initialized Expo client (avoids module-level constructor for testability) ──
 
 let _expo: Expo | null = null;
@@ -346,11 +357,7 @@ export async function notifyNewOrder(
   amount: number,
   currency = 'NGN'
 ): Promise<void> {
-  const formattedAmount = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-  }).format(amount);
+  const formattedAmount = formatCurrency(amount, currency);
 
   await notifyMerchant(
     merchantId,
@@ -375,11 +382,7 @@ export async function notifyPaymentReceived(
   currency = 'NGN',
   orderNumber?: string
 ): Promise<void> {
-  const formattedAmount = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-  }).format(amount);
+  const formattedAmount = formatCurrency(amount, currency);
 
   const body = orderNumber
     ? `Payment of ${formattedAmount} received for order #${orderNumber}`
@@ -456,11 +459,7 @@ export async function notifyWithdrawalProcessed(
   currency = 'NGN',
   bankName?: string
 ): Promise<void> {
-  const formattedAmount = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-  }).format(amount);
+  const formattedAmount = formatCurrency(amount, currency);
 
   const body = bankName
     ? `${formattedAmount} has been sent to your ${bankName} account`
@@ -490,11 +489,7 @@ export async function notifyJumiaOrder(
   amount: number,
   currency = 'NGN'
 ): Promise<void> {
-  const formattedAmount = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-  }).format(amount);
+  const formattedAmount = formatCurrency(amount, currency);
 
   await notifyMerchant(
     merchantId,
@@ -505,101 +500,6 @@ export async function notifyJumiaOrder(
       jumia_order_number: jumiaOrderNumber,
       amount,
       currency,
-    },
-    'orders'
-  );
-}
-
-// =============================================================================
-// NEGOTIATION NOTIFICATION HELPERS
-// =============================================================================
-
-/**
- * Notify merchant of a new price negotiation request.
- *
- * Handles both `type='single'` (single item with name/price) and `type='total'`
- * (cart-level negotiation where `item_info` is null).
- */
-export async function notifyNegotiationRequest(
-  merchantId: string,
-  negotiationType: 'single' | 'total',
-  offeredPrice: number,
-  negotiationId: string,
-  itemName?: string | null,
-  currentPrice?: number | null
-): Promise<void> {
-  const formattedOffer = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-  }).format(offeredPrice);
-
-  let body: string;
-  if (negotiationType === 'total' || !itemName || !currentPrice) {
-    body = `Cart total negotiation — ${formattedOffer} offered`;
-  } else {
-    const discount = Math.round(
-      ((currentPrice - offeredPrice) / currentPrice) * 100
-    );
-    body =
-      discount > 0
-        ? `${itemName} — ${formattedOffer} offered (${discount}% off)`
-        : `${itemName} — ${formattedOffer} offered`;
-  }
-
-  await notifyMerchant(
-    merchantId,
-    '🤝 New Price Negotiation',
-    body,
-    { type: 'negotiation', negotiation_id: negotiationId },
-    'orders'
-  );
-}
-
-/**
- * Notify customer of a negotiation response (accepted/rejected).
- *
- * Handles both single-item and cart-level negotiations.
- */
-export async function notifyNegotiationResponse(
-  userId: string,
-  negotiationType: 'single' | 'total',
-  status: 'accepted' | 'rejected',
-  negotiationId: string,
-  itemName?: string | null,
-  offeredPrice?: number | null
-): Promise<void> {
-  const isAccepted = status === 'accepted';
-  const title = isAccepted ? '✅ Offer Accepted!' : '❌ Offer Declined';
-
-  let body: string;
-  if (negotiationType === 'total' || !itemName) {
-    body = isAccepted
-      ? 'Your cart offer has been accepted! Complete your purchase now.'
-      : 'Your cart offer was declined. Try a new offer or buy at the listed price.';
-  } else {
-    const formattedPrice =
-      offeredPrice != null
-        ? new Intl.NumberFormat('en-NG', {
-            style: 'currency',
-            currency: 'NGN',
-            minimumFractionDigits: 0,
-          }).format(offeredPrice)
-        : '';
-
-    body = isAccepted
-      ? `Your offer${formattedPrice ? ` of ${formattedPrice}` : ''} for ${itemName} has been accepted!`
-      : `Your offer for ${itemName} was declined. Try a new offer or buy at the listed price.`;
-  }
-
-  await notifyCustomer(
-    userId,
-    title,
-    body,
-    {
-      type: 'negotiation_response',
-      negotiation_id: negotiationId,
-      status,
     },
     'orders'
   );
@@ -713,19 +613,13 @@ export async function notifyPriceDrop(
   newPrice: number,
   currency = 'NGN'
 ): Promise<void> {
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-    }).format(price);
-
-  const discount = Math.round(((oldPrice - newPrice) / oldPrice) * 100);
+  const discount =
+    oldPrice > 0 ? Math.round(((oldPrice - newPrice) / oldPrice) * 100) : 0;
 
   await notifyCustomer(
     userId,
     `💸 Price Drop: ${discount}% Off!`,
-    `${productName} is now ${formatPrice(newPrice)} (was ${formatPrice(oldPrice)})`,
+    `${productName} is now ${formatCurrency(newPrice, currency)} (was ${formatCurrency(oldPrice, currency)})`,
     {
       type: 'price_drop',
       productSlug,

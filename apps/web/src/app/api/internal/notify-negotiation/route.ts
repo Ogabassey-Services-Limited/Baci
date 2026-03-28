@@ -2,8 +2,8 @@ import { timingSafeEqual } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getInternalApiSecret } from '@/env';
-import { notifyNegotiationRequest } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
+import { notifyNegotiationRequest } from '@/lib/negotiation-notifications';
 
 const sharedFields = {
   merchantId: z.string().uuid(),

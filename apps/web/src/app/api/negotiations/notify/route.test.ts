@@ -8,7 +8,7 @@ import { POST } from './route';
 
 const mockNotifyNegotiationResponse = vi.fn().mockResolvedValue(undefined);
 
-vi.mock('@/lib/expo-push', () => ({
+vi.mock('@/lib/negotiation-notifications', () => ({
   notifyNegotiationResponse: (...args: unknown[]) =>
     mockNotifyNegotiationResponse(...args),
 }));

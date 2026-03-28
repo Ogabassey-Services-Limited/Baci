@@ -16,7 +16,7 @@ vi.mock('@/env', () => ({
   getInternalApiSecret: () => mockGetInternalApiSecret(),
 }));
 
-vi.mock('@/lib/expo-push', () => ({
+vi.mock('@/lib/negotiation-notifications', () => ({
   notifyNegotiationRequest: (...args: unknown[]) =>
     mockNotifyNegotiationRequest(...args),
 }));
