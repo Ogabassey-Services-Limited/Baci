@@ -11,6 +11,10 @@ import MigrationSourceSelector, {
 import type { ImportJobListItem } from '@/app/dashboard/migrations/migration-types';
 import { useMigrationJobs } from '@/app/dashboard/migrations/use-migration-jobs';
 
+function assertUnreachable(value: never): never {
+  throw new Error(`Unhandled platform: ${value}`);
+}
+
 export default function MigrationsClientPage({
   initialError,
   initialJobs,
@@ -44,6 +48,79 @@ export default function MigrationsClientPage({
     initialJobs,
   });
 
+  const bumpaContent = (
+    <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <MigrationSidebar
+        entityType={entityType}
+        jobs={jobs}
+        onEntityTypeChange={setEntityType}
+        onFileChange={setFile}
+        onJobSelect={setSelectedJobId}
+        onUpload={handleUpload}
+        selectedJobId={selectedJobId}
+        uploading={uploading}
+      />
+
+      <div className="space-y-6">
+        <MigrationJobSummary
+          activeFilter={activeFilter}
+          acting={acting}
+          error={error}
+          loading={loading}
+          onFilterChange={handleFilterChange}
+          onCommit={() =>
+            queueJobAction(`/api/import-jobs/${selectedJobId}/commit`)
+          }
+          onNotify={() =>
+            queueJobAction(`/api/import-jobs/${selectedJobId}/notify-customers`)
+          }
+          onRefresh={async () => {
+            if (!selectedJobId) {
+              return;
+            }
+
+            await refreshJob(selectedJobId, {
+              filter: activeFilter,
+              page: rowsResponse?.pagination.page || 1,
+            });
+          }}
+          selectedJob={selectedJob}
+        />
+
+        <MigrationPreviewTable
+          entityType={selectedJob?.entity_type || entityType}
+          filter={activeFilter}
+          loading={rowsLoading}
+          onPageChange={(page) =>
+            selectedJobId &&
+            void refreshJob(selectedJobId, {
+              filter: activeFilter,
+              includeJob: false,
+              includeRows: true,
+              page,
+            })
+          }
+          page={rowsResponse?.pagination.page || 1}
+          pageSize={rowsResponse?.pagination.pageSize || 25}
+          rows={rowsResponse?.rows || []}
+          total={rowsResponse?.pagination.total || 0}
+        />
+      </div>
+    </div>
+  );
+
+  let sourceContent: React.ReactNode;
+  switch (sourcePlatform) {
+    case 'bumpa':
+      sourceContent = bumpaContent;
+      break;
+    case 'shopify':
+      sourceContent = <MigrationShopifyPlaceholder />;
+      break;
+    default:
+      sourceContent = assertUnreachable(sourcePlatform);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
@@ -62,70 +139,7 @@ export default function MigrationsClientPage({
         value={sourcePlatform}
       />
 
-      {sourcePlatform === 'bumpa' ? (
-        <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-          <MigrationSidebar
-            entityType={entityType}
-            jobs={jobs}
-            onEntityTypeChange={setEntityType}
-            onFileChange={setFile}
-            onJobSelect={setSelectedJobId}
-            onUpload={handleUpload}
-            selectedJobId={selectedJobId}
-            uploading={uploading}
-          />
-
-          <div className="space-y-6">
-            <MigrationJobSummary
-              activeFilter={activeFilter}
-              acting={acting}
-              error={error}
-              loading={loading}
-              onFilterChange={handleFilterChange}
-              onCommit={() =>
-                queueJobAction(`/api/import-jobs/${selectedJobId}/commit`)
-              }
-              onNotify={() =>
-                queueJobAction(
-                  `/api/import-jobs/${selectedJobId}/notify-customers`
-                )
-              }
-              onRefresh={async () => {
-                if (!selectedJobId) {
-                  return;
-                }
-
-                await refreshJob(selectedJobId, {
-                  filter: activeFilter,
-                  page: rowsResponse?.pagination.page || 1,
-                });
-              }}
-              selectedJob={selectedJob}
-            />
-
-            <MigrationPreviewTable
-              entityType={selectedJob?.entity_type || entityType}
-              filter={activeFilter}
-              loading={rowsLoading}
-              onPageChange={(page) =>
-                selectedJobId &&
-                void refreshJob(selectedJobId, {
-                  filter: activeFilter,
-                  includeJob: false,
-                  includeRows: true,
-                  page,
-                })
-              }
-              page={rowsResponse?.pagination.page || 1}
-              pageSize={rowsResponse?.pagination.pageSize || 25}
-              rows={rowsResponse?.rows || []}
-              total={rowsResponse?.pagination.total || 0}
-            />
-          </div>
-        </div>
-      ) : (
-        <MigrationShopifyPlaceholder />
-      )}
+      {sourceContent}
     </div>
   );
 }

@@ -36,6 +36,8 @@ const SOURCE_COPY: Record<
   },
 };
 
+export { SOURCE_COPY };
+
 export default function MigrationSourceSelector({
   onValueChange,
   value,
