@@ -32,6 +32,48 @@ Deno.serve(async (req: Request) => {
       },
     });
 
+    // Send push notification to merchant via centralized Next.js endpoint (fire-and-forget)
+    const siteUrl = Deno.env.get('NEXT_PUBLIC_SITE_URL')?.replace(/\/+$/, '');
+    const internalSecret = Deno.env.get('INTERNAL_API_SECRET');
+    if (siteUrl && internalSecret) {
+      // Fire-and-forget — don't block the Edge Function response
+      fetch(`${siteUrl}/api/internal/notify-negotiation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${internalSecret}`,
+        },
+        body: JSON.stringify({
+          merchantId: record.merchant_id,
+          negotiationType: record.type,
+          offeredPrice: record.offered_price,
+          negotiationId: record.id,
+          // For type='single', item_info should have name/current_price
+          // For type='total', item_info is null — helper handles both cases
+          itemName:
+            record.type === 'single' && record.item_info
+              ? (record.item_info.name ?? null)
+              : null,
+          currentPrice:
+            record.type === 'single' && record.item_info
+              ? (record.item_info.current_price ?? null)
+              : null,
+        }),
+      })
+        .then((res) => {
+          if (!res.ok) {
+            console.error(
+              `Notification API returned ${res.status} ${res.statusText}`
+            );
+          }
+        })
+        .catch((err) => console.error('Notification request failed:', err));
+    } else {
+      console.warn(
+        'Skipping push notification: NEXT_PUBLIC_SITE_URL or INTERNAL_API_SECRET not configured'
+      );
+    }
+
     return new Response(JSON.stringify({ message: 'Notification sent' }), {
       headers: { 'Content-Type': 'application/json' },
     });

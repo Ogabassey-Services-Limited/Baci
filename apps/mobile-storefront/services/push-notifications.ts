@@ -174,6 +174,7 @@ export async function savePushTokenToServer(
         token: token,
         platform: Platform.OS,
         device_name: Device?.modelName || 'Unknown',
+        app_type: 'storefront',
         is_active: true,
         last_used_at: new Date().toISOString(),
       },
@@ -251,6 +252,14 @@ export function handleNotificationResponse(
     case 'back_in_stock':
       if (data.productSlug) {
         navigate('product', { slug: data.productSlug as string });
+      }
+      break;
+
+    case 'negotiation_response':
+      if (data.productSlug) {
+        navigate('product', { slug: data.productSlug as string });
+      } else {
+        navigate('home');
       }
       break;
 

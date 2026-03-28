@@ -289,8 +289,15 @@ export function getNotificationNavigationParams(
       return { screen: 'notifications' };
 
     case 'jumia_order':
-      // Navigate to orders screen (Jumia orders will be shown with badge)
       return { screen: 'orders' };
+
+    case 'negotiation':
+      return data.negotiation_id
+        ? {
+            screen: 'negotiation',
+            params: { id: data.negotiation_id as string },
+          }
+        : { screen: 'negotiations' };
 
     default:
       return { screen: 'index' };

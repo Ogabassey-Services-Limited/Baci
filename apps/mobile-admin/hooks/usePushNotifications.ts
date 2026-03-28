@@ -212,6 +212,20 @@ export function usePushNotifications(): UsePushNotificationsResult {
               return;
             }
 
+            if (navParams.screen === 'negotiations') {
+              router.push('/(admin)/negotiations');
+              return;
+            }
+
+            if (navParams.screen === 'negotiation') {
+              router.push(
+                entityId
+                  ? (`/(admin)/negotiations/${entityId}` as Href)
+                  : '/(admin)/negotiations'
+              );
+              return;
+            }
+
             router.push('/(admin)/(tabs)');
           }
         }

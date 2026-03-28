@@ -479,15 +479,16 @@ export const CartSidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* Negotiation Modal */}
-      {negotiationState && (
+      {/* Negotiation Modal — only render when merchant context is available */}
+      {negotiationState && merchant?.id && (
         <NegotiationModal
           isOpen={negotiationState.isOpen}
           onClose={() => setNegotiationState(null)}
           productName={negotiationState.name}
           currentPrice={negotiationState.currentPrice}
           onSuccess={handleNegotiationSuccess}
-          type="single"
+          type={negotiationState.type}
+          merchantId={merchant.id}
         />
       )}
     </>

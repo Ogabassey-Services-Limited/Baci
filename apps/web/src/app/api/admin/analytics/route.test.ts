@@ -123,11 +123,11 @@ describe('/api/admin/analytics route', () => {
           { data: [], error: null },
         ],
         products: [{ data: [], error: null }],
-        platform_growth: [{ data: [], error: null }],
       },
       {
         get_admin_merchant_health: { data: [], error: null },
         get_admin_platform_daily_summary: { data: [], error: null },
+        get_admin_platform_growth: { data: [], error: null },
         get_admin_top_merchants: { data: [], error: null },
       }
     );
@@ -190,7 +190,6 @@ describe('/api/admin/analytics route', () => {
           { data: [], error: null },
         ],
         products: [{ data: [], error: null }],
-        platform_growth: [{ data: [], error: null }],
       },
       {
         get_admin_merchant_health: { data: [], error: null },
@@ -198,6 +197,7 @@ describe('/api/admin/analytics route', () => {
           data: null,
           error: { message: 'summary unavailable' },
         },
+        get_admin_platform_growth: { data: [], error: null },
         get_admin_top_merchants: { data: [], error: null },
       }
     );
@@ -306,15 +306,6 @@ describe('/api/admin/analytics route', () => {
             error: null,
           },
         ],
-        platform_growth: [
-          {
-            data: [
-              { month: '2026-03-01', new_merchants: 4 },
-              { month: '2026-02-01', new_merchants: 2 },
-            ],
-            error: null,
-          },
-        ],
       },
       {
         get_admin_merchant_health: {
@@ -333,6 +324,13 @@ describe('/api/admin/analytics route', () => {
               sale_date: '2026-03-01',
               total_orders: 4,
             },
+          ],
+          error: null,
+        },
+        get_admin_platform_growth: {
+          data: [
+            { month: '2026-03-01', new_merchants: 4 },
+            { month: '2026-02-01', new_merchants: 2 },
           ],
           error: null,
         },
@@ -635,16 +633,14 @@ describe('/api/admin/analytics route', () => {
             error: null,
           },
         ],
-        platform_growth: [
-          {
-            data: [{ month: '2026-03-01', new_merchants: 12 }],
-            error: null,
-          },
-        ],
       },
       {
         get_admin_merchant_health: { data: healthRows, error: null },
         get_admin_platform_daily_summary: { data: [], error: null },
+        get_admin_platform_growth: {
+          data: [{ month: '2026-03-01', new_merchants: 12 }],
+          error: null,
+        },
         get_admin_top_merchants: { data: [], error: null },
       }
     );
@@ -748,5 +744,40 @@ describe('/api/admin/analytics route', () => {
       99.49238578680203,
       5
     );
+  });
+
+  it('returns 500 when get_admin_platform_growth RPC fails', async () => {
+    mockSupabase = createMockSupabase(
+      {
+        merchants: [
+          { data: { is_platform_admin: true }, error: null },
+          { data: [], error: null },
+        ],
+        orders: [
+          { data: [], error: null },
+          { data: [], error: null },
+        ],
+        products: [{ data: [], error: null }],
+      },
+      {
+        get_admin_merchant_health: { data: [], error: null },
+        get_admin_platform_daily_summary: { data: [], error: null },
+        get_admin_platform_growth: {
+          data: null,
+          error: {
+            code: '42501',
+            message: 'permission denied for table platform_growth',
+          },
+        },
+        get_admin_top_merchants: { data: [], error: null },
+      }
+    );
+    mockCreateClient.mockReturnValue(mockSupabase);
+
+    const response = await GET(createRequest(`${analyticsUrl}?period=30d`));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to fetch analytics data');
   });
 });

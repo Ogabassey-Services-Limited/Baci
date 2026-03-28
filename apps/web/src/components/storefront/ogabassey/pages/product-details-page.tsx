@@ -300,6 +300,7 @@ export function ProductDetailsPage({ product }: ProductDetailsPageProps) {
         onSuccess={handleNegotiationSuccess}
         type="single"
         itemId={String(productData.id)}
+        merchantId={merchantId || ''}
       />
     </div>
   );
