@@ -10,6 +10,7 @@ import { Stack, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -38,6 +39,9 @@ interface Expense {
   date: string;
   receipt_url: string | null;
 }
+
+// Item height for getItemLayout optimization (padding + margin + borders + content)
+const ITEM_HEIGHT = 78;
 
 export default function ExpensesScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -68,6 +72,16 @@ export default function ExpensesScreen() {
       .filter((e) => isSameMonth(parseISO(e.date), now))
       .reduce((sum, e) => sum + Number(e.amount), 0);
   })();
+
+  // getItemLayout for consistent item heights
+  const getItemLayout = (
+    _data: ArrayLike<Expense> | null | undefined,
+    index: number
+  ) => ({
+    length: ITEM_HEIGHT,
+    offset: ITEM_HEIGHT * index,
+    index,
+  });
 
   const renderExpenseItem = ({ item }: { item: Expense }) => (
     <Pressable
@@ -178,6 +192,8 @@ export default function ExpensesScreen() {
             data={expenses}
             renderItem={renderExpenseItem}
             keyExtractor={(item) => item.id}
+            getItemLayout={getItemLayout}
+            removeClippedSubviews={Platform.OS === 'android'}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
