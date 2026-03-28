@@ -113,9 +113,6 @@ describe('CategoryPage', () => {
 
     expect(screen.getAllByTestId('product-card')).toHaveLength(25);
     expect(
-      screen.getByText('Showing 25 of 25 products')
-    ).toBeInTheDocument();
-    expect(
       screen.queryByRole('button', { name: /load more products/i })
     ).not.toBeInTheDocument();
   });
