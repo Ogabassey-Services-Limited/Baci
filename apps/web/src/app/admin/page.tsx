@@ -72,13 +72,14 @@ function formatNumber(value: number): string {
   return value.toString();
 }
 
-const PERIOD_LABELS: Record<'7d' | '30d' | '90d', string> = {
+const PERIOD_LABELS: Record<'7d' | '30d' | '90d' | 'all', string> = {
   '7d': 'last 7 days',
   '30d': 'last 30 days',
   '90d': 'last 90 days',
+  all: 'all time',
 };
 
-function getPeriodLabel(period: '7d' | '30d' | '90d'): string {
+function getPeriodLabel(period: '7d' | '30d' | '90d' | 'all'): string {
   return PERIOD_LABELS[period];
 }
 
@@ -86,7 +87,7 @@ export default function AdminDashboardPage() {
   const [analytics, setAnalytics] = useState<PlatformAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
+  const [period, setPeriod] = useState<'7d' | '30d' | '90d' | 'all'>('all');
   const { toast } = useToast();
 
   const fetchAnalytics = async ({
@@ -208,7 +209,7 @@ export default function AdminDashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-lg border bg-background p-1">
-            {(['7d', '30d', '90d'] as const).map((p) => (
+            {(['7d', '30d', '90d', 'all'] as const).map((p) => (
               <Button
                 key={p}
                 variant={period === p ? 'default' : 'ghost'}
@@ -216,7 +217,13 @@ export default function AdminDashboardPage() {
                 onClick={() => setPeriod(p)}
                 className="text-xs"
               >
-                {p === '7d' ? '7 Days' : p === '30d' ? '30 Days' : '90 Days'}
+                {p === '7d'
+                  ? '7 Days'
+                  : p === '30d'
+                    ? '30 Days'
+                    : p === '90d'
+                      ? '90 Days'
+                      : 'All'}
               </Button>
             ))}
           </div>
@@ -267,7 +274,7 @@ export default function AdminDashboardPage() {
               title="Paid Orders"
               value={formatNumber(analytics.summary.totalOrders)}
               icon={Activity}
-              description={`Of ${formatNumber(analytics.summary.grossOrders)} created in last ${period}`}
+              description={`Of ${formatNumber(analytics.summary.grossOrders)} created ${period === 'all' ? 'all time' : `in last ${period}`}`}
             />
             <AnalyticsCard
               title="Avg GMV/Merchant"
