@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -8,24 +9,32 @@ import { createClient } from '@/lib/supabase/server';
  * PATCH - Update customer profile
  */
 
+const savedAddressSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  full_name: z.string().min(1),
+  phone: z.string().min(1),
+  address: z.string().min(1),
+  city: z.string().min(1),
+  state: z.string().min(1),
+  country: z.string().min(1),
+  postal_code: z.string().optional(),
+  is_default: z.boolean().optional(),
+});
+
+const patchBodySchema = z.object({
+  merchantSlug: z.string().min(1, 'Merchant slug is required'),
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  phone: z.string().optional(),
+  saved_addresses: z.array(savedAddressSchema).optional(),
+});
+
 export async function PATCH(request: NextRequest) {
   try {
-    // CSRF: handled by Origin-based middleware in proxy.ts (guest storefront route)
-    const body = await request.json();
-    const { merchantSlug, first_name, last_name, phone, saved_addresses } =
-      body;
-
-    if (!merchantSlug) {
-      return NextResponse.json(
-        { error: 'Merchant slug is required' },
-        { status: 400 }
-      );
-    }
-
+    // 1. Auth check FIRST
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-
-    // Get current auth session
     const {
       data: { user },
       error: authError,
@@ -35,7 +44,27 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant
+    // 2. Parse and validate body
+    // CSRF: handled by Origin-based middleware in proxy.ts (guest storefront route)
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+    const parseResult = patchBodySchema.safeParse(body);
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parseResult.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { merchantSlug, first_name, last_name, phone, saved_addresses } =
+      parseResult.data;
+
+    // 3. Get merchant
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id')
@@ -79,13 +108,6 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (saved_addresses !== undefined) {
-      // Validate addresses structure
-      if (!Array.isArray(saved_addresses)) {
-        return NextResponse.json(
-          { error: 'Invalid addresses format' },
-          { status: 400 }
-        );
-      }
       updateData.saved_addresses = saved_addresses;
     }
 
