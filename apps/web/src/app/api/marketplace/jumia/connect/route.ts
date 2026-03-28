@@ -218,25 +218,8 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const adminClient = createAdminClient();
-      const { data: ticketData, error: ticketError } = await adminClient
-        .from('oauth_handoff_tickets')
-        .update({
-          status: 'redeemed',
-          redeemed_at: new Date().toISOString(),
-        })
-        .eq('id', ticketParsed.data)
-        .eq('status', 'pending')
-        .gt('expires_at', new Date().toISOString())
-        .select('merchant_id')
-        .single();
-
-      if (ticketError || !ticketData) {
-        return NextResponse.redirect(
-          new URL('baciadmin://?error=ticket_invalid')
-        );
-      }
-
+      // Check OAuth config BEFORE consuming the ticket so we never
+      // waste a one-time ticket when configuration is missing.
       const jumiaClientId = getJumiaClientId();
       const appUrl = getConfiguredAppUrl();
       if (!jumiaClientId || !appUrl) {
@@ -245,19 +228,25 @@ export async function GET(request: NextRequest) {
         );
       }
 
+      // Generate state up-front so we can bind it atomically with redemption
       const state = crypto.randomBytes(16).toString('hex');
 
-      // Bind OAuth state to the ticket for end-to-end verification
-      const { error: stateUpdateError } = await adminClient
+      // Atomically redeem the ticket AND bind the OAuth state in a single UPDATE
+      const adminClient = createAdminClient();
+      const { data: ticketData, error: ticketError } = await adminClient
         .from('oauth_handoff_tickets')
-        .update({ oauth_state: state })
-        .eq('id', ticketParsed.data);
+        .update({
+          status: 'redeemed',
+          redeemed_at: new Date().toISOString(),
+          oauth_state: state,
+        })
+        .eq('id', ticketParsed.data)
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString())
+        .select('merchant_id')
+        .single();
 
-      if (stateUpdateError) {
-        console.error(
-          '[Jumia Connect] Failed to bind OAuth state to ticket:',
-          stateUpdateError
-        );
+      if (ticketError || !ticketData) {
         return NextResponse.redirect(
           new URL('baciadmin://?error=ticket_invalid')
         );

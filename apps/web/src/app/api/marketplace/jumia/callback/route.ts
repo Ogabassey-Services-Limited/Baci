@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
       }
 
       const ticketId = request.cookies.get('jumia_ticket_id')?.value;
-      if (!ticketId) {
+      if (!ticketId || ticketId.length > 200) {
         return clearOAuthCookies(
           createPlatformRedirect(request, 'error=ticket_invalid')
         );

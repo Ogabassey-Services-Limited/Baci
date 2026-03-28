@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
 
     const baseUrl = appUrl.replace(/\/+$/, '');
-    const authUrl = `${baseUrl}/api/marketplace/jumia/connect?connectionType=oauth&ticket=${ticket.id}&platform=mobile`;
+    const authUrl = `${baseUrl}/api/marketplace/jumia/connect?connectionType=oauth&ticket=${encodeURIComponent(ticket.id)}&platform=mobile`;
 
     return NextResponse.json({ ticket: ticket.id, authUrl });
   } catch (error) {

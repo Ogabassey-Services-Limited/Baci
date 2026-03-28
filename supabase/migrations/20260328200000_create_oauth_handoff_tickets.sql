@@ -25,6 +25,10 @@ CREATE INDEX IF NOT EXISTS idx_oauth_tickets_status_expires
 CREATE INDEX IF NOT EXISTS idx_oauth_tickets_created_at
   ON oauth_handoff_tickets (created_at);
 
+-- Ensure each non-null oauth_state is unique (prevents state reuse attacks)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_oauth_tickets_state_unique
+  ON oauth_handoff_tickets (oauth_state) WHERE oauth_state IS NOT NULL;
+
 ALTER TABLE oauth_handoff_tickets ENABLE ROW LEVEL SECURITY;
 -- Service-role only. No user-facing RLS policies needed.
 

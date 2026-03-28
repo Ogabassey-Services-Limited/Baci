@@ -136,6 +136,25 @@ describe('POST /api/marketplace/jumia/connect/ticket', () => {
     expect(body.authUrl).toContain('connectionType=oauth');
   });
 
+  it('returns 500 when database insert fails', async () => {
+    setupAuth();
+    mockAdminFrom.mockReturnValue({
+      insert: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'Database error' },
+          }),
+        }),
+      }),
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe('Failed to create ticket');
+  });
+
   it('inserts ticket with correct merchant_id, user_id, and 60s TTL', async () => {
     setupAuth();
     const mockInsert = vi.fn().mockReturnValue({

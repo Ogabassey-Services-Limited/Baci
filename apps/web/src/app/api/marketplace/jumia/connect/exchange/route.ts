@@ -100,7 +100,11 @@ export async function POST(request: NextRequest) {
       redirectUri: jumiaRedirectUri,
     });
 
-    const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);
+    const expiresInSeconds =
+      Number.isFinite(tokens.expires_in) && tokens.expires_in > 0
+        ? tokens.expires_in
+        : 3600;
+    const tokenExpiresAt = new Date(Date.now() + expiresInSeconds * 1000);
 
     // Discover Jumia shops
     const tempClient = new JumiaClient({
@@ -187,6 +191,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (upsertError) {
+      console.error('[Jumia Exchange] Upsert failed:', upsertError);
       return NextResponse.json(
         { error: 'Failed to save integrations' },
         { status: 500 }
@@ -203,7 +208,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[Jumia Exchange] Unexpected error:', error);
-    const message = error instanceof Error ? error.message : 'Exchange failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Exchange failed' }, { status: 500 });
   }
 }
