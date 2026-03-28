@@ -22,12 +22,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
-// Web API base URL from environment
-const WEB_APP_URL =
-  process.env.EXPO_PUBLIC_WEB_API_URL || 'https://usebaci.com';
-
-const STATUS_TIMEOUT_MS = 5_000;
-
 export default function SalesChannelsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
@@ -36,80 +30,88 @@ export default function SalesChannelsScreen() {
   const [statusError, setStatusError] = useState(false);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
-    const controller = new AbortController();
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
 
     const checkConnectionStatus = async () => {
       try {
-        timeoutId = setTimeout(() => controller.abort(), STATUS_TIMEOUT_MS);
-        const response = await fetch(
-          `${WEB_APP_URL}/api/marketplace/jumia/status`,
-          { signal: controller.signal }
-        );
-        if (response.ok) {
-          const { connected } = await response.json();
-          setIsConnected(connected);
+        const data = await apiClient<{
+          integrations?: Array<{ id: string }>;
+        }>('/api/marketplace/jumia/connect');
+        if (!cancelled) {
+          setIsConnected((data.integrations?.length ?? 0) > 0);
           setStatusError(false);
         }
       } catch {
-        setStatusError(true);
+        if (!cancelled) setStatusError(true);
       } finally {
-        if (timeoutId !== undefined) clearTimeout(timeoutId);
-        setStatusLoading(false);
+        if (!cancelled) setStatusLoading(false);
       }
     };
 
     checkConnectionStatus();
     return () => {
-      controller.abort();
-      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      cancelled = true;
     };
   }, []);
 
   const handleConnectJumia = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const authUrl = `${WEB_APP_URL}/api/marketplace/jumia/connect?connectionType=oauth&platform=mobile`;
+      // Step 1: Get a short-lived ticket via authenticated API call
+      const ticketData = await apiClient<{ ticket: string; authUrl: string }>(
+        '/api/marketplace/jumia/connect/ticket',
+        { method: 'POST' }
+      );
 
+      if (!ticketData.authUrl) {
+        Alert.alert('Error', 'Failed to create connection ticket');
+        return;
+      }
+
+      // Step 2: Open browser → Jumia login → callback → deep link with code
       const result = await WebBrowser.openAuthSessionAsync(
-        authUrl,
+        ticketData.authUrl,
         'baciadmin://'
       );
 
       if (result.type === 'success' && result.url) {
         const { queryParams } = Linking.parse(result.url);
 
-        // Verify connection with backend instead of trusting query param alone
-        if (queryParams?.code || queryParams?.success === 'jumia_connected') {
-          const verifyResponse = await fetch(
-            `${WEB_APP_URL}/api/marketplace/jumia/verify`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                code: queryParams?.code,
-                state: queryParams?.state,
-              }),
-            }
+        if (queryParams?.error) {
+          Alert.alert(
+            'Connection Error',
+            String(queryParams.error).replace(/_/g, ' ')
           );
+          return;
+        }
 
-          if (verifyResponse.ok) {
-            const { connected } = await verifyResponse.json();
-            if (connected) {
-              setIsConnected(true);
-              Alert.alert('Success', 'Jumia account connected successfully!');
-              return;
-            }
-          }
-          // Fallback if verify endpoint doesn't exist yet
-          if (queryParams?.success === 'jumia_connected') {
+        if (queryParams?.code && queryParams?.ticketId) {
+          // Step 3: Exchange code via authenticated endpoint (bound to ticket)
+          const exchangeData = await apiClient<{
+            success: boolean;
+            shops?: string[];
+            error?: string;
+          }>('/api/marketplace/jumia/connect/exchange', {
+            method: 'POST',
+            body: JSON.stringify({
+              code: queryParams.code,
+              ticketId: queryParams.ticketId,
+            }),
+          });
+
+          if (exchangeData.success) {
             setIsConnected(true);
             Alert.alert('Success', 'Jumia account connected successfully!');
+          } else {
+            Alert.alert(
+              'Error',
+              exchangeData.error || 'Failed to complete connection'
+            );
           }
         }
       }
     } catch (error) {
-      console.error(error);
+      console.error('Jumia connect error:', error);
       Alert.alert('Error', 'Failed to connect Jumia account');
     } finally {
       setLoading(false);

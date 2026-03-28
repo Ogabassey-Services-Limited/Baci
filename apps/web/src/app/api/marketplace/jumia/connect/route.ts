@@ -15,6 +15,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { getJumiaAuthUrl, getJumiaRedirectUri } from '@/lib/jumia/helpers';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [
@@ -203,6 +204,91 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const connectionType = searchParams.get('connectionType');
 
+    // --- Mobile ticket flow (runs before cookie auth) ---
+    const ticket = searchParams.get('ticket');
+    if (
+      ticket &&
+      connectionType === 'oauth' &&
+      searchParams.get('platform') === 'mobile'
+    ) {
+      const ticketParsed = z.string().uuid().safeParse(ticket);
+      if (!ticketParsed.success) {
+        return NextResponse.redirect(
+          new URL('baciadmin://?error=invalid_ticket')
+        );
+      }
+
+      const adminClient = createAdminClient();
+      const { data: ticketData, error: ticketError } = await adminClient
+        .from('oauth_handoff_tickets')
+        .update({
+          status: 'redeemed',
+          redeemed_at: new Date().toISOString(),
+        })
+        .eq('id', ticketParsed.data)
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString())
+        .select('merchant_id, user_id')
+        .single();
+
+      if (ticketError || !ticketData) {
+        return NextResponse.redirect(
+          new URL('baciadmin://?error=ticket_invalid')
+        );
+      }
+
+      const jumiaClientId = getJumiaClientId();
+      const appUrl = getConfiguredAppUrl();
+      if (!jumiaClientId || !appUrl) {
+        return NextResponse.redirect(
+          new URL('baciadmin://?error=oauth_not_configured')
+        );
+      }
+
+      const state = crypto.randomBytes(16).toString('hex');
+
+      // Bind OAuth state to the ticket for end-to-end verification
+      await adminClient
+        .from('oauth_handoff_tickets')
+        .update({ oauth_state: state })
+        .eq('id', ticketParsed.data);
+
+      const redirectUrl = getJumiaAuthUrl({
+        clientId: jumiaClientId,
+        redirectUri: getJumiaRedirectUri(appUrl),
+        state,
+      });
+
+      const response = NextResponse.redirect(redirectUrl);
+      response.cookies.set('jumia_oauth_state', state, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+      });
+      response.cookies.set('jumia_merchant_id', ticketData.merchant_id, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+      });
+      response.cookies.set('jumia_oauth_platform', 'mobile', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+      });
+      response.cookies.set('jumia_ticket_id', ticketParsed.data, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 600,
+      });
+
+      return response;
+    }
+
+    // --- Existing cookie auth flow ---
     const {
       data: { user },
       error: authError,
