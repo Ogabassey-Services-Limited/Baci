@@ -524,6 +524,7 @@ describe('notifyNegotiationResponse', () => {
       'user-1',
       'single',
       'accepted',
+      'neg-id-123',
       'Laptop Stand',
       8000
     );
@@ -533,6 +534,12 @@ describe('notifyNegotiationResponse', () => {
     expect(sentMessages[0].title).toContain('Accepted');
     expect(sentMessages[0].body).toContain('Laptop Stand');
     expect(sentMessages[0].body).toContain('accepted');
+    expect(sentMessages[0].data).toEqual(
+      expect.objectContaining({
+        type: 'negotiation_response',
+        negotiation_id: 'neg-id-123',
+      })
+    );
   });
 
   it('sends rejected notification for cart-level negotiation', async () => {
@@ -545,7 +552,14 @@ describe('notifyNegotiationResponse', () => {
       { status: 'ok', id: 't1' },
     ]);
 
-    await notifyNegotiationResponse('user-1', 'total', 'rejected', null, null);
+    await notifyNegotiationResponse(
+      'user-1',
+      'total',
+      'rejected',
+      'neg-id-456',
+      null,
+      null
+    );
 
     const sentMessages = mockChunkPushNotifications.mock
       .calls[0][0] as ExpoPushMessage[];

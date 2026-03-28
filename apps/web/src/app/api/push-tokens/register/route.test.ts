@@ -35,13 +35,15 @@ let updateResult: { data: unknown; error: unknown } = {
   error: null,
 };
 let updateCalls: Array<{ payload: unknown; filter: string }> = [];
+const insertCalls: unknown[] = [];
 
 function createMockSupabase() {
   const chain = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn(() => Promise.resolve(selectResult)),
-    insert: vi.fn((_payload: unknown) => {
+    insert: vi.fn((payload: unknown) => {
+      insertCalls.push(payload);
       insertResult.data = { id: 'token-id-new' };
       return {
         select: vi.fn().mockReturnValue({
@@ -126,6 +128,7 @@ describe('POST /api/push-tokens/register', () => {
     insertResult = { data: { id: 'token-id-new' }, error: null };
     updateResult = { data: null, error: null };
     updateCalls = [];
+    insertCalls.length = 0;
   });
 
   it('returns 401 when user is not authenticated', async () => {
@@ -252,6 +255,48 @@ describe('POST /api/push-tokens/register', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.message).toBe('Push token registered');
+
+    // Verify app_type is passed through to insert
+    expect(insertCalls.length).toBe(1);
+    expect(insertCalls[0]).toEqual(
+      expect.objectContaining({ app_type: 'admin' })
+    );
+  });
+
+  it('passes app_type=storefront through to insert', async () => {
+    const res = await POST(
+      makeRequest({
+        token: 'ExponentPushToken[sf-device]',
+        platform: 'android',
+        app_type: 'storefront',
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(insertCalls.length).toBe(1);
+    expect(insertCalls[0]).toEqual(
+      expect.objectContaining({ app_type: 'storefront' })
+    );
+  });
+
+  it('passes app_type through to update when user_id matches', async () => {
+    selectResult = {
+      data: { id: 'existing-token-id', user_id: USER_ID },
+      error: null,
+    };
+
+    await POST(
+      makeRequest({
+        token: 'ExponentPushToken[xxx]',
+        platform: 'ios',
+        app_type: 'storefront',
+      })
+    );
+
+    expect(updateCalls.length).toBe(1);
+    expect(updateCalls[0].payload).toEqual(
+      expect.objectContaining({ app_type: 'storefront' })
+    );
   });
 });
 

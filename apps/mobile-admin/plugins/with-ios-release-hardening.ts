@@ -36,8 +36,11 @@ const withIosReleaseHardening: ConfigPlugin<HardeningOptions | undefined> = (
 
   // 1. Entitlements: Set APNs environment based on build config
   config = withEntitlementsPlist(config, (mod) => {
-    // Production APNs — EAS build sets DEBUG=1 for dev builds
-    mod.modResults['aps-environment'] = 'production';
+    // Use 'development' for debug/simulator builds, 'production' for release
+    const isDebug =
+      process.env.EAS_BUILD_PROFILE === 'development' ||
+      process.env.DEBUG === '1';
+    mod.modResults['aps-environment'] = isDebug ? 'development' : 'production';
     return mod;
   });
 
@@ -75,14 +78,21 @@ const withIosReleaseHardening: ConfigPlugin<HardeningOptions | undefined> = (
         const buildSettings = configurations[key]?.buildSettings;
         if (!buildSettings) continue;
 
-        // Fix LIBRARY_SEARCH_PATHS — ensure inherited and Swift paths are separate
+        // Fix LIBRARY_SEARCH_PATHS — ensure inherited and Swift paths are separate,
+        // while preserving any additional paths that other plugins may have added
         if (buildSettings.LIBRARY_SEARCH_PATHS) {
           const paths = buildSettings.LIBRARY_SEARCH_PATHS;
           if (typeof paths === 'string' && paths.includes('$(inherited)')) {
-            buildSettings.LIBRARY_SEARCH_PATHS = [
-              '"$(inherited)"',
-              '"$(SDKROOT)/usr/lib/swift"',
-            ];
+            // Parse space-separated string, deduplicate, ensure required paths
+            const parsed = paths
+              .split(/\s+/)
+              .map((p: string) => p.replace(/^"|"$/g, ''))
+              .filter(Boolean);
+            const required = ['$(inherited)', '$(SDKROOT)/usr/lib/swift'];
+            const all = [...new Set([...required, ...parsed])];
+            buildSettings.LIBRARY_SEARCH_PATHS = all.map(
+              (p: string) => `"${p}"`
+            );
           }
         }
 

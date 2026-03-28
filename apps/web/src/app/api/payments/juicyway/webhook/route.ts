@@ -289,12 +289,13 @@ export async function POST(request: NextRequest) {
                 transaction.merchant_id,
                 orderNum,
                 order.customer_name || 'Customer',
-                Number(order.total)
+                Number(order.total),
+                order.currency || 'NGN'
               ),
               notifyPaymentReceived(
                 transaction.merchant_id,
                 Number(order.total),
-                'NGN',
+                order.currency || 'NGN',
                 orderNum
               ),
             ]);

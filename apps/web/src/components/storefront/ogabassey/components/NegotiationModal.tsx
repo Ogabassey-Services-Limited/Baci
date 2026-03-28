@@ -14,6 +14,7 @@ interface NegotiationModalProps {
   onSuccess: (finalPrice: number) => void;
   type: 'single' | 'total';
   itemId?: string;
+  merchantId: string;
 }
 
 type NegotiationStatus = 'input' | 'processing' | 'success' | 'failed' | 'upload' | 'submitted';
@@ -26,6 +27,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   onSuccess,
   type,
   itemId,
+  merchantId,
 }) => {
   const [offer, setOffer] = useState('');
   const [status, setStatus] = useState<NegotiationStatus>('input');
@@ -118,7 +120,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       const { error } = await supabase
         .from('negotiation_requests')
         .insert({
-          merchant_id: '868f0fdc-5654-469b-9807-695ca1206d20',
+          merchant_id: merchantId,
           session_id: `web-${globalThis.crypto?.randomUUID?.() ?? Date.now()}`,
           customer_id: user?.id ?? null,
           type,

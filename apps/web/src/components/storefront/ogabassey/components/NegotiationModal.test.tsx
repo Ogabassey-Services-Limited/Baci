@@ -31,6 +31,7 @@ const defaultProps = {
   onSuccess: vi.fn(),
   type: 'single' as const,
   itemId: 'item-123',
+  merchantId: 'merchant-test-id',
 };
 
 /** Submit a low offer and advance fake timers past the 1500ms setTimeout */
@@ -168,6 +169,39 @@ describe('NegotiationModal', () => {
 
     expect(mockInsert).toHaveBeenCalledTimes(1);
     expect(mockInsert.mock.calls[0][0].customer_id).toBeNull();
+  });
+
+  it('shows alert when insert fails', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    mockInsert.mockReturnValue({
+      error: { message: 'DB insert failed' },
+    });
+
+    render(<NegotiationModal {...defaultProps} />);
+
+    submitLowOffer('500');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('500');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('500');
+
+    vi.useRealTimers();
+
+    const fileInput = document.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to submit')
+    );
+    alertSpy.mockRestore();
   });
 
   it('calls onClose when backdrop is clicked', () => {

@@ -1,13 +1,22 @@
-import Expo from 'expo-server-sdk';
+import { Expo } from 'expo-server-sdk';
 import { type NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const expo = new Expo({ accessToken: process.env.EXPO_ACCESS_TOKEN });
 
 export async function GET(request: NextRequest) {
-  // Auth: verify cron secret
+  // Auth: fail-closed when CRON_SECRET is not configured
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json(
+      { error: 'Server misconfigured' },
+      { status: 500 }
+    );
+  }
+
   const authHeader = request.headers.get('Authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -21,8 +30,16 @@ export async function GET(request: NextRequest) {
     .lt('created_at', new Date(Date.now() - 15 * 60 * 1000).toISOString())
     .limit(1000);
 
-  if (fetchError || !pendingTickets || pendingTickets.length === 0) {
-    // Run cleanup regardless
+  if (fetchError) {
+    logger.error({
+      message: 'Failed to fetch pending push tickets',
+      error: fetchError,
+    });
+    await supabase.rpc('cleanup_old_push_tickets');
+    return NextResponse.json({ error: 'Database read error' }, { status: 500 });
+  }
+
+  if (!pendingTickets || pendingTickets.length === 0) {
     await supabase.rpc('cleanup_old_push_tickets');
     return NextResponse.json({ checked: 0, cleaned: true });
   }
@@ -44,16 +61,23 @@ export async function GET(request: NextRequest) {
 
         if (receipt.status === 'ok') {
           delivered++;
-          await supabase
+          const { error: updateError } = await supabase
             .from('push_notification_tickets')
             .update({
               status: 'delivered',
               checked_at: new Date().toISOString(),
             })
             .eq('id', ticket.id);
+          if (updateError) {
+            logger.error({
+              message: 'Failed to update ticket as delivered',
+              ticketId: ticket.id,
+              error: updateError,
+            });
+          }
         } else {
           failed++;
-          await supabase
+          const { error: updateError } = await supabase
             .from('push_notification_tickets')
             .update({
               status: 'failed',
@@ -62,6 +86,13 @@ export async function GET(request: NextRequest) {
               checked_at: new Date().toISOString(),
             })
             .eq('id', ticket.id);
+          if (updateError) {
+            logger.error({
+              message: 'Failed to update ticket as failed',
+              ticketId: ticket.id,
+              error: updateError,
+            });
+          }
 
           if (receipt.details?.error === 'DeviceNotRegistered') {
             tokensToDeactivate.push(ticket.push_token);
@@ -69,16 +100,22 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (error) {
-      console.error('Receipt polling chunk failed:', error);
+      logger.error({ message: 'Receipt polling chunk failed', error });
     }
   }
 
   // Deactivate invalid tokens
   if (tokensToDeactivate.length > 0) {
-    await supabase
+    const { error: deactivateError } = await supabase
       .from('push_tokens')
       .update({ is_active: false })
       .in('token', tokensToDeactivate);
+    if (deactivateError) {
+      logger.error({
+        message: 'Failed to deactivate tokens',
+        error: deactivateError,
+      });
+    }
   }
 
   // Cleanup old tickets

@@ -123,9 +123,11 @@ describe('POST /api/negotiations/notify', () => {
     mockSupabase.from.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'Not found' },
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'Not found' },
+            }),
           }),
         }),
       }),
@@ -137,27 +139,22 @@ describe('POST /api/negotiations/notify', () => {
     expect(response.status).toBe(404);
   });
 
-  it('returns 403 when merchant does not own negotiation', async () => {
+  it('returns 404 when merchant does not own negotiation (scoped query)', async () => {
     await setupAuth({
       authenticated: true,
       hasAccess: true,
       merchantId: 'merchant-123',
     });
 
+    // Scoped query .eq('merchant_id', 'merchant-123') finds nothing for a different merchant
     mockSupabase.from.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: {
-              id: validBody.negotiationId,
-              merchant_id: 'different-merchant',
-              customer_id: 'customer-456',
-              type: 'single',
-              item_info: { name: 'Product' },
-              offered_price: 5000,
-              status: 'pending',
-            },
-            error: null,
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'Not found' },
+            }),
           }),
         }),
       }),
@@ -166,7 +163,7 @@ describe('POST /api/negotiations/notify', () => {
     const request = createRequest(validBody);
     const response = await POST(request);
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
   });
 
   it('returns notified: false for guest negotiations (no customer_id)', async () => {
@@ -179,17 +176,19 @@ describe('POST /api/negotiations/notify', () => {
     mockSupabase.from.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: {
-              id: validBody.negotiationId,
-              merchant_id: 'merchant-123',
-              customer_id: null,
-              type: 'single',
-              item_info: { name: 'Product' },
-              offered_price: 5000,
-              status: 'pending',
-            },
-            error: null,
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: validBody.negotiationId,
+                merchant_id: 'merchant-123',
+                customer_id: null,
+                type: 'single',
+                item_info: { name: 'Product' },
+                offered_price: 5000,
+                status: 'pending',
+              },
+              error: null,
+            }),
           }),
         }),
       }),
@@ -214,17 +213,19 @@ describe('POST /api/negotiations/notify', () => {
     mockSupabase.from.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: {
-              id: validBody.negotiationId,
-              merchant_id: 'merchant-123',
-              customer_id: 'customer-456',
-              type: 'single',
-              item_info: { name: 'Cool Sneakers' },
-              offered_price: 5000,
-              status: 'pending',
-            },
-            error: null,
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: validBody.negotiationId,
+                merchant_id: 'merchant-123',
+                customer_id: 'customer-456',
+                type: 'single',
+                item_info: { name: 'Cool Sneakers' },
+                offered_price: 5000,
+                status: 'pending',
+              },
+              error: null,
+            }),
           }),
         }),
       }),
@@ -240,6 +241,7 @@ describe('POST /api/negotiations/notify', () => {
       'customer-456',
       'single',
       'accepted',
+      validBody.negotiationId,
       'Cool Sneakers',
       5000
     );
@@ -255,17 +257,19 @@ describe('POST /api/negotiations/notify', () => {
     mockSupabase.from.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: {
-              id: validBody.negotiationId,
-              merchant_id: 'merchant-123',
-              customer_id: 'customer-456',
-              type: 'total',
-              item_info: null,
-              offered_price: 8000,
-              status: 'pending',
-            },
-            error: null,
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: {
+                id: validBody.negotiationId,
+                merchant_id: 'merchant-123',
+                customer_id: 'customer-456',
+                type: 'total',
+                item_info: null,
+                offered_price: 8000,
+                status: 'pending',
+              },
+              error: null,
+            }),
           }),
         }),
       }),
@@ -282,6 +286,7 @@ describe('POST /api/negotiations/notify', () => {
       'customer-456',
       'total',
       'rejected',
+      validBody.negotiationId,
       null,
       null
     );

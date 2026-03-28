@@ -18,7 +18,7 @@ vi.mock('expo-server-sdk', () => {
     chunkPushNotificationReceiptIds = mockChunkIds;
   }
 
-  return { default: MockExpo };
+  return { Expo: MockExpo, default: MockExpo };
 });
 
 const mockUpdate = vi.fn().mockReturnThis();
@@ -29,6 +29,10 @@ let mockSelectResult: { data: unknown; error: unknown } = {
   data: [],
   error: null,
 };
+
+vi.mock('@/lib/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({
@@ -113,13 +117,22 @@ describe('GET /api/cron/push-receipts', () => {
     expect(mockRpc).toHaveBeenCalledWith('cleanup_old_push_tickets');
   });
 
-  it('returns checked: 0 when fetch errors', async () => {
+  it('returns 500 when CRON_SECRET is not configured', async () => {
+    delete process.env.CRON_SECRET;
+    const response = await GET(createCronRequest());
+    expect(response.status).toBe(500);
+    const data = await response.json();
+    expect(data).toEqual({ error: 'Server misconfigured' });
+  });
+
+  it('returns 500 when fetch errors', async () => {
     mockSelectResult = { data: null, error: { message: 'DB error' } };
     const response = await GET(createCronRequest());
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data).toEqual({ checked: 0, cleaned: true });
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ error: 'Database read error' });
+    expect(mockRpc).toHaveBeenCalledWith('cleanup_old_push_tickets');
   });
 
   it('processes delivered receipts and updates status', async () => {

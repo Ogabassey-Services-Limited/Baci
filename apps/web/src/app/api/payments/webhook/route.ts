@@ -616,7 +616,9 @@ export async function POST(request: NextRequest) {
         // Send push notification to merchant (non-blocking)
         after(async () => {
           try {
-            const orderAmount = Number(chatOrder.subtotal) || 0;
+            const orderAmount =
+              (Number(chatOrder.subtotal) || 0) +
+              (Number(chatOrder.shipping_fee) || 0);
             await notifyNewOrder(
               chatOrder.merchant_id,
               orderNumber,

@@ -113,7 +113,7 @@ export default function NegotiationsScreen() {
 
       if (error) throw error;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      fetchRequests();
+      await fetchRequests();
 
       // Notify customer if they're authenticated (best-effort)
       const negotiation = requests.find((r) => r.id === id);

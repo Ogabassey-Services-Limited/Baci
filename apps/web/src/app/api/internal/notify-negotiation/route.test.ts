@@ -103,8 +103,11 @@ describe('POST /api/internal/notify-negotiation', () => {
       new Error('Push service unavailable')
     );
     const request = createRequest(validBody);
+    const response = await POST(request);
+    const data = await response.json();
 
-    await expect(POST(request)).rejects.toThrow('Push service unavailable');
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ error: 'Notification delivery failed' });
   });
 
   it('calls notifyNegotiationRequest with nulls for total type', async () => {

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { notifyNegotiationRequest } from '@/lib/expo-push';
+import { logger } from '@/lib/logger';
 
 const bodySchema = z.object({
   merchantId: z.string().uuid(),
@@ -20,7 +21,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: 'Invalid JSON payload' },
+      { status: 400 }
+    );
+  }
+
   const parsed = bodySchema.safeParse(body);
 
   if (!parsed.success) {
@@ -39,14 +49,22 @@ export async function POST(request: NextRequest) {
     currentPrice,
   } = parsed.data;
 
-  await notifyNegotiationRequest(
-    merchantId,
-    negotiationType,
-    offeredPrice,
-    negotiationId,
-    itemName ?? null,
-    currentPrice ?? null
-  );
+  try {
+    await notifyNegotiationRequest(
+      merchantId,
+      negotiationType,
+      offeredPrice,
+      negotiationId,
+      itemName ?? null,
+      currentPrice ?? null
+    );
+  } catch (error) {
+    logger.error({ message: 'Failed to send negotiation notification', error });
+    return NextResponse.json(
+      { error: 'Notification delivery failed' },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ success: true });
 }

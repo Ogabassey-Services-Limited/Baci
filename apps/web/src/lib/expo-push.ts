@@ -16,6 +16,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 let _expo: Expo | null = null;
 function _getExpo(): Expo {
   if (!_expo) {
+    if (!process.env.EXPO_ACCESS_TOKEN) {
+      console.warn(
+        '[expo-push] EXPO_ACCESS_TOKEN is not set — push notifications may fail or be rate-limited'
+      );
+    }
     _expo = new Expo({ accessToken: process.env.EXPO_ACCESS_TOKEN });
   }
   return _expo;
@@ -310,6 +315,7 @@ async function processTickets(
       .insert(ticketsToStore);
     if (insertError) {
       console.error('Failed to store push tickets:', insertError);
+      errors.push(`Ticket storage failed: ${insertError.message}`);
     }
   }
 
@@ -546,6 +552,7 @@ export async function notifyNegotiationResponse(
   userId: string,
   negotiationType: 'single' | 'total',
   status: 'accepted' | 'rejected',
+  negotiationId: string,
   itemName?: string | null,
   offeredPrice?: number | null
 ): Promise<void> {
@@ -578,7 +585,7 @@ export async function notifyNegotiationResponse(
     body,
     {
       type: 'negotiation_response',
-      negotiation_id: undefined, // Caller can override via data spread
+      negotiation_id: negotiationId,
       status,
     },
     'orders'

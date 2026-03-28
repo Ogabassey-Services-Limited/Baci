@@ -30,7 +30,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: 'Invalid JSON payload' },
+      { status: 400 }
+    );
+  }
+
   const parsed = bodySchema.safeParse(body);
 
   if (!parsed.success) {
@@ -42,13 +51,14 @@ export async function POST(request: NextRequest) {
 
   const { negotiationId, status } = parsed.data;
 
-  // Fetch the negotiation record server-side (prevents spoofing)
+  // Fetch scoped by merchant_id to prevent cross-merchant access
   const { data: negotiation, error: fetchError } = await supabase
     .from('negotiation_requests')
     .select(
       'id, merchant_id, customer_id, type, item_info, offered_price, status'
     )
     .eq('id', negotiationId)
+    .eq('merchant_id', access.merchantId)
     .single();
 
   if (fetchError || !negotiation) {
@@ -56,11 +66,6 @@ export async function POST(request: NextRequest) {
       { error: 'Negotiation not found' },
       { status: 404 }
     );
-  }
-
-  // Verify caller's merchant owns this negotiation
-  if (negotiation.merchant_id !== access.merchantId) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   // Guest negotiations can't receive push (no customer_id)
@@ -77,6 +82,7 @@ export async function POST(request: NextRequest) {
     negotiation.customer_id,
     negotiationType,
     status,
+    negotiationId,
     itemName,
     acceptedPrice
   );
