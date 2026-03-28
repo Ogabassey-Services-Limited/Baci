@@ -16,6 +16,24 @@ import {
 } from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
 
+/** RFC 6749 standard error codes plus common Jumia-specific ones. */
+const KNOWN_OAUTH_ERRORS = new Set([
+  'access_denied',
+  'invalid_request',
+  'unauthorized_client',
+  'server_error',
+  'temporarily_unavailable',
+  'invalid_scope',
+]);
+
+function clearOAuthCookies(response: NextResponse): NextResponse {
+  response.cookies.delete('jumia_oauth_state');
+  response.cookies.delete('jumia_merchant_id');
+  response.cookies.delete('jumia_oauth_platform');
+  response.cookies.delete('jumia_ticket_id');
+  return response;
+}
+
 function createPlatformRedirect(
   request: NextRequest,
   query: string
@@ -47,7 +65,40 @@ export async function GET(request: NextRequest) {
         state: `${state?.slice(0, 8)}...`,
         storedState: `${storedState?.slice(0, 8)}...`,
       });
-      return createPlatformRedirect(request, 'error=invalid_state');
+      return clearOAuthCookies(
+        createPlatformRedirect(request, 'error=invalid_state')
+      );
+    }
+
+    // Mobile flow: pass code back via deep link, don't exchange here
+    if (request.cookies.get('jumia_oauth_platform')?.value === 'mobile') {
+      if (rawError) {
+        const safeError = KNOWN_OAUTH_ERRORS.has(rawError)
+          ? rawError
+          : 'oauth_error';
+        return clearOAuthCookies(
+          createPlatformRedirect(request, `error=${safeError}`)
+        );
+      }
+      if (!code || code.length > 2048) {
+        return clearOAuthCookies(
+          createPlatformRedirect(request, 'error=no_code')
+        );
+      }
+
+      const ticketId = request.cookies.get('jumia_ticket_id')?.value;
+      if (!ticketId || ticketId.length > 200) {
+        return clearOAuthCookies(
+          createPlatformRedirect(request, 'error=ticket_invalid')
+        );
+      }
+
+      const response = NextResponse.redirect(
+        new URL(
+          `baciadmin://?code=${encodeURIComponent(code)}&ticketId=${encodeURIComponent(ticketId)}`
+        )
+      );
+      return clearOAuthCookies(response);
     }
 
     const auth = await authenticateApiRequest(request);
@@ -73,15 +124,6 @@ export async function GET(request: NextRequest) {
       });
       return createPlatformRedirect(request, 'error=session_expired');
     }
-
-    const KNOWN_OAUTH_ERRORS = new Set([
-      'access_denied',
-      'invalid_request',
-      'unauthorized_client',
-      'server_error',
-      'temporarily_unavailable',
-      'invalid_scope',
-    ]);
 
     if (rawError) {
       const safeError = KNOWN_OAUTH_ERRORS.has(rawError)
@@ -271,15 +313,7 @@ export async function GET(request: NextRequest) {
         ? `success=jumia_connected&shops=${encodeURIComponent(newShopIds.join(','))}`
         : 'success=jumia_connected';
     const response = createPlatformRedirect(request, redirectQuery);
-    const platform = request.cookies.get('jumia_oauth_platform')?.value;
-
-    response.cookies.delete('jumia_oauth_state');
-    response.cookies.delete('jumia_merchant_id');
-    if (platform) {
-      response.cookies.delete('jumia_oauth_platform');
-    }
-
-    return response;
+    return clearOAuthCookies(response);
   } catch (error) {
     if (
       error instanceof Error &&
