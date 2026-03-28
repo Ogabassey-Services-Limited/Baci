@@ -122,7 +122,7 @@ export async function syncOrders(
     const data = await response.json();
     if (!response.ok) {
       const detail = data.details
-        ? `${data.error}\nDetails: ${data.details}`
+        ? `${data.error || 'Sync failed'}\nDetails: ${data.details}`
         : data.error || 'Sync failed';
       return { ok: false, error: detail };
     }
@@ -146,7 +146,7 @@ export async function syncStock(
     const data = await response.json();
     if (!response.ok) {
       const detail = data.details
-        ? `${data.error}\nDetails: ${data.details}`
+        ? `${data.error || 'Stock sync failed'}\nDetails: ${data.details}`
         : data.error || 'Stock sync failed';
       return { ok: false, error: detail };
     }

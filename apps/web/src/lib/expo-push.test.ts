@@ -62,6 +62,7 @@ describe('notifyNegotiationRequest', () => {
     expect(sentPayload[0].body).toContain('₦8,000');
     expect(sentPayload[0].data.negotiationId).toBe('n1');
     expect(sentPayload[0].data.type).toBe('negotiation_request');
+    expect(sentPayload[0].channelId).toBe('orders');
   });
 
   it('uses fallback label when item name is null', async () => {
@@ -139,5 +140,72 @@ describe('notifyNegotiationResponse', () => {
 
     const sentPayload = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(sentPayload[0].body).toContain('your offer');
+  });
+});
+
+describe('error handling', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('handles Supabase query error gracefully', async () => {
+    mockFrom.mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          eq: () =>
+            Promise.resolve({ data: null, error: { message: 'DB error' } }),
+        }),
+      }),
+    });
+
+    // Should not throw
+    await notifyNegotiationRequest('m1', 'single', 1000, 'n1', 'Item', null);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('handles Expo API failure gracefully', async () => {
+    setupTokenQuery([{ token: 'ExponentPushToken[abc]' }]);
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      text: () => Promise.resolve('Internal Server Error'),
+    });
+
+    // Should not throw
+    await notifyNegotiationRequest('m1', 'single', 1000, 'n2', 'Item', null);
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
+  it('deactivates tokens when Expo returns DeviceNotRegistered', async () => {
+    const mockUpdate = vi.fn().mockReturnValue({
+      in: vi.fn().mockResolvedValue({ error: null }),
+    });
+    mockFrom.mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          eq: () =>
+            Promise.resolve({
+              data: [{ token: 'ExponentPushToken[dead]' }],
+              error: null,
+            }),
+        }),
+      }),
+      update: mockUpdate,
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          data: [
+            {
+              status: 'error',
+              message: 'Device not registered',
+              details: { error: 'DeviceNotRegistered' },
+            },
+          ],
+        }),
+    });
+
+    await notifyNegotiationRequest('m1', 'single', 1000, 'n3', 'Item', null);
+
+    expect(mockUpdate).toHaveBeenCalledWith({ is_active: false });
   });
 });

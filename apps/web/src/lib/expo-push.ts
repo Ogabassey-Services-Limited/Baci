@@ -553,24 +553,34 @@ export async function notifyNegotiationRequest(
   const label =
     negotiationType === 'single' ? (itemName ?? 'an item') : 'their cart total';
 
-  const priceStr = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 0,
-  }).format(offeredPrice);
+  const formatNGN = (amount: number) =>
+    new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+      minimumFractionDigits: 0,
+    }).format(amount);
+
+  const priceStr = formatNGN(offeredPrice);
+  const currentPriceStr = currentPrice ? formatNGN(currentPrice) : null;
 
   const title = '🤝 New Price Negotiation';
-  const body = currentPrice
-    ? `A customer offered ${priceStr} for ${label} (listed at ₦${currentPrice.toLocaleString()})`
+  const body = currentPriceStr
+    ? `A customer offered ${priceStr} for ${label} (listed at ${currentPriceStr})`
     : `A customer offered ${priceStr} for ${label}`;
 
-  await notifyMerchant(merchantId, title, body, {
-    type: 'negotiation_request',
-    negotiationId,
-    negotiationType,
-    offeredPrice,
-    currentPrice,
-  });
+  await notifyMerchant(
+    merchantId,
+    title,
+    body,
+    {
+      type: 'negotiation_request',
+      negotiationId,
+      negotiationType,
+      offeredPrice,
+      currentPrice,
+    },
+    'orders'
+  );
 }
 
 /**
