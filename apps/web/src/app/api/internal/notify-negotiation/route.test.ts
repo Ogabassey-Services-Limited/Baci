@@ -92,11 +92,50 @@ describe('POST /api/internal/notify-negotiation', () => {
     expect(response.status).toBe(401);
   });
 
+  it('returns 400 when body is malformed JSON', async () => {
+    const request = new NextRequest(
+      'http://localhost:3000/api/internal/notify-negotiation',
+      {
+        method: 'POST',
+        body: '{not valid json',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer test-internal-secret',
+        },
+      }
+    );
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error).toBe('Invalid JSON payload');
+  });
+
   it('returns 400 when body is invalid', async () => {
     const request = createRequest({ merchantId: 'not-a-uuid' });
     const response = await POST(request);
     const data = await response.json();
 
+    expect(response.status).toBe(400);
+    expect(data.error).toBe('Invalid request');
+  });
+
+  it('returns 400 when single type is missing required fields', async () => {
+    const request = createRequest({
+      ...validBody,
+      negotiationType: 'single',
+      itemName: undefined,
+      currentPrice: undefined,
+    });
+    const response = await POST(request);
+    const data = await response.json();
+    expect(response.status).toBe(400);
+    expect(data.error).toBe('Invalid request');
+  });
+
+  it('returns 400 when offeredPrice is not positive', async () => {
+    const request = createRequest({ ...validBody, offeredPrice: 0 });
+    const response = await POST(request);
+    const data = await response.json();
     expect(response.status).toBe(400);
     expect(data.error).toBe('Invalid request');
   });

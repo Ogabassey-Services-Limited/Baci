@@ -674,19 +674,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Notify merchant of new order (fire-and-forget)
-    notifyNewOrder(merchant_id, orderNum, customer_name, orderTotal).catch(
-      (err) => logger.error({ message: 'Push notification failed', error: err })
-    );
-
-    if (isWalletFullyPaid) {
-      notifyPaymentReceived(merchant_id, orderTotal, 'NGN', orderNum).catch(
+    // Notify merchant of new order — only for POD/invoice/wallet-paid orders.
+    // Gateway-payment orders (Paystack, Korapay, etc.) are notified via their webhook handlers
+    // to avoid duplicate notifications.
+    if (
+      payment_method === 'pod' ||
+      payment_method === 'invoice' ||
+      isWalletFullyPaid
+    ) {
+      notifyNewOrder(merchant_id, orderNum, customer_name, orderTotal).catch(
         (err) =>
-          logger.error({
-            message: 'Payment push notification failed',
-            error: err,
-          })
+          logger.error({ message: 'Push notification failed', error: err })
       );
+
+      if (isWalletFullyPaid) {
+        notifyPaymentReceived(merchant_id, orderTotal, 'NGN', orderNum).catch(
+          (err) =>
+            logger.error({
+              message: 'Payment push notification failed',
+              error: err,
+            })
+        );
+      }
     }
 
     const responseOrder = isWalletFullyPaid

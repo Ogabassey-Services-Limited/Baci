@@ -9,7 +9,6 @@ import { notifyNegotiationResponse } from '@/lib/expo-push';
 
 const bodySchema = z.object({
   negotiationId: z.string().uuid(),
-  status: z.enum(['accepted', 'rejected']),
 });
 
 export async function POST(request: NextRequest) {
@@ -49,7 +48,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { negotiationId, status } = parsed.data;
+  const { negotiationId } = parsed.data;
 
   // Fetch scoped by merchant_id to prevent cross-merchant access
   const { data: negotiation, error: fetchError } = await supabase
@@ -68,6 +67,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Use persisted status from DB (not client input) for notification accuracy
+  const negotiationStatus = negotiation.status;
+  if (negotiationStatus !== 'accepted' && negotiationStatus !== 'rejected') {
+    return NextResponse.json(
+      { error: 'Negotiation has not been resolved yet' },
+      { status: 400 }
+    );
+  }
+
   // Guest negotiations can't receive push (no customer_id)
   if (!negotiation.customer_id) {
     return NextResponse.json({ notified: false, reason: 'no_customer_id' });
@@ -83,7 +91,7 @@ export async function POST(request: NextRequest) {
 
   const itemName = negotiation.item_info?.name ?? null;
   const acceptedPrice =
-    status === 'accepted' && negotiation.offered_price != null
+    negotiationStatus === 'accepted' && negotiation.offered_price != null
       ? Number(negotiation.offered_price)
       : null;
 
@@ -91,7 +99,7 @@ export async function POST(request: NextRequest) {
     await notifyNegotiationResponse(
       negotiation.customer_id,
       negotiationType,
-      status,
+      negotiationStatus,
       negotiationId,
       itemName,
       acceptedPrice

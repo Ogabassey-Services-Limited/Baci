@@ -24,6 +24,10 @@ vi.mock('@/lib/api-auth', () => ({
   hasPermission: vi.fn(),
 }));
 
+vi.mock('@/lib/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+
 // =============================================================================
 // Helpers
 // =============================================================================
@@ -41,7 +45,6 @@ function createRequest(body: Record<string, unknown>): NextRequest {
 
 const validBody = {
   negotiationId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-  status: 'accepted' as const,
 };
 
 function mockSupabaseQuery(
@@ -157,6 +160,31 @@ describe('POST /api/negotiations/notify', () => {
     expect(response.status).toBe(404);
   });
 
+  it('returns 400 when negotiation is not yet resolved', async () => {
+    await setupAuth({
+      authenticated: true,
+      hasAccess: true,
+      merchantId: 'merchant-123',
+    });
+
+    mockSupabaseQuery({
+      id: validBody.negotiationId,
+      merchant_id: 'merchant-123',
+      customer_id: 'customer-456',
+      type: 'single',
+      item_info: { name: 'Product' },
+      offered_price: 5000,
+      status: 'pending',
+    });
+
+    const request = createRequest(validBody);
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data.error).toBe('Negotiation has not been resolved yet');
+  });
+
   it('returns notified: false for guest negotiations (no customer_id)', async () => {
     await setupAuth({
       authenticated: true,
@@ -171,7 +199,7 @@ describe('POST /api/negotiations/notify', () => {
       type: 'single',
       item_info: { name: 'Product' },
       offered_price: 5000,
-      status: 'pending',
+      status: 'accepted',
     });
 
     const request = createRequest(validBody);
@@ -197,7 +225,7 @@ describe('POST /api/negotiations/notify', () => {
       type: 'single',
       item_info: { name: 'Cool Sneakers' },
       offered_price: 5000,
-      status: 'pending',
+      status: 'accepted',
     });
 
     const request = createRequest(validBody);
@@ -230,7 +258,7 @@ describe('POST /api/negotiations/notify', () => {
       type: 'invalid_type',
       item_info: null,
       offered_price: 5000,
-      status: 'pending',
+      status: 'accepted',
     });
 
     const request = createRequest(validBody);
@@ -255,7 +283,7 @@ describe('POST /api/negotiations/notify', () => {
       type: 'single',
       item_info: { name: 'Product' },
       offered_price: 5000,
-      status: 'pending',
+      status: 'accepted',
     });
 
     mockNotifyNegotiationResponse.mockRejectedValueOnce(
@@ -284,13 +312,10 @@ describe('POST /api/negotiations/notify', () => {
       type: 'total',
       item_info: null,
       offered_price: 8000,
-      status: 'pending',
-    });
-
-    const request = createRequest({
-      negotiationId: validBody.negotiationId,
       status: 'rejected',
     });
+
+    const request = createRequest(validBody);
     const response = await POST(request);
 
     expect(response.status).toBe(200);

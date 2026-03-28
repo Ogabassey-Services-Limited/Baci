@@ -78,32 +78,28 @@ const withIosReleaseHardening: ConfigPlugin<HardeningOptions | undefined> = (
         const buildSettings = configurations[key]?.buildSettings;
         if (!buildSettings) continue;
 
-        // Fix LIBRARY_SEARCH_PATHS — ensure inherited and Swift paths are separate,
+        // Fix LIBRARY_SEARCH_PATHS — ensure inherited and Swift paths are always present,
         // while preserving any additional paths that other plugins may have added
-        if (buildSettings.LIBRARY_SEARCH_PATHS) {
+        {
           const paths = buildSettings.LIBRARY_SEARCH_PATHS;
           const required = ['$(inherited)', '$(SDKROOT)/usr/lib/swift'];
 
+          let existing: string[] = [];
           if (typeof paths === 'string') {
             // Tokenize respecting quoted values (handles paths with spaces)
-            const parsed = (paths.match(/"[^"]*"|\S+/g) || [])
+            existing = (paths.match(/"[^"]*"|\S+/g) || [])
               .map((p: string) => p.replace(/^"|"$/g, ''))
               .filter(Boolean);
-            const all = [...new Set([...required, ...parsed])];
-            buildSettings.LIBRARY_SEARCH_PATHS = all.map(
-              (p: string) => `"${p}"`
-            );
           } else if (Array.isArray(paths)) {
-            // Ensure required paths in array format
-            const normalized = paths.map((p: string) =>
-              p.replace(/^"|"$/g, '')
-            );
-            const all = [...new Set([...required, ...normalized])];
-            buildSettings.LIBRARY_SEARCH_PATHS = all.map(
-              (p: string) => `"${p}"`
-            );
+            existing = paths.map((p: string) => p.replace(/^"|"$/g, ''));
           }
+          // Merge required + existing, dedupe, and quote
+          const all = [...new Set([...required, ...existing])];
+          buildSettings.LIBRARY_SEARCH_PATHS = all.map((p: string) => `"${p}"`);
         }
+
+        // Set deployment target to match Info.plist MinimumOSVersion
+        buildSettings.IPHONEOS_DEPLOYMENT_TARGET = minimumOSVersion;
 
         // Set team ID if provided
         if (teamId) {

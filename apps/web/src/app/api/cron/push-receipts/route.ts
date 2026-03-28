@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { Expo } from 'expo-server-sdk';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret } from '@/env';
@@ -17,7 +18,12 @@ export async function GET(request: NextRequest) {
   }
 
   const authHeader = request.headers.get('Authorization');
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  const expectedToken = `Bearer ${cronSecret}`;
+  if (
+    !authHeader ||
+    authHeader.length !== expectedToken.length ||
+    !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedToken))
+  ) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -41,8 +47,13 @@ export async function GET(request: NextRequest) {
 
   if (!pendingTickets || pendingTickets.length === 0) {
     // Still run cleanup on empty results — this is the only invocation per cron run
-    await supabase.rpc('cleanup_old_push_tickets');
-    return NextResponse.json({ checked: 0, cleaned: true });
+    const { error: cleanupError } = await supabase.rpc(
+      'cleanup_old_push_tickets'
+    );
+    if (cleanupError) {
+      logger.error({ message: 'Cleanup RPC failed', error: cleanupError });
+    }
+    return NextResponse.json({ checked: 0, cleaned: !cleanupError });
   }
 
   // Build O(1) lookup map instead of O(n) .find() per receipt
@@ -58,6 +69,7 @@ export async function GET(request: NextRequest) {
     error_message: string | null;
   }> = [];
   const tokensToDeactivate: string[] = [];
+  let chunkFailures = 0;
 
   for (const chunk of chunks) {
     try {
@@ -85,7 +97,12 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (error) {
-      logger.error({ message: 'Receipt polling chunk failed', error });
+      chunkFailures++;
+      logger.error({
+        message: 'Receipt polling chunk failed',
+        error,
+        chunkSize: chunk.length,
+      });
     }
   }
 
@@ -141,11 +158,22 @@ export async function GET(request: NextRequest) {
   }
 
   // Cleanup old tickets
-  await supabase.rpc('cleanup_old_push_tickets');
+  const { error: cleanupError } = await supabase.rpc(
+    'cleanup_old_push_tickets'
+  );
+  if (cleanupError) {
+    logger.error({ message: 'Cleanup RPC failed', error: cleanupError });
+  }
 
-  return NextResponse.json({
+  const responseBody = {
     checked: pendingTickets.length,
     delivered: deliveredIds.length,
     failed: failedTickets.length,
-  });
+    chunkFailures: chunkFailures,
+    cleaned: !cleanupError,
+  };
+
+  // Return 207 (Multi-Status) when some chunks failed but others succeeded
+  const status = chunkFailures > 0 ? 207 : 200;
+  return NextResponse.json(responseBody, { status });
 }

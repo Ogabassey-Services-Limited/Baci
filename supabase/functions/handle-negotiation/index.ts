@@ -36,7 +36,8 @@ Deno.serve(async (req: Request) => {
     const siteUrl = Deno.env.get('NEXT_PUBLIC_SITE_URL')?.replace(/\/+$/, '');
     const internalSecret = Deno.env.get('INTERNAL_API_SECRET');
     if (siteUrl && internalSecret) {
-      await fetch(`${siteUrl}/api/internal/notify-negotiation`, {
+      // Fire-and-forget — don't block the Edge Function response
+      fetch(`${siteUrl}/api/internal/notify-negotiation`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -50,7 +51,15 @@ Deno.serve(async (req: Request) => {
           itemName: record.item_info?.name ?? null,
           currentPrice: record.item_info?.current_price ?? null,
         }),
-      }).catch((err) => console.error('Notification request failed:', err));
+      })
+        .then((res) => {
+          if (!res.ok) {
+            console.error(
+              `Notification API returned ${res.status} ${res.statusText}`
+            );
+          }
+        })
+        .catch((err) => console.error('Notification request failed:', err));
     } else {
       console.warn(
         'Skipping push notification: NEXT_PUBLIC_SITE_URL or INTERNAL_API_SECRET not configured'

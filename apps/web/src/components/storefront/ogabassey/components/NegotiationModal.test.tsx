@@ -116,8 +116,7 @@ describe('NegotiationModal', () => {
     submitLowOffer('1000');
 
     // Now in upload state — provide file and submit form directly
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-    expect(fileInput).not.toBeNull();
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
     const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
     fireEvent.change(fileInput, { target: { files: [file] } });
 
@@ -158,7 +157,7 @@ describe('NegotiationModal', () => {
     // Switch to real timers before async form submission
     vi.useRealTimers();
 
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
     const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
     fireEvent.change(fileInput, { target: { files: [file] } });
 
@@ -187,9 +186,7 @@ describe('NegotiationModal', () => {
 
     vi.useRealTimers();
 
-    const fileInput = document.querySelector(
-      'input[type="file"]'
-    ) as HTMLInputElement;
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
     const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
     fireEvent.change(fileInput, { target: { files: [file] } });
 

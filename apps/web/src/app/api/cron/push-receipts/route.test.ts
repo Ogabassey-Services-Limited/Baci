@@ -121,7 +121,8 @@ describe('GET /api/cron/push-receipts', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toEqual({ checked: 0, cleaned: true });
+    expect(data.checked).toBe(0);
+    expect(data.cleaned).toBe(true);
     expect(mockRpc).toHaveBeenCalledWith('cleanup_old_push_tickets');
   });
 
@@ -167,10 +168,37 @@ describe('GET /api/cron/push-receipts', () => {
     expect(data.checked).toBe(1);
     expect(data.delivered).toBe(1);
     expect(data.failed).toBe(0);
+    expect(data.chunkFailures).toBe(0);
+    expect(data.cleaned).toBe(true);
     expect(mockUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'delivered' })
     );
     expect(mockTicketIn).toHaveBeenCalledWith('id', ['row-1']);
+  });
+
+  it('returns 207 when a chunk fails', async () => {
+    mockSelectResult = {
+      data: [
+        {
+          id: 'row-1',
+          ticket_id: 'ticket-1',
+          push_token: 'ExponentPushToken[abc]',
+        },
+      ],
+      error: null,
+    };
+
+    mockGetReceipts.mockRejectedValue(new Error('Expo API down'));
+
+    const response = await GET(createCronRequest());
+    const data = await response.json();
+
+    expect(response.status).toBe(207);
+    expect(data.chunkFailures).toBe(1);
+    expect(data.checked).toBe(1);
+    expect(data.delivered).toBe(0);
+    expect(data.failed).toBe(0);
+    expect(data.cleaned).toBe(true);
   });
 
   it('deactivates tokens for DeviceNotRegistered errors', async () => {
@@ -200,5 +228,18 @@ describe('GET /api/cron/push-receipts', () => {
     expect(mockTokenIn).toHaveBeenCalledWith('token', [
       'ExponentPushToken[expired]',
     ]);
+  });
+
+  it('reports cleaned: false when cleanup RPC fails on empty results', async () => {
+    mockRpc.mockResolvedValue({ error: { message: 'RPC failed' } });
+    mockSelectResult = { data: [], error: null };
+
+    const response = await GET(createCronRequest());
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.checked).toBe(0);
+    expect(data.cleaned).toBe(false);
+    expect(mockRpc).toHaveBeenCalledWith('cleanup_old_push_tickets');
   });
 });

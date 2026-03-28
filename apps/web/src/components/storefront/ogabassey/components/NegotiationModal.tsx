@@ -19,6 +19,17 @@ interface NegotiationModalProps {
 
 type NegotiationStatus = 'input' | 'processing' | 'success' | 'failed' | 'upload' | 'submitted';
 
+const SESSION_KEY = 'ogabassey_guest_session';
+
+function getOrCreateSessionId(): string {
+  if (typeof window === 'undefined') return `web-${Date.now()}`;
+  const existing = window.sessionStorage.getItem(SESSION_KEY);
+  if (existing) return existing;
+  const id = `web-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`}`;
+  window.sessionStorage.setItem(SESSION_KEY, id);
+  return id;
+}
+
 export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   isOpen,
   onClose,
@@ -129,7 +140,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         .from('negotiation_requests')
         .insert({
           merchant_id: merchantId,
-          session_id: `web-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`}`,
+          session_id: getOrCreateSessionId(),
           customer_id: user?.id ?? null,
           type,
           item_info: type === 'single' ? {
@@ -329,6 +340,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   <input
                     type="file"
                     accept="image/*"
+                    aria-label="Upload proof"
                     onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     required

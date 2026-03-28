@@ -4,14 +4,26 @@ import { getInternalApiSecret } from '@/env';
 import { notifyNegotiationRequest } from '@/lib/expo-push';
 import { logger } from '@/lib/logger';
 
-const bodySchema = z.object({
+const sharedFields = {
   merchantId: z.string().uuid(),
-  negotiationType: z.enum(['single', 'total']),
-  offeredPrice: z.number(),
+  offeredPrice: z.number().positive(),
   negotiationId: z.string().uuid(),
-  itemName: z.string().nullable().optional(),
-  currentPrice: z.number().nullable().optional(),
-});
+};
+
+const bodySchema = z.discriminatedUnion('negotiationType', [
+  z.object({
+    ...sharedFields,
+    negotiationType: z.literal('single'),
+    itemName: z.string(),
+    currentPrice: z.number().positive(),
+  }),
+  z.object({
+    ...sharedFields,
+    negotiationType: z.literal('total'),
+    itemName: z.string().nullable().optional(),
+    currentPrice: z.number().nullable().optional(),
+  }),
+]);
 
 export async function POST(request: NextRequest) {
   // Auth: verify internal API secret

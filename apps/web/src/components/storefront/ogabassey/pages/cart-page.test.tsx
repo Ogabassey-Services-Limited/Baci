@@ -11,63 +11,51 @@ vi.mock('@/env', () => ({
   getRootDomain: () => 'localhost',
 }));
 
-let mockMerchant: { id: string; slug: string } | null = { id: 'merchant-abc', slug: 'test-store' };
+let mockMerchant: { id: string; slug: string } | null = {
+  id: 'merchant-abc',
+  slug: 'test-store',
+};
 
 vi.mock('@/hooks/use-merchant', () => ({
-  useMerchantSafe: () => ({
-    merchant: mockMerchant,
-    basePath: mockMerchant ? `/${mockMerchant.slug}` : '/test-store',
-  }),
+  useMerchantSafe: () =>
+    mockMerchant
+      ? { merchant: mockMerchant, basePath: `/${mockMerchant.slug}` }
+      : null,
 }));
 
-const mockSetIsCartOpen = vi.fn();
-const mockRemoveFromCart = vi.fn();
-const mockUpdateQuantity = vi.fn();
+vi.mock('@/contexts/auth-context', () => ({
+  useAuthSafe: () => ({ user: null }),
+}));
+
 const mockApplyNegotiatedPrice = vi.fn();
 const mockApplyCartWideNegotiation = vi.fn();
-const mockToggleAssurance = vi.fn();
 
 vi.mock('@/hooks/use-cart', () => ({
   useCart: () => ({
-    isCartOpen: true,
-    setIsCartOpen: mockSetIsCartOpen,
     cart: [
       {
         id: 'p1',
         cartItemId: 'ci-1',
-        name: 'Test Shoe',
-        price: 15000,
+        name: 'Test Gadget',
+        price: 25000,
         quantity: 1,
-        image: '/shoe.jpg',
-        category: 'shoes',
-        brand: 'TestBrand',
+        image: '/gadget.jpg',
+        category: 'electronics',
+        brand: 'Brand',
       },
     ],
-    removeFromCart: mockRemoveFromCart,
-    updateQuantity: mockUpdateQuantity,
+    removeFromCart: vi.fn(),
+    updateQuantity: vi.fn(),
     applyNegotiatedPrice: mockApplyNegotiatedPrice,
     applyCartWideNegotiation: mockApplyCartWideNegotiation,
-    toggleAssurance: mockToggleAssurance,
-    cartTotal: 15000,
+    toggleAssurance: vi.fn(),
+    cartTotal: 25000,
+    merchantSlug: 'test-store',
   }),
-}));
-
-vi.mock('@/lib/analytics', () => ({
-  analytics: { viewCart: vi.fn() },
-}));
-
-vi.mock('@/lib/routes', () => ({
-  asRoute: (path: string) => path,
 }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
-}));
-
-vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => (
-    <img {...props} alt={String(props.alt || '')} />
-  ),
 }));
 
 vi.mock('next/link', () => ({
@@ -82,12 +70,22 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('./AdUnit', () => ({
+vi.mock('next/image', () => ({
+  default: (props: Record<string, unknown>) => (
+    <img {...props} alt={String(props.alt || '')} />
+  ),
+}));
+
+vi.mock('../components/AdUnit', () => ({
   AdUnit: () => <div data-testid="ad-unit" />,
 }));
 
-vi.mock('./empty-state', () => ({
+vi.mock('../components/empty-state', () => ({
   EmptyState: () => <div data-testid="empty-state" />,
+}));
+
+vi.mock('../components/CheckoutIdentityModal', () => ({
+  CheckoutIdentityModal: () => null,
 }));
 
 vi.mock('@/lib/supabase/client', () => ({
@@ -99,50 +97,45 @@ vi.mock('@/lib/supabase/client', () => ({
 
 // ── Import after mocks ──────────────────────────────────────────────────────
 
-import { CartSidebar } from './CartSidebar';
+import { CartPage } from './cart-page';
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-describe('CartSidebar', () => {
+describe('CartPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockMerchant = { id: 'merchant-abc', slug: 'test-store' };
   });
 
-  it('renders cart items when open', () => {
-    render(<CartSidebar />);
-    expect(screen.getByText('Test Shoe')).toBeInTheDocument();
+  it('renders cart items', () => {
+    render(<CartPage />);
+    expect(screen.getByText('Test Gadget')).toBeInTheDocument();
   });
 
-  it('renders Negotiate Total Amount button', () => {
-    render(<CartSidebar />);
+  it('renders negotiate total button', () => {
+    render(<CartPage />);
     expect(
-      screen.getByRole('button', { name: /negotiate total amount/i })
+      screen.getByRole('button', { name: /negotiate total/i })
     ).toBeInTheDocument();
   });
 
-  it('opens negotiation modal with type=total when Negotiate Total is clicked', () => {
-    render(<CartSidebar />);
+  it('opens negotiation modal with correct type when negotiate total is clicked', () => {
+    render(<CartPage />);
     fireEvent.click(
-      screen.getByRole('button', { name: /negotiate total amount/i })
+      screen.getByRole('button', { name: /negotiate total/i })
     );
-    // The NegotiationModal should now be visible
     expect(screen.getByPlaceholderText('Enter amount...')).toBeInTheDocument();
-  });
-
-  it('closes sidebar when X button is clicked', () => {
-    render(<CartSidebar />);
-    // Find close button by aria-label or the X icon
-    const closeButton = screen.getByRole('button', { name: /close/i });
-    fireEvent.click(closeButton);
-    expect(mockSetIsCartOpen).toHaveBeenCalledWith(false);
   });
 
   it('does not open negotiation modal when merchant is unavailable', () => {
     mockMerchant = null;
-    render(<CartSidebar />);
-    const negotiateBtn = screen.getByRole('button', { name: /negotiate total amount/i });
+    render(<CartPage />);
+    const negotiateBtn = screen.getByRole('button', {
+      name: /negotiate total/i,
+    });
     fireEvent.click(negotiateBtn);
-    expect(screen.queryByPlaceholderText('Enter amount...')).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText('Enter amount...')
+    ).not.toBeInTheDocument();
   });
 });

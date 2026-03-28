@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -11,12 +11,12 @@ vi.mock('@/env', () => ({
   getRootDomain: () => 'localhost',
 }));
 
-const mockMerchant = { id: 'merchant-xyz', slug: 'test-store' };
+let mockMerchant: { id: string; slug: string } | null = { id: 'merchant-xyz', slug: 'test-store' };
 
 vi.mock('@/hooks/use-merchant', () => ({
   useMerchantSafe: () => ({
     merchant: mockMerchant,
-    basePath: '/test-store',
+    basePath: mockMerchant ? `/${mockMerchant.slug}` : '/test-store',
   }),
 }));
 
@@ -90,6 +90,10 @@ import { OgabasseyV2CartPage } from './cart';
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('OgabasseyV2CartPage', () => {
+  beforeEach(() => {
+    mockMerchant = { id: 'merchant-xyz', slug: 'test-store' };
+  });
+
   it('renders cart items', () => {
     render(<OgabasseyV2CartPage storeSlug="test-store" />);
     expect(screen.getByText('Test Product')).toBeInTheDocument();
@@ -108,5 +112,13 @@ describe('OgabasseyV2CartPage', () => {
       screen.getByRole('button', { name: /negotiate total/i })
     );
     expect(screen.getByPlaceholderText('Enter amount...')).toBeInTheDocument();
+  });
+
+  it('does not open negotiation modal when merchant is unavailable', () => {
+    mockMerchant = null;
+    render(<OgabasseyV2CartPage storeSlug="test-store" />);
+    const negotiateBtn = screen.getByRole('button', { name: /negotiate total/i });
+    fireEvent.click(negotiateBtn);
+    expect(screen.queryByPlaceholderText('Enter amount...')).not.toBeInTheDocument();
   });
 });

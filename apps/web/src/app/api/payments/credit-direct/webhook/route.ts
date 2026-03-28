@@ -322,7 +322,7 @@ export async function POST(request: NextRequest) {
               order.merchant_id,
               orderNum,
               order.customer_name || 'Customer',
-              Number(order.total)
+              totalAmount
             );
           } catch (err) {
             logger.error({
@@ -334,7 +334,7 @@ export async function POST(request: NextRequest) {
           try {
             await notifyPaymentReceived(
               order.merchant_id,
-              Number(order.total),
+              totalAmount,
               'NGN',
               orderNum
             );
