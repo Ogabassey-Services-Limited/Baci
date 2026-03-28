@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { adminAnalyticsQuerySchema } from './admin-analytics-query';
 
 describe('adminAnalyticsQuerySchema', () => {
-  it('defaults period to 30d when omitted', () => {
-    expect(adminAnalyticsQuerySchema.parse({})).toEqual({ period: '30d' });
+  it('defaults period to all when omitted', () => {
+    expect(adminAnalyticsQuerySchema.parse({})).toEqual({ period: 'all' });
   });
 
   it('accepts supported periods', () => {

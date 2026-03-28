@@ -378,7 +378,7 @@ describe('/api/admin/analytics route', () => {
     expect(body.salesByChannel[1].shareOfOrders).toBeCloseTo(50, 5);
     expect(body.merchantActivation).toHaveLength(9);
     expect(body.merchantActivation[0]).toMatchObject({
-      description: 'All non-admin merchant records',
+      description: 'All merchant records',
       key: 'signed_up',
       label: 'Signed Up',
       merchants: 3,
@@ -659,7 +659,7 @@ describe('/api/admin/analytics route', () => {
     });
     expect(body.merchantActivation).toHaveLength(9);
     expect(body.merchantActivation[0]).toMatchObject({
-      description: 'All non-admin merchant records',
+      description: 'All merchant records',
       key: 'signed_up',
       label: 'Signed Up',
       merchants: 197,
