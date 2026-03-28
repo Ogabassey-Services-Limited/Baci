@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { generateObject } from 'ai';
 import { type NextRequest, NextResponse } from 'next/server';
@@ -96,7 +97,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (authHeader !== `Bearer ${expectedToken}`) {
+    const expectedAuth = `Bearer ${expectedToken}`;
+
+    if (
+      !authHeader ||
+      authHeader.length !== expectedAuth.length ||
+      !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedAuth))
+    ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
