@@ -6,12 +6,6 @@ import {
   getMigrationFilterHeading,
 } from '@/app/dashboard/migrations/migration-filter-helpers';
 import MigrationOrderSourceChip from '@/app/dashboard/migrations/migration-order-source-chip';
-import {
-  getMigrationRowPrimaryText,
-  getMigrationRowRecordText,
-  getMigrationRowSecondaryText,
-  getMigrationRowSourceDetails,
-} from '@/app/dashboard/migrations/migration-preview-row-display';
 import type {
   ImportJobRowStatus,
   ImportJobRowsResponse,
@@ -26,6 +20,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type {
+  NormalizedImportedOrder,
+  NormalizedImportedProduct,
+} from '@/lib/imports/bumpa/bumpa-types';
 import { cn } from '@/lib/utils';
 
 interface MigrationPreviewTableProps {
@@ -37,6 +35,12 @@ interface MigrationPreviewTableProps {
   pageSize: number;
   rows: ImportJobRowsResponse['rows'];
   total: number;
+}
+
+function isNormalizedImportedOrder(
+  payload: NormalizedImportedOrder | NormalizedImportedProduct | null
+): payload is NormalizedImportedOrder {
+  return Boolean(payload && 'orderNumber' in payload && 'customer' in payload);
 }
 
 function statusClassName(status: ImportJobRowStatus) {
@@ -51,6 +55,82 @@ function getActionLabel(status: ImportJobRowStatus) {
   if (status === 'update') return 'Update existing';
   if (status === 'duplicate') return 'Duplicate / skipped';
   return 'Needs fix';
+}
+
+function formatPrimaryText(
+  entityType: 'orders' | 'products',
+  payload: NormalizedImportedOrder | NormalizedImportedProduct | null
+) {
+  if (!payload) {
+    return 'Invalid row';
+  }
+
+  if (entityType === 'orders') {
+    if (!isNormalizedImportedOrder(payload)) {
+      return 'Unknown customer';
+    }
+
+    return payload.customer.fullName || 'Unknown customer';
+  }
+
+  if (isNormalizedImportedOrder(payload)) {
+    return 'Untitled product';
+  }
+
+  return `${payload.title || 'Untitled product'}${payload.sku ? ` · ${payload.sku}` : ''}`;
+}
+
+function formatRecordText(
+  entityType: 'orders' | 'products',
+  payload: NormalizedImportedOrder | NormalizedImportedProduct | null,
+  rowNumber: number
+) {
+  if (!payload) {
+    return entityType === 'orders'
+      ? `Order ${rowNumber}`
+      : `Product ${rowNumber}`;
+  }
+
+  if (entityType === 'orders') {
+    if (!isNormalizedImportedOrder(payload)) {
+      return `Order ${rowNumber}`;
+    }
+
+    return payload.orderNumber || `Order ${rowNumber}`;
+  }
+
+  if (isNormalizedImportedOrder(payload)) {
+    return `Product ${rowNumber}`;
+  }
+
+  return payload.title || payload.sku || `Product ${rowNumber}`;
+}
+
+function formatSecondaryText(
+  entityType: 'orders' | 'products',
+  payload: NormalizedImportedOrder | NormalizedImportedProduct | null,
+  meta: Record<string, unknown>
+) {
+  if (!payload) {
+    return 'Validation errors require review';
+  }
+
+  if (entityType === 'orders') {
+    if (!isNormalizedImportedOrder(payload)) {
+      return 'Validation errors require review';
+    }
+
+    const items = payload.items.length;
+    const unmatched = Number(meta.unmatchedItemCount || 0);
+    const itemLabel = items === 1 ? 'item' : 'items';
+    return `${payload.total || 0} ${payload.currency || 'NGN'} · ${items} ${itemLabel}${unmatched > 0 ? ` · ${unmatched} unmatched` : ''}`;
+  }
+
+  if (isNormalizedImportedOrder(payload)) {
+    return 'Validation errors require review';
+  }
+
+  return `${payload.price || 0} ${payload.currency || 'NGN'} · ${payload.status || 'draft'}`;
 }
 
 export default function MigrationPreviewTable({
@@ -111,68 +191,69 @@ export default function MigrationPreviewTable({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => {
-                const sourceDetails = getMigrationRowSourceDetails(
-                  entityType,
-                  row
-                );
-
-                return (
-                  <TableRow key={row.id}>
-                    <TableCell className="min-w-[180px]">
-                      <div className="space-y-1">
-                        <p className="font-medium">
-                          {getMigrationRowRecordText(entityType, row)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          CSV Row {row.row_number}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={cn(
-                          'capitalize',
-                          statusClassName(row.row_status)
+              rows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell className="min-w-[180px]">
+                    <div className="space-y-1">
+                      <p className="font-medium">
+                        {formatRecordText(
+                          entityType,
+                          row.normalized_payload,
+                          row.row_number
                         )}
-                      >
-                        {getActionLabel(row.row_status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="min-w-[170px]">
-                      {entityType === 'orders' ? (
-                        sourceDetails ? (
-                          <MigrationOrderSourceChip
-                            sourceChannel={sourceDetails.sourceChannel}
-                            sourceOrigin={sourceDetails.sourceOrigin}
-                          />
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            n/a
-                          </span>
-                        )
-                      ) : (
-                        <Badge variant="outline">Bumpa</Badge>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Row {row.row_number}
+                      </p>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      className={cn(
+                        'capitalize',
+                        statusClassName(row.row_status)
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">
-                          {getMigrationRowPrimaryText(entityType, row)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {getMigrationRowSecondaryText(entityType, row)}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {row.validation_errors.length > 0
-                        ? row.validation_errors.join(', ')
-                        : 'No validation errors'}
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+                    >
+                      {getActionLabel(row.row_status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="min-w-[170px]">
+                    {entityType === 'orders' ? (
+                      isNormalizedImportedOrder(row.normalized_payload) ? (
+                        <MigrationOrderSourceChip
+                          sourceChannel={row.normalized_payload.sourceChannel}
+                          sourceOrigin={row.normalized_payload.sourceOrigin}
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          n/a
+                        </span>
+                      )
+                    ) : (
+                      <Badge variant="outline">Bumpa</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">
+                        {formatPrimaryText(entityType, row.normalized_payload)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatSecondaryText(
+                          entityType,
+                          row.normalized_payload,
+                          row.meta
+                        )}
+                      </p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {row.validation_errors.length > 0
+                      ? row.validation_errors.join(', ')
+                      : 'No validation errors'}
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>

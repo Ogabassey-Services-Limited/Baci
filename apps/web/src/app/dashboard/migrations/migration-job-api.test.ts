@@ -118,7 +118,6 @@ describe('migration-job-api', () => {
           row_number: 1,
           row_status: 'create',
           source_external_id: 'src-1',
-          source_payload: { 'Order Number': 'ORD-1001' },
           validation_errors: [],
         },
       ],

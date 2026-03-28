@@ -4,7 +4,7 @@ export const bumpaOrderRowSchema = z
   .object({
     id: z.string().trim().min(1),
     'Order Number': z.string().trim().min(1),
-    Products: z.string().trim().min(1, 'Products is missing'),
+    Products: z.string().trim().min(1),
     'Customer Name': z.string().trim().optional().default(''),
     'Customer Email': z.string().trim().optional().default(''),
     'Customer Phone': z.string().trim().optional().default(''),
@@ -26,7 +26,7 @@ export const bumpaOrderRowSchema = z
     'Coupon Code': z.string().trim().optional().default(''),
     'Shipping Option': z.string().trim().optional().default(''),
     'Product SKU': z.string().trim().optional().default(''),
-    'Product Quantity': z.string().trim().min(1, 'Product quantity is missing'),
+    'Product Quantity': z.string().trim().min(1),
   })
   .superRefine((row, ctx) => {
     const hasCustomerName = row['Customer Name'].length > 0;

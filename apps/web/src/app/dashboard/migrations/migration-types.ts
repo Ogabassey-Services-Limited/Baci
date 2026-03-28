@@ -13,8 +13,6 @@ export type ImportJobRowStatus = 'create' | 'update' | 'duplicate' | 'invalid';
 
 export type MigrationPreviewFilter = ImportJobRowsQuery['filter'];
 
-export type ImportJobSourcePayload = Record<string, string>;
-
 export interface ImportJobListItem {
   committed_at: string | null;
   created_at: string;
@@ -47,7 +45,6 @@ export interface ImportJobRowsResponse {
     row_number: number;
     row_status: ImportJobRowStatus;
     source_external_id: string | null;
-    source_payload: ImportJobSourcePayload;
     validation_errors: string[];
   }>;
 }
