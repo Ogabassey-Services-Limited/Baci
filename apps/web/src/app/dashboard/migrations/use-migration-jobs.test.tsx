@@ -61,6 +61,7 @@ function createRowsResponse(rowId: string, total = 1): ImportJobRowsResponse {
         row_number: 1,
         row_status: 'create',
         source_external_id: null,
+        source_payload: {},
         validation_errors: [],
       },
     ],

@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/csrf', () => ({
@@ -102,6 +103,29 @@ describe('MigrationsClientPage', () => {
     expect(fetch).not.toHaveBeenCalledWith('/api/import-jobs/job-1', {
       cache: 'no-store',
     });
+  });
+
+  it('switches between source platforms without reworking the existing Bumpa flow', async () => {
+    const user = userEvent.setup();
+
+    render(<MigrationsClientPage initialJobs={[]} />);
+
+    expect(
+      screen.getByRole('heading', { name: /commerce migrations/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('tab', { name: /bumpa/i, selected: true })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/upload csv/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: /shopify/i }));
+
+    expect(
+      screen.getByRole('tab', { name: /shopify/i, selected: true })
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/shopify migration/i)).toBeInTheDocument();
+    expect(screen.getByText(/connect store/i)).toBeInTheDocument();
+    expect(screen.queryByText(/upload csv/i)).not.toBeInTheDocument();
   });
 
   it('does not auto-select stale queued jobs when no previewable job exists', async () => {
@@ -315,6 +339,7 @@ describe('MigrationsClientPage', () => {
             row_number: 2,
             row_status: 'invalid',
             source_external_id: null,
+            source_payload: {},
             validation_errors: ['Missing order number'],
           },
         ],
@@ -355,6 +380,7 @@ describe('MigrationsClientPage', () => {
             row_number: 4,
             row_status: 'invalid',
             source_external_id: null,
+            source_payload: {},
             validation_errors: ['Missing order number'],
           },
         ],
@@ -373,7 +399,7 @@ describe('MigrationsClientPage', () => {
     expect(
       await screen.findByText(/showing rows that need fixes/i)
     ).toBeInTheDocument();
-    expect(screen.getByText('Order 4')).toBeInTheDocument();
+    expect(screen.getAllByText('CSV Row 4')).toHaveLength(2);
     expect(screen.getByText('Missing order number')).toBeInTheDocument();
   });
 
