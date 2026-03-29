@@ -117,9 +117,16 @@ export async function generateMetadata({
     merchant.site_tagline ||
     `Shop ${merchant.business_name} - Buy gadgets, electronics, and more with flexible payment options in Nigeria.`;
   const baseUrl = buildStoreUrl(merchant);
+  let metadataBase: URL | undefined;
+
+  try {
+    metadataBase = baseUrl ? new URL(baseUrl) : undefined;
+  } catch {
+    metadataBase = undefined;
+  }
 
   return {
-    metadataBase: new URL(baseUrl),
+    metadataBase,
     title:
       merchant.site_title ||
       `${merchant.business_name} | Buy Gadgets Pay Later`,
