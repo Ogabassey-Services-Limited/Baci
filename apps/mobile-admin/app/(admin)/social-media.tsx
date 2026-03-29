@@ -18,8 +18,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import SocialMediaInput from '@/components/settings/SocialMediaInput';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
+import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { type MerchantSocialMedia, useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { updateMerchantSettings } from '@/lib/merchant-settings';
@@ -174,7 +175,7 @@ export default function SocialMediaScreen() {
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ScreenSkeleton variant="settings" cards={4} />
       </SafeAreaView>
     );
   }
@@ -240,9 +241,7 @@ export default function SocialMediaScreen() {
                   colors={colors}
                   icon={icon}
                   label={label}
-                  onChange={(value) =>
-                    handleSocialMediaChange(platform, value)
-                  }
+                  onChange={(value) => handleSocialMediaChange(platform, value)}
                   placeholder={placeholder}
                   platform={platform}
                   value={socialMedia[platform] ?? ''}

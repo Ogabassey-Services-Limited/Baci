@@ -30,10 +30,16 @@ import {
 
 let harness: CachedDataTestHarness;
 
+const DEFAULT_DISABLED_SETTINGS = {
+  blog_enabled: false,
+  shipping_insurance_enabled: false,
+  shipping_insurance_min_order_value: 5000,
+  shipping_insurance_opt_in_default: false,
+};
+
 describe('getPublicSupabaseClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    harness = buildCachedDataTestHarness();
     mockCreateClient.mockReturnValue({ from: vi.fn() });
   });
 
@@ -166,12 +172,7 @@ describe('getCachedFeatureSettings', () => {
 
     const result = await getCachedFeatureSettings('merchant-1');
 
-    expect(result).toEqual({
-      blog_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
+    expect(result).toEqual(DEFAULT_DISABLED_SETTINGS);
   });
 
   it('returns default disabled settings when Supabase client creation throws', async () => {
@@ -184,12 +185,7 @@ describe('getCachedFeatureSettings', () => {
 
     const result = await getCachedFeatureSettings('merchant-1');
 
-    expect(result).toEqual({
-      blog_enabled: false,
-      shipping_insurance_enabled: false,
-      shipping_insurance_min_order_value: 5000,
-      shipping_insurance_opt_in_default: false,
-    });
+    expect(result).toEqual(DEFAULT_DISABLED_SETTINGS);
     expect(consoleSpy).toHaveBeenCalled();
   });
 });

@@ -4,126 +4,17 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
 import { Stack, useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { JumiaChannelCard } from '@/components/marketplace/JumiaChannelCard';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
-import { apiClient } from '@/lib/api-client';
 
 export default function SalesChannelsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
-  const [isConnected, setIsConnected] = useState(false);
-  const [statusLoading, setStatusLoading] = useState(true);
-  const [statusError, setStatusError] = useState(false);
-  const [loading, setLoading] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-
-    const checkConnectionStatus = async () => {
-      try {
-        const data = await apiClient<{
-          integrations?: Array<{ id: string }>;
-        }>('/api/marketplace/jumia/connect');
-        if (!cancelled) {
-          setIsConnected((data.integrations?.length ?? 0) > 0);
-          setStatusError(false);
-        }
-      } catch {
-        if (!cancelled) setStatusError(true);
-      } finally {
-        if (!cancelled) setStatusLoading(false);
-      }
-    };
-
-    checkConnectionStatus();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleConnectJumia = async () => {
-    setLoading(true);
-    try {
-      // Step 1: Get a short-lived ticket via authenticated API call
-      const ticketData = await apiClient<{ ticket: string; authUrl: string }>(
-        '/api/marketplace/jumia/connect/ticket',
-        { method: 'POST' }
-      );
-
-      if (!ticketData.authUrl) {
-        Alert.alert('Error', 'Failed to create connection ticket');
-        return;
-      }
-
-      // Step 2: Open browser → Jumia login → callback → deep link with code
-      const result = await WebBrowser.openAuthSessionAsync(
-        ticketData.authUrl,
-        'baciadmin://'
-      );
-
-      if (result.type === 'success' && result.url) {
-        const { queryParams } = Linking.parse(result.url);
-
-        if (queryParams?.error) {
-          Alert.alert(
-            'Connection Error',
-            String(queryParams.error).replace(/_/g, ' ')
-          );
-          return;
-        }
-
-        if (queryParams?.code && queryParams?.ticketId) {
-          // Step 3: Exchange code via authenticated endpoint (bound to ticket)
-          const exchangeData = await apiClient<{
-            success: boolean;
-            shops?: string[];
-            error?: string;
-          }>('/api/marketplace/jumia/connect/exchange', {
-            method: 'POST',
-            body: JSON.stringify({
-              code: queryParams.code,
-              ticketId: queryParams.ticketId,
-            }),
-          });
-
-          if (exchangeData.success) {
-            setIsConnected(true);
-            Alert.alert('Success', 'Jumia account connected successfully!');
-          } else {
-            Alert.alert(
-              'Error',
-              exchangeData.error || 'Failed to complete connection'
-            );
-          }
-        } else if (queryParams?.code || queryParams?.ticketId) {
-          // Partial deep link — code or ticket missing (e.g. interrupted flow)
-          Alert.alert(
-            'Connection Incomplete',
-            'The Jumia authorization flow was interrupted. Please try again.'
-          );
-        }
-      }
-    } catch (error) {
-      console.error('Jumia connect error:', error);
-      Alert.alert('Error', 'Failed to connect Jumia account');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <>
@@ -153,94 +44,7 @@ export default function SalesChannelsScreen() {
             </Text>
           </View>
 
-          {/* Jumia Channel */}
-          <View
-            style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
-          >
-            <View style={styles.channelHeader}>
-              <View
-                style={[styles.iconContainer, { backgroundColor: '#FF9900' }]}
-              >
-                <Text style={styles.iconText}>J</Text>
-              </View>
-              <View style={styles.channelInfo}>
-                <Text style={[styles.channelTitle, { color: colors.text }]}>
-                  Jumia
-                </Text>
-                <Text
-                  style={[styles.channelDesc, { color: colors.textSecondary }]}
-                >
-                  Africa's no.1 marketplace
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.badge,
-                  {
-                    backgroundColor: isConnected
-                      ? colors.successLight
-                      : colors.border,
-                  },
-                ]}
-              >
-                {statusLoading ? (
-                  <ActivityIndicator size="small" color={colors.textMuted} />
-                ) : (
-                  <Text
-                    style={[
-                      styles.badgeText,
-                      {
-                        color: statusError
-                          ? colors.warning
-                          : isConnected
-                            ? colors.success
-                            : colors.textMuted,
-                      },
-                    ]}
-                  >
-                    {statusError
-                      ? 'Unavailable'
-                      : isConnected
-                        ? 'Active'
-                        : 'Inactive'}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            <View
-              style={[styles.divider, { backgroundColor: colors.border }]}
-            />
-
-            <Pressable
-              onPress={handleConnectJumia}
-              disabled={loading || isConnected || statusLoading}
-              style={[
-                styles.connectButton,
-                {
-                  backgroundColor: isConnected
-                    ? colors.cardHover
-                    : colors.primary,
-                  opacity: loading || statusLoading ? 0.7 : 1,
-                },
-              ]}
-            >
-              {loading || statusLoading ? (
-                <ActivityIndicator
-                  color={statusLoading ? colors.textMuted : '#FFF'}
-                />
-              ) : (
-                <Text
-                  style={[
-                    styles.connectButtonText,
-                    { color: isConnected ? colors.textSecondary : '#FFF' },
-                  ]}
-                >
-                  {isConnected ? 'Connected to Jumia' : 'Connect Jumia Account'}
-                </Text>
-              )}
-            </Pressable>
-          </View>
+          <JumiaChannelCard colors={colors} shadows={shadows} />
 
           {/* Pending Channels */}
           <View
@@ -339,29 +143,5 @@ const styles = StyleSheet.create({
   channelDesc: {
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  badge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: RADIUS.full,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    textTransform: 'uppercase',
-  },
-  divider: {
-    height: 1,
-    marginVertical: SPACING.lg,
-  },
-  connectButton: {
-    height: 48,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  connectButtonText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });
