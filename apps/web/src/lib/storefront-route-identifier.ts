@@ -21,6 +21,11 @@ export function resolveRouteIdentifier(
 
   const normalizedHost = host.replace(/^www\./, '');
   const rootDomain = (getRootDomain() || 'usebaci.com').toLowerCase();
+  const developmentHosts = new Set(['127.0.0.1', 'localhost']);
+
+  if (developmentHosts.has(normalizedHost)) {
+    return '';
+  }
 
   if (normalizedHost === rootDomain) {
     return '';

@@ -61,4 +61,49 @@ describe('storefront social image helpers', () => {
     );
     expect(getStorefrontTwitterImages('not-a-valid-url')).toEqual([]);
   });
+
+  it('prefers the first absolute candidate even when relative candidates follow', () => {
+    expect(
+      getStorefrontSocialImageUrl(
+        'https://ogabassey.com',
+        'https://cdn.example.com/cover.png',
+        '/images/social/storefront.png'
+      )
+    ).toBe('https://cdn.example.com/cover.png');
+  });
+
+  it('handles storefront base URLs with trailing slashes', () => {
+    expect(
+      getStorefrontSocialImageUrl(
+        'https://ogabassey.com/',
+        '/images/social/storefront.png'
+      )
+    ).toBe('https://ogabassey.com/images/social/storefront.png');
+  });
+
+  it('preserves URL-encoded image paths and query parameters', () => {
+    expect(
+      getStorefrontSocialImageUrl(
+        'https://ogabassey.com',
+        '/images/sale%20banner.png?width=1200&fit=cover'
+      )
+    ).toBe(
+      'https://ogabassey.com/images/sale%20banner.png?width=1200&fit=cover'
+    );
+  });
+
+  it('ignores empty candidates before falling back', () => {
+    expect(
+      getStorefrontSocialImageUrl('https://ogabassey.com', '', undefined, null)
+    ).toBe('https://ogabassey.com/opengraph-image');
+  });
+
+  it('returns Twitter image arrays for explicit candidate URLs', () => {
+    expect(
+      getStorefrontTwitterImages(
+        'https://ogabassey.com',
+        'https://cdn.example.com/twitter-cover.png'
+      )
+    ).toEqual(['https://cdn.example.com/twitter-cover.png']);
+  });
 });
