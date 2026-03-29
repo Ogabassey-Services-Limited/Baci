@@ -1,17 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
+import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { generateSlug } from '@/lib/seo-utils';
-
-// Initialize Supabase client for public data access
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing required Supabase environment variables');
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { buildStoreUrl } from '@/lib/store-url';
+import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
+import { createAnonClient } from '@/lib/supabase/anon';
 
 // headers() opts into dynamic rendering — revalidate is incompatible.
 export const dynamic = 'force-dynamic';
@@ -24,25 +17,6 @@ interface ProductWithCategory {
   updated_at: string | null;
   category_id: string | null;
   categories: { slug: string | null } | null;
-}
-
-/**
- * Derive merchant slug and canonical store URL from the route segment.
- *
- * The [slug] param is either a plain merchant slug (from subdomain rewrite,
- * e.g. "ogabassey") or a full custom domain (from custom-domain rewrite,
- * e.g. "ogabassey.com").
- */
-function resolveIdentifier(routeSlug: string) {
-  const isDomain = routeSlug.includes('.');
-  const merchantSlug = isDomain
-    ? routeSlug.replace('.com', '').replace('.', '-')
-    : routeSlug;
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-  const storeUrl = isDomain
-    ? `https://${routeSlug}`
-    : `https://${routeSlug}.${rootDomain}`;
-  return { merchantSlug, storeUrl };
 }
 
 /**
@@ -62,20 +36,24 @@ export default async function sitemap(props: {
   // Next.js 16 with generateSitemaps() only passes { id } — not params.
   // Read the merchant slug from proxy headers or fall back to the host header.
   const headersList = await headers();
-  const routeSlug =
-    headersList.get('x-merchant-slug') ??
-    headersList.get('x-custom-domain') ??
-    headersList.get('host')?.split('.')[0] ??
-    '';
-  const { merchantSlug, storeUrl } = resolveIdentifier(routeSlug);
+  const routeIdentifier = resolveRouteIdentifier(headersList);
+  let merchant = null;
 
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('slug', merchantSlug)
-    .single();
+  try {
+    merchant = routeIdentifier
+      ? await getMerchantByIdentifier(routeIdentifier)
+      : null;
+  } catch (error) {
+    console.warn('Failed to resolve sitemap merchant', {
+      routeIdentifier,
+      error,
+    });
+    return [];
+  }
 
   if (!merchant) return [];
+  const storeUrl = buildStoreUrl(merchant);
+  const supabase = createAnonClient();
 
   switch (id) {
     case 'static':
@@ -95,15 +73,26 @@ export default async function sitemap(props: {
       ];
 
     case 'products': {
-      const { data: products } = (await supabase
+      const { data: products, error } = (await supabase
         .from('products')
         .select(
           'id, slug, category, images, updated_at, category_id, categories:category_id(slug)'
         )
         .eq('merchant_id', merchant.id)
-        .eq('status', 'active')) as { data: ProductWithCategory[] | null };
+        .eq('status', 'active')) as {
+        data: ProductWithCategory[] | null;
+        error: Error | null;
+      };
 
-      return (products || []).map((product) => {
+      if (error) {
+        throw error;
+      }
+
+      if (!products) {
+        throw new Error(`Failed to load products sitemap for ${merchant.id}`);
+      }
+
+      return products.map((product) => {
         const productSlug = product.slug || product.id;
         const catSlug =
           product.categories?.slug ||
@@ -137,12 +126,20 @@ export default async function sitemap(props: {
     }
 
     case 'categories': {
-      const { data: categories } = await supabase
+      const { data: categories, error } = await supabase
         .from('categories')
         .select('slug, updated_at')
         .eq('merchant_id', merchant.id);
 
-      return (categories || []).map((cat) => ({
+      if (error) {
+        throw error;
+      }
+
+      if (!categories) {
+        throw new Error(`Failed to load category sitemap for ${merchant.id}`);
+      }
+
+      return categories.map((cat) => ({
         url: `${storeUrl}/${cat.slug}`,
         lastModified: cat.updated_at ? new Date(cat.updated_at) : new Date(),
         changeFrequency: 'daily',

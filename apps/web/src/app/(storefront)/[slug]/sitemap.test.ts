@@ -14,18 +14,26 @@ vi.mock('next/headers', () => ({
   headers: vi.fn(async () => mockHeaders),
 }));
 
-// Supabase query builder mock — chainable
-const mockSingle = vi.fn();
-const mockEq: ReturnType<typeof vi.fn<(...args: any[]) => any>> = vi.fn(() => ({
-  eq: mockEq,
-  single: mockSingle,
-}));
-const mockSelect = vi.fn(() => ({ eq: mockEq, single: mockSingle }));
-const mockFrom = vi.fn(() => ({ select: mockSelect }));
+const mockGetMerchantByIdentifier = vi.fn();
 
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(() => ({
-    from: mockFrom,
+vi.mock('@/lib/cached-data', () => ({
+  getMerchantByIdentifier: (...args: unknown[]) =>
+    mockGetMerchantByIdentifier(...args),
+}));
+
+const mockEq: ReturnType<typeof vi.fn<(...args: unknown[]) => unknown>> = vi.fn(
+  () => ({
+    eq: mockEq,
+  })
+);
+
+vi.mock('@/lib/supabase/anon', () => ({
+  createAnonClient: vi.fn(() => ({
+    from: () => ({
+      select: () => ({
+        eq: mockEq,
+      }),
+    }),
   })),
 }));
 
@@ -42,14 +50,38 @@ function setCustomDomainHeader(domain: string) {
   mockHeaders = new Map<string, string>([['x-custom-domain', domain]]);
 }
 
+function mockProductsQuery(data: unknown, error: Error | null = null) {
+  mockEq.mockImplementation((...args: unknown[]) => {
+    const [key, value] = args as [string, string];
+    if (key === 'status' && value === 'active') {
+      return { data, error };
+    }
+
+    return { eq: mockEq };
+  });
+}
+
+function mockCategoriesQuery(data: unknown, error: Error | null = null) {
+  mockEq.mockImplementation((...args: unknown[]) => {
+    const [key, value] = args as [string, string];
+    if (key === 'merchant_id' && value === 'merchant-1') {
+      return { data, error };
+    }
+
+    return { eq: mockEq };
+  });
+}
+
 // ---- Tests ----
 
 describe('sitemap', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeaders = new Map();
-    // Default: merchant found via slug lookup
-    mockSingle.mockResolvedValue({ data: { id: 'merchant-1' }, error: null });
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+    });
   });
 
   describe('generateSitemaps()', () => {
@@ -73,35 +105,46 @@ describe('sitemap', () => {
 
       await sitemap({ id: Promise.resolve('static') });
 
-      expect(mockFrom).toHaveBeenCalledWith('merchants');
-      expect(mockSelect).toHaveBeenCalledWith('id');
-      expect(mockEq).toHaveBeenCalledWith('slug', 'ogabassey');
+      expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey');
     });
 
-    it('derives slug from x-custom-domain header (removes .com)', async () => {
+    it('uses the full custom domain identifier from x-custom-domain header', async () => {
       setCustomDomainHeader('ogabassey.com');
+      mockGetMerchantByIdentifier.mockResolvedValue({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      });
       const { default: sitemap } = await import('./sitemap');
 
       await sitemap({ id: Promise.resolve('static') });
 
-      expect(mockFrom).toHaveBeenCalledWith('merchants');
-      expect(mockEq).toHaveBeenCalledWith('slug', 'ogabassey');
+      expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
     });
 
-    it('derives slug from non-.com TLDs like .ng', async () => {
+    it('passes non-root custom domains through unchanged', async () => {
       setCustomDomainHeader('ogabassey.ng');
       const { default: sitemap } = await import('./sitemap');
 
       await sitemap({ id: Promise.resolve('static') });
 
-      // .com is removed first (no-op for .ng), then remaining dots become hyphens
-      expect(mockEq).toHaveBeenCalledWith('slug', 'ogabassey-ng');
+      expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.ng');
     });
 
     it('returns empty array when merchant is not found', async () => {
       setSlugHeader('unknown');
-      mockSingle.mockResolvedValue({ data: null, error: null });
+      mockGetMerchantByIdentifier.mockResolvedValue(null);
 
+      const { default: sitemap } = await import('./sitemap');
+
+      const result = await sitemap({ id: Promise.resolve('static') });
+
+      expect(result).toEqual([]);
+    });
+
+    it('returns empty array when merchant lookup throws', async () => {
+      setSlugHeader('ogabassey');
+      mockGetMerchantByIdentifier.mockRejectedValueOnce(new Error('db'));
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({ id: Promise.resolve('static') });
@@ -113,6 +156,11 @@ describe('sitemap', () => {
   describe('storeUrl construction', () => {
     it('uses custom domain directly when header is a domain', async () => {
       setCustomDomainHeader('ogabassey.com');
+      mockGetMerchantByIdentifier.mockResolvedValue({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      });
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({ id: Promise.resolve('static') });
@@ -122,17 +170,41 @@ describe('sitemap', () => {
 
     it('builds subdomain URL when header is a plain slug', async () => {
       setSlugHeader('ogabassey');
+      mockGetMerchantByIdentifier.mockResolvedValue({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+      });
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({ id: Promise.resolve('static') });
 
       expect(result[0].url).toBe('https://ogabassey.usebaci.com');
     });
+
+    it('falls back to the raw host for custom domains when merchant headers are absent', async () => {
+      mockHeaders = new Map([['host', 'ogabassey.com']]);
+      mockGetMerchantByIdentifier.mockResolvedValue({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      });
+      const { default: sitemap } = await import('./sitemap');
+
+      const result = await sitemap({ id: Promise.resolve('static') });
+
+      expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+      expect(result[0].url).toBe('https://ogabassey.com');
+    });
   });
 
   describe('static sitemap', () => {
     it('returns store URL and FAQ page', async () => {
       setCustomDomainHeader('ogabassey.com');
+      mockGetMerchantByIdentifier.mockResolvedValue({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      });
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({ id: Promise.resolve('static') });
@@ -148,6 +220,11 @@ describe('sitemap', () => {
   describe('products sitemap', () => {
     it('generates URLs with category slug when available', async () => {
       setCustomDomainHeader('ogabassey.com');
+      mockGetMerchantByIdentifier.mockResolvedValue({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      });
       const productData = [
         {
           id: 'p1',
@@ -159,16 +236,7 @@ describe('sitemap', () => {
           categories: { slug: 'smartphones' },
         },
       ];
-      mockSingle.mockResolvedValueOnce({
-        data: { id: 'merchant-1' },
-        error: null,
-      });
-      mockEq.mockImplementation((key: string, value: string) => {
-        if (key === 'status' && value === 'active') {
-          return { data: productData, error: null };
-        }
-        return { eq: mockEq, single: mockSingle };
-      });
+      mockProductsQuery(productData);
 
       const { default: sitemap } = await import('./sitemap');
 
@@ -180,22 +248,24 @@ describe('sitemap', () => {
 
     it('returns empty array when no products exist', async () => {
       setSlugHeader('ogabassey');
-      mockSingle.mockResolvedValueOnce({
-        data: { id: 'merchant-1' },
-        error: null,
-      });
-      mockEq.mockImplementation((key: string, value: string) => {
-        if (key === 'status' && value === 'active') {
-          return { data: null, error: null };
-        }
-        return { eq: mockEq, single: mockSingle };
-      });
+      mockProductsQuery([]);
 
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({ id: Promise.resolve('products') });
 
       expect(result).toEqual([]);
+    });
+
+    it('throws when products cannot be loaded', async () => {
+      setSlugHeader('ogabassey');
+      mockProductsQuery(null, new Error('db'));
+
+      const { default: sitemap } = await import('./sitemap');
+
+      await expect(
+        sitemap({ id: Promise.resolve('products') })
+      ).rejects.toThrow('db');
     });
   });
 
@@ -207,6 +277,35 @@ describe('sitemap', () => {
       const result = await sitemap({ id: Promise.resolve('unknown') });
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('categories sitemap', () => {
+    it('returns category sitemap entries', async () => {
+      setSlugHeader('ogabassey');
+      mockCategoriesQuery([
+        { slug: 'smartphones', updated_at: '2026-01-01T00:00:00Z' },
+        { slug: 'accessories', updated_at: '2026-01-02T00:00:00Z' },
+      ]);
+
+      const { default: sitemap } = await import('./sitemap');
+
+      const result = await sitemap({ id: Promise.resolve('categories') });
+
+      expect(result).toHaveLength(2);
+      expect(result[0].url).toBe('https://ogabassey.usebaci.com/smartphones');
+      expect(result[1].url).toBe('https://ogabassey.usebaci.com/accessories');
+    });
+
+    it('throws when categories cannot be loaded', async () => {
+      setSlugHeader('ogabassey');
+      mockCategoriesQuery(null, new Error('db'));
+
+      const { default: sitemap } = await import('./sitemap');
+
+      await expect(
+        sitemap({ id: Promise.resolve('categories') })
+      ).rejects.toThrow('db');
     });
   });
 });

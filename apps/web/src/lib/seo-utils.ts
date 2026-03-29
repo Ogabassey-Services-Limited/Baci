@@ -834,8 +834,10 @@ export function generateBreadcrumbSchema(
     itemListElement: items.map((item, index) => ({
       '@type': 'ListItem',
       position: index + 1,
-      name: escapeHtml(item.name),
-      item: escapeHtml(item.url),
+      item: {
+        '@id': escapeHtml(item.url),
+        name: escapeHtml(item.name),
+      },
     })),
   };
 }
@@ -1060,42 +1062,65 @@ export interface CollectionPageData {
   currency?: string;
 }
 
+function toAbsoluteSchemaUrl(baseUrl: string, value?: string | null): string {
+  if (!value) {
+    return '';
+  }
+
+  try {
+    return new URL(value, baseUrl).toString();
+  } catch {
+    return '';
+  }
+}
+
 export function generateCollectionPageSchema(
   data: CollectionPageData
 ): Record<string, unknown> {
   const safeProducts = data.products.slice(0, 20); // Limit to 20 for performance
+  const absolutePageUrl = toAbsoluteSchemaUrl(data.url, data.url);
 
   return {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: escapeHtml(data.name),
     description: data.description ? escapeHtml(data.description) : undefined,
-    url: escapeHtml(data.url),
+    url: escapeHtml(absolutePageUrl),
     mainEntity: {
       '@type': 'ItemList',
-      itemListElement: safeProducts.map((product, index) => ({
-        '@type': 'ListItem',
-        position: index + 1,
-        item: {
-          '@type': 'Product',
-          name: escapeHtml(product.name),
-          description: product.description
-            ? escapeHtml(generateMetaDescription(product.description, 100))
-            : undefined,
-          image: product.imageLarge
-            ? escapeHtml(product.imageLarge)
-            : undefined,
-          url: escapeHtml(getProductUrl(product)),
-          offers: {
-            '@type': 'Offer',
-            price: product.price,
-            priceCurrency: data.currency || 'NGN',
-            availability: getEffectiveProductStock(product)
-              ? 'https://schema.org/InStock'
-              : 'https://schema.org/OutOfStock',
+      itemListElement: safeProducts.map((product, index) => {
+        const productUrl = toAbsoluteSchemaUrl(
+          data.url,
+          getProductUrl(product)
+        );
+        const productImage = toAbsoluteSchemaUrl(
+          data.url,
+          product.imageLarge || product.image
+        );
+
+        return {
+          '@type': 'ListItem',
+          position: index + 1,
+          item: {
+            '@type': 'Product',
+            name: escapeHtml(product.name),
+            description: product.description
+              ? escapeHtml(generateMetaDescription(product.description, 100))
+              : undefined,
+            image: productImage ? escapeHtml(productImage) : undefined,
+            url: productUrl ? escapeHtml(productUrl) : undefined,
+            offers: {
+              '@type': 'Offer',
+              price: product.price,
+              priceCurrency: data.currency || 'NGN',
+              availability: getEffectiveProductStock(product)
+                ? 'https://schema.org/InStock'
+                : 'https://schema.org/OutOfStock',
+              url: productUrl ? escapeHtml(productUrl) : undefined,
+            },
           },
-        },
-      })),
+        };
+      }),
     },
     numberOfItems: data.products.length,
   };

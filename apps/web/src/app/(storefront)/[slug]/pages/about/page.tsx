@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { buildStoreUrl } from '@/lib/store-url';
 import {
   generateAboutPageJsonLd,
   type MerchantAboutPage,
@@ -30,6 +31,7 @@ export async function generateMetadata({
     aboutPage.story ||
     aboutPage.mission ||
     `Learn more about ${merchant.business_name}`;
+  const aboutUrl = `${buildStoreUrl(merchant)}/about`;
 
   return {
     title: `About Us | ${merchant.business_name}`,
@@ -38,10 +40,11 @@ export async function generateMetadata({
       title: `About ${merchant.business_name}`,
       description: description.substring(0, 160),
       type: 'website',
+      url: aboutUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
     },
     alternates: {
-      canonical: '/about',
+      canonical: aboutUrl,
     },
   };
 }
@@ -63,11 +66,7 @@ export default async function AboutPage({ params }: PageProps) {
   }
 
   // Generate base URL for JSON-LD
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-  const baseUrl = isDevelopment
-    ? `http://localhost:3000/${merchant.slug}`
-    : `https://${merchant.slug}.${rootDomain}`;
+  const baseUrl = buildStoreUrl(merchant);
 
   // Generate JSON-LD structured data
   const jsonLd = generateAboutPageJsonLd(merchant, aboutPage, baseUrl);
