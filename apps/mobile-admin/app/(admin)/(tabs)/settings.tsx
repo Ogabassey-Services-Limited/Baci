@@ -62,7 +62,7 @@ export default function SettingsScreen() {
       <View
         style={[styles.settingIcon, { backgroundColor: colors.background }]}
       >
-        <Ionicons name={icon} size={20} color="#3B82F6" />
+        <Ionicons name={icon} size={20} color={colors.primary} />
       </View>
       <View style={styles.settingContent}>
         <Text style={[styles.settingTitle, { color: colors.text }]}>
@@ -82,7 +82,7 @@ export default function SettingsScreen() {
           onValueChange={() => {
             // Toggle logic handled by parent
           }}
-          trackColor={{ true: '#3B82F6' }}
+          trackColor={{ true: colors.primary }}
         />
       ) : showArrow ? (
         <Ionicons
@@ -226,8 +226,10 @@ export default function SettingsScreen() {
           ]}
           onPress={handleLogout}
         >
-          <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-          <Text style={styles.logoutText}>Sign Out</Text>
+          <Ionicons name="log-out-outline" size={20} color={colors.error} />
+          <Text style={[styles.logoutText, { color: colors.error }]}>
+            Sign Out
+          </Text>
         </Pressable>
 
         <Text style={[styles.version, { color: colors.textSecondary }]}>
@@ -239,7 +241,10 @@ export default function SettingsScreen() {
           <Pressable
             style={[
               styles.devButton,
-              { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' },
+              {
+                backgroundColor: colors.warningLight,
+                borderColor: colors.warning,
+              },
             ]}
             onPress={async () => {
               await resetOnboarding();
@@ -255,8 +260,8 @@ export default function SettingsScreen() {
               );
             }}
           >
-            <Ionicons name="refresh-outline" size={20} color="#D97706" />
-            <Text style={{ color: '#D97706', fontWeight: '600' }}>
+            <Ionicons name="refresh-outline" size={20} color={colors.warning} />
+            <Text style={{ color: colors.warning, fontWeight: '600' }}>
               Reset Onboarding (Dev)
             </Text>
           </Pressable>
@@ -319,7 +324,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   logoutText: {
-    color: '#EF4444',
     fontSize: 15,
     fontWeight: '600',
   },
