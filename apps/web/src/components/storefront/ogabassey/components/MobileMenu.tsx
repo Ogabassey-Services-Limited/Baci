@@ -86,6 +86,10 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={onClose}
+        onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
+        role="button"
+        aria-label="Close menu"
+        tabIndex={-1}
       />
 
       {/* Sidebar */}
@@ -93,8 +97,10 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
         <div className="px-3 py-4 border-b border-gray-100 flex items-center justify-between">
           <Logo className="h-7 w-auto text-gray-900" />
           <button
+            type="button"
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full text-gray-500"
+            aria-label="Close menu"
           >
             <X size={20} />
           </button>
