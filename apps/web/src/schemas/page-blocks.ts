@@ -48,5 +48,5 @@ export const BlockSchema = z.discriminatedUnion('type', [
 
 export const PageConfigSchema = z.object({
   content: z.array(BlockSchema),
-  theme: z.any().optional(),
+  theme: z.unknown().optional(),
 });
