@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -100,6 +100,12 @@ export default function DomainsDashboard() {
   const onRefresh = () => {
     void refetch();
   };
+
+  useEffect(() => {
+    if (fetchError) {
+      console.error('Failed to load merchant domains:', fetchError);
+    }
+  }, [fetchError]);
 
   // Options Sheet State
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);

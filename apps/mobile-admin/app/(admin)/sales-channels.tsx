@@ -39,6 +39,8 @@ export default function SalesChannelsScreen() {
         '/api/marketplace/jumia/connect',
         { signal }
       ),
+    staleTime: 5 * 60 * 1000,
+    retry: 2,
   });
 
   const isConnected = (connectionData?.integrations?.length ?? 0) > 0;
