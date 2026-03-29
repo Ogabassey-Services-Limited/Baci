@@ -23,13 +23,17 @@ interface ScreenSkeletonProps {
   cards?: number;
 }
 
+function createSkeletonKeys(prefix: string, count: number) {
+  return Array.from({ length: count }, (_, index) => `${prefix}-${index}`);
+}
+
 function ShimmerBlock({
   height,
   width,
   borderRadius = RADIUS.md,
 }: {
   height: number;
-  width?: number | string;
+  width?: number | `${number}%`;
   borderRadius?: number;
 }) {
   const { colors } = useTheme();
@@ -45,6 +49,9 @@ function ShimmerBlock({
 
   return (
     <Animated.View
+      accessible={false}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
       style={[
         {
           height,
@@ -59,10 +66,12 @@ function ShimmerBlock({
 }
 
 function SettingsSkeleton({ cards }: { cards: number }) {
+  const skeletonKeys = createSkeletonKeys('settings', cards);
+
   return (
     <View style={styles.container}>
-      {Array.from({ length: cards }).map((_, i) => (
-        <View key={i} style={styles.settingsCard}>
+      {skeletonKeys.map((key) => (
+        <View key={key} style={styles.settingsCard}>
           <View style={styles.settingsRow}>
             <ShimmerBlock height={20} width={20} borderRadius={RADIUS.full} />
             <View style={styles.settingsText}>
@@ -78,12 +87,14 @@ function SettingsSkeleton({ cards }: { cards: number }) {
 }
 
 function ListSkeleton({ cards }: { cards: number }) {
+  const skeletonKeys = createSkeletonKeys('list', cards);
+
   return (
     <View style={styles.container}>
       <ShimmerBlock height={80} borderRadius={RADIUS.lg} />
-      <View style={{ height: SPACING.lg }} />
-      {Array.from({ length: cards }).map((_, i) => (
-        <View key={i} style={styles.listCard}>
+      <View style={styles.spacerLg} />
+      {skeletonKeys.map((key) => (
+        <View key={key} style={styles.listCard}>
           <View style={styles.listRow}>
             <View style={styles.listText}>
               <ShimmerBlock height={14} width="50%" />
@@ -98,14 +109,16 @@ function ListSkeleton({ cards }: { cards: number }) {
 }
 
 function CardListSkeleton({ cards }: { cards: number }) {
+  const skeletonKeys = createSkeletonKeys('card-list', cards);
+
   return (
     <View style={styles.container}>
-      {Array.from({ length: cards }).map((_, i) => (
-        <View key={i} style={styles.cardListCard}>
+      {skeletonKeys.map((key) => (
+        <View key={key} style={styles.cardListCard}>
           <ShimmerBlock height={16} width="40%" />
-          <View style={{ height: SPACING.sm }} />
+          <View style={styles.spacerSm} />
           <ShimmerBlock height={12} width="70%" />
-          <View style={{ height: SPACING.md }} />
+          <View style={styles.spacerMd} />
           <ShimmerBlock height={36} />
         </View>
       ))}
@@ -146,6 +159,15 @@ const styles = StyleSheet.create({
   settingsText: {
     flex: 1,
     gap: SPACING.xs,
+  },
+  spacerSm: {
+    height: SPACING.sm,
+  },
+  spacerMd: {
+    height: SPACING.md,
+  },
+  spacerLg: {
+    height: SPACING.lg,
   },
   listCard: {
     padding: SPACING.md,

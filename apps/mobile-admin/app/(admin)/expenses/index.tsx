@@ -220,7 +220,6 @@ export default function ExpensesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   headerButton: { padding: SPACING.sm },
   summaryContainer: { padding: SPACING.lg, paddingBottom: SPACING.sm },
   summaryCard: {
