@@ -30,7 +30,8 @@ export default function SalesChannelsScreen() {
   const queryClient = useQueryClient();
   const {
     data: connectionData,
-    isLoading: statusLoading,
+    isLoading,
+    isFetching,
     isError: statusError,
   } = useQuery({
     queryKey: ['jumia-connection-status'],
@@ -43,6 +44,7 @@ export default function SalesChannelsScreen() {
     retry: 2,
   });
 
+  const statusLoading = isLoading || isFetching;
   const isConnected = (connectionData?.integrations?.length ?? 0) > 0;
   const [loading, setLoading] = useState(false);
 
