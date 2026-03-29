@@ -51,14 +51,18 @@ const { mockGetConfiguredAppUrl, mockGetJumiaRedirectUri } = vi.hoisted(() => {
   };
 });
 
-const mockSupabase = {
-  auth: { getUser: mockGetUser },
-  from: vi.fn(() => ({
+function createUpsertBuilder() {
+  return {
     upsert: (...args: unknown[]) => {
       mockUpsert(...args);
       return { select: () => mockSelect() };
     },
-  })),
+  };
+}
+
+const mockSupabase = {
+  auth: { getUser: mockGetUser },
+  from: vi.fn<(...args: unknown[]) => unknown>(() => createUpsertBuilder()),
 };
 
 vi.mock('next/headers', () => ({ cookies: vi.fn().mockResolvedValue({}) }));
