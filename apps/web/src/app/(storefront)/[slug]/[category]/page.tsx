@@ -19,6 +19,14 @@ import {
   generateFAQSchema,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import {
+  parseStorefrontPageParam,
+  STOREFRONT_PRODUCTS_PER_PAGE,
+} from '@/lib/storefront-pagination';
+import {
+  getStorefrontOpenGraphImages,
+  getStorefrontTwitterImages,
+} from '@/lib/storefront-social-images';
 import { isDomainIdentifier } from '@/lib/validation';
 
 // Enable ISR with 5 minute revalidation
@@ -28,6 +36,9 @@ interface PageProps {
   params: Promise<{
     slug: string; // Store slug (merchant)
     category: string; // Category slug
+  }>;
+  searchParams: Promise<{
+    page?: string;
   }>;
 }
 
@@ -63,8 +74,15 @@ function getSeoData(data: CategoryPageData, categorySlug: string) {
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug, category } = await params;
+  const resolvedSearchParams = await searchParams;
+  const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
+
+  if (!currentPage) {
+    notFound();
+  }
 
   // 1. Get Merchant
   const merchant = isDomainIdentifier(slug)
@@ -84,47 +102,75 @@ export async function generateMetadata({
     ? data.name
     : data.fallbackName || category;
   const products = data.products as unknown as Product[];
+  const totalPages = Math.max(
+    1,
+    Math.ceil(products.length / STOREFRONT_PRODUCTS_PER_PAGE)
+  );
+  const pageStartIndex = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
+  const paginatedProducts = products.slice(
+    pageStartIndex,
+    pageStartIndex + STOREFRONT_PRODUCTS_PER_PAGE
+  );
+
+  if (currentPage > totalPages) {
+    notFound();
+  }
 
   const baseUrl = buildStoreUrl(merchant);
   const categoryUrl = `${baseUrl}/${category}`;
+  const paginatedCategoryUrl =
+    currentPage > 1 ? `${categoryUrl}?page=${currentPage}` : categoryUrl;
 
-  const title = `${categoryName} | ${merchant.business_name}`;
+  const title =
+    currentPage > 1
+      ? `${categoryName} - Page ${currentPage} | ${merchant.business_name}`
+      : `${categoryName} | ${merchant.business_name}`;
   const description =
     seoData.description ||
     `Shop ${categoryName} at ${merchant.business_name}. ${products.length} products available.`;
+  const firstProductImage = paginatedProducts[0]
+    ? normalizeProduct(paginatedProducts[0] as unknown as RawDbProduct).image
+    : null;
+  const socialImageCandidates = [firstProductImage, merchant.logo_url];
 
   return {
     title,
     description,
     alternates: {
-      canonical: categoryUrl,
+      canonical: paginatedCategoryUrl,
     },
     openGraph: {
       title,
       description,
-      url: categoryUrl,
+      url: paginatedCategoryUrl,
       type: 'website',
       siteName: merchant.business_name,
-      ...(products.length > 0 &&
-        products[0].images?.[0] && {
-          images: [
-            {
-              url: products[0].images[0] as unknown as string,
-              alt: categoryName,
-            },
-          ],
-        }),
+      images: getStorefrontOpenGraphImages(
+        baseUrl,
+        categoryName,
+        ...socialImageCandidates
+      ),
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
+      images: getStorefrontTwitterImages(baseUrl, ...socialImageCandidates),
     },
   };
 }
 
-export default async function CategoryPageRoute({ params }: PageProps) {
+export default async function CategoryPageRoute({
+  params,
+  searchParams,
+}: PageProps) {
   const { slug, category } = await params;
+  const { page } = await searchParams;
+  const currentPage = parseStorefrontPageParam(page);
+
+  if (!currentPage) {
+    notFound();
+  }
 
   // Lowercase enforcement moved to proxy (prefix normalization + storefront lowercase redirect)
 
@@ -139,6 +185,19 @@ export default async function CategoryPageRoute({ params }: PageProps) {
 
   const data = await getCachedCategoryPageData(merchant.id, category, slug);
   const products = data.products as unknown as Product[];
+  const totalPages = Math.max(
+    1,
+    Math.ceil(products.length / STOREFRONT_PRODUCTS_PER_PAGE)
+  );
+  const pageStartIndex = (currentPage - 1) * STOREFRONT_PRODUCTS_PER_PAGE;
+  const paginatedProducts = products.slice(
+    pageStartIndex,
+    pageStartIndex + STOREFRONT_PRODUCTS_PER_PAGE
+  );
+
+  if (currentPage > totalPages) {
+    notFound();
+  }
 
   const seoData = getSeoData(data, category);
   const categoryName = data.isCollection
@@ -147,13 +206,15 @@ export default async function CategoryPageRoute({ params }: PageProps) {
 
   const baseUrl = buildStoreUrl(merchant);
   const categoryUrl = `${baseUrl}/${category}`;
+  const paginatedCategoryUrl =
+    currentPage > 1 ? `${categoryUrl}?page=${currentPage}` : categoryUrl;
 
   // Generate CollectionPage schema
   const collectionSchema = generateCollectionPageSchema({
     name: categoryName,
     description: seoData.description,
-    url: categoryUrl,
-    products: products,
+    url: paginatedCategoryUrl,
+    products: paginatedProducts,
     merchantName: merchant.business_name,
     currency: merchant.payout_currency || 'NGN',
   });
@@ -220,9 +281,11 @@ export default async function CategoryPageRoute({ params }: PageProps) {
           seoDescription={seoData.description || ''}
           seoFeatures={seoData.features}
           seoFaqs={seoData.faqs}
+          currentPage={currentPage}
           categoryImage={
             !data.isCollection ? data.category?.image_url : undefined
           }
+          itemsPerPage={STOREFRONT_PRODUCTS_PER_PAGE}
           products={products.map((p) => {
             // Use unified normalizeProduct for consistent data extraction
             const normalized = normalizeProduct(p as unknown as RawDbProduct);

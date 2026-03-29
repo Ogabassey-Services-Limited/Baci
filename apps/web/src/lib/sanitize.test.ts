@@ -20,6 +20,17 @@ describe('sanitize', () => {
     expect(output).toContain('rel="noopener noreferrer"');
   });
 
+  it('coerces heading offsets to safe finite integers', () => {
+    expect(
+      sanitizeHtml('<h1>Title</h1>', { headingLevelOffset: 1.9 })
+    ).toContain('<h2>Title</h2>');
+    expect(
+      sanitizeHtml('<h1>Title</h1>', {
+        headingLevelOffset: Number.POSITIVE_INFINITY,
+      })
+    ).toContain('<h1>Title</h1>');
+  });
+
   it('removes active content from SVG', () => {
     const input =
       '<svg viewBox="0 0 16 16" onload="alert(1)"><script>alert(1)</script><circle cx="8" cy="8" r="6" /></svg>';

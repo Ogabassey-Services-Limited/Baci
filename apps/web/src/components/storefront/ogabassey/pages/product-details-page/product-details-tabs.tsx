@@ -61,6 +61,7 @@ export function ProductDetailsTabs({
           >
             <SafeHtml
               html={productData.description || ''}
+              headingLevelOffset={1}
               className="prose-headings:text-inherit prose-strong:text-inherit prose-table:text-sm mb-4"
             />
             <div className="mb-6 mt-6">

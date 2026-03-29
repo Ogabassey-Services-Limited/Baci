@@ -50,6 +50,23 @@ describe('resolveBlogPostContent', () => {
     expect(result.legacyHtml).toContain('Legacy content');
   });
 
+  it('normalizes legacy internal storefront links inside html content', async () => {
+    const result = await resolveBlogPostContent(
+      '<p><a href="https://www.ogabassey.com/phones/iPhone-13-Pro-6GB-256GB?srsltid=test">iPhone</a> <a href="https://www.ogabassey.com/category/product/615">Old product</a></p>',
+      {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      }
+    );
+
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain(
+      'href="/smartphones/iphone-13-pro-6gb-256gb"'
+    );
+    expect(result.legacyHtml).toContain('href="/products"');
+  });
+
   it('renders markdown into sanitized legacy HTML', async () => {
     const result = await resolveBlogPostContent('## Markdown title');
 
