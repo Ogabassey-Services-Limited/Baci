@@ -117,6 +117,10 @@ export function ProvidersList({
                 }}
                 thumbColor="#FFFFFF"
                 disabled={isPending}
+                accessibilityRole="switch"
+                accessibilityLabel={`Toggle ${provider.name}`}
+                accessibilityHint="Enables this shipping provider"
+                accessibilityState={{ checked: enabled, disabled: isPending }}
               />
             </View>
           </View>

@@ -37,6 +37,9 @@ export function ShippingForm({
   onCancelEditing,
   onManageShipping,
 }: ShippingFormProps) {
+  const thresholdValue = settings?.free_shipping_threshold;
+  const hasFreeShippingThreshold = thresholdValue != null;
+
   return (
     <>
       <Pressable
@@ -103,8 +106,8 @@ export function ShippingForm({
                   { color: colors.textSecondary },
                 ]}
               >
-                {settings?.free_shipping_threshold
-                  ? `Orders above ₦${settings.free_shipping_threshold.toLocaleString()}`
+                {hasFreeShippingThreshold
+                  ? `Orders above ₦${thresholdValue.toLocaleString()}`
                   : 'Not configured'}
               </Text>
             )}
@@ -114,7 +117,7 @@ export function ShippingForm({
               style={[
                 styles.statusBadge,
                 {
-                  backgroundColor: settings?.free_shipping_threshold
+                  backgroundColor: hasFreeShippingThreshold
                     ? colors.successLight
                     : colors.cardHover,
                 },
@@ -124,13 +127,13 @@ export function ShippingForm({
                 style={[
                   styles.statusText,
                   {
-                    color: settings?.free_shipping_threshold
+                    color: hasFreeShippingThreshold
                       ? colors.success
                       : colors.textMuted,
                   },
                 ]}
               >
-                {settings?.free_shipping_threshold ? 'On' : 'Off'}
+                {hasFreeShippingThreshold ? 'On' : 'Off'}
               </Text>
             </View>
           )}

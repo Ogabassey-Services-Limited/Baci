@@ -1,4 +1,4 @@
-import { NIGERIAN_STATES, type RegisteredAddress } from '@baci/shared';
+import { NIGERIAN_STATES } from '@baci/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -6,6 +6,11 @@ import { Alert, ScrollView } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AddressCard } from '@/components/tax/AddressCard';
+import {
+  buildAddressSyncSignature,
+  buildMerchantAddressSyncState,
+  buildTaxSyncSignature,
+} from '@/components/tax/form-sync';
 import { LegalEntityCard } from '@/components/tax/LegalEntityCard';
 import { StatePickerModal } from '@/components/tax/StatePickerModal';
 import { styles } from '@/components/tax/styles';
@@ -40,12 +45,10 @@ export default function TaxScreen() {
   const [stateCode, setStateCode] = useState('');
   const [showStateModal, setShowStateModal] = useState(false);
 
-  const lastSyncedAddressMerchantId = useRef<string | null>(null);
-  const lastSyncedTaxMerchantId = useRef<string | null>(null);
+  const lastSyncedAddressSignature = useRef('');
+  const lastSyncedTaxSignature = useRef('');
   const merchantId = merchant?.id ?? null;
-  const merchantAddress =
-    (merchant?.registered_address as RegisteredAddress | null | undefined) ??
-    null;
+  const merchantAddress = merchant?.registered_address ?? null;
   const merchantStateCode = merchant?.state_code ?? '';
   const merchantVatRegistrationStatus =
     merchant?.vat_registration_status ?? 'not_registered';
@@ -53,8 +56,22 @@ export default function TaxScreen() {
     merchant?.tax_identification_number ?? '';
   const merchantLegalEntityName = merchant?.legal_entity_name ?? '';
   useEffect(() => {
+    const { mappedStateCode, signature: nextAddressSignature } =
+      buildMerchantAddressSyncState({
+        merchantId,
+        merchantAddress,
+        merchantStateCode,
+      });
+    const currentAddressSignature = buildAddressSyncSignature({
+      merchantId,
+      street,
+      city,
+      postalCode,
+      stateCode,
+    });
+
     if (!merchantId) {
-      lastSyncedAddressMerchantId.current = null;
+      lastSyncedAddressSignature.current = '';
       setStreet('');
       setCity('');
       setPostalCode('');
@@ -62,24 +79,32 @@ export default function TaxScreen() {
       return;
     }
 
-    if (lastSyncedAddressMerchantId.current === merchantId) {
+    if (currentAddressSignature === nextAddressSignature) {
+      lastSyncedAddressSignature.current = nextAddressSignature;
       return;
     }
+    if (
+      lastSyncedAddressSignature.current &&
+      currentAddressSignature !== lastSyncedAddressSignature.current
+    ) {
+      return;
+    }
+    if (lastSyncedAddressSignature.current === nextAddressSignature) return;
 
-    lastSyncedAddressMerchantId.current = merchantId;
-    const mappedStateCode =
-      merchantStateCode ||
-      NIGERIAN_STATES.find(
-        (state) =>
-          state.name.toLowerCase() ===
-          (merchantAddress?.state ?? '').trim().toLowerCase()
-      )?.code ||
-      '';
+    lastSyncedAddressSignature.current = nextAddressSignature;
     setStreet(merchantAddress?.street ?? '');
     setCity(merchantAddress?.city ?? '');
     setPostalCode(merchantAddress?.postal_code ?? '');
     setStateCode(mappedStateCode);
-  }, [merchantAddress, merchantId, merchantStateCode]);
+  }, [
+    city,
+    merchantAddress,
+    merchantId,
+    merchantStateCode,
+    postalCode,
+    stateCode,
+    street,
+  ]);
 
   const updateVatMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
@@ -164,7 +189,6 @@ export default function TaxScreen() {
   });
   const handleToggleVat = () => {
     const newValue = !vatEnabled;
-
     Alert.alert(
       newValue ? 'Enable VAT?' : 'Disable VAT?',
       newValue
@@ -180,33 +204,56 @@ export default function TaxScreen() {
       ]
     );
   };
-  const handleTaxIdChange = (text: string) => {
+  const handleTaxIdChange = (text: string) =>
     setTaxId(text.replace(/\D/g, '').slice(0, 10));
-  };
   const selectedStateName =
     NIGERIAN_STATES.find((state) => state.code === stateCode)?.name ?? '';
   useEffect(() => {
+    const nextTaxSignature = buildTaxSyncSignature({
+      merchantId,
+      vatRegistrationStatus: merchantVatRegistrationStatus,
+      taxIdentificationNumber: merchantTaxIdentificationNumber,
+      legalEntityName: merchantLegalEntityName,
+    });
+    const currentTaxSignature = buildTaxSyncSignature({
+      merchantId,
+      vatRegistrationStatus: vatEnabled ? 'registered' : 'not_registered',
+      taxIdentificationNumber: taxId,
+      legalEntityName,
+    });
+
     if (!merchantId) {
-      lastSyncedTaxMerchantId.current = null;
+      lastSyncedTaxSignature.current = '';
       setVatEnabled(false);
       setTaxId('');
       setLegalEntityName('');
       return;
     }
 
-    if (lastSyncedTaxMerchantId.current === merchantId) {
+    if (currentTaxSignature === nextTaxSignature) {
+      lastSyncedTaxSignature.current = nextTaxSignature;
       return;
     }
+    if (
+      lastSyncedTaxSignature.current &&
+      currentTaxSignature !== lastSyncedTaxSignature.current
+    ) {
+      return;
+    }
+    if (lastSyncedTaxSignature.current === nextTaxSignature) return;
 
-    lastSyncedTaxMerchantId.current = merchantId;
+    lastSyncedTaxSignature.current = nextTaxSignature;
     setVatEnabled(merchantVatRegistrationStatus === 'registered');
     setTaxId(merchantTaxIdentificationNumber);
     setLegalEntityName(merchantLegalEntityName);
   }, [
+    legalEntityName,
     merchantId,
     merchantLegalEntityName,
     merchantTaxIdentificationNumber,
     merchantVatRegistrationStatus,
+    taxId,
+    vatEnabled,
   ]);
   if (isLoading) {
     return (
@@ -214,6 +261,7 @@ export default function TaxScreen() {
         <Stack.Screen options={screenOptions} />
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
         >
           <ScreenSkeleton variant="settings" cards={4} />
         </SafeAreaView>

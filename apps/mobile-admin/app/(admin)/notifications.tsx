@@ -1,23 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+import { styles } from './notifications.styles';
 
 interface NotificationPreferences {
   merchant_id: string;
@@ -36,7 +28,13 @@ export default function NotificationsScreen() {
   const screenOptions = {
     title: 'Notifications',
     headerLeft: () => (
-      <Pressable onPress={() => router.back()} style={styles.backButton}>
+      <Pressable
+        onPress={() => router.back()}
+        style={styles.backButton}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+      >
         <Ionicons name="arrow-back" size={24} color={colors.text} />
       </Pressable>
     ),
@@ -264,72 +262,3 @@ export default function NotificationsScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollView: { flex: 1 },
-  scrollContent: { padding: SPACING.lg },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  retryButton: {
-    marginTop: SPACING.lg,
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.md,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  infoSection: {
-    alignItems: 'center',
-    marginBottom: SPACING.xl,
-    marginTop: SPACING.md,
-  },
-  infoTitle: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginTop: SPACING.sm,
-  },
-  infoSubtitle: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    textAlign: 'center',
-    marginTop: SPACING.xs,
-    paddingHorizontal: SPACING.xl,
-  },
-  card: {
-    borderRadius: RADIUS.lg,
-    overflow: 'hidden',
-    marginBottom: SPACING.xl,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: SPACING.lg,
-  },
-  settingInfo: { flex: 1, marginRight: SPACING.md },
-  settingLabel: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  settingDesc: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginTop: 2,
-  },
-  divider: { height: 1, marginHorizontal: SPACING.lg },
-  noteSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.sm,
-  },
-  noteText: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginLeft: SPACING.xs,
-    flex: 1,
-  },
-  backButton: { padding: SPACING.sm, marginLeft: -SPACING.sm },
-});

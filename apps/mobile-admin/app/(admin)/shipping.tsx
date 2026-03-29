@@ -7,7 +7,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProvidersList } from '@/components/shipping/ProvidersList';
@@ -43,15 +50,22 @@ export default function ShippingScreen() {
   const [tempThreshold, setTempThreshold] = useState('');
 
   // Fetch shipping settings
-  const { data: settings, isLoading } = useQuery({
+  const {
+    data: settings,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['shipping-settings', user?.id],
     queryFn: async () => {
-      const { data: merchant } = await supabase
+      const { data: merchant, error: merchantError } = await supabase
         .from('merchants')
         .select('id')
         .eq('user_id', user?.id)
         .single();
 
+      if (merchantError) throw merchantError;
       if (!merchant) throw new Error('No merchant found');
 
       const { data, error } = await supabase
@@ -142,9 +156,23 @@ export default function ShippingScreen() {
   };
 
   const handleSaveThreshold = () => {
-    updateThresholdMutation.mutate(
-      tempThreshold ? Number(tempThreshold) : null
-    );
+    const normalizedThreshold = tempThreshold.replaceAll(',', '').trim();
+
+    if (!normalizedThreshold) {
+      updateThresholdMutation.mutate(null);
+      return;
+    }
+
+    const parsedThreshold = Number(normalizedThreshold);
+    if (!Number.isFinite(parsedThreshold) || parsedThreshold < 0) {
+      Alert.alert(
+        'Invalid threshold',
+        'Enter a valid non-negative amount for free shipping.'
+      );
+      return;
+    }
+
+    updateThresholdMutation.mutate(parsedThreshold);
   };
 
   if (isLoading) {
@@ -153,8 +181,54 @@ export default function ShippingScreen() {
         <Stack.Screen options={screenOptions} />
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
         >
+          <SystemBars style={isDark ? 'light' : 'dark'} />
           <ScreenSkeleton variant="settings" cards={4} />
+        </SafeAreaView>
+      </>
+    );
+  }
+
+  if (isError) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : 'Shipping settings are unavailable right now.';
+
+    return (
+      <>
+        <Stack.Screen options={screenOptions} />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
+        >
+          <SystemBars style={isDark ? 'light' : 'dark'} />
+          <View style={styles.errorState}>
+            <Ionicons
+              name="alert-circle-outline"
+              size={48}
+              color={colors.notification}
+            />
+            <Text style={[styles.errorTitle, { color: colors.text }]}>
+              Failed to load shipping settings
+            </Text>
+            <Text
+              style={[styles.errorDescription, { color: colors.textSecondary }]}
+            >
+              {errorMessage}
+            </Text>
+            <Pressable
+              style={[styles.retryButton, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                void refetch();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading shipping settings"
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </Pressable>
+          </View>
         </SafeAreaView>
       </>
     );

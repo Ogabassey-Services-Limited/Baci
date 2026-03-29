@@ -17,7 +17,7 @@ import type {
 interface PaymentMethodsSectionProps {
   title: string;
   category: PaymentMethodCategory;
-  methods: PaymentMethod[];
+  methods: readonly Readonly<PaymentMethod>[];
   settings?: PaymentSettings;
   colors: ThemeColors;
   shadowStyle: ThemeShadows['sm'];
@@ -109,6 +109,10 @@ export function PaymentMethodsSection({
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor="#FFFFFF"
                 disabled={isPending}
+                accessibilityRole="switch"
+                accessibilityLabel={`Toggle ${method.name}`}
+                accessibilityHint={`Toggles ${method.name} payment setting`}
+                accessibilityState={{ checked: isEnabled, disabled: isPending }}
               />
             </View>
           </View>

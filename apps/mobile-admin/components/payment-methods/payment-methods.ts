@@ -31,7 +31,7 @@ export interface PaymentMethod {
   category: PaymentMethodCategory;
 }
 
-export const paymentMethods: PaymentMethod[] = [
+export const paymentMethods: readonly Readonly<PaymentMethod>[] = [
   {
     id: 'paystack',
     name: 'Paystack',

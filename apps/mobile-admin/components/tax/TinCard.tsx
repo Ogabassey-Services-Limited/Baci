@@ -69,11 +69,19 @@ export function TinCard({
         onChangeText={handleChangeText}
         keyboardType="number-pad"
         maxLength={10}
+        accessible={true}
+        accessibilityLabel="Tax identification number input"
+        accessibilityHint="Enter your 10-digit Nigerian tax identification number"
       />
       <Pressable
         style={[styles.saveButton, { backgroundColor: colors.primary }]}
         onPress={onSave}
         disabled={isPending}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel="Save TIN"
+        accessibilityHint="Saves your tax identification number"
+        accessibilityState={{ disabled: isPending }}
       >
         {isPending ? (
           <ActivityIndicator size="small" color="#FFF" />

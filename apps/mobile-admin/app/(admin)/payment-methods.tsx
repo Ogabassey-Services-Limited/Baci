@@ -11,7 +11,6 @@ import {
   Linking,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -19,23 +18,43 @@ import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PaymentMethodsSection } from '@/components/payment-methods/PaymentMethodsSection';
 import {
+  type PaymentMethodCategory,
   type PaymentMethodField,
   type PaymentSettings,
   paymentMethods,
 } from '@/components/payment-methods/payment-methods';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+import { styles } from './payment-methods.styles';
 
 export default function PaymentMethodsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const screenOptions = {
+    title: 'Payment Methods',
+    headerStyle: { backgroundColor: colors.background },
+    headerTintColor: colors.text,
+  };
+  const sections = [
+    { title: 'Payment Gateways', category: 'gateway' },
+    { title: 'Buy Now, Pay Later', category: 'bnpl' },
+    { title: 'Offline Payments', category: 'offline' },
+  ] as const satisfies ReadonlyArray<{
+    title: string;
+    category: PaymentMethodCategory;
+  }>;
 
   // Fetch actual payment settings
-  const { data: settings, isLoading } = useQuery({
+  const {
+    data: settings,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['payment-settings', user?.id],
     queryFn: async () => {
       // First get merchant ID
@@ -134,29 +153,65 @@ export default function PaymentMethodsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <Stack.Screen
-          options={{
-            title: 'Payment Methods',
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.text,
-          }}
-        />
-        <ScreenSkeleton variant="settings" cards={6} />
-      </SafeAreaView>
+      <>
+        <Stack.Screen options={screenOptions} />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
+        >
+          <ScreenSkeleton variant="settings" cards={6} />
+        </SafeAreaView>
+      </>
+    );
+  }
+
+  if (isError) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : 'Payment settings are unavailable right now.';
+
+    return (
+      <>
+        <Stack.Screen options={screenOptions} />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
+        >
+          <SystemBars style={isDark ? 'light' : 'dark'} />
+          <View style={styles.errorState}>
+            <Ionicons
+              name="alert-circle-outline"
+              size={48}
+              color={colors.notification}
+            />
+            <Text style={[styles.errorTitle, { color: colors.text }]}>
+              Failed to load payment methods
+            </Text>
+            <Text
+              style={[styles.errorDescription, { color: colors.textSecondary }]}
+            >
+              {errorMessage}
+            </Text>
+            <Pressable
+              style={[styles.retryButton, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                void refetch();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading payment methods"
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </>
     );
   }
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'Payment Methods',
-          // Native back button will be used
-        }}
-      />
+      <Stack.Screen options={screenOptions} />
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
@@ -167,36 +222,19 @@ export default function PaymentMethodsScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
         >
-          <PaymentMethodsSection
-            title="Payment Gateways"
-            category="gateway"
-            methods={paymentMethods}
-            settings={settings}
-            colors={colors}
-            shadowStyle={shadows.sm}
-            isPending={toggleMutation.isPending}
-            onToggle={handleTogglePaymentMethod}
-          />
-          <PaymentMethodsSection
-            title="Buy Now, Pay Later"
-            category="bnpl"
-            methods={paymentMethods}
-            settings={settings}
-            colors={colors}
-            shadowStyle={shadows.sm}
-            isPending={toggleMutation.isPending}
-            onToggle={handleTogglePaymentMethod}
-          />
-          <PaymentMethodsSection
-            title="Offline Payments"
-            category="offline"
-            methods={paymentMethods}
-            settings={settings}
-            colors={colors}
-            shadowStyle={shadows.sm}
-            isPending={toggleMutation.isPending}
-            onToggle={handleTogglePaymentMethod}
-          />
+          {sections.map((section) => (
+            <PaymentMethodsSection
+              key={section.category}
+              title={section.title}
+              category={section.category}
+              methods={paymentMethods}
+              settings={settings}
+              colors={colors}
+              shadowStyle={shadows.sm}
+              isPending={toggleMutation.isPending}
+              onToggle={handleTogglePaymentMethod}
+            />
+          ))}
 
           {/* Info Notice */}
           <View
@@ -230,36 +268,3 @@ export default function PaymentMethodsScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollView: { flex: 1 },
-  scrollContent: { padding: SPACING.lg, paddingBottom: SPACING['3xl'] },
-  notice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.sm,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    marginBottom: SPACING.lg,
-  },
-  noticeText: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    lineHeight: 20,
-  },
-  manageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    padding: SPACING.lg,
-    borderRadius: RADIUS.lg,
-  },
-  manageButtonText: {
-    color: '#FFFFFF',
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-});
