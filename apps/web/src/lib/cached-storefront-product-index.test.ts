@@ -74,6 +74,8 @@ describe('getCachedStorefrontProductIndex', () => {
 
     expect(result.products).toHaveLength(2);
     expect(result.products[0]).toHaveProperty('normalized', true);
+    expect(result.hasError).toBe(false);
+    expect(result.errorMessage).toBeNull();
     expect(result.totalCount).toBe(25);
     expect(result.totalPages).toBe(3); // ceil(25/10)
   });
@@ -117,6 +119,8 @@ describe('getCachedStorefrontProductIndex', () => {
       limit: 10,
     });
 
+    expect(result.hasError).toBe(true);
+    expect(result.errorMessage).toBe('Connection refused');
     expect(result.products).toEqual([]);
     expect(result.totalCount).toBe(0);
     expect(result.totalPages).toBe(0);
