@@ -508,4 +508,26 @@ describe('Connect GET', () => {
     });
     expect(mockAuthenticateApiRequest).toHaveBeenCalled();
   });
+
+  it('returns 500 when the connection status query fails', async () => {
+    mockSupabase.from.mockReturnValueOnce({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'Database error' },
+            }),
+          }),
+        }),
+      }),
+    });
+
+    const res = await GET(makeBearerGetRequest());
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Database error',
+    });
+  });
 });

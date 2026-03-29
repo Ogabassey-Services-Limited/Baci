@@ -377,7 +377,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Default: Check connection status
-    const { data: integrations } = await auth.supabase
+    const { data: integrations, error: integrationsError } = await auth.supabase
       .from('marketplace_integrations')
       .select(
         'id, shop_id, shop_name, country_code, is_active, last_sync_at, sync_error'
@@ -385,6 +385,20 @@ export async function GET(request: NextRequest) {
       .eq('merchant_id', merchantId)
       .eq('platform', 'jumia')
       .eq('is_active', true);
+
+    if (integrationsError) {
+      console.error(
+        '[Jumia Connect] Failed to fetch connection status:',
+        integrationsError
+      );
+      return NextResponse.json(
+        {
+          error:
+            integrationsError.message || 'Failed to fetch connection status',
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       connected: integrations && integrations.length > 0,
