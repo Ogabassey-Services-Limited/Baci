@@ -50,7 +50,26 @@ vi.mock('hast-util-to-html', () => ({
   ),
 }));
 
-// next/image is already mocked globally in vitest.setup.ts.
+type MockImageSrc = string | { src: string } | { default: { src: string } };
+
+type MockNextImageProps = {
+  alt?: string;
+  fill?: boolean;
+  src?: MockImageSrc;
+} & Record<string, unknown>;
+
+vi.mock('next/image', () => ({
+  default: ({ src, alt, fill: _fill, ...props }: MockNextImageProps) => {
+    const normalizedSrc =
+      typeof src === 'string'
+        ? src
+        : src && 'default' in src
+          ? src.default.src
+          : src?.src;
+
+    return <img alt={alt} src={normalizedSrc} {...props} />;
+  },
+}));
 
 import { BlogContentRenderer } from './BlogContentRenderer';
 
@@ -341,11 +360,7 @@ describe('BlogContentRenderer', () => {
       );
     });
 
-    it('renders a javascript: URL as a plain <span> without an href', async () => {
-      // sanitizeUrl returns '' for non-http(s) — we override for this case.
-      const { sanitizeUrl } = await import('@/lib/sanitize-core');
-      vi.mocked(sanitizeUrl).mockReturnValueOnce('');
-
+    it('rewrites javascript: URLs to a safe hash anchor', () => {
       const json = doc(
         paragraph(
           textNode('Evil', [
@@ -353,9 +368,11 @@ describe('BlogContentRenderer', () => {
           ])
         )
       );
-      const { container } = render(<BlogContentRenderer json={json} />);
-      expect(container.querySelector('a')).not.toBeInTheDocument();
-      expect(screen.getByText('Evil')).toBeInTheDocument();
+      render(<BlogContentRenderer json={json} />);
+      expect(screen.getByRole('link', { name: 'Evil' })).toHaveAttribute(
+        'href',
+        '#'
+      );
     });
 
     it('applies a color style from the textStyle mark', () => {
@@ -490,7 +507,9 @@ describe('BlogContentRenderer', () => {
         attrs: { src: 'https://cdn.example.com/photo.jpg', alt: 'A photo' },
       });
       render(<BlogContentRenderer json={json} />);
-      expect(screen.getByRole('img', { name: 'A photo' })).toBeInTheDocument();
+      const image = screen.getByAltText('A photo');
+      expect(image).toBeInTheDocument();
+      expect(image).toHaveAttribute('src', 'https://cdn.example.com/photo.jpg');
     });
 
     it('uses "Blog image" as default alt when alt is absent', () => {
@@ -499,9 +518,9 @@ describe('BlogContentRenderer', () => {
         attrs: { src: 'https://cdn.example.com/photo.jpg' },
       });
       render(<BlogContentRenderer json={json} />);
-      expect(
-        screen.getByRole('img', { name: 'Blog image' })
-      ).toBeInTheDocument();
+      const image = screen.getByAltText('Blog image');
+      expect(image).toBeInTheDocument();
+      expect(image).toHaveAttribute('src', 'https://cdn.example.com/photo.jpg');
     });
 
     it('does not render an image when src is null', () => {

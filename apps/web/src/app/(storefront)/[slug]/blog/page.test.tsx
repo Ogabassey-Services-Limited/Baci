@@ -86,11 +86,14 @@ function buildSupabaseClient(posts = postsPayload) {
     error: null,
   });
 
+  const select = vi
+    .fn()
+    .mockImplementationOnce(() => postsQuery)
+    .mockImplementationOnce(() => categoriesQuery);
+
   return {
     from: vi.fn(() => ({
-      select: vi.fn((fields: string) =>
-        fields.startsWith('id, title') ? postsQuery : categoriesQuery
-      ),
+      select,
     })),
   };
 }

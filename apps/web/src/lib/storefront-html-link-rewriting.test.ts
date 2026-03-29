@@ -95,10 +95,9 @@ describe('rewriteHtmlStorefrontHrefs', () => {
     const html = '<p><a href="javascript:alert(1)">Unsafe</a></p>';
 
     expect(rewriteHtmlStorefrontHrefs(html)).toBe(
-      '<p><a href="">Unsafe</a></p>'
+      '<p><a href="#">Unsafe</a></p>'
     );
   });
-
   it('preserves query parameters and fragments on rewritten internal hrefs', () => {
     const html =
       '<p><a href="https://www.ogabassey.com/phones/iPhone-13-Pro-6GB-256GB?utm_source=ig&color=blue#specs">iPhone</a></p>';

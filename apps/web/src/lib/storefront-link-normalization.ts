@@ -293,16 +293,23 @@ function isLikelyMerchantCustomDomain(
   merchantIdentifier: string
 ): boolean {
   const labels = hostname.split('.');
+  const multipartTlds = new Set(['com.ng', 'org.ng', 'net.ng', 'name.ng']);
+  const lastTwoLabels = labels.slice(-2).join('.');
+  const tldLabelCount = multipartTlds.has(lastTwoLabels) ? 2 : 1;
+  const merchantLabelIndex = labels.length - (tldLabelCount + 1);
 
-  if (labels.length === 2) {
-    return labels[0] === merchantIdentifier;
+  if (merchantLabelIndex < 0) {
+    return false;
   }
 
-  return (
-    labels.length === 3 &&
-    labels[0] === 'www' &&
-    labels[1] === merchantIdentifier
-  );
+  const extraLabels = labels.slice(0, merchantLabelIndex);
+  if (extraLabels.length > 0) {
+    return extraLabels.length === 1 && extraLabels[0] === 'www'
+      ? labels[merchantLabelIndex] === merchantIdentifier
+      : false;
+  }
+
+  return labels[merchantLabelIndex] === merchantIdentifier;
 }
 
 function isInternalStorefrontAbsoluteUrl(
@@ -360,7 +367,7 @@ export function normalizeStorefrontContentHref(
     normalizedHref.startsWith('data:') ||
     normalizedHref.startsWith('vbscript:')
   ) {
-    return '';
+    return '#';
   }
 
   const merchantIdentifier = getMerchantIdentifier(

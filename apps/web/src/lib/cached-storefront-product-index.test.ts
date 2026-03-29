@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockCreatePublicClient = vi.fn();
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
-
 vi.mock('@/lib/supabase/public', () => ({
   createPublicClient: (...args: unknown[]) => mockCreatePublicClient(...args),
 }));
@@ -214,6 +213,21 @@ describe('getCachedStorefrontProductIndex', () => {
   it('throws when the requested page is not a positive integer', async () => {
     await expect(
       getCachedStorefrontProductIndex('merchant-1', { page: 0, limit: 10 })
+    ).rejects.toThrow(
+      'Storefront product index page must be a positive integer'
+    );
+  });
+  it('throws when the requested page is negative', async () => {
+    await expect(
+      getCachedStorefrontProductIndex('merchant-1', { page: -1, limit: 10 })
+    ).rejects.toThrow(
+      'Storefront product index page must be a positive integer'
+    );
+  });
+
+  it('throws when the requested page is not an integer', async () => {
+    await expect(
+      getCachedStorefrontProductIndex('merchant-1', { page: 1.5, limit: 10 })
     ).rejects.toThrow(
       'Storefront product index page must be a positive integer'
     );

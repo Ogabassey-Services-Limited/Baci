@@ -20,7 +20,6 @@ const HTML_ATTRIBUTE_UNESCAPE_MAP: Record<string, string> = {
   '&quot;': '"',
   '&#39;': "'",
 };
-
 function escapeHtmlAttribute(value: string): string {
   return value.replace(
     HTML_ATTRIBUTE_ESCAPE_REGEX,
@@ -34,7 +33,6 @@ function unescapeHtmlAttribute(value: string): string {
     (match) => HTML_ATTRIBUTE_UNESCAPE_MAP[match]
   );
 }
-
 export function rewriteHtmlStorefrontHrefs(
   html: string,
   options: NormalizeStorefrontContentHrefOptions = {}
