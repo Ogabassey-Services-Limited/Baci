@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
 import { cache } from '@/lib/cache';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -13,8 +14,11 @@ import { createClient } from '@/lib/supabase/server';
  * Invalidate analytics cache for the current merchant
  * Useful after creating orders, updating products, etc.
  */
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid && response) return response;
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
