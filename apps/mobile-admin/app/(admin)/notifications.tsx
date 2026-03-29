@@ -113,7 +113,9 @@ export default function NotificationsScreen() {
         <Stack.Screen options={screenOptions} />
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
         >
+          <SystemBars style={isDark ? 'light' : 'dark'} />
           <ScreenSkeleton variant="settings" cards={4} />
         </SafeAreaView>
       </>
@@ -126,7 +128,9 @@ export default function NotificationsScreen() {
         <Stack.Screen options={screenOptions} />
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
+          edges={['bottom']}
         >
+          <SystemBars style={isDark ? 'light' : 'dark'} />
           <View style={styles.loadingContainer}>
             <Ionicons
               name="alert-circle-outline"
@@ -186,63 +190,69 @@ export default function NotificationsScreen() {
             </Text>
           </View>
 
-          <View
-            style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}
-          >
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={[styles.settingLabel, { color: colors.text }]}>
-                  In-App Notifications
-                </Text>
-                <Text
-                  style={[styles.settingDesc, { color: colors.textSecondary }]}
-                >
-                  Show alerts within the admin app
-                </Text>
+          <View style={[styles.cardShadow, shadows.sm]}>
+            <View style={[styles.card, { backgroundColor: colors.card }]}>
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, { color: colors.text }]}>
+                    In-App Notifications
+                  </Text>
+                  <Text
+                    style={[
+                      styles.settingDesc,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Show alerts within the admin app
+                  </Text>
+                </View>
+                <Switch
+                  value={preferences?.in_app_enabled ?? true}
+                  onValueChange={toggleInApp}
+                  trackColor={{
+                    false: colors.border,
+                    true: `${colors.primary}50`,
+                  }}
+                  thumbColor={
+                    (preferences?.in_app_enabled ?? true)
+                      ? colors.primary
+                      : colors.textMuted
+                  }
+                />
               </View>
-              <Switch
-                value={preferences?.in_app_enabled ?? true}
-                onValueChange={toggleInApp}
-                trackColor={{
-                  false: colors.border,
-                  true: `${colors.primary}50`,
-                }}
-                thumbColor={
-                  (preferences?.in_app_enabled ?? true)
-                    ? colors.primary
-                    : colors.textMuted
-                }
+
+              <View
+                style={[styles.divider, { backgroundColor: colors.border }]}
               />
-            </View>
 
-            <View
-              style={[styles.divider, { backgroundColor: colors.border }]}
-            />
-
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={[styles.settingLabel, { color: colors.text }]}>
-                  Push Notifications
-                </Text>
-                <Text
-                  style={[styles.settingDesc, { color: colors.textSecondary }]}
-                >
-                  Show banners on your device lock screen
-                </Text>
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, { color: colors.text }]}>
+                    Push Notifications
+                  </Text>
+                  <Text
+                    style={[
+                      styles.settingDesc,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Show banners on your device lock screen
+                  </Text>
+                </View>
+                <Switch
+                  value={preferences?.banner_enabled ?? true}
+                  onValueChange={toggleBanner}
+                  trackColor={{
+                    false: colors.border,
+                    true: `${colors.primary}50`,
+                  }}
+                  thumbColor={
+                    (preferences?.banner_enabled ?? true)
+                      ? colors.primary
+                      : colors.textMuted
+                  }
+                />
               </View>
-              <Switch
-                value={preferences?.banner_enabled ?? true}
-                onValueChange={toggleBanner}
-                trackColor={{
-                  false: colors.border,
-                  true: `${colors.primary}50`,
-                }}
-                thumbColor={
-                  (preferences?.banner_enabled ?? true)
-                    ? colors.primary
-                    : colors.textMuted
-                }
-              />
             </View>
           </View>
 

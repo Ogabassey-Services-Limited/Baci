@@ -56,6 +56,38 @@ describe('form-sync', () => {
     });
   });
 
+  it('returns an empty state code when there is no registered address', () => {
+    expect(
+      buildMerchantAddressSyncState({
+        merchantId: 'merchant-1',
+        merchantAddress: null,
+        merchantStateCode: '',
+      })
+    ).toEqual({
+      mappedStateCode: '',
+      signature: 'merchant-1||||',
+    });
+  });
+
+  it('keeps an empty state code when the address state does not match', () => {
+    expect(
+      buildMerchantAddressSyncState({
+        merchantId: 'merchant-1',
+        merchantAddress: {
+          street: '12 Allen Avenue',
+          city: 'Lagos',
+          state: 'InvalidState',
+          postal_code: '100001',
+          country: 'Nigeria',
+        },
+        merchantStateCode: '',
+      })
+    ).toEqual({
+      mappedStateCode: '',
+      signature: 'merchant-1|12 Allen Avenue|Lagos|100001|',
+    });
+  });
+
   it('builds the tax signature from merchant fields', () => {
     expect(
       buildTaxSyncSignature({

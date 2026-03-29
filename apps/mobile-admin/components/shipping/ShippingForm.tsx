@@ -7,11 +7,13 @@ import {
   View,
 } from 'react-native';
 import type { ThemeColors, ThemeShadows } from '@/constants/theme';
+import { formatCurrency } from '@/lib/utils';
 import { styles } from './shipping-styles';
 import type { ShippingSettings } from './shipping-types';
 
 interface ShippingFormProps {
   colors: ThemeColors;
+  currency?: string | null;
   shadowStyle: ThemeShadows['sm'];
   settings?: ShippingSettings;
   isEditingThreshold: boolean;
@@ -26,6 +28,7 @@ interface ShippingFormProps {
 
 export function ShippingForm({
   colors,
+  currency,
   shadowStyle,
   settings,
   isEditingThreshold,
@@ -107,7 +110,14 @@ export function ShippingForm({
                 ]}
               >
                 {hasFreeShippingThreshold
-                  ? `Orders above ₦${thresholdValue.toLocaleString()}`
+                  ? `Orders above ${formatCurrency(
+                      thresholdValue,
+                      {
+                        maximumFractionDigits: 0,
+                        minimumFractionDigits: 0,
+                      },
+                      currency ?? 'NGN'
+                    )}`
                   : 'Not configured'}
               </Text>
             )}

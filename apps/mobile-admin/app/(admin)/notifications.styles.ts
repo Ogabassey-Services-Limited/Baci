@@ -37,8 +37,8 @@ export const styles = StyleSheet.create({
   card: {
     borderRadius: RADIUS.lg,
     overflow: 'hidden',
-    marginBottom: SPACING.xl,
   },
+  cardShadow: { marginBottom: SPACING.xl },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',

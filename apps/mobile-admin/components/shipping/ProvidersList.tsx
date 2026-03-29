@@ -2,36 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { Switch, Text, View } from 'react-native';
 import type { ThemeColors, ThemeShadows } from '@/constants/theme';
 import { styles } from './shipping-styles';
-import type { ShippingProvider } from './shipping-types';
-
-const AVAILABLE_PROVIDERS: ShippingProvider[] = [
-  {
-    id: 'gigl',
-    name: 'GIG Logistics',
-    description: 'Nationwide delivery with tracking',
-    icon: 'cube-outline',
-  },
-  {
-    id: 'topship',
-    name: 'Topship',
-    description: 'Fast local and international shipping',
-    icon: 'airplane-outline',
-  },
-  {
-    id: 'shiip',
-    name: 'Shiip',
-    description: 'Same-day and next-day delivery',
-    icon: 'flash-outline',
-  },
-];
+import { AVAILABLE_PROVIDERS, type ProviderId } from './shipping-types';
 
 interface ProvidersListProps {
   colors: ThemeColors;
   shadowStyle: ThemeShadows['sm'];
   enabledCount: number;
   isPending: boolean;
-  isProviderEnabled: (providerId: string) => boolean;
-  onToggleProvider: (providerId: string, enabled: boolean) => void;
+  isProviderEnabled: (providerId: ProviderId) => boolean;
+  onToggleProvider: (providerId: ProviderId, enabled: boolean) => void;
 }
 
 export function ProvidersList({

@@ -1,5 +1,4 @@
 import { NIGERIAN_STATES } from '@baci/shared';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, ScrollView } from 'react-native';
@@ -20,12 +19,11 @@ import { VatCard } from '@/components/tax/VatCard';
 import { VatInfoCard } from '@/components/tax/VatInfoCard';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useTaxMutations } from '@/hooks/useTaxMutations';
 import { useTheme } from '@/hooks/useTheme';
-import { updateMerchantSettings } from '@/lib/merchant-settings';
 export default function TaxScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant, isLoading } = useMerchant();
-  const queryClient = useQueryClient();
   const screenOptions = {
     title: 'Tax Settings',
     headerTintColor: colors.text,
@@ -89,7 +87,6 @@ export default function TaxScreen() {
     ) {
       return;
     }
-    if (lastSyncedAddressSignature.current === nextAddressSignature) return;
 
     lastSyncedAddressSignature.current = nextAddressSignature;
     setStreet(merchantAddress?.street ?? '');
@@ -105,87 +102,17 @@ export default function TaxScreen() {
     stateCode,
     street,
   ]);
-
-  const updateVatMutation = useMutation({
-    mutationFn: async (enabled: boolean) => {
-      await updateMerchantSettings({
-        vat_registration_status: enabled ? 'registered' : 'not_registered',
-      });
-      return enabled;
-    },
-    onMutate: (enabled) => {
-      setVatEnabled(enabled);
-    },
-    onSuccess: (enabled) => {
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      Alert.alert(
-        'Success',
-        enabled
-          ? 'VAT has been enabled. 7.5% VAT will be applied to all orders.'
-          : 'VAT has been disabled.'
-      );
-    },
-    onError: (_error, enabled) => {
-      setVatEnabled(!enabled);
-      Alert.alert('Error', 'Failed to update VAT settings. Please try again.');
-    },
-  });
-  const saveTinMutation = useMutation({
-    mutationFn: async (tin: string) => {
-      if (tin && !/^\d{10}$/.test(tin)) {
-        throw new Error('Nigerian TIN must be exactly 10 digits');
-      }
-
-      await updateMerchantSettings({
-        tax_identification_number: tin || null,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      Alert.alert('Success', 'Tax Identification Number saved.');
-    },
-    onError: (error: Error) => {
-      Alert.alert('Error', error.message);
-    },
-  });
-  const saveLegalEntityMutation = useMutation({
-    mutationFn: async (name: string) => {
-      await updateMerchantSettings({
-        legal_entity_name: name || null,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      Alert.alert('Success', 'Legal entity name saved.');
-    },
-    onError: () => {
-      Alert.alert('Error', 'Failed to save legal entity name.');
-    },
-  });
-  const saveAddressMutation = useMutation({
-    mutationFn: async () => {
-      const selectedState = NIGERIAN_STATES.find(
-        (state) => state.code === stateCode
-      );
-
-      await updateMerchantSettings({
-        registered_address: {
-          street: street || null,
-          city: city || null,
-          state: selectedState?.name || null,
-          postal_code: postalCode || null,
-          country: 'Nigeria',
-        },
-        state_code: stateCode || null,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['merchant'] });
-      Alert.alert('Success', 'Registered business address saved.');
-    },
-    onError: () => {
-      Alert.alert('Error', 'Failed to save address. Please try again.');
-    },
+  const {
+    saveAddressMutation,
+    saveLegalEntityMutation,
+    saveTinMutation,
+    updateVatMutation,
+  } = useTaxMutations({
+    city,
+    postalCode,
+    setVatEnabled,
+    stateCode,
+    street,
   });
   const handleToggleVat = () => {
     const newValue = !vatEnabled;

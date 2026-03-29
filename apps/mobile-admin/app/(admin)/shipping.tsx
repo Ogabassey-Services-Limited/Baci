@@ -20,11 +20,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProvidersList } from '@/components/shipping/ProvidersList';
 import { ShippingForm } from '@/components/shipping/ShippingForm';
 import { styles } from '@/components/shipping/shipping-styles';
-import type { ShippingSettings } from '@/components/shipping/shipping-types';
+import type {
+  ProviderId,
+  ShippingSettings,
+} from '@/components/shipping/shipping-types';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+
+interface ShippingSettingsQueryData {
+  currency: string | null;
+  settings: ShippingSettings;
+}
 
 export default function ShippingScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -51,7 +59,7 @@ export default function ShippingScreen() {
 
   // Fetch shipping settings
   const {
-    data: settings,
+    data: shippingData,
     isLoading,
     isError,
     error,
@@ -61,7 +69,7 @@ export default function ShippingScreen() {
     queryFn: async () => {
       const { data: merchant, error: merchantError } = await supabase
         .from('merchants')
-        .select('id')
+        .select('id, payout_currency')
         .eq('user_id', user?.id)
         .single();
 
@@ -75,10 +83,15 @@ export default function ShippingScreen() {
         .single();
 
       if (error) throw error;
-      return data as ShippingSettings;
+      return {
+        currency: merchant.payout_currency ?? null,
+        settings: data as ShippingSettings,
+      } satisfies ShippingSettingsQueryData;
     },
     enabled: !!user?.id,
   });
+  const settings = shippingData?.settings;
+  const currency = shippingData?.currency ?? 'NGN';
 
   // Toggle provider mutation
   const toggleProviderMutation = useMutation({
@@ -86,7 +99,7 @@ export default function ShippingScreen() {
       providerId,
       enabled,
     }: {
-      providerId: string;
+      providerId: ProviderId;
       enabled: boolean;
     }) => {
       if (!settings?.merchant_id) throw new Error('No settings found');
@@ -140,11 +153,11 @@ export default function ShippingScreen() {
     Linking.openURL('https://usebaci.com/dashboard/settings/shipping');
   };
 
-  const isProviderEnabled = (providerId: string) => {
+  const isProviderEnabled = (providerId: ProviderId) => {
     return settings?.shipping_providers?.includes(providerId) ?? false;
   };
 
-  const handleToggleProvider = (providerId: string, enabled: boolean) => {
+  const handleToggleProvider = (providerId: ProviderId, enabled: boolean) => {
     toggleProviderMutation.mutate({ providerId, enabled });
   };
 
@@ -259,6 +272,7 @@ export default function ShippingScreen() {
           />
           <ShippingForm
             colors={colors}
+            currency={currency}
             shadowStyle={shadows.sm}
             settings={settings}
             isEditingThreshold={isEditingThreshold}
