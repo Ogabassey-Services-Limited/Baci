@@ -51,4 +51,14 @@ describe('storefront social image helpers', () => {
       'https://ogabassey.com/opengraph-image',
     ]);
   });
+
+  it('returns null when every candidate is invalid and the fallback base URL is malformed', () => {
+    expect(
+      getStorefrontSocialImageUrl('not-a-valid-url', 'still-not-a-valid-url')
+    ).toBeNull();
+    expect(getStorefrontOpenGraphImages('not-a-valid-url', 'Alt text')).toEqual(
+      []
+    );
+    expect(getStorefrontTwitterImages('not-a-valid-url')).toEqual([]);
+  });
 });

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getCachedCategoryPageData,
+  getCachedLegacyProductRedirectTarget,
   getCachedProduct,
   getCachedProducts,
   getCachedProductWithDetails,
@@ -222,6 +223,14 @@ describe('cached-data product query projections', () => {
     await expect(
       getCachedProductWithDetails('merchant-123', 'missing-product')
     ).resolves.toBeNull();
+  });
+
+  it('getCachedLegacyProductRedirectTarget throws on query error to avoid caching false misses', async () => {
+    harness.mockMaybeSingle.mockResolvedValueOnce(productQueryError);
+
+    await expect(
+      getCachedLegacyProductRedirectTarget('merchant-123', 'missing-product')
+    ).rejects.toEqual(expect.objectContaining({ message: 'db error' }));
   });
 
   it('getCachedProductWithDetails attaches storefront variants from the public RPC', async () => {

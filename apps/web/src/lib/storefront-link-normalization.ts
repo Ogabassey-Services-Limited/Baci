@@ -281,6 +281,23 @@ function isStorefrontPlatformPath(
   );
 }
 
+function isLikelyMerchantCustomDomain(
+  hostname: string,
+  merchantIdentifier: string
+): boolean {
+  const labels = hostname.split('.');
+
+  if (labels.length === 2) {
+    return labels[0] === merchantIdentifier;
+  }
+
+  return (
+    labels.length === 3 &&
+    labels[0] === 'www' &&
+    labels[1] === merchantIdentifier
+  );
+}
+
 function isInternalStorefrontAbsoluteUrl(
   href: URL,
   options: NormalizeStorefrontContentHrefOptions,
@@ -311,7 +328,7 @@ function isInternalStorefrontAbsoluteUrl(
     return isStorefrontPlatformPath(href.pathname, merchantIdentifier);
   }
 
-  return normalizedHrefHost.split('.')[0] === merchantIdentifier;
+  return isLikelyMerchantCustomDomain(normalizedHrefHost, merchantIdentifier);
 }
 
 export function normalizeStorefrontContentHref(
@@ -319,6 +336,7 @@ export function normalizeStorefrontContentHref(
   options: NormalizeStorefrontContentHrefOptions = {}
 ): string {
   const trimmedHref = rawHref.trim();
+  const normalizedHref = trimmedHref.toLowerCase();
 
   if (
     !trimmedHref ||
@@ -328,6 +346,14 @@ export function normalizeStorefrontContentHref(
     trimmedHref.startsWith('//')
   ) {
     return trimmedHref;
+  }
+
+  if (
+    normalizedHref.startsWith('javascript:') ||
+    normalizedHref.startsWith('data:') ||
+    normalizedHref.startsWith('vbscript:')
+  ) {
+    return '#';
   }
 
   const merchantIdentifier = getMerchantIdentifier(

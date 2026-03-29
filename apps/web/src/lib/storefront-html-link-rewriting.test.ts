@@ -75,4 +75,19 @@ describe('rewriteHtmlStorefrontHrefs', () => {
       })
     ).toBe(html);
   });
+
+  it('escapes normalized href attribute values before reinserting them into HTML', () => {
+    const html =
+      '<p><a href="https://www.ogabassey.com/phones/iphone-15?ref=nav&color=black">iPhone</a></p>';
+
+    expect(
+      rewriteHtmlStorefrontHrefs(html, {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe(
+      '<p><a href="/smartphones/iphone-15?ref=nav&amp;color=black">iPhone</a></p>'
+    );
+  });
 });

@@ -11,10 +11,15 @@ export async function buildProductRedirectPath(
   productPath: string,
   getHeaders: HeadersProvider
 ): Promise<Route> {
+  // Force request-scoped execution when callers pass next/headers.
   await getHeaders();
+  const normalizedProductPath = productPath.startsWith('/')
+    ? productPath
+    : `/${productPath}`;
+
   return (
     process.env.NODE_ENV === 'development'
-      ? `/${storeSlug}${productPath}`
-      : productPath
+      ? `/${storeSlug}${normalizedProductPath}`
+      : normalizedProductPath
   ) as Route;
 }

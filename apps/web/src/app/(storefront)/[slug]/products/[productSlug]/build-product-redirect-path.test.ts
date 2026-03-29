@@ -32,4 +32,14 @@ describe('buildProductRedirectPath', () => {
       )
     ).resolves.toBe('/phones/iphone-15');
   });
+
+  it('normalizes product paths that are missing a leading slash', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+
+    await expect(
+      buildProductRedirectPath('ogabassey', 'phones/iphone-15', () =>
+        makeHeaders({})
+      )
+    ).resolves.toBe('/ogabassey/phones/iphone-15');
+  });
 });

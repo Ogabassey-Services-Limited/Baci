@@ -142,4 +142,22 @@ describe('normalizeStorefrontContentHref', () => {
       })
     ).toBe('https://example.com/phones/iphone');
   });
+
+  it('does not treat non-platform lookalike subdomains as internal storefront links', () => {
+    expect(
+      normalizeStorefrontContentHref('https://ogabassey.example.com/phones/x', {
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('https://ogabassey.example.com/phones/x');
+  });
+
+  it('neutralizes dangerous scripting schemes', () => {
+    expect(normalizeStorefrontContentHref('javascript:alert(1)', {})).toBe('#');
+    expect(
+      normalizeStorefrontContentHref('data:text/html,<script>alert(1)</script>')
+    ).toBe('#');
+    expect(normalizeStorefrontContentHref('vbscript:msgbox("x")')).toBe('#');
+  });
 });
