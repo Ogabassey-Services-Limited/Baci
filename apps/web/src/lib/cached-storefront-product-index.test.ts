@@ -1,16 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockCreateClient = vi.fn();
-
-vi.mock('@/env', () => ({
-  getSupabaseUrl: vi.fn(() => 'https://test.supabase.co'),
-  getSupabaseAnonKey: vi.fn(() => 'test-anon-key'),
-}));
+const mockCreatePublicClient = vi.fn();
 
 vi.mock('next/cache', () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
-
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: (...args: unknown[]) => mockCreateClient(...args),
+vi.mock('@/lib/supabase/public', () => ({
+  createPublicClient: (...args: unknown[]) => mockCreatePublicClient(...args),
 }));
 
 vi.mock('@/lib/normalize-product', () => ({
@@ -65,7 +59,7 @@ describe('getCachedStorefrontProductIndex', () => {
       data: rawProducts,
       count: 25,
     });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
 
     const result = await getCachedStorefrontProductIndex('merchant-1', {
       page: 1,
@@ -82,7 +76,7 @@ describe('getCachedStorefrontProductIndex', () => {
 
   it('calculates correct offset for page > 1', async () => {
     const builder = createQueryBuilder({ data: [], count: 0 });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
 
     await getCachedStorefrontProductIndex('merchant-1', {
       page: 3,
@@ -95,7 +89,7 @@ describe('getCachedStorefrontProductIndex', () => {
 
   it('calculates correct offset for page 1', async () => {
     const builder = createQueryBuilder({ data: [], count: 0 });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
 
     await getCachedStorefrontProductIndex('merchant-1', {
       page: 1,
@@ -112,7 +106,7 @@ describe('getCachedStorefrontProductIndex', () => {
     const builder = createQueryBuilder({
       error: { message: 'Connection refused' },
     });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
 
     const result = await getCachedStorefrontProductIndex('merchant-1', {
       page: 1,
@@ -132,7 +126,7 @@ describe('getCachedStorefrontProductIndex', () => {
 
   it('returns empty products array when data is null', async () => {
     const builder = createQueryBuilder({ data: null, count: 0 });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
 
     const result = await getCachedStorefrontProductIndex('merchant-1', {
       page: 1,
@@ -149,7 +143,7 @@ describe('getCachedStorefrontProductIndex', () => {
       data: [{ id: 'p1', name: 'Phone', price: 100 }],
       count: null,
     });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
 
     const result = await getCachedStorefrontProductIndex('merchant-1', {
       page: 1,
@@ -162,7 +156,7 @@ describe('getCachedStorefrontProductIndex', () => {
 
   it('calculates totalPages correctly with exact division', async () => {
     const builder = createQueryBuilder({ data: [], count: 40 });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
 
     const result = await getCachedStorefrontProductIndex('merchant-1', {
       page: 1,
@@ -174,7 +168,7 @@ describe('getCachedStorefrontProductIndex', () => {
 
   it('calculates totalPages correctly with remainder', async () => {
     const builder = createQueryBuilder({ data: [], count: 41 });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
 
     const result = await getCachedStorefrontProductIndex('merchant-1', {
       page: 1,
@@ -186,7 +180,7 @@ describe('getCachedStorefrontProductIndex', () => {
 
   it('filters by merchant_id and active status', async () => {
     const builder = createQueryBuilder({ data: [], count: 0 });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    mockCreatePublicClient.mockReturnValue({ from: vi.fn(() => builder) });
 
     await getCachedStorefrontProductIndex('merchant-abc', {
       page: 1,
@@ -197,9 +191,10 @@ describe('getCachedStorefrontProductIndex', () => {
     expect(builder.eq).toHaveBeenCalledWith('status', 'active');
   });
 
-  it('throws when Supabase configuration is missing', async () => {
-    const { getSupabaseUrl } = await import('@/env');
-    vi.mocked(getSupabaseUrl).mockReturnValueOnce('');
+  it('throws when public client creation fails', async () => {
+    mockCreatePublicClient.mockImplementationOnce(() => {
+      throw new Error('Supabase configuration is missing');
+    });
 
     await expect(
       getCachedStorefrontProductIndex('merchant-1', { page: 1, limit: 10 })
@@ -211,6 +206,30 @@ describe('getCachedStorefrontProductIndex', () => {
       getCachedStorefrontProductIndex('merchant-1', { page: 1, limit: 0 })
     ).rejects.toThrow(
       'Storefront product index limit must be a positive integer'
+    );
+  });
+
+  it('throws when the requested page is not a positive integer', async () => {
+    await expect(
+      getCachedStorefrontProductIndex('merchant-1', { page: 0, limit: 10 })
+    ).rejects.toThrow(
+      'Storefront product index page must be a positive integer'
+    );
+  });
+
+  it('throws when the requested page is negative', async () => {
+    await expect(
+      getCachedStorefrontProductIndex('merchant-1', { page: -1, limit: 10 })
+    ).rejects.toThrow(
+      'Storefront product index page must be a positive integer'
+    );
+  });
+
+  it('throws when the requested page is not an integer', async () => {
+    await expect(
+      getCachedStorefrontProductIndex('merchant-1', { page: 1.5, limit: 10 })
+    ).rejects.toThrow(
+      'Storefront product index page must be a positive integer'
     );
   });
 });
