@@ -227,7 +227,9 @@ export default function SettingsScreen() {
           onPress={handleLogout}
         >
           <Ionicons name="log-out-outline" size={20} color={colors.error} />
-          <Text style={[styles.logoutText, { color: colors.error }]}>Sign Out</Text>
+          <Text style={[styles.logoutText, { color: colors.error }]}>
+            Sign Out
+          </Text>
         </Pressable>
 
         <Text style={[styles.version, { color: colors.textSecondary }]}>
@@ -239,7 +241,10 @@ export default function SettingsScreen() {
           <Pressable
             style={[
               styles.devButton,
-              { backgroundColor: colors.warningLight || '#FEF3C7', borderColor: colors.warning },
+              {
+                backgroundColor: colors.warningLight,
+                borderColor: colors.warning,
+              },
             ]}
             onPress={async () => {
               await resetOnboarding();
