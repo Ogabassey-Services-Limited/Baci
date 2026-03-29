@@ -33,6 +33,14 @@ export default function NotificationsScreen() {
   const { merchant } = useMerchant();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const screenOptions = {
+    title: 'Notifications',
+    headerLeft: () => (
+      <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Ionicons name="arrow-back" size={24} color={colors.text} />
+      </Pressable>
+    ),
+  };
 
   // Fetch notification preferences
   const {
@@ -103,58 +111,57 @@ export default function NotificationsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <ScreenSkeleton variant="settings" cards={4} />
-      </SafeAreaView>
+      <>
+        <Stack.Screen options={screenOptions} />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+        >
+          <ScreenSkeleton variant="settings" cards={4} />
+        </SafeAreaView>
+      </>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <View style={styles.loadingContainer}>
-          <Ionicons
-            name="alert-circle-outline"
-            size={48}
-            color={colors.notification}
-          />
-          <Text style={[styles.infoTitle, { color: colors.text }]}>
-            Failed to load notifications
-          </Text>
-          <Text style={[styles.infoSubtitle, { color: colors.textSecondary }]}>
-            Please check your connection and try again.
-          </Text>
-          <Pressable
-            style={[styles.retryButton, { backgroundColor: colors.primary }]}
-            onPress={() => {
-              void refetch();
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Retry loading notification preferences"
-          >
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      <>
+        <Stack.Screen options={screenOptions} />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+        >
+          <View style={styles.loadingContainer}>
+            <Ionicons
+              name="alert-circle-outline"
+              size={48}
+              color={colors.notification}
+            />
+            <Text style={[styles.infoTitle, { color: colors.text }]}>
+              Failed to load notifications
+            </Text>
+            <Text
+              style={[styles.infoSubtitle, { color: colors.textSecondary }]}
+            >
+              Please check your connection and try again.
+            </Text>
+            <Pressable
+              style={[styles.retryButton, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                void refetch();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading notification preferences"
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </>
     );
   }
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'Notifications',
-          headerLeft: () => (
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </Pressable>
-          ),
-        }}
-      />
+      <Stack.Screen options={screenOptions} />
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}

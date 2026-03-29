@@ -12,38 +12,22 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PaymentMethodsSection } from '@/components/payment-methods/PaymentMethodsSection';
+import {
+  type PaymentMethodField,
+  type PaymentSettings,
+  paymentMethods,
+} from '@/components/payment-methods/payment-methods';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-
-interface PaymentSettings {
-  id: string;
-  merchant_id: string;
-  paystack_enabled: boolean;
-  korapay_enabled: boolean;
-  credit_direct_enabled: boolean;
-  credpal_enabled: boolean;
-  pay_on_delivery_enabled: boolean;
-  pay_on_delivery_limit?: number | null;
-  juicyway_enabled: boolean;
-}
-
-interface PaymentMethod {
-  id: string;
-  name: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  description: string;
-  dbField: keyof PaymentSettings;
-  category: 'gateway' | 'bnpl' | 'offline';
-}
 
 export default function PaymentMethodsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -83,7 +67,7 @@ export default function PaymentMethodsScreen() {
       field,
       value,
     }: {
-      field: keyof PaymentSettings;
+      field: PaymentMethodField;
       value: boolean;
     }) => {
       if (!settings?.id) throw new Error('No settings found');
@@ -137,62 +121,15 @@ export default function PaymentMethodsScreen() {
     },
   });
 
-  const paymentMethods: PaymentMethod[] = [
-    // Payment Gateways
-    {
-      id: 'paystack',
-      name: 'Paystack',
-      icon: 'card-outline',
-      description: 'Cards, bank transfer, USSD & mobile money',
-      dbField: 'paystack_enabled',
-      category: 'gateway',
-    },
-    {
-      id: 'korapay',
-      name: 'Korapay',
-      icon: 'wallet-outline',
-      description: 'Card payments and bank transfers',
-      dbField: 'korapay_enabled',
-      category: 'gateway',
-    },
-    {
-      id: 'juicyway',
-      name: 'Juicy Way',
-      icon: 'flash-outline',
-      description: 'Crypto/Stablecoin payments',
-      dbField: 'juicyway_enabled',
-      category: 'gateway',
-    },
-    // BNPL Options
-    {
-      id: 'credpal',
-      name: 'CredPal',
-      icon: 'calendar-outline',
-      description: 'Buy now, pay later in installments',
-      dbField: 'credpal_enabled',
-      category: 'bnpl',
-    },
-    {
-      id: 'credit_direct',
-      name: 'Credit Direct',
-      icon: 'time-outline',
-      description: 'Flexible BNPL payment plans',
-      dbField: 'credit_direct_enabled',
-      category: 'bnpl',
-    },
-    // Offline
-    {
-      id: 'pay_on_delivery',
-      name: 'Pay on Delivery',
-      icon: 'cash-outline',
-      description: 'Cash payment when order arrives',
-      dbField: 'pay_on_delivery_enabled',
-      category: 'offline',
-    },
-  ];
-
   const handleManagePayments = () => {
     Linking.openURL('https://usebaci.com/dashboard/settings/payments');
+  };
+
+  const handleTogglePaymentMethod = (
+    field: PaymentMethodField,
+    value: boolean
+  ) => {
+    toggleMutation.mutate({ field, value });
   };
 
   if (isLoading) {
@@ -212,72 +149,6 @@ export default function PaymentMethodsScreen() {
     );
   }
 
-  const renderSection = (
-    title: string,
-    category: 'gateway' | 'bnpl' | 'offline'
-  ) => {
-    const methods = paymentMethods.filter((m) => m.category === category);
-    return (
-      <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          {title}
-        </Text>
-        {methods.map((method, index) => {
-          const isEnabled = (settings?.[method.dbField] as boolean) ?? false;
-          return (
-            <View key={method.id}>
-              {index > 0 && (
-                <View
-                  style={[styles.divider, { backgroundColor: colors.border }]}
-                />
-              )}
-              <View style={styles.methodRow}>
-                <View
-                  style={[
-                    styles.methodIcon,
-                    {
-                      backgroundColor: isEnabled
-                        ? colors.successLight || '#E8F5E9'
-                        : colors.cardHover,
-                    },
-                  ]}
-                >
-                  <Ionicons
-                    name={method.icon}
-                    size={24}
-                    color={isEnabled ? colors.success : colors.textMuted}
-                  />
-                </View>
-                <View style={styles.methodInfo}>
-                  <Text style={[styles.methodName, { color: colors.text }]}>
-                    {method.name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.methodDescription,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {method.description}
-                  </Text>
-                </View>
-                <Switch
-                  value={isEnabled}
-                  onValueChange={(value) =>
-                    toggleMutation.mutate({ field: method.dbField, value })
-                  }
-                  trackColor={{ false: colors.border, true: colors.primary }}
-                  thumbColor="#FFFFFF"
-                  disabled={toggleMutation.isPending}
-                />
-              </View>
-            </View>
-          );
-        })}
-      </View>
-    );
-  };
-
   return (
     <>
       <Stack.Screen
@@ -296,9 +167,36 @@ export default function PaymentMethodsScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
         >
-          {renderSection('Payment Gateways', 'gateway')}
-          {renderSection('Buy Now, Pay Later', 'bnpl')}
-          {renderSection('Offline Payments', 'offline')}
+          <PaymentMethodsSection
+            title="Payment Gateways"
+            category="gateway"
+            methods={paymentMethods}
+            settings={settings}
+            colors={colors}
+            shadowStyle={shadows.sm}
+            isPending={toggleMutation.isPending}
+            onToggle={handleTogglePaymentMethod}
+          />
+          <PaymentMethodsSection
+            title="Buy Now, Pay Later"
+            category="bnpl"
+            methods={paymentMethods}
+            settings={settings}
+            colors={colors}
+            shadowStyle={shadows.sm}
+            isPending={toggleMutation.isPending}
+            onToggle={handleTogglePaymentMethod}
+          />
+          <PaymentMethodsSection
+            title="Offline Payments"
+            category="offline"
+            methods={paymentMethods}
+            settings={settings}
+            colors={colors}
+            shadowStyle={shadows.sm}
+            isPending={toggleMutation.isPending}
+            onToggle={handleTogglePaymentMethod}
+          />
 
           {/* Info Notice */}
           <View
@@ -335,38 +233,8 @@ export default function PaymentMethodsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  backButton: { padding: SPACING.sm, marginLeft: -SPACING.sm },
   scrollView: { flex: 1 },
   scrollContent: { padding: SPACING.lg, paddingBottom: SPACING['3xl'] },
-  card: {
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginBottom: SPACING.md,
-  },
-  divider: { height: 1, marginVertical: SPACING.md },
-  methodRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  methodIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  methodInfo: { flex: 1 },
-  methodName: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  methodDescription: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginTop: 2,
-  },
   notice: {
     flexDirection: 'row',
     alignItems: 'flex-start',

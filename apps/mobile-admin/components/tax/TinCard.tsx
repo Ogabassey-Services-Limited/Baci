@@ -26,6 +26,10 @@ export function TinCard({
   onChangeText,
   onSave,
 }: TinCardProps) {
+  const handleChangeText = (value: string) => {
+    onChangeText(value.replace(/\D/g, '').slice(0, 10));
+  };
+
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, shadowStyle]}>
       <View style={styles.cardHeader}>
@@ -62,7 +66,7 @@ export function TinCard({
         placeholder="1234567890"
         placeholderTextColor={colors.textMuted}
         value={taxId}
-        onChangeText={onChangeText}
+        onChangeText={handleChangeText}
         keyboardType="number-pad"
         maxLength={10}
       />

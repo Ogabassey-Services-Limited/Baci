@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { getShadows, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 export const styles = StyleSheet.create({
   container: {
@@ -90,16 +90,13 @@ export const styles = StyleSheet.create({
     padding: 2,
     justifyContent: 'center',
   },
+  // Intentionally empty: composed conditionally in VatCard for the active track.
   toggleActive: {},
   toggleThumb: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    ...getShadows(false).sm,
   },
   toggleThumbActive: {
     alignSelf: 'flex-end',

@@ -21,6 +21,12 @@ export default function TaxScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant, isLoading } = useMerchant();
   const queryClient = useQueryClient();
+  const screenOptions = {
+    title: 'Tax Settings',
+    headerTintColor: colors.text,
+    headerStyle: { backgroundColor: colors.background },
+    headerShadowVisible: false,
+  };
   const [vatEnabled, setVatEnabled] = useState(
     merchant?.vat_registration_status === 'registered'
   );
@@ -174,6 +180,9 @@ export default function TaxScreen() {
       ]
     );
   };
+  const handleTaxIdChange = (text: string) => {
+    setTaxId(text.replace(/\D/g, '').slice(0, 10));
+  };
   const selectedStateName =
     NIGERIAN_STATES.find((state) => state.code === stateCode)?.name ?? '';
   useEffect(() => {
@@ -201,24 +210,20 @@ export default function TaxScreen() {
   ]);
   if (isLoading) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <ScreenSkeleton variant="settings" cards={4} />
-      </SafeAreaView>
+      <>
+        <Stack.Screen options={screenOptions} />
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: colors.background }]}
+        >
+          <ScreenSkeleton variant="settings" cards={4} />
+        </SafeAreaView>
+      </>
     );
   }
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'Tax Settings',
-          headerTintColor: colors.text,
-          headerStyle: { backgroundColor: colors.background },
-          headerShadowVisible: false,
-        }}
-      />
+      <Stack.Screen options={screenOptions} />
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
         edges={['bottom']}
@@ -236,15 +241,18 @@ export default function TaxScreen() {
             isPending={updateVatMutation.isPending}
             onToggle={handleToggleVat}
           />
-          <VatInfoCard colors={colors} shadowStyle={shadows.sm} />
+          <VatInfoCard
+            colors={colors}
+            shadowStyle={shadows.sm}
+            vatRate={merchant?.vat_rate}
+            country={merchant?.country}
+          />
           <TinCard
             colors={colors}
             shadowStyle={shadows.sm}
             taxId={taxId}
             isPending={saveTinMutation.isPending}
-            onChangeText={(text) =>
-              setTaxId(text.replace(/\D/g, '').slice(0, 10))
-            }
+            onChangeText={handleTaxIdChange}
             onSave={() => saveTinMutation.mutate(taxId)}
           />
           <LegalEntityCard

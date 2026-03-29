@@ -63,11 +63,17 @@ export function LegalEntityCard({
         placeholderTextColor={colors.textMuted}
         value={legalEntityName}
         onChangeText={onChangeText}
+        accessibilityLabel="Legal entity name"
+        accessibilityHint="Enter the registered company name on CAC documents"
       />
       <Pressable
         style={[styles.saveButton, { backgroundColor: colors.primary }]}
         onPress={onSave}
         disabled={isPending}
+        accessibilityRole="button"
+        accessibilityLabel="Save legal entity"
+        accessibilityHint="Saves the legal entity name"
+        accessibilityState={{ disabled: isPending }}
       >
         {isPending ? (
           <ActivityIndicator size="small" color="#FFF" />
