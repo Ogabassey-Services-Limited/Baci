@@ -132,5 +132,6 @@ export function useFailedOrders() {
     },
     enabled: !!merchantId,
     staleTime: 1000 * 60 * 2, // 2 minutes
+    refetchOnWindowFocus: false,
   });
 }

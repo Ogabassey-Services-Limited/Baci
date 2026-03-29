@@ -21,14 +21,7 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-
-// Format currency helper
-const formatCurrency = (amount: number, currency = 'NGN') => {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: currency,
-  }).format(amount);
-};
+import { formatCurrency } from '@/lib/utils';
 
 interface Expense {
   id: string;
@@ -105,7 +98,11 @@ export default function ExpensesScreen() {
 
       <View style={styles.expenseAmount}>
         <Text style={[styles.amountText, { color: colors.text }]}>
-          {formatCurrency(item.amount, merchant?.payout_currency || 'NGN')}
+          {formatCurrency(
+            item.amount,
+            undefined,
+            merchant?.payout_currency || 'NGN'
+          )}
         </Text>
         {item.receipt_url ? (
           <Ionicons
@@ -159,7 +156,11 @@ export default function ExpensesScreen() {
           >
             <Text style={styles.summaryLabel}>Total this Month</Text>
             <Text style={styles.summaryAmount}>
-              {formatCurrency(monthlyTotal, merchant?.payout_currency || 'NGN')}
+              {formatCurrency(
+                monthlyTotal,
+                undefined,
+                merchant?.payout_currency || 'NGN'
+              )}
             </Text>
             <View style={styles.summaryTrend}>
               <Ionicons name="trending-up" size={16} color="#ffffffcc" />
