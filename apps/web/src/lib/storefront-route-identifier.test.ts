@@ -48,4 +48,22 @@ describe('resolveRouteIdentifier', () => {
       resolveRouteIdentifier(createHeaders([['host', 'www.usebaci.com']]))
     ).toBe('');
   });
+
+  it('returns an empty string for localhost development hosts', () => {
+    expect(resolveRouteIdentifier(createHeaders([['host', 'localhost']]))).toBe(
+      ''
+    );
+    expect(
+      resolveRouteIdentifier(createHeaders([['host', 'localhost:3000']]))
+    ).toBe('');
+  });
+
+  it('returns an empty string for loopback development hosts', () => {
+    expect(resolveRouteIdentifier(createHeaders([['host', '127.0.0.1']]))).toBe(
+      ''
+    );
+    expect(
+      resolveRouteIdentifier(createHeaders([['host', '127.0.0.1:3000']]))
+    ).toBe('');
+  });
 });

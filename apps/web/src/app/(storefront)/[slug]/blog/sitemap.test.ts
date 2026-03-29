@@ -17,12 +17,30 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
 }));
 
-const mockEq: ReturnType<typeof vi.fn<(...args: unknown[]) => unknown>> = vi.fn(
-  () => ({
+interface BlogPostRow {
+  slug: string;
+  published_at: string;
+  updated_at: string;
+  featured_image_url: string | null;
+}
+
+interface BlogPostsResponse {
+  data: BlogPostRow[] | null;
+  error: Error | null;
+}
+
+interface EqChain {
+  eq: (key: string, value: string) => EqChain | BlogPostsResponse;
+}
+
+const mockEq =
+  vi.fn<(key: string, value: string) => EqChain | BlogPostsResponse>();
+mockEq.mockImplementation(
+  (): EqChain => ({
     eq: mockEq,
   })
 );
-const mockSelect = vi.fn(() => ({ eq: mockEq }));
+const mockSelect = vi.fn((): EqChain => ({ eq: mockEq }));
 const mockFrom = vi.fn(() => ({ select: mockSelect }));
 
 vi.mock('@/lib/supabase/anon', () => ({
@@ -33,6 +51,7 @@ vi.mock('@/lib/supabase/anon', () => ({
 
 describe('blog sitemap', () => {
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
     mockHeaders = new Map();
     mockGetMerchantByIdentifier.mockResolvedValue({
@@ -129,6 +148,8 @@ describe('blog sitemap', () => {
 
     const { default: sitemap } = await import('./sitemap');
 
-    await expect(sitemap()).rejects.toThrow('db');
+    await expect(sitemap()).rejects.toThrow(
+      'Failed to fetch blog posts for sitemap'
+    );
   });
 });
