@@ -169,9 +169,11 @@ describe('Middleware Proxy', () => {
       req.headers.set('host', ROOT_DOMAIN);
 
       const res = await proxy(req);
+      const location = res.headers.get('location');
 
       expect(res.status).toBe(308);
-      expect(new URL(res.headers.get('location')!).pathname).toBe(
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe(
         '/api/paystack/virtual-terminal/ABC123'
       );
     });
@@ -181,11 +183,11 @@ describe('Middleware Proxy', () => {
       req.headers.set('host', ROOT_DOMAIN);
 
       const res = await proxy(req);
+      const location = res.headers.get('location');
 
       expect(res.status).toBe(308);
-      expect(new URL(res.headers.get('location')!).pathname).toBe(
-        '/track/AbC123xYz'
-      );
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe('/track/AbC123xYz');
     });
 
     it('lowercases /_NEXT prefix but preserves build ID case', async () => {
@@ -195,9 +197,11 @@ describe('Middleware Proxy', () => {
       req.headers.set('host', ROOT_DOMAIN);
 
       const res = await proxy(req);
+      const location = res.headers.get('location');
 
       expect(res.status).toBe(308);
-      expect(new URL(res.headers.get('location')!).pathname).toBe(
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe(
         '/_next/data/BuildId/page.json'
       );
     });
@@ -219,9 +223,11 @@ describe('Middleware Proxy', () => {
       req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
 
       const res = await proxy(req);
+      const location = res.headers.get('location');
 
       expect(res.status).toBe(308);
-      expect(new URL(res.headers.get('location')!).pathname).toBe('/phones');
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe('/phones');
     });
 
     it('redirects uppercase /CHECKOUT/SUCCESS to lowercase', async () => {
@@ -231,11 +237,11 @@ describe('Middleware Proxy', () => {
       req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
 
       const res = await proxy(req);
+      const location = res.headers.get('location');
 
       expect(res.status).toBe(308);
-      expect(new URL(res.headers.get('location')!).pathname).toBe(
-        '/checkout/success'
-      );
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe('/checkout/success');
     });
 
     it('does not redirect already-lowercase storefront paths', async () => {
@@ -278,6 +284,18 @@ describe('Middleware Proxy', () => {
 
       // Static files should not trigger a lowercase redirect
       expect(res.status).not.toBe(308);
+    });
+
+    it('does not redirect when only percent-encoded octets differ in case', async () => {
+      const req = new NextRequest(
+        `https://ogabassey.${ROOT_DOMAIN}/laptop/14%E2%80%9D-hp-omnibook-x-copilot%2B-pc-`
+      );
+      req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(308);
+      expect(res.headers.get('location')).toBeNull();
     });
   });
 

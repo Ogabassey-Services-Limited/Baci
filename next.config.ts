@@ -6,6 +6,9 @@ const withBundleAnalyzer = bundleAnalyzer({
   openAnalyzer: false,
 });
 
+const HTML_LIMITED_BOTS =
+  /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|AhrefsBot|AhrefsSiteAudit/i;
+
 const nextConfig: NextConfig = {
   // Enable React Compiler for automatic memoization (Next.js 16 stable)
   // Reduces unnecessary re-renders without manual useMemo/useCallback
@@ -149,6 +152,10 @@ const nextConfig: NextConfig = {
 
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
+
+  // Ahrefs Site Audit expects metadata inside the initial <head>; include the
+  // default Next.js HTML-limited bots plus Ahrefs' crawlers.
+  htmlLimitedBots: HTML_LIMITED_BOTS,
 
   // Security headers
   headers() {

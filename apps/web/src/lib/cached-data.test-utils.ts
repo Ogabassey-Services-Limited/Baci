@@ -8,8 +8,10 @@ interface MockListResult {
 
 interface MockQueryBuilder {
   eq: ReturnType<typeof vi.fn>;
+  in: ReturnType<typeof vi.fn>;
   limit: ReturnType<typeof vi.fn>;
   maybeSingle: ReturnType<typeof vi.fn>;
+  neq: ReturnType<typeof vi.fn>;
   or: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
   range: ReturnType<typeof vi.fn>;
@@ -19,9 +21,11 @@ interface MockQueryBuilder {
 export interface CachedDataTestHarness {
   mockEq: ReturnType<typeof vi.fn>;
   mockFrom: ReturnType<typeof vi.fn>;
+  mockIn: ReturnType<typeof vi.fn>;
   mockLimit: ReturnType<typeof vi.fn>;
   mockListResult: MockListResult;
   mockMaybeSingle: ReturnType<typeof vi.fn>;
+  mockNeq: ReturnType<typeof vi.fn>;
   mockOr: ReturnType<typeof vi.fn>;
   mockOrder: ReturnType<typeof vi.fn>;
   mockQueryExecution: ReturnType<typeof vi.fn>;
@@ -70,35 +74,28 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
 
   const mockMaybeSingle = vi.fn();
   const mockListResult: MockListResult = { data: [], error: null };
+  const mockIn = vi.fn();
   const mockLimit = vi.fn();
   const mockOr = vi.fn();
   const mockOrder = vi.fn();
-  const mockQueryExecution = vi.fn(() => Promise.resolve(mockListResult));
+  const mockNeq = vi.fn();
+  const mockQueryExecution = vi.fn(() => mockListResult);
   const mockRange = vi.fn();
   const mockRpc = vi.fn().mockResolvedValue({ data: [], error: null });
   const mockSingle = vi.fn();
-  const mockQueryBuilderBase = Promise.resolve(mockListResult) as Promise<{
-    data: unknown;
-    error: unknown;
-  }> &
-    MockQueryBuilder;
-  const mockQueryBuilder = new Proxy(mockQueryBuilderBase, {
-    get(target, prop, receiver) {
-      if (prop === 'then') {
-        const then = Reflect.get(
-          target,
-          prop,
-          receiver
-        ) as Promise<MockListResult>['then'];
-        return (...args: Parameters<Promise<MockListResult>['then']>) => {
-          mockQueryExecution();
-          return then.apply(target, args);
-        };
-      }
+  const mockQueryBuilder = new Proxy(
+    {},
+    {
+      get(target, prop, receiver) {
+        if (prop === 'then') {
+          return (...args: Parameters<Promise<MockListResult>['then']>) =>
+            Promise.resolve(mockQueryExecution()).then(...args);
+        }
 
-      return Reflect.get(target, prop, receiver);
-    },
-  }) as Promise<{
+        return Reflect.get(target, prop, receiver);
+      },
+    }
+  ) as Promise<{
     data: unknown;
     error: unknown;
   }> &
@@ -106,7 +103,9 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
 
   const mockEq = vi.fn(() => mockQueryBuilder);
   mockOr.mockImplementation(() => mockQueryBuilder);
+  mockIn.mockImplementation(() => mockQueryBuilder);
   mockOrder.mockImplementation(() => mockQueryBuilder);
+  mockNeq.mockImplementation(() => mockQueryBuilder);
   mockLimit.mockImplementation(() => mockQueryBuilder);
   mockRange.mockImplementation(() => mockQueryBuilder);
 
@@ -114,8 +113,10 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
     maybeSingle: mockMaybeSingle,
     single: mockSingle,
     eq: mockEq,
+    in: mockIn,
     or: mockOr,
     order: mockOrder,
+    neq: mockNeq,
     limit: mockLimit,
     range: mockRange,
   });
@@ -132,9 +133,11 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
   return {
     mockEq,
     mockFrom,
+    mockIn,
     mockLimit,
     mockListResult,
     mockMaybeSingle,
+    mockNeq,
     mockOr,
     mockOrder,
     mockQueryExecution,
