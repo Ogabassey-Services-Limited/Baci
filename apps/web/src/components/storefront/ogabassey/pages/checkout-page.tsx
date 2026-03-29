@@ -831,13 +831,6 @@ export const CheckoutPage: React.FC = () => {
     return `${start.toLocaleDateString('en-GB', options)} to ${end.toLocaleDateString('en-GB', options)}`;
   };
 
-  // DEBUG: Delivery Calculation
-  // console.log('DEBUG_DELIVERY', { deliveryMethod, selectedQuoteId, shippingQuotesCount: shippingQuotes.length });
-  // if (selectedQuoteId && shippingQuotes.length > 0) {
-  //    const quote = shippingQuotes.find(q => q.id === selectedQuoteId);
-  //    console.log('DEBUG_QUOTE_FOUND', quote);
-  // }
-
   const deliveryCost =
     deliveryMethod === 'pickup'
       ? 0

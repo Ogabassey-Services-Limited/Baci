@@ -3,8 +3,7 @@
 import { PageConfigSchema } from '@/schemas/page-blocks';
 
 interface MobilePreviewProps {
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic config object
-  config: any;
+  config: unknown;
 }
 
 export function MobilePreview({ config }: MobilePreviewProps) {
@@ -39,8 +38,7 @@ export function MobilePreview({ config }: MobilePreviewProps) {
             </div>
           </div>
 
-          {/* biome-ignore lint/suspicious/noExplicitAny: Dynamic content blocks */}
-          {content.map((block: any) => (
+          {content.map((block) => (
             <div key={block.props.id} className="border-b border-gray-100 p-2">
               <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">
                 {block.type}

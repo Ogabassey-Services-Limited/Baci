@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   Star,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -103,13 +104,16 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           </div>
         )}
 
-        <img
-          src={currentImage}
-          alt={product.name}
-          loading="lazy"
-          onLoad={() => setIsImageLoaded(true)}
-          className={`w-2/3 h-2/3 object-contain mix-blend-multiply transition-all duration-500 z-10 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
-        />
+        <div className="relative w-2/3 h-2/3 m-auto z-10">
+          <Image
+            src={currentImage}
+            alt={product.name}
+            fill
+            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+            onLoad={() => setIsImageLoaded(true)}
+            className={`object-contain mix-blend-multiply transition-all duration-500 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
+          />
+        </div>
 
         {/* Condition Badge - Top Left */}
         {product.condition && (
