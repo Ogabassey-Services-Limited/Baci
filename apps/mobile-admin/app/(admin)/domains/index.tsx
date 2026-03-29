@@ -71,6 +71,7 @@ export default function DomainsDashboard() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant, primaryDomain: merchantPrimaryDomain } = useMerchant();
   const router = useRouter();
+  const merchantId = merchant?.id;
   const fallbackDomains = merchantPrimaryDomain
     ? [
         normalizeDomain({
@@ -90,14 +91,14 @@ export default function DomainsDashboard() {
     refetch,
     isRefetching: refreshing,
   } = useQuery({
-    queryKey: ['merchant-domains', merchant?.id],
-    // biome-ignore lint/style/noNonNullAssertion: guarded by enabled
-    queryFn: () => fetchMerchantDomains(merchant!.id),
-    enabled: !!merchant?.id,
-    placeholderData: fallbackDomains,
+    queryKey: ['merchant-domains', merchantId],
+    queryFn: () => fetchMerchantDomains(merchantId as string),
+    enabled: !!merchantId,
+    ...(fallbackDomains.length > 0 && { placeholderData: fallbackDomains }),
   });
 
   const onRefresh = () => {
+    if (!merchantId) return;
     void refetch();
   };
 
