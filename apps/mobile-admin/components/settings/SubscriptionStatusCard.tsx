@@ -28,16 +28,29 @@ const POSSIBLE_PRO_KEYS = [
   'default',
 ];
 
-function getProEntitlement(customerInfo: CustomerInfo | null) {
+function getLatestProEntitlement(customerInfo: CustomerInfo | null) {
   if (!customerInfo) return null;
 
-  const entitlementKey = Object.keys(customerInfo.entitlements.active).find(
-    (key) => POSSIBLE_PRO_KEYS.includes(key.toLowerCase())
-  );
+  const proEntitlements = Object.entries(customerInfo.entitlements.active)
+    .filter(([key]) => POSSIBLE_PRO_KEYS.includes(key.toLowerCase()))
+    .map(([, entitlement]) => entitlement);
 
-  return entitlementKey
-    ? customerInfo.entitlements.active[entitlementKey]
-    : null;
+  if (proEntitlements.length === 0) {
+    return null;
+  }
+
+  return proEntitlements.reduce((latestEntitlement, currentEntitlement) => {
+    const latestExpiry = latestEntitlement.expirationDate
+      ? new Date(latestEntitlement.expirationDate).getTime()
+      : Number.NEGATIVE_INFINITY;
+    const currentExpiry = currentEntitlement.expirationDate
+      ? new Date(currentEntitlement.expirationDate).getTime()
+      : Number.NEGATIVE_INFINITY;
+
+    return currentExpiry > latestExpiry
+      ? currentEntitlement
+      : latestEntitlement;
+  });
 }
 
 export function SubscriptionStatusCard({
@@ -47,7 +60,7 @@ export function SubscriptionStatusCard({
   shadows,
   onPress,
 }: SubscriptionStatusCardProps) {
-  const activeEntitlement = getProEntitlement(customerInfo);
+  const activeEntitlement = getLatestProEntitlement(customerInfo);
 
   const expiryDate = activeEntitlement?.expirationDate
     ? new Date(activeEntitlement.expirationDate).toLocaleDateString(undefined, {

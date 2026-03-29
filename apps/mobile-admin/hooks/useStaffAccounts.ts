@@ -35,7 +35,12 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: merchant } = useQuery({
+  const {
+    data: merchant,
+    isLoading: merchantLoading,
+    isError: merchantError,
+    refetch: refetchMerchant,
+  } = useQuery({
     queryKey: ['merchant', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('User not authenticated');
@@ -58,6 +63,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
     data: accounts,
     isLoading: accountsLoading,
     isError: accountsError,
+    refetch: refetchAccounts,
   } = useQuery({
     queryKey: ['staff-accounts', merchant?.id],
     queryFn: async () => {
@@ -81,6 +87,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
     data: branches,
     isLoading: branchesLoading,
     isError: branchesError,
+    refetch: refetchBranches,
   } = useQuery({
     queryKey: ['branches', merchant?.id],
     queryFn: async () => {
@@ -117,9 +124,15 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
         throw new Error(validation.error.issues[0].message);
       }
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const sessionResponse = await supabase.auth.getSession();
+
+      if (sessionResponse.error) {
+        throw new Error(
+          `Failed to read current session: ${sessionResponse.error.message}`
+        );
+      }
+
+      const session = sessionResponse.data.session;
 
       if (!session?.access_token) {
         throw new Error('Authentication required to create a staff account');
@@ -210,15 +223,16 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
   };
 
   const retryAll = () => {
-    queryClient.invalidateQueries({ queryKey: ['staff-accounts'] });
-    queryClient.invalidateQueries({ queryKey: ['branches'] });
+    void refetchMerchant();
+    void refetchAccounts();
+    void refetchBranches();
   };
 
   return {
     accounts,
     branches,
-    isLoading: accountsLoading || branchesLoading,
-    hasError: accountsError || branchesError,
+    isLoading: merchantLoading || accountsLoading || branchesLoading,
+    hasError: merchantError || accountsError || branchesError,
     createAccountMutation,
     createBranchMutation,
     copyToClipboard,
