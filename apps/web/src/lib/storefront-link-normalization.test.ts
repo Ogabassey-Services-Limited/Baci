@@ -110,7 +110,7 @@ describe('normalizeStorefrontContentHref', () => {
     ).toBe('/ogabassey/smartphones/iphone-13-pro-6gb-128gb');
   });
 
-  it('normalizes root-relative links, drops query strings, and preserves hashes', () => {
+  it('normalizes root-relative links, drops tracking query strings, and preserves hashes', () => {
     expect(
       normalizeStorefrontContentHref(
         '/phones/iPhone-13-Pro-6GB-256GB?utm_source=newsletter#specs',
@@ -143,6 +143,18 @@ describe('normalizeStorefrontContentHref', () => {
     ).toBe('https://example.com/phones/iphone');
   });
 
+  it('preserves nested product-category paths after normalizing the category slug', () => {
+    expect(
+      normalizeStorefrontContentHref(
+        'https://www.ogabassey.com/product-category/phones/iphone-15-pro-max',
+        {
+          basePath: '',
+          baseUrl: 'https://ogabassey.com',
+          merchantSlug: 'ogabassey',
+        }
+      )
+    ).toBe('/smartphones/iphone-15-pro-max');
+  });
   it('does not treat non-platform lookalike subdomains as internal storefront links', () => {
     expect(
       normalizeStorefrontContentHref('https://ogabassey.example.com/phones/x', {
@@ -151,6 +163,15 @@ describe('normalizeStorefrontContentHref', () => {
         merchantSlug: 'ogabassey',
       })
     ).toBe('https://ogabassey.example.com/phones/x');
+  });
+
+  it('does not collapse a leading custom-domain path segment without a merchant slug', () => {
+    expect(
+      normalizeStorefrontContentHref('/shop/phones/iphone-15', {
+        basePath: '',
+        baseUrl: 'https://shop.example.com',
+      })
+    ).toBe('/shop/phones/iphone-15');
   });
 
   it('neutralizes dangerous scripting schemes', () => {

@@ -95,7 +95,7 @@ function getMerchantIdentifier(
       return host.slice(0, -(PLATFORM_HOST.length + 1)) || null;
     }
 
-    return host.split('.')[0] || null;
+    return null;
   } catch {
     return null;
   }
@@ -169,9 +169,16 @@ function normalizeInternalStorefrontPath(
       .slice('/product-category/'.length)
       .replace(/^\/+|\/+$/g, '');
 
-    return categorySlug
-      ? `/${normalizeCategorySlug(categorySlug)}`
-      : '/products';
+    if (!categorySlug) {
+      return '/products';
+    }
+
+    const [normalizedCategorySlug, ...rest] = categorySlug
+      .split('/')
+      .filter(Boolean);
+    const categoryPath = `/${normalizeCategorySlug(normalizedCategorySlug)}`;
+
+    return rest.length ? `${categoryPath}/${rest.join('/')}` : categoryPath;
   }
 
   if (

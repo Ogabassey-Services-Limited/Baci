@@ -13,9 +13,7 @@ vi.mock('next/image', () => ({
     fill: _fill,
     ...props
   }: React.ImgHTMLAttributes<HTMLImageElement> & { fill?: boolean }) => (
-    // biome-ignore lint/performance/noImgElement: next/image test double
-    // biome-ignore lint/a11y/useAltText: test double
-    <img {...props} />
+    <img {...props} alt={props.alt ?? ''} />
   ),
 }));
 
@@ -76,6 +74,7 @@ const merchant = {
 };
 
 const productIndex = {
+  hasError: false,
   products: [
     {
       id: 'product-1',
@@ -173,6 +172,7 @@ describe('products index page', () => {
     expect(
       screen.queryByRole('link', { name: 'Previous' })
     ).not.toBeInTheDocument();
+    expect(screen.getByText('Store description')).toBeInTheDocument();
   });
 
   it('calls notFound when the merchant is missing', async () => {
@@ -186,6 +186,24 @@ describe('products index page', () => {
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
     expect(notFound).toHaveBeenCalled();
+  });
+
+  it('does not return notFound for paginated product pages when the index fetch fails', async () => {
+    vi.mocked(getCachedStorefrontProductIndex).mockResolvedValueOnce({
+      hasError: true,
+      products: [],
+      totalCount: 0,
+      totalPages: 0,
+    });
+
+    await expect(
+      ProductsPage({
+        params: Promise.resolve({ slug: 'test-store' }),
+        searchParams: Promise.resolve({ page: '2' }),
+      })
+    ).resolves.toBeDefined();
+
+    expect(notFound).not.toHaveBeenCalled();
   });
 
   it('uses a self-referencing canonical on paginated product index pages', async () => {

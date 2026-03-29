@@ -67,8 +67,8 @@ describe('getCachedStorefrontProductIndex', () => {
     });
 
     expect(result.products).toHaveLength(2);
-    expect(result.products[0]).toHaveProperty('normalized', true);
     expect(result.hasError).toBe(false);
+    expect(result.products[0]).toHaveProperty('normalized', true);
     expect(result.errorMessage).toBeNull();
     expect(result.totalCount).toBe(25);
     expect(result.totalPages).toBe(3); // ceil(25/10)
@@ -134,6 +134,7 @@ describe('getCachedStorefrontProductIndex', () => {
     });
 
     expect(result.products).toEqual([]);
+    expect(result.hasError).toBe(false);
     expect(result.totalCount).toBe(0);
     expect(result.totalPages).toBe(0);
   });
@@ -216,7 +217,6 @@ describe('getCachedStorefrontProductIndex', () => {
       'Storefront product index page must be a positive integer'
     );
   });
-
   it('throws when the requested page is negative', async () => {
     await expect(
       getCachedStorefrontProductIndex('merchant-1', { page: -1, limit: 10 })

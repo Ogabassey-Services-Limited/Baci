@@ -5,7 +5,6 @@ export function buildProductRedirectPath(
   productPath: string
 ): Route {
   const normalizedProductPath = `/${productPath.replace(/^\/+/, '')}`;
-
   return (
     process.env.NODE_ENV === 'development'
       ? `/${storeSlug}${normalizedProductPath}`

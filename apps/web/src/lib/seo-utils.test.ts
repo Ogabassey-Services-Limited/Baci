@@ -369,6 +369,19 @@ describe('generateCollectionPageSchema', () => {
     expect(offers.url).toBe('https://ogabassey.com/smartphones/iphone-16');
   });
 
+  it('omits the page url when the collection URL cannot be normalized', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'not-a-valid-url',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [],
+    });
+
+    expect(schema.url).toBeUndefined();
+  });
+
   it('preserves query parameters in JSON-LD URL fields without HTML escaping', () => {
     const schema = generateCollectionPageSchema({
       name: 'Smartphones',

@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/link', () => ({
@@ -206,5 +206,18 @@ describe('StorefrontPagination', () => {
     for (let i = 1; i <= 7; i++) {
       expect(screen.getByText(String(i))).toBeDefined();
     }
+  });
+
+  it('clamps invalid current pages to the first page', () => {
+    render(
+      <StorefrontPagination
+        basePath="/store/products"
+        currentPage={0}
+        totalPages={5}
+      />
+    );
+
+    expect(screen.getByText('1').getAttribute('aria-current')).toBe('page');
+    expect(screen.queryByText('Previous')).toBeNull();
   });
 });

@@ -52,7 +52,7 @@ describe('storefront social image helpers', () => {
     ]);
   });
 
-  it('returns null when every candidate is invalid and the fallback base URL is malformed', () => {
+  it('returns null when every candidate is invalid and the base URL cannot build the fallback image', () => {
     expect(
       getStorefrontSocialImageUrl('not-a-valid-url', 'still-not-a-valid-url')
     ).toBeNull();

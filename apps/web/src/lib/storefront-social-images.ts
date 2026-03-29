@@ -10,6 +10,14 @@ function toAbsoluteImageUrl(baseUrl: string, imageUrl?: string | null) {
   }
 }
 
+function getDefaultStorefrontSocialImageUrl(baseUrl: string) {
+  try {
+    return new URL('/opengraph-image', baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
 export function getStorefrontSocialImageUrl(
   baseUrl: string,
   ...candidates: Array<string | null | undefined>
@@ -21,11 +29,7 @@ export function getStorefrontSocialImageUrl(
     }
   }
 
-  try {
-    return new URL('/opengraph-image', baseUrl).toString();
-  } catch {
-    return null;
-  }
+  return getDefaultStorefrontSocialImageUrl(baseUrl);
 }
 
 export function getStorefrontOpenGraphImages(

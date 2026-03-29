@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const originalMatchMedia = window.matchMedia;
@@ -19,7 +20,7 @@ function mockMatchMedia(matches: boolean) {
 }
 
 vi.mock('next/link', () => ({
-  default: ({ children, ...props }: { children: React.ReactNode; href: string }) => (
+  default: ({ children, ...props }: { children: ReactNode; href: string }) => (
     <a {...props}>{children}</a>
   ),
 }));
@@ -39,10 +40,10 @@ vi.mock('@/hooks/use-merchant', () => ({
 vi.mock('@/lib/routes', () => ({ asRoute: vi.fn((p: string) => p) }));
 vi.mock('@/lib/sanitize', () => ({ sanitizeHtml: vi.fn((s: string) => s) }));
 vi.mock('@/components/ui/accordion', () => ({
-  Accordion: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  AccordionContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  AccordionItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  AccordionTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Accordion: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AccordionContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AccordionItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AccordionTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('../components/AdUnit', () => ({ AdUnit: () => null }));
 vi.mock('../components/BannerCarousel', () => ({ BannerCarousel: () => null }));
@@ -122,5 +123,29 @@ describe('CategoryPage', () => {
       'href',
       '/test-store/electronics?page=2'
     );
+  });
+
+  it('falls back to the default storefront page size when itemsPerPage is invalid', () => {
+    mockMatchMedia(true);
+
+    const products = Array.from({ length: 25 }, (_, index) => ({
+      id: String(index + 1),
+      name: `Product ${index + 1}`,
+      slug: `product-${index + 1}`,
+      description: `Description ${index + 1}`,
+      price: `₦${index + 1}`,
+      rawPrice: index + 1,
+      image: '',
+      condition: 'New' as const,
+    }));
+
+    render(
+      <CategoryPage currentPage={2} itemsPerPage={0} products={products} />
+    );
+
+    expect(screen.getAllByRole('article')).toHaveLength(5);
+    expect(
+      screen.getByText('Showing 21-25 of 25 products')
+    ).toBeInTheDocument();
   });
 });
