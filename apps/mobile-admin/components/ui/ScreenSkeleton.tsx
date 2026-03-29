@@ -6,6 +6,7 @@
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -21,6 +22,8 @@ interface ScreenSkeletonProps {
   variant?: SkeletonVariant;
   /** Number of skeleton cards to render */
   cards?: number;
+  /** Whether the shimmer animation should run */
+  animated?: boolean;
 }
 
 function createSkeletonKeys(prefix: string, count: number) {
@@ -31,17 +34,29 @@ function ShimmerBlock({
   height,
   width,
   borderRadius = RADIUS.md,
+  animated = true,
 }: {
   height: number;
   width?: number | `${number}%`;
   borderRadius?: number;
+  animated?: boolean;
 }) {
   const { colors } = useTheme();
   const opacity = useSharedValue(0.3);
 
   useEffect(() => {
+    if (!animated) {
+      cancelAnimation(opacity);
+      opacity.value = 0.3;
+      return;
+    }
+
     opacity.value = withRepeat(withTiming(0.7, { duration: 800 }), -1, true);
-  }, [opacity]);
+
+    return () => {
+      cancelAnimation(opacity);
+    };
+  }, [animated, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
@@ -49,6 +64,7 @@ function ShimmerBlock({
 
   return (
     <Animated.View
+      testID="skeleton-block"
       accessible={false}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
@@ -57,7 +73,7 @@ function ShimmerBlock({
           height,
           width: width ?? '100%',
           borderRadius,
-          backgroundColor: colors.border,
+          backgroundColor: colors.cardHover,
         },
         animatedStyle,
       ]}
@@ -65,20 +81,36 @@ function ShimmerBlock({
   );
 }
 
-function SettingsSkeleton({ cards }: { cards: number }) {
+function SettingsSkeleton({
+  cards,
+  animated,
+}: {
+  cards: number;
+  animated: boolean;
+}) {
   const skeletonKeys = createSkeletonKeys('settings', cards);
 
   return (
-    <View style={styles.container}>
+    <View testID="screen-skeleton-settings" style={styles.container}>
       {skeletonKeys.map((key) => (
-        <View key={key} style={styles.settingsCard}>
+        <View key={key} testID="settings-card" style={styles.settingsCard}>
           <View style={styles.settingsRow}>
-            <ShimmerBlock height={20} width={20} borderRadius={RADIUS.full} />
+            <ShimmerBlock
+              height={20}
+              width={20}
+              borderRadius={RADIUS.full}
+              animated={animated}
+            />
             <View style={styles.settingsText}>
-              <ShimmerBlock height={14} width="60%" />
-              <ShimmerBlock height={10} width="40%" />
+              <ShimmerBlock height={14} width="60%" animated={animated} />
+              <ShimmerBlock height={10} width="40%" animated={animated} />
             </View>
-            <ShimmerBlock height={24} width={44} borderRadius={RADIUS.full} />
+            <ShimmerBlock
+              height={24}
+              width={44}
+              borderRadius={RADIUS.full}
+              animated={animated}
+            />
           </View>
         </View>
       ))}
@@ -86,21 +118,27 @@ function SettingsSkeleton({ cards }: { cards: number }) {
   );
 }
 
-function ListSkeleton({ cards }: { cards: number }) {
+function ListSkeleton({
+  cards,
+  animated,
+}: {
+  cards: number;
+  animated: boolean;
+}) {
   const skeletonKeys = createSkeletonKeys('list', cards);
 
   return (
-    <View style={styles.container}>
-      <ShimmerBlock height={80} borderRadius={RADIUS.lg} />
+    <View testID="screen-skeleton-list" style={styles.container}>
+      <ShimmerBlock height={80} borderRadius={RADIUS.lg} animated={animated} />
       <View style={styles.spacerLg} />
       {skeletonKeys.map((key) => (
-        <View key={key} style={styles.listCard}>
+        <View key={key} testID="list-card" style={styles.listCard}>
           <View style={styles.listRow}>
             <View style={styles.listText}>
-              <ShimmerBlock height={14} width="50%" />
-              <ShimmerBlock height={10} width="30%" />
+              <ShimmerBlock height={14} width="50%" animated={animated} />
+              <ShimmerBlock height={10} width="30%" animated={animated} />
             </View>
-            <ShimmerBlock height={16} width={60} />
+            <ShimmerBlock height={16} width={60} animated={animated} />
           </View>
         </View>
       ))}
@@ -108,18 +146,24 @@ function ListSkeleton({ cards }: { cards: number }) {
   );
 }
 
-function CardListSkeleton({ cards }: { cards: number }) {
+function CardListSkeleton({
+  cards,
+  animated,
+}: {
+  cards: number;
+  animated: boolean;
+}) {
   const skeletonKeys = createSkeletonKeys('card-list', cards);
 
   return (
-    <View style={styles.container}>
+    <View testID="screen-skeleton-card-list" style={styles.container}>
       {skeletonKeys.map((key) => (
-        <View key={key} style={styles.cardListCard}>
-          <ShimmerBlock height={16} width="40%" />
+        <View key={key} testID="card-list-card" style={styles.cardListCard}>
+          <ShimmerBlock height={16} width="40%" animated={animated} />
           <View style={styles.spacerSm} />
-          <ShimmerBlock height={12} width="70%" />
+          <ShimmerBlock height={12} width="70%" animated={animated} />
           <View style={styles.spacerMd} />
-          <ShimmerBlock height={36} />
+          <ShimmerBlock height={36} animated={animated} />
         </View>
       ))}
     </View>
@@ -129,14 +173,15 @@ function CardListSkeleton({ cards }: { cards: number }) {
 export function ScreenSkeleton({
   variant = 'settings',
   cards = 4,
+  animated = true,
 }: ScreenSkeletonProps) {
   switch (variant) {
     case 'list':
-      return <ListSkeleton cards={cards} />;
+      return <ListSkeleton cards={cards} animated={animated} />;
     case 'card-list':
-      return <CardListSkeleton cards={cards} />;
+      return <CardListSkeleton cards={cards} animated={animated} />;
     default:
-      return <SettingsSkeleton cards={cards} />;
+      return <SettingsSkeleton cards={cards} animated={animated} />;
   }
 }
 

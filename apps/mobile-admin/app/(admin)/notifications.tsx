@@ -35,7 +35,12 @@ export default function NotificationsScreen() {
   const queryClient = useQueryClient();
 
   // Fetch notification preferences
-  const { data: preferences, isLoading } = useQuery({
+  const {
+    data: preferences,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['notification-preferences', merchant?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -102,6 +107,38 @@ export default function NotificationsScreen() {
         style={[styles.container, { backgroundColor: colors.background }]}
       >
         <ScreenSkeleton variant="settings" cards={4} />
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <View style={styles.loadingContainer}>
+          <Ionicons
+            name="alert-circle-outline"
+            size={48}
+            color={colors.notification}
+          />
+          <Text style={[styles.infoTitle, { color: colors.text }]}>
+            Failed to load notifications
+          </Text>
+          <Text style={[styles.infoSubtitle, { color: colors.textSecondary }]}>
+            Please check your connection and try again.
+          </Text>
+          <Pressable
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            onPress={() => {
+              void refetch();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading notification preferences"
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     );
   }
@@ -226,6 +263,17 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { padding: SPACING.lg },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  retryButton: {
+    marginTop: SPACING.lg,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.md,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: TYPOGRAPHY.size.sm,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
   infoSection: {
     alignItems: 'center',
     marginBottom: SPACING.xl,

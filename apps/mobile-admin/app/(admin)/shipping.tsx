@@ -455,7 +455,6 @@ export default function ShippingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   backButton: { padding: SPACING.sm, marginLeft: -SPACING.sm },
   scrollView: { flex: 1 },
   scrollContent: { padding: SPACING.lg, paddingBottom: SPACING['3xl'] },

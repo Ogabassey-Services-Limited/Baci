@@ -1,0 +1,82 @@
+import { Ionicons } from '@expo/vector-icons';
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { styles } from './styles';
+import type { TaxCardShadow, TaxColors } from './types';
+
+interface TinCardProps {
+  colors: TaxColors;
+  shadowStyle: TaxCardShadow;
+  taxId: string;
+  isPending: boolean;
+  onChangeText: (value: string) => void;
+  onSave: () => void;
+}
+
+export function TinCard({
+  colors,
+  shadowStyle,
+  taxId,
+  isPending,
+  onChangeText,
+  onSave,
+}: TinCardProps) {
+  return (
+    <View style={[styles.card, { backgroundColor: colors.card }, shadowStyle]}>
+      <View style={styles.cardHeader}>
+        <View
+          style={[styles.iconContainer, { backgroundColor: colors.cardHover }]}
+        >
+          <Ionicons
+            name="document-text-outline"
+            size={24}
+            color={colors.textSecondary}
+          />
+        </View>
+        <View style={styles.cardHeaderText}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>
+            Tax Identification Number
+          </Text>
+          <Text
+            style={[styles.toggleDescription, { color: colors.textSecondary }]}
+          >
+            Your 10-digit FIRS TIN
+          </Text>
+        </View>
+      </View>
+      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+      <TextInput
+        style={[
+          styles.textInput,
+          {
+            color: colors.text,
+            backgroundColor: colors.cardHover,
+            borderColor: colors.border,
+          },
+        ]}
+        placeholder="1234567890"
+        placeholderTextColor={colors.textMuted}
+        value={taxId}
+        onChangeText={onChangeText}
+        keyboardType="number-pad"
+        maxLength={10}
+      />
+      <Pressable
+        style={[styles.saveButton, { backgroundColor: colors.primary }]}
+        onPress={onSave}
+        disabled={isPending}
+      >
+        {isPending ? (
+          <ActivityIndicator size="small" color="#FFF" />
+        ) : (
+          <Text style={styles.saveButtonText}>Save TIN</Text>
+        )}
+      </Pressable>
+    </View>
+  );
+}
