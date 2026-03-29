@@ -75,4 +75,34 @@ describe('rewriteHtmlStorefrontHrefs', () => {
       })
     ).toBe(html);
   });
+
+  it('preserves query parameters and fragments on rewritten internal hrefs', () => {
+    const html =
+      '<p><a href="https://www.ogabassey.com/phones/iPhone-13-Pro-6GB-256GB?utm_source=ig&color=blue#specs">iPhone</a></p>';
+
+    expect(
+      rewriteHtmlStorefrontHrefs(html, {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe(
+      '<p><a href="/smartphones/iphone-13-pro-6gb-256gb?color=blue#specs">iPhone</a></p>'
+    );
+  });
+
+  it('prepends non-empty base paths to rewritten internal hrefs', () => {
+    const html =
+      '<p><a href="https://www.ogabassey.com/phones/iPhone-13-Pro-6GB-256GB">iPhone</a></p>';
+
+    expect(
+      rewriteHtmlStorefrontHrefs(html, {
+        basePath: '/store',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe(
+      '<p><a href="/store/smartphones/iphone-13-pro-6gb-256gb">iPhone</a></p>'
+    );
+  });
 });

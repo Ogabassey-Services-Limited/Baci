@@ -1,5 +1,6 @@
 // src/lib/seo-utils.test.ts
 
+import { describe, expect, it } from 'vitest';
 import type { Product } from './products';
 import {
   generateBreadcrumbSchema,
@@ -366,6 +367,40 @@ describe('generateCollectionPageSchema', () => {
       'https://ogabassey.com/images/iphone-16-large.jpg'
     );
     expect(offers.url).toBe('https://ogabassey.com/smartphones/iphone-16');
+  });
+
+  it('preserves query parameters in JSON-LD URL fields without HTML escaping', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones?sort=popular&ref=home',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          name: 'iPhone 16',
+          slug: 'iphone-16',
+          category: 'Smartphones',
+          image: '/images/iphone-16.jpg?fit=cover&width=600',
+          imageLarge: '/images/iphone-16-large.jpg?fit=cover&width=1200',
+        }),
+      ],
+    });
+
+    const listItem = (
+      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
+        string,
+        unknown
+      >[]
+    )[0];
+    const product = listItem.item as Record<string, unknown>;
+
+    expect(schema.url).toBe(
+      'https://ogabassey.com/smartphones?sort=popular&ref=home'
+    );
+    expect(product.image).toBe(
+      'https://ogabassey.com/images/iphone-16-large.jpg?fit=cover&width=1200'
+    );
   });
 });
 

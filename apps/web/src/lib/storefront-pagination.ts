@@ -24,6 +24,14 @@ export function parseStorefrontPageParam(
   return parsedPage;
 }
 
-export function buildStorefrontPageHref(basePath: string, page: number) {
-  return page <= 1 ? basePath : `${basePath}?page=${page}`;
+export function buildStorefrontPageHref(
+  basePath: string,
+  page: number
+): string {
+  if (page <= 1) {
+    return basePath;
+  }
+
+  const pageSeparator = basePath.includes('?') ? '&' : '?';
+  return `${basePath}${pageSeparator}page=${page}`;
 }

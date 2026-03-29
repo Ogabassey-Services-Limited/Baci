@@ -31,7 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .eq('status', 'published');
 
   if (error) {
-    throw error;
+    throw new Error('Failed to fetch blog posts for sitemap', { cause: error });
   }
 
   const entries: MetadataRoute.Sitemap = [

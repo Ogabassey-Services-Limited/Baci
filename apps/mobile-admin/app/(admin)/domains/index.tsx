@@ -4,6 +4,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -70,105 +71,49 @@ export default function DomainsDashboard() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant, primaryDomain: merchantPrimaryDomain } = useMerchant();
   const router = useRouter();
-  const primaryDomainId = merchantPrimaryDomain?.id;
-  const primaryDomainValue = merchantPrimaryDomain?.domain;
-  const primaryDomainType = merchantPrimaryDomain?.domain_type;
-  const primaryDomainIsPrimary = merchantPrimaryDomain?.is_primary;
-  const primaryDomainStatus = merchantPrimaryDomain?.status;
+  const merchantId = merchant?.id;
+  const fallbackDomains = merchantPrimaryDomain
+    ? [
+        normalizeDomain({
+          id: merchantPrimaryDomain.id,
+          domain: merchantPrimaryDomain.domain,
+          is_primary: merchantPrimaryDomain.is_primary,
+          status: merchantPrimaryDomain.status,
+          domain_type: merchantPrimaryDomain.domain_type,
+        }),
+      ]
+    : [];
 
-  const [domains, setDomains] = useState<Domain[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [_fetchError, setFetchError] = useState<string | null>(null);
+  const {
+    data: domains = [],
+    isLoading: loading,
+    error: fetchError,
+    refetch,
+    isRefetching: refreshing,
+  } = useQuery({
+    queryKey: ['merchant-domains', merchantId],
+    queryFn: () => fetchMerchantDomains(merchantId as string),
+    enabled: !!merchantId,
+    ...(fallbackDomains.length > 0 && { placeholderData: fallbackDomains }),
+  });
+
+  const onRefresh = () => {
+    if (!merchantId) return;
+    void refetch();
+  };
+
+  useEffect(() => {
+    if (fetchError) {
+      console.error('Failed to load merchant domains:', fetchError);
+    }
+  }, [fetchError]);
 
   // Options Sheet State
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
   const [optionsVisible, setOptionsVisible] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadDomains = async () => {
-      if (!merchant?.id) {
-        if (isMounted) {
-          const fallbackDomain =
-            primaryDomainId &&
-            primaryDomainValue &&
-            primaryDomainType &&
-            typeof primaryDomainIsPrimary === 'boolean' &&
-            primaryDomainStatus
-              ? normalizeDomain({
-                  id: primaryDomainId,
-                  domain: primaryDomainValue,
-                  is_primary: primaryDomainIsPrimary,
-                  status: primaryDomainStatus,
-                  domain_type: primaryDomainType,
-                })
-              : null;
-          setDomains(fallbackDomain ? [fallbackDomain] : []);
-          setLoading(false);
-        }
-        return;
-      }
-
-      setFetchError(null);
-      try {
-        const fetchedDomains = await fetchMerchantDomains(merchant.id);
-        if (!isMounted) return;
-        setDomains(fetchedDomains);
-      } catch (error) {
-        console.error('Error fetching domains:', error);
-        if (isMounted) {
-          setFetchError('Failed to load domains');
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
-    };
-
-    void loadDomains();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [
-    merchant?.id,
-    primaryDomainId,
-    primaryDomainValue,
-    primaryDomainType,
-    primaryDomainIsPrimary,
-    primaryDomainStatus,
-  ]);
-
-  const refreshDomains = async () => {
-    setRefreshing(true);
-    setFetchError(null);
-
-    if (!merchant?.id) {
-      setRefreshing(false);
-      return;
-    }
-
-    try {
-      const fetchedDomains = await fetchMerchantDomains(merchant.id);
-      setDomains(fetchedDomains);
-    } catch (error) {
-      console.error('Error fetching domains:', error);
-      setFetchError('Failed to load domains');
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const onRefresh = () => {
-    void refreshDomains();
-  };
-
   const { actionLoading, handleOptionAction } = useDomainActions({
-    onRefresh: refreshDomains,
+    onRefresh: onRefresh,
   });
 
   const handleOpenOptions = (domain: Domain) => {
@@ -221,14 +166,14 @@ export default function DomainsDashboard() {
             <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
               Loading domains...
             </Text>
-          ) : _fetchError ? (
+          ) : fetchError ? (
             <Pressable
               style={[styles.errorCard, { backgroundColor: colors.errorLight }]}
               onPress={onRefresh}
             >
               <Ionicons name="alert-circle" size={20} color={colors.error} />
               <Text style={[styles.errorText, { color: colors.error }]}>
-                {_fetchError}
+                Failed to load domains
               </Text>
               <Ionicons name="refresh" size={16} color={colors.error} />
             </Pressable>
