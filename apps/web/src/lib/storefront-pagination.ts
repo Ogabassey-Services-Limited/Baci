@@ -24,7 +24,10 @@ export function parseStorefrontPageParam(
   return parsedPage;
 }
 
-export function buildStorefrontPageHref(basePath: string, page: number) {
+export function buildStorefrontPageHref(
+  basePath: string,
+  page: number
+): string {
   if (page <= 1) {
     return basePath;
   }

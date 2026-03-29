@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useDiscounts } from '@/hooks/useDiscounts';
 import { useTheme } from '@/hooks/useTheme';
@@ -169,9 +170,7 @@ export default function DiscountsScreen() {
         <SystemBars style={isDark ? 'light' : 'dark'} />
 
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
+          <ScreenSkeleton variant="list" cards={4} />
         ) : (
           <FlatList
             data={discounts}

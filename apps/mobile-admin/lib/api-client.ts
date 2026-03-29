@@ -1,6 +1,11 @@
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
+const IS_DEV =
+  typeof __DEV__ !== 'undefined'
+    ? __DEV__
+    : process.env.NODE_ENV !== 'production';
+
 function getHostFromHostUri(hostUri: string): string {
   const trimmedHostUri = hostUri.trim().split('/')[0] || hostUri.trim();
   const bracketedIpv6Match = trimmedHostUri.match(/^\[([^\]]+)\](?::\d+)?$/);
@@ -28,6 +33,8 @@ function formatBaseUrlHost(host: string): string {
   return host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
 }
 
+const DEFAULT_PRODUCTION_URL = 'https://usebaci.com';
+
 // Centralized Base URL Logic
 // In dev, auto-detect the IP from Expo's debuggerHost so it works
 // regardless of which network the laptop is on (no more hardcoding IPs).
@@ -40,7 +47,7 @@ export function resolveBaseUrl(
   } = {}
 ): string {
   const {
-    isDev = __DEV__,
+    isDev = IS_DEV,
     configuredBaseUrl = process.env.EXPO_PUBLIC_API_URL,
     fallbackConfiguredBaseUrl = process.env.EXPO_PUBLIC_WEB_API_URL,
     hostUri = Constants.expoConfig?.hostUri,
@@ -59,7 +66,7 @@ export function resolveBaseUrl(
     return 'http://localhost:3000';
   }
 
-  return (configuredBaseUrl || 'https://usebaci.com').replace(/\/+$/, '');
+  return (configuredBaseUrl || DEFAULT_PRODUCTION_URL).replace(/\/+$/, '');
 }
 
 export const BASE_URL = resolveBaseUrl();
@@ -170,7 +177,7 @@ export async function apiClient<T = unknown>(
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${BASE_URL}${cleanEndpoint}`;
 
-  if (__DEV__) {
+  if (IS_DEV) {
     // Use separate arguments to avoid format string injection
     console.log('[API]', config.method, String(url));
   }
