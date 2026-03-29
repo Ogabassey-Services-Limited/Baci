@@ -4,12 +4,12 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
 import { format, isSameMonth, parseISO } from 'date-fns';
 import { Stack, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
@@ -174,10 +174,11 @@ export default function ExpensesScreen() {
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : (
-          <FlatList
+          <FlashList
             data={expenses}
             renderItem={renderExpenseItem}
             keyExtractor={(item) => item.id}
+            estimatedItemSize={78}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
