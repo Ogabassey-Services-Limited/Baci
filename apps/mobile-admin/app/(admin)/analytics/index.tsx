@@ -23,7 +23,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import ReportSelectionModal from '@/components/analytics/ReportSelectionModal';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { formatCompactCurrency } from '@/lib/utils';
@@ -106,7 +105,7 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 
 export default function AnalyticsScreen() {
   const { colors, isDark } = useTheme();
-  const { user } = useAuth();
+  const { merchant } = useMerchant();
   const router = useRouter();
   const [showDateFilter, setShowDateFilter] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilter>('this_year');
@@ -250,23 +249,7 @@ export default function AnalyticsScreen() {
     return endDate;
   };
 
-  // Fetch merchant ID
-  const { data: merchant } = useQuery({
-    queryKey: ['merchant', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from('merchants')
-        .select('id, business_name')
-        .eq('user_id', user.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  // Fetch analytics data
+  // Fetch analytics data — uses cached merchant from useMerchant()
   const [isRefreshing, setIsRefreshing] = useState(false);
   const {
     data: analytics,

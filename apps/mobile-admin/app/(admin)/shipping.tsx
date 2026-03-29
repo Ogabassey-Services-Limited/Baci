@@ -22,7 +22,6 @@ import {
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
@@ -62,35 +61,27 @@ const AVAILABLE_PROVIDERS: ShippingProvider[] = [
 
 export default function ShippingScreen() {
   const { colors, shadows, isDark } = useTheme();
-  const { user } = useAuth();
+  const { merchant } = useMerchant();
   const router = useRouter();
   const queryClient = useQueryClient();
 
   const [isEditingThreshold, setIsEditingThreshold] = useState(false);
   const [tempThreshold, setTempThreshold] = useState('');
 
-  // Fetch shipping settings
+  // Fetch shipping settings — uses cached merchant from useMerchant()
   const { data: settings, isLoading } = useQuery({
-    queryKey: ['shipping-settings', user?.id],
+    queryKey: ['shipping-settings', merchant?.id],
     queryFn: async () => {
-      const { data: merchant } = await supabase
-        .from('merchants')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (!merchant) throw new Error('No merchant found');
-
       const { data, error } = await supabase
         .from('merchant_feature_settings')
         .select('merchant_id, shipping_providers, free_shipping_threshold')
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', merchant?.id)
         .single();
 
       if (error) throw error;
       return data as ShippingSettings;
     },
-    enabled: !!user?.id,
+    enabled: !!merchant?.id,
   });
 
   // Toggle provider mutation

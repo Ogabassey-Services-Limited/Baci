@@ -20,7 +20,6 @@ import {
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
@@ -47,34 +46,25 @@ interface PaymentMethod {
 
 export default function PaymentMethodsScreen() {
   const { colors, shadows, isDark } = useTheme();
-  const { user } = useAuth();
+  const { merchant } = useMerchant();
   const queryClient = useQueryClient();
 
-  // Fetch actual payment settings
+  // Fetch actual payment settings — uses cached merchant from useMerchant()
   const { data: settings, isLoading } = useQuery({
-    queryKey: ['payment-settings', user?.id],
+    queryKey: ['payment-settings', merchant?.id],
     queryFn: async () => {
-      // First get merchant ID
-      const { data: merchant } = await supabase
-        .from('merchants')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (!merchant) throw new Error('No merchant found');
-
       const { data, error } = await supabase
         .from('merchant_feature_settings')
         .select(
           'id, merchant_id, paystack_enabled, korapay_enabled, credit_direct_enabled, credpal_enabled, pay_on_delivery_enabled, juicyway_enabled'
         )
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', merchant?.id)
         .single();
 
       if (error) throw error;
       return data as PaymentSettings;
     },
-    enabled: !!user?.id,
+    enabled: !!merchant?.id,
   });
 
   // Toggle mutation with Optimistic Updates (2026 Best Practice)
@@ -96,7 +86,7 @@ export default function PaymentMethodsScreen() {
     onMutate: async ({ field, value }) => {
       // Cancel any outgoing refetches so they don't overwrite our optimistic update
       await queryClient.cancelQueries({
-        queryKey: ['payment-settings', user?.id],
+        queryKey: ['payment-settings', merchant?.id],
       });
 
       // Snapshot the previous value
@@ -107,7 +97,7 @@ export default function PaymentMethodsScreen() {
 
       // Optimistically update to the new value
       queryClient.setQueryData(
-        ['payment-settings', user?.id],
+        ['payment-settings', merchant?.id],
         (old: PaymentSettings | undefined) => {
           if (!old) return old;
           return {
@@ -124,7 +114,7 @@ export default function PaymentMethodsScreen() {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousSettings) {
         queryClient.setQueryData(
-          ['payment-settings', user?.id],
+          ['payment-settings', merchant?.id],
           context.previousSettings
         );
       }

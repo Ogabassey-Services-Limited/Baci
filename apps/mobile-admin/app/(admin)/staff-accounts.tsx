@@ -39,7 +39,6 @@ import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useAuth } from '@/hooks/useAuth';
 import { useStaff } from '@/hooks/useStaff';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -70,7 +69,7 @@ type TabType = 'accounts' | 'branches';
 
 export default function StaffAccountsScreen() {
   const { colors, shadows, isDark } = useTheme();
-  const { user } = useAuth();
+  const { merchant } = useMerchant();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabType>('accounts');
   const [showAccountModal, setShowAccountModal] = useState(false);
@@ -80,21 +79,6 @@ export default function StaffAccountsScreen() {
   const [newBranchCity, setNewBranchCity] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
-
-  // Fetch merchant ID
-  const { data: merchant } = useQuery({
-    queryKey: ['merchant', user?.id],
-    queryFn: async () => {
-      if (!user?.id) throw new Error('User not authenticated');
-      const { data } = await supabase
-        .from('merchants')
-        .select('id, business_name')
-        .eq('user_id', user.id)
-        .single();
-      return data;
-    },
-    enabled: !!user?.id,
-  });
 
   // Fetch Staff Accounts
   const {
@@ -902,9 +886,17 @@ export default function StaffAccountsScreen() {
                   disabled={createAccountMutation.isPending}
                 >
                   {createAccountMutation.isPending ? (
-                    <ActivityIndicator size="small" color={colors.textOnPrimary} />
+                    <ActivityIndicator
+                      size="small"
+                      color={colors.textOnPrimary}
+                    />
                   ) : (
-                    <Text style={[styles.modalButtonText, { color: colors.textOnPrimary }]}>
+                    <Text
+                      style={[
+                        styles.modalButtonText,
+                        { color: colors.textOnPrimary },
+                      ]}
+                    >
                       Create
                     </Text>
                   )}
@@ -987,9 +979,17 @@ export default function StaffAccountsScreen() {
                   disabled={createBranchMutation.isPending}
                 >
                   {createBranchMutation.isPending ? (
-                    <ActivityIndicator size="small" color={colors.textOnPrimary} />
+                    <ActivityIndicator
+                      size="small"
+                      color={colors.textOnPrimary}
+                    />
                   ) : (
-                    <Text style={[styles.modalButtonText, { color: colors.textOnPrimary }]}>
+                    <Text
+                      style={[
+                        styles.modalButtonText,
+                        { color: colors.textOnPrimary },
+                      ]}
+                    >
                       Create
                     </Text>
                   )}
