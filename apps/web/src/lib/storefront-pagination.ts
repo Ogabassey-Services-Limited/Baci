@@ -25,5 +25,15 @@ export function parseStorefrontPageParam(
 }
 
 export function buildStorefrontPageHref(basePath: string, page: number) {
-  return page <= 1 ? basePath : `${basePath}?page=${page}`;
+  if (page <= 1) {
+    return basePath;
+  }
+
+  const [pathAndSearch, hash = ''] = basePath.split('#', 2);
+  const [pathname, search = ''] = pathAndSearch.split('?', 2);
+  const searchParams = new URLSearchParams(search);
+  searchParams.set('page', String(page));
+  const normalizedSearch = searchParams.toString();
+
+  return `${pathname}${normalizedSearch ? `?${normalizedSearch}` : ''}${hash ? `#${hash}` : ''}`;
 }

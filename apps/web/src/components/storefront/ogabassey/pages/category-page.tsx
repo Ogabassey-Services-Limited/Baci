@@ -72,6 +72,10 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
 
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath ?? '';
+  const safeItemsPerPage =
+    Number.isInteger(itemsPerPage) && itemsPerPage > 0
+      ? itemsPerPage
+      : STOREFRONT_PRODUCTS_PER_PAGE;
 
   // Initial Filter State
   const initialFilterState: FilterState = {
@@ -256,13 +260,13 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
 
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredProducts.length / itemsPerPage)
+    Math.ceil(filteredProducts.length / safeItemsPerPage)
   );
   const currentPageNumber = hasActiveFilters
     ? 1
     : Math.min(Math.max(currentPage, 1), totalPages);
-  const pageStartIndex = (currentPageNumber - 1) * itemsPerPage;
-  const pageEndIndex = pageStartIndex + itemsPerPage;
+  const pageStartIndex = (currentPageNumber - 1) * safeItemsPerPage;
+  const pageEndIndex = pageStartIndex + safeItemsPerPage;
   const visibleProducts = hasActiveFilters
     ? filteredProducts
     : filteredProducts.slice(pageStartIndex, pageEndIndex);

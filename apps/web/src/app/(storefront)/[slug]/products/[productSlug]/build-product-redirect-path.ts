@@ -11,6 +11,7 @@ export async function buildProductRedirectPath(
   productPath: string,
   getHeaders: HeadersProvider
 ): Promise<Route> {
+  // Force request-scoped execution so redirects honor the active routing mode.
   await getHeaders();
   return (
     process.env.NODE_ENV === 'development'

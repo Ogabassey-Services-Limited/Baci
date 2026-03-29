@@ -1,5 +1,6 @@
 // src/lib/seo-utils.test.ts
 
+import { describe, expect, it } from 'vitest';
 import type { Product } from './products';
 import {
   generateBreadcrumbSchema,
@@ -366,6 +367,19 @@ describe('generateCollectionPageSchema', () => {
       'https://ogabassey.com/images/iphone-16-large.jpg'
     );
     expect(offers.url).toBe('https://ogabassey.com/smartphones/iphone-16');
+  });
+
+  it('omits the page url when the collection URL cannot be normalized', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'not-a-valid-url',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [],
+    });
+
+    expect(schema.url).toBeUndefined();
   });
 });
 

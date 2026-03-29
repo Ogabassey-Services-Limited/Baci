@@ -10,6 +10,14 @@ function toAbsoluteImageUrl(baseUrl: string, imageUrl?: string | null) {
   }
 }
 
+function getDefaultStorefrontSocialImageUrl(baseUrl: string) {
+  try {
+    return new URL('/opengraph-image', baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
 export function getStorefrontSocialImageUrl(
   baseUrl: string,
   ...candidates: Array<string | null | undefined>
@@ -21,7 +29,7 @@ export function getStorefrontSocialImageUrl(
     }
   }
 
-  return new URL('/opengraph-image', baseUrl).toString();
+  return getDefaultStorefrontSocialImageUrl(baseUrl);
 }
 
 export function getStorefrontOpenGraphImages(
@@ -29,17 +37,23 @@ export function getStorefrontOpenGraphImages(
   alt: string,
   ...candidates: Array<string | null | undefined>
 ) {
-  return [
-    {
-      url: getStorefrontSocialImageUrl(baseUrl, ...candidates),
-      alt,
-    },
-  ];
+  const imageUrl = getStorefrontSocialImageUrl(baseUrl, ...candidates);
+
+  return imageUrl
+    ? [
+        {
+          url: imageUrl,
+          alt,
+        },
+      ]
+    : [];
 }
 
 export function getStorefrontTwitterImages(
   baseUrl: string,
   ...candidates: Array<string | null | undefined>
 ) {
-  return [getStorefrontSocialImageUrl(baseUrl, ...candidates)];
+  const imageUrl = getStorefrontSocialImageUrl(baseUrl, ...candidates);
+
+  return imageUrl ? [imageUrl] : [];
 }

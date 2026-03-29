@@ -1,4 +1,5 @@
 import type { headers } from 'next/headers';
+import { getRootDomain } from '@/env';
 
 export function resolveRouteIdentifier(
   headersList: Awaited<ReturnType<typeof headers>>
@@ -19,9 +20,7 @@ export function resolveRouteIdentifier(
   }
 
   const normalizedHost = host.replace(/^www\./, '');
-  const rootDomain = (
-    process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
-  ).toLowerCase();
+  const rootDomain = (getRootDomain() || 'usebaci.com').toLowerCase();
 
   if (normalizedHost === rootDomain) {
     return '';

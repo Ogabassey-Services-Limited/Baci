@@ -102,4 +102,22 @@ describe('buildStorefrontPageHref', () => {
     expect(buildStorefrontPageHref('', 1)).toBe('');
     expect(buildStorefrontPageHref('', 2)).toBe('?page=2');
   });
+
+  it('preserves existing query params when adding a page', () => {
+    expect(buildStorefrontPageHref('/store/products?sort=price-desc', 2)).toBe(
+      '/store/products?sort=price-desc&page=2'
+    );
+  });
+
+  it('replaces an existing page query param instead of duplicating it', () => {
+    expect(
+      buildStorefrontPageHref('/store/products?sort=price-desc&page=4', 2)
+    ).toBe('/store/products?sort=price-desc&page=2');
+  });
+
+  it('preserves hash fragments when adding a page', () => {
+    expect(buildStorefrontPageHref('/store/products#catalog', 3)).toBe(
+      '/store/products?page=3#catalog'
+    );
+  });
 });

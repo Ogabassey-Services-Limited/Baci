@@ -1,6 +1,33 @@
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
+function getHostFromHostUri(hostUri: string): string {
+  const trimmedHostUri = hostUri.trim().split('/')[0] || hostUri.trim();
+  const bracketedIpv6Match = trimmedHostUri.match(/^\[([^\]]+)\](?::\d+)?$/);
+  if (bracketedIpv6Match) {
+    return bracketedIpv6Match[1];
+  }
+
+  const simpleHostMatch = trimmedHostUri.match(/^([^:]+)(?::\d+)?$/);
+  if (simpleHostMatch) {
+    return simpleHostMatch[1];
+  }
+
+  const lastColonIndex = trimmedHostUri.lastIndexOf(':');
+  if (lastColonIndex > -1) {
+    const portCandidate = trimmedHostUri.slice(lastColonIndex + 1);
+    if (/^\d+$/.test(portCandidate)) {
+      return trimmedHostUri.slice(0, lastColonIndex);
+    }
+  }
+
+  return trimmedHostUri;
+}
+
+function formatBaseUrlHost(host: string): string {
+  return host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+}
+
 // Centralized Base URL Logic
 // In dev, auto-detect the IP from Expo's debuggerHost so it works
 // regardless of which network the laptop is on (no more hardcoding IPs).
@@ -26,8 +53,8 @@ export function resolveBaseUrl(
       return fallbackConfiguredBaseUrl.replace(/\/+$/, '');
     // Auto-detect from Expo debugger host
     if (hostUri) {
-      const host = hostUri.split(':')[0];
-      return `http://${host}:3000`;
+      const host = getHostFromHostUri(hostUri);
+      return `http://${formatBaseUrlHost(host)}:3000`;
     }
     return 'http://localhost:3000';
   }
@@ -66,6 +93,24 @@ export class NetworkError extends Error {
     this.isOffline = options.isOffline ?? false;
     this.statusCode = options.statusCode;
   }
+}
+
+function getResponseErrorMessage(data: unknown, status: number): string {
+  if (typeof data === 'string' && data) {
+    return data;
+  }
+
+  if (data && typeof data === 'object') {
+    if ('message' in data && typeof data.message === 'string') {
+      return data.message;
+    }
+
+    if ('error' in data && typeof data.error === 'string') {
+      return data.error;
+    }
+  }
+
+  return `Request failed with status ${status}`;
 }
 
 /**
@@ -139,7 +184,7 @@ export async function apiClient<T = unknown>(
     const isJson = contentType?.includes('application/json');
 
     // Parse Body
-    let data;
+    let data: unknown;
     if (isJson) {
       data = await response.json();
     } else {
@@ -147,13 +192,7 @@ export async function apiClient<T = unknown>(
     }
 
     if (!response.ok) {
-      // Throw standardized error with status code
-      const errorMessage =
-        (typeof data === 'object' && data.message) ||
-        (typeof data === 'object' && data.error) ||
-        (typeof data === 'string' && data) ||
-        `Request failed with status ${response.status}`;
-
+      const errorMessage = getResponseErrorMessage(data, response.status);
       throw new NetworkError(errorMessage, { statusCode: response.status });
     }
 
