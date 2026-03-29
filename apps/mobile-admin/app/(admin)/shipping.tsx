@@ -26,7 +26,7 @@ import type {
 } from '@/components/shipping/shipping-types';
 import { parseShippingSettings } from '@/components/shipping/shipping-types';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
-import { useAuth } from '@/hooks/useAuth';
+import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
@@ -37,7 +37,11 @@ interface ShippingSettingsQueryData {
 
 export default function ShippingScreen() {
   const { colors, shadows, isDark } = useTheme();
-  const { user } = useAuth();
+  const {
+    merchant,
+    isLoading: merchantLoading,
+    error: merchantError,
+  } = useMerchant();
   const router = useRouter();
   const queryClient = useQueryClient();
   const screenOptions = {
@@ -66,34 +70,25 @@ export default function ShippingScreen() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['shipping-settings', user?.id],
+    queryKey: ['shipping-settings', merchant?.id],
     queryFn: async () => {
-      const { data: merchant, error: merchantError } = await supabase
-        .from('merchants')
-        .select('id, payout_currency')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (merchantError) throw merchantError;
-      if (!merchant) throw new Error('No merchant found');
-
       const { data, error } = await supabase
         .from('merchant_feature_settings')
         .select('merchant_id, shipping_providers, free_shipping_threshold')
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', merchant?.id)
         .single();
 
       if (error) throw error;
       if (!data) throw new Error('Shipping settings not found');
       return {
-        currency: merchant.payout_currency ?? null,
+        currency: merchant?.payout_currency ?? null,
         settings: parseShippingSettings(data),
       } satisfies ShippingSettingsQueryData;
     },
-    enabled: !!user?.id,
+    enabled: !!merchant?.id,
   });
   const settings = shippingData?.settings;
-  const currency = shippingData?.currency ?? 'NGN';
+  const currency = shippingData?.currency ?? merchant?.payout_currency ?? 'NGN';
 
   // Toggle provider mutation
   const toggleProviderMutation = useMutation({
@@ -123,7 +118,9 @@ export default function ShippingScreen() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shipping-settings'] });
+      queryClient.invalidateQueries({
+        queryKey: ['shipping-settings', merchant?.id],
+      });
     },
     onError: (_error: unknown) => {
       Alert.alert('Error', 'Failed to update shipping provider');
@@ -143,7 +140,9 @@ export default function ShippingScreen() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shipping-settings'] });
+      queryClient.invalidateQueries({
+        queryKey: ['shipping-settings', merchant?.id],
+      });
       setIsEditingThreshold(false);
     },
     onError: (_error: unknown) => {
@@ -190,7 +189,9 @@ export default function ShippingScreen() {
     updateThresholdMutation.mutate(parsedThreshold);
   };
 
-  if (isLoading) {
+  const loadError = merchantError ?? (isError ? error : null);
+
+  if (merchantLoading || isLoading) {
     return (
       <>
         <Stack.Screen options={screenOptions} />
@@ -205,10 +206,10 @@ export default function ShippingScreen() {
     );
   }
 
-  if (isError) {
+  if (loadError) {
     const errorMessage =
-      error instanceof Error
-        ? error.message
+      loadError instanceof Error
+        ? loadError.message
         : 'Shipping settings are unavailable right now.';
 
     return (

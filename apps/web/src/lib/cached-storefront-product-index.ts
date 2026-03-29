@@ -29,6 +29,8 @@ interface StorefrontProductIndexOptions {
 }
 
 interface StorefrontProductIndexResult {
+  errorMessage?: string | null;
+  hasError?: boolean;
   products: NormalizedProduct[];
   totalCount: number;
   totalPages: number;
@@ -89,6 +91,8 @@ export async function getCachedStorefrontProductIndex(
   if (error) {
     console.error('Error fetching storefront product index:', error);
     return {
+      errorMessage: error.message,
+      hasError: true,
       products: [],
       totalCount: 0,
       totalPages: 0,
@@ -96,6 +100,8 @@ export async function getCachedStorefrontProductIndex(
   }
 
   return {
+    errorMessage: null,
+    hasError: false,
     products: normalizeProducts((data || []) as unknown as RawDbProduct[]),
     totalCount: count || 0,
     totalPages: Math.ceil((count || 0) / limit),

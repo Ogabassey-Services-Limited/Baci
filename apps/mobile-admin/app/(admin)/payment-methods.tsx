@@ -24,14 +24,18 @@ import {
   paymentMethods,
 } from '@/components/payment-methods/payment-methods';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
-import { useAuth } from '@/hooks/useAuth';
+import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { styles } from './payment-methods.styles';
 
 export default function PaymentMethodsScreen() {
   const { colors, shadows, isDark } = useTheme();
-  const { user } = useAuth();
+  const {
+    merchant,
+    isLoading: merchantLoading,
+    error: merchantError,
+  } = useMerchant();
   const queryClient = useQueryClient();
   const screenOptions = {
     title: 'Payment Methods',
@@ -55,29 +59,20 @@ export default function PaymentMethodsScreen() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['payment-settings', user?.id],
+    queryKey: ['payment-settings', merchant?.id],
     queryFn: async () => {
-      // First get merchant ID
-      const { data: merchant } = await supabase
-        .from('merchants')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (!merchant) throw new Error('No merchant found');
-
       const { data, error } = await supabase
         .from('merchant_feature_settings')
         .select(
           'id, merchant_id, paystack_enabled, korapay_enabled, credit_direct_enabled, credpal_enabled, pay_on_delivery_enabled, juicyway_enabled'
         )
-        .eq('merchant_id', merchant.id)
+        .eq('merchant_id', merchant?.id)
         .single();
 
       if (error) throw error;
       return data as PaymentSettings;
     },
-    enabled: !!user?.id,
+    enabled: !!merchant?.id,
   });
 
   // Toggle mutation with Optimistic Updates (2026 Best Practice)
@@ -99,18 +94,18 @@ export default function PaymentMethodsScreen() {
     onMutate: async ({ field, value }) => {
       // Cancel any outgoing refetches so they don't overwrite our optimistic update
       await queryClient.cancelQueries({
-        queryKey: ['payment-settings', user?.id],
+        queryKey: ['payment-settings', merchant?.id],
       });
 
       // Snapshot the previous value
       const previousSettings = queryClient.getQueryData([
         'payment-settings',
-        user?.id,
+        merchant?.id,
       ]);
 
       // Optimistically update to the new value
       queryClient.setQueryData(
-        ['payment-settings', user?.id],
+        ['payment-settings', merchant?.id],
         (old: PaymentSettings | undefined) => {
           if (!old) return old;
           return {
@@ -127,7 +122,7 @@ export default function PaymentMethodsScreen() {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousSettings) {
         queryClient.setQueryData(
-          ['payment-settings', user?.id],
+          ['payment-settings', merchant?.id],
           context.previousSettings
         );
       }
@@ -136,7 +131,9 @@ export default function PaymentMethodsScreen() {
     },
     onSettled: () => {
       // Always refetch after error or success:
-      queryClient.invalidateQueries({ queryKey: ['payment-settings'] });
+      queryClient.invalidateQueries({
+        queryKey: ['payment-settings', merchant?.id],
+      });
     },
   });
 
@@ -151,7 +148,9 @@ export default function PaymentMethodsScreen() {
     toggleMutation.mutate({ field, value });
   };
 
-  if (isLoading) {
+  const loadError = merchantError ?? (isError ? error : null);
+
+  if (merchantLoading || isLoading) {
     return (
       <>
         <Stack.Screen options={screenOptions} />
@@ -165,10 +164,10 @@ export default function PaymentMethodsScreen() {
     );
   }
 
-  if (isError) {
+  if (loadError) {
     const errorMessage =
-      error instanceof Error
-        ? error.message
+      loadError instanceof Error
+        ? loadError.message
         : 'Payment settings are unavailable right now.';
 
     return (
