@@ -76,9 +76,9 @@ vi.mock('@/schemas/jumia', async () => {
   const JumiaShopsResponseSchema = z
     .union([
       z.object({
-        shops: z.array(JumiaShop),
+        shops: z.array(JumiaShop).min(1),
       }),
-      z.array(JumiaShop),
+      z.array(JumiaShop).min(1),
     ])
     .transform((value) => {
       if (Array.isArray(value)) {
