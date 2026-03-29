@@ -313,6 +313,34 @@ describe('BlogContentRenderer', () => {
       expect(link).not.toHaveAttribute('rel');
     });
 
+    it('normalizes legacy internal storefront links before rendering', () => {
+      const json = doc(
+        paragraph(
+          textNode('iPhone', [
+            {
+              type: 'link',
+              attrs: {
+                href: 'https://www.ogabassey.com/phones/iPhone-13-Pro-6GB-256GB?srsltid=test',
+              },
+            },
+          ])
+        )
+      );
+
+      render(
+        <BlogContentRenderer
+          json={json}
+          baseUrl="https://ogabassey.com"
+          merchantSlug="ogabassey"
+        />
+      );
+
+      expect(screen.getByRole('link', { name: 'iPhone' })).toHaveAttribute(
+        'href',
+        '/smartphones/iphone-13-pro-6gb-256gb'
+      );
+    });
+
     it('renders a javascript: URL as a plain <span> without an href', async () => {
       // sanitizeUrl returns '' for non-http(s) — we override for this case.
       const { sanitizeUrl } = await import('@/lib/sanitize-core');
