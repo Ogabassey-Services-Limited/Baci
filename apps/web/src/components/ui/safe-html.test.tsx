@@ -62,4 +62,21 @@ describe('SafeHtml', () => {
     // The text content is still rendered
     expect(screen.getByText('Malicious')).toBeInTheDocument();
   });
+
+  it('demotes heading tags when headingLevelOffset is provided', () => {
+    const { container } = render(
+      <SafeHtml
+        html="<h1>Imported Title</h1><h2>Imported Section</h2>"
+        headingLevelOffset={1}
+      />
+    );
+
+    expect(container.querySelector('h1')).toBeNull();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Imported Title' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Imported Section' })
+    ).toBeInTheDocument();
+  });
 });

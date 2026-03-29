@@ -8,6 +8,7 @@ import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { asRoute } from '@/lib/routes';
+import { STOREFRONT_PRODUCTS_PER_PAGE } from '@/lib/storefront-pagination';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
 import {
@@ -15,6 +16,7 @@ import {
   type FilterState,
 } from '../components/CategoryFiltersSidebar';
 import { ProductCard } from '../components/ProductCard';
+import { StorefrontPagination } from '../components/StorefrontPagination';
 import type { Product } from '../types';
 
 import { CheckCircle } from 'lucide-react';
@@ -34,6 +36,8 @@ export interface CategorySEOProps {
   products?: Product[];
   /** Optional category image URL from database */
   categoryImage?: string | null;
+  currentPage?: number;
+  itemsPerPage?: number;
 }
 
 type CategoryPageColor =
@@ -53,6 +57,8 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   seoFaqs = [],
   products = [],
   categoryImage,
+  currentPage = 1,
+  itemsPerPage = STOREFRONT_PRODUCTS_PER_PAGE,
 }) => {
   const [_showMobileIntro, _setShowMobileIntro] = useState(false);
   const params = useParams();
@@ -236,6 +242,30 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       return true;
     });
   })();
+  const hasActiveFilters =
+    filters.brand.length > 0 ||
+    filters.condition.length > 0 ||
+    filters.storage.length > 0 ||
+    filters.ram.length > 0 ||
+    filters.colors.length > 0 ||
+    filters.simType.length > 0 ||
+    filters.displayType.length > 0 ||
+    filters.displaySize.length > 0 ||
+    filters.minPrice !== initialFilterState.minPrice ||
+    filters.maxPrice !== initialFilterState.maxPrice;
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredProducts.length / itemsPerPage)
+  );
+  const currentPageNumber = hasActiveFilters
+    ? 1
+    : Math.min(Math.max(currentPage, 1), totalPages);
+  const pageStartIndex = (currentPageNumber - 1) * itemsPerPage;
+  const pageEndIndex = pageStartIndex + itemsPerPage;
+  const visibleProducts = hasActiveFilters
+    ? filteredProducts
+    : filteredProducts.slice(pageStartIndex, pageEndIndex);
 
   const handleFilterChange = (
     section: keyof FilterState,
@@ -284,6 +314,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
 
   // SEO heading is only for the SEO content block at the bottom, not the H1
   const pageTitle = displayTitle;
+  const categoryPath = asRoute(`${basePath}/${categoryName}`);
 
   return (
     <div className="min-h-screen bg-[color:color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-4">
@@ -402,7 +433,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                     : 'flex flex-col gap-4'
                 }
               >
-                {filteredProducts.map((product, index) => {
+                {visibleProducts.map((product, index) => {
                   const isAdded = addedItems.includes(
                     typeof product.id === 'string'
                       ? Number.parseInt(product.id, 10)
@@ -430,6 +461,32 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                     </React.Fragment>
                   );
                 })}
+              </div>
+            )}
+
+            {filteredProducts.length > 0 && (
+              <div className="mt-8 space-y-3">
+                {!hasActiveFilters && (
+                  <p className="text-center text-sm text-[var(--store-background-text,#111827)]/50">
+                    Showing {pageStartIndex + 1}-
+                    {Math.min(pageEndIndex, filteredProducts.length)} of{' '}
+                    {filteredProducts.length} products
+                  </p>
+                )}
+
+                {hasActiveFilters ? (
+                  <p className="text-center text-sm text-[var(--store-background-text,#111827)]/50">
+                    Filtered results show all {filteredProducts.length} matching
+                    products on one page.
+                  </p>
+                ) : (
+                  <StorefrontPagination
+                    ariaLabel={`${pageTitle} pagination`}
+                    basePath={categoryPath}
+                    currentPage={currentPageNumber}
+                    totalPages={totalPages}
+                  />
+                )}
               </div>
             )}
           </div>

@@ -11,6 +11,9 @@ import {
 } from '@/components/storefront/ogabassey/variant-attributes';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
+  type CachedLegacyProductRedirectTarget,
+  type CachedMerchant,
+  getCachedLegacyProductRedirectTarget,
   getCachedMerchant,
   getCachedMerchantByDomain,
   getCachedProductWithDetails,
@@ -562,11 +565,44 @@ interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
+function getRedirectTargetPath(
+  storeSlug: string,
+  product: {
+    id: string;
+    name: string;
+    slug?: string;
+    category?: string | null;
+    categories?: { name?: string; slug?: string } | null;
+    category_slug?: string;
+  }
+) {
+  const productPath = getProductUrl(product);
+
+  if (process.env.NODE_ENV === 'development') {
+    return `/${storeSlug}${productPath}` as `/${string}`;
+  }
+
+  return productPath as `/${string}`;
+}
+
+type CategoryProductResult =
+  | {
+      product: Product;
+      categoryMismatch: boolean;
+      merchant: CachedMerchant;
+      needsValuesRedirect: boolean;
+    }
+  | {
+      merchant: CachedMerchant;
+      legacyRedirectTarget: CachedLegacyProductRedirectTarget;
+    }
+  | null;
+
 const getProduct = async (
   storeSlug: string,
   categorySlug: string,
   productSlug: string
-) => {
+): Promise<CategoryProductResult> => {
   // 1. Get Merchant using cached functions (bypasses RLS, more reliable)
   const merchant = isDomainIdentifier(storeSlug)
     ? await getCachedMerchantByDomain(storeSlug)
@@ -592,6 +628,18 @@ const getProduct = async (
   }
 
   if (!product) {
+    const legacyRedirectTarget = await getCachedLegacyProductRedirectTarget(
+      merchant.id,
+      productSlug
+    );
+
+    if (legacyRedirectTarget) {
+      return {
+        merchant,
+        legacyRedirectTarget,
+      };
+    }
+
     console.error('Product not found:', productSlug);
     return null;
   }
@@ -664,8 +712,9 @@ const getProduct = async (
     dbCategorySlug ||
     (product.category ? generateSlug(product.category) : null);
 
-  const categoryMismatch =
-    productCategorySlug && productCategorySlug !== categorySlug;
+  const categoryMismatch = Boolean(
+    productCategorySlug && productCategorySlug !== categorySlug
+  );
 
   return {
     product: productWithCategorySlug,
@@ -683,18 +732,21 @@ export async function generateMetadata({
   const resolvedSearchParams = await searchParams;
   const result = await getProduct(slug, category, productSlug);
 
-  if (!result?.product) {
-    return {
-      title: 'Product Not Found',
-      description: 'The product you are looking for does not exist.',
-      robots: {
-        index: false,
-        follow: false,
-      },
-    };
+  if (!result) {
+    notFound();
   }
 
-  const { product, merchant } = result;
+  if (!('product' in result)) {
+    permanentRedirect(getRedirectTargetPath(slug, result.legacyRedirectTarget));
+  }
+
+  const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
+
+  // Redirect before metadata is emitted so crawlers receive a real HTTP 308
+  // instead of Next.js's streamed meta-refresh fallback.
+  if (categoryMismatch || needsValuesRedirect) {
+    permanentRedirect(getRedirectTargetPath(slug, product));
+  }
 
   const baseUrl = buildStoreUrl(merchant);
 
@@ -775,8 +827,12 @@ export default async function CategoryProductPage({ params }: PageProps) {
   const { slug, category, productSlug } = await params;
   const result = await getProduct(slug, category, productSlug);
 
-  if (!result?.product) {
+  if (!result) {
     notFound();
+  }
+
+  if (!('product' in result)) {
+    permanentRedirect(getRedirectTargetPath(slug, result.legacyRedirectTarget));
   }
 
   const { product, merchant, categoryMismatch, needsValuesRedirect } = result;
@@ -785,23 +841,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
   // 1. If we found via case-insensitive fallback -> Redirect to lowercase canonical
   // 2. If the URL category doesn't match the product's actual category -> Redirect
   if (categoryMismatch || needsValuesRedirect) {
-    const correctCategorySlug =
-      product.category_slug ||
-      (product.category ? generateSlug(product.category) : undefined);
-
-    if (correctCategorySlug) {
-      const cleanSlug = product.slug || product.id;
-
-      // Known limitation: NODE_ENV check can break Vercel preview deployments
-      // where NODE_ENV=production but routing is path-mode. Cannot use headers()
-      // here without opting this route out of PPR (cacheComponents: true).
-      const targetPath =
-        process.env.NODE_ENV === 'development'
-          ? `/${slug}/${correctCategorySlug}/${cleanSlug}`
-          : `/${correctCategorySlug}/${cleanSlug}`;
-
-      permanentRedirect(targetPath as `/${string}`);
-    }
+    permanentRedirect(getRedirectTargetPath(slug, product));
   }
 
   const baseUrl = buildStoreUrl(merchant);
@@ -864,9 +904,8 @@ export default async function CategoryProductPage({ params }: PageProps) {
           __html: safeJsonLdStringify(breadcrumbSchema),
         }} // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
       />
-      {/* SEO Content - Server-rendered for crawlers, hidden but accessible and indexable */}
-      <article className="sr-only">
-        <h1>{product.name}</h1>
+      {/* Hidden crawlable summary without a second page-level heading */}
+      <article className="sr-only" aria-label={`${product.name} summary`}>
         <p>
           {product.description ||
             `Buy ${product.name} at the best price in Nigeria. Pay later with flexible options.`}

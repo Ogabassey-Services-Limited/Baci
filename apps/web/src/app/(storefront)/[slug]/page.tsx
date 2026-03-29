@@ -8,8 +8,10 @@ import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateLocalBusinessSchema,
+  generateOrganizationSchema,
   generateWebSiteSchema,
   type LocalBusinessData,
+  type OrganizationData,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
@@ -156,9 +158,7 @@ export default async function StorefrontPage({
   }
 
   // Generate schemas (fast, uses cached merchant data)
-  const host = headersList.get('host') || `${slug}.localhost:3000`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const baseUrl = `${protocol}://${host}`;
+  const baseUrl = buildStoreUrl(merchant);
   const description =
     merchant.site_description ||
     merchant.site_tagline ||
@@ -169,7 +169,9 @@ export default async function StorefrontPage({
   const socialMediaUrls: Record<string, string> = {};
   if (socialMedia) {
     if (socialMedia.facebook)
-      socialMediaUrls.facebook = `https://facebook.com/${encodeURIComponent(socialMedia.facebook)}`;
+      socialMediaUrls.facebook = `https://facebook.com/${encodeURIComponent(
+        socialMedia.facebook.replace('@', '')
+      )}`;
     if (socialMedia.instagram)
       socialMediaUrls.instagram = `https://instagram.com/${encodeURIComponent(socialMedia.instagram.replace('@', ''))}`;
     if (socialMedia.twitter)
@@ -189,16 +191,31 @@ export default async function StorefrontPage({
     url: baseUrl,
     logo: merchant.logo_url || undefined,
     telephone: merchant.phone || undefined,
+    address: merchant.business_address
+      ? {
+          street: merchant.business_address,
+          country: merchant.country || 'NG',
+        }
+      : undefined,
+    socialMedia:
+      Object.keys(socialMediaUrls).length > 0 ? socialMediaUrls : undefined,
+  };
+  const organizationData: OrganizationData = {
+    name: merchant.business_name,
+    description,
+    url: baseUrl,
+    logo: merchant.logo_url || undefined,
+    email: merchant.email || undefined,
+    telephone: merchant.phone || undefined,
     socialMedia:
       Object.keys(socialMediaUrls).length > 0 ? socialMediaUrls : undefined,
   };
 
-  const localBusinessSchema = generateLocalBusinessSchema(businessData);
-  const webSiteSchema = generateWebSiteSchema(
-    merchant.business_name,
-    baseUrl,
-    `${baseUrl}/products?q={search_term_string}`
-  );
+  const organizationSchema = generateOrganizationSchema(organizationData);
+  const localBusinessSchema = merchant.business_address
+    ? generateLocalBusinessSchema(businessData)
+    : null;
+  const webSiteSchema = generateWebSiteSchema(merchant.business_name, baseUrl);
 
   return (
     <>
@@ -210,7 +227,7 @@ export default async function StorefrontPage({
           dangerouslySetInnerHTML={{
             __html: safeJsonLdStringify({
               '@context': 'https://schema.org',
-              '@graph': [localBusinessSchema, webSiteSchema]
+              '@graph': [organizationSchema, localBusinessSchema, webSiteSchema]
                 .filter(Boolean)
                 .map((s) => {
                   const { '@context': _, ...rest } = s as Record<

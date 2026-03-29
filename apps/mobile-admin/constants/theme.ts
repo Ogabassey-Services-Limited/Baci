@@ -188,6 +188,8 @@ export const getShadows = (isDark: boolean) => ({
   },
 });
 
+export type ThemeShadows = ReturnType<typeof getShadows>;
+
 export const SHADOWS = getShadows(true);
 
 // Chart colors (same for both themes)

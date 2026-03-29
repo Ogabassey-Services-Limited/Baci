@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { buildStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import { PrivacyPageClient } from '../pages/privacy/privacy-page-client';
 
@@ -19,6 +20,8 @@ export async function generateMetadata({
     return { title: 'Privacy Policy' };
   }
 
+  const canonicalUrl = `${buildStoreUrl(merchant)}/privacy`;
+
   return {
     title: `Privacy Policy | ${merchant.business_name}`,
     description: `Privacy Policy for ${merchant.business_name}. Learn how we collect, use, and protect your personal information.`,
@@ -26,10 +29,11 @@ export async function generateMetadata({
       title: `Privacy Policy | ${merchant.business_name}`,
       description: `Privacy Policy for ${merchant.business_name}. Learn how we collect, use, and protect your personal information.`,
       type: 'website',
+      url: canonicalUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
     },
     alternates: {
-      canonical: '/privacy',
+      canonical: canonicalUrl,
     },
   };
 }
@@ -52,11 +56,7 @@ export default async function PrivacyPage({ params }: PageProps) {
     notFound();
   }
 
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-  const baseUrl = isDevelopment
-    ? `http://localhost:3000/${merchant.slug}`
-    : `https://${merchant.slug}.${rootDomain}`;
+  const baseUrl = buildStoreUrl(merchant);
 
   const privacySchema = {
     '@context': 'https://schema.org',

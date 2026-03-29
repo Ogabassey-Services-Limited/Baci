@@ -110,6 +110,7 @@ const liveBlogPost = {
     business_name: 'Ogabassey',
     slug: 'ogabassey',
     logo_url: null,
+    custom_domain: 'ogabassey.com',
   },
   post: {
     id: 'post-1',
@@ -159,7 +160,7 @@ describe('storefront blog post page', () => {
     );
     expect(metadata.title).toBe('The Great 5K Stall | Ogabassey');
     expect(metadata.alternates?.canonical).toBe(
-      'https://ogabassey.usebaci.com/blog/apple-studio-display-review'
+      'https://ogabassey.com/blog/apple-studio-display-review'
     );
   });
 
@@ -217,20 +218,21 @@ describe('storefront blog post page', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('returns not-found metadata when both cached and live lookups miss', async () => {
+  it('calls notFound when both cached and live lookups miss', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockGetCachedBlogPost.mockResolvedValue(null);
     mockGetLiveBlogPost.mockResolvedValue(null);
 
-    const metadata = await generateMetadata({
-      params: Promise.resolve({
-        slug: 'ogabassey.com',
-        postSlug: 'missing-post',
-      }),
-    });
+    await expect(
+      generateMetadata({
+        params: Promise.resolve({
+          slug: 'ogabassey.com',
+          postSlug: 'missing-post',
+        }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
 
-    expect(metadata.title).toBe('Post Not Found');
-    expect(mockNotFound).not.toHaveBeenCalled();
+    expect(mockNotFound).toHaveBeenCalledTimes(1);
   });
 
   it('uses canonical URL from buildCanonicalBlogPostUrl for custom domains', async () => {
