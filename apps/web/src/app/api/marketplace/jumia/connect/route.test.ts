@@ -10,6 +10,7 @@ const mockUpsert = vi.fn();
 const mockSelect = vi.fn().mockReturnValue({ single: vi.fn() });
 const mockGetMerchant = vi.fn();
 const mockToUserAccess = vi.fn();
+const mockAuthenticateApiRequest = vi.fn();
 const mockGetJumiaAuthUrl = vi
   .fn()
   .mockReturnValue('https://jumia.com/auth?state=xyz');
@@ -75,6 +76,8 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 }));
 
 vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: (...args: unknown[]) =>
+    mockAuthenticateApiRequest(...args),
   hasPermission: vi.fn().mockReturnValue(true),
 }));
 
@@ -109,6 +112,17 @@ function makePostRequest(body: unknown) {
 function makeGetRequest(search = '') {
   return new NextRequest(
     `http://localhost/api/marketplace/jumia/connect${search}`
+  );
+}
+
+function makeBearerGetRequest(search = '') {
+  return new NextRequest(
+    `http://localhost/api/marketplace/jumia/connect${search}`,
+    {
+      headers: {
+        Authorization: 'Bearer test-token',
+      },
+    }
   );
 }
 
@@ -343,6 +357,11 @@ describe('Connect GET', () => {
     process.env.JUMIA_CLIENT_ID = 'test-client-id';
     mockGetJumiaAuthUrl.mockReturnValue('https://jumia.com/auth?state=xyz');
     setupAuth();
+    mockAuthenticateApiRequest.mockResolvedValue({
+      user: { id: 'u1' },
+      supabase: mockSupabase,
+      error: null,
+    });
   });
 
   afterEach(() => {
@@ -350,9 +369,10 @@ describe('Connect GET', () => {
   });
 
   it('returns 401 when unauthenticated', async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: null },
-      error: { message: 'no' },
+    mockAuthenticateApiRequest.mockResolvedValue({
+      user: null,
+      supabase: null,
+      error: 'no',
     });
 
     const res = await GET(makeGetRequest('?connectionType=oauth'));
@@ -440,5 +460,48 @@ describe('Connect GET', () => {
         redirectUri: PUBLIC_CALLBACK_URL,
       })
     );
+  });
+
+  it('returns connection status for bearer-authenticated mobile requests', async () => {
+    mockSupabase.from.mockReturnValueOnce({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  id: 'int-1',
+                  shop_id: 'shop-1',
+                  shop_name: 'Jumia NG',
+                  country_code: 'NG',
+                  is_active: true,
+                  last_sync_at: null,
+                  sync_error: null,
+                },
+              ],
+            }),
+          }),
+        }),
+      }),
+    });
+
+    const res = await GET(makeBearerGetRequest());
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      connected: true,
+      integrations: [
+        {
+          id: 'int-1',
+          shop_id: 'shop-1',
+          shop_name: 'Jumia NG',
+          country_code: 'NG',
+          is_active: true,
+          last_sync_at: null,
+          sync_error: null,
+        },
+      ],
+    });
+    expect(mockAuthenticateApiRequest).toHaveBeenCalled();
   });
 });

@@ -8,7 +8,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getConfiguredAppUrl, getJumiaClientId } from '@/env';
-import { hasPermission } from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
@@ -198,11 +198,11 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
     const { searchParams } = new URL(request.url);
     const connectionType = searchParams.get('connectionType');
+    const hasBearerAuth = request.headers
+      .get('Authorization')
+      ?.startsWith('Bearer ');
 
     // --- Mobile ticket flow (runs before cookie auth) ---
     const ticket = searchParams.get('ticket');
@@ -288,16 +288,14 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
-    // --- Existing cookie auth flow ---
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // --- Shared cookie/bearer auth flow ---
+    const auth = await authenticateApiRequest(request);
 
-    if (authError || !user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       if (
         connectionType === 'oauth' &&
-        searchParams.get('platform') === 'mobile'
+        searchParams.get('platform') === 'mobile' &&
+        !hasBearerAuth
       ) {
         const loginUrl = new URL('/login', request.url);
         loginUrl.searchParams.set('redirectTo', request.url);
@@ -307,7 +305,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Get merchant for this user
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const merchantContext = await getMerchantForApiRequest(
+      auth.supabase,
+      auth.user.id
+    );
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -376,7 +377,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Default: Check connection status
-    const { data: integrations } = await supabase
+    const { data: integrations } = await auth.supabase
       .from('marketplace_integrations')
       .select(
         'id, shop_id, shop_name, country_code, is_active, last_sync_at, sync_error'
