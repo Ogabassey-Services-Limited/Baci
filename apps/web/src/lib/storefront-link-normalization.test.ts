@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  normalizeStorefrontContentHref,
-  rewriteHtmlStorefrontHrefs,
-} from './storefront-link-normalization';
+import { rewriteHtmlStorefrontHrefs } from '@/lib/storefront-html-link-rewriting';
+import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 
 describe('normalizeStorefrontContentHref', () => {
   it('normalizes legacy phones links to smartphones on custom domains', () => {
@@ -54,6 +52,19 @@ describe('normalizeStorefrontContentHref', () => {
     ).toBe('/ogabassey/smartphones/iphone-13-pro-6gb-128gb');
   });
 
+  it('normalizes root-relative links before preserving query strings and hashes', () => {
+    expect(
+      normalizeStorefrontContentHref(
+        '/phones/iPhone-13-Pro-6GB-256GB?utm_source=newsletter#specs',
+        {
+          basePath: '/ogabassey',
+          baseUrl: 'https://usebaci.com',
+          merchantSlug: 'ogabassey',
+        }
+      )
+    ).toBe('/ogabassey/smartphones/iphone-13-pro-6gb-256gb#specs');
+  });
+
   it('normalizes bad path-mode catalog URLs back to the store root path', () => {
     expect(
       normalizeStorefrontContentHref('https://usebaci.com/ogabassey/products', {
@@ -88,6 +99,21 @@ describe('rewriteHtmlStorefrontHrefs', () => {
       })
     ).toContain(
       '<a href="/smartphones/iphone-13-pro-6gb-256gb">iPhone</a> <a href="/products">Old product</a>'
+    );
+  });
+
+  it('rewrites single-quoted legacy anchors too', () => {
+    const html =
+      "<p><a href='https://www.ogabassey.com/phones/iPhone-13-Pro-6GB-256GB'>iPhone</a> <a href='https://www.ogabassey.com/category/product/615'>Old product</a></p>";
+
+    expect(
+      rewriteHtmlStorefrontHrefs(html, {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toContain(
+      "<a href='/smartphones/iphone-13-pro-6gb-256gb'>iPhone</a> <a href='/products'>Old product</a>"
     );
   });
 });

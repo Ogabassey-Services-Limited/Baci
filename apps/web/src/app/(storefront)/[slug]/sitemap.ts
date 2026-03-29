@@ -1,19 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
-
-// Initialize Supabase client for public data access
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing required Supabase environment variables');
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { createAnonClient } from '@/lib/supabase/anon';
 
 // headers() opts into dynamic rendering — revalidate is incompatible.
 export const dynamic = 'force-dynamic';
@@ -86,6 +76,7 @@ export default async function sitemap(props: {
 
   if (!merchant) return [];
   const storeUrl = buildStoreUrl(merchant);
+  const supabase = createAnonClient();
 
   switch (id) {
     case 'static':

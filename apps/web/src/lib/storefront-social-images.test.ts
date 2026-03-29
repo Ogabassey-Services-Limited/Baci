@@ -3,7 +3,7 @@ import {
   getStorefrontOpenGraphImages,
   getStorefrontSocialImageUrl,
   getStorefrontTwitterImages,
-} from './storefront-social-images';
+} from '@/lib/storefront-social-images';
 
 describe('storefront social image helpers', () => {
   it('returns the first absolute candidate image URL', () => {

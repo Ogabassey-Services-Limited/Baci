@@ -157,4 +157,46 @@ describe('blog page metadata', () => {
       'https://test-store.usebaci.com/opengraph-image',
     ]);
   });
+
+  it('uses the merchant custom domain for paginated metadata URLs', async () => {
+    vi.mocked(getCachedMerchantByDomain).mockResolvedValueOnce({
+      ...merchant,
+      slug: 'ogabassey',
+      custom_domain: 'example.com',
+    } as unknown as Awaited<ReturnType<typeof getCachedMerchantByDomain>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'example.com' }),
+      searchParams: Promise.resolve({ page: '2' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://example.com/blog?page=2'
+    );
+    expect(metadata.openGraph?.url).toBe('https://example.com/blog?page=2');
+  });
+
+  it('returns fallback metadata when the merchant is missing', async () => {
+    vi.mocked(getCachedMerchant).mockResolvedValueOnce(null);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'missing-store' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata).toEqual({ title: 'Blog Not Found' });
+  });
+
+  it('returns fallback metadata when the merchant blog is disabled', async () => {
+    vi.mocked(getCachedFeatureSettings).mockResolvedValueOnce({
+      blog_enabled: false,
+    } as Awaited<ReturnType<typeof getCachedFeatureSettings>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata).toEqual({ title: 'Blog Not Found' });
+  });
 });

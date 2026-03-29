@@ -97,4 +97,33 @@ describe('blog sitemap', () => {
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
     expect(result[0].url).toBe('https://ogabassey.com/blog');
   });
+
+  it('returns an empty sitemap when the merchant is not found', async () => {
+    mockHeaders = new Map([['host', 'missing.example']]);
+    mockGetMerchantByIdentifier.mockResolvedValue(null);
+
+    const { default: sitemap } = await import('./sitemap');
+
+    await expect(sitemap()).resolves.toEqual([]);
+  });
+
+  it('propagates blog post query errors', async () => {
+    mockHeaders = new Map([['host', 'ogabassey.com']]);
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    mockEq.mockImplementation((key: string, value: string) => {
+      if (key === 'status' && value === 'published') {
+        return { data: null, error: new Error('db') };
+      }
+
+      return { eq: mockEq };
+    });
+
+    const { default: sitemap } = await import('./sitemap');
+
+    await expect(sitemap()).rejects.toThrow('db');
+  });
 });

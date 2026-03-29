@@ -224,6 +224,46 @@ function prependBasePath(pathname: string, basePath = ''): string {
   return `${normalizedBasePath}${pathname}`;
 }
 
+function buildNormalizedInternalHref(
+  pathname: string,
+  searchParams: URLSearchParams,
+  hash: string,
+  merchantIdentifier: string | null,
+  basePath = ''
+): string {
+  const normalizedPath = prependBasePath(
+    normalizeInternalStorefrontPath(pathname, merchantIdentifier),
+    basePath
+  );
+  const normalizedSearch = searchParams.toString();
+
+  return `${normalizedPath}${normalizedSearch ? `?${normalizedSearch}` : ''}${hash}`;
+}
+
+function normalizeRootRelativeStorefrontHref(
+  href: string,
+  merchantIdentifier: string | null,
+  basePath = ''
+): string {
+  try {
+    const parsedHref = new URL(href, 'https://storefront.invalid');
+    stripTrackingParams(parsedHref.searchParams);
+
+    return buildNormalizedInternalHref(
+      parsedHref.pathname,
+      parsedHref.searchParams,
+      parsedHref.hash,
+      merchantIdentifier,
+      basePath
+    );
+  } catch {
+    return prependBasePath(
+      normalizeInternalStorefrontPath(href, merchantIdentifier),
+      basePath
+    );
+  }
+}
+
 function isStorefrontPlatformPath(
   pathname: string,
   merchantIdentifier: string | null
@@ -297,8 +337,9 @@ export function normalizeStorefrontContentHref(
   );
 
   if (trimmedHref.startsWith('/')) {
-    return prependBasePath(
-      normalizeInternalStorefrontPath(trimmedHref, merchantIdentifier),
+    return normalizeRootRelativeStorefrontHref(
+      trimmedHref,
+      merchantIdentifier,
       options.basePath
     );
   }
@@ -313,29 +354,14 @@ export function normalizeStorefrontContentHref(
     }
 
     stripTrackingParams(parsedHref.searchParams);
-
-    const normalizedPath = prependBasePath(
-      normalizeInternalStorefrontPath(parsedHref.pathname, merchantIdentifier),
+    return buildNormalizedInternalHref(
+      parsedHref.pathname,
+      parsedHref.searchParams,
+      parsedHref.hash,
+      merchantIdentifier,
       options.basePath
     );
-    const normalizedSearch = parsedHref.searchParams.toString();
-
-    return `${normalizedPath}${normalizedSearch ? `?${normalizedSearch}` : ''}${parsedHref.hash}`;
   } catch {
     return trimmedHref;
   }
-}
-
-export function rewriteHtmlStorefrontHrefs(
-  html: string,
-  options: NormalizeStorefrontContentHrefOptions = {}
-): string {
-  if (!html || !html.includes('href=')) {
-    return html;
-  }
-
-  return html.replace(/\bhref=(["'])(.*?)\1/gi, (_match, quote, href) => {
-    const normalizedHref = normalizeStorefrontContentHref(href, options);
-    return `href=${quote}${normalizedHref}${quote}`;
-  });
 }

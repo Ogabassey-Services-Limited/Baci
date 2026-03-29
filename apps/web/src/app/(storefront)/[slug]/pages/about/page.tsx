@@ -31,6 +31,7 @@ export async function generateMetadata({
     aboutPage.story ||
     aboutPage.mission ||
     `Learn more about ${merchant.business_name}`;
+  const aboutUrl = `${buildStoreUrl(merchant)}/about`;
 
   return {
     title: `About Us | ${merchant.business_name}`,
@@ -39,10 +40,11 @@ export async function generateMetadata({
       title: `About ${merchant.business_name}`,
       description: description.substring(0, 160),
       type: 'website',
+      url: aboutUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
     },
     alternates: {
-      canonical: '/about',
+      canonical: aboutUrl,
     },
   };
 }

@@ -56,7 +56,10 @@ export function sanitizeHtml(
   dirty: string,
   options: SanitizeHtmlOptions = {}
 ): string {
-  const headingLevelOffset = Math.max(0, options.headingLevelOffset ?? 0);
+  const rawHeadingLevelOffset = Number(options.headingLevelOffset ?? 0);
+  const headingLevelOffset = Number.isFinite(rawHeadingLevelOffset)
+    ? Math.max(0, Math.trunc(rawHeadingLevelOffset))
+    : 0;
   const transformTags: NonNullable<sanitizeLib.IOptions['transformTags']> = {
     a: sanitizeLib.simpleTransform('a', { rel: 'noopener noreferrer' }),
   };

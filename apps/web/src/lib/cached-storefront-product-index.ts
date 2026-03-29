@@ -39,6 +39,13 @@ export async function getCachedStorefrontProductIndex(
   options: StorefrontProductIndexOptions
 ): Promise<StorefrontProductIndexResult> {
   'use cache';
+
+  const limit = Number.isInteger(options.limit) ? options.limit : Number.NaN;
+  if (!Number.isFinite(limit) || limit <= 0) {
+    throw new Error(
+      'Storefront product index limit must be a positive integer'
+    );
+  }
   cacheLife('products');
   cacheTag(
     'products',
@@ -47,7 +54,7 @@ export async function getCachedStorefrontProductIndex(
   );
 
   const supabase = getPublicSupabaseClient();
-  const offset = (options.page - 1) * options.limit;
+  const offset = (options.page - 1) * limit;
 
   const { data, count, error } = await supabase
     .from('products')
@@ -77,7 +84,7 @@ export async function getCachedStorefrontProductIndex(
     .eq('status', 'active')
     .or('is_parent.eq.true,parent_product_id.is.null')
     .order('created_at', { ascending: false })
-    .range(offset, offset + options.limit - 1);
+    .range(offset, offset + limit - 1);
 
   if (error) {
     console.error('Error fetching storefront product index:', error);
@@ -91,6 +98,6 @@ export async function getCachedStorefrontProductIndex(
   return {
     products: normalizeProducts((data || []) as unknown as RawDbProduct[]),
     totalCount: count || 0,
-    totalPages: Math.ceil((count || 0) / options.limit),
+    totalPages: Math.ceil((count || 0) / limit),
   };
 }

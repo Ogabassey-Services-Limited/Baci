@@ -248,4 +248,27 @@ describe('products index page', () => {
       'https://test-store.usebaci.com/opengraph-image',
     ]);
   });
+
+  it('renders a placeholder when a catalog item is missing an image', async () => {
+    vi.mocked(getCachedStorefrontProductIndex).mockResolvedValueOnce({
+      ...productIndex,
+      products: [
+        {
+          ...productIndex.products[0],
+          image: '',
+        },
+      ],
+    });
+
+    const ui = await ProductsPage({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    render(ui);
+
+    expect(
+      screen.getByLabelText('No image available for iPhone 16')
+    ).toBeInTheDocument();
+  });
 });

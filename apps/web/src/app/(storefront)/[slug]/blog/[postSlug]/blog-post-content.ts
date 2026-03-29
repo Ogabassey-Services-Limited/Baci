@@ -2,10 +2,8 @@ import { marked } from 'marked';
 import { stripHtml } from '@/lib/blog-utils';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { buildStoreUrl } from '@/lib/store-url';
-import {
-  type NormalizeStorefrontContentHrefOptions,
-  rewriteHtmlStorefrontHrefs,
-} from '@/lib/storefront-link-normalization';
+import { rewriteHtmlStorefrontHrefs } from '@/lib/storefront-html-link-rewriting';
+import type { NormalizeStorefrontContentHrefOptions } from '@/lib/storefront-link-normalization';
 
 interface TipTapNode {
   content?: TipTapNode[];

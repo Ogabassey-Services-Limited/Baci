@@ -191,6 +191,10 @@ function makeHeaders(entries: Record<string, string> = {}) {
 describe('products/[productSlug] page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHeaders.mockReset();
+    mockHeaders.mockReturnValue(makeHeaders({}));
+    mockConnection.mockReset();
+    mockConnection.mockImplementation(async () => undefined);
     mockGenerateProductSchema.mockImplementation(() => ({ offers: {} }));
     mockGetProductUrl.mockImplementation(defaultGetProductUrl);
     mockGetCachedMerchant.mockResolvedValue(baseMerchant);

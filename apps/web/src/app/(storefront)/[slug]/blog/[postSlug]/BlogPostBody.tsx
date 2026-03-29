@@ -15,7 +15,7 @@ export interface BlogPostBodyProps {
   baseUrl: string;
   content: unknown;
   locale?: string;
-  merchantSlug?: string;
+  merchantSlug: string;
   postUrl?: string;
   post: {
     author_bio?: string | null;

@@ -144,9 +144,7 @@ export async function generateMetadata(
     notFound();
   }
 
-  const resolvedProduct = product;
-
-  await redirectLegacyProductRouteIfCategorized(slug, resolvedProduct);
+  await redirectLegacyProductRouteIfCategorized(slug, product);
 
   // Get cached merchant data (handle custom domains)
   const merchant = await resolveStoreMerchant(slug);
@@ -157,10 +155,10 @@ export async function generateMetadata(
         : { slug, custom_domain: undefined })
   );
 
-  let canonicalUrl = resolvedProduct.canonical_url;
+  let canonicalUrl = product.canonical_url;
 
   if (!canonicalUrl) {
-    const productPath = getProductUrl(resolvedProduct);
+    const productPath = getProductUrl(product);
     const basePath = `${baseUrl}${productPath}`;
     canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, [
       'variant',
@@ -173,29 +171,28 @@ export async function generateMetadata(
 
   return {
     title:
-      resolvedProduct.meta_title ||
-      `${resolvedProduct.name} | ${merchant?.business_name || 'Baci Store'}`,
+      product.meta_title ||
+      `${product.name} | ${merchant?.business_name || 'Baci Store'}`,
     description:
-      resolvedProduct.meta_description ||
-      resolvedProduct.description ||
-      `Buy ${resolvedProduct.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`,
-    keywords: resolvedProduct.keywords,
+      product.meta_description ||
+      product.description ||
+      `Buy ${product.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`,
+    keywords: product.keywords,
     alternates: {
       canonical: canonicalUrl,
     },
     openGraph: {
-      title: resolvedProduct.meta_title || resolvedProduct.name,
-      description:
-        resolvedProduct.meta_description || resolvedProduct.description,
-      images: resolvedProduct.images?.map((img) => ({
+      title: product.meta_title || product.name,
+      description: product.meta_description || product.description,
+      images: product.images?.map((img) => ({
         url: img.url,
         alt: img.alt,
       })) || [
         {
-          url: resolvedProduct.imageLarge || resolvedProduct.image,
+          url: product.imageLarge || product.image,
           width: 800,
           height: 600,
-          alt: resolvedProduct.name,
+          alt: product.name,
         },
       ],
       url: canonicalUrl,
@@ -204,10 +201,9 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title: resolvedProduct.meta_title || resolvedProduct.name,
-      description:
-        resolvedProduct.meta_description || resolvedProduct.description,
-      images: [resolvedProduct.imageLarge || resolvedProduct.image],
+      title: product.meta_title || product.name,
+      description: product.meta_description || product.description,
+      images: [product.imageLarge || product.image],
       ...(socialMedia?.twitter && {
         site: socialMedia.twitter.startsWith('@')
           ? socialMedia.twitter
@@ -232,18 +228,16 @@ export default async function ProductPage({ params }: PageProps) {
     notFound();
   }
 
-  const resolvedProduct = product;
-
-  await redirectLegacyProductRouteIfCategorized(slug, resolvedProduct);
+  await redirectLegacyProductRouteIfCategorized(slug, product);
 
   const merchant = await resolveStoreMerchant(slug);
-  const reviewStats = await getCachedProductRatingStats(resolvedProduct.id);
-  const recentReviews = await getCachedProductReviews(resolvedProduct.id, {
+  const reviewStats = await getCachedProductRatingStats(product.id);
+  const recentReviews = await getCachedProductReviews(product.id, {
     limit: 10,
   });
 
   if (recentReviews && recentReviews.length > 0) {
-    resolvedProduct.reviews = recentReviews.map((r) => ({
+    product.reviews = recentReviews.map((r) => ({
       author: r.reviewer_name || 'Anonymous',
       datePublished: r.created_at,
       reviewBody: r.review_text || '',
@@ -259,13 +253,13 @@ export default async function ProductPage({ params }: PageProps) {
   );
 
   const productSchema = generateProductSchema(
-    resolvedProduct,
+    product,
     merchant?.business_name || 'Baci Store',
     merchant?.payout_currency || 'USD',
     merchant?.country || 'NG',
     merchant?.logo_url
   );
-  const productPath = getProductUrl(resolvedProduct);
+  const productPath = getProductUrl(product);
   const productUrl = `${baseUrl}${productPath}`;
   if (
     productSchema.offers &&
@@ -286,23 +280,19 @@ export default async function ProductPage({ params }: PageProps) {
   }
 
   const categorySlug =
-    resolvedProduct.category_slug ||
-    (resolvedProduct.category
-      ? generateSlug(resolvedProduct.category)
-      : 'products');
+    product.category_slug ||
+    (product.category ? generateSlug(product.category) : 'products');
   const categoryName =
-    resolvedProduct.categories?.name ||
-    resolvedProduct.category ||
-    'All Products';
+    product.categories?.name || product.category || 'All Products';
   const categoryUrl = `${baseUrl}/${categorySlug}`;
 
   const breadcrumbItems = [
     { name: merchant?.business_name || 'Home', url: baseUrl },
     { name: categoryName, url: categoryUrl },
-    { name: resolvedProduct.name, url: productUrl },
+    { name: product.name, url: productUrl },
   ];
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
-  const productFaqs = (resolvedProduct as unknown as { faqs?: FAQItem[] }).faqs;
+  const productFaqs = (product as unknown as { faqs?: FAQItem[] }).faqs;
   const faqSchema =
     productFaqs && productFaqs.length > 0
       ? generateFAQSchema(productFaqs)
@@ -335,7 +325,7 @@ export default async function ProductPage({ params }: PageProps) {
       )}
 
       <Suspense fallback={<ProductDetailSkeleton />}>
-        <ProductDetailClient product={resolvedProduct} faqs={productFaqs} />
+        <ProductDetailClient product={product} faqs={productFaqs} />
       </Suspense>
     </>
   );

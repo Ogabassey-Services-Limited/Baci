@@ -1,4 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  buildCachedDataTestHarness,
+  type CachedDataTestHarness,
+} from '@/lib/cached-data.test-utils';
 
 const mockCreateClient = vi.fn();
 
@@ -24,39 +28,12 @@ import {
   getPublicSupabaseClient,
 } from '@/lib/cached-data';
 
-function createQueryBuilder(overrides?: {
-  data?: unknown;
-  error?: { message: string; code?: string } | null;
-  count?: number | null;
-}) {
-  const resolvedValue = {
-    data: overrides?.data ?? null,
-    error: overrides?.error ?? null,
-    count: overrides?.count ?? null,
-  };
-
-  const builder = {
-    select: vi.fn(() => builder),
-    eq: vi.fn(() => builder),
-    or: vi.fn(() => builder),
-    order: vi.fn(() => builder),
-    limit: vi.fn(() => Promise.resolve(resolvedValue)),
-    range: vi.fn(() => Promise.resolve(resolvedValue)),
-    single: vi.fn(() => Promise.resolve(resolvedValue)),
-    maybeSingle: vi.fn(() => Promise.resolve(resolvedValue)),
-    neq: vi.fn(() => builder),
-  };
-
-  Object.defineProperty(builder, 'then', {
-    value: vi.fn((resolve: (val: unknown) => void) => resolve(resolvedValue)),
-  });
-
-  return builder;
-}
+let harness: CachedDataTestHarness;
 
 describe('getPublicSupabaseClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    harness = buildCachedDataTestHarness();
     mockCreateClient.mockReturnValue({ from: vi.fn() });
   });
 
@@ -95,6 +72,12 @@ describe('getPublicSupabaseClient', () => {
 describe('getCachedCategories', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    harness = buildCachedDataTestHarness();
+    mockCreateClient.mockReturnValue({
+      from: harness.mockFrom,
+      rpc: harness.mockRpc,
+      auth: { getUser: vi.fn() },
+    });
   });
 
   afterEach(() => {
@@ -107,24 +90,22 @@ describe('getCachedCategories', () => {
       { id: 'c2', name: 'Fashion', slug: 'fashion' },
     ];
 
-    const builder = createQueryBuilder({ data: categories });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    harness.mockListResult.data = categories;
+    harness.mockListResult.error = null;
 
     const result = await getCachedCategories('merchant-1');
 
     expect(result).toEqual(categories);
-    expect(builder.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
-    expect(builder.order).toHaveBeenCalledWith('name', { ascending: true });
+    expect(harness.mockEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(harness.mockOrder).toHaveBeenCalledWith('name', { ascending: true });
   });
 
   it('returns empty array on error', async () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
-    const builder = createQueryBuilder({
-      error: { message: 'DB timeout' },
-    });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    harness.mockListResult.data = null;
+    harness.mockListResult.error = { message: 'DB timeout' };
 
     const result = await getCachedCategories('merchant-1');
 
@@ -133,8 +114,8 @@ describe('getCachedCategories', () => {
   });
 
   it('returns empty array when data is null', async () => {
-    const builder = createQueryBuilder({ data: null });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    harness.mockListResult.data = null;
+    harness.mockListResult.error = null;
 
     const result = await getCachedCategories('merchant-1');
 
@@ -145,6 +126,12 @@ describe('getCachedCategories', () => {
 describe('getCachedFeatureSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    harness = buildCachedDataTestHarness();
+    mockCreateClient.mockReturnValue({
+      from: harness.mockFrom,
+      rpc: harness.mockRpc,
+      auth: { getUser: vi.fn() },
+    });
   });
 
   afterEach(() => {
@@ -159,8 +146,11 @@ describe('getCachedFeatureSettings', () => {
       shipping_insurance_opt_in_default: true,
     };
 
-    const builder = createQueryBuilder({ data: settings });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    harness.mockSingle.mockResolvedValueOnce({
+      data: settings,
+      error: null,
+      count: null,
+    });
 
     const result = await getCachedFeatureSettings('merchant-1');
 
@@ -168,10 +158,11 @@ describe('getCachedFeatureSettings', () => {
   });
 
   it('returns default disabled settings on Supabase error', async () => {
-    const builder = createQueryBuilder({
+    harness.mockSingle.mockResolvedValueOnce({
+      data: null,
       error: { message: 'Not found', code: 'PGRST116' },
+      count: null,
     });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
 
     const result = await getCachedFeatureSettings('merchant-1');
 
@@ -206,6 +197,12 @@ describe('getCachedFeatureSettings', () => {
 describe('getCachedProductRatingStats', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    harness = buildCachedDataTestHarness();
+    mockCreateClient.mockReturnValue({
+      from: harness.mockFrom,
+      rpc: harness.mockRpc,
+      auth: { getUser: vi.fn() },
+    });
   });
 
   afterEach(() => {
@@ -221,8 +218,8 @@ describe('getCachedProductRatingStats', () => {
       { rating: 1 },
     ];
 
-    const builder = createQueryBuilder({ data: reviews });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    harness.mockListResult.data = reviews;
+    harness.mockListResult.error = null;
 
     const result = await getCachedProductRatingStats('product-1');
 
@@ -232,8 +229,8 @@ describe('getCachedProductRatingStats', () => {
   });
 
   it('returns zeros when there are no reviews', async () => {
-    const builder = createQueryBuilder({ data: [] });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    harness.mockListResult.data = [];
+    harness.mockListResult.error = null;
 
     const result = await getCachedProductRatingStats('product-1');
 
@@ -243,10 +240,8 @@ describe('getCachedProductRatingStats', () => {
   });
 
   it('returns zeros on error', async () => {
-    const builder = createQueryBuilder({
-      error: { message: 'Connection error' },
-    });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    harness.mockListResult.data = null;
+    harness.mockListResult.error = { message: 'Connection error' };
 
     const result = await getCachedProductRatingStats('product-1');
 
@@ -255,8 +250,8 @@ describe('getCachedProductRatingStats', () => {
   });
 
   it('returns zeros when data is null', async () => {
-    const builder = createQueryBuilder({ data: null });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    harness.mockListResult.data = null;
+    harness.mockListResult.error = null;
 
     const result = await getCachedProductRatingStats('product-1');
 
@@ -267,8 +262,8 @@ describe('getCachedProductRatingStats', () => {
   it('rounds averageRating to one decimal place', async () => {
     // 3 reviews: 5, 4, 4 => avg 4.333... => rounded to 4.3
     const reviews = [{ rating: 5 }, { rating: 4 }, { rating: 4 }];
-    const builder = createQueryBuilder({ data: reviews });
-    mockCreateClient.mockReturnValue({ from: vi.fn(() => builder) });
+    harness.mockListResult.data = reviews;
+    harness.mockListResult.error = null;
 
     const result = await getCachedProductRatingStats('product-1');
 
@@ -279,6 +274,12 @@ describe('getCachedProductRatingStats', () => {
 describe('getCachedProducts', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    harness = buildCachedDataTestHarness();
+    mockCreateClient.mockReturnValue({
+      from: harness.mockFrom,
+      rpc: harness.mockRpc,
+      auth: { getUser: vi.fn() },
+    });
   });
 
   afterEach(() => {
@@ -289,13 +290,9 @@ describe('getCachedProducts', () => {
     const consoleSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
-    const builder = createQueryBuilder({
-      error: { message: 'Connection error' },
-    });
-    mockCreateClient.mockReturnValue({
-      from: vi.fn(() => builder),
-      rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
-    });
+    harness.mockListResult.data = null;
+    harness.mockListResult.error = { message: 'Connection error' };
+    harness.mockRpc.mockResolvedValueOnce({ data: [], error: null });
 
     const result = await getCachedProducts('merchant-1');
 
@@ -312,14 +309,11 @@ describe('getCachedProducts', () => {
       { id: 'p2', name: 'Tablet', status: 'active' },
     ];
 
-    const builder = createQueryBuilder({ data: products });
-    const mockRpc = vi.fn().mockResolvedValue({
+    harness.mockListResult.data = products;
+    harness.mockListResult.error = null;
+    harness.mockRpc.mockResolvedValueOnce({
       data: [{ product_id: 'p1', id: 'v1', attributes: { color: 'red' } }],
       error: null,
-    });
-    mockCreateClient.mockReturnValue({
-      from: vi.fn(() => builder),
-      rpc: mockRpc,
     });
 
     const result = await getCachedProducts('merchant-1');

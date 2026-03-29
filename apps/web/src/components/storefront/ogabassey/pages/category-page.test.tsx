@@ -50,7 +50,9 @@ vi.mock('../components/CategoryFiltersSidebar', () => ({
   CategoryFiltersSidebar: () => null,
 }));
 vi.mock('../components/ProductCard', () => ({
-  ProductCard: () => <div data-testid="product-card" />,
+  ProductCard: ({ product }: { product: { name: string } }) => (
+    <article aria-label={product.name} />
+  ),
 }));
 
 import { CategoryPage } from './category-page';
@@ -101,7 +103,7 @@ describe('CategoryPage', () => {
 
     render(<CategoryPage currentPage={2} products={products} />);
 
-    expect(screen.getAllByTestId('product-card')).toHaveLength(5);
+    expect(screen.getAllByRole('article')).toHaveLength(5);
     expect(
       screen.getByText('Showing 21-25 of 25 products')
     ).toBeInTheDocument();

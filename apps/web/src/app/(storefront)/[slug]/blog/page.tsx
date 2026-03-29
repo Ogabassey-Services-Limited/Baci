@@ -127,7 +127,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const { page } = await searchParams;
   const currentPage = Number.parseInt(page || '1', 10);
-  const data = await getMerchantAndPosts(slug);
+  const data = await getMerchantAndPosts(slug, undefined, currentPage);
 
   if (!data) {
     return { title: 'Blog Not Found' };

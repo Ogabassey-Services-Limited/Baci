@@ -21,18 +21,22 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
 }));
 
-// Supabase query builder mock — chainable
 const mockSingle = vi.fn();
-const mockEq: ReturnType<typeof vi.fn<(...args: any[]) => any>> = vi.fn(() => ({
-  eq: mockEq,
-  single: mockSingle,
-}));
-const mockSelect = vi.fn(() => ({ eq: mockEq, single: mockSingle }));
-const mockFrom = vi.fn(() => ({ select: mockSelect }));
+const mockEq: ReturnType<typeof vi.fn<(...args: unknown[]) => unknown>> = vi.fn(
+  () => ({
+    eq: mockEq,
+    single: mockSingle,
+  })
+);
 
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(() => ({
-    from: mockFrom,
+vi.mock('@/lib/supabase/anon', () => ({
+  createAnonClient: vi.fn(() => ({
+    from: () => ({
+      select: () => ({
+        eq: mockEq,
+        single: mockSingle,
+      }),
+    }),
   })),
 }));
 
@@ -203,7 +207,8 @@ describe('sitemap', () => {
           categories: { slug: 'smartphones' },
         },
       ];
-      mockEq.mockImplementation((key: string, value: string) => {
+      mockEq.mockImplementation((...args: unknown[]) => {
+        const [key, value] = args as [string, string];
         if (key === 'status' && value === 'active') {
           return { data: productData, error: null };
         }
@@ -220,7 +225,8 @@ describe('sitemap', () => {
 
     it('returns empty array when no products exist', async () => {
       setSlugHeader('ogabassey');
-      mockEq.mockImplementation((key: string, value: string) => {
+      mockEq.mockImplementation((...args: unknown[]) => {
+        const [key, value] = args as [string, string];
         if (key === 'status' && value === 'active') {
           return { data: null, error: null };
         }

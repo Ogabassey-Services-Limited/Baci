@@ -65,11 +65,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (!merchant) return [];
   const storeUrl = buildStoreUrl(merchant);
 
-  const { data: posts } = await supabase
+  const { data: posts, error } = await supabase
     .from('blog_posts')
     .select('slug, published_at, updated_at, featured_image_url')
     .eq('merchant_id', merchant.id)
     .eq('status', 'published');
+
+  if (error) {
+    throw error;
+  }
 
   const entries: MetadataRoute.Sitemap = [
     {

@@ -201,4 +201,12 @@ describe('getCachedStorefrontProductIndex', () => {
       getCachedStorefrontProductIndex('merchant-1', { page: 1, limit: 10 })
     ).rejects.toThrow('Supabase configuration is missing');
   });
+
+  it('throws when the requested limit is not a positive integer', async () => {
+    await expect(
+      getCachedStorefrontProductIndex('merchant-1', { page: 1, limit: 0 })
+    ).rejects.toThrow(
+      'Storefront product index limit must be a positive integer'
+    );
+  });
 });
