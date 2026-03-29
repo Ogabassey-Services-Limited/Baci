@@ -132,7 +132,12 @@ export default function ReceiptsScreen() {
         <Text style={[styles.errorText, { color: colors.text }]}>
           Failed to load receipts
         </Text>
-        <TouchableOpacity onPress={() => refetch()}>
+        <TouchableOpacity
+          onPress={() => refetch()}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading receipts"
+          accessibilityHint="Retries loading your receipts"
+        >
           <Text style={[styles.retryText, { color: BRAND.primary }]}>
             Tap to retry
           </Text>
@@ -198,6 +203,9 @@ export default function ReceiptsScreen() {
               <TouchableOpacity
                 onPress={() => setSearchQuery('')}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+                accessibilityHint="Clears the current search query"
               >
                 <Ionicons
                   name="close-circle"
