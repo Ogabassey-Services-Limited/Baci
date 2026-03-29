@@ -63,6 +63,7 @@ describe('BlogPostBody', () => {
         basePath: '/ogabassey',
         baseUrl: 'https://usebaci.com',
         content,
+        merchantSlug: 'ogabassey',
         post: {
           id: 'post-1',
           slug: 'pixel-9-review',
@@ -89,7 +90,11 @@ describe('BlogPostBody', () => {
     expect(screen.getByTestId('blog-json-renderer')).toBeInTheDocument();
     expect(screen.getByText('Android')).toBeInTheDocument();
     expect(screen.getByText('Google')).toBeInTheDocument();
-    expect(mockResolveBlogPostContent).toHaveBeenCalledWith(content);
+    expect(mockResolveBlogPostContent).toHaveBeenCalledWith(content, {
+      basePath: '/ogabassey',
+      baseUrl: 'https://usebaci.com',
+      merchantSlug: 'ogabassey',
+    });
     expect(
       screen.getByRole('link', { name: /Related Post/i })
     ).toBeInTheDocument();
@@ -111,6 +116,7 @@ describe('BlogPostBody', () => {
         basePath: '/ogabassey',
         baseUrl: 'https://usebaci.com',
         content: '<p>Legacy HTML body</p>',
+        merchantSlug: 'ogabassey',
         postUrl: 'https://usebaci.com/ogabassey/blog/pixel-9-review',
         post: {
           id: 'post-1',
@@ -148,7 +154,12 @@ describe('BlogPostBody', () => {
       expect.stringContaining(encodedShareUrl)
     );
     expect(mockResolveBlogPostContent).toHaveBeenCalledWith(
-      '<p>Legacy HTML body</p>'
+      '<p>Legacy HTML body</p>',
+      {
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        merchantSlug: 'ogabassey',
+      }
     );
   });
 
@@ -164,6 +175,7 @@ describe('BlogPostBody', () => {
         basePath: '/ogabassey',
         baseUrl: 'https://ogabassey.usebaci.com',
         content: '<p>Content</p>',
+        merchantSlug: 'ogabassey',
         postUrl: 'https://ogabassey.usebaci.com/blog/my-post',
         post: {
           id: 'post-1',

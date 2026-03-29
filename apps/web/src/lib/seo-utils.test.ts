@@ -2,6 +2,8 @@
 
 import type { Product } from './products';
 import {
+  generateBreadcrumbSchema,
+  generateCollectionPageSchema,
   generateProductSchema,
   generateSlug,
   getEffectiveProductStock,
@@ -295,6 +297,75 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(returnPolicy['@type']).toBe('MerchantReturnPolicy');
     expect(returnPolicy.applicableCountry).toBe('NG');
     expect(returnPolicy.merchantReturnDays).toBe(7);
+  });
+});
+
+describe('generateBreadcrumbSchema', () => {
+  it('emits breadcrumb items as schema objects with absolute ids', () => {
+    const schema = generateBreadcrumbSchema([
+      { name: 'Ogabassey', url: 'https://ogabassey.com' },
+      { name: 'Smartphones', url: 'https://ogabassey.com/smartphones' },
+    ]);
+
+    expect(schema).toEqual({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          item: {
+            '@id': 'https://ogabassey.com',
+            name: 'Ogabassey',
+          },
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          item: {
+            '@id': 'https://ogabassey.com/smartphones',
+            name: 'Smartphones',
+          },
+        },
+      ],
+    });
+  });
+});
+
+describe('generateCollectionPageSchema', () => {
+  it('converts product and image URLs to absolute schema URLs', () => {
+    const schema = generateCollectionPageSchema({
+      name: 'Smartphones',
+      description: 'Shop smartphones',
+      url: 'https://ogabassey.com/smartphones',
+      merchantName: 'Ogabassey',
+      currency: 'NGN',
+      products: [
+        makeProduct({
+          name: 'iPhone 16',
+          slug: 'iphone-16',
+          category: 'Smartphones',
+          image: '/images/iphone-16.jpg',
+          imageLarge: '/images/iphone-16-large.jpg',
+        }),
+      ],
+    });
+
+    const listItem = (
+      (schema.mainEntity as Record<string, unknown>).itemListElement as Record<
+        string,
+        unknown
+      >[]
+    )[0];
+    const product = listItem.item as Record<string, unknown>;
+    const offers = product.offers as Record<string, unknown>;
+
+    expect(schema.url).toBe('https://ogabassey.com/smartphones');
+    expect(product.url).toBe('https://ogabassey.com/smartphones/iphone-16');
+    expect(product.image).toBe(
+      'https://ogabassey.com/images/iphone-16-large.jpg'
+    );
+    expect(offers.url).toBe('https://ogabassey.com/smartphones/iphone-16');
   });
 });
 

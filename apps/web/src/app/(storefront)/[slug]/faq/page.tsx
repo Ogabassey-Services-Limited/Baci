@@ -8,6 +8,7 @@ import {
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateFAQSchema } from '@/lib/seo-utils';
+import { buildStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
 import { FAQPageClient } from '../pages/faq/faq-page-client';
@@ -51,6 +52,8 @@ export async function generateMetadata({
     notFound();
   }
 
+  const canonicalUrl = `${buildStoreUrl(merchant)}/faq`;
+
   return {
     title: `FAQ | ${merchant.business_name}`,
     description: `Frequently asked questions about ${merchant.business_name}.`,
@@ -58,23 +61,19 @@ export async function generateMetadata({
       title: `FAQ | ${merchant.business_name}`,
       description: `Find answers to common questions about ${merchant.business_name}.`,
       type: 'website',
+      url: canonicalUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
     },
     alternates: {
-      canonical: '/faq',
+      canonical: canonicalUrl,
     },
   };
 }
 
-/**
- * Synchronous page wrapper ensures the H1 tag appears in the initial SSR HTML,
- * rather than being deferred to RSC streaming (which crawlers like Ahrefs miss).
- * JSON-LD is in a separate Suspense boundary so it streams independently.
- */
+/** Streams FAQ JSON-LD separately while the visible page content loads. */
 export default function FAQPage({ params }: PageProps) {
   return (
     <>
-      <h1 className="sr-only">Frequently Asked Questions</h1>
       <Suspense fallback={null}>
         <FAQJsonLd params={params} />
       </Suspense>

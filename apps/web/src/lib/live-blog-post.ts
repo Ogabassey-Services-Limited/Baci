@@ -78,6 +78,7 @@ export async function getLiveBlogPost(
       business_name: merchant.business_name,
       slug: merchant.slug,
       logo_url: merchant.logo_url,
+      custom_domain: merchant.custom_domain,
     },
     post,
     relatedPosts: relatedPostsError ? [] : (relatedPosts ?? []),

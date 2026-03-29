@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { normalizeSocialUrl } from '@/lib/social';
+import { buildStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import { ContactPageClient } from '../pages/contact/contact-page-client';
 
@@ -20,6 +21,8 @@ export async function generateMetadata({
     return { title: 'Contact Us' };
   }
 
+  const canonicalUrl = `${buildStoreUrl(merchant)}/contact`;
+
   return {
     title: `Contact Us | ${merchant.business_name}`,
     description: `Get in touch with ${merchant.business_name}. We're here to help.`,
@@ -27,10 +30,11 @@ export async function generateMetadata({
       title: `Contact ${merchant.business_name}`,
       description: `Get in touch with ${merchant.business_name}.`,
       type: 'website',
+      url: canonicalUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
     },
     alternates: {
-      canonical: '/contact',
+      canonical: canonicalUrl,
     },
   };
 }
@@ -50,11 +54,7 @@ export default async function ContactPage({ params }: PageProps) {
     notFound();
   }
 
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-  const baseUrl = isDevelopment
-    ? `http://localhost:3000/${merchant.slug}`
-    : `https://${merchant.slug}.${rootDomain}`;
+  const baseUrl = buildStoreUrl(merchant);
 
   const contactSchema = {
     '@context': 'https://schema.org',

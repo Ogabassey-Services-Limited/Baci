@@ -1,11 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NormalizedProductDetails } from './product-details-helpers';
 import type { ProductDetailsActiveTab } from './use-product-details-state';
 
 // SafeHtml relies on sanitizeHtml; pass-through so we can assert rendered text
+const mockSanitizeHtml = vi.fn((s: string, _options?: unknown) => s);
+
 vi.mock('@/lib/sanitize', () => ({
-  sanitizeHtml: vi.fn((s: string) => s),
+  sanitizeHtml: (html: string, options?: unknown) =>
+    mockSanitizeHtml(html, options),
 }));
 
 // ProductComparisonTable has its own hooks/network calls — stub it out
@@ -23,6 +26,10 @@ vi.mock('../../components/ProductComparisonTable', () => ({
 
 // Import after mocks are registered
 import { ProductDetailsTabs } from './product-details-tabs';
+
+beforeEach(() => {
+  mockSanitizeHtml.mockClear();
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -159,6 +166,17 @@ describe('ProductDetailsTabs — description tab panel', () => {
     expect(
       screen.getByText('Great product with long battery life.')
     ).toBeInTheDocument();
+  });
+
+  it('demotes imported description headings to avoid multiple page h1 tags', () => {
+    renderTabs('description', {
+      description: '<h1>Imported Title</h1><p>Body copy</p>',
+    });
+
+    expect(mockSanitizeHtml).toHaveBeenCalledWith(
+      '<h1>Imported Title</h1><p>Body copy</p>',
+      { headingLevelOffset: 1 }
+    );
   });
 
   it('renders Key Highlights section with specs when specs are provided', () => {
