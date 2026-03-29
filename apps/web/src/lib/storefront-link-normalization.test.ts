@@ -156,8 +156,31 @@ describe('normalizeStorefrontContentHref', () => {
   it('neutralizes dangerous scripting schemes', () => {
     expect(normalizeStorefrontContentHref('javascript:alert(1)', {})).toBe('#');
     expect(
-      normalizeStorefrontContentHref('data:text/html,<script>alert(1)</script>')
+      normalizeStorefrontContentHref(
+        'data:text/html,<script>alert(1)</script>',
+        {}
+      )
     ).toBe('#');
-    expect(normalizeStorefrontContentHref('vbscript:msgbox("x")')).toBe('#');
+    expect(normalizeStorefrontContentHref('vbscript:msgbox("x")', {})).toBe(
+      '#'
+    );
+  });
+
+  it('treats multi-part TLD custom domains as internal storefront links', () => {
+    expect(
+      normalizeStorefrontContentHref('https://mystore.com.ng/phones/x', {
+        basePath: '/mystore',
+        baseUrl: 'https://usebaci.com',
+        merchantSlug: 'mystore',
+      })
+    ).toBe('/mystore/smartphones/x');
+
+    expect(
+      normalizeStorefrontContentHref('https://www.mystore.com.ng/phones/x', {
+        basePath: '/mystore',
+        baseUrl: 'https://usebaci.com',
+        merchantSlug: 'mystore',
+      })
+    ).toBe('/mystore/smartphones/x');
   });
 });

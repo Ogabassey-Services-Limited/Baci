@@ -216,4 +216,20 @@ describe('getCachedStorefrontProductIndex', () => {
       'Storefront product index page must be a positive integer'
     );
   });
+
+  it('throws when the requested page is negative', async () => {
+    await expect(
+      getCachedStorefrontProductIndex('merchant-1', { page: -1, limit: 10 })
+    ).rejects.toThrow(
+      'Storefront product index page must be a positive integer'
+    );
+  });
+
+  it('throws when the requested page is not an integer', async () => {
+    await expect(
+      getCachedStorefrontProductIndex('merchant-1', { page: 1.5, limit: 10 })
+    ).rejects.toThrow(
+      'Storefront product index page must be a positive integer'
+    );
+  });
 });

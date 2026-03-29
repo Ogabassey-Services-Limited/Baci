@@ -1,21 +1,10 @@
 import type { Route } from 'next';
 
-interface HeaderLookup {
-  has(name: string): boolean;
-}
-
-type HeadersProvider = () => HeaderLookup | Promise<HeaderLookup>;
-
-export async function buildProductRedirectPath(
+export function buildProductRedirectPath(
   storeSlug: string,
-  productPath: string,
-  getHeaders: HeadersProvider
-): Promise<Route> {
-  // Force request-scoped execution when callers pass next/headers.
-  await getHeaders();
-  const normalizedProductPath = productPath.startsWith('/')
-    ? productPath
-    : `/${productPath}`;
+  productPath: string
+): Route {
+  const normalizedProductPath = `/${productPath.replace(/^\/+/, '')}`;
 
   return (
     process.env.NODE_ENV === 'development'
