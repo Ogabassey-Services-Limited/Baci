@@ -8,6 +8,10 @@ function createHeaders(entries: [string, string][]) {
 }
 
 describe('resolveRouteIdentifier', () => {
+  it('returns an empty string when no host header exists', () => {
+    expect(resolveRouteIdentifier(createHeaders([]))).toBe('');
+  });
+
   it('prefers the custom domain header', () => {
     expect(
       resolveRouteIdentifier(

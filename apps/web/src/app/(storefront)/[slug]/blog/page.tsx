@@ -68,6 +68,7 @@ const getMerchantAndPosts = cache(
     if (category) {
       query = query.eq('category', category);
     }
+
     if (searchQuery) {
       const sanitizedSearch = searchQuery.trim().slice(0, 100);
       if (sanitizedSearch) {
@@ -78,16 +79,31 @@ const getMerchantAndPosts = cache(
       }
     }
 
-    const { data: posts, count } = await query;
-    const { data: categories } = await supabase
+    const { data: posts, count, error: postsError } = await query;
+    if (postsError) {
+      console.error('Failed to load blog posts', {
+        merchantId: merchant.id,
+        error: postsError,
+      });
+      throw postsError;
+    }
+
+    const { data: categories, error: categoriesError } = await supabase
       .from('blog_posts')
       .select('category')
       .eq('merchant_id', merchant.id)
       .eq('status', 'published')
       .not('category', 'is', null);
-    const uniqueCategories = [
-      ...new Set(categories?.map((c) => c.category).filter(Boolean)),
-    ];
+    if (categoriesError) {
+      console.warn('Failed to load blog categories', {
+        merchantId: merchant.id,
+        error: categoriesError,
+      });
+    }
+
+    const uniqueCategories = categoriesError
+      ? []
+      : [...new Set(categories?.map((c) => c.category).filter(Boolean))];
 
     return {
       merchant,
@@ -109,11 +125,9 @@ export async function generateMetadata({
   const { page } = await searchParams;
   const currentPage = parseBlogListingPage(page);
   const data = await getMerchantAndPosts(slug, undefined, currentPage);
-
   if (!data) {
     return { title: 'Blog Not Found' };
   }
-
   const baseUrl = buildStoreUrl(data.merchant);
   const canonicalUrl =
     currentPage > 1 ? `${baseUrl}/blog?page=${currentPage}` : `${baseUrl}/blog`;
@@ -177,15 +191,11 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const { category, page, search } = await searchParams;
   const currentPage = parseBlogListingPage(page);
-
   const data = await getMerchantAndPosts(slug, category, currentPage, search);
-
   if (!data) {
     notFound();
   }
-
   const { merchant, posts, categories, totalPosts, searchQuery } = data;
-
   const baseUrl = buildStoreUrl(merchant);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
   const blogSchema = {
@@ -250,7 +260,6 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
             featured_image_url: p.featured_image_url || '',
             reading_time_minutes: p.reading_time_minutes || 3,
           }));
-
           return (
             <TemplateBlogRenderer
               blogSchema={blogSchema}
@@ -274,7 +283,6 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
       }
     }
   }
-
   return (
     <DefaultBlogUi
       blogSchema={blogSchema}

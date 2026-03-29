@@ -67,6 +67,39 @@ describe('normalizeStorefrontContentHref', () => {
     ).toBe('/accessories');
   });
 
+  it('normalizes legacy /phone links to smartphones and preserves non-tracking params', () => {
+    expect(
+      normalizeStorefrontContentHref('/phone/iphone-15?ref=home#details', {
+        basePath: '/ogabassey',
+        baseUrl: 'https://usebaci.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('/ogabassey/smartphones/iphone-15?ref=home#details');
+  });
+
+  it('normalizes legacy /laptop links to laptops for absolute storefront URLs', () => {
+    expect(
+      normalizeStorefrontContentHref(
+        'https://www.ogabassey.com/laptop/macbook-air-m4#specs',
+        {
+          basePath: '/ogabassey',
+          baseUrl: 'https://usebaci.com',
+          merchantSlug: 'ogabassey',
+        }
+      )
+    ).toBe('/ogabassey/laptops/macbook-air-m4#specs');
+  });
+
+  it('corrects the misspelled accesories path mapping', () => {
+    expect(
+      normalizeStorefrontContentHref('/accesories/chargers?ref=nav', {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('/accessories/chargers?ref=nav');
+  });
+
   it('preserves path-mode storefront prefixes when needed', () => {
     expect(
       normalizeStorefrontContentHref('/phones/iphone-13-pro-6gb-128gb', {
@@ -77,7 +110,7 @@ describe('normalizeStorefrontContentHref', () => {
     ).toBe('/ogabassey/smartphones/iphone-13-pro-6gb-128gb');
   });
 
-  it('normalizes root-relative links before preserving query strings and hashes', () => {
+  it('normalizes root-relative links, drops query strings, and preserves hashes', () => {
     expect(
       normalizeStorefrontContentHref(
         '/phones/iPhone-13-Pro-6GB-256GB?utm_source=newsletter#specs',

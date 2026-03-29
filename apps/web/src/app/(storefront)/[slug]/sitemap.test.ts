@@ -50,6 +50,28 @@ function setCustomDomainHeader(domain: string) {
   mockHeaders = new Map<string, string>([['x-custom-domain', domain]]);
 }
 
+function mockProductsQuery(data: unknown, error: Error | null = null) {
+  mockEq.mockImplementation((...args: unknown[]) => {
+    const [key, value] = args as [string, string];
+    if (key === 'status' && value === 'active') {
+      return { data, error };
+    }
+
+    return { eq: mockEq };
+  });
+}
+
+function mockCategoriesQuery(data: unknown, error: Error | null = null) {
+  mockEq.mockImplementation((...args: unknown[]) => {
+    const [key, value] = args as [string, string];
+    if (key === 'merchant_id' && value === 'merchant-1') {
+      return { data, error };
+    }
+
+    return { eq: mockEq };
+  });
+}
+
 // ---- Tests ----
 
 describe('sitemap', () => {
@@ -113,6 +135,16 @@ describe('sitemap', () => {
       setSlugHeader('unknown');
       mockGetMerchantByIdentifier.mockResolvedValue(null);
 
+      const { default: sitemap } = await import('./sitemap');
+
+      const result = await sitemap({ id: Promise.resolve('static') });
+
+      expect(result).toEqual([]);
+    });
+
+    it('returns empty array when merchant lookup throws', async () => {
+      setSlugHeader('ogabassey');
+      mockGetMerchantByIdentifier.mockRejectedValueOnce(new Error('db'));
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({ id: Promise.resolve('static') });
@@ -204,13 +236,7 @@ describe('sitemap', () => {
           categories: { slug: 'smartphones' },
         },
       ];
-      mockEq.mockImplementation((...args: unknown[]) => {
-        const [key, value] = args as [string, string];
-        if (key === 'status' && value === 'active') {
-          return { data: productData, error: null };
-        }
-        return { eq: mockEq };
-      });
+      mockProductsQuery(productData);
 
       const { default: sitemap } = await import('./sitemap');
 
@@ -222,13 +248,7 @@ describe('sitemap', () => {
 
     it('returns empty array when no products exist', async () => {
       setSlugHeader('ogabassey');
-      mockEq.mockImplementation((...args: unknown[]) => {
-        const [key, value] = args as [string, string];
-        if (key === 'status' && value === 'active') {
-          return { data: [], error: null };
-        }
-        return { eq: mockEq };
-      });
+      mockProductsQuery([]);
 
       const { default: sitemap } = await import('./sitemap');
 
@@ -239,13 +259,7 @@ describe('sitemap', () => {
 
     it('throws when products cannot be loaded', async () => {
       setSlugHeader('ogabassey');
-      mockEq.mockImplementation((...args: unknown[]) => {
-        const [key, value] = args as [string, string];
-        if (key === 'status' && value === 'active') {
-          return { data: null, error: new Error('db') };
-        }
-        return { eq: mockEq };
-      });
+      mockProductsQuery(null, new Error('db'));
 
       const { default: sitemap } = await import('./sitemap');
 
@@ -269,20 +283,10 @@ describe('sitemap', () => {
   describe('categories sitemap', () => {
     it('returns category sitemap entries', async () => {
       setSlugHeader('ogabassey');
-      mockEq.mockImplementation((...args: unknown[]) => {
-        const [key, value] = args as [string, string];
-        if (key === 'merchant_id' && value === 'merchant-1') {
-          return {
-            data: [
-              { slug: 'smartphones', updated_at: '2026-01-01T00:00:00Z' },
-              { slug: 'accessories', updated_at: '2026-01-02T00:00:00Z' },
-            ],
-            error: null,
-          };
-        }
-
-        return { eq: mockEq };
-      });
+      mockCategoriesQuery([
+        { slug: 'smartphones', updated_at: '2026-01-01T00:00:00Z' },
+        { slug: 'accessories', updated_at: '2026-01-02T00:00:00Z' },
+      ]);
 
       const { default: sitemap } = await import('./sitemap');
 
@@ -295,14 +299,7 @@ describe('sitemap', () => {
 
     it('throws when categories cannot be loaded', async () => {
       setSlugHeader('ogabassey');
-      mockEq.mockImplementation((...args: unknown[]) => {
-        const [key, value] = args as [string, string];
-        if (key === 'merchant_id' && value === 'merchant-1') {
-          return { data: null, error: new Error('db') };
-        }
-
-        return { eq: mockEq };
-      });
+      mockCategoriesQuery(null, new Error('db'));
 
       const { default: sitemap } = await import('./sitemap');
 

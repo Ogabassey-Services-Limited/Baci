@@ -12,8 +12,8 @@ describe('rewriteHtmlStorefrontHrefs', () => {
         baseUrl: 'https://ogabassey.com',
         merchantSlug: 'ogabassey',
       })
-    ).toContain(
-      '<a href="/smartphones/iphone-13-pro-6gb-256gb">iPhone</a> <a href="/products">Old product</a>'
+    ).toBe(
+      '<p><a href="/smartphones/iphone-13-pro-6gb-256gb">iPhone</a> <a href="/products">Old product</a></p>'
     );
   });
 
@@ -27,8 +27,8 @@ describe('rewriteHtmlStorefrontHrefs', () => {
         baseUrl: 'https://ogabassey.com',
         merchantSlug: 'ogabassey',
       })
-    ).toContain(
-      "<a href='/smartphones/iphone-13-pro-6gb-256gb'>iPhone</a> <a href='/products'>Old product</a>"
+    ).toBe(
+      "<p><a href='/smartphones/iphone-13-pro-6gb-256gb'>iPhone</a> <a href='/products'>Old product</a></p>"
     );
   });
 
@@ -42,6 +42,37 @@ describe('rewriteHtmlStorefrontHrefs', () => {
         baseUrl: 'https://ogabassey.com',
         merchantSlug: 'ogabassey',
       })
-    ).toContain('<a href="/smartphones/iphone-13-pro-6gb-256gb">iPhone</a>');
+    ).toBe('<p><a href="/smartphones/iphone-13-pro-6gb-256gb">iPhone</a></p>');
+  });
+
+  it('returns html unchanged when there are no href attributes to rewrite', () => {
+    expect(
+      rewriteHtmlStorefrontHrefs('', {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('');
+
+    expect(
+      rewriteHtmlStorefrontHrefs('<a>link</a>', {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe('<a>link</a>');
+  });
+
+  it('leaves external and non-http href values unchanged', () => {
+    const html =
+      '<p><a href="https://example.com/phones/iphone">External</a> <a href="mailto:hello@example.com">Mail</a> <a href="tel:+2348000000000">Call</a></p>';
+
+    expect(
+      rewriteHtmlStorefrontHrefs(html, {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe(html);
   });
 });

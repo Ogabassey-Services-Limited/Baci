@@ -37,9 +37,19 @@ export default async function sitemap(props: {
   // Read the merchant slug from proxy headers or fall back to the host header.
   const headersList = await headers();
   const routeIdentifier = resolveRouteIdentifier(headersList);
-  const merchant = routeIdentifier
-    ? await getMerchantByIdentifier(routeIdentifier)
-    : null;
+  let merchant = null;
+
+  try {
+    merchant = routeIdentifier
+      ? await getMerchantByIdentifier(routeIdentifier)
+      : null;
+  } catch (error) {
+    console.warn('Failed to resolve sitemap merchant', {
+      routeIdentifier,
+      error,
+    });
+    return [];
+  }
 
   if (!merchant) return [];
   const storeUrl = buildStoreUrl(merchant);

@@ -73,6 +73,7 @@ function buildSupabaseClient(posts = postsPayload) {
   postsQuery.range.mockResolvedValue({
     data: posts,
     count: posts.length,
+    error: null,
   });
 
   const categoriesQuery = {
@@ -82,6 +83,7 @@ function buildSupabaseClient(posts = postsPayload) {
   categoriesQuery.eq.mockReturnValue(categoriesQuery);
   categoriesQuery.not.mockResolvedValue({
     data: [{ category: 'News' }],
+    error: null,
   });
 
   return {

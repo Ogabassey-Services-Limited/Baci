@@ -189,6 +189,8 @@ function makeHeaders(entries: Record<string, string> = {}) {
 describe('products/[productSlug] page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
+    vi.stubEnv('NODE_ENV', 'production');
     mockHeaders.mockReset();
     mockHeaders.mockReturnValue(makeHeaders({}));
     mockConnection.mockReset();
@@ -203,6 +205,7 @@ describe('products/[productSlug] page', () => {
   });
 
   it('waits for a request-time connection before redirecting categorized legacy products', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
     mockGetCachedProduct.mockResolvedValue(categorizedProduct);
     mockHeaders.mockReturnValue(makeHeaders({}));
     const deferredConnection: {
@@ -244,7 +247,8 @@ describe('products/[productSlug] page', () => {
   });
 
   describe('redirect routing mode', () => {
-    it('includes slug prefix in path-mode redirect (no proxy headers)', async () => {
+    it('includes slug prefix in development redirects', async () => {
+      vi.stubEnv('NODE_ENV', 'development');
       mockGetCachedProduct.mockResolvedValue(categorizedProduct);
       mockHeaders.mockReturnValue(makeHeaders({}));
 
@@ -266,11 +270,8 @@ describe('products/[productSlug] page', () => {
       );
     });
 
-    it('omits slug prefix in subdomain-mode redirect (x-merchant-slug header)', async () => {
+    it('omits slug prefix in production redirects', async () => {
       mockGetCachedProduct.mockResolvedValue(categorizedProduct);
-      mockHeaders.mockReturnValue(
-        makeHeaders({ 'x-merchant-slug': 'teststore' })
-      );
 
       await expect(
         generateMetadata(
@@ -288,30 +289,25 @@ describe('products/[productSlug] page', () => {
       expect(mockPermanentRedirect).toHaveBeenCalledWith('/phones/iphone-15');
     });
 
-    it('omits slug prefix in custom-domain-mode redirect (x-custom-domain header)', async () => {
+    it('redirects categorized products during page render in production', async () => {
       mockGetCachedProduct.mockResolvedValue(categorizedProduct);
-      mockGetMerchantByIdentifier.mockResolvedValue(baseMerchant);
-      mockHeaders.mockReturnValue(
-        makeHeaders({ 'x-custom-domain': 'teststore.com' })
-      );
+      mockHeaders.mockReturnValue(makeHeaders({}));
 
       await expect(
-        generateMetadata(
-          {
-            params: Promise.resolve({
-              slug: 'teststore.com',
-              productSlug: 'iphone-15',
-            }),
-            searchParams: Promise.resolve({}),
-          },
-          Promise.resolve({}) as never
-        )
+        ProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'iphone-15',
+          }),
+          searchParams: Promise.resolve({}),
+        })
       ).rejects.toThrow('NEXT_REDIRECT');
 
       expect(mockPermanentRedirect).toHaveBeenCalledWith('/phones/iphone-15');
     });
 
-    it('redirects categorized products during page render', async () => {
+    it('preserves the development slug prefix during page render', async () => {
+      vi.stubEnv('NODE_ENV', 'development');
       mockGetCachedProduct.mockResolvedValue(categorizedProduct);
       mockHeaders.mockReturnValue(makeHeaders({}));
 
@@ -485,9 +481,7 @@ describe('products/[productSlug] page', () => {
       'merchant-1',
       'iphone-15'
     );
-    expect(mockPermanentRedirect).toHaveBeenCalledWith(
-      '/teststore/phones/iphone-15'
-    );
+    expect(mockPermanentRedirect).toHaveBeenCalledWith('/phones/iphone-15');
   });
 
   it('does not retry detailed lookup with a lowercased slug', async () => {

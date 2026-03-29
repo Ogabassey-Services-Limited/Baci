@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { buildProductRedirectPath } from './build-product-redirect-path';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildProductRedirectPath } from '@/app/(storefront)/[slug]/products/[productSlug]/build-product-redirect-path';
 
 function makeHeaders(entries: Record<string, string> = {}) {
   const map = new Map(Object.entries(entries));
@@ -10,7 +10,14 @@ function makeHeaders(entries: Record<string, string> = {}) {
 }
 
 describe('buildProductRedirectPath', () => {
-  it('prefixes the store slug in path mode', async () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    vi.stubEnv('NODE_ENV', 'production');
+  });
+
+  it('prefixes the store slug in development', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+
     await expect(
       buildProductRedirectPath('ogabassey', '/phones/iphone-15', () =>
         makeHeaders({})
@@ -18,17 +25,9 @@ describe('buildProductRedirectPath', () => {
     ).resolves.toBe('/ogabassey/phones/iphone-15');
   });
 
-  it('keeps product paths unprefixed for proxied storefront requests', async () => {
+  it('keeps product paths unprefixed outside development', async () => {
     await expect(
       buildProductRedirectPath('ogabassey', '/phones/iphone-15', () =>
-        makeHeaders({ 'x-merchant-slug': 'ogabassey' })
-      )
-    ).resolves.toBe('/phones/iphone-15');
-  });
-
-  it('keeps product paths unprefixed for custom domains', async () => {
-    await expect(
-      buildProductRedirectPath('ogabassey.com', '/phones/iphone-15', () =>
         makeHeaders({})
       )
     ).resolves.toBe('/phones/iphone-15');

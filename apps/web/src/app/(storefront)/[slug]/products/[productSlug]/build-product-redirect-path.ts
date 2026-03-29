@@ -1,4 +1,4 @@
-import { isDomainIdentifier } from '@/lib/validation';
+import type { Route } from 'next';
 
 interface HeaderLookup {
   has(name: string): boolean;
@@ -10,12 +10,11 @@ export async function buildProductRedirectPath(
   storeSlug: string,
   productPath: string,
   getHeaders: HeadersProvider
-): Promise<string> {
-  const headersList = await getHeaders();
-  const isPathMode =
-    !headersList.has('x-merchant-slug') &&
-    !headersList.has('x-custom-domain') &&
-    !isDomainIdentifier(storeSlug);
-
-  return isPathMode ? `/${storeSlug}${productPath}` : productPath;
+): Promise<Route> {
+  await getHeaders();
+  return (
+    process.env.NODE_ENV === 'development'
+      ? `/${storeSlug}${productPath}`
+      : productPath
+  ) as Route;
 }
