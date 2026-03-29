@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
@@ -12,6 +11,7 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SubscriptionStatusCard } from '@/components/settings/SubscriptionStatusCard';
 import { APP_VERSION_LABEL } from '@/constants/app-info';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';
@@ -276,96 +276,6 @@ export default function MenuScreen() {
     </Pressable>
   );
 
-  const SubscriptionStatusCard = () => {
-    // Determine which entitlement is actually active to show its name/date
-    const activeEntitlement = Object.values(
-      customerInfo?.entitlements.active || {}
-    )[0];
-
-    const expiryDate = activeEntitlement?.expirationDate
-      ? new Date(activeEntitlement.expirationDate).toLocaleDateString(
-          undefined,
-          {
-            day: '2-digit',
-            month: '2-digit',
-            year: '2-digit',
-          }
-        )
-      : null;
-
-    if (isPro) {
-      return (
-        <Pressable
-          style={[styles.subCardContainer, shadows.md]}
-          onPress={() => router.push('/(admin)/subscribe')}
-          accessibilityLabel={`Baci Pro Merchant subscription. ${expiryDate ? `Active until ${expiryDate}` : 'Active'}. Tap to manage subscription`}
-          accessibilityRole="button"
-          accessibilityHint="Opens subscription management"
-        >
-          <LinearGradient
-            colors={['#D62027', '#9B1014']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.subCardGradient}
-          >
-            <View style={styles.subCardMain}>
-              <View style={styles.subCardIconContainer}>
-                <Ionicons name="ribbon" size={28} color={colors.textOnPrimary} />
-              </View>
-              <View style={styles.subCardInfo}>
-                <View style={styles.subCardStatusRow}>
-                  <Text style={[styles.subCardTitle, { color: colors.textOnPrimary }]}>Baci Pro Merchant</Text>
-                  <Ionicons name="checkmark-circle" size={16} color={colors.textOnPrimary} />
-                </View>
-                <Text style={[styles.subCardStatusText, { color: colors.textOnPrimary }]}>
-                  Active{expiryDate ? `: Valid till ${expiryDate}` : ''}
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color="rgba(255,255,255,0.7)"
-              />
-            </View>
-          </LinearGradient>
-        </Pressable>
-      );
-    }
-
-    return (
-      <Pressable
-        style={[
-          styles.freeCardContainer,
-          { backgroundColor: colors.card },
-          shadows.sm,
-        ]}
-        onPress={() => router.push('/(admin)/subscribe')}
-        accessibilityLabel="Free Plan. Upgrade to Pro for more features"
-        accessibilityRole="button"
-        accessibilityHint="Opens subscription upgrade options"
-      >
-        <View
-          style={[styles.freeCardIcon, { backgroundColor: `${colors.gold}20` }]}
-        >
-          <Ionicons name="star" size={24} color={colors.gold} />
-        </View>
-        <View style={styles.freeCardContent}>
-          <Text style={[styles.freeCardTitle, { color: colors.text }]}>
-            Free Plan
-          </Text>
-          <Text
-            style={[styles.freeCardSubtitle, { color: colors.textSecondary }]}
-          >
-            Upgrade to Pro for more features
-          </Text>
-        </View>
-        <View style={[styles.freeCardBadge, { backgroundColor: colors.gold }]}>
-          <Text style={styles.freeCardBadgeText}>UPGRADE</Text>
-        </View>
-      </Pressable>
-    );
-  };
-
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -384,7 +294,13 @@ export default function MenuScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Subscription Card */}
-        <SubscriptionStatusCard />
+        <SubscriptionStatusCard
+          isPro={isPro}
+          customerInfo={customerInfo}
+          colors={colors}
+          shadows={shadows}
+          onPress={() => router.push('/(admin)/subscribe')}
+        />
 
         {/* Menu Sections */}
         {menuSections.map((section) => (
@@ -486,128 +402,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: SPACING.lg,
     paddingTop: 0,
-  },
-  subCardContainer: {
-    borderRadius: RADIUS.lg,
-    overflow: 'hidden',
-    marginBottom: SPACING.lg,
-  },
-  subCardGradient: {
-    padding: SPACING.lg,
-  },
-  subCardMain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  subCardIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: RADIUS.md,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  subCardInfo: {
-    flex: 1,
-  },
-  subCardStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  subCardTitle: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  subCardStatusText: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginTop: 2,
-  },
-  freeCardContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.lg,
-    borderRadius: RADIUS.lg,
-    marginBottom: SPACING.lg,
-  },
-  freeCardIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  freeCardContent: {
-    flex: 1,
-  },
-  freeCardTitle: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  freeCardSubtitle: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginTop: 2,
-  },
-  freeCardBadge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: RADIUS.full,
-  },
-  freeCardBadgeText: {
-    color: '#000000',
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  storeCard: {
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.xl,
-  },
-  storeAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  storeAvatarText: {
-    fontSize: TYPOGRAPHY.size.xl,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  storeInfo: {
-    flex: 1,
-  },
-  storeName: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  storeUrl: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  liveBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: RADIUS.full,
-    gap: 6,
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  liveText: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
   section: {
     marginBottom: SPACING.xl,
