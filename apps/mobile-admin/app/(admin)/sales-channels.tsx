@@ -4,10 +4,11 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import { Stack, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,34 +27,22 @@ import { apiClient } from '@/lib/api-client';
 export default function SalesChannelsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
-  const [isConnected, setIsConnected] = useState(false);
-  const [statusLoading, setStatusLoading] = useState(true);
-  const [statusError, setStatusError] = useState(false);
+  const queryClient = useQueryClient();
+  const {
+    data: connectionData,
+    isLoading: statusLoading,
+    isError: statusError,
+  } = useQuery({
+    queryKey: ['jumia-connection-status'],
+    queryFn: ({ signal }) =>
+      apiClient<{ integrations?: Array<{ id: string }> }>(
+        '/api/marketplace/jumia/connect',
+        { signal }
+      ),
+  });
+
+  const isConnected = (connectionData?.integrations?.length ?? 0) > 0;
   const [loading, setLoading] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-
-    const checkConnectionStatus = async () => {
-      try {
-        const data = await apiClient<{
-          integrations?: Array<{ id: string }>;
-        }>('/api/marketplace/jumia/connect');
-        if (!cancelled) {
-          setIsConnected((data.integrations?.length ?? 0) > 0);
-          setStatusError(false);
-        }
-      } catch {
-        if (!cancelled) setStatusError(true);
-      } finally {
-        if (!cancelled) setStatusLoading(false);
-      }
-    };
-
-    checkConnectionStatus();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const handleConnectJumia = async () => {
     setLoading(true);
@@ -101,7 +90,9 @@ export default function SalesChannelsScreen() {
           });
 
           if (exchangeData.success) {
-            setIsConnected(true);
+            void queryClient.invalidateQueries({
+              queryKey: ['jumia-connection-status'],
+            });
             Alert.alert('Success', 'Jumia account connected successfully!');
           } else {
             Alert.alert(
