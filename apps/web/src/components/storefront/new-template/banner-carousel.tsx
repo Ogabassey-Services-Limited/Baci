@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { AdUnit } from './ad-unit';
@@ -64,14 +65,17 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         className="flex h-full transition-transform duration-700 ease-in-out"
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
-        {BANNER_SLIDES.map((slide) => (
+        {BANNER_SLIDES.map((slide, index) => (
           <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
-            {slide.type === 'image' ? (
+            {slide.type === 'image' && slide.imageUrl ? (
               <div className="w-full h-full relative overflow-hidden group">
-                <img
+                <Image
                   src={slide.imageUrl}
-                  alt={slide.title}
-                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                  alt={slide.title || ''}
+                  fill
+                  priority={index === 0}
+                  sizes="100vw"
+                  className="object-cover transition-transform duration-1000 group-hover:scale-105"
                 />
                 <div
                   className={`absolute inset-0 bg-gradient-to-r ${slide.bgColor === 'bg-black' ? 'from-black/80' : 'from-red-900/80'} to-transparent flex flex-col justify-center px-8 md:px-16`}

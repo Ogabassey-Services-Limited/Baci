@@ -14,6 +14,7 @@ import {
   Truck,
   X,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import type React from 'react';
@@ -164,14 +165,17 @@ export const ProductDetails: React.FC = () => {
             {/* Left Column: Images */}
             <div className="p-6 md:p-10 bg-white">
               <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-50 mb-6 group">
-                <img
+                <Image
                   src={
                     productData.images
                       ? productData.images[selectedImage]
                       : productData.image
                   }
                   alt={productData.name}
-                  className="w-full h-full object-contain mix-blend-multiply p-8 transition-transform duration-500 group-hover:scale-105"
+                  fill
+                  priority
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  className="object-contain mix-blend-multiply p-8 transition-transform duration-500 group-hover:scale-105"
                 />
 
                 {/* Image Badges */}
@@ -209,13 +213,15 @@ export const ProductDetails: React.FC = () => {
                     <button
                       key={idx}
                       onClick={() => setSelectedImage(idx)}
-                      className={`aspect-square rounded-xl border-2 p-2 bg-gray-50 transition-all ${selectedImage === idx ? 'border-red-600 ring-2 ring-red-100' : 'border-transparent hover:border-gray-200'}`}
+                      className={`relative aspect-square rounded-xl border-2 p-2 bg-gray-50 transition-all ${selectedImage === idx ? 'border-red-600 ring-2 ring-red-100' : 'border-transparent hover:border-gray-200'}`}
                       aria-label={`View image ${idx + 1}`}
                     >
-                      <img
+                      <Image
                         src={img}
                         alt=""
-                        className="w-full h-full object-contain mix-blend-multiply"
+                        fill
+                        sizes="20vw"
+                        className="object-contain mix-blend-multiply"
                       />
                     </button>
                   ))}
