@@ -1,6 +1,5 @@
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import { headers } from 'next/headers';
 import type { ReactNode } from 'react';
 import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter';
 import { Toaster } from '@/components/ui/toaster';
@@ -89,14 +88,15 @@ export function isStorefrontRequest(headersList: HeaderReader): boolean {
   return !NON_STOREFRONT_TOP_LEVEL_SEGMENTS.has(firstSegment);
 }
 
-export async function RootDynamicBody({ children }: { children: ReactNode }) {
-  const headersList = await headers();
-  const nonce = headersList.get('x-nonce') || undefined;
-
-  // Detect storefront routes to prevent next-themes from applying
-  // dashboard dark mode before merchant theme variables render.
-  const isStorefront = isStorefrontRequest(headersList);
-
+export function RootDynamicBody({
+  children,
+  isStorefront,
+  nonce,
+}: {
+  children: ReactNode;
+  isStorefront: boolean;
+  nonce?: string;
+}) {
   return (
     <>
       <NonceProvider nonce={nonce}>

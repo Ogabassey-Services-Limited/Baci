@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import { Suspense } from 'react';
+import { headers } from 'next/headers';
 import './globals.css';
 import { PLATFORM_CONFIG } from '@/config/platform';
-import { RootDynamicBody } from './root-dynamic-body';
+import { isStorefrontRequest, RootDynamicBody } from './root-dynamic-body';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -100,11 +100,15 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headersList = await headers();
+  const nonce = headersList.get('x-nonce') || undefined;
+  const isStorefront = isStorefrontRequest(headersList);
+
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
@@ -129,9 +133,9 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <Suspense fallback={null}>
-          <RootDynamicBody>{children}</RootDynamicBody>
-        </Suspense>
+        <RootDynamicBody isStorefront={isStorefront} nonce={nonce}>
+          {children}
+        </RootDynamicBody>
       </body>
     </html>
   );

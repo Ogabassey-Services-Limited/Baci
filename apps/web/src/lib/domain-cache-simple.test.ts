@@ -7,8 +7,8 @@ vi.mock('@vercel/edge-config', () => ({
 }));
 
 // Mock Supabase admin client (DB fallback)
-const mockSingle = vi.fn();
-const mockEq = vi.fn(() => ({ single: mockSingle }));
+const mockMaybeSingle = vi.fn();
+const mockEq = vi.fn(() => ({ maybeSingle: mockMaybeSingle }));
 const mockSelect = vi.fn(() => ({ eq: mockEq }));
 const mockFrom = vi.fn(() => ({ select: mockSelect }));
 
@@ -22,8 +22,8 @@ describe('getCustomDomainForSlug', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockEdgeGet.mockReset();
-    mockSingle.mockReset();
-    mockEq.mockReset().mockReturnValue({ single: mockSingle });
+    mockMaybeSingle.mockReset();
+    mockEq.mockReset().mockReturnValue({ maybeSingle: mockMaybeSingle });
     mockSelect.mockReset().mockReturnValue({ eq: mockEq });
     mockFrom.mockReset().mockReturnValue({ select: mockSelect });
   });
@@ -45,7 +45,7 @@ describe('getCustomDomainForSlug', () => {
 
     it('falls back to DB when Edge Config key is missing', async () => {
       mockEdgeGet.mockResolvedValue(undefined);
-      mockSingle.mockResolvedValue({
+      mockMaybeSingle.mockResolvedValue({
         data: {
           id: '123',
           domains: [
@@ -73,7 +73,7 @@ describe('getCustomDomainForSlug', () => {
     });
 
     it('falls back to DB when Edge Config is unavailable', async () => {
-      mockSingle.mockResolvedValue({
+      mockMaybeSingle.mockResolvedValue({
         data: {
           id: '123',
           domains: [
@@ -92,7 +92,7 @@ describe('getCustomDomainForSlug', () => {
     });
 
     it('returns null when merchant has no domains', async () => {
-      mockSingle.mockResolvedValue({
+      mockMaybeSingle.mockResolvedValue({
         data: { id: '123', domains: null },
       });
 
@@ -101,7 +101,7 @@ describe('getCustomDomainForSlug', () => {
     });
 
     it('returns null when multiple active domains exist and none is primary', async () => {
-      mockSingle.mockResolvedValue({
+      mockMaybeSingle.mockResolvedValue({
         data: {
           id: '123',
           domains: [
@@ -132,7 +132,7 @@ describe('getCustomDomainForSlug', () => {
     });
 
     it('returns single active custom domain when no primary exists', async () => {
-      mockSingle.mockResolvedValue({
+      mockMaybeSingle.mockResolvedValue({
         data: {
           id: '123',
           domains: [
@@ -157,21 +157,21 @@ describe('getCustomDomainForSlug', () => {
     });
 
     it('returns null when merchant does not exist', async () => {
-      mockSingle.mockResolvedValue({ data: null });
+      mockMaybeSingle.mockResolvedValue({ data: null });
 
       const result = await getCustomDomainForSlug('nonexistent');
       expect(result).toBeNull();
     });
 
     it('returns null on database error', async () => {
-      mockSingle.mockRejectedValue(new Error('DB connection failed'));
+      mockMaybeSingle.mockRejectedValue(new Error('DB connection failed'));
 
       const result = await getCustomDomainForSlug('error-slug');
       expect(result).toBeNull();
     });
 
     it('caches DB results within TTL', async () => {
-      mockSingle.mockResolvedValue({
+      mockMaybeSingle.mockResolvedValue({
         data: {
           id: '123',
           domains: [
@@ -195,7 +195,7 @@ describe('getCustomDomainForSlug', () => {
     });
 
     it('refreshes cache after TTL expires', async () => {
-      mockSingle.mockResolvedValue({
+      mockMaybeSingle.mockResolvedValue({
         data: {
           id: '123',
           domains: [
@@ -214,7 +214,7 @@ describe('getCustomDomainForSlug', () => {
 
       vi.advanceTimersByTime(300_001);
 
-      mockSingle.mockResolvedValue({
+      mockMaybeSingle.mockResolvedValue({
         data: {
           id: '123',
           domains: [
