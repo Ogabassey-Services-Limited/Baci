@@ -10,6 +10,7 @@ import { MOBILE_APPS } from '@/config/platform';
 import { CartProvider } from '@/hooks/use-cart';
 import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
+import { buildStoreUrl } from '@/lib/store-url';
 
 /**
  * Renders the appropriate layout wrapper based on the merchant's template.
@@ -115,8 +116,10 @@ export async function generateMetadata({
     merchant.site_description ||
     merchant.site_tagline ||
     `Shop ${merchant.business_name} - Buy gadgets, electronics, and more with flexible payment options in Nigeria.`;
+  const baseUrl = buildStoreUrl(merchant);
 
   return {
+    metadataBase: new URL(baseUrl),
     title:
       merchant.site_title ||
       `${merchant.business_name} | Buy Gadgets Pay Later`,

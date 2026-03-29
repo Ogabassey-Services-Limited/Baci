@@ -38,7 +38,7 @@ describe('AboutPage', () => {
     notFound.mockClear();
   });
 
-  it('renders H1 in the initial synchronous output', () => {
+  it('does not emit a duplicate wrapper h1 while content is suspended', () => {
     // Deferred promise keeps async components suspended
     vi.mocked(getMerchantByIdentifier).mockReturnValue(
       new Promise<null>(() => {
@@ -48,9 +48,7 @@ describe('AboutPage', () => {
 
     render(<AboutPage params={Promise.resolve({ slug: 'test-store' })} />);
 
-    const h1 = screen.getByRole('heading', { level: 1 });
-    expect(h1).toHaveTextContent('About Us');
-    expect(h1).toHaveClass('sr-only');
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
   });
 
   it('renders Suspense fallback while content is loading', () => {
@@ -99,6 +97,8 @@ describe('generateMetadata', () => {
       about_page: { story: 'Our story' },
       pages: {},
       logo_url: null,
+      slug: 'test-store',
+      custom_domain: 'ogabassey.com',
     } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
     const metadata = await generateMetadata({
@@ -106,5 +106,7 @@ describe('generateMetadata', () => {
     });
 
     expect(metadata.title).toBe('About Us | Test Store');
+    expect(metadata.alternates?.canonical).toBe('https://ogabassey.com/about');
+    expect(metadata.openGraph?.url).toBe('https://ogabassey.com/about');
   });
 });

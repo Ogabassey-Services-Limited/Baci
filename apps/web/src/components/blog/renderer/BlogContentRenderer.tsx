@@ -7,6 +7,7 @@ import type React from 'react';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { generateHeadingId } from '@/lib/blog-utils';
 import { sanitizeUrl } from '@/lib/sanitize-core';
+import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 import { cn } from '@/lib/utils';
 
 const lowlight = createLowlight(common);
@@ -35,11 +36,32 @@ interface TipTapNode {
 }
 
 interface NodeRendererProps {
+  basePath?: string;
+  baseUrl?: string;
+  merchantSlug?: string;
   node: TipTapNode;
   index: number;
 }
 
-const TextRenderer = ({ node }: { node: TipTapNode }) => {
+interface BlogContentRendererProps {
+  basePath?: string;
+  baseUrl?: string;
+  // biome-ignore lint/suspicious/noExplicitAny: TipTap library returns any type
+  json: any;
+  merchantSlug?: string;
+}
+
+const TextRenderer = ({
+  node,
+  basePath,
+  baseUrl,
+  merchantSlug,
+}: {
+  node: TipTapNode;
+  basePath?: string;
+  baseUrl?: string;
+  merchantSlug?: string;
+}) => {
   if (!node.text) return null;
 
   let content: React.ReactNode = node.text;
@@ -73,12 +95,19 @@ const TextRenderer = ({ node }: { node: TipTapNode }) => {
         case 'link': {
           // 2026 Security Best Practice: Sanitize URLs but allow safe relative/anchor links
           const rawHref = mark.attrs?.href ?? '';
+          const normalizedHref = normalizeStorefrontContentHref(rawHref, {
+            basePath,
+            baseUrl,
+            merchantSlug,
+          });
           const isRelative =
-            rawHref.startsWith('/') && !rawHref.startsWith('//');
-          const isAnchor = rawHref.startsWith('#');
+            normalizedHref.startsWith('/') && !normalizedHref.startsWith('//');
+          const isAnchor = normalizedHref.startsWith('#');
 
           const safeHref =
-            isRelative || isAnchor ? rawHref : sanitizeUrl(rawHref);
+            isRelative || isAnchor
+              ? normalizedHref
+              : sanitizeUrl(normalizedHref);
 
           const isExternal =
             !!safeHref && !isRelative && !isAnchor && !safeHref.startsWith('/');
@@ -123,11 +152,21 @@ function extractNodeText(node: TipTapNode): string {
 }
 
 const NodeRenderer = ({
+  basePath,
+  baseUrl,
+  merchantSlug,
   node,
   index: _index,
 }: NodeRendererProps): React.ReactNode => {
   const children = node.content?.map((child, i) => (
-    <NodeRenderer key={`${child.type}-${i}`} node={child} index={i} />
+    <NodeRenderer
+      key={`${child.type}-${i}`}
+      basePath={basePath}
+      baseUrl={baseUrl}
+      merchantSlug={merchantSlug}
+      node={child}
+      index={i}
+    />
   ));
 
   // Use explicit mapping for Tailwind tree-shaking (avoids dynamic class generation)
@@ -280,7 +319,14 @@ const NodeRenderer = ({
       return <hr className="my-12 border-t border-border" />;
 
     case 'text':
-      return <TextRenderer node={node} />;
+      return (
+        <TextRenderer
+          node={node}
+          basePath={basePath}
+          baseUrl={baseUrl}
+          merchantSlug={merchantSlug}
+        />
+      );
 
     case 'hardBreak':
       return <br />;
@@ -291,8 +337,12 @@ const NodeRenderer = ({
   }
 };
 
-// biome-ignore lint/suspicious/noExplicitAny: TipTap library returns any type
-export const BlogContentRenderer = ({ json }: { json: any }) => {
+export const BlogContentRenderer = ({
+  json,
+  basePath,
+  baseUrl,
+  merchantSlug,
+}: BlogContentRendererProps) => {
   if (!json) return null;
 
   try {
@@ -305,7 +355,13 @@ export const BlogContentRenderer = ({ json }: { json: any }) => {
 
     return (
       <div className="blog-content-renderer prose dark:prose-invert prose-baci max-w-none text-foreground">
-        <NodeRenderer node={doc} index={0} />
+        <NodeRenderer
+          basePath={basePath}
+          baseUrl={baseUrl}
+          merchantSlug={merchantSlug}
+          node={doc}
+          index={0}
+        />
       </div>
     );
   } catch (e) {

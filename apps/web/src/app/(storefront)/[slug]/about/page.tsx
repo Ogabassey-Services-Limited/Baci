@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { buildStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import {
   generateAboutPageJsonLd,
@@ -35,6 +36,7 @@ export async function generateMetadata({
     aboutPage.story ||
     aboutPage.mission ||
     `Learn more about ${merchant.business_name}`;
+  const canonicalUrl = `${buildStoreUrl(merchant)}/about`;
 
   return {
     title: `About Us | ${merchant.business_name}`,
@@ -43,23 +45,19 @@ export async function generateMetadata({
       title: `About ${merchant.business_name}`,
       description: description.substring(0, 160),
       type: 'website',
+      url: canonicalUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
     },
     alternates: {
-      canonical: '/about',
+      canonical: canonicalUrl,
     },
   };
 }
 
-/**
- * Synchronous page wrapper ensures the H1 tag appears in the initial SSR HTML,
- * rather than being deferred to RSC streaming (which crawlers like Ahrefs miss).
- * JSON-LD is in a separate Suspense boundary so it streams independently.
- */
+/** Streams JSON-LD separately while the visible page content loads. */
 export default function AboutPage({ params }: PageProps) {
   return (
     <>
-      <h1 className="sr-only">About Us</h1>
       <Suspense fallback={null}>
         <AboutJsonLd params={params} />
       </Suspense>
@@ -89,11 +87,7 @@ async function AboutJsonLd({ params }: PageProps) {
     return null;
   }
 
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-  const baseUrl = isDevelopment
-    ? `http://localhost:3000/${merchant.slug}`
-    : `https://${merchant.slug}.${rootDomain}`;
+  const baseUrl = buildStoreUrl(merchant);
 
   const jsonLd = generateAboutPageJsonLd(merchant, aboutPage, baseUrl);
 

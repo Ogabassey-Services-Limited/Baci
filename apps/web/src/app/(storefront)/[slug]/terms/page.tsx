@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { buildStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import { TermsPageClient } from '../pages/terms/terms-page-client';
 
@@ -19,6 +20,8 @@ export async function generateMetadata({
     return { title: 'Terms of Service' };
   }
 
+  const canonicalUrl = `${buildStoreUrl(merchant)}/terms`;
+
   return {
     title: `Terms of Service | ${merchant.business_name}`,
     description: `Terms of Service for ${merchant.business_name}. Read our terms and conditions.`,
@@ -26,10 +29,11 @@ export async function generateMetadata({
       title: `Terms of Service | ${merchant.business_name}`,
       description: `Terms of Service for ${merchant.business_name}.`,
       type: 'website',
+      url: canonicalUrl,
       ...(merchant.logo_url && { images: [{ url: merchant.logo_url }] }),
     },
     alternates: {
-      canonical: '/terms',
+      canonical: canonicalUrl,
     },
   };
 }
@@ -52,11 +56,7 @@ export default async function TermsPage({ params }: PageProps) {
     notFound();
   }
 
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-  const baseUrl = isDevelopment
-    ? `http://localhost:3000/${merchant.slug}`
-    : `https://${merchant.slug}.${rootDomain}`;
+  const baseUrl = buildStoreUrl(merchant);
 
   const termsSchema = {
     '@context': 'https://schema.org',

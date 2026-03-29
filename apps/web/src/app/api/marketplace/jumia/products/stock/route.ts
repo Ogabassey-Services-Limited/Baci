@@ -160,12 +160,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Batch-resolve stock: collect IDs and query in bulk
-    const variantIds = pushReady
-      .filter((m) => m.variant_id)
-      .map((m) => m.variant_id!);
-    const productOnlyIds = pushReady
-      .filter((m) => !m.variant_id)
-      .map((m) => m.product_id);
+    const variantIds = Array.from(
+      new Set(
+        pushReady.flatMap((mapping) =>
+          mapping.variant_id ? [mapping.variant_id] : []
+        )
+      )
+    );
+    const productOnlyIds = Array.from(
+      new Set(pushReady.filter((m) => !m.variant_id).map((m) => m.product_id))
+    );
 
     const variantStockMap = new Map<string, number>();
     const productStockMap = new Map<string, number>();
@@ -235,10 +239,15 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
+      if (!mapping.jumia_seller_sku || !mapping.jumia_product_id) {
+        skipped++;
+        continue;
+      }
+
       stockUpdates.push({
         mappingId: mapping.id,
-        sellerSku: mapping.jumia_seller_sku!,
-        id: mapping.jumia_product_id!,
+        sellerSku: mapping.jumia_seller_sku,
+        id: mapping.jumia_product_id,
         stock,
       });
     }

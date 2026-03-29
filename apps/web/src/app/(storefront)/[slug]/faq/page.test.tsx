@@ -53,7 +53,7 @@ describe('FAQPage', () => {
     notFound.mockClear();
   });
 
-  it('renders H1 in the initial synchronous output', () => {
+  it('does not emit a duplicate wrapper h1 while content is suspended', () => {
     vi.mocked(getRequestScopedMerchant).mockReturnValue(
       new Promise<null>(() => {
         /* deferred: keep Suspense pending */
@@ -62,9 +62,7 @@ describe('FAQPage', () => {
 
     render(<FAQPage params={Promise.resolve({ slug: 'test-store' })} />);
 
-    const h1 = screen.getByRole('heading', { level: 1 });
-    expect(h1).toHaveTextContent('Frequently Asked Questions');
-    expect(h1).toHaveClass('sr-only');
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
   });
 
   it('renders Suspense fallback while content is loading', () => {
@@ -155,6 +153,8 @@ describe('generateMetadata', () => {
       faq_items: [{ question: 'Q?', answer: 'A.' }],
       pages: {},
       logo_url: null,
+      slug: 'test-store',
+      custom_domain: 'ogabassey.com',
     } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
     const metadata = await generateMetadata({
@@ -162,5 +162,7 @@ describe('generateMetadata', () => {
     });
 
     expect(metadata.title).toBe('FAQ | Test Store');
+    expect(metadata.alternates?.canonical).toBe('https://ogabassey.com/faq');
+    expect(metadata.openGraph?.url).toBe('https://ogabassey.com/faq');
   });
 });
