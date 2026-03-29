@@ -1,6 +1,8 @@
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
+const DEFAULT_PRODUCTION_URL = 'https://usebaci.com';
+
 // Centralized Base URL Logic
 // In dev, auto-detect the IP from Expo's debuggerHost so it works
 // regardless of which network the laptop is on (no more hardcoding IPs).
@@ -32,7 +34,7 @@ export function resolveBaseUrl(
     return 'http://localhost:3000';
   }
 
-  return (configuredBaseUrl || 'https://usebaci.com').replace(/\/+$/, '');
+  return (configuredBaseUrl || DEFAULT_PRODUCTION_URL).replace(/\/+$/, '');
 }
 
 export const BASE_URL = resolveBaseUrl();
@@ -139,7 +141,7 @@ export async function apiClient<T = unknown>(
     const isJson = contentType?.includes('application/json');
 
     // Parse Body
-    let data;
+    let data: unknown;
     if (isJson) {
       data = await response.json();
     } else {
@@ -147,10 +149,14 @@ export async function apiClient<T = unknown>(
     }
 
     if (!response.ok) {
+      const dataRecord =
+        typeof data === 'object' && data !== null
+          ? (data as Record<string, unknown>)
+          : null;
       // Throw standardized error with status code
       const errorMessage =
-        (typeof data === 'object' && data.message) ||
-        (typeof data === 'object' && data.error) ||
+        (typeof dataRecord?.message === 'string' && dataRecord.message) ||
+        (typeof dataRecord?.error === 'string' && dataRecord.error) ||
         (typeof data === 'string' && data) ||
         `Request failed with status ${response.status}`;
 
