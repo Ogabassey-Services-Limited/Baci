@@ -9,7 +9,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -18,6 +17,7 @@ import {
 import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { StaffMember } from '@/lib/types/staff';
+import { HorizontalPicker } from './HorizontalPicker';
 import type { Branch } from './types';
 
 interface StaffAccountModalProps {
@@ -55,6 +55,20 @@ export function StaffAccountModal({
   onSubmit,
   onClose,
 }: StaffAccountModalProps) {
+  const branchOptions =
+    branches?.map((branch) => ({
+      id: branch.id,
+      label: branch.name,
+      accessibilityLabel: `Branch: ${branch.name}`,
+    })) ?? [];
+
+  const staffOptions =
+    staffMembers?.map((staff) => ({
+      id: staff.id,
+      label: staff.name || staff.email,
+      accessibilityLabel: `Staff: ${staff.name || staff.email}`,
+    })) ?? [];
+
   return (
     <Modal
       visible={visible}
@@ -85,200 +99,31 @@ export function StaffAccountModal({
             onChangeText={onAccountNameChange}
           />
 
-          {/* Branch Picker */}
-          <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
-            Assign to Branch (Optional)
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.pickerScroll}
-            accessibilityRole="radiogroup"
-            accessibilityLabel="Branch selection"
-          >
-            <Pressable
-              style={[
-                styles.pickerOption,
-                {
-                  backgroundColor: !selectedBranchId
-                    ? `${colors.primary}10`
-                    : 'transparent',
-                  borderColor: !selectedBranchId
-                    ? colors.primary
-                    : colors.border,
-                },
-              ]}
-              onPress={() => onBranchSelect(null)}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: !selectedBranchId }}
-              accessibilityLabel="No branch assigned"
-            >
-              <Text
-                style={[
-                  styles.pickerText,
-                  {
-                    color: !selectedBranchId ? colors.primary : colors.text,
-                  },
-                ]}
-              >
-                No Branch
-              </Text>
-            </Pressable>
-            {branches?.map((branch) => (
-              <Pressable
-                key={branch.id}
-                style={[
-                  styles.pickerOption,
-                  {
-                    backgroundColor:
-                      selectedBranchId === branch.id
-                        ? `${colors.primary}10`
-                        : 'transparent',
-                    borderColor:
-                      selectedBranchId === branch.id
-                        ? colors.primary
-                        : colors.border,
-                  },
-                ]}
-                onPress={() => onBranchSelect(branch.id)}
-                accessibilityRole="radio"
-                accessibilityState={{
-                  selected: selectedBranchId === branch.id,
-                }}
-                accessibilityLabel={`Branch: ${branch.name}`}
-              >
-                <Text
-                  style={[
-                    styles.pickerText,
-                    {
-                      color:
-                        selectedBranchId === branch.id
-                          ? colors.primary
-                          : colors.text,
-                    },
-                  ]}
-                >
-                  {branch.name}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          <HorizontalPicker
+            label="Assign to Branch (Optional)"
+            groupAccessibilityLabel="Branch selection"
+            options={branchOptions}
+            selectedId={selectedBranchId}
+            onSelect={onBranchSelect}
+            noneLabel="No Branch"
+            noneAccessibilityLabel="No branch assigned"
+            colors={colors}
+          />
 
-          {/* Staff Picker */}
-          <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>
-            Assign to Staff (Optional)
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.pickerScroll}
-            accessibilityRole="radiogroup"
-            accessibilityLabel="Staff selection"
-          >
-            <Pressable
-              style={[
-                styles.pickerOption,
-                {
-                  backgroundColor: !selectedStaffId
-                    ? `${colors.primary}10`
-                    : 'transparent',
-                  borderColor: !selectedStaffId
-                    ? colors.primary
-                    : colors.border,
-                },
-              ]}
-              onPress={() => onStaffSelect(null)}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: !selectedStaffId }}
-              accessibilityLabel="No staff assigned"
-            >
-              <Text
-                style={[
-                  styles.pickerText,
-                  {
-                    color: !selectedStaffId ? colors.primary : colors.text,
-                  },
-                ]}
-              >
-                No Staff
-              </Text>
-            </Pressable>
-            {staffLoading ? (
-              <View
-                style={[
-                  styles.pickerOption,
-                  {
-                    backgroundColor: colors.cardHover,
-                    borderColor: colors.border,
-                    opacity: 0.7,
-                  },
-                ]}
-                accessibilityRole="status"
-                accessibilityLabel="Loading staff members"
-              >
-                <Text
-                  style={[styles.pickerText, { color: colors.textSecondary }]}
-                >
-                  Loading staff...
-                </Text>
-              </View>
-            ) : null}
-            {staffError ? (
-              <View
-                style={[
-                  styles.pickerOption,
-                  {
-                    backgroundColor: colors.errorLight,
-                    borderColor: colors.error,
-                  },
-                ]}
-                accessibilityRole="alert"
-                accessibilityLabel="Staff members failed to load"
-              >
-                <Text style={[styles.pickerText, { color: colors.error }]}>
-                  Staff unavailable
-                </Text>
-              </View>
-            ) : null}
-            {staffMembers?.map((staff) => (
-              <Pressable
-                key={staff.id}
-                style={[
-                  styles.pickerOption,
-                  {
-                    backgroundColor:
-                      selectedStaffId === staff.id
-                        ? `${colors.primary}10`
-                        : 'transparent',
-                    borderColor:
-                      selectedStaffId === staff.id
-                        ? colors.primary
-                        : colors.border,
-                  },
-                ]}
-                onPress={() => onStaffSelect(staff.id)}
-                accessibilityRole="radio"
-                accessibilityState={{
-                  selected: selectedStaffId === staff.id,
-                }}
-                accessibilityLabel={`Staff: ${staff.name || staff.email}`}
-              >
-                <Text
-                  style={[
-                    styles.pickerText,
-                    {
-                      color:
-                        selectedStaffId === staff.id
-                          ? colors.primary
-                          : colors.text,
-                    },
-                  ]}
-                >
-                  {staff.name || staff.email}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          <HorizontalPicker
+            label="Assign to Staff (Optional)"
+            groupAccessibilityLabel="Staff selection"
+            options={staffOptions}
+            selectedId={selectedStaffId}
+            onSelect={onStaffSelect}
+            noneLabel="No Staff"
+            noneAccessibilityLabel="No staff assigned"
+            colors={colors}
+            isLoading={staffLoading}
+            loadingLabel="Loading staff..."
+            hasError={staffError}
+            errorLabel="Staff unavailable"
+          />
           <View style={styles.modalButtons}>
             <Pressable
               style={[
@@ -347,26 +192,6 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     fontSize: TYPOGRAPHY.size.md,
     marginBottom: SPACING.md,
-  },
-  inputLabel: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.xs,
-  },
-  pickerScroll: {
-    marginBottom: SPACING.sm,
-  },
-  pickerOption: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-    marginRight: SPACING.sm,
-  },
-  pickerText: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
   },
   modalButtons: {
     flexDirection: 'row',

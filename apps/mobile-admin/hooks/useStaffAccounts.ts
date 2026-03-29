@@ -44,7 +44,10 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
         .select('id, business_name')
         .eq('user_id', user.id)
         .single();
-      if (error) throw new Error(`Merchant lookup failed: ${error.message}`);
+      if (error) {
+        console.error('[StaffAccounts] Merchant lookup failed', error);
+        throw new Error(`Merchant lookup failed: ${error.message}`);
+      }
       if (!data) throw new Error('Merchant lookup failed: merchant not found');
       return data;
     },
@@ -65,8 +68,10 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
         )
         .eq('merchant_id', merchant?.id)
         .order('created_at', { ascending: false });
-      if (error)
+      if (error) {
+        console.error('[StaffAccounts] Failed to load staff accounts', error);
         throw new Error(`Failed to load staff accounts: ${error.message}`);
+      }
       return (data || []) as StaffAccount[];
     },
     enabled: !!merchant?.id,
@@ -85,7 +90,10 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
         .eq('merchant_id', merchant?.id)
         .order('is_default', { ascending: false })
         .order('created_at', { ascending: true });
-      if (error) throw new Error(`Failed to load branches: ${error.message}`);
+      if (error) {
+        console.error('[StaffAccounts] Failed to load branches', error);
+        throw new Error(`Failed to load branches: ${error.message}`);
+      }
       return (data || []) as Branch[];
     },
     enabled: !!merchant?.id,
@@ -102,7 +110,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
       branchId?: string | null;
     }) => {
       const schema = z.object({
-        name: z.string().min(3, 'Account name must be at least 3 characters'),
+        name: z.string().min(2, 'Account name must be at least 2 characters'),
       });
       const validation = schema.safeParse({ name });
       if (!validation.success) {
@@ -158,7 +166,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
   const createBranchMutation = useMutation({
     mutationFn: async ({ name, city }: { name: string; city: string }) => {
       const schema = z.object({
-        name: z.string().min(3, 'Branch name must be at least 3 characters'),
+        name: z.string().min(2, 'Branch name must be at least 2 characters'),
         city: z.string().optional(),
       });
       const validation = schema.safeParse({ name, city });

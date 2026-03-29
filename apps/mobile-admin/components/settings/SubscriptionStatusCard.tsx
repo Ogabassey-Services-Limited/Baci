@@ -18,29 +18,26 @@ interface SubscriptionStatusCardProps {
   onPress: () => void;
 }
 
-function getLatestActiveEntitlement(customerInfo: CustomerInfo | null) {
-  const activeEntitlements = Object.values(
-    customerInfo?.entitlements.active ?? {}
+const POSSIBLE_PRO_KEYS = [
+  'pro',
+  'baci_pro',
+  'premium',
+  'all_features',
+  'monthly',
+  'yearly',
+  'default',
+];
+
+function getProEntitlement(customerInfo: CustomerInfo | null) {
+  if (!customerInfo) return null;
+
+  const entitlementKey = Object.keys(customerInfo.entitlements.active).find(
+    (key) => POSSIBLE_PRO_KEYS.includes(key.toLowerCase())
   );
 
-  return activeEntitlements.reduce<(typeof activeEntitlements)[number] | null>(
-    (latest, entitlement) => {
-      const entitlementTimestamp = entitlement.expirationDate
-        ? Date.parse(entitlement.expirationDate)
-        : Number.NEGATIVE_INFINITY;
-      const latestTimestamp =
-        latest?.expirationDate != null
-          ? Date.parse(latest.expirationDate)
-          : Number.NEGATIVE_INFINITY;
-
-      if (Number.isNaN(entitlementTimestamp)) {
-        return latest;
-      }
-
-      return entitlementTimestamp > latestTimestamp ? entitlement : latest;
-    },
-    null
-  );
+  return entitlementKey
+    ? customerInfo.entitlements.active[entitlementKey]
+    : null;
 }
 
 export function SubscriptionStatusCard({
@@ -50,7 +47,7 @@ export function SubscriptionStatusCard({
   shadows,
   onPress,
 }: SubscriptionStatusCardProps) {
-  const activeEntitlement = getLatestActiveEntitlement(customerInfo);
+  const activeEntitlement = getProEntitlement(customerInfo);
 
   const expiryDate = activeEntitlement?.expirationDate
     ? new Date(activeEntitlement.expirationDate).toLocaleDateString(undefined, {
