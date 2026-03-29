@@ -360,7 +360,7 @@ export function normalizeStorefrontContentHref(
     normalizedHref.startsWith('data:') ||
     normalizedHref.startsWith('vbscript:')
   ) {
-    return '#';
+    return '';
   }
 
   const merchantIdentifier = getMerchantIdentifier(

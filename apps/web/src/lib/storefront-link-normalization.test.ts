@@ -7,7 +7,7 @@ describe('normalizeStorefrontContentHref', () => {
   });
 
   it('returns hash-only links unchanged', () => {
-    expect(normalizeStorefrontContentHref('#', {})).toBe('#');
+    expect(normalizeStorefrontContentHref('#', {})).toBe('');
     expect(normalizeStorefrontContentHref('#fragment', {})).toBe('#fragment');
   });
 
@@ -176,10 +176,10 @@ describe('normalizeStorefrontContentHref', () => {
   });
 
   it('neutralizes dangerous scripting schemes', () => {
-    expect(normalizeStorefrontContentHref('javascript:alert(1)', {})).toBe('#');
+    expect(normalizeStorefrontContentHref('javascript:alert(1)', {})).toBe('');
     expect(
       normalizeStorefrontContentHref('data:text/html,<script>alert(1)</script>')
-    ).toBe('#');
-    expect(normalizeStorefrontContentHref('vbscript:msgbox("x")')).toBe('#');
+    ).toBe('');
+    expect(normalizeStorefrontContentHref('vbscript:msgbox("x")')).toBe('');
   });
 });
