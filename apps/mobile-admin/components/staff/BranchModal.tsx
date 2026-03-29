@@ -40,6 +40,8 @@ export function BranchModal({
   onSubmit,
   onClose,
 }: BranchModalProps) {
+  const isCreateDisabled = isPending || branchName.trim().length === 0;
+
   return (
     <Modal
       visible={visible}
@@ -68,6 +70,7 @@ export function BranchModal({
             placeholderTextColor={colors.textMuted}
             value={branchName}
             onChangeText={onBranchNameChange}
+            accessibilityLabel="Branch name"
           />
           <TextInput
             style={[
@@ -82,6 +85,7 @@ export function BranchModal({
             placeholderTextColor={colors.textMuted}
             value={branchCity}
             onChangeText={onBranchCityChange}
+            accessibilityLabel="Branch city"
           />
           <View style={styles.modalButtons}>
             <Pressable
@@ -90,15 +94,24 @@ export function BranchModal({
                 { backgroundColor: colors.cardHover },
               ]}
               onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel branch creation"
             >
               <Text style={[styles.modalButtonText, { color: colors.text }]}>
                 Cancel
               </Text>
             </Pressable>
             <Pressable
-              style={[styles.modalButton, { backgroundColor: colors.primary }]}
+              style={[
+                styles.modalButton,
+                { backgroundColor: colors.primary },
+                isCreateDisabled && styles.modalButtonDisabled,
+              ]}
               onPress={onSubmit}
-              disabled={isPending}
+              disabled={isCreateDisabled}
+              accessibilityRole="button"
+              accessibilityLabel="Create branch"
+              accessibilityState={{ disabled: isCreateDisabled }}
             >
               {isPending ? (
                 <ActivityIndicator size="small" color={colors.textOnPrimary} />
@@ -154,6 +167,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
+  },
+  modalButtonDisabled: {
+    opacity: 0.5,
   },
   modalButtonText: {
     fontSize: TYPOGRAPHY.size.md,

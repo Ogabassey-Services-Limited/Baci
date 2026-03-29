@@ -2,7 +2,7 @@
  * Shared types for staff account components
  */
 
-import type { getShadows, ThemeColors } from '@/constants/theme';
+import type { ThemeColors, ThemeShadows } from '@/constants/theme';
 
 export interface StaffAccount {
   id: string;
@@ -28,5 +28,5 @@ export interface Branch {
 
 export interface StaffColors {
   colors: ThemeColors;
-  shadows: ReturnType<typeof getShadows>;
+  shadows: ThemeShadows;
 }

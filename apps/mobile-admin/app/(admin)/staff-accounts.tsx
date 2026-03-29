@@ -61,7 +61,11 @@ export default function StaffAccountsScreen() {
     },
   });
 
-  const { data: staffMembers } = useStaff();
+  const {
+    data: staffMembers,
+    isLoading: staffLoading,
+    isError: staffError,
+  } = useStaff();
 
   if (isLoading) {
     return (
@@ -322,6 +326,8 @@ export default function StaffAccountsScreen() {
           onStaffSelect={setSelectedStaffId}
           branches={branches}
           staffMembers={staffMembers}
+          staffLoading={staffLoading}
+          staffError={staffError}
           isPending={createAccountMutation.isPending}
           onSubmit={() =>
             createAccountMutation.mutate({

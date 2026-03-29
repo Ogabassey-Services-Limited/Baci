@@ -4,26 +4,27 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import { z } from 'zod';
 import type { Branch, StaffAccount } from '@/components/staff/types';
 import { useAuth } from '@/hooks/useAuth';
+import { BASE_URL } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
 
 // 2026 Best Practice: Dynamic imports for native modules
 let Clipboard: typeof import('expo-clipboard') | null = null;
 
-const loadNativeModules = async () => {
-  if (Platform.OS === 'web') return;
+const loadClipboardModule = async () => {
+  if (Clipboard) return Clipboard;
   try {
     const cb = await import('expo-clipboard');
     Clipboard = cb;
+    return Clipboard;
   } catch (_e) {
     console.debug('[StaffAccounts] Clipboard module ignored or failed to load');
+    return null;
   }
 };
-
-loadNativeModules();
 
 interface UseStaffAccountsCallbacks {
   onAccountCreated: () => void;
@@ -38,11 +39,13 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
     queryKey: ['merchant', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('User not authenticated');
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('merchants')
         .select('id, business_name')
         .eq('user_id', user.id)
         .single();
+      if (error) throw new Error(`Merchant lookup failed: ${error.message}`);
+      if (!data) throw new Error('Merchant lookup failed: merchant not found');
       return data;
     },
     enabled: !!user?.id,
@@ -55,13 +58,15 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
   } = useQuery({
     queryKey: ['staff-accounts', merchant?.id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('virtual_terminals')
         .select(
           'id, code, name, account_number, account_name, bank, payment_link, active, branch_id, staff_id'
         )
         .eq('merchant_id', merchant?.id)
         .order('created_at', { ascending: false });
+      if (error)
+        throw new Error(`Failed to load staff accounts: ${error.message}`);
       return (data || []) as StaffAccount[];
     },
     enabled: !!merchant?.id,
@@ -74,12 +79,13 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
   } = useQuery({
     queryKey: ['branches', merchant?.id],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('branches')
         .select('id, name, address, city, is_default, active')
         .eq('merchant_id', merchant?.id)
         .order('is_default', { ascending: false })
         .order('created_at', { ascending: true });
+      if (error) throw new Error(`Failed to load branches: ${error.message}`);
       return (data || []) as Branch[];
     },
     enabled: !!merchant?.id,
@@ -103,13 +109,21 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
         throw new Error(validation.error.issues[0].message);
       }
 
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error('Authentication required to create a staff account');
+      }
+
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/api/paystack/virtual-terminal`,
+        `${BASE_URL}/api/paystack/virtual-terminal`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
             name,
@@ -152,9 +166,13 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
         throw new Error(validation.error.issues[0].message);
       }
 
+      if (!merchant?.id) {
+        throw new Error('Merchant not found');
+      }
+
       const { data, error } = await supabase
         .from('branches')
-        .insert({ merchant_id: merchant?.id, name, city: city || null })
+        .insert({ merchant_id: merchant.id, name, city: city || null })
         .select('id, name, city, address, is_default, active')
         .single();
       if (error) throw error;
@@ -172,7 +190,11 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
 
   const copyToClipboard = async (text: string) => {
     try {
-      await Clipboard?.setStringAsync(text);
+      const clipboard = await loadClipboardModule();
+      if (!clipboard?.setStringAsync) {
+        throw new Error('Clipboard is not available');
+      }
+      await clipboard.setStringAsync(text);
       Alert.alert('Copied!', 'Account number copied to clipboard.');
     } catch (_error) {
       Alert.alert('Error', 'Failed to copy to clipboard');

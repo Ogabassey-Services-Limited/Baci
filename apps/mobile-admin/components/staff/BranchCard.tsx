@@ -18,10 +18,7 @@ export function BranchCard({ branch, colors, shadows }: BranchCardProps) {
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleRow}>
           <View
-            style={[
-              styles.cardIcon,
-              { backgroundColor: colors.primaryLight || '#E8F0FE' },
-            ]}
+            style={[styles.cardIcon, { backgroundColor: colors.primaryLight }]}
           >
             <Ionicons name="location" size={20} color={colors.primary} />
           </View>
@@ -42,7 +39,7 @@ export function BranchCard({ branch, colors, shadows }: BranchCardProps) {
             styles.badge,
             {
               backgroundColor: branch.active
-                ? colors.successLight || '#E8F5E9'
+                ? colors.successLight
                 : colors.cardHover,
             },
           ]}

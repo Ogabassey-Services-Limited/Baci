@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SubscriptionStatusCard } from '@/components/settings/SubscriptionStatusCard';
 import { APP_VERSION_LABEL } from '@/constants/app-info';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useOnboarding } from '@/context/OnboardingContext';

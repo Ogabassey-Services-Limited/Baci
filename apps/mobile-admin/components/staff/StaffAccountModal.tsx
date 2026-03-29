@@ -31,6 +31,8 @@ interface StaffAccountModalProps {
   onStaffSelect: (id: string | null) => void;
   branches: Branch[] | undefined;
   staffMembers: StaffMember[] | undefined;
+  staffLoading: boolean;
+  staffError: boolean;
   isPending: boolean;
   onSubmit: () => void;
   onClose: () => void;
@@ -47,6 +49,8 @@ export function StaffAccountModal({
   onStaffSelect,
   branches,
   staffMembers,
+  staffLoading,
+  staffError,
   isPending,
   onSubmit,
   onClose,
@@ -89,15 +93,16 @@ export function StaffAccountModal({
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.pickerScroll}
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Branch selection"
           >
             <Pressable
               style={[
                 styles.pickerOption,
-                !selectedBranchId && {
-                  borderColor: colors.primary,
-                  backgroundColor: `${colors.primary}10`,
-                },
                 {
+                  backgroundColor: !selectedBranchId
+                    ? `${colors.primary}10`
+                    : 'transparent',
                   borderColor: !selectedBranchId
                     ? colors.primary
                     : colors.border,
@@ -124,11 +129,11 @@ export function StaffAccountModal({
                 key={branch.id}
                 style={[
                   styles.pickerOption,
-                  selectedBranchId === branch.id && {
-                    borderColor: colors.primary,
-                    backgroundColor: `${colors.primary}10`,
-                  },
                   {
+                    backgroundColor:
+                      selectedBranchId === branch.id
+                        ? `${colors.primary}10`
+                        : 'transparent',
                     borderColor:
                       selectedBranchId === branch.id
                         ? colors.primary
@@ -167,15 +172,16 @@ export function StaffAccountModal({
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.pickerScroll}
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Staff selection"
           >
             <Pressable
               style={[
                 styles.pickerOption,
-                !selectedStaffId && {
-                  borderColor: colors.primary,
-                  backgroundColor: `${colors.primary}10`,
-                },
                 {
+                  backgroundColor: !selectedStaffId
+                    ? `${colors.primary}10`
+                    : 'transparent',
                   borderColor: !selectedStaffId
                     ? colors.primary
                     : colors.border,
@@ -197,16 +203,53 @@ export function StaffAccountModal({
                 No Staff
               </Text>
             </Pressable>
+            {staffLoading ? (
+              <View
+                style={[
+                  styles.pickerOption,
+                  {
+                    backgroundColor: colors.cardHover,
+                    borderColor: colors.border,
+                    opacity: 0.7,
+                  },
+                ]}
+                accessibilityRole="status"
+                accessibilityLabel="Loading staff members"
+              >
+                <Text
+                  style={[styles.pickerText, { color: colors.textSecondary }]}
+                >
+                  Loading staff...
+                </Text>
+              </View>
+            ) : null}
+            {staffError ? (
+              <View
+                style={[
+                  styles.pickerOption,
+                  {
+                    backgroundColor: colors.errorLight,
+                    borderColor: colors.error,
+                  },
+                ]}
+                accessibilityRole="alert"
+                accessibilityLabel="Staff members failed to load"
+              >
+                <Text style={[styles.pickerText, { color: colors.error }]}>
+                  Staff unavailable
+                </Text>
+              </View>
+            ) : null}
             {staffMembers?.map((staff) => (
               <Pressable
                 key={staff.id}
                 style={[
                   styles.pickerOption,
-                  selectedStaffId === staff.id && {
-                    borderColor: colors.primary,
-                    backgroundColor: `${colors.primary}10`,
-                  },
                   {
+                    backgroundColor:
+                      selectedStaffId === staff.id
+                        ? `${colors.primary}10`
+                        : 'transparent',
                     borderColor:
                       selectedStaffId === staff.id
                         ? colors.primary
@@ -243,15 +286,24 @@ export function StaffAccountModal({
                 { backgroundColor: colors.cardHover },
               ]}
               onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel staff account creation"
             >
               <Text style={[styles.modalButtonText, { color: colors.text }]}>
                 Cancel
               </Text>
             </Pressable>
             <Pressable
-              style={[styles.modalButton, { backgroundColor: colors.primary }]}
+              style={[
+                styles.modalButton,
+                { backgroundColor: colors.primary },
+                isPending && styles.modalButtonDisabled,
+              ]}
               onPress={onSubmit}
               disabled={isPending}
+              accessibilityRole="button"
+              accessibilityLabel="Create staff account"
+              accessibilityState={{ disabled: isPending }}
             >
               {isPending ? (
                 <ActivityIndicator size="small" color={colors.textOnPrimary} />
@@ -327,6 +379,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
+  },
+  modalButtonDisabled: {
+    opacity: 0.5,
   },
   modalButtonText: {
     fontSize: TYPOGRAPHY.size.md,

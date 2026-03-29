@@ -7,15 +7,40 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CustomerInfo } from 'react-native-purchases';
-import type { getShadows, ThemeColors } from '@/constants/theme';
+import type { ThemeColors, ThemeShadows } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 interface SubscriptionStatusCardProps {
   isPro: boolean;
   customerInfo: CustomerInfo | null;
   colors: ThemeColors;
-  shadows: ReturnType<typeof getShadows>;
+  shadows: ThemeShadows;
   onPress: () => void;
+}
+
+function getLatestActiveEntitlement(customerInfo: CustomerInfo | null) {
+  const activeEntitlements = Object.values(
+    customerInfo?.entitlements.active ?? {}
+  );
+
+  return activeEntitlements.reduce<(typeof activeEntitlements)[number] | null>(
+    (latest, entitlement) => {
+      const entitlementTimestamp = entitlement.expirationDate
+        ? Date.parse(entitlement.expirationDate)
+        : Number.NEGATIVE_INFINITY;
+      const latestTimestamp =
+        latest?.expirationDate != null
+          ? Date.parse(latest.expirationDate)
+          : Number.NEGATIVE_INFINITY;
+
+      if (Number.isNaN(entitlementTimestamp)) {
+        return latest;
+      }
+
+      return entitlementTimestamp > latestTimestamp ? entitlement : latest;
+    },
+    null
+  );
 }
 
 export function SubscriptionStatusCard({
@@ -25,9 +50,7 @@ export function SubscriptionStatusCard({
   shadows,
   onPress,
 }: SubscriptionStatusCardProps) {
-  const activeEntitlement = Object.values(
-    customerInfo?.entitlements.active || {}
-  )[0];
+  const activeEntitlement = getLatestActiveEntitlement(customerInfo);
 
   const expiryDate = activeEntitlement?.expirationDate
     ? new Date(activeEntitlement.expirationDate).toLocaleDateString(undefined, {
@@ -102,7 +125,7 @@ export function SubscriptionStatusCard({
       accessibilityHint="Opens subscription upgrade options"
     >
       <View
-        style={[styles.freeCardIcon, { backgroundColor: `${colors.gold}20` }]}
+        style={[styles.freeCardIcon, { backgroundColor: colors.goldLight }]}
       >
         <Ionicons name="star" size={24} color={colors.gold} />
       </View>

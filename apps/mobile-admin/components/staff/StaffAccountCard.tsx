@@ -19,15 +19,14 @@ export function StaffAccountCard({
   shadows,
   onCopyAccountNumber,
 }: StaffAccountCardProps) {
+  const accountNumber = account.account_number;
+
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
       <View style={styles.cardHeader}>
         <View style={styles.cardTitleRow}>
           <View
-            style={[
-              styles.cardIcon,
-              { backgroundColor: colors.primaryLight || '#E8F0FE' },
-            ]}
+            style={[styles.cardIcon, { backgroundColor: colors.primaryLight }]}
           >
             <Ionicons name="person" size={20} color={colors.primary} />
           </View>
@@ -47,7 +46,7 @@ export function StaffAccountCard({
             styles.badge,
             {
               backgroundColor: account.active
-                ? colors.successLight || '#E8F5E9'
+                ? colors.successLight
                 : colors.cardHover,
             },
           ]}
@@ -65,17 +64,19 @@ export function StaffAccountCard({
         </View>
       </View>
 
-      {account.account_number ? (
+      {accountNumber ? (
         <Pressable
           style={[styles.accountDetail, { backgroundColor: colors.cardHover }]}
-          onPress={() => onCopyAccountNumber(account.account_number!)}
+          onPress={() => onCopyAccountNumber(accountNumber)}
+          accessibilityRole="button"
+          accessibilityLabel={`Copy account number for ${account.name}`}
         >
           <View>
             <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
               Account Number
             </Text>
             <Text style={[styles.detailValue, { color: colors.text }]}>
-              {account.account_number}
+              {accountNumber}
             </Text>
             <Text style={[styles.detailBank, { color: colors.textSecondary }]}>
               {account.bank}
