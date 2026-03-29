@@ -7,7 +7,7 @@ describe('normalizeStorefrontContentHref', () => {
   });
 
   it('returns hash-only links unchanged', () => {
-    expect(normalizeStorefrontContentHref('#', {})).toBe('');
+    expect(normalizeStorefrontContentHref('#', {})).toBe('#');
     expect(normalizeStorefrontContentHref('#fragment', {})).toBe('#fragment');
   });
 

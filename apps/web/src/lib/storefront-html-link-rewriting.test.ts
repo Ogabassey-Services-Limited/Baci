@@ -95,7 +95,7 @@ describe('rewriteHtmlStorefrontHrefs', () => {
     const html = '<p><a href="javascript:alert(1)">Unsafe</a></p>';
 
     expect(rewriteHtmlStorefrontHrefs(html)).toBe(
-      '<p><a href="#">Unsafe</a></p>'
+      '<p><a href="">Unsafe</a></p>'
     );
   });
 
