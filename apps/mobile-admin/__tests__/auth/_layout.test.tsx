@@ -66,7 +66,7 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-import AuthLayout from './_layout';
+import AuthLayout from '../../app/(auth)/_layout';
 
 describe('AuthLayout', () => {
   beforeEach(() => {

@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -102,7 +108,8 @@ vi.mock('@expo/vector-icons', async () => {
   const React = await import('react');
 
   return {
-    Ionicons: ({ name }: { name: string }) => React.createElement('span', null, name),
+    Ionicons: ({ name }: { name: string }) =>
+      React.createElement('span', null, name),
   };
 });
 
@@ -174,7 +181,7 @@ vi.mock('@/lib/sanitize', () => ({
   getEmailError: () => null,
 }));
 
-import LoginScreen from './login';
+import LoginScreen from '../../app/(auth)/login';
 
 function fillLoginFields() {
   fireEvent.change(screen.getByPlaceholderText('you@example.com'), {

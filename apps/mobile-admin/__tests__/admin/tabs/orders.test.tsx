@@ -195,7 +195,7 @@ vi.mock('@/utils/export-orders', () => ({
   exportOrdersRPC: vi.fn(),
 }));
 
-import OrdersScreen from './orders';
+import OrdersScreen from '../../../app/(admin)/(tabs)/orders';
 
 describe('OrdersScreen', () => {
   beforeEach(() => {
