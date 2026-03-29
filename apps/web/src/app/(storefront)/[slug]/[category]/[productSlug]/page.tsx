@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
+import ProductDetailClient from '@/app/(storefront)/[slug]/products/[productSlug]/product-detail-client';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
 import type { Product as OgabasseyProduct } from '@/components/storefront/ogabassey/types';
 import type { VariantAttributeSource } from '@/components/storefront/ogabassey/variant-attributes';
@@ -32,7 +33,6 @@ import {
 import { buildStoreUrl } from '@/lib/store-url';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import { isDomainIdentifier } from '@/lib/validation';
-import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
 
 /** KeySpecs interface for product_key_specs */
 interface KeySpecs {
