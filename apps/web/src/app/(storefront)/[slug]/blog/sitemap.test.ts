@@ -17,10 +17,30 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
 }));
 
-const mockEq = vi.fn(() => ({
-  eq: mockEq,
-}));
-const mockSelect = vi.fn(() => ({ eq: mockEq }));
+interface BlogPostRow {
+  slug: string;
+  published_at: string;
+  updated_at: string;
+  featured_image_url: string | null;
+}
+
+interface BlogPostsResponse {
+  data: BlogPostRow[] | null;
+  error: Error | null;
+}
+
+interface EqChain {
+  eq: (key: string, value: string) => EqChain | BlogPostsResponse;
+}
+
+const mockEq =
+  vi.fn<(key: string, value: string) => EqChain | BlogPostsResponse>();
+mockEq.mockImplementation(
+  (): EqChain => ({
+    eq: mockEq,
+  })
+);
+const mockSelect = vi.fn((): EqChain => ({ eq: mockEq }));
 const mockFrom = vi.fn(() => ({ select: mockSelect }));
 
 vi.mock('@/lib/supabase/anon', () => ({
