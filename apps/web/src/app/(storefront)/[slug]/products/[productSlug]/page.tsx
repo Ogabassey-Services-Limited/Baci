@@ -1,4 +1,4 @@
-import type { Metadata, ResolvingMetadata } from 'next';
+import type { Metadata, ResolvingMetadata, Route } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { connection } from 'next/server';
@@ -27,6 +27,7 @@ import {
 import { buildStoreUrl } from '@/lib/store-url';
 import { isDomainIdentifier } from '@/lib/validation';
 import type { FAQItem } from '@/types/faq';
+import { buildProductRedirectPath } from './build-product-redirect-path';
 import ProductDetailClient from './product-detail-client';
 import {
   mapDetailedCachedProductToProduct,
@@ -35,8 +36,8 @@ import {
 
 interface PageProps {
   params: Promise<{
-    slug: string; // Store slug
-    productSlug: string; // Product slug or ID
+    slug: string;
+    productSlug: string;
   }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
@@ -45,26 +46,25 @@ async function getProductCached(
   storeSlug: string,
   productSlug: string
 ): Promise<Product | null> {
-  const merchant = await resolveStoreMerchant(storeSlug);
+  const merchant = await getMerchantByIdentifier(storeSlug);
 
   if (!merchant) {
     console.error('Merchant not found for slug:', storeSlug);
     return null;
   }
-
   const cachedProduct = await getCachedProduct(merchant.id, productSlug);
-
   if (cachedProduct) {
     return mapLegacyCachedProductToProduct(cachedProduct, merchant.id);
   }
-
   const detailedProduct = await getCachedProductWithDetails(
     merchant.id,
     productSlug
   );
-
   if (!detailedProduct) {
-    console.error('Product not found:', productSlug);
+    console.warn('Product lookup miss', {
+      merchantId: merchant.id,
+      productSlug,
+    });
     return null;
   }
 
@@ -80,26 +80,19 @@ async function redirectLegacyProductRouteIfCategorized(
     return;
   }
 
-  const headersList = await headers();
-  const isPathMode =
-    !headersList.has('x-merchant-slug') &&
-    !headersList.has('x-custom-domain') &&
-    !isDomainIdentifier(storeSlug);
-  const targetPath = isPathMode ? `/${storeSlug}${productPath}` : productPath;
-
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic route path requires type assertion
-  permanentRedirect(targetPath as any);
-}
-
-async function resolveStoreMerchant(storeSlug: string) {
-  return await getMerchantByIdentifier(storeSlug);
+  const targetPath = await buildProductRedirectPath(
+    storeSlug,
+    productPath,
+    headers
+  );
+  permanentRedirect(targetPath as Route);
 }
 
 async function redirectLegacyVariantProductRoute(
   storeSlug: string,
   productSlug: string
 ): Promise<never> {
-  const merchant = await resolveStoreMerchant(storeSlug);
+  const merchant = await getMerchantByIdentifier(storeSlug);
 
   if (!merchant) {
     notFound();
@@ -115,15 +108,12 @@ async function redirectLegacyVariantProductRoute(
   }
 
   const productPath = getProductUrl(redirectTarget);
-  const headersList = await headers();
-  const isPathMode =
-    !headersList.has('x-merchant-slug') &&
-    !headersList.has('x-custom-domain') &&
-    !isDomainIdentifier(storeSlug);
-  const targetPath = isPathMode ? `/${storeSlug}${productPath}` : productPath;
-
-  // biome-ignore lint/suspicious/noExplicitAny: Dynamic route path requires type assertion
-  permanentRedirect(targetPath as any);
+  const targetPath = await buildProductRedirectPath(
+    storeSlug,
+    productPath,
+    headers
+  );
+  permanentRedirect(targetPath as Route);
 }
 
 export async function generateMetadata(
@@ -133,25 +123,19 @@ export async function generateMetadata(
   const { slug, productSlug } = await params;
   const resolvedSearchParams = await searchParams;
   const product = await getProductCached(slug, productSlug);
-
   if (!product) {
     await redirectLegacyVariantProductRoute(slug, productSlug);
     notFound();
   }
-
   await redirectLegacyProductRouteIfCategorized(slug, product);
-
-  // Get cached merchant data (handle custom domains)
-  const merchant = await resolveStoreMerchant(slug);
+  const merchant = await getMerchantByIdentifier(slug);
   const baseUrl = buildStoreUrl(
     merchant ??
       (isDomainIdentifier(slug)
         ? { slug, custom_domain: slug }
         : { slug, custom_domain: undefined })
   );
-
   let canonicalUrl = product.canonical_url;
-
   if (!canonicalUrl) {
     const productPath = getProductUrl(product);
     const basePath = `${baseUrl}${productPath}`;
@@ -213,23 +197,18 @@ export async function generateMetadata(
 
 export default async function ProductPage({ params }: PageProps) {
   await connection();
-
   const { slug, productSlug } = await params;
-
   const product = await getProductCached(slug, productSlug);
-
   if (!product) {
     await redirectLegacyVariantProductRoute(slug, productSlug);
     notFound();
   }
-
   await redirectLegacyProductRouteIfCategorized(slug, product);
-
-  const merchant = await resolveStoreMerchant(slug);
-  const reviewStats = await getCachedProductRatingStats(product.id);
-  const recentReviews = await getCachedProductReviews(product.id, {
-    limit: 10,
-  });
+  const merchant = await getMerchantByIdentifier(slug);
+  const [reviewStats, recentReviews] = await Promise.all([
+    getCachedProductRatingStats(product.id),
+    getCachedProductReviews(product.id, { limit: 10 }),
+  ]);
 
   if (recentReviews && recentReviews.length > 0) {
     product.reviews = recentReviews.map((r) => ({
@@ -246,7 +225,6 @@ export default async function ProductPage({ params }: PageProps) {
         ? { slug, custom_domain: slug }
         : { slug, custom_domain: undefined })
   );
-
   const productSchema = generateProductSchema(
     product,
     merchant?.business_name || 'Baci Store',
@@ -256,6 +234,7 @@ export default async function ProductPage({ params }: PageProps) {
   );
   const productPath = getProductUrl(product);
   const productUrl = `${baseUrl}${productPath}`;
+
   if (
     productSchema.offers &&
     !Array.isArray(productSchema.offers) &&
@@ -273,7 +252,6 @@ export default async function ProductPage({ params }: PageProps) {
       productSchema.aggregateRating = aggregateRating;
     }
   }
-
   const categorySlug =
     product.category_slug ||
     (product.category ? generateSlug(product.category) : 'products');

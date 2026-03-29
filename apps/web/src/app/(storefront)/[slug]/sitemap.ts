@@ -63,15 +63,26 @@ export default async function sitemap(props: {
       ];
 
     case 'products': {
-      const { data: products } = (await supabase
+      const { data: products, error } = (await supabase
         .from('products')
         .select(
           'id, slug, category, images, updated_at, category_id, categories:category_id(slug)'
         )
         .eq('merchant_id', merchant.id)
-        .eq('status', 'active')) as { data: ProductWithCategory[] | null };
+        .eq('status', 'active')) as {
+        data: ProductWithCategory[] | null;
+        error: Error | null;
+      };
 
-      return (products || []).map((product) => {
+      if (error) {
+        throw error;
+      }
+
+      if (!products) {
+        throw new Error(`Failed to load products sitemap for ${merchant.id}`);
+      }
+
+      return products.map((product) => {
         const productSlug = product.slug || product.id;
         const catSlug =
           product.categories?.slug ||
@@ -105,12 +116,20 @@ export default async function sitemap(props: {
     }
 
     case 'categories': {
-      const { data: categories } = await supabase
+      const { data: categories, error } = await supabase
         .from('categories')
         .select('slug, updated_at')
         .eq('merchant_id', merchant.id);
 
-      return (categories || []).map((cat) => ({
+      if (error) {
+        throw error;
+      }
+
+      if (!categories) {
+        throw new Error(`Failed to load category sitemap for ${merchant.id}`);
+      }
+
+      return categories.map((cat) => ({
         url: `${storeUrl}/${cat.slug}`,
         lastModified: cat.updated_at ? new Date(cat.updated_at) : new Date(),
         changeFrequency: 'daily',

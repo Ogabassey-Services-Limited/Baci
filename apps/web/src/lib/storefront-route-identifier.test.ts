@@ -33,6 +33,12 @@ describe('resolveRouteIdentifier', () => {
     ).toBe('ogabassey');
   });
 
+  it('returns the full host for external custom domains', () => {
+    expect(
+      resolveRouteIdentifier(createHeaders([['host', 'ogabassey.ng']]))
+    ).toBe('ogabassey.ng');
+  });
+
   it('returns an empty string for the bare root domain', () => {
     expect(
       resolveRouteIdentifier(createHeaders([['host', 'www.usebaci.com']]))

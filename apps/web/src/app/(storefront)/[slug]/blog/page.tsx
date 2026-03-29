@@ -1,10 +1,6 @@
-import { Rss } from 'lucide-react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
-import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
-import { Badge } from '@/components/ui/badge';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import {
   getCachedFeatureSettings,
@@ -12,9 +8,7 @@ import {
   getCachedMerchantByDomain,
   getPublicSupabaseClient,
 } from '@/lib/cached-data';
-import { asRoute } from '@/lib/routes';
-import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
-import { generateBreadcrumbSchema } from '@/lib/seo-utils';
+import { generateBreadcrumbSchema, generateSlug } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import {
   getStorefrontOpenGraphImages,
@@ -22,11 +16,17 @@ import {
 } from '@/lib/storefront-social-images';
 import { isDomainIdentifier } from '@/lib/validation';
 import { type BlogPostData, getTemplate } from '@/templates/registry';
-import { BlogList } from './blog-list';
+import { DefaultBlogUi } from './default-blog-ui';
+import { TemplateBlogRenderer } from './template-blog-renderer';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ category?: string; page?: string; search?: string }>;
+}
+
+function parseBlogListingPage(page?: string): number {
+  const parsedPage = Number.parseInt(String(page ?? '1'), 10);
+  return Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
 }
 
 const getMerchantAndPosts = cache(
@@ -39,17 +39,11 @@ const getMerchantAndPosts = cache(
     const supabase = getPublicSupabaseClient();
     const limit = BLOG_LISTING_PAGE_SIZE;
     const offset = (page - 1) * limit;
-
-    // Get merchant - support both slugs and custom domains
-    // Custom domains (like ogabassey.com) are rewritten by proxy.ts
     const lookupKey = identifier.toLowerCase();
     const cachedMerchant = isDomainIdentifier(identifier)
       ? await getCachedMerchantByDomain(lookupKey)
       : await getCachedMerchant(lookupKey);
-
     if (!cachedMerchant) return null;
-
-    // Map cached merchant to the format we need
     const merchant = {
       id: cachedMerchant.id,
       business_name: cachedMerchant.business_name,
@@ -58,12 +52,8 @@ const getMerchantAndPosts = cache(
       template_id: cachedMerchant.template_id,
       custom_domain: cachedMerchant.custom_domain,
     };
-
-    // Check if blog is enabled using cached settings
     const features = await getCachedFeatureSettings(merchant.id);
     if (!features?.blog_enabled) return null;
-
-    // Build posts query
     let query = supabase
       .from('blog_posts')
       .select(
@@ -78,32 +68,23 @@ const getMerchantAndPosts = cache(
     if (category) {
       query = query.eq('category', category);
     }
-
-    // Add search filter if provided using PostgreSQL full-text search
     if (searchQuery) {
       const sanitizedSearch = searchQuery.trim().slice(0, 100);
-
       if (sanitizedSearch) {
-        // Use PostgreSQL full-text search with search_vector (GIN indexed)
-        // This is ~10-100x faster than ILIKE for larger datasets
-        // Falls back to ILIKE for trigram fuzzy matching on title if FTS returns no results
         query = query.textSearch('search_vector', sanitizedSearch, {
-          type: 'websearch', // Handles phrases and operators naturally
+          type: 'websearch',
           config: 'english',
         });
       }
     }
 
     const { data: posts, count } = await query;
-
-    // Get unique categories
     const { data: categories } = await supabase
       .from('blog_posts')
       .select('category')
       .eq('merchant_id', merchant.id)
       .eq('status', 'published')
       .not('category', 'is', null);
-
     const uniqueCategories = [
       ...new Set(categories?.map((c) => c.category).filter(Boolean)),
     ];
@@ -126,8 +107,7 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const { page } = await searchParams;
-  const parsedPage = Number.parseInt(String(page ?? '1'), 10);
-  const currentPage = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
+  const currentPage = parseBlogListingPage(page);
   const data = await getMerchantAndPosts(slug, undefined, currentPage);
 
   if (!data) {
@@ -141,8 +121,6 @@ export async function generateMetadata({
     data.posts[0]?.featured_image_url,
     data.merchant.logo_url,
   ];
-
-  // Build prev/next pagination links
   const prevUrl =
     currentPage > 2
       ? `${baseUrl}/blog?page=${currentPage - 1}`
@@ -198,7 +176,7 @@ export async function generateMetadata({
 export default async function BlogPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const { category, page, search } = await searchParams;
-  const currentPage = Number.parseInt(page || '1', 10);
+  const currentPage = parseBlogListingPage(page);
 
   const data = await getMerchantAndPosts(slug, category, currentPage, search);
 
@@ -209,11 +187,7 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
   const { merchant, posts, categories, totalPosts, searchQuery } = data;
 
   const baseUrl = buildStoreUrl(merchant);
-
-  // Determine base path for internal links
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
-
-  // Generate Blog schema with ItemList for SEO
   const blogSchema = {
     '@context': 'https://schema.org',
     '@type': 'Blog',
@@ -243,8 +217,6 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
       image: post.featured_image_url || undefined,
     })),
   };
-
-  // BreadcrumbList schema
   const breadcrumbSchema = generateBreadcrumbSchema([
     {
       name: merchant.business_name,
@@ -255,8 +227,6 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
       url: `${baseUrl}/blog`,
     },
   ]);
-
-  // Check if merchant has a template with a custom Blog component
   const templateId = merchant.template_id;
   if (templateId && templateId !== 'default' && templateId !== 'puck') {
     const template = getTemplate(templateId);
@@ -265,7 +235,10 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
         const components = await template.getComponents();
         if (components.Blog) {
           const BlogComponent = components.Blog;
-          // Map posts to BlogPostData format
+          const templateCategories = categories.map((cat) => ({
+            name: cat,
+            slug: generateSlug(cat),
+          }));
           const blogPosts: BlogPostData[] = posts.map((p) => ({
             id: p.id,
             title: p.title,
@@ -279,38 +252,18 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
           }));
 
           return (
-            <>
-              <script
-                type="application/ld+json"
-                /*
-                  biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-                  nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-                */
-                dangerouslySetInnerHTML={{
-                  __html: safeJsonLdStringify(blogSchema),
-                }}
-              />
-              <script
-                type="application/ld+json"
-                /*
-                  biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-                  nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-                */
-                dangerouslySetInnerHTML={{
-                  __html: safeJsonLdStringify(breadcrumbSchema),
-                }}
-              />
-              <BlogComponent
-                storeSlug={basePath}
-                posts={blogPosts}
-                categories={categories}
-                searchQuery={searchQuery}
-              />
-            </>
+            <TemplateBlogRenderer
+              blogSchema={blogSchema}
+              breadcrumbSchema={breadcrumbSchema}
+              BlogComponent={BlogComponent}
+              basePath={basePath}
+              blogPosts={blogPosts}
+              categories={templateCategories}
+              searchQuery={searchQuery}
+            />
           );
         }
       } catch (error) {
-        // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
         console.error(
           'Failed to load Blog component for template',
           templateId,
@@ -322,111 +275,18 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
     }
   }
 
-  // Default blog UI (generic styling) - header is provided by OgabasseyLayout
   return (
-    <>
-      <script
-        type="application/ld+json"
-        /*
-          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-        */
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(blogSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        /*
-          biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
-          nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-        */
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(breadcrumbSchema),
-        }}
-      />
-      <div className="min-h-screen bg-background">
-        {/* Page Header */}
-        <div className="bg-card border-b">
-          <div className="container mx-auto px-4 py-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold">
-                  {searchQuery
-                    ? `Search results for "${searchQuery}"`
-                    : `${merchant.business_name} Blog`}
-                </h1>
-                <p className="text-muted-foreground mt-2">
-                  {searchQuery
-                    ? `${posts.length} post${posts.length !== 1 ? 's' : ''} found`
-                    : 'Latest articles, news, and insights'}
-                </p>
-                {searchQuery && (
-                  <Link
-                    href={asRoute(`${basePath}/blog`)}
-                    className="text-sm text-primary hover:underline mt-2 inline-block"
-                  >
-                    Clear search
-                  </Link>
-                )}
-              </div>
-              <a
-                href={`/api/blog/feed/${slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-              >
-                <Rss className="w-4 h-4" />
-                RSS Feed
-              </a>
-            </div>
-          </div>
-        </div>
-
-        <main className="container mx-auto px-4 py-8">
-          {/* Categories */}
-          {categories.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-8">
-              <Link href={asRoute(`${basePath}/blog`)}>
-                <Badge
-                  variant={!category ? 'default' : 'outline'}
-                  className="cursor-pointer"
-                >
-                  All
-                </Badge>
-              </Link>
-              {categories.map((cat) => (
-                <Link
-                  key={cat}
-                  href={asRoute(
-                    `${basePath}/blog?category=${encodeURIComponent(cat)}`
-                  )}
-                >
-                  <Badge
-                    variant={category === cat ? 'default' : 'outline'}
-                    className="cursor-pointer"
-                  >
-                    {cat}
-                  </Badge>
-                </Link>
-              ))}
-            </div>
-          )}
-
-          {/* Ad Placement: Blog Header MPU */}
-          <div className="mb-8 flex justify-center">
-            <AdUnit placementKey="BLOG_SIDEBAR" />
-          </div>
-
-          {/* Posts Grid with Infinite Scroll */}
-          <BlogList
-            initialPosts={posts}
-            merchantId={merchant.id}
-            totalPosts={totalPosts}
-            category={category}
-            searchQuery={searchQuery}
-            basePath={basePath}
-          />
-        </main>
-      </div>
-    </>
+    <DefaultBlogUi
+      blogSchema={blogSchema}
+      breadcrumbSchema={breadcrumbSchema}
+      basePath={basePath}
+      categories={categories}
+      category={category}
+      merchant={merchant}
+      posts={posts}
+      searchQuery={searchQuery}
+      slug={slug}
+      totalPosts={totalPosts}
+    />
   );
 }

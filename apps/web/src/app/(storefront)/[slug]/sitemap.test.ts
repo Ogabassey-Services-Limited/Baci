@@ -225,7 +225,7 @@ describe('sitemap', () => {
       mockEq.mockImplementation((...args: unknown[]) => {
         const [key, value] = args as [string, string];
         if (key === 'status' && value === 'active') {
-          return { data: null, error: null };
+          return { data: [], error: null };
         }
         return { eq: mockEq };
       });
@@ -235,6 +235,23 @@ describe('sitemap', () => {
       const result = await sitemap({ id: Promise.resolve('products') });
 
       expect(result).toEqual([]);
+    });
+
+    it('throws when products cannot be loaded', async () => {
+      setSlugHeader('ogabassey');
+      mockEq.mockImplementation((...args: unknown[]) => {
+        const [key, value] = args as [string, string];
+        if (key === 'status' && value === 'active') {
+          return { data: null, error: new Error('db') };
+        }
+        return { eq: mockEq };
+      });
+
+      const { default: sitemap } = await import('./sitemap');
+
+      await expect(
+        sitemap({ id: Promise.resolve('products') })
+      ).rejects.toThrow('db');
     });
   });
 
@@ -276,7 +293,7 @@ describe('sitemap', () => {
       expect(result[1].url).toBe('https://ogabassey.usebaci.com/accessories');
     });
 
-    it('returns an empty array when categories cannot be loaded', async () => {
+    it('throws when categories cannot be loaded', async () => {
       setSlugHeader('ogabassey');
       mockEq.mockImplementation((...args: unknown[]) => {
         const [key, value] = args as [string, string];
@@ -289,9 +306,9 @@ describe('sitemap', () => {
 
       const { default: sitemap } = await import('./sitemap');
 
-      const result = await sitemap({ id: Promise.resolve('categories') });
-
-      expect(result).toEqual([]);
+      await expect(
+        sitemap({ id: Promise.resolve('categories') })
+      ).rejects.toThrow('db');
     });
   });
 });

@@ -387,6 +387,40 @@ describe('products/[productSlug] page', () => {
     );
   });
 
+  it('redirects legacy archived variant slugs during page render too', async () => {
+    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue({
+      id: 'parent-1',
+      name: 'iPhone 13 Pro Max',
+      slug: 'iphone-13-pro-max',
+      category: 'Phones',
+      categories: { id: 'cat-1', name: 'Phones', slug: 'phones' },
+    });
+    mockHeaders.mockReturnValue(
+      makeHeaders({ 'x-custom-domain': 'teststore.com' })
+    );
+
+    await expect(
+      ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore.com',
+          productSlug: 'iphone-13-pro-max-6gb-128gb',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockConnection).toHaveBeenCalledTimes(1);
+    expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
+      'merchant-1',
+      'iphone-13-pro-max-6gb-128gb'
+    );
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      '/phones/iphone-13-pro-max'
+    );
+  });
+
   it('calls notFound when product does not exist and no legacy redirect target exists', async () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
@@ -405,6 +439,25 @@ describe('products/[productSlug] page', () => {
       )
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
+    expect(mockPermanentRedirect).not.toHaveBeenCalled();
+  });
+
+  it('calls notFound during page render when no legacy redirect target exists', async () => {
+    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
+    mockHeaders.mockReturnValue(makeHeaders({}));
+
+    await expect(
+      ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'nonexistent',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockConnection).toHaveBeenCalledTimes(1);
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
