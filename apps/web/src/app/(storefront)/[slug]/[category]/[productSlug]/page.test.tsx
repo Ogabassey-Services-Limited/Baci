@@ -90,9 +90,12 @@ vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: (value: string) => value.includes('.'),
 }));
 
-vi.mock('../../products/[productSlug]/product-detail-client', () => ({
-  default: () => null,
-}));
+vi.mock(
+  '@/app/(storefront)/[slug]/products/[productSlug]/product-detail-client',
+  () => ({
+    default: () => null,
+  })
+);
 
 import CategoryProductPage, { generateMetadata } from './page';
 

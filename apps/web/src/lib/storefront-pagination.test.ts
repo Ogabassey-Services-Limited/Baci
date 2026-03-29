@@ -102,4 +102,10 @@ describe('buildStorefrontPageHref', () => {
     expect(buildStorefrontPageHref('', 1)).toBe('');
     expect(buildStorefrontPageHref('', 2)).toBe('?page=2');
   });
+
+  it('appends page with an ampersand when the base path already has a query string', () => {
+    expect(buildStorefrontPageHref('/store/products?sort=price', 2)).toBe(
+      '/store/products?sort=price&page=2'
+    );
+  });
 });

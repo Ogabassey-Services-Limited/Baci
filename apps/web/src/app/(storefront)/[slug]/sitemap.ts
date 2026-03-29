@@ -1,3 +1,4 @@
+import type { PostgrestError } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
@@ -81,7 +82,7 @@ export default async function sitemap(props: {
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')) as {
         data: ProductWithCategory[] | null;
-        error: Error | null;
+        error: PostgrestError | null;
       };
 
       if (error) {

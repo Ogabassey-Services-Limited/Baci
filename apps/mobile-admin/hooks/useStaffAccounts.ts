@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert } from 'react-native';
 import { z } from 'zod';
 import type { Branch, StaffAccount } from '@/components/staff/types';
-import { useAuth } from '@/hooks/useAuth';
+import { useMerchant } from '@/hooks/useMerchant';
 import { BASE_URL } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
 
@@ -32,32 +32,12 @@ interface UseStaffAccountsCallbacks {
 }
 
 export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-
   const {
-    data: merchant,
+    merchant,
     isLoading: merchantLoading,
-    isError: merchantError,
-    refetch: refetchMerchant,
-  } = useQuery({
-    queryKey: ['merchant', user?.id],
-    queryFn: async () => {
-      if (!user?.id) throw new Error('User not authenticated');
-      const { data, error } = await supabase
-        .from('merchants')
-        .select('id, business_name')
-        .eq('user_id', user.id)
-        .single();
-      if (error) {
-        console.error('[StaffAccounts] Merchant lookup failed', error);
-        throw new Error(`Merchant lookup failed: ${error.message}`);
-      }
-      if (!data) throw new Error('Merchant lookup failed: merchant not found');
-      return data;
-    },
-    enabled: !!user?.id,
-  });
+    error: merchantError,
+  } = useMerchant();
+  const queryClient = useQueryClient();
 
   const {
     data: accounts,
@@ -223,7 +203,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
   };
 
   const retryAll = () => {
-    void refetchMerchant();
+    void queryClient.invalidateQueries({ queryKey: ['merchant'] });
     void refetchAccounts();
     void refetchBranches();
   };
@@ -232,7 +212,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
     accounts,
     branches,
     isLoading: merchantLoading || accountsLoading || branchesLoading,
-    hasError: merchantError || accountsError || branchesError,
+    hasError: Boolean(merchantError || accountsError || branchesError),
     createAccountMutation,
     createBranchMutation,
     copyToClipboard,

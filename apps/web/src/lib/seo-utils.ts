@@ -1085,7 +1085,7 @@ export function generateCollectionPageSchema(
     '@type': 'CollectionPage',
     name: escapeHtml(data.name),
     description: data.description ? escapeHtml(data.description) : undefined,
-    url: escapeHtml(absolutePageUrl),
+    url: absolutePageUrl,
     mainEntity: {
       '@type': 'ItemList',
       itemListElement: safeProducts.map((product, index) => {
@@ -1107,8 +1107,8 @@ export function generateCollectionPageSchema(
             description: product.description
               ? escapeHtml(generateMetaDescription(product.description, 100))
               : undefined,
-            image: productImage ? escapeHtml(productImage) : undefined,
-            url: productUrl ? escapeHtml(productUrl) : undefined,
+            image: productImage || undefined,
+            url: productUrl || undefined,
             offers: {
               '@type': 'Offer',
               price: product.price,
@@ -1116,7 +1116,7 @@ export function generateCollectionPageSchema(
               availability: getEffectiveProductStock(product)
                 ? 'https://schema.org/InStock'
                 : 'https://schema.org/OutOfStock',
-              url: productUrl ? escapeHtml(productUrl) : undefined,
+              url: productUrl || undefined,
             },
           },
         };
