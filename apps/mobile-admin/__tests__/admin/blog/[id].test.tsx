@@ -163,7 +163,7 @@ vi.mock('@/types/upload', () => ({
 
 // ---- Component import (after all mocks) ----
 
-import BlogPostDetailScreen from './[id]';
+import BlogPostDetailScreen from '../../../app/(admin)/blog/[id]';
 
 // ---- Helpers ----
 

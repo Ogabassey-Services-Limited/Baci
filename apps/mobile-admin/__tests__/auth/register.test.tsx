@@ -7,7 +7,6 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   push: vi.fn(),
   mutate: vi.fn(),
-  signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
 }));
 
 // --- Mock react-native with HTML-compatible components ---
@@ -103,7 +102,6 @@ vi.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
       getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
-      signInWithPassword: mocks.signInWithPassword,
     },
   },
 }));
@@ -209,20 +207,20 @@ describe('RegisterScreen', () => {
   });
 
   describe('onSuccess', () => {
-    it('navigates to dashboard via router.replace on success', async () => {
+    it('navigates to dashboard via router.replace', () => {
       render(<RegisterScreen />);
       fillFormAndSubmit();
 
-      await getCallbacks().onSuccess();
+      getCallbacks().onSuccess();
 
       expect(mocks.replace).toHaveBeenCalledWith('/(admin)/(tabs)');
     });
 
-    it('uses replace (not push) to prevent back-navigation to register', async () => {
+    it('uses replace (not push) to prevent back-navigation to register', () => {
       render(<RegisterScreen />);
       fillFormAndSubmit();
 
-      await getCallbacks().onSuccess();
+      getCallbacks().onSuccess();
 
       expect(mocks.replace).toHaveBeenCalledTimes(1);
       expect(mocks.push).not.toHaveBeenCalled();
@@ -344,20 +342,6 @@ describe('RegisterScreen', () => {
 
       expect(mocks.replace).not.toHaveBeenCalled();
       expect(mocks.push).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('post-registration navigation', () => {
-    it('navigates directly to dashboard without calling signInWithPassword', async () => {
-      // Since email confirmation is disabled, signup returns a session immediately.
-      // The component navigates directly — no separate sign-in call needed.
-      render(<RegisterScreen />);
-      fillFormAndSubmit();
-
-      await getCallbacks().onSuccess();
-
-      expect(mocks.signInWithPassword).not.toHaveBeenCalled();
-      expect(mocks.replace).toHaveBeenCalledWith('/(admin)/(tabs)');
     });
   });
 });
