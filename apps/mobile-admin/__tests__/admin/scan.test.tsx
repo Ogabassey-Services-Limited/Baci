@@ -106,7 +106,7 @@ vi.mock('@/lib/supabase', () => ({
 
 // --- Tests ---
 
-import ScanScreen from './scan';
+import ScanScreen from '../../app/(admin)/scan';
 
 describe('ScanScreen', () => {
   beforeEach(() => {

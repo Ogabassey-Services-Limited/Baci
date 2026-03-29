@@ -101,7 +101,7 @@ jobs:
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git fetch --no-tags --prune origin "${{ github.event.pull_request.base.ref }}"
           mapfile -t changed_files < <(
-            git diff --name-only "origin/${{ github.event.pull_request.base.ref }}...HEAD" -- \
+            git diff --name-only --diff-filter=d "origin/${{ github.event.pull_request.base.ref }}...HEAD" -- \
               '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' '*.sql' '*.yml' '*.yaml' |
             grep -E '^(apps/web/src/app/api/|apps/web/src/lib/|apps/web/src/schemas/|apps/mobile-admin/(app|hooks|lib)/|apps/mobile-storefront/(app|hooks|lib|services|stores)/|packages/shared/|supabase/migrations/|\.github/workflows/)' ||
             true
