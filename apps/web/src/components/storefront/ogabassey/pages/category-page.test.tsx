@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const originalMatchMedia = window.matchMedia;
@@ -34,6 +33,7 @@ vi.mock('@/hooks/use-cart', () => ({
 vi.mock('@/hooks/use-merchant', () => ({
   useMerchantSafe: vi.fn(() => ({
     merchant: { id: 'm-1', slug: 'test', business_name: 'Test Store' },
+    basePath: '/test-store',
   })),
 }));
 vi.mock('@/lib/routes', () => ({ asRoute: vi.fn((p: string) => p) }));
@@ -85,10 +85,9 @@ describe('CategoryPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('paginates category products with a load more button', async () => {
+  it('renders crawlable pagination links for category results', () => {
     mockMatchMedia(true);
 
-    const user = userEvent.setup();
     const products = Array.from({ length: 25 }, (_, index) => ({
       id: String(index + 1),
       name: `Product ${index + 1}`,
@@ -100,20 +99,26 @@ describe('CategoryPage', () => {
       condition: 'New' as const,
     }));
 
-    render(<CategoryPage products={products} />);
+    render(<CategoryPage currentPage={2} products={products} />);
 
-    expect(screen.getAllByTestId('product-card')).toHaveLength(20);
+    expect(screen.getAllByTestId('product-card')).toHaveLength(5);
     expect(
-      screen.getByText('Showing 20 of 25 products')
+      screen.getByText('Showing 21-25 of 25 products')
     ).toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole('button', { name: /load more products/i })
-    );
-
-    expect(screen.getAllByTestId('product-card')).toHaveLength(25);
     expect(
       screen.queryByRole('button', { name: /load more products/i })
     ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '1' })).toHaveAttribute(
+      'href',
+      '/test-store/electronics'
+    );
+    expect(screen.getByRole('link', { name: 'Previous' })).toHaveAttribute(
+      'href',
+      '/test-store/electronics'
+    );
+    expect(screen.getByRole('link', { name: '2' })).toHaveAttribute(
+      'href',
+      '/test-store/electronics?page=2'
+    );
   });
 });

@@ -16,6 +16,10 @@ import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import {
+  getStorefrontOpenGraphImages,
+  getStorefrontTwitterImages,
+} from '@/lib/storefront-social-images';
 import { isDomainIdentifier } from '@/lib/validation';
 import { type BlogPostData, getTemplate } from '@/templates/registry';
 import { BlogList } from './blog-list';
@@ -132,6 +136,10 @@ export async function generateMetadata({
   const baseUrl = buildStoreUrl(data.merchant);
   const canonicalUrl =
     currentPage > 1 ? `${baseUrl}/blog?page=${currentPage}` : `${baseUrl}/blog`;
+  const socialImageCandidates = [
+    data.posts[0]?.featured_image_url,
+    data.merchant.logo_url,
+  ];
 
   // Build prev/next pagination links
   const prevUrl =
@@ -153,11 +161,18 @@ export async function generateMetadata({
       description: `Read the latest articles, news, and insights from ${data.merchant.business_name}.`,
       type: 'website',
       url: canonicalUrl,
+      siteName: data.merchant.business_name,
+      images: getStorefrontOpenGraphImages(
+        baseUrl,
+        `${data.merchant.business_name} blog`,
+        ...socialImageCandidates
+      ),
     },
     twitter: {
       card: 'summary_large_image',
       title: `Blog | ${data.merchant.business_name}`,
       description: `Read the latest articles, news, and insights from ${data.merchant.business_name}.`,
+      images: getStorefrontTwitterImages(baseUrl, ...socialImageCandidates),
     },
     alternates: {
       canonical: canonicalUrl,

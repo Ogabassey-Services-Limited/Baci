@@ -2,6 +2,10 @@ import { marked } from 'marked';
 import { stripHtml } from '@/lib/blog-utils';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { buildStoreUrl } from '@/lib/store-url';
+import {
+  type NormalizeStorefrontContentHrefOptions,
+  rewriteHtmlStorefrontHrefs,
+} from '@/lib/storefront-link-normalization';
 
 interface TipTapNode {
   content?: TipTapNode[];
@@ -55,7 +59,10 @@ function truncateText(text: string, maxLength: number): string {
   return `${text.slice(0, maxLength).trimEnd()}...`;
 }
 
-export async function resolveBlogPostContent(content: unknown) {
+export async function resolveBlogPostContent(
+  content: unknown,
+  linkOptions: NormalizeStorefrontContentHrefOptions = {}
+) {
   const contentStr =
     typeof content === 'string'
       ? content
@@ -74,9 +81,8 @@ export async function resolveBlogPostContent(content: unknown) {
 
   let legacyHtml = '';
   if (!isJson) {
-    legacyHtml = sanitizeHtml(
-      isHtml ? contentStr : await marked(contentStr || '')
-    );
+    const rawHtml = isHtml ? contentStr : await marked(contentStr || '');
+    legacyHtml = sanitizeHtml(rewriteHtmlStorefrontHrefs(rawHtml, linkOptions));
   }
 
   return {

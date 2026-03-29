@@ -10,6 +10,7 @@ const mockNotFound = vi.fn(() => {
 });
 const mockGetCachedMerchant = vi.fn();
 const mockGetCachedMerchantByDomain = vi.fn();
+const mockGetCachedLegacyProductRedirectTarget = vi.fn();
 const mockGetCachedProduct = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedProductRatingStats = vi.fn();
@@ -25,7 +26,7 @@ vi.mock('next/server', () => ({
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
-  permanentRedirect: (url: never) => mockPermanentRedirect(url),
+  permanentRedirect: (url: string) => mockPermanentRedirect(url),
 }));
 
 vi.mock('@/components/ui/skeletons', () => ({
@@ -36,6 +37,8 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedMerchant: (...args: unknown[]) => mockGetCachedMerchant(...args),
   getCachedMerchantByDomain: (...args: unknown[]) =>
     mockGetCachedMerchantByDomain(...args),
+  getCachedLegacyProductRedirectTarget: (...args: unknown[]) =>
+    mockGetCachedLegacyProductRedirectTarget(...args),
   getCachedProduct: (...args: unknown[]) => mockGetCachedProduct(...args),
   getCachedProductWithDetails: (...args: unknown[]) =>
     mockGetCachedProductWithDetails(...args),
@@ -191,6 +194,7 @@ describe('products/[productSlug] page', () => {
     mockGenerateProductSchema.mockImplementation(() => ({ offers: {} }));
     mockGetProductUrl.mockImplementation(defaultGetProductUrl);
     mockGetCachedMerchant.mockResolvedValue(baseMerchant);
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductRatingStats.mockResolvedValue(null);
     mockGetCachedProductReviews.mockResolvedValue([]);
@@ -345,22 +349,60 @@ describe('products/[productSlug] page', () => {
     });
   });
 
-  it('returns not-found metadata when product does not exist', async () => {
+  it('redirects legacy archived variant slugs to the active parent product', async () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
-
-    const metadata = await generateMetadata(
-      {
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'nonexistent',
-        }),
-        searchParams: Promise.resolve({}),
-      },
-      Promise.resolve({}) as never
+    mockGetCachedLegacyProductRedirectTarget.mockResolvedValue({
+      id: 'parent-1',
+      name: 'iPhone 13 Pro Max',
+      slug: 'iphone-13-pro-max',
+      category: 'Phones',
+      categories: { id: 'cat-1', name: 'Phones', slug: 'phones' },
+    });
+    mockHeaders.mockReturnValue(
+      makeHeaders({ 'x-custom-domain': 'teststore.com' })
     );
 
-    expect(metadata.title).toBe('Product Not Found');
+    await expect(
+      generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore.com',
+            productSlug: 'iphone-13-pro-max-6gb-128gb',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        Promise.resolve({}) as never
+      )
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockGetCachedLegacyProductRedirectTarget).toHaveBeenCalledWith(
+      'merchant-1',
+      'iphone-13-pro-max-6gb-128gb'
+    );
+    expect(mockPermanentRedirect).toHaveBeenCalledWith(
+      '/phones/iphone-13-pro-max'
+    );
+  });
+
+  it('calls notFound when product does not exist and no legacy redirect target exists', async () => {
+    mockGetCachedProduct.mockResolvedValue(null);
+    mockGetCachedProductWithDetails.mockResolvedValue(null);
+    mockHeaders.mockReturnValue(makeHeaders({}));
+
+    await expect(
+      generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'nonexistent',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        Promise.resolve({}) as never
+      )
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
 
@@ -397,18 +439,19 @@ describe('products/[productSlug] page', () => {
     mockGetCachedProduct.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
 
-    const metadata = await generateMetadata(
-      {
-        params: Promise.resolve({
-          slug: 'teststore',
-          productSlug: 'IPHONE-15',
-        }),
-        searchParams: Promise.resolve({}),
-      },
-      Promise.resolve({}) as never
-    );
+    await expect(
+      generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'IPHONE-15',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        Promise.resolve({}) as never
+      )
+    ).rejects.toThrow('NEXT_NOT_FOUND');
 
-    expect(metadata.title).toBe('Product Not Found');
     expect(mockGetCachedProductWithDetails).toHaveBeenCalledTimes(1);
     expect(mockGetCachedProductWithDetails).toHaveBeenCalledWith(
       'merchant-1',

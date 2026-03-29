@@ -1,7 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
+import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { generateSlug } from '@/lib/seo-utils';
+import { buildStoreUrl } from '@/lib/store-url';
 
 // Initialize Supabase client for public data access
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -26,23 +28,38 @@ interface ProductWithCategory {
   categories: { slug: string | null } | null;
 }
 
-/**
- * Derive merchant slug and canonical store URL from the route segment.
- *
- * The [slug] param is either a plain merchant slug (from subdomain rewrite,
- * e.g. "ogabassey") or a full custom domain (from custom-domain rewrite,
- * e.g. "ogabassey.com").
- */
-function resolveIdentifier(routeSlug: string) {
-  const isDomain = routeSlug.includes('.');
-  const merchantSlug = isDomain
-    ? routeSlug.replace('.com', '').replace('.', '-')
-    : routeSlug;
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-  const storeUrl = isDomain
-    ? `https://${routeSlug}`
-    : `https://${routeSlug}.${rootDomain}`;
-  return { merchantSlug, storeUrl };
+function resolveRouteIdentifier(
+  headersList: Awaited<ReturnType<typeof headers>>
+) {
+  const customDomain = headersList.get('x-custom-domain')?.toLowerCase();
+  if (customDomain) {
+    return customDomain;
+  }
+
+  const merchantSlug = headersList.get('x-merchant-slug')?.toLowerCase();
+  if (merchantSlug) {
+    return merchantSlug;
+  }
+
+  const host = headersList.get('host')?.split(':')[0].toLowerCase();
+  if (!host) {
+    return '';
+  }
+
+  const normalizedHost = host.replace(/^www\./, '');
+  const rootDomain = (
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
+  ).toLowerCase();
+
+  if (normalizedHost === rootDomain) {
+    return '';
+  }
+
+  if (normalizedHost.endsWith(`.${rootDomain}`)) {
+    return normalizedHost.slice(0, -(rootDomain.length + 1));
+  }
+
+  return normalizedHost;
 }
 
 /**
@@ -62,20 +79,13 @@ export default async function sitemap(props: {
   // Next.js 16 with generateSitemaps() only passes { id } — not params.
   // Read the merchant slug from proxy headers or fall back to the host header.
   const headersList = await headers();
-  const routeSlug =
-    headersList.get('x-merchant-slug') ??
-    headersList.get('x-custom-domain') ??
-    headersList.get('host')?.split('.')[0] ??
-    '';
-  const { merchantSlug, storeUrl } = resolveIdentifier(routeSlug);
-
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('slug', merchantSlug)
-    .single();
+  const routeIdentifier = resolveRouteIdentifier(headersList);
+  const merchant = routeIdentifier
+    ? await getMerchantByIdentifier(routeIdentifier)
+    : null;
 
   if (!merchant) return [];
+  const storeUrl = buildStoreUrl(merchant);
 
   switch (id) {
     case 'static':

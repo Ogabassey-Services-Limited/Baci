@@ -15,6 +15,10 @@ import {
   generateBreadcrumbSchema,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import {
+  getStorefrontOpenGraphImages,
+  getStorefrontTwitterImages,
+} from '@/lib/storefront-social-images';
 import { isDomainIdentifier } from '@/lib/validation';
 import { BlogPostBody } from './BlogPostBody';
 import { BlogPostBodyFallback } from './BlogPostBodyFallback';
@@ -65,7 +69,7 @@ export async function generateMetadata({
   const data = await getResolvedBlogPost(slug, postSlug, isDraftMode);
 
   if (!data) {
-    return { title: 'Post Not Found' };
+    notFound();
   }
 
   const { merchant, post } = data;
@@ -76,6 +80,8 @@ export async function generateMetadata({
     getBlogPostTextPreview(post.content);
 
   const url = buildCanonicalBlogPostUrl(merchant, post.slug);
+  const baseUrl = buildStoreUrl(merchant);
+  const socialImageCandidates = [post.featured_image_url, merchant.logo_url];
 
   return {
     title: `${title} | ${merchant.business_name}`,
@@ -91,20 +97,17 @@ export async function generateMetadata({
       modifiedTime: post.updated_at,
       authors: [post.author_name],
       tags: post.tags,
-      images: post.featured_image_url
-        ? [
-            {
-              url: post.featured_image_url,
-              alt: post.featured_image_alt || post.title,
-            },
-          ]
-        : [],
+      images: getStorefrontOpenGraphImages(
+        baseUrl,
+        post.featured_image_alt || post.title,
+        ...socialImageCandidates
+      ),
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: post.featured_image_url ? [post.featured_image_url] : [],
+      images: getStorefrontTwitterImages(baseUrl, ...socialImageCandidates),
     },
     alternates: {
       canonical: url,
@@ -287,6 +290,7 @@ async function BlogPostContent({
                 baseUrl={baseUrl}
                 content={content}
                 locale={locale}
+                merchantSlug={merchant.slug}
                 postUrl={postUrl}
                 post={{
                   author_bio: post.author_bio,

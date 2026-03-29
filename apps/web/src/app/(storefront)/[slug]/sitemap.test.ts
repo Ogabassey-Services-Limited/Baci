@@ -14,6 +14,13 @@ vi.mock('next/headers', () => ({
   headers: vi.fn(async () => mockHeaders),
 }));
 
+const mockGetMerchantByIdentifier = vi.fn();
+
+vi.mock('@/lib/cached-data', () => ({
+  getMerchantByIdentifier: (...args: unknown[]) =>
+    mockGetMerchantByIdentifier(...args),
+}));
+
 // Supabase query builder mock — chainable
 const mockSingle = vi.fn();
 const mockEq: ReturnType<typeof vi.fn<(...args: any[]) => any>> = vi.fn(() => ({
@@ -48,8 +55,10 @@ describe('sitemap', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeaders = new Map();
-    // Default: merchant found via slug lookup
-    mockSingle.mockResolvedValue({ data: { id: 'merchant-1' }, error: null });
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+    });
   });
 
   describe('generateSitemaps()', () => {
@@ -73,34 +82,35 @@ describe('sitemap', () => {
 
       await sitemap({ id: Promise.resolve('static') });
 
-      expect(mockFrom).toHaveBeenCalledWith('merchants');
-      expect(mockSelect).toHaveBeenCalledWith('id');
-      expect(mockEq).toHaveBeenCalledWith('slug', 'ogabassey');
+      expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey');
     });
 
-    it('derives slug from x-custom-domain header (removes .com)', async () => {
+    it('uses the full custom domain identifier from x-custom-domain header', async () => {
       setCustomDomainHeader('ogabassey.com');
+      mockGetMerchantByIdentifier.mockResolvedValue({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      });
       const { default: sitemap } = await import('./sitemap');
 
       await sitemap({ id: Promise.resolve('static') });
 
-      expect(mockFrom).toHaveBeenCalledWith('merchants');
-      expect(mockEq).toHaveBeenCalledWith('slug', 'ogabassey');
+      expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
     });
 
-    it('derives slug from non-.com TLDs like .ng', async () => {
+    it('passes non-root custom domains through unchanged', async () => {
       setCustomDomainHeader('ogabassey.ng');
       const { default: sitemap } = await import('./sitemap');
 
       await sitemap({ id: Promise.resolve('static') });
 
-      // .com is removed first (no-op for .ng), then remaining dots become hyphens
-      expect(mockEq).toHaveBeenCalledWith('slug', 'ogabassey-ng');
+      expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.ng');
     });
 
     it('returns empty array when merchant is not found', async () => {
       setSlugHeader('unknown');
-      mockSingle.mockResolvedValue({ data: null, error: null });
+      mockGetMerchantByIdentifier.mockResolvedValue(null);
 
       const { default: sitemap } = await import('./sitemap');
 
@@ -113,6 +123,11 @@ describe('sitemap', () => {
   describe('storeUrl construction', () => {
     it('uses custom domain directly when header is a domain', async () => {
       setCustomDomainHeader('ogabassey.com');
+      mockGetMerchantByIdentifier.mockResolvedValue({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      });
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({ id: Promise.resolve('static') });
@@ -122,17 +137,41 @@ describe('sitemap', () => {
 
     it('builds subdomain URL when header is a plain slug', async () => {
       setSlugHeader('ogabassey');
+      mockGetMerchantByIdentifier.mockResolvedValue({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+      });
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({ id: Promise.resolve('static') });
 
       expect(result[0].url).toBe('https://ogabassey.usebaci.com');
     });
+
+    it('falls back to the raw host for custom domains when merchant headers are absent', async () => {
+      mockHeaders = new Map([['host', 'ogabassey.com']]);
+      mockGetMerchantByIdentifier.mockResolvedValue({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      });
+      const { default: sitemap } = await import('./sitemap');
+
+      const result = await sitemap({ id: Promise.resolve('static') });
+
+      expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+      expect(result[0].url).toBe('https://ogabassey.com');
+    });
   });
 
   describe('static sitemap', () => {
     it('returns store URL and FAQ page', async () => {
       setCustomDomainHeader('ogabassey.com');
+      mockGetMerchantByIdentifier.mockResolvedValue({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      });
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({ id: Promise.resolve('static') });
@@ -148,6 +187,11 @@ describe('sitemap', () => {
   describe('products sitemap', () => {
     it('generates URLs with category slug when available', async () => {
       setCustomDomainHeader('ogabassey.com');
+      mockGetMerchantByIdentifier.mockResolvedValue({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+        custom_domain: 'ogabassey.com',
+      });
       const productData = [
         {
           id: 'p1',
@@ -159,10 +203,6 @@ describe('sitemap', () => {
           categories: { slug: 'smartphones' },
         },
       ];
-      mockSingle.mockResolvedValueOnce({
-        data: { id: 'merchant-1' },
-        error: null,
-      });
       mockEq.mockImplementation((key: string, value: string) => {
         if (key === 'status' && value === 'active') {
           return { data: productData, error: null };
@@ -180,10 +220,6 @@ describe('sitemap', () => {
 
     it('returns empty array when no products exist', async () => {
       setSlugHeader('ogabassey');
-      mockSingle.mockResolvedValueOnce({
-        data: { id: 'merchant-1' },
-        error: null,
-      });
       mockEq.mockImplementation((key: string, value: string) => {
         if (key === 'status' && value === 'active') {
           return { data: null, error: null };

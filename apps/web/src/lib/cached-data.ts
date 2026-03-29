@@ -911,6 +911,111 @@ export async function getCachedProductWithDetails(
   };
 }
 
+export interface CachedLegacyProductRedirectTarget {
+  id: string;
+  name: string;
+  slug: string;
+  category?: string | null;
+  categories?: {
+    id: string;
+    name: string;
+    slug: string;
+    parent_id?: string | null;
+  } | null;
+}
+
+/**
+ * Resolves archived product slugs that were consolidated into an active parent
+ * product, so old variant URLs can permanently redirect to the canonical page.
+ */
+export async function getCachedLegacyProductRedirectTarget(
+  merchantId: string,
+  productSlug: string
+): Promise<CachedLegacyProductRedirectTarget | null> {
+  'use cache';
+  cacheLife('products');
+  cacheTag(
+    'product',
+    'product-legacy-redirect',
+    `product-legacy-redirect-${merchantId}-${productSlug}`
+  );
+
+  const supabase = getServiceRoleSupabaseClient();
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      productSlug
+    );
+
+  let query = supabase
+    .from('products')
+    .select(`
+        parent:parent_product_id (
+          id,
+          name,
+          slug,
+          status,
+          category,
+          categories:category_id(id, name, slug, parent_id)
+        )
+      `)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'archived');
+
+  if (isUuid) {
+    query = query.eq('id', productSlug);
+  } else {
+    query = query.eq('slug', productSlug.toLowerCase());
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error) {
+    console.error('Error fetching legacy product redirect target:', error);
+    return null;
+  }
+
+  const parent = data?.parent as
+    | {
+        id: string;
+        name: string;
+        slug: string | null;
+        status: string | null;
+        category?: string | null;
+        categories?:
+          | {
+              id: string;
+              name: string;
+              slug: string;
+              parent_id?: string | null;
+            }
+          | {
+              id: string;
+              name: string;
+              slug: string;
+              parent_id?: string | null;
+            }[]
+          | null;
+      }
+    | null
+    | undefined;
+
+  if (!parent || parent.status !== 'active' || !parent.slug) {
+    return null;
+  }
+
+  const normalizedCategory = Array.isArray(parent.categories)
+    ? (parent.categories[0] ?? null)
+    : (parent.categories ?? null);
+
+  return {
+    id: parent.id,
+    name: parent.name,
+    slug: parent.slug,
+    category: parent.category ?? null,
+    categories: normalizedCategory,
+  };
+}
+
 /**
  * Cached categories for a merchant.
  * Uses 'categories' cacheLife profile (stale 5min, revalidate 1hr, expire 24hr)
@@ -1047,8 +1152,7 @@ export async function getCachedCategoryPageData(
         'id, name, slug, description, price, compare_at_price, status, stock, stock_quantity, manage_stock, low_stock_threshold, condition, brand, category, color, images, image_hint, gtin, mpn, created_at, updated_at'
       )
       .eq('merchant_id', merchantId)
-      .eq('status', 'active')
-      .limit(50);
+      .eq('status', 'active');
 
     let collectionName = 'Collection';
     let collectionDesc = 'Browse our collection.';
@@ -1171,7 +1275,7 @@ export async function getCachedCategoryPageData(
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .in('product_categories.category_id', categoryIds)
-      .limit(50);
+      .order('created_at', { ascending: false });
 
     products = productData || [];
     productsError = err;
@@ -1201,7 +1305,7 @@ export async function getCachedCategoryPageData(
       .or(
         `category.ilike.%${sanitizedCategoryName}%,brand.ilike.%${sanitizedCategoryName}%,name.ilike.%${sanitizedCategoryName}%`
       )
-      .limit(50);
+      .order('created_at', { ascending: false });
 
     products = productData || [];
     productsError = err;
@@ -1499,6 +1603,7 @@ export async function getCachedBlogPost(
       business_name: merchant.business_name,
       slug: merchant.slug,
       logo_url: merchant.logo_url,
+      custom_domain: merchant.custom_domain,
     },
     post,
     relatedPosts: relatedPosts || [],

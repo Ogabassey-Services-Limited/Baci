@@ -15,6 +15,7 @@ export interface BlogPostBodyProps {
   baseUrl: string;
   content: unknown;
   locale?: string;
+  merchantSlug?: string;
   postUrl?: string;
   post: {
     author_bio?: string | null;
@@ -39,12 +40,19 @@ export async function BlogPostBody({
   baseUrl,
   content,
   locale,
+  merchantSlug,
   post,
   postUrl,
   relatedPosts,
 }: BlogPostBodyProps) {
-  const { isJson, legacyHtml, renderedContent } =
-    await resolveBlogPostContent(content);
+  const { isJson, legacyHtml, renderedContent } = await resolveBlogPostContent(
+    content,
+    {
+      basePath,
+      baseUrl,
+      merchantSlug,
+    }
+  );
   const shareUrl = postUrl || buildBlogUrl(baseUrl, basePath, post.slug);
 
   return (
@@ -53,7 +61,12 @@ export async function BlogPostBody({
 
       <div className="mb-8">
         {isJson ? (
-          <BlogContentRenderer json={renderedContent} />
+          <BlogContentRenderer
+            json={renderedContent}
+            basePath={basePath}
+            baseUrl={baseUrl}
+            merchantSlug={merchantSlug}
+          />
         ) : (
           <SafeHtml
             data-testid="blog-post-legacy-content"

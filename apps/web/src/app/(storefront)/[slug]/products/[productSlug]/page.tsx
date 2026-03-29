@@ -5,6 +5,7 @@ import { connection } from 'next/server';
 import { Suspense } from 'react';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
+  getCachedLegacyProductRedirectTarget,
   getCachedMerchant,
   getCachedMerchantByDomain,
   getCachedProduct,
@@ -93,6 +94,43 @@ async function redirectLegacyProductRouteIfCategorized(
   permanentRedirect(targetPath as any);
 }
 
+async function resolveStoreMerchant(storeSlug: string) {
+  return storeSlug.includes('.')
+    ? await getCachedMerchantByDomain(storeSlug)
+    : await getCachedMerchant(storeSlug);
+}
+
+async function redirectLegacyVariantProductRoute(
+  storeSlug: string,
+  productSlug: string
+): Promise<never> {
+  const merchant = await resolveStoreMerchant(storeSlug);
+
+  if (!merchant) {
+    notFound();
+  }
+
+  const redirectTarget = await getCachedLegacyProductRedirectTarget(
+    merchant.id,
+    productSlug
+  );
+
+  if (!redirectTarget) {
+    notFound();
+  }
+
+  const productPath = getProductUrl(redirectTarget);
+  const headersList = await headers();
+  const isPathMode =
+    !headersList.has('x-merchant-slug') &&
+    !headersList.has('x-custom-domain') &&
+    !isDomainIdentifier(storeSlug);
+  const targetPath = isPathMode ? `/${storeSlug}${productPath}` : productPath;
+
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic route path requires type assertion
+  permanentRedirect(targetPath as any);
+}
+
 export async function generateMetadata(
   { params, searchParams }: PageProps,
   __parent: ResolvingMetadata
@@ -102,22 +140,16 @@ export async function generateMetadata(
   const product = await getProductCached(slug, productSlug);
 
   if (!product) {
-    return {
-      title: 'Product Not Found',
-      description: 'The product you are looking for does not exist.',
-      robots: {
-        index: false,
-        follow: false,
-      },
-    };
+    await redirectLegacyVariantProductRoute(slug, productSlug);
+    notFound();
   }
 
-  await redirectLegacyProductRouteIfCategorized(slug, product);
+  const resolvedProduct = product;
+
+  await redirectLegacyProductRouteIfCategorized(slug, resolvedProduct);
 
   // Get cached merchant data (handle custom domains)
-  const merchant = slug.includes('.')
-    ? await getCachedMerchantByDomain(slug)
-    : await getCachedMerchant(slug);
+  const merchant = await resolveStoreMerchant(slug);
   const baseUrl = buildStoreUrl(
     merchant ??
       (isDomainIdentifier(slug)
@@ -125,10 +157,10 @@ export async function generateMetadata(
         : { slug, custom_domain: undefined })
   );
 
-  let canonicalUrl = product.canonical_url;
+  let canonicalUrl = resolvedProduct.canonical_url;
 
   if (!canonicalUrl) {
-    const productPath = getProductUrl(product);
+    const productPath = getProductUrl(resolvedProduct);
     const basePath = `${baseUrl}${productPath}`;
     canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, [
       'variant',
@@ -141,28 +173,29 @@ export async function generateMetadata(
 
   return {
     title:
-      product.meta_title ||
-      `${product.name} | ${merchant?.business_name || 'Baci Store'}`,
+      resolvedProduct.meta_title ||
+      `${resolvedProduct.name} | ${merchant?.business_name || 'Baci Store'}`,
     description:
-      product.meta_description ||
-      product.description ||
-      `Buy ${product.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`,
-    keywords: product.keywords,
+      resolvedProduct.meta_description ||
+      resolvedProduct.description ||
+      `Buy ${resolvedProduct.name} at ${merchant?.business_name || 'Ogabassey'}. Best price and fast delivery.`,
+    keywords: resolvedProduct.keywords,
     alternates: {
       canonical: canonicalUrl,
     },
     openGraph: {
-      title: product.meta_title || product.name,
-      description: product.meta_description || product.description,
-      images: product.images?.map((img) => ({
+      title: resolvedProduct.meta_title || resolvedProduct.name,
+      description:
+        resolvedProduct.meta_description || resolvedProduct.description,
+      images: resolvedProduct.images?.map((img) => ({
         url: img.url,
         alt: img.alt,
       })) || [
         {
-          url: product.imageLarge || product.image,
+          url: resolvedProduct.imageLarge || resolvedProduct.image,
           width: 800,
           height: 600,
-          alt: product.name,
+          alt: resolvedProduct.name,
         },
       ],
       url: canonicalUrl,
@@ -171,9 +204,10 @@ export async function generateMetadata(
     },
     twitter: {
       card: 'summary_large_image',
-      title: product.meta_title || product.name,
-      description: product.meta_description || product.description,
-      images: [product.imageLarge || product.image],
+      title: resolvedProduct.meta_title || resolvedProduct.name,
+      description:
+        resolvedProduct.meta_description || resolvedProduct.description,
+      images: [resolvedProduct.imageLarge || resolvedProduct.image],
       ...(socialMedia?.twitter && {
         site: socialMedia.twitter.startsWith('@')
           ? socialMedia.twitter
@@ -194,21 +228,22 @@ export default async function ProductPage({ params }: PageProps) {
   const product = await getProductCached(slug, productSlug);
 
   if (!product) {
+    await redirectLegacyVariantProductRoute(slug, productSlug);
     notFound();
   }
 
-  await redirectLegacyProductRouteIfCategorized(slug, product);
+  const resolvedProduct = product;
 
-  const merchant = slug.includes('.')
-    ? await getCachedMerchantByDomain(slug)
-    : await getCachedMerchant(slug);
-  const reviewStats = await getCachedProductRatingStats(product.id);
-  const recentReviews = await getCachedProductReviews(product.id, {
+  await redirectLegacyProductRouteIfCategorized(slug, resolvedProduct);
+
+  const merchant = await resolveStoreMerchant(slug);
+  const reviewStats = await getCachedProductRatingStats(resolvedProduct.id);
+  const recentReviews = await getCachedProductReviews(resolvedProduct.id, {
     limit: 10,
   });
 
   if (recentReviews && recentReviews.length > 0) {
-    product.reviews = recentReviews.map((r) => ({
+    resolvedProduct.reviews = recentReviews.map((r) => ({
       author: r.reviewer_name || 'Anonymous',
       datePublished: r.created_at,
       reviewBody: r.review_text || '',
@@ -224,13 +259,13 @@ export default async function ProductPage({ params }: PageProps) {
   );
 
   const productSchema = generateProductSchema(
-    product,
+    resolvedProduct,
     merchant?.business_name || 'Baci Store',
     merchant?.payout_currency || 'USD',
     merchant?.country || 'NG',
     merchant?.logo_url
   );
-  const productPath = getProductUrl(product);
+  const productPath = getProductUrl(resolvedProduct);
   const productUrl = `${baseUrl}${productPath}`;
   if (
     productSchema.offers &&
@@ -251,19 +286,23 @@ export default async function ProductPage({ params }: PageProps) {
   }
 
   const categorySlug =
-    product.category_slug ||
-    (product.category ? generateSlug(product.category) : 'products');
+    resolvedProduct.category_slug ||
+    (resolvedProduct.category
+      ? generateSlug(resolvedProduct.category)
+      : 'products');
   const categoryName =
-    product.categories?.name || product.category || 'All Products';
+    resolvedProduct.categories?.name ||
+    resolvedProduct.category ||
+    'All Products';
   const categoryUrl = `${baseUrl}/${categorySlug}`;
 
   const breadcrumbItems = [
     { name: merchant?.business_name || 'Home', url: baseUrl },
     { name: categoryName, url: categoryUrl },
-    { name: product.name, url: productUrl },
+    { name: resolvedProduct.name, url: productUrl },
   ];
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
-  const productFaqs = (product as unknown as { faqs?: FAQItem[] }).faqs;
+  const productFaqs = (resolvedProduct as unknown as { faqs?: FAQItem[] }).faqs;
   const faqSchema =
     productFaqs && productFaqs.length > 0
       ? generateFAQSchema(productFaqs)
@@ -296,7 +335,7 @@ export default async function ProductPage({ params }: PageProps) {
       )}
 
       <Suspense fallback={<ProductDetailSkeleton />}>
-        <ProductDetailClient product={product} faqs={productFaqs} />
+        <ProductDetailClient product={resolvedProduct} faqs={productFaqs} />
       </Suspense>
     </>
   );

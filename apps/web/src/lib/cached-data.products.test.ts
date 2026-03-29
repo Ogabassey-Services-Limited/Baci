@@ -317,6 +317,7 @@ describe('cached-data product query projections', () => {
       'product_categories.category_id',
       ['cat-smartphones', 'cat-iphone']
     );
+    expect(harness.mockLimit).not.toHaveBeenCalled();
     expect(result.products).toEqual(productQueryResult.data);
   });
 });

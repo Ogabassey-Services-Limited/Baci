@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
+import { getMerchantByIdentifier } from '@/lib/cached-data';
+import { buildStoreUrl } from '@/lib/store-url';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -13,21 +15,38 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Derive merchant slug and canonical store URL from the route segment.
- * The [slug] param is either a plain merchant slug (e.g. "ogabassey")
- * or a full custom domain (e.g. "ogabassey.com").
- */
-function resolveIdentifier(routeSlug: string) {
-  const isDomain = routeSlug.includes('.');
-  const merchantSlug = isDomain
-    ? routeSlug.replace('.com', '').replace('.', '-')
-    : routeSlug;
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-  const storeUrl = isDomain
-    ? `https://${routeSlug}`
-    : `https://${routeSlug}.${rootDomain}`;
-  return { merchantSlug, storeUrl };
+function resolveRouteIdentifier(
+  headersList: Awaited<ReturnType<typeof headers>>
+) {
+  const customDomain = headersList.get('x-custom-domain')?.toLowerCase();
+  if (customDomain) {
+    return customDomain;
+  }
+
+  const merchantSlug = headersList.get('x-merchant-slug')?.toLowerCase();
+  if (merchantSlug) {
+    return merchantSlug;
+  }
+
+  const host = headersList.get('host')?.split(':')[0].toLowerCase();
+  if (!host) {
+    return '';
+  }
+
+  const normalizedHost = host.replace(/^www\./, '');
+  const rootDomain = (
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
+  ).toLowerCase();
+
+  if (normalizedHost === rootDomain) {
+    return '';
+  }
+
+  if (normalizedHost.endsWith(`.${rootDomain}`)) {
+    return normalizedHost.slice(0, -(rootDomain.length + 1));
+  }
+
+  return normalizedHost;
 }
 
 /**
@@ -38,20 +57,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Blog sitemap has no generateSitemaps, but Next.js 16 still doesn't
   // reliably pass params for metadata routes. Read from proxy headers.
   const headersList = await headers();
-  const routeSlug =
-    headersList.get('x-merchant-slug') ??
-    headersList.get('x-custom-domain') ??
-    headersList.get('host')?.split('.')[0] ??
-    '';
-  const { merchantSlug, storeUrl } = resolveIdentifier(routeSlug);
-
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('slug', merchantSlug)
-    .single();
+  const routeIdentifier = resolveRouteIdentifier(headersList);
+  const merchant = routeIdentifier
+    ? await getMerchantByIdentifier(routeIdentifier)
+    : null;
 
   if (!merchant) return [];
+  const storeUrl = buildStoreUrl(merchant);
 
   const { data: posts } = await supabase
     .from('blog_posts')

@@ -52,14 +52,6 @@ describe('OgabasseyHomePage', () => {
     expect(screen.getByTestId('product-grid')).toBeInTheDocument();
   });
 
-  it('includes an accessible sr-only heading with business name', () => {
-    render(<OgabasseyHomePage products={[]} categories={[]} />);
-
-    const heading = screen.getByRole('heading', { level: 1 });
-    expect(heading).toHaveClass('sr-only');
-    expect(heading).toHaveTextContent('Test Store');
-  });
-
   it('passes products and categories to EngineProductGrid', () => {
     const testProducts: Product[] = [
       {

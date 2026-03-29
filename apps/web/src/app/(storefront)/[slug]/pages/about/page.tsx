@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
+import { buildStoreUrl } from '@/lib/store-url';
 import {
   generateAboutPageJsonLd,
   type MerchantAboutPage,
@@ -63,11 +64,7 @@ export default async function AboutPage({ params }: PageProps) {
   }
 
   // Generate base URL for JSON-LD
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-  const baseUrl = isDevelopment
-    ? `http://localhost:3000/${merchant.slug}`
-    : `https://${merchant.slug}.${rootDomain}`;
+  const baseUrl = buildStoreUrl(merchant);
 
   // Generate JSON-LD structured data
   const jsonLd = generateAboutPageJsonLd(merchant, aboutPage, baseUrl);

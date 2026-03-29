@@ -6,6 +6,14 @@ import sanitizeLib from 'sanitize-html';
 // Re-export removed as per knip analysis
 // import from './sanitize-core' directly if needed
 
+interface SanitizeHtmlOptions {
+  headingLevelOffset?: number;
+}
+
+function clampHeadingLevel(level: number) {
+  return Math.min(6, Math.max(1, level));
+}
+
 /**
  * Sanitize HTML content to prevent XSS attacks using sanitize-html.
  *
@@ -44,7 +52,24 @@ import sanitizeLib from 'sanitize-html';
  *
  * @see https://github.com/apostrophecms/sanitize-html for documentation
  */
-export function sanitizeHtml(dirty: string): string {
+export function sanitizeHtml(
+  dirty: string,
+  options: SanitizeHtmlOptions = {}
+): string {
+  const headingLevelOffset = Math.max(0, options.headingLevelOffset ?? 0);
+  const transformTags: NonNullable<sanitizeLib.IOptions['transformTags']> = {
+    a: sanitizeLib.simpleTransform('a', { rel: 'noopener noreferrer' }),
+  };
+
+  if (headingLevelOffset > 0) {
+    for (let level = 1; level <= 6; level += 1) {
+      transformTags[`h${level}`] = (_tagName, attribs) => ({
+        tagName: `h${clampHeadingLevel(level + headingLevelOffset)}`,
+        attribs,
+      });
+    }
+  }
+
   return sanitizeLib(dirty, {
     // Whitelist of allowed HTML tags
     allowedTags: [
@@ -107,9 +132,7 @@ export function sanitizeHtml(dirty: string): string {
     },
     // Security configurations
     // Ensure all external links have rel="noopener noreferrer"
-    transformTags: {
-      a: sanitizeLib.simpleTransform('a', { rel: 'noopener noreferrer' }),
-    },
+    transformTags,
     // Only allow safe URL protocols (no javascript:, data:, etc.)
     allowedSchemes: [
       'http',

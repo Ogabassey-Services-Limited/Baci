@@ -120,6 +120,40 @@ function normalizeLeadingPrefix(
   return null;
 }
 
+function isHexDigit(char: string | undefined): boolean {
+  return Boolean(char && /^[0-9A-Fa-f]$/.test(char));
+}
+
+/**
+ * Lowercase only the literal pathname characters and preserve percent-encoded
+ * octets exactly as sent. Percent-escape hex casing is semantically
+ * equivalent, so rewriting `%E2%80%9D` to `%e2%80%9d` creates noisy
+ * self-referential redirects that crawlers can misclassify as loops.
+ */
+function lowercaseStorefrontPathname(pathname: string): string {
+  let normalized = '';
+
+  for (let index = 0; index < pathname.length; index += 1) {
+    const currentChar = pathname[index];
+    const nextChar = pathname[index + 1];
+    const nextNextChar = pathname[index + 2];
+
+    if (
+      currentChar === '%' &&
+      isHexDigit(nextChar) &&
+      isHexDigit(nextNextChar)
+    ) {
+      normalized += pathname.slice(index, index + 3);
+      index += 2;
+      continue;
+    }
+
+    normalized += currentChar.toLowerCase();
+  }
+
+  return normalized;
+}
+
 /**
  * Normalize hostname: remove port and convert to lowercase
  */
@@ -618,6 +652,7 @@ export async function proxy(request: NextRequest) {
   // main-app prefixes have already been normalized or excluded above, and
   // host-aware passthroughs (.well-known, llms) have been allowed through.
   const lowerPathname = pathname.toLowerCase();
+  const normalizedStorefrontPathname = lowercaseStorefrontPathname(pathname);
   const isWellKnownPassthrough = lowerPathname.startsWith('/.well-known/');
   const isLlmsPassthrough =
     lowerPathname === '/llms.txt' || lowerPathname === '/llms-full.txt';
@@ -628,14 +663,17 @@ export async function proxy(request: NextRequest) {
   );
 
   if (
-    pathname !== lowerPathname &&
+    pathname !== normalizedStorefrontPathname &&
     !isNonStorefrontPrefix &&
     !isStaticFile &&
     !isWellKnownPassthrough &&
     !isLlmsPassthrough
   ) {
     return NextResponse.redirect(
-      new URL(lowerPathname + request.nextUrl.search, request.url),
+      new URL(
+        normalizedStorefrontPathname + request.nextUrl.search,
+        request.url
+      ),
       308
     );
   }
