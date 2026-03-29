@@ -1,4 +1,8 @@
 import type { Ionicons } from '@expo/vector-icons';
+import { z } from 'zod';
+
+const providerIds = ['gigl', 'topship', 'shiip'] as const;
+export const shippingProviderIdSchema = z.enum(providerIds);
 
 export const AVAILABLE_PROVIDERS = [
   {
@@ -20,17 +24,32 @@ export const AVAILABLE_PROVIDERS = [
     icon: 'flash-outline',
   },
 ] as const satisfies readonly {
-  id: string;
+  id: z.infer<typeof shippingProviderIdSchema>;
   name: string;
   description: string;
   icon: keyof typeof Ionicons.glyphMap;
 }[];
 
-export type ProviderId = (typeof AVAILABLE_PROVIDERS)[number]['id'];
+export const shippingSettingsSchema = z.object({
+  merchant_id: z.string().min(1),
+  shipping_providers: z.array(shippingProviderIdSchema),
+  free_shipping_threshold: z.number().nullable(),
+});
+
+export function parseShippingSettings(data: unknown) {
+  const parsed = shippingSettingsSchema.safeParse(data);
+  if (!parsed.success) {
+    console.error(
+      '[ShippingSettings] Invalid settings payload',
+      parsed.error.flatten()
+    );
+    throw new Error('Invalid shipping settings payload');
+  }
+
+  return parsed.data;
+}
+
+export type ProviderId = z.infer<typeof shippingProviderIdSchema>;
 export type ShippingProvider = (typeof AVAILABLE_PROVIDERS)[number];
 
-export interface ShippingSettings {
-  merchant_id: string;
-  shipping_providers: ProviderId[];
-  free_shipping_threshold: number | null;
-}
+export type ShippingSettings = z.infer<typeof shippingSettingsSchema>;

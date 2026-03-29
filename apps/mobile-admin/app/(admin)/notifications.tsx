@@ -22,7 +22,7 @@ interface NotificationPreferences {
 export default function NotificationsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { user: _user } = useAuth();
-  const { merchant } = useMerchant();
+  const { merchant, isLoading: merchantLoading } = useMerchant();
   const router = useRouter();
   const queryClient = useQueryClient();
   const screenOptions = {
@@ -107,7 +107,7 @@ export default function NotificationsScreen() {
     updatePreferencesMutation.mutate({ banner_enabled: value });
   };
 
-  if (isLoading) {
+  if (isLoading || merchantLoading) {
     return (
       <>
         <Stack.Screen options={screenOptions} />

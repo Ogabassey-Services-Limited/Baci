@@ -24,6 +24,7 @@ import type {
   ProviderId,
   ShippingSettings,
 } from '@/components/shipping/shipping-types';
+import { parseShippingSettings } from '@/components/shipping/shipping-types';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -83,9 +84,10 @@ export default function ShippingScreen() {
         .single();
 
       if (error) throw error;
+      if (!data) throw new Error('Shipping settings not found');
       return {
         currency: merchant.payout_currency ?? null,
-        settings: data as ShippingSettings,
+        settings: parseShippingSettings(data),
       } satisfies ShippingSettingsQueryData;
     },
     enabled: !!user?.id,

@@ -190,7 +190,7 @@ export default function TaxScreen() {
           style={[styles.container, { backgroundColor: colors.background }]}
           edges={['bottom']}
         >
-          <ScreenSkeleton variant="settings" cards={4} />
+          <ScreenSkeleton variant="settings" cards={6} />
         </SafeAreaView>
       </>
     );

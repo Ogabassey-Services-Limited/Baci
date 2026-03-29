@@ -21,6 +21,21 @@ interface TaxSignatureInput {
   legalEntityName: string;
 }
 
+function normalizeNigerianStateCode(stateCode: string) {
+  const normalizedInput = stateCode.trim().toUpperCase();
+  if (!normalizedInput) return '';
+
+  const directMatch = NIGERIAN_STATES.find(
+    (state) => state.code.toUpperCase() === normalizedInput
+  );
+  if (directMatch) return directMatch.code;
+
+  const legacyMatch = NIGERIAN_STATES.find(
+    (state) => state.code.split('-').at(-1) === normalizedInput
+  );
+  return legacyMatch?.code ?? '';
+}
+
 export function buildAddressSyncSignature({
   merchantId,
   street,
@@ -37,7 +52,7 @@ export function buildMerchantAddressSyncState({
   merchantStateCode,
 }: MerchantAddressSyncInput) {
   const mappedStateCode =
-    merchantStateCode ||
+    normalizeNigerianStateCode(merchantStateCode) ||
     NIGERIAN_STATES.find(
       (state) =>
         state.name.toLowerCase() ===

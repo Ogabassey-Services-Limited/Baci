@@ -32,8 +32,8 @@ describe('form-sync', () => {
         merchantStateCode: 'LA',
       })
     ).toEqual({
-      mappedStateCode: 'LA',
-      signature: 'merchant-1|12 Allen Avenue|Lagos|100001|LA',
+      mappedStateCode: 'NG-LA',
+      signature: 'merchant-1|12 Allen Avenue|Lagos|100001|NG-LA',
     });
   });
 
