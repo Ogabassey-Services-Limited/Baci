@@ -32,6 +32,11 @@ export function buildStorefrontPageHref(
     return basePath;
   }
 
-  const pageSeparator = basePath.includes('?') ? '&' : '?';
-  return `${basePath}${pageSeparator}page=${page}`;
+  const [pathAndSearch, hash = ''] = basePath.split('#', 2);
+  const [pathname, search = ''] = pathAndSearch.split('?', 2);
+  const searchParams = new URLSearchParams(search);
+  searchParams.set('page', String(page));
+  const normalizedSearch = searchParams.toString();
+
+  return `${pathname}${normalizedSearch ? `?${normalizedSearch}` : ''}${hash ? `#${hash}` : ''}`;
 }

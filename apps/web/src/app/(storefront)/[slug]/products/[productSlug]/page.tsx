@@ -1,5 +1,4 @@
 import type { Metadata, ResolvingMetadata } from 'next';
-import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { Suspense } from 'react';
@@ -84,7 +83,7 @@ async function getProductCached(
   };
 }
 
-async function redirectLegacyProductRouteIfCategorized(
+function redirectLegacyProductRouteIfCategorized(
   storeSlug: string,
   product: Product
 ) {
@@ -92,11 +91,7 @@ async function redirectLegacyProductRouteIfCategorized(
   if (productPath.startsWith('/products/')) {
     return;
   }
-  const targetPath = await buildProductRedirectPath(
-    storeSlug,
-    productPath,
-    headers
-  );
+  const targetPath = buildProductRedirectPath(storeSlug, productPath);
   permanentRedirect(targetPath);
 }
 
@@ -113,11 +108,7 @@ async function redirectLegacyVariantProductRoute(
     notFound();
   }
   const productPath = getProductUrl(redirectTarget);
-  const targetPath = await buildProductRedirectPath(
-    storeSlug,
-    productPath,
-    headers
-  );
+  const targetPath = buildProductRedirectPath(storeSlug, productPath);
   permanentRedirect(targetPath);
 }
 

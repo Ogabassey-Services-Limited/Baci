@@ -21,7 +21,11 @@ export function getStorefrontSocialImageUrl(
     }
   }
 
-  return new URL('/opengraph-image', baseUrl).toString();
+  try {
+    return new URL('/opengraph-image', baseUrl).toString();
+  } catch {
+    return null;
+  }
 }
 
 export function getStorefrontOpenGraphImages(
@@ -29,17 +33,23 @@ export function getStorefrontOpenGraphImages(
   alt: string,
   ...candidates: Array<string | null | undefined>
 ) {
-  return [
-    {
-      url: getStorefrontSocialImageUrl(baseUrl, ...candidates),
-      alt,
-    },
-  ];
+  const imageUrl = getStorefrontSocialImageUrl(baseUrl, ...candidates);
+
+  return imageUrl
+    ? [
+        {
+          url: imageUrl,
+          alt,
+        },
+      ]
+    : [];
 }
 
 export function getStorefrontTwitterImages(
   baseUrl: string,
   ...candidates: Array<string | null | undefined>
 ) {
-  return [getStorefrontSocialImageUrl(baseUrl, ...candidates)];
+  const imageUrl = getStorefrontSocialImageUrl(baseUrl, ...candidates);
+
+  return imageUrl ? [imageUrl] : [];
 }

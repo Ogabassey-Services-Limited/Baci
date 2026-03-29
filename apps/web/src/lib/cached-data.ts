@@ -971,7 +971,7 @@ export async function getCachedLegacyProductRedirectTarget(
 
   if (error) {
     console.error('Error fetching legacy product redirect target:', error);
-    return null;
+    throw error;
   }
 
   const parent = data?.parent as

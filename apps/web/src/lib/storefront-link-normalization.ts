@@ -281,6 +281,30 @@ function isStorefrontPlatformPath(
   );
 }
 
+function isLikelyMerchantCustomDomain(
+  hostname: string,
+  merchantIdentifier: string
+): boolean {
+  const labels = hostname.split('.');
+  const multipartTlds = new Set(['com.ng', 'org.ng', 'net.ng', 'name.ng']);
+  const lastTwoLabels = labels.slice(-2).join('.');
+  const tldLabelCount = multipartTlds.has(lastTwoLabels) ? 2 : 1;
+  const merchantLabelIndex = labels.length - (tldLabelCount + 1);
+
+  if (merchantLabelIndex < 0) {
+    return false;
+  }
+
+  const extraLabels = labels.slice(0, merchantLabelIndex);
+  if (extraLabels.length > 0) {
+    return extraLabels.length === 1 && extraLabels[0] === 'www'
+      ? labels[merchantLabelIndex] === merchantIdentifier
+      : false;
+  }
+
+  return labels[merchantLabelIndex] === merchantIdentifier;
+}
+
 function isInternalStorefrontAbsoluteUrl(
   href: URL,
   options: NormalizeStorefrontContentHrefOptions,
@@ -311,7 +335,7 @@ function isInternalStorefrontAbsoluteUrl(
     return isStorefrontPlatformPath(href.pathname, merchantIdentifier);
   }
 
-  return normalizedHrefHost.split('.')[0] === merchantIdentifier;
+  return isLikelyMerchantCustomDomain(normalizedHrefHost, merchantIdentifier);
 }
 
 export function normalizeStorefrontContentHref(
@@ -319,6 +343,7 @@ export function normalizeStorefrontContentHref(
   options: NormalizeStorefrontContentHrefOptions = {}
 ): string {
   const trimmedHref = rawHref.trim();
+  const normalizedHref = trimmedHref.toLowerCase();
 
   if (
     !trimmedHref ||
@@ -328,6 +353,14 @@ export function normalizeStorefrontContentHref(
     trimmedHref.startsWith('//')
   ) {
     return trimmedHref;
+  }
+
+  if (
+    normalizedHref.startsWith('javascript:') ||
+    normalizedHref.startsWith('data:') ||
+    normalizedHref.startsWith('vbscript:')
+  ) {
+    return '#';
   }
 
   const merchantIdentifier = getMerchantIdentifier(

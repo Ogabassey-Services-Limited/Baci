@@ -1,6 +1,7 @@
+import { getRootDomain } from '@/env';
 import type { CachedMerchant } from '@/lib/cached-data';
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+const ROOT_DOMAIN = (getRootDomain() || 'usebaci.com').toLowerCase();
 
 /**
  * Build the canonical base URL for a merchant's storefront.

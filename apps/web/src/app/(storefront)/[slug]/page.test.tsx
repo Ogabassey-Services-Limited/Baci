@@ -151,6 +151,7 @@ describe('Storefront homepage structured data', () => {
     const schemaScript = document.querySelector(
       'script[type="application/ld+json"]'
     );
+    expect(schemaScript).not.toBeNull();
     const schema = JSON.parse(schemaScript?.textContent || '{}') as {
       '@graph': Record<string, unknown>[];
     };

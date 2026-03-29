@@ -1,27 +1,10 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import {
   type NormalizedProduct,
   normalizeProducts,
   type RawDbProduct,
 } from '@/lib/normalize-product';
-
-function getPublicSupabaseClient() {
-  const url = getSupabaseUrl();
-  const key = getSupabaseAnonKey();
-
-  if (!url || !key) {
-    throw new Error('Supabase configuration is missing');
-  }
-
-  return createSupabaseClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
+import { createPublicClient } from '@/lib/supabase/public';
 
 interface StorefrontProductIndexOptions {
   page: number;
@@ -42,7 +25,12 @@ export async function getCachedStorefrontProductIndex(
 ): Promise<StorefrontProductIndexResult> {
   'use cache';
 
+  const page = Number.isInteger(options.page) ? options.page : Number.NaN;
   const limit = Number.isInteger(options.limit) ? options.limit : Number.NaN;
+  if (!Number.isFinite(page) || page <= 0) {
+    throw new Error('Storefront product index page must be a positive integer');
+  }
+
   if (!Number.isFinite(limit) || limit <= 0) {
     throw new Error(
       'Storefront product index limit must be a positive integer'
@@ -52,11 +40,13 @@ export async function getCachedStorefrontProductIndex(
   cacheTag(
     'products',
     `product-index-${merchantId}`,
-    `product-index-${merchantId}-${options.page}-${options.limit}`
+    `product-index-${merchantId}-${page}-${limit}`
   );
 
-  const supabase = getPublicSupabaseClient();
-  const offset = (options.page - 1) * limit;
+  const supabase = createPublicClient({
+    clientInfo: 'baci-storefront-product-index',
+  });
+  const offset = (page - 1) * limit;
 
   const { data, count, error } = await supabase
     .from('products')
