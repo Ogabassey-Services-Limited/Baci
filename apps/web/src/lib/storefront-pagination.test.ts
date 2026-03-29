@@ -120,4 +120,10 @@ describe('buildStorefrontPageHref', () => {
       '/store/products?page=3#catalog'
     );
   });
+
+  it('preserves existing query params and hash fragment together when adding a page', () => {
+    expect(buildStorefrontPageHref('/store/products?sort=asc#catalog', 3)).toBe(
+      '/store/products?sort=asc&page=3#catalog'
+    );
+  });
 });

@@ -10,13 +10,24 @@ interface StorefrontPaginationProps {
   ariaLabel?: string;
 }
 
-function getVisiblePages(currentPage: number, totalPages: number) {
+function sanitizePaginationParams(
+  currentPage: number,
+  totalPages: number
+): { safeTotalPages: number; safeCurrentPage: number } {
   const safeTotalPages =
     Number.isInteger(totalPages) && totalPages > 0 ? totalPages : 0;
   const safeCurrentPage =
     Number.isInteger(currentPage) && currentPage > 0
       ? Math.min(currentPage, safeTotalPages || 1)
       : 1;
+  return { safeTotalPages, safeCurrentPage };
+}
+
+function getVisiblePages(currentPage: number, totalPages: number) {
+  const { safeTotalPages, safeCurrentPage } = sanitizePaginationParams(
+    currentPage,
+    totalPages
+  );
 
   if (safeTotalPages <= 0) {
     return [];
@@ -43,12 +54,10 @@ export function StorefrontPagination({
   totalPages,
   ariaLabel = 'Pagination',
 }: StorefrontPaginationProps) {
-  const safeTotalPages =
-    Number.isInteger(totalPages) && totalPages > 0 ? totalPages : 0;
-  const safeCurrentPage =
-    Number.isInteger(currentPage) && currentPage > 0
-      ? Math.min(currentPage, safeTotalPages || 1)
-      : 1;
+  const { safeTotalPages, safeCurrentPage } = sanitizePaginationParams(
+    currentPage,
+    totalPages
+  );
 
   if (safeTotalPages <= 1) {
     return null;

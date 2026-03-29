@@ -114,6 +114,21 @@ describe('rewriteHtmlStorefrontHrefs', () => {
     );
   });
 
+  it('does not double-encode already-escaped href attribute values', () => {
+    const html =
+      '<p><a href="https://www.ogabassey.com/phones/iphone-15?ref=nav&amp;color=black">iPhone</a></p>';
+
+    expect(
+      rewriteHtmlStorefrontHrefs(html, {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe(
+      '<p><a href="/smartphones/iphone-15?ref=nav&amp;color=black">iPhone</a></p>'
+    );
+  });
+
   it('prepends non-empty base paths to rewritten internal hrefs', () => {
     const html =
       '<p><a href="https://www.ogabassey.com/phones/iPhone-13-Pro-6GB-256GB">iPhone</a></p>';
