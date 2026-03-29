@@ -8,15 +8,10 @@ import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
 import { format, isSameMonth, parseISO } from 'date-fns';
 import { Stack, useRouter } from 'expo-router';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
@@ -170,9 +165,7 @@ export default function ExpensesScreen() {
 
         {/* Expenses List */}
         {isLoading ? (
-          <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
+          <ScreenSkeleton variant="list" cards={4} />
         ) : (
           <FlashList
             data={expenses}

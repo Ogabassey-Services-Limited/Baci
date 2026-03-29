@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useBuilderConfig } from '@/hooks/useBuilderConfig';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -235,12 +236,7 @@ export default function CustomizeScreen() {
             headerTintColor: colors.text,
           }}
         />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Loading your storefront...
-          </Text>
-        </View>
+        <ScreenSkeleton variant="settings" cards={3} />
       </SafeAreaView>
     );
   }

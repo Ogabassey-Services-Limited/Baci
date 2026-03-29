@@ -4,18 +4,38 @@ import { supabase } from './supabase';
 // Centralized Base URL Logic
 // In dev, auto-detect the IP from Expo's debuggerHost so it works
 // regardless of which network the laptop is on (no more hardcoding IPs).
-function getDevBaseUrl(): string {
-  const debuggerHost = Constants.expoConfig?.hostUri;
-  if (debuggerHost) {
-    const host = debuggerHost.split(':')[0];
-    return `http://${host}:3000`;
+export function resolveBaseUrl(
+  options: {
+    isDev?: boolean;
+    configuredBaseUrl?: string;
+    fallbackConfiguredBaseUrl?: string;
+    hostUri?: string;
+  } = {}
+): string {
+  const {
+    isDev = __DEV__,
+    configuredBaseUrl = process.env.EXPO_PUBLIC_API_URL,
+    fallbackConfiguredBaseUrl = process.env.EXPO_PUBLIC_WEB_API_URL,
+    hostUri = Constants.expoConfig?.hostUri,
+  } = options;
+
+  if (isDev) {
+    // Prefer explicit API URL (strip trailing slash)
+    if (configuredBaseUrl) return configuredBaseUrl.replace(/\/+$/, '');
+    if (fallbackConfiguredBaseUrl)
+      return fallbackConfiguredBaseUrl.replace(/\/+$/, '');
+    // Auto-detect from Expo debugger host
+    if (hostUri) {
+      const host = hostUri.split(':')[0];
+      return `http://${host}:3000`;
+    }
+    return 'http://localhost:3000';
   }
-  return 'http://localhost:3000';
+
+  return (configuredBaseUrl || 'https://usebaci.com').replace(/\/+$/, '');
 }
 
-export const BASE_URL = __DEV__
-  ? getDevBaseUrl()
-  : process.env.EXPO_PUBLIC_API_URL || 'https://usebaci.com';
+export const BASE_URL = resolveBaseUrl();
 
 /** Default request timeout in milliseconds (20 seconds) */
 const DEFAULT_TIMEOUT_MS = 20000;

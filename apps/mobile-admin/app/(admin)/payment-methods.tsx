@@ -7,7 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import {
-  ActivityIndicator,
   Alert,
   Linking,
   Pressable,
@@ -19,6 +18,7 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -200,9 +200,14 @@ export default function PaymentMethodsScreen() {
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <Stack.Screen
+          options={{
+            title: 'Payment Methods',
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.text,
+          }}
+        />
+        <ScreenSkeleton variant="settings" cards={6} />
       </SafeAreaView>
     );
   }

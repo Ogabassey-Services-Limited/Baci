@@ -21,6 +21,7 @@ import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CountryPickerModal } from '@/components/ui/CountryPickerModal';
 import { LogoPicker } from '@/components/ui/LogoPicker';
+import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import {
   StatusModal,
   type StatusModalState,
@@ -169,9 +170,7 @@ export default function StoreSettingsScreen() {
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <ScreenSkeleton variant="settings" cards={5} />
       </SafeAreaView>
     );
   }
