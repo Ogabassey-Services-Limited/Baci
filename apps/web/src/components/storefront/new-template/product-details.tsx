@@ -221,7 +221,7 @@ export const ProductDetails: React.FC = () => {
                         alt=""
                         fill
                         sizes="20vw"
-                        className="object-contain mix-blend-multiply p-2"
+                        className="object-contain mix-blend-multiply"
                       />
                     </button>
                   ))}

@@ -109,7 +109,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
             src={currentImage}
             alt={product.name}
             fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
             onLoad={() => setIsImageLoaded(true)}
             className={`object-contain mix-blend-multiply transition-all duration-500 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
           />

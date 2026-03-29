@@ -67,10 +67,10 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
       >
         {BANNER_SLIDES.map((slide, index) => (
           <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
-            {slide.type === 'image' ? (
+            {slide.type === 'image' && slide.imageUrl ? (
               <div className="w-full h-full relative overflow-hidden group">
                 <Image
-                  src={slide.imageUrl || ''}
+                  src={slide.imageUrl}
                   alt={slide.title || ''}
                   fill
                   priority={index === 0}
