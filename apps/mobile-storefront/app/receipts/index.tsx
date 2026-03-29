@@ -136,7 +136,7 @@ export default function ReceiptsScreen() {
           onPress={() => refetch()}
           accessibilityRole="button"
           accessibilityLabel="Retry loading receipts"
-          accessibilityHint="Tap to retry loading your receipts"
+          accessibilityHint="Retries loading your receipts"
         >
           <Text style={[styles.retryText, { color: BRAND.primary }]}>
             Tap to retry
