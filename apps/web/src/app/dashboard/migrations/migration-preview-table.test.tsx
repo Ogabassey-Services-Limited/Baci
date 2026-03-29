@@ -206,8 +206,8 @@ describe('MigrationPreviewTable', () => {
     expect(
       screen.getByText('575700.00 NGN · ajewoleoluwatoni@gmail.com')
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('Products is missing, Product quantity is missing')
-    ).toBeInTheDocument();
+    const errorsCell = screen.getByText(/Products is missing/);
+    expect(errorsCell).toHaveTextContent('Products is missing');
+    expect(errorsCell).toHaveTextContent('Product quantity is missing');
   });
 });

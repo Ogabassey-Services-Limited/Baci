@@ -8,9 +8,7 @@ describe('MigrationShopifyPlaceholder', () => {
 
     expect(screen.getByText(/shopify migration/i)).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /direct store connection is the next source on this screen/i
-      )
+      screen.getByText(/shopify connection is the next migration path/i)
     ).toBeInTheDocument();
     expect(screen.getByText('Connect store')).toBeInTheDocument();
     expect(screen.getByText('Pull and preview')).toBeInTheDocument();
