@@ -71,7 +71,7 @@ export default function DiscountsScreen() {
     index: number
   ) => ({
     length: DISCOUNT_ITEM_HEIGHT,
-    offset: DISCOUNT_ITEM_HEIGHT * index,
+    offset: (DISCOUNT_ITEM_HEIGHT + SPACING.md) * index,
     index,
   });
 

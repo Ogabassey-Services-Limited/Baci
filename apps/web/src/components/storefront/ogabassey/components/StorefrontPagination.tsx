@@ -10,15 +10,37 @@ interface StorefrontPaginationProps {
   ariaLabel?: string;
 }
 
+function sanitizePaginationParams(
+  currentPage: number,
+  totalPages: number
+): { safeTotalPages: number; safeCurrentPage: number } {
+  const safeTotalPages =
+    Number.isInteger(totalPages) && totalPages > 0 ? totalPages : 0;
+  const safeCurrentPage =
+    Number.isInteger(currentPage) && currentPage > 0
+      ? Math.min(currentPage, safeTotalPages || 1)
+      : 1;
+  return { safeTotalPages, safeCurrentPage };
+}
+
 function getVisiblePages(currentPage: number, totalPages: number) {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  const { safeTotalPages, safeCurrentPage } = sanitizePaginationParams(
+    currentPage,
+    totalPages
+  );
+
+  if (safeTotalPages <= 0) {
+    return [];
   }
 
-  const pages = new Set<number>([1, totalPages, currentPage]);
+  if (safeTotalPages <= 7) {
+    return Array.from({ length: safeTotalPages }, (_, index) => index + 1);
+  }
 
-  for (let page = currentPage - 1; page <= currentPage + 1; page++) {
-    if (page > 1 && page < totalPages) {
+  const pages = new Set<number>([1, safeTotalPages, safeCurrentPage]);
+
+  for (let page = safeCurrentPage - 1; page <= safeCurrentPage + 1; page++) {
+    if (page > 1 && page < safeTotalPages) {
       pages.add(page);
     }
   }
@@ -32,20 +54,25 @@ export function StorefrontPagination({
   totalPages,
   ariaLabel = 'Pagination',
 }: StorefrontPaginationProps) {
-  if (totalPages <= 1) {
+  const { safeTotalPages, safeCurrentPage } = sanitizePaginationParams(
+    currentPage,
+    totalPages
+  );
+
+  if (safeTotalPages <= 1) {
     return null;
   }
 
-  const visiblePages = getVisiblePages(currentPage, totalPages);
+  const visiblePages = getVisiblePages(safeCurrentPage, safeTotalPages);
 
   return (
     <nav
       aria-label={ariaLabel}
       className="mt-10 flex flex-wrap items-center justify-center gap-2"
     >
-      {currentPage > 1 && (
+      {safeCurrentPage > 1 && (
         <Link
-          href={asRoute(buildStorefrontPageHref(basePath, currentPage - 1))}
+          href={asRoute(buildStorefrontPageHref(basePath, safeCurrentPage - 1))}
           className="inline-flex items-center gap-2 rounded-xl border border-[var(--store-background-text)]/10 bg-[var(--store-background)] px-4 py-2 text-sm font-medium text-[var(--store-background-text)] transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
         >
           <ChevronLeft size={16} />
@@ -71,10 +98,10 @@ export function StorefrontPagination({
               )}
 
               <Link
-                aria-current={page === currentPage ? 'page' : undefined}
+                aria-current={page === safeCurrentPage ? 'page' : undefined}
                 href={asRoute(buildStorefrontPageHref(basePath, page))}
                 className={`inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-semibold transition-colors ${
-                  page === currentPage
+                  page === safeCurrentPage
                     ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)]'
                     : 'border border-[var(--store-background-text)]/10 bg-[var(--store-background)] text-[var(--store-background-text)] hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]'
                 }`}
@@ -86,9 +113,9 @@ export function StorefrontPagination({
         })}
       </div>
 
-      {currentPage < totalPages && (
+      {safeCurrentPage < safeTotalPages && (
         <Link
-          href={asRoute(buildStorefrontPageHref(basePath, currentPage + 1))}
+          href={asRoute(buildStorefrontPageHref(basePath, safeCurrentPage + 1))}
           className="inline-flex items-center gap-2 rounded-xl border border-[var(--store-background-text)]/10 bg-[var(--store-background)] px-4 py-2 text-sm font-medium text-[var(--store-background-text)] transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
         >
           Next

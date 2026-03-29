@@ -10,8 +10,8 @@ interface ProductIndexCardProps {
   product: NormalizedProduct;
 }
 
-function hasRenderableImage(image: string) {
-  return image.trim() !== '';
+function hasRenderableImage(image?: string | null) {
+  return typeof image === 'string' && image.trim() !== '';
 }
 
 export function ProductIndexCard({

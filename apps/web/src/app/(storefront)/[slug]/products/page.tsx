@@ -64,7 +64,7 @@ export async function generateMetadata({
   });
   const totalPages = Math.max(1, productIndex.totalPages || 1);
 
-  if (currentPage > totalPages) {
+  if (!productIndex.hasError && currentPage > totalPages) {
     notFound();
   }
 
@@ -143,7 +143,7 @@ export default async function ProductsPage({
 
   const totalPages = Math.max(1, productIndex.totalPages || 1);
 
-  if (currentPage > totalPages) {
+  if (!productIndex.hasError && currentPage > totalPages) {
     notFound();
   }
 
@@ -232,8 +232,7 @@ export default async function ProductsPage({
                 Products
               </h1>
               <p className="max-w-2xl text-sm text-[var(--store-background-text,#111827)]/60 md:text-base">
-                Browse the full catalog with crawlable pagination and direct
-                links to every product page.
+                {description}
               </p>
             </div>
 

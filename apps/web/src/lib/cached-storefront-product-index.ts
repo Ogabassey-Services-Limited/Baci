@@ -12,8 +12,8 @@ interface StorefrontProductIndexOptions {
 }
 
 interface StorefrontProductIndexResult {
+  hasError: boolean;
   errorMessage?: string | null;
-  hasError?: boolean;
   products: NormalizedProduct[];
   totalCount: number;
   totalPages: number;

@@ -91,6 +91,13 @@ describe('rewriteHtmlStorefrontHrefs', () => {
     );
   });
 
+  it('neutralizes dangerous javascript hrefs during rewriting', () => {
+    const html = '<p><a href="javascript:alert(1)">Unsafe</a></p>';
+
+    expect(rewriteHtmlStorefrontHrefs(html)).toBe(
+      '<p><a href="#">Unsafe</a></p>'
+    );
+  });
   it('preserves query parameters and fragments on rewritten internal hrefs', () => {
     const html =
       '<p><a href="https://www.ogabassey.com/phones/iPhone-13-Pro-6GB-256GB?utm_source=ig&color=blue#specs">iPhone</a></p>';
@@ -103,6 +110,21 @@ describe('rewriteHtmlStorefrontHrefs', () => {
       })
     ).toBe(
       '<p><a href="/smartphones/iphone-13-pro-6gb-256gb?color=blue#specs">iPhone</a></p>'
+    );
+  });
+
+  it('does not double-encode already-escaped href attribute values', () => {
+    const html =
+      '<p><a href="https://www.ogabassey.com/phones/iphone-15?ref=nav&amp;color=black">iPhone</a></p>';
+
+    expect(
+      rewriteHtmlStorefrontHrefs(html, {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toBe(
+      '<p><a href="/smartphones/iphone-15?ref=nav&amp;color=black">iPhone</a></p>'
     );
   });
 

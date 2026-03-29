@@ -296,15 +296,6 @@ export default function StaffScreen() {
     }
   };
 
-  const getItemLayout = (
-    _data: ArrayLike<StaffMember> | null | undefined,
-    index: number
-  ) => ({
-    length: 84,
-    offset: 84 * index,
-    index,
-  });
-
   const renderStaffMember = ({ item }: { item: StaffMember }) => {
     const statusBadge = getStatusBadge(item.status);
 
@@ -454,7 +445,6 @@ export default function StaffScreen() {
 
         {/* Staff List */}
         <FlatList
-          getItemLayout={getItemLayout}
           data={staff}
           renderItem={renderStaffMember}
           keyExtractor={(item) => item.id}

@@ -1085,7 +1085,7 @@ export function generateCollectionPageSchema(
     '@type': 'CollectionPage',
     name: escapeHtml(data.name),
     description: data.description ? escapeHtml(data.description) : undefined,
-    url: absolutePageUrl,
+    ...(absolutePageUrl && { url: absolutePageUrl }),
     mainEntity: {
       '@type': 'ItemList',
       itemListElement: safeProducts.map((product, index) => {
