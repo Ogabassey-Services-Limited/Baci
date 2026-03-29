@@ -17,14 +17,16 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
 }));
 
-const mockEq: ReturnType<typeof vi.fn<(...args: any[]) => any>> = vi.fn(() => ({
-  eq: mockEq,
-}));
+const mockEq: ReturnType<typeof vi.fn<(...args: unknown[]) => unknown>> = vi.fn(
+  () => ({
+    eq: mockEq,
+  })
+);
 const mockSelect = vi.fn(() => ({ eq: mockEq }));
 const mockFrom = vi.fn(() => ({ select: mockSelect }));
 
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(() => ({
+vi.mock('@/lib/supabase/anon', () => ({
+  createAnonClient: vi.fn(() => ({
     from: mockFrom,
   })),
 }));
@@ -46,7 +48,8 @@ describe('blog sitemap', () => {
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
-    mockEq.mockImplementation((key: string, value: string) => {
+    mockEq.mockImplementation((...args: unknown[]) => {
+      const [key, value] = args as [string, string];
       if (key === 'status' && value === 'published') {
         return {
           data: [
@@ -82,7 +85,8 @@ describe('blog sitemap', () => {
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
-    mockEq.mockImplementation((key: string, value: string) => {
+    mockEq.mockImplementation((...args: unknown[]) => {
+      const [key, value] = args as [string, string];
       if (key === 'status' && value === 'published') {
         return { data: [], error: null };
       }
@@ -114,7 +118,8 @@ describe('blog sitemap', () => {
       slug: 'ogabassey',
       custom_domain: 'ogabassey.com',
     });
-    mockEq.mockImplementation((key: string, value: string) => {
+    mockEq.mockImplementation((...args: unknown[]) => {
+      const [key, value] = args as [string, string];
       if (key === 'status' && value === 'published') {
         return { data: null, error: new Error('db') };
       }

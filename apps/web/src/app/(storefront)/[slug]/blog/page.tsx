@@ -126,7 +126,8 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const { page } = await searchParams;
-  const currentPage = Number.parseInt(page || '1', 10);
+  const parsedPage = Number.parseInt(String(page ?? '1'), 10);
+  const currentPage = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
   const data = await getMerchantAndPosts(slug, undefined, currentPage);
 
   if (!data) {

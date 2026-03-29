@@ -3,6 +3,32 @@ import { rewriteHtmlStorefrontHrefs } from '@/lib/storefront-html-link-rewriting
 import { normalizeStorefrontContentHref } from '@/lib/storefront-link-normalization';
 
 describe('normalizeStorefrontContentHref', () => {
+  it('returns early for empty strings', () => {
+    expect(normalizeStorefrontContentHref('', {})).toBe('');
+  });
+
+  it('returns hash-only links unchanged', () => {
+    expect(normalizeStorefrontContentHref('#', {})).toBe('#');
+    expect(normalizeStorefrontContentHref('#fragment', {})).toBe('#fragment');
+  });
+
+  it('returns mailto and tel links unchanged', () => {
+    expect(normalizeStorefrontContentHref('mailto:hello@example.com', {})).toBe(
+      'mailto:hello@example.com'
+    );
+    expect(normalizeStorefrontContentHref('tel:+2348000000000', {})).toBe(
+      'tel:+2348000000000'
+    );
+  });
+
+  it('returns protocol-relative urls unchanged', () => {
+    expect(
+      normalizeStorefrontContentHref('//cdn.example.com/image.png', {
+        baseUrl: 'https://ogabassey.com',
+      })
+    ).toBe('//cdn.example.com/image.png');
+  });
+
   it('normalizes legacy phones links to smartphones on custom domains', () => {
     expect(
       normalizeStorefrontContentHref(
@@ -115,5 +141,18 @@ describe('rewriteHtmlStorefrontHrefs', () => {
     ).toContain(
       "<a href='/smartphones/iphone-13-pro-6gb-256gb'>iPhone</a> <a href='/products'>Old product</a>"
     );
+  });
+
+  it('rewrites href attributes regardless of case or spacing', () => {
+    const html =
+      '<p><a HREF = "https://www.ogabassey.com/phones/iPhone-13-Pro-6GB-256GB">iPhone</a></p>';
+
+    expect(
+      rewriteHtmlStorefrontHrefs(html, {
+        basePath: '',
+        baseUrl: 'https://ogabassey.com',
+        merchantSlug: 'ogabassey',
+      })
+    ).toContain('<a href="/smartphones/iphone-13-pro-6gb-256gb">iPhone</a>');
   });
 });

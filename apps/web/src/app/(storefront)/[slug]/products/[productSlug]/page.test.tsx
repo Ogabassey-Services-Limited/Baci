@@ -8,8 +8,7 @@ const mockPermanentRedirect = vi.fn((_url: string) => {
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
-const mockGetCachedMerchant = vi.fn();
-const mockGetCachedMerchantByDomain = vi.fn();
+const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedLegacyProductRedirectTarget = vi.fn();
 const mockGetCachedProduct = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
@@ -34,9 +33,8 @@ vi.mock('@/components/ui/skeletons', () => ({
 }));
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedMerchant: (...args: unknown[]) => mockGetCachedMerchant(...args),
-  getCachedMerchantByDomain: (...args: unknown[]) =>
-    mockGetCachedMerchantByDomain(...args),
+  getMerchantByIdentifier: (...args: unknown[]) =>
+    mockGetMerchantByIdentifier(...args),
   getCachedLegacyProductRedirectTarget: (...args: unknown[]) =>
     mockGetCachedLegacyProductRedirectTarget(...args),
   getCachedProduct: (...args: unknown[]) => mockGetCachedProduct(...args),
@@ -197,7 +195,7 @@ describe('products/[productSlug] page', () => {
     mockConnection.mockImplementation(async () => undefined);
     mockGenerateProductSchema.mockImplementation(() => ({ offers: {} }));
     mockGetProductUrl.mockImplementation(defaultGetProductUrl);
-    mockGetCachedMerchant.mockResolvedValue(baseMerchant);
+    mockGetMerchantByIdentifier.mockResolvedValue(baseMerchant);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductRatingStats.mockResolvedValue(null);
@@ -292,7 +290,7 @@ describe('products/[productSlug] page', () => {
 
     it('omits slug prefix in custom-domain-mode redirect (x-custom-domain header)', async () => {
       mockGetCachedProduct.mockResolvedValue(categorizedProduct);
-      mockGetCachedMerchantByDomain.mockResolvedValue(baseMerchant);
+      mockGetMerchantByIdentifier.mockResolvedValue(baseMerchant);
       mockHeaders.mockReturnValue(
         makeHeaders({ 'x-custom-domain': 'teststore.com' })
       );

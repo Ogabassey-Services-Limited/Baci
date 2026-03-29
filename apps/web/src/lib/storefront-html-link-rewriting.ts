@@ -7,11 +7,11 @@ export function rewriteHtmlStorefrontHrefs(
   html: string,
   options: NormalizeStorefrontContentHrefOptions = {}
 ): string {
-  if (!html || !html.includes('href=')) {
+  if (!html || !/\bhref\s*=/i.test(html)) {
     return html;
   }
 
-  return html.replace(/\bhref=(["'])(.*?)\1/gi, (_match, quote, href) => {
+  return html.replace(/\bhref\s*=\s*(["'])(.*?)\1/gi, (_match, quote, href) => {
     const normalizedHref = normalizeStorefrontContentHref(href, options);
     return `href=${quote}${normalizedHref}${quote}`;
   });

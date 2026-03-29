@@ -21,11 +21,9 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetMerchantByIdentifier(...args),
 }));
 
-const mockSingle = vi.fn();
 const mockEq: ReturnType<typeof vi.fn<(...args: unknown[]) => unknown>> = vi.fn(
   () => ({
     eq: mockEq,
-    single: mockSingle,
   })
 );
 
@@ -34,7 +32,6 @@ vi.mock('@/lib/supabase/anon', () => ({
     from: () => ({
       select: () => ({
         eq: mockEq,
-        single: mockSingle,
       }),
     }),
   })),
@@ -212,7 +209,7 @@ describe('sitemap', () => {
         if (key === 'status' && value === 'active') {
           return { data: productData, error: null };
         }
-        return { eq: mockEq, single: mockSingle };
+        return { eq: mockEq };
       });
 
       const { default: sitemap } = await import('./sitemap');
@@ -230,7 +227,7 @@ describe('sitemap', () => {
         if (key === 'status' && value === 'active') {
           return { data: null, error: null };
         }
-        return { eq: mockEq, single: mockSingle };
+        return { eq: mockEq };
       });
 
       const { default: sitemap } = await import('./sitemap');
@@ -247,6 +244,52 @@ describe('sitemap', () => {
       const { default: sitemap } = await import('./sitemap');
 
       const result = await sitemap({ id: Promise.resolve('unknown') });
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('categories sitemap', () => {
+    it('returns category sitemap entries', async () => {
+      setSlugHeader('ogabassey');
+      mockEq.mockImplementation((...args: unknown[]) => {
+        const [key, value] = args as [string, string];
+        if (key === 'merchant_id' && value === 'merchant-1') {
+          return {
+            data: [
+              { slug: 'smartphones', updated_at: '2026-01-01T00:00:00Z' },
+              { slug: 'accessories', updated_at: '2026-01-02T00:00:00Z' },
+            ],
+            error: null,
+          };
+        }
+
+        return { eq: mockEq };
+      });
+
+      const { default: sitemap } = await import('./sitemap');
+
+      const result = await sitemap({ id: Promise.resolve('categories') });
+
+      expect(result).toHaveLength(2);
+      expect(result[0].url).toBe('https://ogabassey.usebaci.com/smartphones');
+      expect(result[1].url).toBe('https://ogabassey.usebaci.com/accessories');
+    });
+
+    it('returns an empty array when categories cannot be loaded', async () => {
+      setSlugHeader('ogabassey');
+      mockEq.mockImplementation((...args: unknown[]) => {
+        const [key, value] = args as [string, string];
+        if (key === 'merchant_id' && value === 'merchant-1') {
+          return { data: null, error: new Error('db') };
+        }
+
+        return { eq: mockEq };
+      });
+
+      const { default: sitemap } = await import('./sitemap');
+
+      const result = await sitemap({ id: Promise.resolve('categories') });
 
       expect(result).toEqual([]);
     });

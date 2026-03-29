@@ -6,12 +6,11 @@ import { Suspense } from 'react';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
   getCachedLegacyProductRedirectTarget,
-  getCachedMerchant,
-  getCachedMerchantByDomain,
   getCachedProduct,
   getCachedProductRatingStats,
   getCachedProductReviews,
   getCachedProductWithDetails,
+  getMerchantByIdentifier,
 } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
@@ -46,9 +45,7 @@ async function getProductCached(
   storeSlug: string,
   productSlug: string
 ): Promise<Product | null> {
-  const merchant = storeSlug.includes('.')
-    ? await getCachedMerchantByDomain(storeSlug)
-    : await getCachedMerchant(storeSlug);
+  const merchant = await resolveStoreMerchant(storeSlug);
 
   if (!merchant) {
     console.error('Merchant not found for slug:', storeSlug);
@@ -95,9 +92,7 @@ async function redirectLegacyProductRouteIfCategorized(
 }
 
 async function resolveStoreMerchant(storeSlug: string) {
-  return storeSlug.includes('.')
-    ? await getCachedMerchantByDomain(storeSlug)
-    : await getCachedMerchant(storeSlug);
+  return await getMerchantByIdentifier(storeSlug);
 }
 
 async function redirectLegacyVariantProductRoute(

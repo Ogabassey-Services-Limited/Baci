@@ -1,53 +1,11 @@
-import { createClient } from '@supabase/supabase-js';
 import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing required Supabase environment variables');
-}
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
+import { createAnonClient } from '@/lib/supabase/anon';
 
 export const dynamic = 'force-dynamic';
-
-function resolveRouteIdentifier(
-  headersList: Awaited<ReturnType<typeof headers>>
-) {
-  const customDomain = headersList.get('x-custom-domain')?.toLowerCase();
-  if (customDomain) {
-    return customDomain;
-  }
-
-  const merchantSlug = headersList.get('x-merchant-slug')?.toLowerCase();
-  if (merchantSlug) {
-    return merchantSlug;
-  }
-
-  const host = headersList.get('host')?.split(':')[0].toLowerCase();
-  if (!host) {
-    return '';
-  }
-
-  const normalizedHost = host.replace(/^www\./, '');
-  const rootDomain = (
-    process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'
-  ).toLowerCase();
-
-  if (normalizedHost === rootDomain) {
-    return '';
-  }
-
-  if (normalizedHost.endsWith(`.${rootDomain}`)) {
-    return normalizedHost.slice(0, -(rootDomain.length + 1));
-  }
-
-  return normalizedHost;
-}
 
 /**
  * Blog-specific sitemap for Search Console properties scoped to /blog.
@@ -64,6 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   if (!merchant) return [];
   const storeUrl = buildStoreUrl(merchant);
+  const supabase = createAnonClient();
 
   const { data: posts, error } = await supabase
     .from('blog_posts')

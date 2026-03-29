@@ -199,4 +199,16 @@ describe('blog page metadata', () => {
 
     expect(metadata).toEqual({ title: 'Blog Not Found' });
   });
+
+  it('clamps invalid page params back to the first page metadata', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test-store' }),
+      searchParams: Promise.resolve({ page: '0' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://test-store.usebaci.com/blog'
+    );
+    expect(metadata.openGraph?.url).toBe('https://test-store.usebaci.com/blog');
+  });
 });
