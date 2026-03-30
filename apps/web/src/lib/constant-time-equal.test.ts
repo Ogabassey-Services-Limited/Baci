@@ -17,4 +17,14 @@ describe('constantTimeEqual', () => {
   it('returns true for empty strings', () => {
     expect(constantTimeEqual('', '')).toBe(true);
   });
+
+  it('handles Unicode/multi-byte strings correctly', () => {
+    expect(constantTimeEqual('秘密🔐', '秘密🔐')).toBe(true);
+    expect(constantTimeEqual('秘密🔐', '秘密🔒')).toBe(false);
+  });
+
+  it('handles strings with embedded null bytes', () => {
+    expect(constantTimeEqual('a\0b', 'a\0b')).toBe(true);
+    expect(constantTimeEqual('a\0b', 'a\0c')).toBe(false);
+  });
 });

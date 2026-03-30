@@ -8,12 +8,12 @@ export async function GET(request: NextRequest) {
   try {
     // Verify authentication from Vercel Cron
     const authHeader = request.headers.get('authorization');
-    const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
+    const cronSecret = process.env.CRON_SECRET;
 
     if (
       !authHeader ||
-      !process.env.CRON_SECRET ||
-      !constantTimeEqual(authHeader, expectedToken)
+      !cronSecret ||
+      !constantTimeEqual(authHeader, `Bearer ${cronSecret}`)
     ) {
       // Allow local development testing if needed, or stick to strict checking
       // For now, we return 401 if unauthorized
