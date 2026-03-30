@@ -73,20 +73,20 @@ vi.mock('@/schemas/jumia', async () => {
     ),
   });
 
-  const JumiaShopsResponseSchema = z
-    .union([
-      z.object({
-        shops: z.array(JumiaShop).min(1),
-      }),
-      z.array(JumiaShop).min(1),
-    ])
-    .transform((value) => {
+  const JumiaShopsArraySchema = z.array(JumiaShop).min(1);
+
+  const JumiaShopsResponseSchema = z.preprocess(
+    (value) => {
       if (Array.isArray(value)) {
         return { shops: value };
       }
 
       return value;
-    });
+    },
+    z.object({
+      shops: JumiaShopsArraySchema,
+    })
+  );
 
   return {
     JumiaTokenResponseSchema,
