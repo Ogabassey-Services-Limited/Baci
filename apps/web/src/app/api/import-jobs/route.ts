@@ -1,20 +1,19 @@
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { IMPORT_JOB_SELECT } from '@/lib/import-jobs/import-job-columns';
 import {
   hasImportRoutePermission,
   resolveImportRouteContext,
 } from '@/lib/import-jobs/import-job-route-auth';
 import {
   createImportStoragePath,
+  type ImportJobRecord,
   validateImportFile,
 } from '@/lib/import-jobs/import-job-service';
 import { kickoffImportJob } from '@/lib/import-jobs/kickoff-import-job';
 import { logger } from '@/lib/logger';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { importJobUploadSchema } from '@/schemas/import-jobs';
-
-const IMPORT_JOB_SELECT =
-  'id, merchant_id, created_by, source_platform, entity_type, status, original_filename, storage_path, content_type, file_size_bytes, total_rows, processed_rows, summary, error, created_at, committed_at, notified_at, completed_at';
 
 export async function POST(request: NextRequest) {
   try {
@@ -156,21 +155,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const createdJob = job as unknown as ImportJobRecord;
+
     const origin = request.nextUrl.origin;
     after(async () => {
       try {
-        await kickoffImportJob(job.id, origin);
+        await kickoffImportJob(createdJob.id, origin);
       } catch (err) {
         logger.error({
           message: 'Background kickoff failed',
-          jobId: job.id,
+          jobId: createdJob.id,
           origin,
           error: err,
         });
       }
     });
 
-    return NextResponse.json({ job }, { status: 202 });
+    return NextResponse.json({ job: createdJob }, { status: 202 });
   } catch (error) {
     logger.error({
       message: 'Import job upload route failed',

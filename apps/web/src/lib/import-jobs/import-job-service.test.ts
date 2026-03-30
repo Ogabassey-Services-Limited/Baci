@@ -34,6 +34,7 @@ import {
   mergeImportJobSummary,
   triggerImportWorker,
   validateImportFile,
+  validateImportFileMetadata,
 } from './import-job-service';
 
 function createPreviewSummary() {
@@ -173,6 +174,48 @@ describe('import-job-service', () => {
 
     expect(
       validateImportFile(new File(['x'], 'orders.csv', { type: 'text/csv' }))
+    ).toBeNull();
+  });
+
+  it('validates CSV file metadata by extension, size, and mime type', () => {
+    expect(
+      validateImportFileMetadata({
+        fileName: 'orders.txt',
+        fileSizeBytes: 10,
+        contentType: 'text/plain',
+      })
+    ).toBe('Only CSV files are supported');
+
+    expect(
+      validateImportFileMetadata({
+        fileName: 'orders.csv',
+        fileSizeBytes: 26 * 1024 * 1024,
+        contentType: 'text/csv',
+      })
+    ).toBe('CSV file exceeds the 25MB upload limit');
+
+    expect(
+      validateImportFileMetadata({
+        fileName: 'orders.csv',
+        fileSizeBytes: 25 * 1024 * 1024,
+        contentType: 'text/csv',
+      })
+    ).toBeNull();
+
+    expect(
+      validateImportFileMetadata({
+        fileName: 'orders.csv',
+        fileSizeBytes: 10,
+        contentType: 'application/json',
+      })
+    ).toBe('Unsupported CSV content type');
+
+    expect(
+      validateImportFileMetadata({
+        fileName: 'orders.csv',
+        fileSizeBytes: 10,
+        contentType: null,
+      })
     ).toBeNull();
   });
 
