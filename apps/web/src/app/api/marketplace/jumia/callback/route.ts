@@ -26,6 +26,8 @@ const KNOWN_OAUTH_ERRORS = new Set([
   'invalid_scope',
 ]);
 
+const MOBILE_JUMIA_RETURN_URL = 'baciadmin:///sales-channels';
+
 function clearOAuthCookies(response: NextResponse): NextResponse {
   response.cookies.delete('jumia_oauth_state');
   response.cookies.delete('jumia_merchant_id');
@@ -40,7 +42,7 @@ function createPlatformRedirect(
 ): NextResponse {
   const platform = request.cookies.get('jumia_oauth_platform')?.value;
   const redirectBase =
-    platform === 'mobile' ? 'baciadmin://' : '/dashboard/channels';
+    platform === 'mobile' ? MOBILE_JUMIA_RETURN_URL : '/dashboard/channels';
 
   return NextResponse.redirect(
     new URL(
@@ -95,7 +97,7 @@ export async function GET(request: NextRequest) {
 
       const response = NextResponse.redirect(
         new URL(
-          `baciadmin://?code=${encodeURIComponent(code)}&ticketId=${encodeURIComponent(ticketId)}`
+          `${MOBILE_JUMIA_RETURN_URL}?code=${encodeURIComponent(code)}&ticketId=${encodeURIComponent(ticketId)}`
         )
       );
       return clearOAuthCookies(response);

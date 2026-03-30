@@ -23,6 +23,8 @@ interface JumiaChannelCardProps {
   shadows: Record<string, object>;
 }
 
+const JUMIA_AUTH_RETURN_URL = 'baciadmin:///sales-channels';
+
 export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
   const { merchant } = useMerchant();
   const merchantId = merchant?.id;
@@ -64,7 +66,7 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
 
       const result = await WebBrowser.openAuthSessionAsync(
         ticketData.authUrl,
-        'baciadmin://'
+        JUMIA_AUTH_RETURN_URL
       );
 
       if (result.type === 'success' && result.url) {

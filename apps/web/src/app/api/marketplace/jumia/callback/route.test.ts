@@ -131,12 +131,14 @@ function makeCallbackRequest({
   state = 'test-state',
   cookieState = 'test-state',
   merchantCookie = '00000000-0000-0000-0000-000000000001',
+  ticketCookie = '11111111-1111-4111-8111-111111111111',
   platform,
 }: {
   code?: string | null;
   state?: string;
   cookieState?: string;
   merchantCookie?: string | null;
+  ticketCookie?: string | null;
   platform?: 'mobile';
 } = {}) {
   const url = new URL('http://localhost:3000/api/marketplace/jumia/callback');
@@ -152,6 +154,9 @@ function makeCallbackRequest({
   }
   if (platform) {
     cookieParts.push(`jumia_oauth_platform=${platform}`);
+  }
+  if (ticketCookie) {
+    cookieParts.push(`jumia_ticket_id=${ticketCookie}`);
   }
 
   return new NextRequest(url, {
@@ -330,7 +335,23 @@ describe('Jumia callback route', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'baciadmin://?error=invalid_state'
+      'baciadmin:///sales-channels?error=invalid_state'
+    );
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('uses the sales-channels deep link for successful mobile callbacks', async () => {
+    const response = await GET(
+      makeCallbackRequest({
+        platform: 'mobile',
+        ticketCookie: '22222222-2222-4222-8222-222222222222',
+      })
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe(
+      'baciadmin:///sales-channels?code=auth-code&ticketId=22222222-2222-4222-8222-222222222222'
     );
     expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
     expect(mockUpsert).not.toHaveBeenCalled();

@@ -31,6 +31,8 @@ const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [
   }),
 ]);
 
+const MOBILE_JUMIA_RETURN_URL = 'baciadmin:///sales-channels';
+
 export async function POST(request: NextRequest) {
   try {
     // CSRF validation
@@ -214,7 +216,7 @@ export async function GET(request: NextRequest) {
       const ticketParsed = z.string().uuid().safeParse(ticket);
       if (!ticketParsed.success) {
         return NextResponse.redirect(
-          new URL('baciadmin://?error=invalid_ticket')
+          new URL(`${MOBILE_JUMIA_RETURN_URL}?error=invalid_ticket`)
         );
       }
 
@@ -224,7 +226,7 @@ export async function GET(request: NextRequest) {
       const appUrl = getConfiguredAppUrl();
       if (!jumiaClientId || !appUrl) {
         return NextResponse.redirect(
-          new URL('baciadmin://?error=oauth_not_configured')
+          new URL(`${MOBILE_JUMIA_RETURN_URL}?error=oauth_not_configured`)
         );
       }
 
@@ -249,7 +251,7 @@ export async function GET(request: NextRequest) {
 
       if (ticketError || !ticketData) {
         return NextResponse.redirect(
-          new URL('baciadmin://?error=ticket_invalid')
+          new URL(`${MOBILE_JUMIA_RETURN_URL}?error=ticket_invalid`)
         );
       }
 
