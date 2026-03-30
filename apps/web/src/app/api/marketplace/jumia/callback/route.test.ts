@@ -132,7 +132,7 @@ function makeCallbackRequest({
   state = 'test-state',
   cookieState = 'test-state',
   merchantCookie = '00000000-0000-0000-0000-000000000001',
-  ticketCookie = '11111111-1111-4111-8111-111111111111',
+  ticketCookie,
   platform,
 }: {
   code?: string | null;
@@ -156,7 +156,7 @@ function makeCallbackRequest({
   if (platform) {
     cookieParts.push(`jumia_oauth_platform=${platform}`);
   }
-  if (ticketCookie) {
+  if (ticketCookie != null) {
     cookieParts.push(`jumia_ticket_id=${ticketCookie}`);
   }
 

@@ -3,6 +3,7 @@ import {
   BACI_ADMIN_SCHEME,
   buildBaciAdminUrl,
   buildJumiaMobileReturnUrl,
+  createJumiaMobileReturnUrl,
   JUMIA_MOBILE_RETURN_PATH,
   JUMIA_MOBILE_RETURN_URL,
 } from './jumia-oauth';
@@ -35,5 +36,18 @@ describe('Jumia OAuth contracts', () => {
         skipped: undefined,
       })
     ).toBe('baciadmin:///sales-channels?code=auth-code&ticketId=ticket-1');
+  });
+
+  it('creates a fixed deep-link URL object for the Jumia mobile callback', () => {
+    const url = createJumiaMobileReturnUrl({
+      error: 'ticket_invalid',
+      code: 'auth-code',
+    });
+
+    expect(url.origin).toBe('null');
+    expect(url.protocol).toBe('baciadmin:');
+    expect(url.pathname).toBe('/sales-channels');
+    expect(url.searchParams.get('error')).toBe('ticket_invalid');
+    expect(url.searchParams.get('code')).toBe('auth-code');
   });
 });

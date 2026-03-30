@@ -1,4 +1,4 @@
-import { buildJumiaMobileReturnUrl } from '@baci/shared';
+import { createJumiaMobileReturnUrl } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   getConfiguredAppUrl,
@@ -41,7 +41,7 @@ function createPlatformRedirect(
 ): NextResponse {
   const platform = request.cookies.get('jumia_oauth_platform')?.value;
   if (platform === 'mobile') {
-    return NextResponse.redirect(new URL(buildJumiaMobileReturnUrl(query)));
+    return NextResponse.redirect(createJumiaMobileReturnUrl(query));
   }
 
   const redirectUrl = new URL('/dashboard/channels', request.url);
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
       }
 
       const response = NextResponse.redirect(
-        new URL(buildJumiaMobileReturnUrl({ code, ticketId }))
+        createJumiaMobileReturnUrl({ code, ticketId })
       );
       return clearOAuthCookies(response);
     }
