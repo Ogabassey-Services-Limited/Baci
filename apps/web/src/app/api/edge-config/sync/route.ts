@@ -1,5 +1,5 @@
-import { timingSafeEqual } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getEdgeConfigDomainKey,
@@ -65,20 +65,9 @@ export async function POST(request: Request) {
 
     const isAuthorized =
       providedToken.length > 0 &&
-      allowedTokens.some((allowedToken) => {
-        if (providedToken.length !== allowedToken.length) {
-          return false;
-        }
-
-        try {
-          return timingSafeEqual(
-            Buffer.from(providedToken),
-            Buffer.from(allowedToken)
-          );
-        } catch {
-          return false;
-        }
-      });
+      allowedTokens.some((allowedToken) =>
+        constantTimeEqual(providedToken, allowedToken)
+      );
 
     if (!isAuthorized) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

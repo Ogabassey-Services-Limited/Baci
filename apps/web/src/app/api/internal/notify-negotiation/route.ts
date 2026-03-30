@@ -1,7 +1,7 @@
-import { timingSafeEqual } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getInternalApiSecret } from '@/env';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
 import { notifyNegotiationRequest } from '@/lib/negotiation-notifications';
 
@@ -40,11 +40,7 @@ export async function POST(request: NextRequest) {
   }
 
   const expectedToken = `Bearer ${expectedSecret}`;
-  if (
-    !authHeader ||
-    authHeader.length !== expectedToken.length ||
-    !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedToken))
-  ) {
+  if (!authHeader || !constantTimeEqual(authHeader, expectedToken)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
