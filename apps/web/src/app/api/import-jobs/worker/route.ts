@@ -1,6 +1,6 @@
-import { timingSafeEqual } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getImportJobWorkerBatchSize, getImportJobWorkerSecret } from '@/env';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import {
   processImportJobById,
   processImportJobQueue,
@@ -21,14 +21,7 @@ function hasValidWorkerSecret(
   }
 
   const receivedSecret = authHeader.slice('Bearer '.length);
-  if (receivedSecret.length !== expectedSecret.length) {
-    return false;
-  }
-
-  return timingSafeEqual(
-    Buffer.from(receivedSecret),
-    Buffer.from(expectedSecret)
-  );
+  return constantTimeEqual(receivedSecret, expectedSecret);
 }
 
 export async function POST(request: NextRequest) {

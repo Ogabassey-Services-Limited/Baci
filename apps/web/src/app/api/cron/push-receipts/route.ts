@@ -1,7 +1,7 @@
-import { timingSafeEqual } from 'node:crypto';
 import { Expo } from 'expo-server-sdk';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret } from '@/env';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -19,11 +19,7 @@ export async function GET(request: NextRequest) {
 
   const authHeader = request.headers.get('Authorization');
   const expectedToken = `Bearer ${cronSecret}`;
-  if (
-    !authHeader ||
-    authHeader.length !== expectedToken.length ||
-    !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedToken))
-  ) {
+  if (!authHeader || !constantTimeEqual(authHeader, expectedToken)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

@@ -1,5 +1,5 @@
-import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { payoutMerchantCommission } from '@/lib/kuda';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -25,8 +25,7 @@ export async function POST(request: Request) {
     if (
       !cronSecret ||
       !expectedSecret ||
-      cronSecret.length !== expectedSecret.length ||
-      !timingSafeEqual(Buffer.from(cronSecret), Buffer.from(expectedSecret))
+      !constantTimeEqual(cronSecret, expectedSecret)
     ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

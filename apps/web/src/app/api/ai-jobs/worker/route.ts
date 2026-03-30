@@ -1,9 +1,9 @@
-import { timingSafeEqual } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { generateObject } from 'ai';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import { geminiFlash, withRetry } from '@/ai/provider';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { checkCsrfProtection } from '@/lib/csrf';
 
 // Use environment variable to configure job process limit, defaulting to 5
@@ -99,11 +99,7 @@ export async function POST(request: NextRequest) {
 
     const expectedAuth = `Bearer ${expectedToken}`;
 
-    if (
-      !authHeader ||
-      authHeader.length !== expectedAuth.length ||
-      !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedAuth))
-    ) {
+    if (!authHeader || !constantTimeEqual(authHeader, expectedAuth)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
