@@ -503,6 +503,29 @@ describe('Jumia Vendor API Schemas', () => {
       }
     });
 
+    it('normalizes missing countryName and uppercase business client status', () => {
+      const result = JumiaShopsResponseSchema.safeParse({
+        shops: [
+          {
+            ...validShopsResponse.shops[0],
+            businessClients: [
+              {
+                ...validShopsResponse.shops[0].businessClients[0],
+                countryName: undefined,
+                status: 'ACTIVE',
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.shops[0].businessClients[0].countryName).toBe('');
+        expect(result.data.shops[0].businessClients[0].status).toBe('active');
+      }
+    });
+
     it('rejects shop with empty businessClients', () => {
       const empty = {
         shops: [{ ...validShopsResponse.shops[0], businessClients: [] }],
