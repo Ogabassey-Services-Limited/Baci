@@ -170,6 +170,19 @@ describe('getCustomDomainForSlug', () => {
       expect(result).toBeNull();
     });
 
+    it('returns null when Supabase returns an error response', async () => {
+      mockMaybeSingle.mockResolvedValue({
+        data: null,
+        error: {
+          message: 'permission denied',
+          code: '42501',
+        },
+      });
+
+      const result = await getCustomDomainForSlug('permission-denied');
+      expect(result).toBeNull();
+    });
+
     it('caches DB results within TTL', async () => {
       mockMaybeSingle.mockResolvedValue({
         data: {

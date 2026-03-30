@@ -9,6 +9,7 @@ describe('GET /.well-known/[...rest]', () => {
     expect(response.status).toBe(404);
     expect(response.headers.get('content-type')).toContain('text/plain');
     expect(response.headers.get('cache-control')).toContain('max-age=300');
+    expect(response.headers.get('cache-control')).toContain('s-maxage=300');
     await expect(response.text()).resolves.toBe('Not Found');
   });
 
