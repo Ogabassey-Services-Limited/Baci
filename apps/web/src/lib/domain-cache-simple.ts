@@ -164,13 +164,17 @@ async function fetchCustomDomain(merchantSlug: string): Promise<string | null> {
       .from('merchants')
       .select('id, domains!left(domain, is_primary, status, domain_type)')
       .eq('slug', merchantSlug)
-      .single();
+      .maybeSingle();
 
-    if (error || !merchant) {
+    if (error) {
       console.error('[Domain Cache] Failed to fetch merchant domain data', {
         merchantSlug,
         error,
       });
+      return null;
+    }
+
+    if (!merchant) {
       return null;
     }
 
