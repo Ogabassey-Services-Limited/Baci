@@ -24,6 +24,12 @@ describe('rewriteJumiaDeepLinkPath', () => {
     ).toBe('/sales-channels?code=auth-code&ticketId=ticket-1');
   });
 
+  it('returns the original input when deep-link parsing fails', () => {
+    expect(rewriteJumiaDeepLinkPath('baciadmin://%zz')).toBe(
+      'baciadmin://%zz'
+    );
+  });
+
   it('leaves unrelated deep links unchanged', () => {
     expect(rewriteJumiaDeepLinkPath('baciadmin://orders?tab=pending')).toBe(
       'baciadmin://orders?tab=pending'
