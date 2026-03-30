@@ -4,6 +4,7 @@
 
 import { JUMIA_MOBILE_RETURN_URL } from '@baci/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { makeRedirectUri } from 'expo-auth-session';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
@@ -63,9 +64,13 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
         return;
       }
 
+      const redirectUrl = makeRedirectUri({
+        native: JUMIA_MOBILE_RETURN_URL,
+      });
+
       const result = await WebBrowser.openAuthSessionAsync(
         ticketData.authUrl,
-        JUMIA_MOBILE_RETURN_URL
+        redirectUrl
       );
 
       if (result.type === 'success' && result.url) {
