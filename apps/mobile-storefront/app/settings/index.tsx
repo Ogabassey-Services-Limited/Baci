@@ -57,7 +57,9 @@ export default function SettingsScreen() {
 
   // expo-haptics supports both iOS and Android
   const haptic = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+      // Ignore unsupported haptics environments.
+    });
   };
 
   const handleAppearanceChange = (mode: AppearanceMode) => {
@@ -101,7 +103,7 @@ export default function SettingsScreen() {
                   key !== 'auth-storage'
               );
               if (cacheKeys.length > 0) {
-                await AsyncStorage.multiRemove(cacheKeys);
+                await AsyncStorage.removeMany(cacheKeys);
               }
 
               toast.success('Cache cleared successfully.');

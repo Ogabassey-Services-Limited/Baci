@@ -1,14 +1,17 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
-const reactPath = path.dirname(require.resolve('react/package.json'));
-const reactDomPath = path.dirname(require.resolve('react-dom/package.json'));
+const reactPath = require.resolve('react');
+const reactJsxRuntimePath = require.resolve('react/jsx-runtime');
+const reactJsxDevRuntimePath = require.resolve('react/jsx-dev-runtime');
+const reactDomPath = require.resolve('react-dom');
+const reactDomClientPath = require.resolve('react-dom/client');
+const reactDomTestUtilsPath = require.resolve('react-dom/test-utils');
 
 function resolveTestingLibraryReactPath() {
   // Use the package entry instead of an internal dist path to avoid brittle resolution.
@@ -25,29 +28,31 @@ function resolveTestingLibraryReactPath() {
 const testingLibraryReactPath = resolveTestingLibraryReactPath();
 
 export default defineConfig({
-  plugins: [react()],
   define: {
     __DEV__: true,
   },
   resolve: {
-    alias: {
-      '@': __dirname,
-      '@baci/shared': path.resolve(
-        __dirname,
-        '../../packages/shared/src/index.ts'
-      ),
-      '@testing-library/react': testingLibraryReactPath,
-      react: reactPath,
-      'react/jsx-runtime': path.resolve(reactPath, 'jsx-runtime.js'),
-      'react/jsx-dev-runtime': path.resolve(reactPath, 'jsx-dev-runtime.js'),
-      'react-dom': reactDomPath,
-      'react-dom/client': path.resolve(reactDomPath, 'client.js'),
-      'react-dom/test-utils': path.resolve(reactDomPath, 'test-utils.js'),
-    },
+    alias: [
+      { find: '@', replacement: __dirname },
+      {
+        find: '@baci/shared',
+        replacement: path.resolve(
+          __dirname,
+          '../../packages/shared/src/index.ts'
+        ),
+      },
+      { find: '@testing-library/react', replacement: testingLibraryReactPath },
+      { find: /^react$/, replacement: reactPath },
+      { find: /^react\/jsx-runtime$/, replacement: reactJsxRuntimePath },
+      { find: /^react\/jsx-dev-runtime$/, replacement: reactJsxDevRuntimePath },
+      { find: /^react-dom$/, replacement: reactDomPath },
+      { find: /^react-dom\/client$/, replacement: reactDomClientPath },
+      { find: /^react-dom\/test-utils$/, replacement: reactDomTestUtilsPath },
+    ],
     dedupe: ['react', 'react-dom'],
   },
   ssr: {
-    noExternal: ['@testing-library/react'],
+    noExternal: ['@testing-library/react', 'react', 'react-dom'],
   },
   test: {
     environment: 'jsdom',
@@ -55,7 +60,7 @@ export default defineConfig({
     server: {
       deps: {
         // Prevent vitest from parsing native packages (Flow/JSX in .js files)
-        inline: [/@testing-library\/react/],
+        inline: [/@testing-library\/react/, /^react$/, /^react-dom$/],
         external: [
           /expo-linear-gradient/,
           /@expo\/vector-icons/,

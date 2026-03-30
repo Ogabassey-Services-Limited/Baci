@@ -108,7 +108,7 @@ export async function waitForStorageReady(): Promise<void> {
  *
  * 2026 Critical Fix: Added deduplication to prevent multiple concurrent initializations
  */
-export async function initializeStorage(keys: string[]): Promise<void> {
+export function initializeStorage(keys: string[]): Promise<void> {
   // Prevent multiple concurrent initializations
   if (initializationPromise) {
     log.debug('Initialization already in progress, waiting...');
@@ -117,14 +117,14 @@ export async function initializeStorage(keys: string[]): Promise<void> {
 
   if (isStorageInitialized) {
     log.debug('Already initialized, skipping');
-    return;
+    return Promise.resolve();
   }
 
   initializationPromise = (async () => {
     try {
       log.debug('Initializing with keys:', keys);
-      const pairs = await AsyncStorage.multiGet(keys);
-      for (const [key, value] of pairs) {
+      const pairs = await AsyncStorage.getMany(keys);
+      for (const [key, value] of Object.entries(pairs)) {
         if (value !== null) {
           memoryCache[key] = value;
           log.debug(`Loaded "${key}" from AsyncStorage`);

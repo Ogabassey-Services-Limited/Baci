@@ -3,15 +3,17 @@
  * configuration, and QUERY_CACHE_KEYS constants.
  */
 
+import { jest } from '@jest/globals';
+
 jest.mock('@react-native-async-storage/async-storage', () => ({
   __esModule: true,
   default: {
     getItem: jest.fn(),
     setItem: jest.fn(),
     removeItem: jest.fn(),
-    multiGet: jest.fn(),
-    multiSet: jest.fn(),
-    multiRemove: jest.fn(),
+    getMany: jest.fn(),
+    setMany: jest.fn(),
+    removeMany: jest.fn(),
     clear: jest.fn(),
     getAllKeys: jest.fn(),
   },
