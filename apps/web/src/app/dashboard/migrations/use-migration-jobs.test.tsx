@@ -382,4 +382,84 @@ describe('useMigrationJobs', () => {
     expect(result.current.error).toBeNull();
     expect(result.current.rowsResponse?.rows[0]?.id).toBe('row-a');
   });
+
+  it('loads partial rows for validating jobs once processed rows exist', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = String(input);
+
+      if (url === '/api/import-jobs/job-validating') {
+        return Promise.resolve(
+          createJsonResponse({
+            job: createJobDetail('job-validating', 'validating', {
+              processed_rows: 12,
+              total_rows: 100,
+              summary: { validRows: 9, invalidRows: 3 },
+            }),
+          })
+        );
+      }
+
+      if (
+        url ===
+        '/api/import-jobs/job-validating/rows?filter=all&page=1&pageSize=25'
+      ) {
+        return Promise.resolve(
+          createJsonResponse(createRowsResponse('row-12'))
+        );
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const { result } = renderHook(() =>
+      useMigrationJobs({
+        initialJobs: [createJob('job-validating', 'validating')],
+      })
+    );
+
+    act(() => {
+      result.current.setSelectedJobId('job-validating');
+    });
+
+    await waitFor(() => {
+      expect(result.current.rowsResponse?.rows[0]?.id).toBe('row-12');
+    });
+  });
+
+  it('reuses cached rows when revisiting the same preview page', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = String(input);
+
+      if (
+        url === '/api/import-jobs/job-cache/rows?filter=all&page=1&pageSize=25'
+      ) {
+        return Promise.resolve(createJsonResponse(createRowsResponse('row-a')));
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const { result } = renderHook(() =>
+      useMigrationJobs({
+        initialJobs: [createJob('job-cache', 'preview_ready')],
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.rowsResponse?.rows[0]?.id).toBe('row-a');
+    });
+
+    vi.mocked(fetch).mockClear();
+
+    await act(async () => {
+      await result.current.refreshJob('job-cache', {
+        includeJob: false,
+        includeRows: true,
+        page: 1,
+      });
+    });
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(result.current.rowsResponse?.rows[0]?.id).toBe('row-a');
+  });
 });

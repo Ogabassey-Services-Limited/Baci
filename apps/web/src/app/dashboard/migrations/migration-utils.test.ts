@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canLoadMigrationRows,
   decorateImportJob,
   filterMigrationRows,
   getMigrationProgressDetail,
   getMigrationProgressValue,
+  getMigrationRowsCacheKey,
   statusBadgeClass,
 } from '@/app/dashboard/migrations/migration-utils';
 
@@ -155,5 +157,20 @@ describe('filterMigrationRows', () => {
   it('returns all rows for the default filter and handles empty arrays', () => {
     expect(filterMigrationRows([...rows], 'all')).toEqual([...rows]);
     expect(filterMigrationRows([], 'needs_fix')).toEqual([]);
+  });
+});
+
+describe('migration row loading helpers', () => {
+  it('allows persisted validating rows to load before preview_ready', () => {
+    expect(canLoadMigrationRows('validating', 0)).toBe(false);
+    expect(canLoadMigrationRows('validating', 1)).toBe(true);
+    expect(canLoadMigrationRows('preview_ready', 0)).toBe(true);
+  });
+
+  it('creates stable cache keys for job, filter, and page', () => {
+    expect(getMigrationRowsCacheKey('job-1', 'all', 1)).toBe('job-1:all:1');
+    expect(getMigrationRowsCacheKey('job-1', 'needs_fix', 2)).toBe(
+      'job-1:needs_fix:2'
+    );
   });
 });

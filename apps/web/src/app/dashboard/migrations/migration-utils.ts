@@ -114,6 +114,24 @@ export function shouldFetchMigrationRows(status: ImportJobStatus) {
   return status !== 'uploaded' && status !== 'validating';
 }
 
+export function canLoadMigrationRows(
+  status: ImportJobStatus,
+  processedRows = 0
+) {
+  return (
+    shouldFetchMigrationRows(status) ||
+    (status === 'validating' && processedRows > 0)
+  );
+}
+
+export function getMigrationRowsCacheKey(
+  jobId: string,
+  filter: MigrationPreviewFilter,
+  page: number
+) {
+  return `${jobId}:${filter}:${page}`;
+}
+
 export function getInitialMigrationSelection(
   statuses: Array<{ id: string; status: ImportJobStatus }>
 ) {

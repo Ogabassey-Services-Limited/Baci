@@ -17,6 +17,7 @@ const FALLBACK_POLL_MS = 5000;
 
 interface UseMigrationJobPollingInput {
   activeFilter: MigrationPreviewFilter;
+  isRefreshInFlight?: () => boolean;
   onRealtimeJobUpdate?: (job: Partial<ImportJobListItem>) => void;
   onRefreshRequestIdBump?: () => void;
   refreshJob: (
@@ -36,6 +37,7 @@ interface UseMigrationJobPollingInput {
 
 export function useMigrationJobPolling({
   activeFilter,
+  isRefreshInFlight,
   onRealtimeJobUpdate,
   onRefreshRequestIdBump,
   refreshJob,
@@ -101,7 +103,7 @@ export function useMigrationJobPolling({
               includeJob: true,
               includeRows: true,
               filter: activeFilter,
-              page: rowsResponse?.pagination.page || 1,
+              page: rowsResponse?.pagination?.page || 1,
             });
           }
         }
@@ -115,10 +117,17 @@ export function useMigrationJobPolling({
 
     // Fallback: poll every 5s for resilience
     const poll = async () => {
+      if (isRefreshInFlight?.()) {
+        if (!cancelled) {
+          timeoutId = window.setTimeout(poll, FALLBACK_POLL_MS);
+        }
+        return;
+      }
+
       await refreshJob(selectedJobId, {
         background: true,
         filter: activeFilter,
-        page: rowsResponse?.pagination.page || 1,
+        page: rowsResponse?.pagination?.page || 1,
       });
 
       if (!cancelled) {
@@ -137,10 +146,11 @@ export function useMigrationJobPolling({
     };
   }, [
     activeFilter,
+    isRefreshInFlight,
     onRealtimeJobUpdate,
     onRefreshRequestIdBump,
     refreshJob,
-    rowsResponse?.pagination.page,
+    rowsResponse?.pagination?.page,
     selectedJobStatus,
     selectedJobId,
   ]);

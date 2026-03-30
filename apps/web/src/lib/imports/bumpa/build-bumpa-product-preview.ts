@@ -10,10 +10,18 @@ import type {
 interface BuildBumpaProductPreviewInput {
   rows: Record<string, string>[];
   existingProducts: ExistingImportedProduct[];
+  chunkSize?: number;
   onProgress?: (progress: {
     processedRows: number;
     totalRows: number;
   }) => Promise<void> | void;
+}
+
+interface BuildBumpaProductPreviewChunk {
+  rows: ImportPreviewRow<NormalizedImportedProduct>[];
+  processedRows: number;
+  totalRows: number;
+  partialSummary: ImportPreviewSummary;
 }
 
 function splitImageField(value: string) {
@@ -84,11 +92,13 @@ async function maybeReportProgress(
   }
 }
 
-export async function buildBumpaProductPreview({
+export async function* buildBumpaProductPreviewChunks({
   rows,
   existingProducts,
+  chunkSize = 250,
   onProgress,
 }: BuildBumpaProductPreviewInput) {
+  const effectiveChunkSize = chunkSize > 0 ? chunkSize : 250;
   const seenExternalIds = new Set<string>();
   const existingByExternalId = new Map<string, ExistingImportedProduct>();
 
@@ -99,20 +109,59 @@ export async function buildBumpaProductPreview({
   });
 
   const previewRows: ImportPreviewRow<NormalizedImportedProduct>[] = [];
+  const pendingRows = new Map<
+    number,
+    ImportPreviewRow<NormalizedImportedProduct>
+  >();
+
+  function queuePendingRow(row: ImportPreviewRow<NormalizedImportedProduct>) {
+    pendingRows.set(row.rowNumber, row);
+  }
+
+  function buildChunk(
+    processedRows: number,
+    force = false
+  ): BuildBumpaProductPreviewChunk | null {
+    if (pendingRows.size === 0) {
+      return null;
+    }
+
+    if (!force && processedRows % effectiveChunkSize !== 0) {
+      return null;
+    }
+
+    const chunkRows = Array.from(pendingRows.values()).sort(
+      (left, right) => left.rowNumber - right.rowNumber
+    );
+    pendingRows.clear();
+
+    return {
+      rows: chunkRows,
+      processedRows,
+      totalRows: rows.length,
+      partialSummary: buildSummary(previewRows),
+    };
+  }
 
   for (const [index, rawRow] of rows.entries()) {
     const rowNumber = index + 2;
     const validationResult = bumpaProductRowSchema.safeParse(rawRow);
     if (!validationResult.success) {
-      previewRows.push({
+      const previewRow = {
         rowNumber,
         sourceExternalId: null,
         rowStatus: 'invalid',
         errors: validationResult.error.errors.map((error) => error.message),
         payload: null,
         meta: {},
-      } satisfies ImportPreviewRow<NormalizedImportedProduct>);
+      } satisfies ImportPreviewRow<NormalizedImportedProduct>;
+      previewRows.push(previewRow);
+      queuePendingRow(previewRow);
       await maybeReportProgress(onProgress, index + 1, rows.length);
+      const chunk = buildChunk(index + 1, index + 1 === rows.length);
+      if (chunk) {
+        yield chunk;
+      }
       continue;
     }
 
@@ -121,15 +170,21 @@ export async function buildBumpaProductPreview({
     const externalSourceId = row['Product ID'] || row['Source ID'];
 
     if (seenExternalIds.has(externalSourceId)) {
-      previewRows.push({
+      const previewRow = {
         rowNumber,
         sourceExternalId: externalSourceId,
         rowStatus: 'duplicate',
         errors: ['Duplicate Bumpa product id in the same file'],
         payload: null,
         meta: {},
-      } satisfies ImportPreviewRow<NormalizedImportedProduct>);
+      } satisfies ImportPreviewRow<NormalizedImportedProduct>;
+      previewRows.push(previewRow);
+      queuePendingRow(previewRow);
       await maybeReportProgress(onProgress, index + 1, rows.length);
+      const chunk = buildChunk(index + 1, index + 1 === rows.length);
+      if (chunk) {
+        yield chunk;
+      }
       continue;
     }
 
@@ -173,7 +228,7 @@ export async function buildBumpaProductPreview({
       },
     } satisfies NormalizedImportedProduct;
 
-    previewRows.push({
+    const previewRow = {
       rowNumber,
       sourceExternalId: externalSourceId,
       rowStatus:
@@ -185,12 +240,43 @@ export async function buildBumpaProductPreview({
       errors,
       payload: errors.length > 0 ? null : payload,
       meta: {},
-    } satisfies ImportPreviewRow<NormalizedImportedProduct>);
+    } satisfies ImportPreviewRow<NormalizedImportedProduct>;
+    previewRows.push(previewRow);
+    queuePendingRow(previewRow);
     await maybeReportProgress(onProgress, index + 1, rows.length);
+    const chunk = buildChunk(index + 1, index + 1 === rows.length);
+    if (chunk) {
+      yield chunk;
+    }
+  }
+}
+
+export async function buildBumpaProductPreview({
+  rows,
+  existingProducts,
+  chunkSize = 250,
+  onProgress,
+}: BuildBumpaProductPreviewInput) {
+  const previewRows = new Map<
+    number,
+    ImportPreviewRow<NormalizedImportedProduct>
+  >();
+  let summary = buildSummary([]);
+
+  for await (const chunk of buildBumpaProductPreviewChunks({
+    rows,
+    existingProducts,
+    chunkSize,
+    onProgress,
+  })) {
+    chunk.rows.forEach((row) => {
+      previewRows.set(row.rowNumber, row);
+    });
+    summary = chunk.partialSummary;
   }
 
   return {
-    rows: previewRows,
-    summary: buildSummary(previewRows),
+    rows: Array.from(previewRows.values()),
+    summary,
   };
 }

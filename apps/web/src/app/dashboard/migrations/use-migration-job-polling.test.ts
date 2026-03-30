@@ -189,6 +189,41 @@ describe('useMigrationJobPolling', () => {
     expect(refreshJob).toHaveBeenCalledTimes(1);
   });
 
+  it('skips fallback polls while another refresh is already in flight', async () => {
+    const refreshJob = vi.fn().mockResolvedValue(true);
+    let refreshInFlight = true;
+
+    renderHook(() =>
+      useMigrationJobPolling({
+        activeFilter: 'all',
+        isRefreshInFlight: () => refreshInFlight,
+        refreshJob,
+        rowsResponse: {
+          rows: [],
+          pagination: { page: 1, pageSize: 25, total: 0 },
+        },
+        selectedJob: createJob('validating'),
+        selectedJobId: 'job-1',
+      })
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+
+    expect(refreshJob).not.toHaveBeenCalled();
+
+    refreshInFlight = false;
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+      await Promise.resolve();
+    });
+
+    expect(refreshJob).toHaveBeenCalledTimes(1);
+  });
+
   it('routes Realtime payload through onRealtimeJobUpdate callback', () => {
     const refreshJob = vi.fn().mockResolvedValue(true);
     const onRealtimeJobUpdate = vi.fn();
