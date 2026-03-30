@@ -4,6 +4,7 @@
  */
 
 import crypto from 'node:crypto';
+import { createJumiaMobileReturnUrl } from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -214,7 +215,7 @@ export async function GET(request: NextRequest) {
       const ticketParsed = z.string().uuid().safeParse(ticket);
       if (!ticketParsed.success) {
         return NextResponse.redirect(
-          new URL('baciadmin://?error=invalid_ticket')
+          createJumiaMobileReturnUrl({ error: 'invalid_ticket' })
         );
       }
 
@@ -224,7 +225,7 @@ export async function GET(request: NextRequest) {
       const appUrl = getConfiguredAppUrl();
       if (!jumiaClientId || !appUrl) {
         return NextResponse.redirect(
-          new URL('baciadmin://?error=oauth_not_configured')
+          createJumiaMobileReturnUrl({ error: 'oauth_not_configured' })
         );
       }
 
@@ -249,7 +250,7 @@ export async function GET(request: NextRequest) {
 
       if (ticketError || !ticketData) {
         return NextResponse.redirect(
-          new URL('baciadmin://?error=ticket_invalid')
+          createJumiaMobileReturnUrl({ error: 'ticket_invalid' })
         );
       }
 

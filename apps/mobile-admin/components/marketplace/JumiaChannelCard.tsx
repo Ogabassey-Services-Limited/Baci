@@ -2,6 +2,7 @@
  * JumiaChannelCard — Jumia marketplace connection card with OAuth flow.
  */
 
+import { JUMIA_MOBILE_RETURN_URL } from '@baci/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -64,7 +65,7 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
 
       const result = await WebBrowser.openAuthSessionAsync(
         ticketData.authUrl,
-        'baciadmin://'
+        JUMIA_MOBILE_RETURN_URL
       );
 
       if (result.type === 'success' && result.url) {
