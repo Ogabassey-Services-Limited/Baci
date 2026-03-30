@@ -66,8 +66,14 @@ vi.mock('@/schemas/jumia', async () => {
         name: z.string(),
         code: z.string(),
         countryCode: z.string(),
-        countryName: z.string(),
-        status: z.string(),
+        countryName: z
+          .string()
+          .optional()
+          .transform((value) => value ?? ''),
+        status: z.preprocess(
+          (value) => (typeof value === 'string' ? value.toLowerCase() : value),
+          z.enum(['active', 'inactive', 'pending'])
+        ),
         shortCode: z.string(),
       })
     ),
@@ -785,6 +791,40 @@ describe('JumiaClient', () => {
 
       expect(shops).toHaveLength(1);
       expect(shops[0].id).toBe('shop-1');
+    });
+
+    it('normalizes uppercase status and missing country name from /shops', async () => {
+      const client = createDefaultClient();
+      const shopsResponse = {
+        shops: [
+          {
+            id: 'shop-1',
+            name: 'My Shop',
+            email: 'shop@example.com',
+            businessClients: [
+              {
+                name: 'Jumia NG',
+                code: 'jumia_ng',
+                countryCode: 'NG',
+                status: 'ACTIVE',
+                shortCode: 'NG',
+              },
+            ],
+          },
+        ],
+      };
+
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => shopsResponse,
+      });
+
+      const shops = await client.getShops();
+
+      expect(shops[0].businessClients[0].countryName).toBe('');
+      expect(shops[0].businessClients[0].status).toBe('active');
     });
 
     it('rethrows error on API failure', async () => {
