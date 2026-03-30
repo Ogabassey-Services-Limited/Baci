@@ -1,3 +1,9 @@
+import type { ImportJobRecord } from '@/lib/import-jobs/import-job-service';
+
+/**
+ * Ordered select list for import_jobs queries. Keep this aligned with the
+ * runtime ImportJobRecord shape so route helpers do not cast incomplete rows.
+ */
 export const IMPORT_JOB_COLUMNS = [
   'id',
   'merchant_id',
@@ -13,11 +19,12 @@ export const IMPORT_JOB_COLUMNS = [
   'processed_rows',
   'summary',
   'error',
+  'started_at',
   'created_at',
   'committed_at',
   'notified_at',
   'completed_at',
-] as const;
+] as const satisfies readonly (keyof ImportJobRecord)[];
 
 export const IMPORT_JOB_SELECT = IMPORT_JOB_COLUMNS.join(', ');
 
