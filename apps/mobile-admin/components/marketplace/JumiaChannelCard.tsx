@@ -81,6 +81,8 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
         if (queryParams?.code && queryParams?.ticketId) {
           const exchangeData = await apiClient<{
             success: boolean;
+            incomplete?: boolean;
+            message?: string;
             shops?: string[];
             error?: string;
           }>('/api/marketplace/jumia/connect/exchange', {
@@ -98,8 +100,10 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
             Alert.alert('Success', 'Jumia account connected successfully!');
           } else {
             Alert.alert(
-              'Error',
-              exchangeData.error || 'Failed to complete connection'
+              exchangeData.incomplete ? 'Connection Incomplete' : 'Error',
+              exchangeData.message ||
+                exchangeData.error ||
+                'Failed to complete connection'
             );
           }
         } else if (queryParams?.code || queryParams?.ticketId) {
