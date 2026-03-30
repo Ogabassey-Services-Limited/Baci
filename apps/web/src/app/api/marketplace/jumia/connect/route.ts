@@ -4,6 +4,7 @@
  */
 
 import crypto from 'node:crypto';
+import { buildJumiaMobileReturnUrl } from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -30,8 +31,6 @@ const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [
     connectionType: z.literal('oauth'),
   }),
 ]);
-
-const MOBILE_JUMIA_RETURN_URL = 'baciadmin:///sales-channels';
 
 export async function POST(request: NextRequest) {
   try {
@@ -216,7 +215,7 @@ export async function GET(request: NextRequest) {
       const ticketParsed = z.string().uuid().safeParse(ticket);
       if (!ticketParsed.success) {
         return NextResponse.redirect(
-          new URL(`${MOBILE_JUMIA_RETURN_URL}?error=invalid_ticket`)
+          new URL(buildJumiaMobileReturnUrl({ error: 'invalid_ticket' }))
         );
       }
 
@@ -226,7 +225,7 @@ export async function GET(request: NextRequest) {
       const appUrl = getConfiguredAppUrl();
       if (!jumiaClientId || !appUrl) {
         return NextResponse.redirect(
-          new URL(`${MOBILE_JUMIA_RETURN_URL}?error=oauth_not_configured`)
+          new URL(buildJumiaMobileReturnUrl({ error: 'oauth_not_configured' }))
         );
       }
 
@@ -251,7 +250,7 @@ export async function GET(request: NextRequest) {
 
       if (ticketError || !ticketData) {
         return NextResponse.redirect(
-          new URL(`${MOBILE_JUMIA_RETURN_URL}?error=ticket_invalid`)
+          new URL(buildJumiaMobileReturnUrl({ error: 'ticket_invalid' }))
         );
       }
 

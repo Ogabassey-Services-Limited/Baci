@@ -1,3 +1,4 @@
+import { buildJumiaMobileReturnUrl } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   getConfiguredAppUrl,
@@ -26,8 +27,6 @@ const KNOWN_OAUTH_ERRORS = new Set([
   'invalid_scope',
 ]);
 
-const MOBILE_JUMIA_RETURN_URL = 'baciadmin:///sales-channels';
-
 function clearOAuthCookies(response: NextResponse): NextResponse {
   response.cookies.delete('jumia_oauth_state');
   response.cookies.delete('jumia_merchant_id');
@@ -38,18 +37,24 @@ function clearOAuthCookies(response: NextResponse): NextResponse {
 
 function createPlatformRedirect(
   request: NextRequest,
-  query: string
+  query?: Record<string, string | undefined>
 ): NextResponse {
   const platform = request.cookies.get('jumia_oauth_platform')?.value;
-  const redirectBase =
-    platform === 'mobile' ? MOBILE_JUMIA_RETURN_URL : '/dashboard/channels';
+  if (platform === 'mobile') {
+    return NextResponse.redirect(new URL(buildJumiaMobileReturnUrl(query)));
+  }
 
-  return NextResponse.redirect(
-    new URL(
-      `${redirectBase}?${query}`,
-      platform === 'mobile' ? undefined : request.url
-    )
-  );
+  const redirectUrl = new URL('/dashboard/channels', request.url);
+  if (query) {
+    for (const [key, value] of Object.entries(query)) {
+      if (value === undefined) {
+        continue;
+      }
+      redirectUrl.searchParams.set(key, value);
+    }
+  }
+
+  return NextResponse.redirect(redirectUrl);
 }
 
 export async function GET(request: NextRequest) {
@@ -68,7 +73,7 @@ export async function GET(request: NextRequest) {
         storedState: `${storedState?.slice(0, 8)}...`,
       });
       return clearOAuthCookies(
-        createPlatformRedirect(request, 'error=invalid_state')
+        createPlatformRedirect(request, { error: 'invalid_state' })
       );
     }
 
@@ -79,26 +84,24 @@ export async function GET(request: NextRequest) {
           ? rawError
           : 'oauth_error';
         return clearOAuthCookies(
-          createPlatformRedirect(request, `error=${safeError}`)
+          createPlatformRedirect(request, { error: safeError })
         );
       }
       if (!code || code.length > 2048) {
         return clearOAuthCookies(
-          createPlatformRedirect(request, 'error=no_code')
+          createPlatformRedirect(request, { error: 'no_code' })
         );
       }
 
       const ticketId = request.cookies.get('jumia_ticket_id')?.value;
       if (!ticketId || ticketId.length > 200) {
         return clearOAuthCookies(
-          createPlatformRedirect(request, 'error=ticket_invalid')
+          createPlatformRedirect(request, { error: 'ticket_invalid' })
         );
       }
 
       const response = NextResponse.redirect(
-        new URL(
-          `${MOBILE_JUMIA_RETURN_URL}?code=${encodeURIComponent(code)}&ticketId=${encodeURIComponent(ticketId)}`
-        )
+        new URL(buildJumiaMobileReturnUrl({ code, ticketId }))
       );
       return clearOAuthCookies(response);
     }
@@ -109,13 +112,13 @@ export async function GET(request: NextRequest) {
         message: 'Jumia Callback Unauthorized',
         error: auth.error,
       });
-      return createPlatformRedirect(request, 'error=session_expired');
+      return createPlatformRedirect(request, { error: 'session_expired' });
     }
 
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
       logger.error({ message: 'Jumia Callback Merchant not found' });
-      return createPlatformRedirect(request, 'error=merchant_not_found');
+      return createPlatformRedirect(request, { error: 'merchant_not_found' });
     }
 
     if (cookieMerchantId && cookieMerchantId !== merchantId) {
@@ -124,7 +127,7 @@ export async function GET(request: NextRequest) {
         cookieMerchantId,
         merchantId,
       });
-      return createPlatformRedirect(request, 'error=session_expired');
+      return createPlatformRedirect(request, { error: 'session_expired' });
     }
 
     if (rawError) {
@@ -136,14 +139,11 @@ export async function GET(request: NextRequest) {
         error: safeError,
         merchantId,
       });
-      return createPlatformRedirect(
-        request,
-        `error=${encodeURIComponent(safeError)}`
-      );
+      return createPlatformRedirect(request, { error: safeError });
     }
 
     if (!code || code.length > 2048) {
-      return createPlatformRedirect(request, 'error=no_code');
+      return createPlatformRedirect(request, { error: 'no_code' });
     }
 
     const jumiaClientId = getJumiaClientId();
@@ -158,7 +158,9 @@ export async function GET(request: NextRequest) {
         hasClientSecret: Boolean(jumiaClientSecret),
         hasAppUrl: Boolean(appUrl),
       });
-      return createPlatformRedirect(request, 'error=oauth_not_configured');
+      return createPlatformRedirect(request, {
+        error: 'oauth_not_configured',
+      });
     }
     const jumiaRedirectUri = getJumiaRedirectUri(appUrl);
 
@@ -190,7 +192,9 @@ export async function GET(request: NextRequest) {
               }
             : String(tokenError).slice(0, 200),
       });
-      return createPlatformRedirect(request, 'error=token_exchange_failed');
+      return createPlatformRedirect(request, {
+        error: 'token_exchange_failed',
+      });
     }
 
     const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);
@@ -236,7 +240,7 @@ export async function GET(request: NextRequest) {
         merchantId,
         error: existingIntegrationsError,
       });
-      return createPlatformRedirect(request, 'error=database_error');
+      return createPlatformRedirect(request, { error: 'database_error' });
     }
     const existingActiveShopIds = new Set(
       (existingIntegrations ?? [])
@@ -300,7 +304,7 @@ export async function GET(request: NextRequest) {
         shopIds: integrationRows.map((row) => row.shop_id),
         error: insertError,
       });
-      return createPlatformRedirect(request, 'error=database_error');
+      return createPlatformRedirect(request, { error: 'database_error' });
     }
 
     const newShopIds = integrationRows
@@ -312,8 +316,13 @@ export async function GET(request: NextRequest) {
       .map((integration) => integration.shop_id);
     const redirectQuery =
       newShopIds.length > 0
-        ? `success=jumia_connected&shops=${encodeURIComponent(newShopIds.join(','))}`
-        : 'success=jumia_connected';
+        ? {
+            success: 'jumia_connected',
+            shops: newShopIds.join(','),
+          }
+        : {
+            success: 'jumia_connected',
+          };
     const response = createPlatformRedirect(request, redirectQuery);
     return clearOAuthCookies(response);
   } catch (error) {
@@ -335,6 +344,6 @@ export async function GET(request: NextRequest) {
               summary: String(error).slice(0, 200),
             },
     });
-    return createPlatformRedirect(request, 'error=connection_failed');
+    return createPlatformRedirect(request, { error: 'connection_failed' });
   }
 }

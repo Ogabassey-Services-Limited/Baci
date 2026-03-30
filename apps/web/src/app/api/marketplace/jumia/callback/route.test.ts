@@ -1,3 +1,4 @@
+import { buildJumiaMobileReturnUrl } from '@baci/shared';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -335,7 +336,7 @@ describe('Jumia callback route', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'baciadmin:///sales-channels?error=invalid_state'
+      buildJumiaMobileReturnUrl({ error: 'invalid_state' })
     );
     expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
     expect(mockUpsert).not.toHaveBeenCalled();
@@ -351,7 +352,10 @@ describe('Jumia callback route', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'baciadmin:///sales-channels?code=auth-code&ticketId=22222222-2222-4222-8222-222222222222'
+      buildJumiaMobileReturnUrl({
+        code: 'auth-code',
+        ticketId: '22222222-2222-4222-8222-222222222222',
+      })
     );
     expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
     expect(mockUpsert).not.toHaveBeenCalled();
