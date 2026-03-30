@@ -18,10 +18,18 @@ export async function POST(request: Request) {
     // 1. Security Check - use constant-time comparison to prevent timing attacks
     const cronSecret = request.headers.get('x-cron-secret');
     const expectedSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret || !expectedSecret) {
+      console.warn('Unauthorized cron attempt');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const cronSecretBuf = Buffer.from(cronSecret);
+    const expectedSecretBuf = Buffer.from(expectedSecret);
+
     if (
-      !cronSecret ||
-      !expectedSecret ||
-      !timingSafeEqual(Buffer.from(cronSecret), Buffer.from(expectedSecret))
+      cronSecretBuf.length !== expectedSecretBuf.length ||
+      !timingSafeEqual(cronSecretBuf, expectedSecretBuf)
     ) {
       console.warn('Unauthorized cron attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
