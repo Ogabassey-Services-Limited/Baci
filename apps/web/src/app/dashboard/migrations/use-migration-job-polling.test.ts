@@ -297,6 +297,46 @@ describe('useMigrationJobPolling', () => {
     );
   });
 
+  it('triggers refreshJob when validating updates start exposing persisted rows', () => {
+    const refreshJob = vi.fn().mockResolvedValue(true);
+
+    renderHook(() =>
+      useMigrationJobPolling({
+        activeFilter: 'all',
+        refreshJob,
+        rowsResponse: null,
+        selectedJob: createJob('validating', {
+          processed_rows: 0,
+          total_rows: 5822,
+        }),
+        selectedJobId: 'job-1',
+      })
+    );
+
+    const realtimeCallback = mockChannel.on.mock.calls[0][2];
+
+    act(() => {
+      realtimeCallback({
+        new: {
+          id: 'job-1',
+          status: 'validating',
+          processed_rows: 250,
+          total_rows: 5822,
+        },
+      });
+    });
+
+    expect(refreshJob).toHaveBeenCalledTimes(1);
+    expect(refreshJob).toHaveBeenCalledWith(
+      'job-1',
+      expect.objectContaining({
+        background: true,
+        includeRows: true,
+        includeJob: true,
+      })
+    );
+  });
+
   it('invalidates in-flight polls when Realtime update arrives', async () => {
     const firstRefresh = createDeferred<boolean>();
     const refreshJob = vi.fn().mockReturnValue(firstRefresh.promise);

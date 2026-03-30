@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PreviewBuildChunk } from '@/lib/import-jobs/import-job-service';
+import { createFailingChunkGenerator } from '@/lib/import-jobs/import-job-test-helpers';
 
 const {
   buildImportPreviewChunksForJobMock,
@@ -34,18 +34,6 @@ vi.mock('@/lib/import-jobs/import-job-service', () => ({
 }));
 
 import { runClaimedImportJob } from '@/lib/import-jobs/run-claimed-import-job';
-
-function createFailingChunkGenerator(
-  message: string
-): AsyncGenerator<PreviewBuildChunk> {
-  return (async function* () {
-    // Keep the rejected first next() behavior while satisfying Biome's
-    // useYield/useAwait rules for async generators in tests.
-    yield* [];
-    await Promise.resolve();
-    throw new Error(message);
-  })();
-}
 
 function createJob(status: 'validating' | 'notifying') {
   return {

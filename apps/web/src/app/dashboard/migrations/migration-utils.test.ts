@@ -3,6 +3,7 @@ import {
   canLoadMigrationRows,
   decorateImportJob,
   filterMigrationRows,
+  getInitialMigrationSelection,
   getMigrationProgressDetail,
   getMigrationProgressValue,
   getMigrationRowsCacheKey,
@@ -183,5 +184,36 @@ describe('migration row loading helpers', () => {
     expect(getMigrationRowsCacheKey('job:1', 'all', 2)).toBe('job%3A1:all:2');
     expect(getMigrationRowsCacheKey('', 'all', -1)).toBe(':all:-1');
     expect(getMigrationRowsCacheKeyPrefix('job:1')).toBe('job%3A1:');
+  });
+
+  it('auto-selects validating jobs once persisted preview rows exist', () => {
+    expect(getInitialMigrationSelection([])).toBeNull();
+
+    expect(
+      getInitialMigrationSelection([
+        { id: 'job-uploaded', status: 'uploaded', processed_rows: 0 },
+        { id: 'job-validating', status: 'validating', processed_rows: 0 },
+      ])
+    ).toBeNull();
+
+    expect(
+      getInitialMigrationSelection([
+        { id: 'job-uploaded', status: 'uploaded', processed_rows: 0 },
+        { id: 'job-validating', status: 'validating', processed_rows: 12 },
+      ])
+    ).toBe('job-validating');
+
+    expect(
+      getInitialMigrationSelection([
+        { id: 'job-validating', status: 'validating', processed_rows: 0 },
+      ])
+    ).toBeNull();
+
+    expect(
+      getInitialMigrationSelection([
+        { id: 'job-first', status: 'validating', processed_rows: 12 },
+        { id: 'job-second', status: 'validating', processed_rows: 24 },
+      ])
+    ).toBe('job-first');
   });
 });

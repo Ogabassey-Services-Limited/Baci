@@ -142,10 +142,16 @@ export function getMigrationRowsCacheKeyPrefix(jobId: string) {
 }
 
 export function getInitialMigrationSelection(
-  statuses: Array<{ id: string; status: ImportJobStatus }>
+  statuses: Array<{
+    id: string;
+    status: ImportJobStatus;
+    processed_rows?: number | null;
+  }>
 ) {
   return (
-    statuses.find((job) => shouldFetchMigrationRows(job.status))?.id ?? null
+    statuses.find((job) =>
+      canLoadMigrationRows(job.status, job.processed_rows ?? 0)
+    )?.id ?? null
   );
 }
 

@@ -7,6 +7,10 @@ import type {
 } from '@/app/dashboard/migrations/migration-types';
 import { useMigrationJobs } from '@/app/dashboard/migrations/use-migration-jobs';
 
+vi.mock('@/app/dashboard/migrations/use-migration-job-polling', () => ({
+  useMigrationJobPolling: () => undefined,
+}));
+
 function createJsonResponse(body: unknown): Response {
   return {
     ok: true,
@@ -113,6 +117,41 @@ describe('useMigrationJobs', () => {
     expect(result.current.selectedJobId).toBeNull();
     expect(result.current.selectedJob).toBeNull();
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('auto-selects validating jobs once persisted preview rows exist', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = String(input);
+
+      if (
+        url ===
+        '/api/import-jobs/job-validating/rows?filter=all&page=1&pageSize=25'
+      ) {
+        return Promise.resolve(
+          createJsonResponse(createRowsResponse('row-validating'))
+        );
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const { result } = renderHook(() =>
+      useMigrationJobs({
+        initialJobs: [
+          createJob('job-uploaded', 'uploaded'),
+          createJob('job-validating', 'validating', {
+            processed_rows: 25,
+            total_rows: 100,
+          }),
+        ],
+      })
+    );
+
+    expect(result.current.selectedJobId).toBe('job-validating');
+
+    await waitFor(() => {
+      expect(result.current.rowsResponse?.rows[0]?.id).toBe('row-validating');
+    });
   });
 
   it('selects the first previewable job and fetches rows on mount', async () => {

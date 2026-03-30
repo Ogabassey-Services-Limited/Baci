@@ -8,8 +8,8 @@ import type {
   MigrationPreviewFilter,
 } from '@/app/dashboard/migrations/migration-types';
 import {
+  canLoadMigrationRows,
   isMigrationStatusActive,
-  shouldFetchMigrationRows,
 } from '@/app/dashboard/migrations/migration-utils';
 import { createClient } from '@/lib/supabase/client';
 
@@ -46,8 +46,11 @@ export function useMigrationJobPolling({
   selectedJobId,
 }: UseMigrationJobPollingInput) {
   const selectedJobStatus = selectedJob?.status;
+  const selectedJobProcessedRows = selectedJob?.processed_rows ?? 0;
   const selectedJobStatusRef = useRef(selectedJobStatus);
+  const selectedJobProcessedRowsRef = useRef(selectedJobProcessedRows);
   selectedJobStatusRef.current = selectedJobStatus;
+  selectedJobProcessedRowsRef.current = selectedJobProcessedRows;
 
   useEffect(() => {
     if (
@@ -86,17 +89,20 @@ export function useMigrationJobPolling({
           // Route through normalize path
           onRealtimeJobUpdate?.(newJob);
 
-          // Terminal transition: fetch rows when job becomes row-fetchable.
+          // Fetch rows when an active job becomes row-fetchable, including
+          // validating jobs that have started persisting preview rows.
           // Must use includeJob: true because selectedJobRef still holds the
           // stale status (React hasn't re-rendered yet) and refreshJob uses it
           // to decide whether rows should be fetched.
           const previousStatus = selectedJobStatusRef.current;
           const newStatus = newJob.status;
+          const nextProcessedRows =
+            newJob.processed_rows ?? selectedJobProcessedRowsRef.current;
           if (
             previousStatus &&
             isMigrationStatusActive(previousStatus) &&
             newStatus &&
-            shouldFetchMigrationRows(newStatus)
+            canLoadMigrationRows(newStatus, nextProcessedRows)
           ) {
             void refreshJob(selectedJobId, {
               background: true,
