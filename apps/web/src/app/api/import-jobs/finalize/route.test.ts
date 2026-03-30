@@ -63,6 +63,7 @@ function createQuery<T>(result: { data: T; error: unknown }) {
   const query = {
     select: vi.fn(),
     eq: vi.fn(),
+    gt: vi.fn(),
     maybeSingle: vi.fn(),
     single: vi.fn(),
     update: vi.fn(),
@@ -70,6 +71,7 @@ function createQuery<T>(result: { data: T; error: unknown }) {
 
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
+  query.gt.mockReturnValue(query);
   query.maybeSingle.mockResolvedValue(result);
   query.single.mockResolvedValue(result);
   query.update.mockReturnValue(query);
@@ -255,8 +257,34 @@ describe('POST /api/import-jobs/finalize', () => {
         client_upload_id: 'client-upload-1',
       })
     );
+    expect(supabaseMock.__mocks.pendingUpdate.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        claimed_at: expect.any(String),
+      })
+    );
     await flushAfterCallbacks();
     expect(kickoffImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');
+  });
+
+  it('returns 400 for malformed JSON bodies', async () => {
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: {
+        userId: 'user-1',
+        merchantContext: { merchantId: 'merchant-1' },
+        supabase: createSupabaseMock({}),
+      } as never,
+    });
+
+    const response = await POST({
+      nextUrl: new URL('http://localhost/api/import-jobs/finalize'),
+      json: vi.fn().mockRejectedValue(new Error('bad json')),
+    } as unknown as NextRequest);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid import job payload',
+      code: 'invalid_input',
+    });
   });
 
   it('returns 404 when the pending upload does not exist', async () => {

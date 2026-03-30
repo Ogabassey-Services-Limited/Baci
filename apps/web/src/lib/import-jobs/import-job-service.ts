@@ -46,6 +46,22 @@ export interface ImportJobRecord {
   completed_at?: string | null;
 }
 
+export interface PendingImportUploadRecord {
+  id: string;
+  merchant_id: string;
+  created_by: string;
+  client_upload_id: string;
+  storage_path: string;
+  source_platform: 'bumpa';
+  entity_type: ImportJobEntityType;
+  original_filename: string;
+  content_type: string | null;
+  file_size_bytes: number | null;
+  claimed_at: string | null;
+  expires_at: string;
+  created_at?: string;
+}
+
 interface PreviewBuildResult {
   sourceRows: Record<string, string>[];
   rows: ImportPreviewRow<NormalizedImportedOrder | NormalizedImportedProduct>[];

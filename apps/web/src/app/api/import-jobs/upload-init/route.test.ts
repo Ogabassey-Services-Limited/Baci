@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/env', () => ({
   isImportJobDirectUploadEnabled: vi.fn(() => true),
@@ -14,6 +14,7 @@ vi.mock('@/lib/rate-limiter', () => ({
 }));
 
 vi.mock('@/lib/import-jobs/import-job-route-auth', () => ({
+  hasImportRoutePermission: vi.fn(() => true),
   resolveImportRouteContext: vi.fn(),
 }));
 
@@ -25,7 +26,10 @@ vi.mock('@/lib/import-jobs/import-job-service', () => ({
 import type { NextRequest as ActualNextRequest } from 'next/server';
 import { isImportJobDirectUploadEnabled } from '@/env';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { resolveImportRouteContext } from '@/lib/import-jobs/import-job-route-auth';
+import {
+  hasImportRoutePermission,
+  resolveImportRouteContext,
+} from '@/lib/import-jobs/import-job-route-auth';
 import {
   createImportStoragePath,
   validateImportFileMetadata,
@@ -84,12 +88,17 @@ describe('POST /api/import-jobs/upload-init', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(isImportJobDirectUploadEnabled).mockReturnValue(true);
+    vi.mocked(hasImportRoutePermission).mockReturnValue(true);
     vi.mocked(checkRateLimit).mockResolvedValue(true);
     vi.mocked(checkCsrfProtection).mockResolvedValue({ valid: true });
     vi.mocked(createImportStoragePath).mockReturnValue(
       'merchant-1/orders/upload.csv'
     );
     vi.mocked(validateImportFileMetadata).mockReturnValue(null);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('returns 409 when direct upload is disabled', async () => {
@@ -145,6 +154,54 @@ describe('POST /api/import-jobs/upload-init', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Unsupported CSV content type',
       code: 'invalid_file',
+    });
+  });
+
+  it('returns 400 for malformed JSON bodies', async () => {
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: {
+        userId: 'user-1',
+        merchantContext: { merchantId: 'merchant-1' },
+        supabase: createSupabaseMock(),
+      } as never,
+    });
+
+    const response = await POST({
+      nextUrl: new URL('http://localhost/api/import-jobs/upload-init'),
+      json: vi.fn().mockRejectedValue(new Error('bad json')),
+    } as unknown as NextRequest);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid import job payload',
+      code: 'invalid_input',
+    });
+  });
+
+  it('returns 403 when the user lacks entity permissions', async () => {
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: {
+        userId: 'user-1',
+        merchantContext: { merchantId: 'merchant-1' },
+        supabase: createSupabaseMock(),
+      } as never,
+    });
+    vi.mocked(hasImportRoutePermission).mockReturnValue(false);
+
+    const response = await POST(
+      createRequest({
+        sourcePlatform: 'bumpa',
+        entityType: 'orders',
+        fileName: 'orders.csv',
+        fileSizeBytes: 12,
+        contentType: 'text/csv',
+      }) as NextRequest
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Forbidden',
+      code: 'forbidden',
     });
   });
 

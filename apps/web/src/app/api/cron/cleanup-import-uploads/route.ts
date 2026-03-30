@@ -48,6 +48,14 @@ export async function GET(request: NextRequest) {
       .eq('client_upload_id', upload.client_upload_id)
       .maybeSingle();
 
+    if (existingJob.error) {
+      console.error(
+        'Pending import upload job lookup failed:',
+        existingJob.error
+      );
+      continue;
+    }
+
     if (existingJob.data) {
       const deletePendingRow = await supabase
         .from('pending_import_uploads')

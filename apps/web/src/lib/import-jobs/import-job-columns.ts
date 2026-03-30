@@ -1,4 +1,7 @@
-import type { ImportJobRecord } from '@/lib/import-jobs/import-job-service';
+import type {
+  ImportJobRecord,
+  PendingImportUploadRecord,
+} from '@/lib/import-jobs/import-job-service';
 
 /**
  * Ordered select list for import_jobs queries. Keep this aligned with the
@@ -42,7 +45,7 @@ export const PENDING_IMPORT_UPLOAD_COLUMNS = [
   'claimed_at',
   'expires_at',
   'created_at',
-] as const;
+] as const satisfies readonly (keyof PendingImportUploadRecord)[];
 
 export const PENDING_IMPORT_UPLOAD_SELECT =
   PENDING_IMPORT_UPLOAD_COLUMNS.join(', ');

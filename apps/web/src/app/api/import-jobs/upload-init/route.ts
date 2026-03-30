@@ -2,7 +2,10 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { isImportJobDirectUploadEnabled } from '@/env';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { PENDING_IMPORT_UPLOAD_SELECT } from '@/lib/import-jobs/import-job-columns';
-import { resolveImportRouteContext } from '@/lib/import-jobs/import-job-route-auth';
+import {
+  hasImportRoutePermission,
+  resolveImportRouteContext,
+} from '@/lib/import-jobs/import-job-route-auth';
 import {
   createImportStoragePath,
   validateImportFileMetadata,
@@ -52,13 +55,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const parsedInput = importJobUploadInitSchema.safeParse(
-      await request.json()
-    );
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid import job payload', code: 'invalid_input' },
+        { status: 400 }
+      );
+    }
+
+    const parsedInput = importJobUploadInitSchema.safeParse(rawBody);
     if (!parsedInput.success) {
       return NextResponse.json(
         { error: 'Invalid import job payload', code: 'invalid_input' },
         { status: 400 }
+      );
+    }
+
+    if (
+      !hasImportRoutePermission(
+        authResult.context.merchantContext,
+        parsedInput.data.entityType
+      )
+    ) {
+      return NextResponse.json(
+        { error: 'Forbidden', code: 'forbidden' },
+        { status: 403 }
       );
     }
 

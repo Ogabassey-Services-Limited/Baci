@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
         file_size_bytes: file.size,
       })
       .select(IMPORT_JOB_SELECT)
-      .single();
+      .single<ImportJobRecord>();
 
     if (insertError || !job) {
       const { error: cleanupError } = await authResult.context.supabase.storage
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const createdJob = job as unknown as ImportJobRecord;
+    const createdJob = job;
 
     const origin = request.nextUrl.origin;
     after(async () => {
