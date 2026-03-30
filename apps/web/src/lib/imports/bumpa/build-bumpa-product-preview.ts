@@ -64,6 +64,24 @@ function buildSummary(rows: ImportPreviewRow<NormalizedImportedProduct>[]) {
   );
 }
 
+function updateSummary(
+  summary: ImportPreviewSummary,
+  row: ImportPreviewRow<NormalizedImportedProduct>,
+  delta: 1 | -1 = 1
+) {
+  summary.totalRows += delta;
+
+  if (row.rowStatus === 'invalid') {
+    summary.invalidRows += delta;
+  } else {
+    summary.validRows += delta;
+  }
+
+  if (row.rowStatus === 'create') summary.createCount += delta;
+  if (row.rowStatus === 'update') summary.updateCount += delta;
+  if (row.rowStatus === 'duplicate') summary.duplicateCount += delta;
+}
+
 async function maybeReportProgress(
   onProgress: BuildBumpaProductPreviewInput['onProgress'],
   processedRows: number,
@@ -98,9 +116,11 @@ export async function* buildBumpaProductPreviewChunks({
   chunkSize = 250,
   onProgress,
 }: BuildBumpaProductPreviewInput) {
-  const effectiveChunkSize = chunkSize > 0 ? chunkSize : 250;
+  const effectiveChunkSize =
+    Number.isInteger(chunkSize) && chunkSize > 0 ? chunkSize : 250;
   const seenExternalIds = new Set<string>();
   const existingByExternalId = new Map<string, ExistingImportedProduct>();
+  const runningSummary = buildSummary([]);
 
   existingProducts.forEach((product) => {
     if (product.externalSource === 'bumpa' && product.externalId) {
@@ -108,7 +128,6 @@ export async function* buildBumpaProductPreviewChunks({
     }
   });
 
-  const previewRows: ImportPreviewRow<NormalizedImportedProduct>[] = [];
   const pendingRows = new Map<
     number,
     ImportPreviewRow<NormalizedImportedProduct>
@@ -139,7 +158,7 @@ export async function* buildBumpaProductPreviewChunks({
       rows: chunkRows,
       processedRows,
       totalRows: rows.length,
-      partialSummary: buildSummary(previewRows),
+      partialSummary: { ...runningSummary },
     };
   }
 
@@ -155,7 +174,7 @@ export async function* buildBumpaProductPreviewChunks({
         payload: null,
         meta: {},
       } satisfies ImportPreviewRow<NormalizedImportedProduct>;
-      previewRows.push(previewRow);
+      updateSummary(runningSummary, previewRow);
       queuePendingRow(previewRow);
       await maybeReportProgress(onProgress, index + 1, rows.length);
       const chunk = buildChunk(index + 1, index + 1 === rows.length);
@@ -178,7 +197,7 @@ export async function* buildBumpaProductPreviewChunks({
         payload: null,
         meta: {},
       } satisfies ImportPreviewRow<NormalizedImportedProduct>;
-      previewRows.push(previewRow);
+      updateSummary(runningSummary, previewRow);
       queuePendingRow(previewRow);
       await maybeReportProgress(onProgress, index + 1, rows.length);
       const chunk = buildChunk(index + 1, index + 1 === rows.length);
@@ -241,7 +260,7 @@ export async function* buildBumpaProductPreviewChunks({
       payload: errors.length > 0 ? null : payload,
       meta: {},
     } satisfies ImportPreviewRow<NormalizedImportedProduct>;
-    previewRows.push(previewRow);
+    updateSummary(runningSummary, previewRow);
     queuePendingRow(previewRow);
     await maybeReportProgress(onProgress, index + 1, rows.length);
     const chunk = buildChunk(index + 1, index + 1 === rows.length);

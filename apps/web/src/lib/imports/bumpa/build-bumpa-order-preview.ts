@@ -27,7 +27,7 @@ interface BuildBumpaOrderPreviewInput {
   }) => Promise<void> | void;
 }
 
-interface BuildBumpaOrderPreviewChunk {
+export interface BuildBumpaOrderPreviewChunk {
   rows: ImportPreviewRow<NormalizedImportedOrder>[];
   processedRows: number;
   totalRows: number;
@@ -62,6 +62,45 @@ async function maybeReportProgress(
   }
 }
 
+function createEmptyOrderPreviewSummary() {
+  return buildBumpaOrderPreviewSummary([]);
+}
+
+function updateOrderPreviewSummary(
+  summary: ReturnType<typeof buildBumpaOrderPreviewSummary>,
+  row: ImportPreviewRow<NormalizedImportedOrder>,
+  delta: 1 | -1 = 1
+) {
+  summary.totalRows += delta;
+
+  if (row.rowStatus === 'invalid') {
+    summary.invalidRows += delta;
+  } else {
+    summary.validRows += delta;
+  }
+
+  if (row.rowStatus === 'create') summary.createCount += delta;
+  if (row.rowStatus === 'update') summary.updateCount += delta;
+  if (row.rowStatus === 'duplicate') summary.duplicateCount += delta;
+
+  if (row.payload) {
+    if (row.payload.customer.email) {
+      summary.claimableCustomers += delta;
+    } else if (row.payload.customer.phone) {
+      summary.phoneOnlyCustomers += delta;
+    } else {
+      summary.anonymousCustomers += delta;
+    }
+
+    summary.unmatchedItems +=
+      row.payload.items.filter((item) => !item.matched).length * delta;
+
+    if (row.payload.paymentStatus === 'paid') {
+      summary.receiptReadyOrders += delta;
+    }
+  }
+}
+
 export async function* buildBumpaOrderPreviewChunks({
   rows,
   existingOrders,
@@ -69,6 +108,8 @@ export async function* buildBumpaOrderPreviewChunks({
   chunkSize = 250,
   onProgress,
 }: BuildBumpaOrderPreviewInput) {
+  const effectiveChunkSize =
+    Number.isInteger(chunkSize) && chunkSize > 0 ? chunkSize : 250;
   const seenExternalIds = new Set<string>();
   const existingOrdersByExternalId = new Map<string, ExistingImportedOrder>();
   const existingOrdersByOrderNumber = new Map<
@@ -76,6 +117,7 @@ export async function* buildBumpaOrderPreviewChunks({
     ExistingImportedOrder[]
   >();
   const uploadedOrderPreviewIndexes = new Map<string, number[]>();
+  const runningSummary = createEmptyOrderPreviewSummary();
 
   existingOrders.forEach((order) => {
     if (order.externalSource === 'bumpa' && order.externalId) {
@@ -105,7 +147,7 @@ export async function* buildBumpaOrderPreviewChunks({
       return null;
     }
 
-    if (!force && processedRows % chunkSize !== 0) {
+    if (!force && processedRows % effectiveChunkSize !== 0) {
       return null;
     }
 
@@ -118,7 +160,7 @@ export async function* buildBumpaOrderPreviewChunks({
       rows: chunkRows,
       processedRows,
       totalRows: rows.length,
-      partialSummary: buildBumpaOrderPreviewSummary(previewRows),
+      partialSummary: { ...runningSummary },
     };
   }
 
@@ -135,6 +177,7 @@ export async function* buildBumpaOrderPreviewChunks({
         meta: {},
       } satisfies ImportPreviewRow<NormalizedImportedOrder>;
       previewRows.push(previewRow);
+      updateOrderPreviewSummary(runningSummary, previewRow);
       queuePendingRow(previewRow);
       await maybeReportProgress(onProgress, index + 1, rows.length);
       const chunk = buildChunk(index + 1, index + 1 === rows.length);
@@ -158,6 +201,7 @@ export async function* buildBumpaOrderPreviewChunks({
         meta: {},
       } satisfies ImportPreviewRow<NormalizedImportedOrder>;
       previewRows.push(previewRow);
+      updateOrderPreviewSummary(runningSummary, previewRow);
       queuePendingRow(previewRow);
       await maybeReportProgress(onProgress, index + 1, rows.length);
       const chunk = buildChunk(index + 1, index + 1 === rows.length);
@@ -268,6 +312,7 @@ export async function* buildBumpaOrderPreviewChunks({
     } satisfies ImportPreviewRow<NormalizedImportedOrder>;
 
     previewRows.push(previewRow);
+    updateOrderPreviewSummary(runningSummary, previewRow);
     queuePendingRow(previewRow);
 
     if (orderNumber) {
@@ -278,12 +323,27 @@ export async function* buildBumpaOrderPreviewChunks({
             continue;
           }
 
-          if (!previousPreviewRow.errors.includes(duplicateUploadError)) {
+          const shouldAddDuplicateUploadError =
+            !previousPreviewRow.errors.includes(duplicateUploadError);
+          const shouldInvalidatePreviousRow =
+            previousPreviewRow.rowStatus !== 'duplicate' &&
+            previousPreviewRow.rowStatus !== 'invalid';
+
+          if (!shouldAddDuplicateUploadError && !shouldInvalidatePreviousRow) {
+            continue;
+          }
+
+          if (shouldInvalidatePreviousRow) {
+            updateOrderPreviewSummary(runningSummary, previousPreviewRow, -1);
+          }
+
+          if (shouldAddDuplicateUploadError) {
             previousPreviewRow.errors.push(duplicateUploadError);
           }
 
-          if (previousPreviewRow.rowStatus !== 'duplicate') {
+          if (shouldInvalidatePreviousRow) {
             previousPreviewRow.rowStatus = 'invalid';
+            updateOrderPreviewSummary(runningSummary, previousPreviewRow, 1);
           }
 
           queuePendingRow(previousPreviewRow);
@@ -315,7 +375,7 @@ export async function buildBumpaOrderPreview({
     number,
     ImportPreviewRow<NormalizedImportedOrder>
   >();
-  let summary = buildBumpaOrderPreviewSummary([]);
+  let summary = createEmptyOrderPreviewSummary();
 
   for await (const chunk of buildBumpaOrderPreviewChunks({
     rows,

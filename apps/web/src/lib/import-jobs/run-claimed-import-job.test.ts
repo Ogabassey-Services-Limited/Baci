@@ -80,26 +80,13 @@ import { runClaimedImportJob } from './run-claimed-import-job';
 function createFailingChunkGenerator(
   message: string
 ): AsyncGenerator<PreviewBuildChunk> {
-  const iterator = {
-    async next() {
-      await Promise.resolve();
-      throw new Error(message);
-    },
-    return(value?: unknown) {
-      return Promise.resolve({
-        done: true as const,
-        value: value as PreviewBuildChunk,
-      });
-    },
-    throw(error?: unknown) {
-      return Promise.reject(error);
-    },
-    [Symbol.asyncIterator]() {
-      return this;
-    },
-  };
-
-  return iterator as unknown as AsyncGenerator<PreviewBuildChunk>;
+  return (async function* () {
+    // Keep the rejected first next() behavior while satisfying Biome's
+    // useYield/useAwait rules for async generators in tests.
+    yield* [];
+    await Promise.resolve();
+    throw new Error(message);
+  })();
 }
 
 function makeJob(overrides: Partial<ImportJobRecord> = {}): ImportJobRecord {

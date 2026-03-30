@@ -1,5 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type {
+  ImportPreviewRow,
+  NormalizedImportedOrder,
+  NormalizedImportedProduct,
+} from '@/lib/imports/bumpa/bumpa-types';
 
 vi.mock('@/env', () => ({
   getImportJobWorkerSecret: vi.fn(() => 'worker-secret'),
@@ -53,6 +58,84 @@ function createPreviewSummary() {
     anonymousCustomers: 0,
     unmatchedItems: 0,
     receiptReadyOrders: 1,
+  };
+}
+
+function createOrderPayload(
+  overrides: Partial<NormalizedImportedOrder> = {}
+): NormalizedImportedOrder {
+  return {
+    sourcePlatform: 'bumpa',
+    externalSourceId: 'bumpa-1',
+    orderNumber: 'ORD-1',
+    customer: {
+      fullName: 'Ada Lovelace',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      email: 'ada@example.com',
+      phone: null,
+      claimable: true,
+    },
+    paymentStatus: 'paid',
+    shippingStatus: 'delivered',
+    sourceOrderStatus: 'COMPLETED',
+    sourceShippingStatus: 'DELIVERED',
+    sourceChannel: 'mobile',
+    sourceOrigin: 'instagram',
+    total: 5000,
+    subtotal: 5000,
+    discountAmount: 0,
+    shippingFee: 0,
+    taxAmount: 0,
+    amountPaid: 5000,
+    amountDue: 0,
+    currency: 'NGN',
+    orderDate: '2026-03-22T00:00:00.000Z',
+    createdAt: '2026-03-22T00:00:00.000Z',
+    updatedAt: '2026-03-22T00:00:00.000Z',
+    couponCode: null,
+    shippingOption: null,
+    receiptReady: true,
+    items: [],
+    importMetadata: {},
+    ...overrides,
+  };
+}
+
+function createProductPayload(
+  overrides: Partial<NormalizedImportedProduct> = {}
+): NormalizedImportedProduct {
+  return {
+    sourcePlatform: 'bumpa',
+    externalSourceId: 'prod-1',
+    title: 'Imported Product',
+    description: null,
+    sku: null,
+    price: 1500,
+    currency: 'NGN',
+    stock: 0,
+    manageStock: true,
+    status: 'active',
+    images: [],
+    category: null,
+    sourceCreatedAt: null,
+    sourceUpdatedAt: null,
+    importMetadata: {},
+    ...overrides,
+  };
+}
+
+function createOrderPreviewRow(
+  overrides: Partial<ImportPreviewRow<NormalizedImportedOrder>> = {}
+): ImportPreviewRow<NormalizedImportedOrder> {
+  return {
+    rowNumber: 2,
+    sourceExternalId: 'bumpa-1',
+    rowStatus: 'update',
+    errors: [],
+    payload: createOrderPayload(),
+    meta: {},
+    ...overrides,
   };
 }
 
@@ -188,25 +271,12 @@ describe('import-job-service', () => {
     });
     vi.mocked(buildBumpaOrderPreviewChunks).mockReturnValue(
       (async function* () {
-        await Promise.resolve();
-        yield {
-          rows: [
-            {
-              rowNumber: 2,
-              sourceExternalId: 'bumpa-1',
-              rowStatus: 'update' as const,
-              errors: [],
-              payload: {
-                externalSourceId: 'bumpa-1',
-                orderNumber: 'ORD-1',
-              },
-              meta: {},
-            } as never,
-          ],
+        yield await Promise.resolve({
+          rows: [createOrderPreviewRow()],
           partialSummary: createPreviewSummary(),
           processedRows: 1,
           totalRows: 1,
-        };
+        });
       })()
     );
 
@@ -256,13 +326,12 @@ describe('import-job-service', () => {
     });
     vi.mocked(buildBumpaProductPreviewChunks).mockReturnValue(
       (async function* () {
-        await Promise.resolve();
-        yield {
+        yield await Promise.resolve({
           rows: [],
           partialSummary: createPreviewSummary(),
           processedRows: 1,
           totalRows: 1,
-        };
+        });
       })()
     );
 
@@ -327,8 +396,7 @@ describe('import-job-service', () => {
     });
     vi.mocked(buildBumpaOrderPreviewChunks).mockReturnValue(
       (async function* () {
-        await Promise.resolve();
-        yield {
+        yield await Promise.resolve({
           rows: [
             {
               rowNumber: 2,
@@ -345,9 +413,9 @@ describe('import-job-service', () => {
             ...createPreviewSummary(),
             totalRows: 1,
           },
-        };
+        });
 
-        yield {
+        yield await Promise.resolve({
           rows: [
             {
               rowNumber: 2,
@@ -375,7 +443,7 @@ describe('import-job-service', () => {
             createCount: 0,
             totalRows: 2,
           },
-        };
+        });
       })()
     );
 
@@ -415,8 +483,7 @@ describe('import-job-service', () => {
     });
     vi.mocked(buildBumpaOrderPreviewChunks).mockReturnValue(
       (async function* () {
-        await Promise.resolve();
-        yield {
+        yield await Promise.resolve({
           rows: [
             {
               rowNumber: 2,
@@ -430,7 +497,7 @@ describe('import-job-service', () => {
           processedRows: 1,
           totalRows: 1,
           partialSummary: createPreviewSummary(),
-        };
+        });
       })()
     );
 
@@ -470,10 +537,12 @@ describe('import-job-service', () => {
           rowStatus: 'create',
           errors: [],
           payload: {
-            externalSourceId: 'source-1',
-            title: 'Imported Product',
-            price: 1500,
-          } as never,
+            ...createProductPayload({
+              externalSourceId: 'source-1',
+              title: 'Imported Product',
+              price: 1500,
+            }),
+          },
           meta: { matched: true },
         },
       ]
@@ -487,11 +556,11 @@ describe('import-job-service', () => {
         source_external_id: 'source-1',
         row_status: 'create',
         source_payload: { id: 'source-1' },
-        normalized_payload: {
+        normalized_payload: createProductPayload({
           externalSourceId: 'source-1',
           title: 'Imported Product',
           price: 1500,
-        },
+        }),
         validation_errors: [],
         meta: { matched: true },
       },

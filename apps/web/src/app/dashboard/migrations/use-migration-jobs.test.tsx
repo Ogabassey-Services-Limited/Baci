@@ -241,6 +241,64 @@ describe('useMigrationJobs', () => {
     expect(result.current.rowsResponse).toBeNull();
   });
 
+  it('evicts least-recently-used cached row pages once the cache exceeds the limit', async () => {
+    vi.mocked(fetch).mockImplementation((input) => {
+      const url = new URL(String(input), 'https://example.com');
+
+      if (url.pathname !== '/api/import-jobs/job-cache/rows') {
+        throw new Error(`Unexpected fetch: ${url.pathname}${url.search}`);
+      }
+
+      const page = Number(url.searchParams.get('page') || '1');
+      return Promise.resolve(
+        createJsonResponse(createRowsResponse(`row-${page}`, 2_000))
+      );
+    });
+
+    const { result } = renderHook(() =>
+      useMigrationJobs({
+        initialJobs: [createJob('job-cache', 'preview_ready')],
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.rowsResponse?.rows[0]?.id).toBe('row-1');
+    });
+
+    for (let page = 2; page <= 51; page += 1) {
+      await act(async () => {
+        await result.current.refreshJob('job-cache', {
+          filter: 'all',
+          includeJob: false,
+          includeRows: true,
+          page,
+        });
+      });
+    }
+
+    await act(async () => {
+      await result.current.refreshJob('job-cache', {
+        filter: 'all',
+        includeJob: false,
+        includeRows: true,
+        page: 1,
+      });
+    });
+
+    expect(result.current.rowsResponse).toEqual(
+      createRowsResponse('row-1', 2_000)
+    );
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.filter(
+          ([input]) =>
+            String(input) ===
+            '/api/import-jobs/job-cache/rows?filter=all&page=1&pageSize=25'
+        )
+    ).toHaveLength(2);
+  });
+
   it('clears foreground loading when a background refresh supersedes it', async () => {
     const detailResponse = createDeferred<Response>();
 

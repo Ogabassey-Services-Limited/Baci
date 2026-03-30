@@ -19,9 +19,13 @@ import {
   decorateImportJob,
   getInitialMigrationSelection,
   getMigrationRowsCacheKey,
+  getMigrationRowsCacheKeyPrefix,
   isMigrationStatusActive,
 } from '@/app/dashboard/migrations/migration-utils';
 import { useMigrationJobPolling } from '@/app/dashboard/migrations/use-migration-job-polling';
+
+const MAX_ROWS_CACHE_ENTRIES = 50;
+
 export function useMigrationJobs({
   initialError,
   initialJobs,
@@ -62,6 +66,18 @@ export function useMigrationJobs({
   }, [jobs]);
 
   useEffect(() => {
+    const activeJobPrefixes = jobs.map((job) =>
+      getMigrationRowsCacheKeyPrefix(job.id)
+    );
+
+    for (const key of rowsCacheRef.current.keys()) {
+      if (!activeJobPrefixes.some((prefix) => key.startsWith(prefix))) {
+        rowsCacheRef.current.delete(key);
+      }
+    }
+  }, [jobs]);
+
+  useEffect(() => {
     selectedJobIdRef.current = selectedJobId;
   }, [selectedJobId]);
 
@@ -69,9 +85,40 @@ export function useMigrationJobs({
     selectedJobRef.current = selectedJob;
   }, [selectedJob]);
 
+  const getCachedRowsEntry = useEffectEvent((cacheKey: string) => {
+    const cachedRows = rowsCacheRef.current.get(cacheKey);
+    if (!cachedRows) {
+      return null;
+    }
+
+    rowsCacheRef.current.delete(cacheKey);
+    rowsCacheRef.current.set(cacheKey, cachedRows);
+    return cachedRows;
+  });
+
+  const setCachedRowsEntry = useEffectEvent(
+    (cacheKey: string, rowsPayload: ImportJobRowsResponse) => {
+      if (rowsCacheRef.current.has(cacheKey)) {
+        rowsCacheRef.current.delete(cacheKey);
+      }
+
+      rowsCacheRef.current.set(cacheKey, rowsPayload);
+
+      while (rowsCacheRef.current.size > MAX_ROWS_CACHE_ENTRIES) {
+        const oldestKey = rowsCacheRef.current.keys().next().value;
+        if (!oldestKey) {
+          break;
+        }
+
+        rowsCacheRef.current.delete(oldestKey);
+      }
+    }
+  );
+
   const clearRowsCacheForJob = useEffectEvent((jobId: string) => {
+    const cacheKeyPrefix = getMigrationRowsCacheKeyPrefix(jobId);
     for (const key of rowsCacheRef.current.keys()) {
-      if (key.startsWith(`${jobId}:`)) {
+      if (key.startsWith(cacheKeyPrefix)) {
         rowsCacheRef.current.delete(key);
       }
     }
@@ -98,7 +145,7 @@ export function useMigrationJobs({
 
       try {
         const rowsPayload = await fetchImportJobRows(jobId, nextPage, filter);
-        rowsCacheRef.current.set(cacheKey, rowsPayload);
+        setCachedRowsEntry(cacheKey, rowsPayload);
       } catch {
         return;
       }
@@ -170,9 +217,7 @@ export function useMigrationJobs({
           const cacheKey = getMigrationRowsCacheKey(jobId, filter, page);
           const canUseCache =
             !background && !isMigrationStatusActive(nextJob.status);
-          const cachedRows = canUseCache
-            ? rowsCacheRef.current.get(cacheKey)
-            : undefined;
+          const cachedRows = canUseCache ? getCachedRowsEntry(cacheKey) : null;
 
           if (cachedRows) {
             if (selectedJobIdRef.current === jobId) {
@@ -185,7 +230,7 @@ export function useMigrationJobs({
           if (requestId !== refreshRequestIdRef.current) {
             return false;
           }
-          rowsCacheRef.current.set(cacheKey, rowsPayload);
+          setCachedRowsEntry(cacheKey, rowsPayload);
           if (selectedJobIdRef.current === jobId) {
             setRowsResponse(rowsPayload);
           }

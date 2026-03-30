@@ -6,6 +6,7 @@ import {
   getMigrationProgressDetail,
   getMigrationProgressValue,
   getMigrationRowsCacheKey,
+  getMigrationRowsCacheKeyPrefix,
   statusBadgeClass,
 } from '@/app/dashboard/migrations/migration-utils';
 
@@ -165,6 +166,9 @@ describe('migration row loading helpers', () => {
     expect(canLoadMigrationRows('validating', 0)).toBe(false);
     expect(canLoadMigrationRows('validating', 1)).toBe(true);
     expect(canLoadMigrationRows('preview_ready', 0)).toBe(true);
+    expect(canLoadMigrationRows('completed', 0)).toBe(true);
+    expect(canLoadMigrationRows('committed', 0)).toBe(true);
+    expect(canLoadMigrationRows('failed', 0)).toBe(true);
   });
 
   it('creates stable cache keys for job, filter, and page', () => {
@@ -172,5 +176,12 @@ describe('migration row loading helpers', () => {
     expect(getMigrationRowsCacheKey('job-1', 'needs_fix', 2)).toBe(
       'job-1:needs_fix:2'
     );
+    expect(getMigrationRowsCacheKeyPrefix('job-1')).toBe('job-1:');
+  });
+
+  it('encodes cache key segments so delimiters cannot collide', () => {
+    expect(getMigrationRowsCacheKey('job:1', 'all', 2)).toBe('job%3A1:all:2');
+    expect(getMigrationRowsCacheKey('', 'all', -1)).toBe(':all:-1');
+    expect(getMigrationRowsCacheKeyPrefix('job:1')).toBe('job%3A1:');
   });
 });

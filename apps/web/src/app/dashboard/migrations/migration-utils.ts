@@ -14,6 +14,11 @@ const ACTIVE_MIGRATION_STATUSES = new Set<ImportJobStatus>([
   'notify_queued',
   'notifying',
 ]);
+const MIGRATION_ROWS_CACHE_KEY_DELIMITER = ':';
+
+function encodeMigrationRowsCacheKeyPart(value: string) {
+  return encodeURIComponent(value);
+}
 
 export function statusBadgeClass(status: ImportJobStatus | string) {
   if (status === 'completed' || status === 'committed') {
@@ -129,7 +134,11 @@ export function getMigrationRowsCacheKey(
   filter: MigrationPreviewFilter,
   page: number
 ) {
-  return `${jobId}:${filter}:${page}`;
+  return `${getMigrationRowsCacheKeyPrefix(jobId)}${encodeMigrationRowsCacheKeyPart(filter)}${MIGRATION_ROWS_CACHE_KEY_DELIMITER}${page}`;
+}
+
+export function getMigrationRowsCacheKeyPrefix(jobId: string) {
+  return `${encodeMigrationRowsCacheKeyPart(jobId)}${MIGRATION_ROWS_CACHE_KEY_DELIMITER}`;
 }
 
 export function getInitialMigrationSelection(
