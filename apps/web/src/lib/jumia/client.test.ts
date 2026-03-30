@@ -70,7 +70,10 @@ vi.mock('@/schemas/jumia', async () => {
           .string()
           .optional()
           .transform((value) => value ?? ''),
-        status: z.string().transform((value) => value.toLowerCase()),
+        status: z.preprocess(
+          (value) => (typeof value === 'string' ? value.toLowerCase() : value),
+          z.enum(['active', 'inactive', 'pending'])
+        ),
         shortCode: z.string(),
       })
     ),
