@@ -71,6 +71,7 @@ export function BranchModal({
             value={branchName}
             onChangeText={onBranchNameChange}
             accessibilityLabel="Branch name"
+            returnKeyType="next"
           />
           <TextInput
             style={[
@@ -86,6 +87,7 @@ export function BranchModal({
             value={branchCity}
             onChangeText={onBranchCityChange}
             accessibilityLabel="Branch city"
+            returnKeyType="done"
           />
           <View style={styles.modalButtons}>
             <Pressable
