@@ -12,12 +12,19 @@ export const JumiaBusinessClientSchema = z.object({
     .trim()
     .regex(/^[A-Za-z]{2}$/, 'Country code must be a 2-letter ISO code')
     .transform((s) => s.toUpperCase()),
-  countryName: z.string().trim().min(1, 'Country name is required'),
-  status: z.enum(['active', 'inactive', 'pending'], {
-    errorMap: () => ({
-      message: 'Status must be active, inactive, or pending',
-    }),
-  }),
+  countryName: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => value ?? ''),
+  status: z.preprocess(
+    (value) => (typeof value === 'string' ? value.toLowerCase() : value),
+    z.enum(['active', 'inactive', 'pending'], {
+      errorMap: () => ({
+        message: 'Status must be active, inactive, or pending',
+      }),
+    })
+  ),
   shortCode: z.string().trim().min(1, 'Short code is required'),
 });
 
