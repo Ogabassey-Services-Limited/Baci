@@ -73,9 +73,20 @@ vi.mock('@/schemas/jumia', async () => {
     ),
   });
 
-  const JumiaShopsResponseSchema = z.object({
-    shops: z.array(JumiaShop),
-  });
+  const JumiaShopsArraySchema = z.array(JumiaShop).min(1);
+
+  const JumiaShopsResponseSchema = z.preprocess(
+    (value) => {
+      if (Array.isArray(value)) {
+        return { shops: value };
+      }
+
+      return value;
+    },
+    z.object({
+      shops: JumiaShopsArraySchema,
+    })
+  );
 
   return {
     JumiaTokenResponseSchema,
@@ -741,6 +752,39 @@ describe('JumiaClient', () => {
       expect(shops).toHaveLength(1);
       expect(shops[0].id).toBe('shop-1');
       expect(shops[0].name).toBe('My Shop');
+    });
+
+    it('returns shop list when /shops responds with a bare array', async () => {
+      const client = createDefaultClient();
+      const shopsResponse = [
+        {
+          id: 'shop-1',
+          name: 'My Shop',
+          email: 'shop@example.com',
+          businessClients: [
+            {
+              name: 'Jumia NG',
+              code: 'jumia_ng',
+              countryCode: 'NG',
+              countryName: 'Nigeria',
+              status: 'active',
+              shortCode: 'NG',
+            },
+          ],
+        },
+      ];
+
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => shopsResponse,
+      });
+
+      const shops = await client.getShops();
+
+      expect(shops).toHaveLength(1);
+      expect(shops[0].id).toBe('shop-1');
     });
 
     it('rethrows error on API failure', async () => {

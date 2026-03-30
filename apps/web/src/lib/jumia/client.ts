@@ -180,13 +180,13 @@ export class JumiaClient {
   async request<T>(
     method: JumiaRequestMethod,
     path: string,
-    schema: z.ZodSchema<T>,
+    schema: z.ZodType<T, z.ZodTypeDef, unknown>,
     body?: unknown
   ): Promise<T>;
   async request<T = unknown>(
     method: JumiaRequestMethod,
     path: string,
-    schema?: z.ZodSchema<T>,
+    schema?: z.ZodType<T, z.ZodTypeDef, unknown>,
     body?: unknown
   ): Promise<T | unknown> {
     const token = await this.getValidToken();
@@ -267,7 +267,9 @@ export class JumiaClient {
   }
 
   async getShops(): Promise<JumiaShop[]> {
-    return (await this.request('GET', '/shops', JumiaShopsResponseSchema))
-      .shops;
+    const response = await this.request<
+      z.infer<typeof JumiaShopsResponseSchema>
+    >('GET', '/shops', JumiaShopsResponseSchema);
+    return response.shops;
   }
 }
