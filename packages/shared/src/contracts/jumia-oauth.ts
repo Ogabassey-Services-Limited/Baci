@@ -1,11 +1,15 @@
 export const BACI_ADMIN_SCHEME = 'baciadmin';
 export const JUMIA_MOBILE_RETURN_PATH = '/sales-channels';
+export const JUMIA_MOBILE_RETURN_ROUTE = 'sales-channels';
 
 type QueryValue = boolean | number | string | null | undefined;
 
-function normalizeAppPath(path: string): string {
-  const trimmedPath = path.trim().replace(/^\/+/, '');
-  return `/${trimmedPath}`;
+function normalizeRouteSegments(path: string): string[] {
+  return path
+    .trim()
+    .split('/')
+    .map((segment) => segment.trim())
+    .filter(Boolean);
 }
 
 function applyQueryParams(url: URL, query?: Record<string, QueryValue>): URL {
@@ -27,7 +31,12 @@ export function createBaciAdminUrl(
   path: string,
   query?: Record<string, QueryValue>
 ): URL {
-  const url = new URL(`${BACI_ADMIN_SCHEME}://${normalizeAppPath(path)}`);
+  const segments = normalizeRouteSegments(path);
+  const baseUrl =
+    segments.length > 0
+      ? `${BACI_ADMIN_SCHEME}://${segments.join('/')}`
+      : `${BACI_ADMIN_SCHEME}:///`;
+  const url = new URL(baseUrl);
   return applyQueryParams(url, query);
 }
 
