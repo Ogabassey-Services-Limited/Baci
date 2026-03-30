@@ -30,10 +30,24 @@ export const JumiaShopSchema = z.object({
     .min(1, 'At least one business client is required'),
 });
 
-export const JumiaShopsResponseSchema = z.object({
-  shops: z.array(JumiaShopSchema).min(1, 'At least one shop is required'),
-});
-
-export type JumiaShopsResponse = z.infer<typeof JumiaShopsResponseSchema>;
 export type JumiaShop = z.infer<typeof JumiaShopSchema>;
 export type JumiaBusinessClient = z.infer<typeof JumiaBusinessClientSchema>;
+
+const JumiaShopsArraySchema = z
+  .array(JumiaShopSchema)
+  .min(1, 'At least one shop is required');
+
+export const JumiaShopsResponseSchema = z.preprocess(
+  (value) => {
+    if (Array.isArray(value)) {
+      return { shops: value };
+    }
+
+    return value;
+  },
+  z.object({
+    shops: JumiaShopsArraySchema,
+  })
+);
+
+export type JumiaShopsResponse = z.infer<typeof JumiaShopsResponseSchema>;
