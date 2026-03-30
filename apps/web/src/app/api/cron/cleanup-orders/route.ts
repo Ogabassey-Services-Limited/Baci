@@ -1,5 +1,6 @@
-import { timingSafeEqual } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getCronSecret } from '@/env';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // Cron job to clean up abandoned/unpaid orders
@@ -8,13 +9,12 @@ export async function GET(request: NextRequest) {
   try {
     // Verify authentication from Vercel Cron
     const authHeader = request.headers.get('authorization');
-    const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
+    const cronSecret = getCronSecret();
 
     if (
       !authHeader ||
-      !process.env.CRON_SECRET ||
-      authHeader.length !== expectedToken.length ||
-      !timingSafeEqual(Buffer.from(authHeader), Buffer.from(expectedToken))
+      !cronSecret ||
+      !constantTimeEqual(authHeader, `Bearer ${cronSecret}`)
     ) {
       // Allow local development testing if needed, or stick to strict checking
       // For now, we return 401 if unauthorized
