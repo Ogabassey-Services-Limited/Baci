@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
+import { Suspense } from 'react';
 import './globals.css';
 import { PLATFORM_CONFIG } from '@/config/platform';
 import { RootDynamicBody } from './root-dynamic-body';
@@ -128,7 +129,9 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <RootDynamicBody>{children}</RootDynamicBody>
+        <Suspense fallback={null}>
+          <RootDynamicBody>{children}</RootDynamicBody>
+        </Suspense>
       </body>
     </html>
   );
