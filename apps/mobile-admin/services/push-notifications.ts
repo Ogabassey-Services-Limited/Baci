@@ -149,7 +149,6 @@ async function setupAndroidChannels(): Promise<void> {
     importance: Notifications?.AndroidImportance?.HIGH || 4,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#10B981', // Green for positive
-    sound: null,
   });
 
   // Payments channel - HIGH priority for payment confirmations
@@ -159,7 +158,6 @@ async function setupAndroidChannels(): Promise<void> {
     importance: Notifications?.AndroidImportance?.HIGH || 4,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#10B981',
-    sound: null,
   });
 
   // Stock channel - DEFAULT priority for inventory alerts
@@ -176,7 +174,6 @@ async function setupAndroidChannels(): Promise<void> {
     name: 'Platform Updates',
     description: 'Messages from Baci platform',
     importance: Notifications?.AndroidImportance?.DEFAULT || 3,
-    sound: null,
   });
 
   // General channel - LOW priority for misc notifications
@@ -321,7 +318,6 @@ export async function scheduleLocalNotification(
       title,
       body,
       data,
-      sound: null,
     },
     trigger: {
       type:
