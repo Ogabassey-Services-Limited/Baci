@@ -1,0 +1,37 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index cb3476a..128c319 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -10,7 +10,7 @@ buildscript {
+     }
+     dependencies {
+         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${safeExtGet('kotlinVersion')}")
+-        classpath("com.android.tools.build:gradle:7.0.4")
++        classpath("com.android.tools.build:gradle:9.1.0")
+     }
+ }
+ 
+@@ -53,7 +53,7 @@ apply plugin: 'com.android.library'
+ if (isNewArchitectureEnabled()) {
+     apply plugin: 'com.facebook.react'
+ }
+-apply plugin: 'kotlin-android'
++apply plugin: 'org.jetbrains.kotlin.android'
+ 
+ android {
+     if (supportsNamespace()) {
+@@ -69,11 +69,11 @@ android {
+         }
+     }
+ 
+-    compileSdkVersion getExtOrIntegerDefault('compileSdkVersion')
++    compileSdk getExtOrIntegerDefault('compileSdkVersion')
+ 
+     defaultConfig {
+-        minSdkVersion getExtOrIntegerDefault('minSdkVersion')
+-        targetSdkVersion getExtOrIntegerDefault('targetSdkVersion')
++        minSdk getExtOrIntegerDefault('minSdkVersion')
++        targetSdk getExtOrIntegerDefault('targetSdkVersion')
+         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
+     }
+ 

@@ -1,0 +1,40 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index a0dc14f..1be6147 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -8,7 +8,7 @@ buildscript {
+     }
+ 
+     dependencies {
+-        classpath("com.android.tools.build:gradle:7.2.2")
++        classpath("com.android.tools.build:gradle:9.1.0")
+         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+     }
+ }
+@@ -26,7 +26,7 @@ def isNewArchitectureEnabled() {
+ }
+ 
+ apply plugin: 'com.android.library'
+-apply plugin: 'kotlin-android'
++apply plugin: 'org.jetbrains.kotlin.android'
+ 
+ if (isNewArchitectureEnabled()) {
+     apply plugin: 'com.facebook.react'
+@@ -53,8 +53,8 @@ android {
+     }
+ 
+     defaultConfig {
+-        minSdkVersion getExtOrDefault('minSdkVersion', 21)
+-        targetSdkVersion getExtOrDefault('targetSdkVersion', 31)
++        minSdk getExtOrDefault('minSdkVersion', 21)
++        targetSdk getExtOrDefault('targetSdkVersion', 31)
+         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
+ 
+         ndk {
+@@ -135,4 +135,4 @@ if (isNewArchitectureEnabled()) {
+     libraryName = 'lottiereactnative'
+     codegenJavaPackageName = "com.airbnb.android.react.lottie"
+   }
+-}
+\ No newline at end of file
++}

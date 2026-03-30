@@ -1,0 +1,37 @@
+diff --git a/android/expo-gradle-plugin/build.gradle.kts b/android/expo-gradle-plugin/build.gradle.kts
+index ced05f1..51dde21 100644
+--- a/android/expo-gradle-plugin/build.gradle.kts
++++ b/android/expo-gradle-plugin/build.gradle.kts
+@@ -1,4 +1,4 @@
+ plugins {
+-  kotlin("jvm") version "2.1.20" apply false
++  kotlin("jvm") version "2.3.20" apply false
+   id("java-gradle-plugin")
+ }
+diff --git a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/ExpoAutolinkingPlugin.kt b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/ExpoAutolinkingPlugin.kt
+index b0d0cb6..e43d27a 100644
+--- a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/ExpoAutolinkingPlugin.kt
++++ b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/ExpoAutolinkingPlugin.kt
+@@ -67,7 +67,7 @@ open class ExpoAutolinkingPlugin : Plugin<Project> {
+         .sourceSets
+         .getByName("main")
+         .java
+-        .srcDir(getPackageListDir(project))
++        .srcDir(getPackageListDir(project).get().asFile)
+     }
+   }
+ 
+diff --git a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/KSPLookup.kt b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/KSPLookup.kt
+index ebe9efd..a10beff 100644
+--- a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/KSPLookup.kt
++++ b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/KSPLookup.kt
+@@ -4,7 +4,9 @@ package expo.modules.plugin
+ 
+ val KSPLookup = mapOf(
+   "2.2.21" to "2.2.21-2.0.5",
++  "2.3.20" to "2.3.0",
+   "2.3.1" to "2.3.1",
++  "2.3.10" to "2.3.0",
+   "2.3.0" to "2.3.0",
+   "2.2.20" to "2.2.20-2.0.4",
+   "2.2.10" to "2.2.10-2.0.2",

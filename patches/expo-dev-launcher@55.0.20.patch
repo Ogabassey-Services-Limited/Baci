@@ -1,0 +1,74 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 07875e13130cf5987f269a046c335334bdd6667f..73d3c1322fa080dee18b14cdf9eab598c6d117bf 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -5,7 +5,7 @@ buildscript {
+   dependencies {
+     classpath("org.jetbrains.kotlin.plugin.compose:org.jetbrains.kotlin.plugin.compose.gradle.plugin:${kotlinVersion}")
+     classpath("org.jetbrains.kotlin.plugin.serialization:org.jetbrains.kotlin.plugin.serialization.gradle.plugin:${kotlinVersion}")
+-    classpath("com.apollographql.apollo:apollo-gradle-plugin:4.3.1")
++    classpath("com.apollographql.apollo:apollo-gradle-plugin:4.4.1")
+   }
+ }
+ 
+@@ -81,12 +81,7 @@ apollo {
+ 
+     outputDir.set(project.layout.buildDirectory.dir("generated/apollo"))
+     outputDirConnection {
+-      connectToKotlinSourceSet("debug")
+-      connectToKotlinSourceSet("debugOptimized")
+-
+-      if (configureInRelease) {
+-        connectToKotlinSourceSet("release")
+-      }
++      connectToAllAndroidVariants()
+     }
+   }
+ }
+@@ -149,7 +144,7 @@ dependencies {
+ 
+   debugOnly("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
+ 
+-  debugOnly("com.apollographql.apollo:apollo-runtime:4.3.1")
++  debugOnly("com.apollographql.apollo:apollo-runtime:4.4.1")
+ 
+   debugOnly("com.composables:core:1.43.1")
+ 
+diff --git a/expo-dev-launcher-gradle-plugin/build.gradle.kts b/expo-dev-launcher-gradle-plugin/build.gradle.kts
+index 0b097aa696610583416048eddfb2fbef2c6db869..5394ac78a4b43e4a4e297d47bb406f4abdd78626 100644
+--- a/expo-dev-launcher-gradle-plugin/build.gradle.kts
++++ b/expo-dev-launcher-gradle-plugin/build.gradle.kts
+@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+ 
+ plugins {
+-  kotlin("jvm") version "2.1.20"
++  kotlin("jvm") version "2.3.20"
+   id("java-gradle-plugin")
+ }
+ 
+@@ -13,7 +13,7 @@ repositories {
+ 
+ dependencies {
+   implementation(gradleApi())
+-  compileOnly("com.android.tools.build:gradle:8.5.0")
++  compileOnly("com.android.tools.build:gradle:9.1.0")
+   implementation("com.facebook.react:react-native-gradle-plugin")
+ }
+ 
+diff --git a/ios/EXDevLauncherController.m b/ios/EXDevLauncherController.m
+index c9ca6fbfe758e6f97d6f05b0c88e382f0eebae2f..abedf82a933574bdc479d1b2ebe691a5207ed23a 100644
+--- a/ios/EXDevLauncherController.m
++++ b/ios/EXDevLauncherController.m
+@@ -475,7 +475,10 @@ - (void)_initAppWithUrl:(NSURL *)appUrl bundleUrl:(NSURL *)bundleUrl manifest:(E
+ #if RCT_DEV
+     // Connect to the websocket, ignore downloaded update bundles
+     if (![bundleUrl.scheme isEqualToString:@"file"]) {
+-      [[RCTPackagerConnection sharedPackagerConnection] setSocketConnectionURL:bundleUrl];
++      RCTBridge *bridge = self.appBridge;
++      if (bridge != nil) {
++        [bridge.devSettings.packagerConnection setSocketConnectionURL:bundleUrl];
++      }
+     }
+     self.networkInterceptor = [[EXDevLauncherNetworkInterceptor alloc] initWithBundleUrl:bundleUrl];
+ #endif

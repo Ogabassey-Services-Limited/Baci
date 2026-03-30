@@ -1,0 +1,38 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index c7d64d5..8b7dc7d 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -39,11 +39,11 @@ android {
+   namespace "com.margelo.nitro.mmkv"
+ 
+   ndkVersion getExtOrDefault("ndkVersion")
+-  compileSdkVersion getExtOrIntegerDefault("compileSdkVersion")
++  compileSdk getExtOrIntegerDefault("compileSdkVersion")
+ 
+   defaultConfig {
+-    minSdkVersion getExtOrIntegerDefault("minSdkVersion")
+-    targetSdkVersion getExtOrIntegerDefault("targetSdkVersion")
++    minSdk getExtOrIntegerDefault("minSdkVersion")
++    targetSdk getExtOrIntegerDefault("targetSdkVersion")
+     buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
+ 
+     externalNativeBuild {
+@@ -108,7 +108,7 @@ android {
+     }
+   }
+ 
+-  lintOptions {
++  lint {
+     disable "GradleCompatible"
+   }
+ 
+@@ -145,6 +145,7 @@ dependencies {
+   implementation project(":react-native-nitro-modules")
+ 
+   // Add a dependency on mmkv core (this ships a C++ prefab)
+-  implementation "io.github.zhongwuzw:mmkv:2.4.0"
++  implementation("io.github.zhongwuzw:mmkv:2.4.0") {
++    exclude group: "io.github.zhongwuzw", module: "annotation"
++  }
+ }
+-

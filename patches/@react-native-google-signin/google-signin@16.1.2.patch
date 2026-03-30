@@ -1,0 +1,24 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index bed09d6..2ce80b6 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -38,7 +38,7 @@ android {
+   if (agpVersion.tokenize('.')[0].toInteger() >= 7) {
+     namespace "com.reactnativegooglesignin"
+   }
+-  compileSdkVersion getExtOrIntegerDefault('compileSdkVersion')
++  compileSdk getExtOrIntegerDefault('compileSdkVersion')
+ 
+   // Used to override the NDK path/version on internal CI or by allowing
+   // users to customize the NDK path/version from their root project (e.g. for M1 support)
+@@ -50,8 +50,8 @@ android {
+   }
+ 
+   defaultConfig {
+-    minSdkVersion getExtOrIntegerDefault('minSdkVersion')
+-    targetSdkVersion getExtOrIntegerDefault('targetSdkVersion')
++    minSdk getExtOrIntegerDefault('minSdkVersion')
++    targetSdk getExtOrIntegerDefault('targetSdkVersion')
+     buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
+   }
+ 

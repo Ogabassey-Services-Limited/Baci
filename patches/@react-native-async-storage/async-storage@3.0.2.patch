@@ -1,0 +1,78 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 4f80202..b22536a 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -9,7 +9,7 @@ buildscript {
+     }
+ 
+     dependencies {
+-        classpath "com.android.tools.build:gradle:8.7.2"
++        classpath "com.android.tools.build:gradle:9.1.0"
+         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}"
+         classpath "com.google.devtools.ksp:symbol-processing-gradle-plugin:${kspVersion}"
+     }
+@@ -18,7 +18,7 @@ buildscript {
+ 
+ apply from: "config.gradle"
+ apply plugin: "com.android.library"
+-apply plugin: "kotlin-android"
++apply plugin: "org.jetbrains.kotlin.android"
+ apply plugin: "com.facebook.react"
+ 
+ // ksp/room is required to support legacy storage
+@@ -28,11 +28,11 @@ apply plugin: 'com.google.devtools.ksp'
+ android {
+     namespace "org.asyncstorage"
+ 
+-    compileSdkVersion project.ext.AsyncStorage.compileSdk
++    compileSdk project.ext.AsyncStorage.compileSdk
+ 
+     defaultConfig {
+-        minSdkVersion project.ext.AsyncStorage.minSdk
+-        targetSdkVersion project.ext.AsyncStorage.targetSdk
++        minSdk project.ext.AsyncStorage.minSdk
++        targetSdk project.ext.AsyncStorage.targetSdk
+     }
+ 
+     buildFeatures {
+@@ -45,7 +45,7 @@ android {
+         }
+     }
+ 
+-    lintOptions {
++    lint {
+         disable "GradleCompatible"
+     }
+ 
+@@ -78,6 +78,9 @@ android {
+ }
+ 
+ repositories {
++    maven {
++        url uri("$projectDir/local_repo")
++    }
+     mavenCentral()
+     google()
+ }
+diff --git a/android/config.gradle b/android/config.gradle
+index 5248899..ff7cc1c 100644
+--- a/android/config.gradle
++++ b/android/config.gradle
+@@ -29,6 +29,12 @@ String getKspVersion(String kotlinVersion) {
+         return overriddenKspVersion
+     }
+ 
++    if (kotlinVersion.startsWith("2.3.")) {
++        String kspVersion = "2.3.5"
++        logger.info("[AsyncStorage] Using KSP 2.x version with AGP 9 support: ${kspVersion}")
++        return kspVersion
++    }
++
+     // https://kotlinlang.org/docs/releases.html#release-details
+     // https://github.com/google/ksp/releases
+     def kspVersions = [
+@@ -67,4 +73,3 @@ def getConfigValueOrDefault(name) {
+ }
+ 
+ 
+-

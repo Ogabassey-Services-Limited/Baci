@@ -5,7 +5,7 @@ pluginManagement {
         useModule("com.android.tools.build:gradle:9.1.0")
       }
       if (requested.id.id?.startsWith("org.jetbrains.kotlin")) {
-        useVersion("2.3.0")
+        useVersion("2.3.20")
       }
     }
   }
