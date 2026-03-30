@@ -415,7 +415,10 @@ export function QuantityButton({
       disabled={disabled}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
-      aria-label={ariaLabel || (type === 'plus' ? 'Increase quantity' : 'Decrease quantity')}
+      aria-label={
+        ariaLabel ||
+        (type === 'plus' ? 'Increase quantity' : 'Decrease quantity')
+      }
     >
       <motion.svg
         aria-hidden="true"

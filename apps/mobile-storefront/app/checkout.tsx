@@ -559,7 +559,7 @@ export default function CheckoutScreen() {
     }
   }, [enabledPaymentMethods, selectedPayment, paymentTab]);
 
-  const performBackTransition = () => {
+  const performBackTransition = useCallback(() => {
     if (step === 'payment') {
       setStep('address');
     } else if (step === 'review') {
@@ -567,7 +567,7 @@ export default function CheckoutScreen() {
     } else {
       router.back();
     }
-  };
+  }, [step]);
 
   const handleBack = () => {
     performBackTransition();
@@ -603,7 +603,7 @@ export default function CheckoutScreen() {
     );
 
     return () => backHandler.remove();
-  }, [step]);
+  }, [step, performBackTransition]);
 
   useEffect(() => {
     const fetchLocations = async () => {
