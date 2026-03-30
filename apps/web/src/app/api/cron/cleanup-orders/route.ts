@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { getCronSecret } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -8,7 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     // Verify authentication from Vercel Cron
     const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
+    const cronSecret = getCronSecret();
 
     if (
       !authHeader ||
