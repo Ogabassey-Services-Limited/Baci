@@ -466,6 +466,17 @@ describe('Jumia Vendor API Schemas', () => {
       expect(result.success).toBe(true);
     });
 
+    it('parses a valid bare shops array response', () => {
+      const result = JumiaShopsResponseSchema.safeParse(
+        validShopsResponse.shops
+      );
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.shops).toHaveLength(1);
+        expect(result.data.shops[0].id).toBe(validShopsResponse.shops[0].id);
+      }
+    });
+
     it('parses shops with multiple businessClients', () => {
       const multiClient = {
         shops: [
