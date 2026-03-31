@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated } from 'react-native';
+import { AccessibilityInfo, Animated } from 'react-native';
 import {
   NUDGE_HIDDEN_DURATION,
   NUDGE_INITIAL_DELAY,
@@ -9,13 +9,25 @@ import { PROACTIVE_MESSAGES } from './types';
 
 export function useProactiveNudge(isChatOpen: boolean) {
   const [proactiveMsg, setProactiveMsg] = useState<string | null>(null);
+  const [reducedMotion, setReducedMotion] = useState(false);
   const nudgeFadeAnim = useRef(new Animated.Value(0)).current;
   const _nudgeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Check reduced motion preference
+  useEffect(() => {
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setReducedMotion
+    );
+    AccessibilityInfo.isReduceMotionEnabled().then(setReducedMotion);
+    return () => subscription.remove();
+  }, []);
 
   // H25 fix: Proactive nudge logic with proper mounted guard to prevent timer leaks.
   // Use a local `active` flag that the cleanup sets to false, ensuring no new
   // timeouts are scheduled after the effect is torn down.
   useEffect(() => {
+    if (reducedMotion) return;
     let active = true;
 
     const startVisibleCycle = () => {
@@ -63,7 +75,7 @@ export function useProactiveNudge(isChatOpen: boolean) {
       active = false;
       if (_nudgeTimerRef.current) clearTimeout(_nudgeTimerRef.current);
     };
-  }, [isChatOpen, nudgeFadeAnim]);
+  }, [isChatOpen, nudgeFadeAnim, reducedMotion]);
 
   // Immediately hide proactive message when chat opens
   useEffect(() => {

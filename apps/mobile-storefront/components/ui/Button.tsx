@@ -152,6 +152,7 @@ export function Button({
       disabled={disabled || loading}
       style={style}
       onPress={handlePress}
+      android_ripple={{ color: 'rgba(0,0,0,0.1)' }}
       // 2026 Accessibility: Proper button semantics
       accessibilityRole="button"
       accessibilityState={{
