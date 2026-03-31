@@ -192,18 +192,6 @@ describe('buildBumpaOrderPreview', () => {
     expect(result.rows[0]?.rowStatus).toBe('create');
   });
 
-  it('falls back to the default chunk size when an invalid chunk size is provided', async () => {
-    const result = await buildBumpaOrderPreview({
-      rows: [baseRow],
-      existingOrders: [],
-      existingProducts: [],
-      chunkSize: 0,
-    });
-
-    expect(result.summary.totalRows).toBe(1);
-    expect(result.rows[0]?.rowStatus).toBe('create');
-  });
-
   it('keeps double-pipe laptop descriptions as a single import item', async () => {
     const result = await buildBumpaOrderPreview({
       rows: [

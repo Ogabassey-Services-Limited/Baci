@@ -6,7 +6,6 @@ import {
   type MerchantContext,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { IMPORT_JOB_SELECT } from '@/lib/import-jobs/import-job-columns';
 import { createClient } from '@/lib/supabase/server';
 import type { ImportJobEntityType } from '@/schemas/import-jobs';
 import { canManageImportJob, type ImportJobRecord } from './import-job-service';
@@ -77,7 +76,9 @@ export async function getImportJobForMerchant(
 ) {
   const { data, error } = await supabase
     .from('import_jobs')
-    .select(IMPORT_JOB_SELECT)
+    .select(
+      'id, merchant_id, created_by, source_platform, entity_type, status, original_filename, storage_path, content_type, file_size_bytes, total_rows, processed_rows, summary, error, created_at, committed_at, notified_at, completed_at'
+    )
     .eq('merchant_id', merchantId)
     .eq('id', jobId)
     .maybeSingle();
