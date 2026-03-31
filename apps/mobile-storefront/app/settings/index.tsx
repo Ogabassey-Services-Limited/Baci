@@ -21,6 +21,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { queryClient } from '@/lib/query-client';
+import { removeStorageItems } from '@/lib/storage';
 import { type AppearanceMode, useSettingsStore } from '@/stores/settings-store';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -103,7 +104,7 @@ export default function SettingsScreen() {
                   key !== 'auth-storage'
               );
               if (cacheKeys.length > 0) {
-                await AsyncStorage.multiRemove(cacheKeys);
+                await removeStorageItems(cacheKeys);
               }
 
               toast.success('Cache cleared successfully.');
