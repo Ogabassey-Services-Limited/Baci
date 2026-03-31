@@ -97,8 +97,6 @@ export function StaffAccountModal({
             placeholderTextColor={colors.textMuted}
             value={accountName}
             onChangeText={onAccountNameChange}
-            accessibilityLabel="Account name"
-            returnKeyType="done"
           />
 
           <HorizontalPicker

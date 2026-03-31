@@ -1,7 +1,6 @@
 'use client';
 // Migrated from temp-source/components/SavedPage.tsx
 import { Heart, ShoppingCart } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
@@ -50,12 +49,10 @@ export const SavedPage: React.FC = () => {
                 />
 
                 <div className="relative aspect-square mb-3 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
-                  <Image
-                    src={product.image || '/placeholder.png'}
+                  <img
+                    src={product.image}
                     alt={product.name}
-                    fill
-                    sizes="(max-width: 1024px) 50vw, 25vw"
-                    className="object-contain p-4 mix-blend-multiply"
+                    className="w-3/4 h-3/4 object-contain mix-blend-multiply"
                   />
                 </div>
 
