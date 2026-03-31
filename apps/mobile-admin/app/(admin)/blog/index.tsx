@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { formatDistanceToNow } from 'date-fns';
 import { router, Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -382,10 +382,11 @@ export default function BlogListScreen() {
             style={{ marginTop: 40 }}
           />
         ) : (
-          <FlatList
+          <FlashList
             data={filteredPosts}
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
+            estimatedItemSize={98}
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl
