@@ -180,6 +180,7 @@ index 9bfae8d..8fc4f00 100644
    this.compileSdk = compileSdk
    defaultConfig {
      this@defaultConfig.minSdk = minSdk
+     this@defaultConfig.targetSdk = targetSdk
 -    this@defaultConfig.targetSdk = targetSdk
    }
  }

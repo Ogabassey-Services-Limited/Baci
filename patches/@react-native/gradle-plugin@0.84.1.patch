@@ -55,6 +55,7 @@ index 4c36c8a..04bd50a 100644
 -            // If user provided a custom cxxModuleCMakeListsPath, let's honor it.
              val nativeFolderPath = sanitizeCmakeListsPath(cxxModuleCMakeListsPath)
 +            val cxxModuleCmakeListsFilePath = sanitizePath(cxxModuleCMakeListsPath)
++            val cxxModuleName = dep.cxxModuleCMakeListsModuleName ?: ""
 +            if (addDirectoryString.isNotEmpty()) {
 +              addDirectoryString += "\n"
 +            }
@@ -63,7 +64,9 @@ index 4c36c8a..04bd50a 100644
 +                """
 +                if(EXISTS "$cxxModuleCmakeListsFilePath")
 +                  add_subdirectory("$nativeFolderPath" ${libraryName}_cxxmodule_autolinked_build)
-+                  list(APPEND AUTOLINKED_LIBRARIES ${dep.cxxModuleCMakeListsModuleName})
++                  if(NOT "$cxxModuleName" STREQUAL "")
++                    list(APPEND AUTOLINKED_LIBRARIES $cxxModuleName)
++                  endif()
 +                else()
 +                  message(STATUS "Skipping autolinked C++ module ${libraryName}: missing $cxxModuleCmakeListsFilePath")
 +                endif()
@@ -163,7 +166,7 @@ index 2608e77..3dcd8bd 100644
                if (ext.namespace == null) {
 -                val android = subproject.extensions.getByType(LibraryExtension::class.java)
 -                val manifestFile = android.sourceSets.getByName("main").manifest.srcFile
-+                val manifestFile = subproject.file("src/main/AndroidManifest.xml")
++                val manifestFile = ext.sourceSets.getByName("main").manifest.srcFile
  
                  manifestFile
                      .takeIf { it.exists() }
@@ -213,7 +216,9 @@ index 2b3f17d..44575c8 100644
 +            endif()
 +            if(EXISTS "./another/directory/cxx/CMakeLists.txt")
 +              add_subdirectory("./another/directory/cxx/" anotherPackage_cxxmodule_autolinked_build)
-+              list(APPEND AUTOLINKED_LIBRARIES another_cxxModule)
++              if(NOT "another_cxxModule" STREQUAL "")
++                list(APPEND AUTOLINKED_LIBRARIES another_cxxModule)
++              endif()
 +            else()
 +              message(STATUS "Skipping autolinked C++ module anotherPackage: missing ./another/directory/cxx/CMakeLists.txt")
 +            endif()

@@ -87,7 +87,7 @@ export function ProductImageGallery({
           >
             {images.map((img, idx) => (
               <Pressable
-                key={img}
+                key={`${img}-${idx}`}
                 onPress={() => setSelectedImageIndex(idx)}
                 style={[
                   styles.thumbnail,

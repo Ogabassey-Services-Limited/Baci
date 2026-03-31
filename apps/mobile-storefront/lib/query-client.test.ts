@@ -5,19 +5,9 @@
 
 import { jest } from '@jest/globals';
 
-jest.mock('@react-native-async-storage/async-storage', () => ({
-  __esModule: true,
-  default: {
-    getItem: jest.fn(),
-    setItem: jest.fn(),
-    removeItem: jest.fn(),
-    getMany: jest.fn(),
-    setMany: jest.fn(),
-    removeMany: jest.fn(),
-    clear: jest.fn(),
-    getAllKeys: jest.fn(),
-  },
-}));
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest')
+);
 
 import { QUERY_CACHE_KEYS, queryClient, queryPersister } from './query-client';
 

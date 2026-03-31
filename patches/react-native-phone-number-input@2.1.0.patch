@@ -2,11 +2,11 @@ diff --git a/lib/index.js b/lib/index.js
 index b89c388..5c71ada 100644
 --- a/lib/index.js
 +++ b/lib/index.js
-@@ -191,7 +191,6 @@ export default class PhoneInput extends PureComponent {
+@@ -191,6 +191,7 @@ export default class PhoneInput extends PureComponent {
                disableNativeModal={disabled}
                visible={modalVisible}
                theme={withDarkTheme ? DARK_THEME : DEFAULT_THEME}
--              renderFlagButton={this.renderFlagButton}
++              renderFlagButton={this.renderFlagButton}
                onClose={() => this.setState({ modalVisible: false })}
                {...countryPickerProps}
              />

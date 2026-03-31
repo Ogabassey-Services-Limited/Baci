@@ -1,5 +1,4 @@
 const {
-  withEntitlementsPlist,
   withInfoPlist,
   withXcodeProject,
 } = require('expo/config-plugins');
@@ -11,14 +10,6 @@ const withIosReleaseHardening = (config, options = {}) => {
     localNetworkUsageDescription = 'This app uses the local network to communicate with nearby devices for sharing and printing.',
   } = options ?? {};
   let nextConfig = config;
-
-  nextConfig = withEntitlementsPlist(nextConfig, (mod) => {
-    const isDebug =
-      process.env.EAS_BUILD_PROFILE === 'development' ||
-      process.env.DEBUG === '1';
-    mod.modResults['aps-environment'] = isDebug ? 'development' : 'production';
-    return mod;
-  });
 
   nextConfig = withInfoPlist(nextConfig, (mod) => {
     const plist = mod.modResults;
@@ -57,7 +48,11 @@ const withIosReleaseHardening = (config, options = {}) => {
         }
 
         if (configurations[key]?.name === 'Release') {
+          buildSettings.CODE_SIGN_ENTITLEMENTS =
+            'Baci/Baci.Release.entitlements';
           buildSettings.CODE_SIGN_IDENTITY = '"Apple Distribution"';
+        } else {
+          buildSettings.CODE_SIGN_ENTITLEMENTS = 'Baci/Baci.Debug.entitlements';
         }
       }
     }

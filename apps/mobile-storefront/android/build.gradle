@@ -22,41 +22,10 @@ allprojects {
   }
 }
 
-def configureAndroidSdkDefaults = { subproject ->
-  def applySdkDefaults = {
-    def android = subproject.extensions.findByName("android")
-    if (android == null) {
-      return
-    }
-
-    def compileSdkVersion = rootProject.ext.has("compileSdkVersion") ? rootProject.ext.get("compileSdkVersion") : 36
-    def minSdkVersion = rootProject.ext.has("minSdkVersion") ? rootProject.ext.get("minSdkVersion") : 24
-    def targetSdkVersion = rootProject.ext.has("targetSdkVersion") ? rootProject.ext.get("targetSdkVersion") : 36
-
-    if (android.hasProperty("compileSdk") && !android.compileSdk) {
-      android.compileSdk = compileSdkVersion
-    }
-
-    if (android.defaultConfig != null) {
-      if (android.defaultConfig.hasProperty("minSdk") && android.defaultConfig.minSdk == null) {
-        android.defaultConfig.minSdk = minSdkVersion
-      }
-      if (android.defaultConfig.hasProperty("targetSdk") && android.defaultConfig.targetSdk == null) {
-        android.defaultConfig.targetSdk = targetSdkVersion
-      }
-    }
-  }
-
-  subproject.plugins.withId("com.android.application") {
-    applySdkDefaults()
-  }
-  subproject.plugins.withId("com.android.library") {
-    applySdkDefaults()
-  }
-}
+apply from: "../../android-sdk-defaults.gradle"
 
 subprojects { subproject ->
-  configureAndroidSdkDefaults(subproject)
+  rootProject.ext.configureAndroidSdkDefaults(subproject)
 }
 
 apply plugin: "expo-root-project"

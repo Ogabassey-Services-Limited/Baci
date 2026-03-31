@@ -36,6 +36,10 @@ index aaeb55069c0bc1d92a69fd446b3607d0bc877ee5..042f29a7592299569c0c0b05c434dddd
 +  func updateBridge(_ bridge: RCTBridge?) {
 +#if DEBUG
 +    guard let bridge else {
++      if let registeredBridge {
++        unregisterHandlers(from: registeredBridge)
++        self.registeredBridge = nil
++      }
 +      return
 +    }
 +

@@ -134,7 +134,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-font',
     'expo-sharing',
     'react-native-edge-to-edge',
-    './plugins/with-ios-release-hardening',
+    [
+      './plugins/with-ios-release-hardening',
+      {
+        minimumOSVersion: '15.1',
+        teamId: process.env.EXPO_APPLE_TEAM_ID,
+      },
+    ],
   ],
   web: {
     bundler: 'metro',

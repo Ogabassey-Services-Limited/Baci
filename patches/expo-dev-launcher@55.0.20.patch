@@ -21,7 +21,12 @@ index 07875e13130cf5987f269a046c335334bdd6667f..73d3c1322fa080dee18b14cdf9eab598
 -      if (configureInRelease) {
 -        connectToKotlinSourceSet("release")
 -      }
-+      connectToAllAndroidVariants()
++      connectToKotlinSourceSet("debug")
++      connectToKotlinSourceSet("debugOptimized")
++
++      if (configureInRelease) {
++        connectToKotlinSourceSet("release")
++      }
      }
    }
  }
