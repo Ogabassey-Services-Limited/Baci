@@ -67,7 +67,6 @@ export function Cart() {
                           }
                           disabled={item.quantity <= 1}
                           className="h-11 w-11 min-w-[44px] min-h-[44px]"
-                          ariaLabel={`Decrease quantity of ${item.name}`}
                         />
                         <Input
                           type="number"
@@ -88,7 +87,6 @@ export function Cart() {
                             updateQuantity(item.id, item.quantity + 1)
                           }
                           className="h-11 w-11 min-w-[44px] min-h-[44px]"
-                          ariaLabel={`Increase quantity of ${item.name}`}
                         />
                       </div>
                     </div>
@@ -118,17 +116,12 @@ export function Cart() {
               </AnimatePresence>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center px-6 py-12">
+            <div className="flex flex-col items-center justify-center h-full text-center px-6">
               <ShoppingBag className="w-20 h-20 text-muted-foreground/50 mb-4" />
               <p className="text-lg font-semibold">Your cart is empty</p>
-              <p className="text-muted-foreground mt-2 mb-6">
+              <p className="text-muted-foreground mt-2">
                 Add some products to get started!
               </p>
-              <SheetClose asChild>
-                <ThemedButton colorRole="primary" variant="outline" size="lg">
-                  Continue Shopping
-                </ThemedButton>
-              </SheetClose>
             </div>
           )}
         </ScrollArea>
