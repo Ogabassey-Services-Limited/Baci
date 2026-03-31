@@ -304,6 +304,22 @@ describe('import-job-service', () => {
         contentType: null,
       })
     ).toBeNull();
+
+    expect(
+      validateImportFileMetadata({
+        fileName: 'orders.csv',
+        fileSizeBytes: 10,
+        contentType: undefined,
+      })
+    ).toBeNull();
+
+    expect(
+      validateImportFileMetadata({
+        fileName: 'orders.csv',
+        fileSizeBytes: 10,
+        contentType: 'application/vnd.ms-excel',
+      })
+    ).toBeNull();
   });
 
   it('builds an order preview from parsed CSV rows and existing merchant data', async () => {

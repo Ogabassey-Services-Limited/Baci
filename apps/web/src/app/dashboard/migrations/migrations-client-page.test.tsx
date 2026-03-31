@@ -276,6 +276,14 @@ describe('MigrationsClientPage', () => {
           }),
         })
       );
+      const uploadInitRequest = vi.mocked(fetch).mock.calls[0]?.[1];
+      expect(JSON.parse(String(uploadInitRequest?.body))).toEqual({
+        sourcePlatform: 'bumpa',
+        entityType: 'products',
+        fileName: 'products.csv',
+        fileSizeBytes: 4,
+        contentType: 'text/csv',
+      });
       expect(fetch).toHaveBeenNthCalledWith(
         2,
         '/api/import-jobs/finalize',
