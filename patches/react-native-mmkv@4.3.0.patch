@@ -4,11 +4,11 @@ index c7d64d5..8b7dc7d 100644
 +++ b/android/build.gradle
 @@ -39,11 +39,11 @@ android {
    namespace "com.margelo.nitro.mmkv"
- 
+
    ndkVersion getExtOrDefault("ndkVersion")
 -  compileSdkVersion getExtOrIntegerDefault("compileSdkVersion")
 +  compileSdk getExtOrIntegerDefault("compileSdkVersion")
- 
+
    defaultConfig {
 -    minSdkVersion getExtOrIntegerDefault("minSdkVersion")
 -    targetSdkVersion getExtOrIntegerDefault("targetSdkVersion")
@@ -23,9 +23,30 @@ index c7d64d5..8b7dc7d 100644
  
 -  lintOptions {
 +  lint {
-     disable "GradleCompatible"
-   }
+   disable "GradleCompatible"
+  }
+
+@@ -123,13 +123,15 @@ android {
+   sourceSets {
+     main {
+       def generatedKotlinDirs = [
+         "${project.projectDir}/../nitrogen/generated/android/kotlin"
+       ]
+       java.srcDirs += generatedKotlinDirs
++      kotlin.srcDirs += generatedKotlinDirs
  
+       if (isNewArchitectureEnabled()) {
+         def codegenDirs = [
+           // React Codegen files
+           "${project.buildDir}/generated/source/codegen/java"
+         ]
+         java.srcDirs += codegenDirs
++        kotlin.srcDirs += codegenDirs
+       }
+     }
+   }
+ }
+
 @@ -145,6 +145,7 @@ dependencies {
    implementation project(":react-native-nitro-modules")
  

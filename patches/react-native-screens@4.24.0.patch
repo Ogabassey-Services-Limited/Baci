@@ -44,8 +44,26 @@ index 885faa6..1763c75 100644
              path "CMakeLists.txt"
          }
      }
--    lintOptions {
-+    lint {
-         abortOnError false
-     }
-     compileOptions {
+ -    lintOptions {
+ +    lint {
+          abortOnError false
+      }
+      compileOptions {
+@@ -184,13 +184,15 @@ android {
+         java {
+             // Architecture specific
+             if (IS_NEW_ARCHITECTURE_ENABLED) {
+                 def architectureSpecificDirs = [
+                     "src/fabric/java",
+                 ]
+                 srcDirs += architectureSpecificDirs
++                kotlin.srcDirs += architectureSpecificDirs
+             } else {
+                 def architectureSpecificDirs = [
+                     "src/paper/java",
+                 ]
+                 srcDirs += architectureSpecificDirs
++                kotlin.srcDirs += architectureSpecificDirs
+             }
+         }
+         res {

@@ -227,3 +227,19 @@ index 46292b9..df40c83 100644
  + (NSString *)permissionStringForStatus:(EXPermissionStatus)status;
  
  - (void)askForGlobalPermissionUsingRequesterClass:(Class)requesterClass
+diff --git a/android/build.gradle b/android/build.gradle
+index 4f09358..3e27146 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -174,9 +174,11 @@ android {
+     main {
+       java {
+         if (shouldIncludeCompose) {
+           srcDirs += 'src/compose'
++          kotlin.srcDirs += 'src/compose'
+         } else {
+           srcDirs += 'src/withoutCompose'
++          kotlin.srcDirs += 'src/withoutCompose'
+         }
+       }
+     }
