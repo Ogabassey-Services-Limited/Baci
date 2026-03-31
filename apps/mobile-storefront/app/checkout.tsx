@@ -603,7 +603,7 @@ export default function CheckoutScreen() {
     );
 
     return () => backHandler.remove();
-  }, [step]);
+  }, [step, performBackTransition]);
 
   useEffect(() => {
     const fetchLocations = async () => {
