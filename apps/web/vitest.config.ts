@@ -51,7 +51,7 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   ssr: {
-    noExternal: ['@testing-library/react', 'react', 'react-dom'],
+    noExternal: true,
   },
   test: {
     environment: 'jsdom',
@@ -65,7 +65,7 @@ export default defineConfig({
     },
     server: {
       deps: {
-        inline: [/@testing-library\/react/, /^react$/, /^react-dom$/],
+        inline: true,
       },
     },
   },
