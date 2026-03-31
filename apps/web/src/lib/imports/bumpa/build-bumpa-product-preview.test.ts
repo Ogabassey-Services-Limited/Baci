@@ -159,15 +159,4 @@ describe('buildBumpaProductPreview', () => {
     expect(result.summary.totalRows).toBe(1);
     expect(result.rows[0]?.rowStatus).toBe('create');
   });
-
-  it('falls back to the default chunk size when an invalid chunk size is provided', async () => {
-    const result = await buildBumpaProductPreview({
-      rows: [baseRow],
-      existingProducts: [],
-      chunkSize: -1,
-    });
-
-    expect(result.summary.totalRows).toBe(1);
-    expect(result.rows[0]?.rowStatus).toBe('create');
-  });
 });

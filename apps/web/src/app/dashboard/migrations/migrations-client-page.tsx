@@ -78,7 +78,7 @@ function BumpaMigrationWorkflow({
 
             await refreshJob(selectedJobId, {
               filter: activeFilter,
-              page: rowsResponse?.pagination?.page || 1,
+              page: rowsResponse?.pagination.page || 1,
             });
           }}
           selectedJob={selectedJob}
@@ -97,10 +97,10 @@ function BumpaMigrationWorkflow({
               page,
             })
           }
-          page={rowsResponse?.pagination?.page || 1}
-          pageSize={rowsResponse?.pagination?.pageSize || 25}
+          page={rowsResponse?.pagination.page || 1}
+          pageSize={rowsResponse?.pagination.pageSize || 25}
           rows={rowsResponse?.rows || []}
-          total={rowsResponse?.pagination?.total || 0}
+          total={rowsResponse?.pagination.total || 0}
         />
       </div>
     </div>
