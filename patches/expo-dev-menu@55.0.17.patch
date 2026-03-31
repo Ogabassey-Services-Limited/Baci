@@ -114,7 +114,7 @@ index aaeb550..cb3064e 100644
      // [@alan] HACK: We are only doing this to prevent the RN dev menu from showing except when called from
      // our dev menu. Without this, it will still respond to commands coming from the packager. I could not
      // find an easier way to do this until we have a proper api.
-@@ -61,11 +96,25 @@ class DevMenuPackagerConnectionHandler {
+@@ -61,11 +96,29 @@ class DevMenuPackagerConnectionHandler {
  
      let blockImpl = imp_implementationWithBlock(block)
      method_setImplementation(originalMethod, blockImpl)
@@ -122,6 +122,7 @@ index aaeb550..cb3064e 100644
 +  }
 +
 +  private func unregisterHandlers(from bridge: RCTBridge) {
++#if DEBUG
 +    if let sendDevCommandToken {
 +      bridge.devSettings.packagerConnection.removeHandler(sendDevCommandToken)
 +      self.sendDevCommandToken = nil
@@ -131,7 +132,10 @@ index aaeb550..cb3064e 100644
 +      bridge.devSettings.packagerConnection.removeHandler(devMenuToken)
 +      self.devMenuToken = nil
 +    }
-   }
++#else
++    _ = bridge
++#endif
++  }
  
    @objc
 -  func sendDevCommandNotificationHandler(_ params: [String: Any]) {

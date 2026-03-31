@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 const rawAndroidVersionCode = process.env.ANDROID_VERSION_CODE;
