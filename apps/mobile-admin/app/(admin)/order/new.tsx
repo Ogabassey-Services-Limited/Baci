@@ -44,23 +44,6 @@ interface ShippingAddress {
   state?: string;
 }
 
-interface CustomerRecord {
-  id: string;
-  first_name?: string;
-  last_name?: string;
-  email: string;
-  phone?: string;
-  address?: string;
-}
-
-interface ProductRecord {
-  id: string;
-  name: string;
-  price: number;
-  images?: string[];
-  sku?: string;
-  stock_quantity?: number;
-}
 
 import {
   BRAND_COLORS,
@@ -72,10 +55,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
-import { useCreateCustomer, useCustomers } from '@/hooks/useCustomers';
+import { type Customer, useCreateCustomer, useCustomers } from '@/hooks/useCustomers';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
-import { useProducts } from '@/hooks/useProducts';
+import { type Product, useProducts } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
@@ -243,7 +226,7 @@ export default function NewOrderScreen() {
   });
   const [selectedCountryCode, setSelectedCountryCode] = useState<string>('NG'); // For Google Places filtering
   const [duplicateCustomer, setDuplicateCustomer] =
-    useState<CustomerRecord | null>(null); // Found existing customer
+    useState<Customer | null>(null);
 
   // Delivery Details
   const [sameAsCustomer, setSameAsCustomer] = useState(true);
@@ -303,7 +286,7 @@ export default function NewOrderScreen() {
   const total = subtotal - discount + shippingFee + taxesToUse;
 
   // Handlers (Same logic, just keeping cleanly separated)
-  const handleAddProduct = (product: ProductRecord) => {
+  const handleAddProduct = (product: Product) => {
     setOrderItems((prev) => {
       const existing = prev.find((item) => item.product_id === product.id);
       if (existing) {
@@ -355,11 +338,11 @@ export default function NewOrderScreen() {
     );
   };
 
-  const handleSelectCustomer = (item: CustomerRecord) => {
+  const handleSelectCustomer = (item: Customer) => {
     const displayName =
       [item.first_name, item.last_name]
         .filter((name): name is string => Boolean(name))
-        .join(' ') || item.email.split('@')[0];
+        .join(' ') || item.email?.split('@')[0] || '';
     setCustomer({
       id: item.id,
       name: displayName,
@@ -392,7 +375,7 @@ export default function NewOrderScreen() {
 
       const { data: existingCustomers, error: searchError } = await supabase
         .from('customers')
-        .select('id, first_name, last_name, email, phone, address')
+        .select('*')
         .eq('merchant_id', merchant?.id)
         .or(conditions.join(','))
         .limit(1);
@@ -403,7 +386,7 @@ export default function NewOrderScreen() {
 
       // If customer exists, show them instead of creating
       if (existingCustomers && existingCustomers.length > 0) {
-        setDuplicateCustomer(existingCustomers[0]);
+        setDuplicateCustomer(existingCustomers[0] as Customer);
         return;
       }
 
@@ -1600,8 +1583,7 @@ export default function NewOrderScreen() {
                   styles.productItem,
                   { borderBottomColor: colors.border },
                 ]}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onPress={() => handleAddProduct(item as any)}
+                onPress={() => handleAddProduct(item)}
               >
                 <View>
                   <Text style={{ color: colors.text, fontSize: 16 }}>
@@ -1751,14 +1733,7 @@ export default function NewOrderScreen() {
                     </Text>
                     <Pressable
                       onPress={() => {
-                        handleSelectCustomer({
-                          id: duplicateCustomer.id,
-                          first_name: duplicateCustomer.first_name,
-                          last_name: duplicateCustomer.last_name,
-                          phone: duplicateCustomer.phone,
-                          email: duplicateCustomer.email,
-                          address: duplicateCustomer.address,
-                        });
+                        handleSelectCustomer(duplicateCustomer);
                         setDuplicateCustomer(null);
                         setIsCreatingCustomer(false);
                         setNewCustomer({
@@ -2074,8 +2049,7 @@ export default function NewOrderScreen() {
                         paddingVertical: 12,
                       },
                     ]}
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    onPress={() => handleSelectCustomer(item as any)}
+                    onPress={() => handleSelectCustomer(item)}
                   >
                     <View
                       style={[
