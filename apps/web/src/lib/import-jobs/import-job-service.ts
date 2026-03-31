@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getImportJobWorkerSecret } from '@/env';
-import { buildBumpaOrderPreview } from '@/lib/imports/bumpa/build-bumpa-order-preview';
-import { buildBumpaProductPreview } from '@/lib/imports/bumpa/build-bumpa-product-preview';
+import { buildBumpaOrderPreviewChunks } from '@/lib/imports/bumpa/build-bumpa-order-preview';
+import { buildBumpaProductPreviewChunks } from '@/lib/imports/bumpa/build-bumpa-product-preview';
 import type {
   ExistingImportedOrder,
   ExistingImportedProduct,
@@ -66,6 +66,14 @@ interface PreviewBuildResult {
   sourceRows: Record<string, string>[];
   rows: ImportPreviewRow<NormalizedImportedOrder | NormalizedImportedProduct>[];
   summary: ImportPreviewSummary;
+  totalRows: number;
+}
+
+export interface PreviewBuildChunk {
+  sourceRows: Record<string, string>[];
+  rows: ImportPreviewRow<NormalizedImportedOrder | NormalizedImportedProduct>[];
+  partialSummary: ImportPreviewSummary;
+  processedRows: number;
   totalRows: number;
 }
 
@@ -223,50 +231,122 @@ async function loadExistingProducts(
   );
 }
 
-export async function buildImportPreviewForJob(
+async function prepareImportPreviewBuild(
   supabase: SupabaseClient,
-  job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>,
-  onProgress?: (progress: PreviewBuildProgress) => Promise<void> | void
-): Promise<PreviewBuildResult> {
+  job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>
+) {
   const [orders, products, fileText] = await Promise.all([
-    loadExistingOrders(supabase, job.merchant_id),
+    job.entity_type === 'orders'
+      ? loadExistingOrders(supabase, job.merchant_id)
+      : Promise.resolve([]),
     loadExistingProducts(supabase, job.merchant_id),
     readImportFileText(supabase, job.storage_path),
   ]);
 
-  const rawRows = parseCsvText(fileText).rows;
+  return {
+    orders,
+    products,
+    rawRows: parseCsvText(fileText).rows,
+  };
+}
+
+function createEmptyPreviewSummary(): ImportPreviewSummary {
+  return {
+    totalRows: 0,
+    validRows: 0,
+    invalidRows: 0,
+    createCount: 0,
+    updateCount: 0,
+    duplicateCount: 0,
+    claimableCustomers: 0,
+    phoneOnlyCustomers: 0,
+    anonymousCustomers: 0,
+    unmatchedItems: 0,
+    receiptReadyOrders: 0,
+  };
+}
+
+export async function* buildImportPreviewChunksForJob(
+  supabase: SupabaseClient,
+  job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>,
+  onProgress?: (progress: PreviewBuildProgress) => Promise<void> | void
+): AsyncGenerator<PreviewBuildChunk> {
+  const { orders, products, rawRows } = await prepareImportPreviewBuild(
+    supabase,
+    job
+  );
+
   await onProgress?.({
     processedRows: 0,
     totalRows: rawRows.length,
   });
 
   if (job.entity_type === 'orders') {
-    const preview = await buildBumpaOrderPreview({
+    for await (const chunk of buildBumpaOrderPreviewChunks({
       rows: rawRows,
       existingOrders: orders,
       existingProducts: products,
       onProgress,
-    });
-
-    return {
-      sourceRows: rawRows,
-      rows: preview.rows,
-      summary: preview.summary,
-      totalRows: rawRows.length,
-    };
+    })) {
+      yield {
+        sourceRows: rawRows,
+        rows: chunk.rows,
+        partialSummary: chunk.partialSummary,
+        processedRows: chunk.processedRows,
+        totalRows: chunk.totalRows,
+      };
+    }
+    return;
   }
 
-  const preview = await buildBumpaProductPreview({
+  for await (const chunk of buildBumpaProductPreviewChunks({
     rows: rawRows,
     existingProducts: products,
     onProgress,
-  });
+  })) {
+    yield {
+      sourceRows: rawRows,
+      rows: chunk.rows,
+      partialSummary: chunk.partialSummary,
+      processedRows: chunk.processedRows,
+      totalRows: chunk.totalRows,
+    };
+  }
+}
+
+export async function buildImportPreviewForJob(
+  supabase: SupabaseClient,
+  job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>,
+  onProgress?: (progress: PreviewBuildProgress) => Promise<void> | void
+): Promise<PreviewBuildResult> {
+  const previewRows = new Map<
+    number,
+    ImportPreviewRow<NormalizedImportedOrder | NormalizedImportedProduct>
+  >();
+  let sourceRows: Record<string, string>[] = [];
+  let totalRows = 0;
+  let summary = createEmptyPreviewSummary();
+
+  for await (const chunk of buildImportPreviewChunksForJob(
+    supabase,
+    job,
+    onProgress
+  )) {
+    sourceRows = chunk.sourceRows;
+    totalRows = chunk.totalRows;
+    chunk.rows.forEach((row) => {
+      previewRows.set(row.rowNumber, row);
+    });
+    summary = chunk.partialSummary;
+  }
 
   return {
-    sourceRows: rawRows,
-    rows: preview.rows,
-    summary: preview.summary,
-    totalRows: rawRows.length,
+    sourceRows,
+    rows: Array.from(previewRows.values()).sort(
+      (left, right) => left.rowNumber - right.rowNumber
+    ),
+    summary,
+    totalRows,
   };
 }
 
