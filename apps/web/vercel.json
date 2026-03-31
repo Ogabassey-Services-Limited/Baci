@@ -19,10 +19,6 @@
     {
       "path": "/api/cron/process-import-jobs",
       "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/cron/cleanup-import-uploads",
-      "schedule": "0 3 * * *"
     }
   ]
 }

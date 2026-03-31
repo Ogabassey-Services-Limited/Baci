@@ -2,11 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
-  buildImportPreviewChunksForJobMock,
+  buildImportPreviewForJobMock,
   buildImportJobRowInsertsMock,
   loggerError,
 } = vi.hoisted(() => ({
-  buildImportPreviewChunksForJobMock: vi.fn(),
+  buildImportPreviewForJobMock: vi.fn(),
   buildImportJobRowInsertsMock: vi.fn(),
   loggerError: vi.fn(),
 }));
@@ -28,14 +28,14 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 vi.mock('./import-job-service', () => ({
-  buildImportPreviewChunksForJob: buildImportPreviewChunksForJobMock,
+  buildImportPreviewForJob: buildImportPreviewForJobMock,
   buildImportJobRowInserts: buildImportJobRowInsertsMock,
   mergeImportJobSummary: vi.fn((_current, summary) => summary),
 }));
 
 import { runClaimedImportJob } from './run-claimed-import-job';
 
-type PreviewBuildChunk = {
+type PreviewBuildResult = {
   sourceRows: Array<{ id: string }>;
   rows: Array<{
     rowNumber: number;
@@ -45,7 +45,7 @@ type PreviewBuildChunk = {
     payload: unknown;
     meta: Record<string, unknown>;
   }>;
-  partialSummary: { validRows: number };
+  summary: { validRows: number };
   totalRows: number;
 };
 
@@ -69,10 +69,7 @@ function createJob() {
   };
 }
 
-function createPreviewChunk(
-  sourceIds: string[],
-  overrides: Partial<PreviewBuildChunk> = {}
-): PreviewBuildChunk {
+function createPreviewResult(sourceIds: string[]): PreviewBuildResult {
   return {
     sourceRows: sourceIds.map((id) => ({ id })),
     rows: sourceIds.map((id, index) => ({
@@ -83,9 +80,8 @@ function createPreviewChunk(
       payload: null,
       meta: {},
     })),
-    partialSummary: { validRows: sourceIds.length },
+    summary: { validRows: sourceIds.length },
     totalRows: sourceIds.length,
-    ...overrides,
   };
 }
 
@@ -111,10 +107,10 @@ function createValidatingSupabase(progressErrors: Array<unknown | null> = []) {
   deleteQuery.delete.mockReturnValue(deleteQuery);
   deleteQuery.eq.mockResolvedValue({ error: null });
 
-  const upsertQuery = {
-    upsert: vi.fn(),
+  const insertQuery = {
+    insert: vi.fn(),
   };
-  upsertQuery.upsert.mockResolvedValue({ error: null });
+  insertQuery.insert.mockResolvedValue({ error: null });
 
   const updateQuery = {
     update: vi.fn(),
@@ -134,7 +130,7 @@ function createValidatingSupabase(progressErrors: Array<unknown | null> = []) {
     from: vi.fn((table: string) => {
       if (table === 'import_job_rows') {
         importJobRowsCallCount += 1;
-        return importJobRowsCallCount === 1 ? deleteQuery : upsertQuery;
+        return importJobRowsCallCount === 1 ? deleteQuery : insertQuery;
       }
 
       return updateQuery;
@@ -143,7 +139,7 @@ function createValidatingSupabase(progressErrors: Array<unknown | null> = []) {
 
   return {
     deleteQuery,
-    upsertQuery,
+    insertQuery,
     supabase,
     updateQuery,
   };
@@ -159,19 +155,13 @@ describe('runClaimedImportJob validating jobs', () => {
     vi.restoreAllMocks();
   });
 
-  it('persists preview rows chunk by chunk and marks validating jobs as preview_ready', async () => {
-    buildImportPreviewChunksForJobMock.mockReturnValue(
-      (async function* () {
-        await Promise.resolve();
-        yield {
-          ...createPreviewChunk(['order-1']),
-          processedRows: 1,
-        };
-      })()
+  it('persists preview rows and marks validating jobs as preview_ready', async () => {
+    buildImportPreviewForJobMock.mockResolvedValue(
+      createPreviewResult(['order-1'])
     );
     buildImportJobRowInsertsMock.mockReturnValue(createRowInserts(['order-1']));
 
-    const { supabase, upsertQuery } = createValidatingSupabase();
+    const { insertQuery, supabase } = createValidatingSupabase();
     const result = await runClaimedImportJob(supabase, createJob());
 
     expect(result).toEqual({
@@ -179,42 +169,23 @@ describe('runClaimedImportJob validating jobs', () => {
       status: 'preview_ready',
       processed: 1,
     });
-    expect(upsertQuery.upsert).toHaveBeenCalledWith(
+    expect(insertQuery.insert).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({ source_external_id: 'order-1' }),
-      ]),
-      { onConflict: 'import_job_id,row_number' }
+      ])
     );
   });
 
-  it('persists live validation progress and partial summaries while preview rows are being built', async () => {
-    buildImportPreviewChunksForJobMock.mockImplementation(
-      async function* (_supabase, _job, onProgress) {
+  it('persists live validation progress while preview rows are being built', async () => {
+    buildImportPreviewForJobMock.mockImplementation(
+      async (_supabase, _job, onProgress) => {
         await onProgress?.({ processedRows: 0, totalRows: 2 });
         await onProgress?.({ processedRows: 1, totalRows: 2 });
-        yield {
-          ...createPreviewChunk(['order-1'], {
-            partialSummary: { validRows: 1 },
-            totalRows: 2,
-          }),
-          processedRows: 1,
-        };
-        yield {
-          ...createPreviewChunk(['order-1', 'order-2'], {
-            partialSummary: { validRows: 2 },
-            totalRows: 2,
-          }),
-          processedRows: 2,
-        };
+        return createPreviewResult(['order-1', 'order-2']);
       }
     );
-    buildImportJobRowInsertsMock.mockImplementation(
-      (_jobId, _merchantId, _sourceRows, previewRows) =>
-        createRowInserts(
-          previewRows.map((row: { sourceExternalId: string | null }) =>
-            String(row.sourceExternalId || 'missing')
-          )
-        )
+    buildImportJobRowInsertsMock.mockReturnValue(
+      createRowInserts(['order-1', 'order-2'])
     );
 
     const { supabase, updateQuery } = createValidatingSupabase();
@@ -230,22 +201,6 @@ describe('runClaimedImportJob validating jobs', () => {
     });
     expect(updateQuery.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        status: 'validating',
-        processed_rows: 1,
-        total_rows: 2,
-        summary: { validRows: 1 },
-      })
-    );
-    expect(updateQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 'validating',
-        processed_rows: 2,
-        total_rows: 2,
-        summary: { validRows: 2 },
-      })
-    );
-    expect(updateQuery.update).toHaveBeenCalledWith(
-      expect.objectContaining({
         status: 'preview_ready',
         processed_rows: 2,
         total_rows: 2,
@@ -253,99 +208,11 @@ describe('runClaimedImportJob validating jobs', () => {
     );
   });
 
-  it('upserts updated earlier rows when a later chunk changes them', async () => {
-    buildImportPreviewChunksForJobMock.mockReturnValue(
-      (async function* () {
-        await Promise.resolve();
-        yield {
-          ...createPreviewChunk(['order-1'], {
-            partialSummary: { validRows: 1 },
-            totalRows: 2,
-          }),
-          processedRows: 1,
-        };
-        yield {
-          sourceRows: [{ id: 'order-1' }, { id: 'order-2' }],
-          rows: [
-            {
-              rowNumber: 2,
-              sourceExternalId: 'order-1',
-              rowStatus: 'invalid',
-              errors: ['duplicate'],
-              payload: null,
-              meta: {},
-            },
-            {
-              rowNumber: 3,
-              sourceExternalId: 'order-2',
-              rowStatus: 'invalid',
-              errors: ['duplicate'],
-              payload: null,
-              meta: {},
-            },
-          ],
-          partialSummary: { validRows: 0 },
-          totalRows: 2,
-          processedRows: 2,
-        };
-      })()
-    );
-    buildImportJobRowInsertsMock.mockImplementation(
-      (_jobId, _merchantId, _sourceRows, previewRows) =>
-        previewRows.map(
-          (row: {
-            rowNumber: number;
-            sourceExternalId: string | null;
-            rowStatus: string;
-            payload: unknown;
-            errors: string[];
-            meta: Record<string, unknown>;
-          }) => ({
-            import_job_id: 'validating-job',
-            merchant_id: 'merchant-1',
-            row_number: row.rowNumber,
-            source_external_id: row.sourceExternalId,
-            row_status: row.rowStatus,
-            source_payload: { id: row.sourceExternalId },
-            normalized_payload: row.payload,
-            validation_errors: row.errors,
-            meta: row.meta,
-          })
-        )
-    );
-
-    const { supabase, upsertQuery } = createValidatingSupabase();
-    await runClaimedImportJob(supabase, createJob());
-
-    expect(upsertQuery.upsert).toHaveBeenNthCalledWith(
-      2,
-      expect.arrayContaining([
-        expect.objectContaining({
-          row_number: 2,
-          row_status: 'invalid',
-          validation_errors: ['duplicate'],
-        }),
-        expect.objectContaining({
-          row_number: 3,
-          row_status: 'invalid',
-          validation_errors: ['duplicate'],
-        }),
-      ]),
-      { onConflict: 'import_job_id,row_number' }
-    );
-  });
-
   it('logs and continues when a progress update fails', async () => {
-    buildImportPreviewChunksForJobMock.mockImplementation(
-      async function* (_supabase, _job, onProgress) {
+    buildImportPreviewForJobMock.mockImplementation(
+      async (_supabase, _job, onProgress) => {
         await onProgress?.({ processedRows: 1, totalRows: 2 });
-        yield {
-          ...createPreviewChunk(['order-1', 'order-2'], {
-            partialSummary: { validRows: 2 },
-            totalRows: 2,
-          }),
-          processedRows: 2,
-        };
+        return createPreviewResult(['order-1', 'order-2']);
       }
     );
     buildImportJobRowInsertsMock.mockReturnValue(
