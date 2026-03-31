@@ -1,10 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-  ImportPreviewRow,
-  NormalizedImportedOrder,
-  NormalizedImportedProduct,
-} from '@/lib/imports/bumpa/bumpa-types';
 
 vi.mock('@/env', () => ({
   getImportJobWorkerSecret: vi.fn(() => 'worker-secret'),
@@ -16,12 +11,10 @@ vi.mock('@/lib/imports/csv/parse-csv', () => ({
 
 vi.mock('@/lib/imports/bumpa/build-bumpa-order-preview', () => ({
   buildBumpaOrderPreview: vi.fn(),
-  buildBumpaOrderPreviewChunks: vi.fn(),
 }));
 
 vi.mock('@/lib/imports/bumpa/build-bumpa-product-preview', () => ({
   buildBumpaProductPreview: vi.fn(),
-  buildBumpaProductPreviewChunks: vi.fn(),
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -30,20 +23,17 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-import { buildBumpaOrderPreviewChunks } from '@/lib/imports/bumpa/build-bumpa-order-preview';
-import { buildBumpaProductPreviewChunks } from '@/lib/imports/bumpa/build-bumpa-product-preview';
+import { buildBumpaOrderPreview } from '@/lib/imports/bumpa/build-bumpa-order-preview';
+import { buildBumpaProductPreview } from '@/lib/imports/bumpa/build-bumpa-product-preview';
 import { parseCsvText } from '@/lib/imports/csv/parse-csv';
 import { logger } from '@/lib/logger';
 import {
   buildImportJobRowInserts,
-  buildImportPreviewChunksForJob,
   buildImportPreviewForJob,
   createImportStoragePath,
   mergeImportJobSummary,
-  type PreviewBuildChunk,
   triggerImportWorker,
   validateImportFile,
-  validateImportFileMetadata,
 } from './import-job-service';
 
 function createPreviewSummary() {
@@ -59,84 +49,6 @@ function createPreviewSummary() {
     anonymousCustomers: 0,
     unmatchedItems: 0,
     receiptReadyOrders: 1,
-  };
-}
-
-function createOrderPayload(
-  overrides: Partial<NormalizedImportedOrder> = {}
-): NormalizedImportedOrder {
-  return {
-    sourcePlatform: 'bumpa',
-    externalSourceId: 'bumpa-1',
-    orderNumber: 'ORD-1',
-    customer: {
-      fullName: 'Ada Lovelace',
-      firstName: 'Ada',
-      lastName: 'Lovelace',
-      email: 'ada@example.com',
-      phone: null,
-      claimable: true,
-    },
-    paymentStatus: 'paid',
-    shippingStatus: 'delivered',
-    sourceOrderStatus: 'COMPLETED',
-    sourceShippingStatus: 'DELIVERED',
-    sourceChannel: 'mobile',
-    sourceOrigin: 'instagram',
-    total: 5000,
-    subtotal: 5000,
-    discountAmount: 0,
-    shippingFee: 0,
-    taxAmount: 0,
-    amountPaid: 5000,
-    amountDue: 0,
-    currency: 'NGN',
-    orderDate: '2026-03-22T00:00:00.000Z',
-    createdAt: '2026-03-22T00:00:00.000Z',
-    updatedAt: '2026-03-22T00:00:00.000Z',
-    couponCode: null,
-    shippingOption: null,
-    receiptReady: true,
-    items: [],
-    importMetadata: {},
-    ...overrides,
-  };
-}
-
-function createProductPayload(
-  overrides: Partial<NormalizedImportedProduct> = {}
-): NormalizedImportedProduct {
-  return {
-    sourcePlatform: 'bumpa',
-    externalSourceId: 'prod-1',
-    title: 'Imported Product',
-    description: null,
-    sku: null,
-    price: 1500,
-    currency: 'NGN',
-    stock: 0,
-    manageStock: true,
-    status: 'active',
-    images: [],
-    category: null,
-    sourceCreatedAt: null,
-    sourceUpdatedAt: null,
-    importMetadata: {},
-    ...overrides,
-  };
-}
-
-function createOrderPreviewRow(
-  overrides: Partial<ImportPreviewRow<NormalizedImportedOrder>> = {}
-): ImportPreviewRow<NormalizedImportedOrder> {
-  return {
-    rowNumber: 2,
-    sourceExternalId: 'bumpa-1',
-    rowStatus: 'update',
-    errors: [],
-    payload: createOrderPayload(),
-    meta: {},
-    ...overrides,
   };
 }
 
@@ -264,80 +176,27 @@ describe('import-job-service', () => {
     ).toBeNull();
   });
 
-  it('validates CSV file metadata by extension, size, and mime type', () => {
-    expect(
-      validateImportFileMetadata({
-        fileName: 'orders.txt',
-        fileSizeBytes: 10,
-        contentType: 'text/plain',
-      })
-    ).toBe('Only CSV files are supported');
-
-    expect(
-      validateImportFileMetadata({
-        fileName: 'orders.csv',
-        fileSizeBytes: 26 * 1024 * 1024,
-        contentType: 'text/csv',
-      })
-    ).toBe('CSV file exceeds the 25MB upload limit');
-
-    expect(
-      validateImportFileMetadata({
-        fileName: 'orders.csv',
-        fileSizeBytes: 25 * 1024 * 1024,
-        contentType: 'text/csv',
-      })
-    ).toBeNull();
-
-    expect(
-      validateImportFileMetadata({
-        fileName: 'orders.csv',
-        fileSizeBytes: 10,
-        contentType: 'application/json',
-      })
-    ).toBe('Unsupported CSV content type');
-
-    expect(
-      validateImportFileMetadata({
-        fileName: 'orders.csv',
-        fileSizeBytes: 10,
-        contentType: null,
-      })
-    ).toBeNull();
-
-    expect(
-      validateImportFileMetadata({
-        fileName: 'orders.csv',
-        fileSizeBytes: 10,
-        contentType: undefined,
-      })
-    ).toBeNull();
-
-    expect(
-      validateImportFileMetadata({
-        fileName: 'orders.csv',
-        fileSizeBytes: 10,
-        contentType: 'application/vnd.ms-excel',
-      })
-    ).toBeNull();
-  });
-
   it('builds an order preview from parsed CSV rows and existing merchant data', async () => {
     const supabase = createSupabaseMock();
+    const previewRow = {
+      rowNumber: 2,
+      sourceExternalId: 'bumpa-1',
+      rowStatus: 'update' as const,
+      errors: [],
+      payload: {
+        externalSourceId: 'bumpa-1',
+        orderNumber: 'ORD-1',
+      },
+      meta: {},
+    } as never;
     vi.mocked(parseCsvText).mockReturnValue({
       headers: ['id'],
       rows: [{ id: 'bumpa-1' }],
     });
-    vi.mocked(buildBumpaOrderPreviewChunks).mockReturnValue(
-      (async function* () {
-        yield await Promise.resolve({
-          rows: [createOrderPreviewRow()],
-          partialSummary: createPreviewSummary(),
-          processedRows: 1,
-          totalRows: 1,
-        });
-      })()
-    );
+    vi.mocked(buildBumpaOrderPreview).mockResolvedValue({
+      rows: [previewRow],
+      summary: createPreviewSummary(),
+    });
 
     const result = await buildImportPreviewForJob(supabase, {
       entity_type: 'orders',
@@ -346,15 +205,9 @@ describe('import-job-service', () => {
     });
 
     expect(result.sourceRows).toEqual([{ id: 'bumpa-1' }]);
-    expect(result.rows).toEqual([
-      expect.objectContaining({
-        rowNumber: 2,
-        sourceExternalId: 'bumpa-1',
-        rowStatus: 'update',
-      }),
-    ]);
+    expect(result.rows).toEqual([previewRow]);
     expect(result.totalRows).toBe(1);
-    expect(buildBumpaOrderPreviewChunks).toHaveBeenCalledWith({
+    expect(buildBumpaOrderPreview).toHaveBeenCalledWith({
       rows: [{ id: 'bumpa-1' }],
       existingOrders: [
         {
@@ -383,16 +236,10 @@ describe('import-job-service', () => {
       headers: ['id'],
       rows: [{ id: 'prod-1' }],
     });
-    vi.mocked(buildBumpaProductPreviewChunks).mockReturnValue(
-      (async function* () {
-        yield await Promise.resolve({
-          rows: [],
-          partialSummary: createPreviewSummary(),
-          processedRows: 1,
-          totalRows: 1,
-        });
-      })()
-    );
+    vi.mocked(buildBumpaProductPreview).mockResolvedValue({
+      rows: [],
+      summary: createPreviewSummary(),
+    });
 
     const result = await buildImportPreviewForJob(supabase, {
       entity_type: 'products',
@@ -402,7 +249,7 @@ describe('import-job-service', () => {
 
     expect(result.sourceRows).toEqual([{ id: 'prod-1' }]);
     expect(result.totalRows).toBe(1);
-    expect(buildBumpaProductPreviewChunks).toHaveBeenCalled();
+    expect(buildBumpaProductPreview).toHaveBeenCalled();
   });
 
   it('reports preview progress while building order previews', async () => {
@@ -413,15 +260,13 @@ describe('import-job-service', () => {
       headers: ['id'],
       rows: [{ id: 'bumpa-1' }, { id: 'bumpa-2' }],
     });
-    vi.mocked(buildBumpaOrderPreviewChunks).mockImplementation(
-      async function* ({ onProgress: builderProgress }) {
+    vi.mocked(buildBumpaOrderPreview).mockImplementation(
+      async ({ onProgress: builderProgress }) => {
         await builderProgress?.({ processedRows: 1, totalRows: 2 });
 
-        yield {
+        return {
           rows: [],
-          partialSummary: createPreviewSummary(),
-          processedRows: 1,
-          totalRows: 2,
+          summary: createPreviewSummary(),
         };
       }
     );
@@ -446,144 +291,6 @@ describe('import-job-service', () => {
     });
   });
 
-  it('rebuilds the latest order preview rows from chunk updates', async () => {
-    const supabase = createSupabaseMock();
-
-    vi.mocked(parseCsvText).mockReturnValue({
-      headers: ['id'],
-      rows: [{ id: 'bumpa-1' }, { id: 'bumpa-2' }],
-    });
-    vi.mocked(buildBumpaOrderPreviewChunks).mockReturnValue(
-      (async function* () {
-        yield await Promise.resolve({
-          rows: [
-            {
-              rowNumber: 2,
-              sourceExternalId: 'bumpa-1',
-              rowStatus: 'create' as const,
-              errors: [],
-              payload: null,
-              meta: {},
-            },
-          ],
-          processedRows: 1,
-          totalRows: 2,
-          partialSummary: {
-            ...createPreviewSummary(),
-            totalRows: 1,
-          },
-        });
-
-        yield await Promise.resolve({
-          rows: [
-            {
-              rowNumber: 2,
-              sourceExternalId: 'bumpa-1',
-              rowStatus: 'invalid' as const,
-              errors: ['duplicate'],
-              payload: null,
-              meta: {},
-            },
-            {
-              rowNumber: 3,
-              sourceExternalId: 'bumpa-2',
-              rowStatus: 'invalid' as const,
-              errors: ['duplicate'],
-              payload: null,
-              meta: {},
-            },
-          ],
-          processedRows: 2,
-          totalRows: 2,
-          partialSummary: {
-            ...createPreviewSummary(),
-            validRows: 0,
-            invalidRows: 2,
-            createCount: 0,
-            totalRows: 2,
-          },
-        });
-      })()
-    );
-
-    const result = await buildImportPreviewForJob(supabase, {
-      entity_type: 'orders',
-      merchant_id: 'merchant-1',
-      storage_path: 'merchant-1/orders/orders.csv',
-    });
-
-    expect(result.rows).toEqual([
-      expect.objectContaining({
-        rowNumber: 2,
-        rowStatus: 'invalid',
-        errors: ['duplicate'],
-      }),
-      expect.objectContaining({
-        rowNumber: 3,
-        rowStatus: 'invalid',
-        errors: ['duplicate'],
-      }),
-    ]);
-    expect(result.summary).toEqual(
-      expect.objectContaining({
-        validRows: 0,
-        invalidRows: 2,
-        totalRows: 2,
-      })
-    );
-  });
-
-  it('yields persisted preview chunks with shared source rows', async () => {
-    const supabase = createSupabaseMock();
-
-    vi.mocked(parseCsvText).mockReturnValue({
-      headers: ['id'],
-      rows: [{ id: 'bumpa-1' }],
-    });
-    vi.mocked(buildBumpaOrderPreviewChunks).mockReturnValue(
-      (async function* () {
-        yield await Promise.resolve({
-          rows: [
-            {
-              rowNumber: 2,
-              sourceExternalId: 'bumpa-1',
-              rowStatus: 'create' as const,
-              errors: [],
-              payload: null,
-              meta: {},
-            },
-          ],
-          processedRows: 1,
-          totalRows: 1,
-          partialSummary: createPreviewSummary(),
-        });
-      })()
-    );
-
-    const chunks: PreviewBuildChunk[] = [];
-    for await (const chunk of buildImportPreviewChunksForJob(supabase, {
-      entity_type: 'orders',
-      merchant_id: 'merchant-1',
-      storage_path: 'merchant-1/orders/orders.csv',
-    })) {
-      chunks.push(chunk);
-    }
-
-    expect(chunks).toEqual([
-      expect.objectContaining({
-        processedRows: 1,
-        totalRows: 1,
-        rows: [
-          expect.objectContaining({
-            rowNumber: 2,
-            rowStatus: 'create',
-          }),
-        ],
-        sourceRows: [{ id: 'bumpa-1' }],
-      }),
-    ]);
-  });
-
   it('maps preview rows into import_job_rows payloads', () => {
     const rows = buildImportJobRowInserts(
       'job-1',
@@ -596,12 +303,10 @@ describe('import-job-service', () => {
           rowStatus: 'create',
           errors: [],
           payload: {
-            ...createProductPayload({
-              externalSourceId: 'source-1',
-              title: 'Imported Product',
-              price: 1500,
-            }),
-          },
+            externalSourceId: 'source-1',
+            title: 'Imported Product',
+            price: 1500,
+          } as never,
           meta: { matched: true },
         },
       ]
@@ -615,11 +320,11 @@ describe('import-job-service', () => {
         source_external_id: 'source-1',
         row_status: 'create',
         source_payload: { id: 'source-1' },
-        normalized_payload: createProductPayload({
+        normalized_payload: {
           externalSourceId: 'source-1',
           title: 'Imported Product',
           price: 1500,
-        }),
+        },
         validation_errors: [],
         meta: { matched: true },
       },
