@@ -103,7 +103,7 @@ export default function SettingsScreen() {
                   key !== 'auth-storage'
               );
               if (cacheKeys.length > 0) {
-                await AsyncStorage.removeMany(cacheKeys);
+                await AsyncStorage.multiRemove(cacheKeys);
               }
 
               toast.success('Cache cleared successfully.');
