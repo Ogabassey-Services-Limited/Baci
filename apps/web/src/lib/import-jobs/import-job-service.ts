@@ -46,6 +46,22 @@ export interface ImportJobRecord {
   completed_at?: string | null;
 }
 
+export interface PendingImportUploadRecord {
+  id: string;
+  merchant_id: string;
+  created_by: string;
+  client_upload_id: string;
+  storage_path: string;
+  source_platform: 'bumpa';
+  entity_type: ImportJobEntityType;
+  original_filename: string;
+  content_type: string | null;
+  file_size_bytes: number | null;
+  claimed_at: string | null;
+  expires_at: string;
+  created_at?: string;
+}
+
 interface PreviewBuildResult {
   sourceRows: Record<string, string>[];
   rows: ImportPreviewRow<NormalizedImportedOrder | NormalizedImportedProduct>[];
@@ -116,15 +132,31 @@ export function createImportStoragePath(
 }
 
 export function validateImportFile(file: File) {
-  if (!file.name.toLowerCase().endsWith('.csv')) {
+  return validateImportFileMetadata({
+    fileName: file.name,
+    fileSizeBytes: file.size,
+    contentType: file.type || null,
+  });
+}
+
+export function validateImportFileMetadata({
+  contentType,
+  fileName,
+  fileSizeBytes,
+}: {
+  fileName: string;
+  fileSizeBytes: number;
+  contentType?: string | null;
+}) {
+  if (!fileName.toLowerCase().endsWith('.csv')) {
     return 'Only CSV files are supported';
   }
 
-  if (file.size > IMPORT_FILE_SIZE_LIMIT_BYTES) {
+  if (fileSizeBytes > IMPORT_FILE_SIZE_LIMIT_BYTES) {
     return 'CSV file exceeds the 25MB upload limit';
   }
 
-  if (file.type && !IMPORT_FILE_MIME_TYPES.has(file.type)) {
+  if (contentType && !IMPORT_FILE_MIME_TYPES.has(contentType)) {
     return 'Unsupported CSV content type';
   }
 

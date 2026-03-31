@@ -187,13 +187,12 @@ export function useMigrationJobs({
     setUploading(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.set('sourcePlatform', 'bumpa');
-    formData.set('entityType', entityType);
-    formData.set('file', file);
-
     try {
-      const nextJob = await createImportJob(formData);
+      const nextJob = await createImportJob({
+        entityType,
+        file,
+        sourcePlatform: 'bumpa',
+      });
       setJobs((currentJobs) => mergeJobs(currentJobs, nextJob));
       setSelectedJobId(nextJob.id);
       setFile(null);
