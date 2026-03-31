@@ -1322,7 +1322,14 @@ export const builderConfig: Config<
               aspectRatio: aspectRatio === 'auto' ? undefined : aspectRatio,
             }}
           >
-            <Image src={src} alt={alt} fill className="object-cover" />
+            {/* ⚡ Bolt: Added sizes prop to prevent Next.js from defaulting to 100vw on fill images, reducing LCP */}
+            <Image
+              src={src}
+              alt={alt}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover"
+            />
           </div>
         );
 
