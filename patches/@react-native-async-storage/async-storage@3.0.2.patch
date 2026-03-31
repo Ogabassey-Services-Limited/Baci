@@ -1,5 +1,5 @@
 diff --git a/android/build.gradle b/android/build.gradle
-index 4f80202..549698d 100644
+index 4f80202ce..c782748e5 100644
 --- a/android/build.gradle
 +++ b/android/build.gradle
 @@ -9,7 +9,7 @@ buildscript {
@@ -11,16 +11,19 @@ index 4f80202..549698d 100644
          classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}"
          classpath "com.google.devtools.ksp:symbol-processing-gradle-plugin:${kspVersion}"
      }
-@@ -18,7 +18,7 @@ buildscript {
+@@ -18,7 +18,10 @@ buildscript {
 
  apply from: "config.gradle"
  apply plugin: "com.android.library"
 -apply plugin: "kotlin-android"
-+apply plugin: "org.jetbrains.kotlin.android"
++def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++if (!builtInKotlinEnabled) {
++    apply plugin: "org.jetbrains.kotlin.android"
++}
  apply plugin: "com.facebook.react"
 
  // ksp/room is required to support legacy storage
-@@ -28,11 +28,11 @@ apply plugin: 'com.google.devtools.ksp'
+@@ -28,11 +31,11 @@ apply plugin: 'com.google.devtools.ksp'
  android {
      namespace "org.asyncstorage"
 
@@ -35,7 +38,7 @@ index 4f80202..549698d 100644
      }
 
      buildFeatures {
-@@ -45,7 +45,7 @@ android {
+@@ -45,7 +48,7 @@ android {
          }
      }
 
@@ -44,7 +47,7 @@ index 4f80202..549698d 100644
          disable "GradleCompatible"
      }
 
-@@ -78,10 +78,33 @@ android {
+@@ -78,10 +81,33 @@ android {
  }
 
  repositories {
@@ -79,7 +82,7 @@ index 4f80202..549698d 100644
      implementation "com.facebook.react:react-android"
      api "org.asyncstorage.shared_storage:storage-android:1.0.0"
 diff --git a/android/config.gradle b/android/config.gradle
-index 5248899..31604ad 100644
+index 524889963..31604ad4f 100644
 --- a/android/config.gradle
 +++ b/android/config.gradle
 @@ -29,6 +29,12 @@ String getKspVersion(String kotlinVersion) {

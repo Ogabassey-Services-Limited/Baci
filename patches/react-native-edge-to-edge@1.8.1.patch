@@ -1,5 +1,5 @@
 diff --git a/android/build.gradle b/android/build.gradle
-index 5b18e56..514a59a 100644
+index 5b18e5671..caeb287da 100644
 --- a/android/build.gradle
 +++ b/android/build.gradle
 @@ -8,7 +8,7 @@ buildscript {
@@ -10,23 +10,26 @@ index 5b18e56..514a59a 100644
 +        classpath("com.android.tools.build:gradle:9.1.0")
      }
  }
- 
-@@ -17,7 +17,7 @@ def isNewArchitectureEnabled() {
+
+@@ -17,7 +17,10 @@ def isNewArchitectureEnabled() {
  }
- 
+
  apply plugin: "com.android.library"
 -apply plugin: "kotlin-android"
-+apply plugin: "org.jetbrains.kotlin.android"
- 
++def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++if (!builtInKotlinEnabled) {
++    apply plugin: "org.jetbrains.kotlin.android"
++}
+
  if (isNewArchitectureEnabled()) {
      apply plugin: "com.facebook.react"
-@@ -27,17 +27,17 @@ android {
+@@ -27,25 +30,27 @@ android {
      namespace "com.zoontek.rnedgetoedge"
- 
+
      buildToolsVersion safeExtGet("buildToolsVersion", "35.0.0")
 -    compileSdkVersion safeExtGet("compileSdkVersion", 35)
 +    compileSdk safeExtGet("compileSdkVersion", 35)
- 
+
      buildFeatures {
          buildConfig true
      }
@@ -42,3 +45,13 @@ index 5b18e56..514a59a 100644
          abortOnError false
      }
      sourceSets {
+         main {
+             if (isNewArchitectureEnabled()) {
+                 java.srcDirs += ["src/newarch"]
++                kotlin.srcDirs += ["src/newarch"]
+             } else {
+                 java.srcDirs += ["src/oldarch"]
++                kotlin.srcDirs += ["src/oldarch"]
+             }
+         }
+     }

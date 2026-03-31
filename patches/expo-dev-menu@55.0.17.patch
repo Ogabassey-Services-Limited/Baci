@@ -1,5 +1,5 @@
 diff --git a/android/build.gradle b/android/build.gradle
-index 9bc5ea9..88ae966 100644
+index 9bc5ea91c..88ae9661b 100644
 --- a/android/build.gradle
 +++ b/android/build.gradle
 @@ -51,9 +51,11 @@ android {
@@ -15,7 +15,7 @@ index 9bc5ea9..88ae966 100644
        }
      }
 diff --git a/ios/DevMenuManager.swift b/ios/DevMenuManager.swift
-index 0fbf236..2b4ffbe 100644
+index 0fbf236b2..2b4ffbe4b 100644
 --- a/ios/DevMenuManager.swift
 +++ b/ios/DevMenuManager.swift
 @@ -109,6 +109,7 @@ open class DevMenuManager: NSObject {
@@ -23,11 +23,11 @@ index 0fbf236..2b4ffbe 100644
      didSet {
        updateAutoLaunchObserver()
 +      packagerConnectionHandler?.updateBridge(currentBridge)
- 
+
        if let currentBridge {
          DispatchQueue.main.async {
 diff --git a/ios/DevMenuPackagerConnectionHandler.swift b/ios/DevMenuPackagerConnectionHandler.swift
-index aaeb550..cb3064e 100644
+index aaeb55069..41e84809d 100644
 --- a/ios/DevMenuPackagerConnectionHandler.swift
 +++ b/ios/DevMenuPackagerConnectionHandler.swift
 @@ -6,6 +6,10 @@ import React
@@ -38,7 +38,7 @@ index aaeb550..cb3064e 100644
 +  private weak var registeredBridge: RCTBridge?
 +  private var sendDevCommandToken: RCTHandlerToken?
 +  private var devMenuToken: RCTHandlerToken?
- 
+
    init(manager: DevMenuManager) {
      self.manager = manager
 @@ -16,26 +20,57 @@ class DevMenuPackagerConnectionHandler {
@@ -58,7 +58,22 @@ index aaeb550..cb3064e 100644
 +      }
 +      return
 +    }
-+
+
+-    RCTPackagerConnection
+-      .shared()
+-      .addNotificationHandler(
+-        self.sendDevCommandNotificationHandler,
+-        queue: DispatchQueue.main,
+-        forMethod: "sendDevCommand"
+-      )
+-
+-    RCTPackagerConnection
+-      .shared()
+-      .addNotificationHandler(
+-        self.devMenuNotificationHanlder,
+-        queue: DispatchQueue.main,
+-        forMethod: "devMenu"
+-      )
 +    if registeredBridge === bridge {
 +      return
 +    }
@@ -78,22 +93,7 @@ index aaeb550..cb3064e 100644
 +      queue: DispatchQueue.main,
 +      forMethod: "devMenu"
 +    )
- 
--    RCTPackagerConnection
--      .shared()
--      .addNotificationHandler(
--        self.sendDevCommandNotificationHandler,
--        queue: DispatchQueue.main,
--        forMethod: "sendDevCommand"
--      )
--
--    RCTPackagerConnection
--      .shared()
--      .addNotificationHandler(
--        self.devMenuNotificationHanlder,
--        queue: DispatchQueue.main,
--        forMethod: "devMenu"
--      )
++
 +    registeredBridge = bridge
 +#endif
 +  }
@@ -105,7 +105,7 @@ index aaeb550..cb3064e 100644
 +    }
  #endif
    }
- 
+
    private func swizzleRCTDevMenuShow() {
 +    if DevMenuPackagerConnectionHandler.didSwizzleRCTDevMenuShow {
 +      return
@@ -115,7 +115,7 @@ index aaeb550..cb3064e 100644
      // our dev menu. Without this, it will still respond to commands coming from the packager. I could not
      // find an easier way to do this until we have a proper api.
 @@ -61,11 +96,29 @@ class DevMenuPackagerConnectionHandler {
- 
+
      let blockImpl = imp_implementationWithBlock(block)
      method_setImplementation(originalMethod, blockImpl)
 +    DevMenuPackagerConnectionHandler.didSwizzleRCTDevMenuShow = true
@@ -135,8 +135,8 @@ index aaeb550..cb3064e 100644
 +#else
 +    _ = bridge
 +#endif
-+  }
- 
+   }
+
    @objc
 -  func sendDevCommandNotificationHandler(_ params: [String: Any]) {
 +  func sendDevCommandNotificationHandler(_ params: [String: Any]?) {
@@ -145,12 +145,12 @@ index aaeb550..cb3064e 100644
        let command = params["name"] as? String,
        let bridge = manager.currentBridge
      else {
-@@ -89,7 +138,7 @@ class DevMenuPackagerConnectionHandler {
+@@ -89,7 +142,7 @@ class DevMenuPackagerConnectionHandler {
    }
- 
+
    @objc
 -  func devMenuNotificationHanlder(_ parames: [String: Any]) {
 +  func devMenuNotificationHanlder(_ parames: [String: Any]?) {
      self.manager?.toggleMenu()
    }
- 
+

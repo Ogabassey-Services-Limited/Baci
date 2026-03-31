@@ -1,5 +1,5 @@
 diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
-index c7502fc..b06c254 100644
+index c7502fcef..b06c25407 100644
 --- a/gradle/libs.versions.toml
 +++ b/gradle/libs.versions.toml
 @@ -1,10 +1,10 @@
@@ -16,7 +16,7 @@ index c7502fc..b06c254 100644
  ktfmt = "0.22.0"
 
 diff --git a/react-native-gradle-plugin/build.gradle.kts b/react-native-gradle-plugin/build.gradle.kts
-index 85dadeb..2b94884 100644
+index 85dadeba0..2b94884ad 100644
 --- a/react-native-gradle-plugin/build.gradle.kts
 +++ b/react-native-gradle-plugin/build.gradle.kts
 @@ -64,7 +64,7 @@ kotlin { jvmToolchain(17) }
@@ -29,7 +29,7 @@ index 85dadeb..2b94884 100644
      jvmTarget.set(JvmTarget.JVM_11)
      allWarningsAsErrors.set(
 diff --git a/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/tasks/GenerateAutolinkingNewArchitecturesFileTask.kt b/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/tasks/GenerateAutolinkingNewArchitecturesFileTask.kt
-index 4c36c8a..00fd287 100644
+index 4c36c8a39..00fd28733 100644
 --- a/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/tasks/GenerateAutolinkingNewArchitecturesFileTask.kt
 +++ b/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/tasks/GenerateAutolinkingNewArchitecturesFileTask.kt
 @@ -58,40 +58,54 @@ abstract class GenerateAutolinkingNewArchitecturesFileTask : DefaultTask() {
@@ -129,22 +129,22 @@ index 4c36c8a..00fd287 100644
              .trimIndent()
 
 diff --git a/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/utils/AgpConfiguratorUtils.kt b/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/utils/AgpConfiguratorUtils.kt
-index 2608e77..3de89b9 100644
+index 2608e77f4..4f77c898f 100644
 --- a/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/utils/AgpConfiguratorUtils.kt
 +++ b/react-native-gradle-plugin/src/main/kotlin/com/facebook/react/utils/AgpConfiguratorUtils.kt
-@@ -7,9 +7,8 @@
+@@ -7,9 +7,9 @@
 
  package com.facebook.react.utils
 
 +import com.android.build.api.dsl.LibraryExtension
  import com.android.build.api.variant.ApplicationAndroidComponentsExtension
-+import com.android.build.gradle.api.AndroidSourceFile
 -import com.android.build.api.variant.LibraryAndroidComponentsExtension
 -import com.android.build.gradle.LibraryExtension
++import com.android.build.gradle.api.AndroidSourceFile
  import com.facebook.react.ReactExtension
  import com.facebook.react.utils.ProjectUtils.isEdgeToEdgeEnabled
  import com.facebook.react.utils.ProjectUtils.isHermesEnabled
-@@ -81,8 +80,9 @@ internal object AgpConfiguratorUtils {
+@@ -81,8 +81,9 @@ internal object AgpConfiguratorUtils {
      appProject.rootProject.allprojects { subproject ->
        subproject.pluginManager.withPlugin("com.android.library") {
          subproject.extensions
@@ -156,7 +156,7 @@ index 2608e77..3de89b9 100644
        }
      }
    }
-@@ -114,11 +114,10 @@ internal object AgpConfiguratorUtils {
+@@ -114,14 +115,14 @@ internal object AgpConfiguratorUtils {
      appProject.rootProject.allprojects { subproject ->
        subproject.pluginManager.withPlugin("com.android.library") {
          subproject.extensions
@@ -171,9 +171,13 @@ index 2608e77..3de89b9 100644
 +                    (ext.sourceSets.getByName("main").manifest as? AndroidSourceFile)?.srcFile
 
                  manifestFile
-                     ?.takeIf { it.exists() }
+-                    .takeIf { it.exists() }
++                    ?.takeIf { it.exists() }
+                     ?.let { file ->
+                       getPackageNameFromManifest(file)?.let { packageName ->
+                         ext.namespace = packageName
 diff --git a/react-native-gradle-plugin/src/test/kotlin/com/facebook/react/tasks/GenerateAutolinkingNewArchitecturesFileTaskTest.kt b/react-native-gradle-plugin/src/test/kotlin/com/facebook/react/tasks/GenerateAutolinkingNewArchitecturesFileTaskTest.kt
-index 2b3f17d..99be59d 100644
+index 2b3f17d5e..99be59da2 100644
 --- a/react-native-gradle-plugin/src/test/kotlin/com/facebook/react/tasks/GenerateAutolinkingNewArchitecturesFileTaskTest.kt
 +++ b/react-native-gradle-plugin/src/test/kotlin/com/facebook/react/tasks/GenerateAutolinkingNewArchitecturesFileTaskTest.kt
 @@ -130,9 +130,7 @@ class GenerateAutolinkingNewArchitecturesFileTaskTest {
@@ -226,7 +230,7 @@ index 2b3f17d..99be59d 100644
                  .trimIndent()
          )
 diff --git a/settings-plugin/build.gradle.kts b/settings-plugin/build.gradle.kts
-index 2fbeafd..49b002f 100644
+index 2fbeafd50..49b002f10 100644
 --- a/settings-plugin/build.gradle.kts
 +++ b/settings-plugin/build.gradle.kts
 @@ -54,7 +54,7 @@ kotlin { jvmToolchain(17) }
@@ -239,7 +243,7 @@ index 2fbeafd..49b002f 100644
      jvmTarget.set(JvmTarget.JVM_11)
      allWarningsAsErrors.set(
 diff --git a/shared-testutil/build.gradle.kts b/shared-testutil/build.gradle.kts
-index 26173fb..dfea5ff 100644
+index 26173fb55..dfea5fff8 100644
 --- a/shared-testutil/build.gradle.kts
 +++ b/shared-testutil/build.gradle.kts
 @@ -27,7 +27,7 @@ kotlin { jvmToolchain(17) }
@@ -252,7 +256,7 @@ index 26173fb..dfea5ff 100644
      jvmTarget.set(JvmTarget.JVM_11)
      allWarningsAsErrors.set(
 diff --git a/shared/build.gradle.kts b/shared/build.gradle.kts
-index 3159848..599806e 100644
+index 315984875..599806e9a 100644
 --- a/shared/build.gradle.kts
 +++ b/shared/build.gradle.kts
 @@ -33,7 +33,7 @@ kotlin { jvmToolchain(17) }

@@ -1,9 +1,9 @@
 diff --git a/android/build.gradle b/android/build.gradle
-index f324b9a..2cba999 100644
+index f324b9a9f..cad1034a2 100644
 --- a/android/build.gradle
 +++ b/android/build.gradle
 @@ -8,7 +8,7 @@ buildscript {
- 
+
      dependencies {
          classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
 -        classpath("com.android.tools.build:gradle:7.3.1")
@@ -11,27 +11,30 @@ index f324b9a..2cba999 100644
          classpath("com.diffplug.spotless:spotless-plugin-gradle:6.11.0")
      }
  }
-@@ -32,7 +32,7 @@ def isNewArchitectureEnabled() {
+@@ -32,7 +32,10 @@ def isNewArchitectureEnabled() {
  }
- 
+
  apply plugin: 'com.android.library'
 -apply plugin: 'kotlin-android'
-+apply plugin: 'org.jetbrains.kotlin.android'
- 
++def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++if (!builtInKotlinEnabled) {
++    apply plugin: 'org.jetbrains.kotlin.android'
++}
+
  if (isNewArchitectureEnabled()) {
      apply plugin: "com.facebook.react"
-@@ -47,7 +47,7 @@ android {
+@@ -47,7 +50,7 @@ android {
          }
      }
- 
+
 -    compileSdkVersion getExtOrDefault('compileSdkVersion', 30)
 +    compileSdk getExtOrDefault('compileSdkVersion', 30)
- 
+
      // Used to override the NDK path/version on internal CI or by allowing
      // users to customize the NDK path/version from their root project (e.g. for M1 support)
-@@ -59,8 +59,8 @@ android {
+@@ -59,8 +62,8 @@ android {
      }
- 
+
      defaultConfig {
 -        minSdkVersion getExtOrDefault('minSdkVersion', 16)
 -        targetSdkVersion getExtOrDefault('targetSdkVersion', 28)
@@ -40,12 +43,31 @@ index f324b9a..2cba999 100644
          versionCode 1
          versionName "1.0"
          buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
-@@ -70,7 +70,7 @@ android {
+@@ -70,7 +73,7 @@ android {
          }
      }
- 
+
 -    lintOptions{
 +    lint {
          abortOnError false
      }
- 
+
+@@ -94,6 +97,18 @@ android {
+                 ]
+             }
+         }
++        kotlin {
++            if (isNewArchitectureEnabled()) {
++                srcDirs += [
++                    "src/fabric/java",
++                    "${project.buildDir}/generated/source/codegen/java"
++                ]
++            } else {
++                srcDirs += [
++                    "src/paper/java"
++                ]
++            }
++        }
+     }
+ }
+

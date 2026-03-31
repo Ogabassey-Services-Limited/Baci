@@ -1,5 +1,5 @@
 diff --git a/android/expo-gradle-plugin/build.gradle.kts b/android/expo-gradle-plugin/build.gradle.kts
-index ced05f1..51dde21 100644
+index ced05f1ed..51dde214e 100644
 --- a/android/expo-gradle-plugin/build.gradle.kts
 +++ b/android/expo-gradle-plugin/build.gradle.kts
 @@ -1,4 +1,4 @@
@@ -9,7 +9,7 @@ index ced05f1..51dde21 100644
    id("java-gradle-plugin")
  }
 diff --git a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/ExpoAutolinkingPlugin.kt b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/ExpoAutolinkingPlugin.kt
-index b0d0cb6..9000e9b 100644
+index b0d0cb600..9000e9ba6 100644
 --- a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/ExpoAutolinkingPlugin.kt
 +++ b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/ExpoAutolinkingPlugin.kt
 @@ -10,10 +10,8 @@ import org.gradle.api.Plugin
@@ -73,7 +73,7 @@ index b0d0cb6..9000e9b 100644
      }
    }
 diff --git a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/GeneratePackagesListTask.kt b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/GeneratePackagesListTask.kt
-index d79a614..8139cf8 100644
+index d79a614a5..8139cf88f 100644
 --- a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/GeneratePackagesListTask.kt
 +++ b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/GeneratePackagesListTask.kt
 @@ -2,12 +2,13 @@ package expo.modules.plugin
@@ -126,7 +126,7 @@ index d79a614..8139cf8 100644
      return """package ${namespace.get()};
 
 diff --git a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/KSPLookup.kt b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/KSPLookup.kt
-index ebe9efd..a10beff 100644
+index ebe9efdd6..c90e66a0a 100644
 --- a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/KSPLookup.kt
 +++ b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/KSPLookup.kt
 @@ -4,7 +4,9 @@ package expo.modules.plugin

@@ -1,5 +1,5 @@
 diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
-index f21668f..1763159 100644
+index f21668fff..1763159a8 100644
 --- a/gradle/libs.versions.toml
 +++ b/gradle/libs.versions.toml
 @@ -6,7 +6,7 @@ compileSdk = "36"

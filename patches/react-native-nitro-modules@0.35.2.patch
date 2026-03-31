@@ -1,8 +1,20 @@
 diff --git a/android/build.gradle b/android/build.gradle
-index 368fc7d..962a75c 100644
+index 368fc7d2c..193a4c8cb 100644
 --- a/android/build.gradle
 +++ b/android/build.gradle
-@@ -42,11 +42,11 @@ android {
+@@ -21,7 +21,10 @@ def isNewArchitectureEnabled() {
+ }
+
+ apply plugin: "com.android.library"
+-apply plugin: 'org.jetbrains.kotlin.android'
++def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++if (!builtInKotlinEnabled) {
++  apply plugin: 'org.jetbrains.kotlin.android'
++}
+ apply from: "./fix-prefab.gradle"
+
+ if (isNewArchitectureEnabled()) {
+@@ -42,11 +45,11 @@ android {
    namespace "com.margelo.nitro"
 
    ndkVersion getExtOrDefault("ndkVersion")
@@ -17,7 +29,7 @@ index 368fc7d..962a75c 100644
      buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
 
      externalNativeBuild {
-@@ -112,7 +112,7 @@ android {
+@@ -112,7 +115,7 @@ android {
      }
    }
 
@@ -26,52 +38,58 @@ index 368fc7d..962a75c 100644
      disable "GradleCompatible"
    }
 
+@@ -129,8 +132,13 @@ android {
+           "${project.buildDir}/generated/source/codegen/java",
+           "src/newarch"
+         ]
++        kotlin.srcDirs += [
++          "${project.buildDir}/generated/source/codegen/java",
++          "src/newarch"
++        ]
+       } else {
+         java.srcDirs += ["src/oldarch"]
++        kotlin.srcDirs += ["src/oldarch"]
+       }
+     }
+   }
 diff --git a/android/fix-prefab.gradle b/android/fix-prefab.gradle
-index d6c010e..9020551 100644
+index d6c010ef7..985ad34d1 100644
 --- a/android/fix-prefab.gradle
 +++ b/android/fix-prefab.gradle
-@@ -1,3 +1,5 @@
-+import groovy.io.FileType
-+
- tasks.configureEach { task ->
-   // Make sure that we generate our prefab publication file only after having built the native library
-   // so that not a header publication file, but a full configuration publication will be generated, which
-@@ -13,7 +15,6 @@ tasks.configureEach { task ->
- }
-
- afterEvaluate {
--  def abis = reactNativeArchitectures()
-   rootProject.allprojects.each { proj ->
-     if (proj === rootProject) return
-
-@@ -28,23 +29,15 @@ afterEvaluate {
+@@ -28,22 +28,28 @@ afterEvaluate {
        return
      }
 
 -    def variants = proj.android.hasProperty('applicationVariants') ? proj.android.applicationVariants : proj.android.libraryVariants
++    def variants
++    if (proj.android.metaClass.hasProperty(proj.android, 'applicationVariants')) {
++      variants = proj.android.applicationVariants
++    } else if (proj.android.metaClass.hasProperty(proj.android, 'libraryVariants')) {
++      variants = proj.android.libraryVariants
++    } else {
++      variants = proj.android.buildTypes
++    }
++
      // Touch the prefab_config.json files to ensure that in ExternalNativeJsonGenerator.kt we will re-trigger the prefab CLI to
      // generate a libnameConfig.cmake file that will contain our native library (.so).
 -    // See this condition: https://cs.android.com/android-studio/platform/tools/base/+/mirror-goog-studio-main:build-system/gradle-core/src/main/java/com/android/build/gradle/tasks/ExternalNativeJsonGenerator.kt;l=207-219?q=createPrefabBuildSystemGlue
--    variants.all { variant ->
--      def variantName = variant.name
--      abis.each { abi ->
--        def searchDir = new File(proj.projectDir, ".cxx/${variantName}")
--        if (!searchDir.exists()) return
+     variants.all { variant ->
+       def variantName = variant.name
+       abis.each { abi ->
+         def searchDir = new File(proj.projectDir, ".cxx/${variantName}")
+         if (!searchDir.exists()) return
 -        def matches = []
--        searchDir.eachDir { randomDir ->
++
+         searchDir.eachDir { randomDir ->
 -          def prefabFile = new File(randomDir, "${abi}/prefab_config.json")
 -          if (prefabFile.exists()) matches << prefabFile
 -        }
 -        matches.each { prefabConfig ->
 -          prefabConfig.setLastModified(System.currentTimeMillis())
--        }
-+    // AGP 9 no longer exposes libraryVariants/applicationVariants consistently, so scan the generated .cxx tree directly.
-+    def searchDir = new File(proj.projectDir, ".cxx")
-+    if (!searchDir.exists()) return
-+
-+    searchDir.eachFileRecurse(FileType.FILES) { candidate ->
-+      if (candidate.name == "prefab_config.json") {
-+        candidate.setLastModified(System.currentTimeMillis())
++          def prefabConfig = new File(randomDir, "${abi}/prefab_config.json")
++          if (prefabConfig.exists()) {
++            prefabConfig.setLastModified(System.currentTimeMillis())
++          }
+         }
        }
      }
-   }

@@ -1,19 +1,31 @@
 diff --git a/android/build.gradle b/android/build.gradle
-index af810e8..1d56cc3 100644
+index af810e8e9..4ae3c92c7 100644
 --- a/android/build.gradle
 +++ b/android/build.gradle
-@@ -30,7 +30,7 @@ android {
+@@ -18,7 +18,10 @@ def isNewArchitectureEnabled() {
+ }
+
+ apply plugin: 'com.android.library'
+-apply plugin: 'org.jetbrains.kotlin.android'
++def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++if (!builtInKotlinEnabled) {
++  apply plugin: 'org.jetbrains.kotlin.android'
++}
+ if (isNewArchitectureEnabled()) {
+   apply plugin: "com.facebook.react"
+ }
+@@ -30,7 +33,7 @@ android {
        namespace "com.reactcommunity.rndatetimepicker"
      }
- 
+
 -    compileSdkVersion getExtOrIntegerDefault('compileSdkVersion')
 +    compileSdk getExtOrIntegerDefault('compileSdkVersion')
- 
+
      // Used to override the NDK path/version on internal CI or by allowing
      // users to customize the NDK path/version from their root project (e.g. for M1 support)
-@@ -42,8 +42,8 @@ android {
+@@ -42,8 +45,8 @@ android {
      }
- 
+
      defaultConfig {
 -        minSdkVersion getExtOrIntegerDefault('minSdkVersion')
 -        targetSdkVersion getExtOrIntegerDefault('targetSdkVersion')
@@ -21,8 +33,8 @@ index af810e8..1d56cc3 100644
 +        targetSdk getExtOrIntegerDefault('targetSdkVersion')
          buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
      }
- 
-@@ -54,9 +54,6 @@ android {
+
+@@ -54,9 +57,6 @@ android {
              }
          }
      }
@@ -30,5 +42,5 @@ index af810e8..1d56cc3 100644
 -        jvmTarget = '17'
 -    }
  }
- 
+
  repositories {
