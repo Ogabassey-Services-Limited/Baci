@@ -125,32 +125,26 @@ export default function VerifyScreen() {
 
     setIsLoading(true);
     try {
+      // Try type:'email' first — matches what signInWithOtp() sends for resend.
+      // Falls back to type:'signup' for initial signup confirmation codes.
       const { error } = await supabase.auth.verifyOtp({
         email,
         token,
-        type: 'signup', // or 'email' depending on context. For new signups 'signup' is safer usually.
-        // However, if they are already "signed up" but unverified, 'email' might work.
-        // Let's try 'signup' first as this is the registration flow.
+        type: 'email',
       });
 
       if (error) throw error;
 
-      // Verification successful!
-      // Session is automatically updated by the Supabase client
-      // which triggers the useAuth listener.
-
-      // Verification successful!
-      // Show custom success view
       setShowSuccess(true);
     } catch (error: unknown) {
       const err = error as Error;
       console.error('Verification error:', err);
-      // Fallback: try 'email' type if 'signup' failed (edge case)
+      // Fallback: try 'signup' type for initial signup confirmation codes
       try {
         const { error: retryError } = await supabase.auth.verifyOtp({
           email,
           token,
-          type: 'email',
+          type: 'signup',
         });
         if (!retryError) {
           setShowSuccess(true);
@@ -169,9 +163,14 @@ export default function VerifyScreen() {
     if (timer > 0) return;
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
+      // Use signInWithOtp instead of auth.resend — resend() bypasses the
+      // custom Send Email Hook (send-auth-email edge function → ZeptoMail),
+      // causing emails to silently fail since no SMTP is configured.
+      // verifyOtp tries type:'email' first (matching signInWithOtp), then
+      // falls back to type:'signup' for initial signup confirmation codes.
+      const { error } = await supabase.auth.signInWithOtp({
         email,
+        options: { shouldCreateUser: false },
       });
       if (error) throw error;
       Alert.alert('Sent', 'A new code has been sent to your email.');
