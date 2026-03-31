@@ -74,8 +74,8 @@ vi.mock('./import-job-service', () => ({
 }));
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createFailingChunkGenerator } from '@/lib/import-jobs/import-job-test-helpers';
 import type { ImportJobRecord } from './import-job-service';
-import { createFailingChunkGenerator } from './import-job-test-helpers';
 import { runClaimedImportJob } from './run-claimed-import-job';
 
 function makeJob(overrides: Partial<ImportJobRecord> = {}): ImportJobRecord {
