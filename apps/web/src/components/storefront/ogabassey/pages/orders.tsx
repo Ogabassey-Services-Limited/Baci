@@ -16,6 +16,7 @@ import type React from 'react';
 import { useState, useEffect } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
+import { getStorefrontOrderItemHref } from '@/lib/storefront-order-item-href';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 
 // Mock data removed
@@ -217,36 +218,73 @@ export const OgabasseyV2Orders: React.FC = () => {
                 <div className="p-4 md:p-6">
                   <div className="flex flex-col gap-4">
                     {order.items?.map((item: any) => (
-                      <Link
-                        key={item.id}
-                        href={`/product/${item.id}` as any}
-                        className="flex gap-4 items-center group/item hover:bg-gray-50 p-2 rounded-xl transition-colors -mx-2"
-                      >
-                        <div className="w-16 h-16 bg-gray-50 rounded-lg p-2 border border-gray-100 flex-shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
-                          <Image
-                            src={item.image || item.product_image || '/placeholder.png'}
-                            alt={item.name}
-                            fill
-                            className="object-contain mix-blend-multiply p-1"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-sm text-gray-900 line-clamp-1 group-hover/item:text-red-600 transition-colors">
-                            {item.name}
-                          </h4>
-                          <p className="text-xs text-gray-500 line-clamp-1">
-                            Qty: {item.quantity}
-                          </p>
-                        </div>
-                        {order.items.length === 1 && (
-                          <button
-                            type="button"
-                            className="text-xs font-bold text-red-600 hover:text-red-700 whitespace-nowrap hidden sm:block bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+                      (() => {
+                        const productHref = getStorefrontOrderItemHref(
+                          item,
+                          basePath
+                        );
+
+                        if (!productHref) {
+                          return (
+                            <div
+                              key={item.id}
+                              className="flex gap-4 items-center group/item hover:bg-gray-50 p-2 rounded-xl transition-colors -mx-2"
+                            >
+                              <div className="w-16 h-16 bg-gray-50 rounded-lg p-2 border border-gray-100 flex-shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
+                                <Image
+                                  src={item.image || item.product_image || '/placeholder.png'}
+                                  alt={item.name}
+                                  fill
+                                  className="object-contain mix-blend-multiply p-1"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-bold text-sm text-gray-900 line-clamp-1">
+                                  {item.name}
+                                </h4>
+                                <p className="text-xs text-gray-500 line-clamp-1">
+                                  Qty: {item.quantity}
+                                </p>
+                              </div>
+                              {order.items.length === 1 && (
+                                <span className="text-xs font-bold text-red-600 whitespace-nowrap hidden sm:block bg-red-50 px-3 py-1.5 rounded-lg">
+                                  Buy Again
+                                </span>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <Link
+                            key={item.id}
+                            href={asRoute(productHref)}
+                            className="flex gap-4 items-center group/item hover:bg-gray-50 p-2 rounded-xl transition-colors -mx-2"
                           >
-                            Buy Again
-                          </button>
-                        )}
-                      </Link>
+                            <div className="w-16 h-16 bg-gray-50 rounded-lg p-2 border border-gray-100 flex-shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
+                              <Image
+                                src={item.image || item.product_image || '/placeholder.png'}
+                                alt={item.name}
+                                fill
+                                className="object-contain mix-blend-multiply p-1"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-sm text-gray-900 line-clamp-1 group-hover/item:text-red-600 transition-colors">
+                                {item.name}
+                              </h4>
+                              <p className="text-xs text-gray-500 line-clamp-1">
+                                Qty: {item.quantity}
+                              </p>
+                            </div>
+                            {order.items.length === 1 && (
+                              <span className="text-xs font-bold text-red-600 whitespace-nowrap hidden sm:block bg-red-50 px-3 py-1.5 rounded-lg">
+                                Buy Again
+                              </span>
+                            )}
+                          </Link>
+                        );
+                      })()
                     ))}
                   </div>
 

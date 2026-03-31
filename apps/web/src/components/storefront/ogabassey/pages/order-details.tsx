@@ -19,6 +19,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
+import { getStorefrontOrderItemHref } from '@/lib/storefront-order-item-href';
 import { createClient } from '@/lib/supabase/client';
 import type { StorefrontOrder, StorefrontOrderItem } from '@/types/storefront-order';
 
@@ -128,12 +129,10 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
   }, [params?.id]);
 
   const handleBuyAgain = () => {
-    // Implementation for re-ordering would go here
-    // For now, redirect to product page of first item or cart
-    if (order?.items?.[0]) {
-      // biome-ignore lint/suspicious/noExplicitAny: dynamic route
-      router.push(getUrl(`/product/${order.items[0].product_id}`) as any);
-    }
+    const firstItemHref = order?.items?.[0]
+      ? getStorefrontOrderItemHref(order.items[0], storeSlug ? `/${storeSlug}` : '')
+      : null;
+    router.push((firstItemHref || getUrl('/products')) as any);
   };
 
   const getStatusColor = (status: string) => {
@@ -263,38 +262,75 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
               </div>
               <div className="p-4 space-y-4">
                 {order.items?.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex gap-4 items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0"
-                  >
-                    <Link
-                      // biome-ignore lint/suspicious/noExplicitAny: dynamic route
-                      href={`/product/${item.product_id}` as any}
-                      className="w-20 h-20 bg-gray-50 rounded-xl p-2 border border-gray-100 flex-shrink-0 block"
-                    >
-                      <img
-                        src={item.product_image || item.image || item.product_images?.[0] || '/placeholder.png'}
-                        alt={item.product_name || item.name}
-                        className="w-full h-full object-contain mix-blend-multiply"
-                      />
-                    </Link>
-                    <div className="flex-1 min-w-0">
-                      {/* biome-ignore lint/suspicious/noExplicitAny: dynamic route */}
-                      <Link href={`/product/${item.product_id}` as any}>
-                        <h3 className="font-bold text-gray-900 text-sm mb-1 hover:text-red-600 transition-colors">
-                          {item.product_name || item.name}
-                        </h3>
-                      </Link>
-                      <p className="text-xs text-gray-500 mb-2">
-                        Qty: {item.quantity}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-gray-900">
-                          {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(item.price || 0)}
-                        </span>
+                  (() => {
+                    const productHref = getStorefrontOrderItemHref(
+                      item,
+                      storeSlug ? `/${storeSlug}` : ''
+                    );
+
+                    if (!productHref) {
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex gap-4 items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0"
+                        >
+                          <div className="w-20 h-20 bg-gray-50 rounded-xl p-2 border border-gray-100 flex-shrink-0 block">
+                            <img
+                              src={item.product_image || item.image || item.product_images?.[0] || '/placeholder.png'}
+                              alt={item.product_name || item.name}
+                              className="w-full h-full object-contain mix-blend-multiply"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-gray-900 text-sm mb-1">
+                              {item.product_name || item.name}
+                            </h3>
+                            <p className="text-xs text-gray-500 mb-2">
+                              Qty: {item.quantity}
+                            </p>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-bold text-gray-900">
+                                {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(item.price || 0)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex gap-4 items-start pb-4 border-b border-gray-50 last:border-0 last:pb-0"
+                      >
+                        <Link
+                          href={productHref}
+                          className="w-20 h-20 bg-gray-50 rounded-xl p-2 border border-gray-100 flex-shrink-0 block"
+                        >
+                          <img
+                            src={item.product_image || item.image || item.product_images?.[0] || '/placeholder.png'}
+                            alt={item.product_name || item.name}
+                            className="w-full h-full object-contain mix-blend-multiply"
+                          />
+                        </Link>
+                        <div className="flex-1 min-w-0">
+                          <Link href={productHref}>
+                            <h3 className="font-bold text-gray-900 text-sm mb-1 hover:text-red-600 transition-colors">
+                              {item.product_name || item.name}
+                            </h3>
+                          </Link>
+                          <p className="text-xs text-gray-500 mb-2">
+                            Qty: {item.quantity}
+                          </p>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-bold text-gray-900">
+                              {new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(item.price || 0)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()
                 ))}
               </div>
             </div>
@@ -363,7 +399,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
                 onClick={handleBuyAgain}
                 className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition-colors flex items-center justify-center gap-2 shadow-lg active:scale-95"
               >
-                <ShoppingBag size={18} /> Buy Again
+                <ShoppingBag size={18} /> Shop Products
               </button>
             </div>
           </div>

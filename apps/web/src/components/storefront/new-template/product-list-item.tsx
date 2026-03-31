@@ -9,6 +9,9 @@ import {
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
+import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import type { Product } from './types';
 
 interface ProductListItemProps {
@@ -26,6 +29,8 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   isWishlisted,
   onToggleWishlist,
 }) => {
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
   const [activeColorIndex, setActiveColorIndex] = useState(0);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
@@ -64,7 +69,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 active:scale-[0.99] transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative">
       <Link
-        href={`/product/${product.id}` as any}
+        href={asRoute(getStorefrontProductHref(product, basePath))}
         className="absolute inset-0 z-0"
       />
 

@@ -8,6 +8,32 @@ import {
 } from '@/lib/storefront-account-document-data';
 import { storefrontAccountDocumentQuerySchema } from '@/schemas/storefront-account-document';
 
+function extractJoinedProduct(
+  products:
+    | {
+        slug?: string;
+        category?: string | null;
+        category_slug?: string | null;
+        categories?:
+          | { name?: string; slug?: string }[]
+          | { name?: string; slug?: string }
+          | null;
+      }
+    | {
+        slug?: string;
+        category?: string | null;
+        category_slug?: string | null;
+        categories?:
+          | { name?: string; slug?: string }[]
+          | { name?: string; slug?: string }
+          | null;
+      }[]
+    | null
+    | undefined
+) {
+  return Array.isArray(products) ? products[0] || null : products || null;
+}
+
 /**
  * Customer Orders API
  *
@@ -94,9 +120,19 @@ export async function GET(request: NextRequest) {
         order_items (
           id,
           name,
+          product_id,
           quantity,
           price,
-          has_assurance
+          has_assurance,
+          products:products!order_items_product_id_fkey (
+            slug,
+            category,
+            category_slug,
+            categories:categories (
+              name,
+              slug
+            )
+          )
         )
       `)
       .eq('customer_id', customer.id)
@@ -149,7 +185,23 @@ export async function GET(request: NextRequest) {
           externalSource: order.external_source,
           importJobId: order.import_job_id,
         }),
-        items: order.order_items || [],
+        items: (order.order_items || []).map((item) => {
+          const product = extractJoinedProduct(item.products);
+          return {
+            id: item.id,
+            product_id: item.product_id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            has_assurance: item.has_assurance,
+            product_slug: product?.slug,
+            category: product?.category,
+            category_slug: product?.category_slug,
+            categories: Array.isArray(product?.categories)
+              ? product.categories[0] || null
+              : product?.categories || null,
+          };
+        }),
       };
     });
 

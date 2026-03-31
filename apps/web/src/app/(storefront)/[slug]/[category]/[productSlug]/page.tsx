@@ -32,7 +32,10 @@ import {
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
-import { isDomainIdentifier } from '@/lib/validation';
+import {
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
 
 /** KeySpecs interface for product_key_specs */
 interface KeySpecs {
@@ -729,6 +732,9 @@ export async function generateMetadata({
   searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug, category, productSlug } = await params;
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
   const resolvedSearchParams = await searchParams;
   const result = await getProduct(slug, category, productSlug);
 
@@ -825,6 +831,9 @@ export async function generateMetadata({
 
 export default async function CategoryProductPage({ params }: PageProps) {
   const { slug, category, productSlug } = await params;
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
   const result = await getProduct(slug, category, productSlug);
 
   if (!result) {

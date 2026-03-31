@@ -51,6 +51,8 @@ export const RESERVED_PATHS = new Set([
   'swap',
   'account',
   'delete-account',
+  'images',
+  'product',
 ]);
 
 /**

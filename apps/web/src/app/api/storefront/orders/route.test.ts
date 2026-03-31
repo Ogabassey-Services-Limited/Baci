@@ -64,10 +64,17 @@ function createSupabaseMock(input?: {
       payment_method: string | null;
       order_items: Array<{
         id: string;
+        product_id: string;
         name: string;
         quantity: number;
         price: number;
         has_assurance: boolean | null;
+        products?: {
+          slug?: string;
+          category?: string | null;
+          category_slug?: string | null;
+          categories?: { name?: string; slug?: string }[] | null;
+        } | null;
       }>;
     }>
   >;
@@ -249,10 +256,19 @@ describe('GET /api/storefront/orders', () => {
                 order_items: [
                   {
                     id: 'item-1',
+                    product_id: 'product-1',
                     name: 'Imported Product',
                     quantity: 2,
                     price: 70000,
                     has_assurance: false,
+                    products: {
+                      slug: 'imported-product',
+                      category: 'smartphones',
+                      category_slug: 'smartphones',
+                      categories: [
+                        { name: 'Smartphones', slug: 'smartphones' },
+                      ],
+                    },
                   },
                 ],
               },
@@ -295,10 +311,15 @@ describe('GET /api/storefront/orders', () => {
           items: [
             {
               id: 'item-1',
+              product_id: 'product-1',
               name: 'Imported Product',
               quantity: 2,
               price: 70000,
               has_assurance: false,
+              product_slug: 'imported-product',
+              category: 'smartphones',
+              category_slug: 'smartphones',
+              categories: { name: 'Smartphones', slug: 'smartphones' },
             },
           ],
         },

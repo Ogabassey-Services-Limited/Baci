@@ -5,6 +5,10 @@ export interface Product {
   rawPrice?: number;
   image: string;
   category: string;
+  slug?: string;
+  category_slug?: string;
+  categorySlug?: string;
+  categories?: { name?: string; slug?: string } | null;
   rating: number;
   reviews: number;
   description?: string;
