@@ -1,3 +1,0 @@
-## 2026-03-30 - Add Empty Cart CTA and Improve Quantity Button Accessibility
-**Learning:** Empty states in e-commerce apps are critical interaction points. An empty cart without a clear "Continue Shopping" CTA acts as a dead end, increasing friction. Additionally, generic ARIA labels on shared components (like a plus/minus button) fail to provide sufficient context for screen reader users when multiple instances exist on a page.
-**Action:** Always include a primary CTA in empty states to guide users back into the core flow. When building reusable interactive components (like `QuantityButton`), provide a prop for dynamic, instance-specific `aria-label` values to maintain accessibility context.

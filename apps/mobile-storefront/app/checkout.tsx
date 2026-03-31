@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { router, Stack } from 'expo-router';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   type Control,
   Controller,
@@ -559,7 +559,7 @@ export default function CheckoutScreen() {
     }
   }, [enabledPaymentMethods, selectedPayment, paymentTab]);
 
-  const performBackTransition = useCallback(() => {
+  const performBackTransition = () => {
     if (step === 'payment') {
       setStep('address');
     } else if (step === 'review') {
@@ -567,7 +567,7 @@ export default function CheckoutScreen() {
     } else {
       router.back();
     }
-  }, [step]);
+  };
 
   const handleBack = () => {
     performBackTransition();
