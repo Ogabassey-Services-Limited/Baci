@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -286,10 +286,11 @@ export default function NegotiationsScreen() {
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <FlashList
         data={requests}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
+        estimatedItemSize={100}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
