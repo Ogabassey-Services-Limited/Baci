@@ -119,9 +119,14 @@ export function Cart() {
             <div className="flex flex-col items-center justify-center h-full text-center px-6">
               <ShoppingBag className="w-20 h-20 text-muted-foreground/50 mb-4" />
               <p className="text-lg font-semibold">Your cart is empty</p>
-              <p className="text-muted-foreground mt-2">
+              <p className="text-muted-foreground mt-2 mb-6">
                 Add some products to get started!
               </p>
+              <SheetClose asChild>
+                <ThemedButton variant="outline" size="lg">
+                  Continue Shopping
+                </ThemedButton>
+              </SheetClose>
             </div>
           )}
         </ScrollArea>
