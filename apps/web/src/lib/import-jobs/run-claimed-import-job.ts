@@ -4,12 +4,13 @@ import { commitBumpaProducts } from '@/lib/import-commit/commit-bumpa-products';
 import { createPreviewProgressReporter } from '@/lib/import-jobs/create-preview-progress-reporter';
 import {
   buildImportJobRowInserts,
-  buildImportPreviewForJob,
+  buildImportPreviewChunksForJob,
   type ImportJobRecord,
   mergeImportJobSummary,
 } from '@/lib/import-jobs/import-job-service';
 import { sendImportNotificationCampaign } from '@/lib/import-notifications/send-import-notification-campaign';
 import type {
+  ImportPreviewSummary,
   NormalizedImportedOrder,
   NormalizedImportedProduct,
 } from '@/lib/imports/bumpa/bumpa-types';
@@ -33,14 +34,6 @@ function isProductPayload(value: unknown): value is NormalizedImportedProduct {
     'title' in value &&
     'price' in value
   );
-}
-
-function chunkArray<T>(items: T[], size: number) {
-  const chunks: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-  return chunks;
 }
 
 function toErrorDetails(error: unknown) {
@@ -91,18 +84,6 @@ async function processValidatingJob(
     job,
     logger
   );
-  const preview = await buildImportPreviewForJob(
-    supabase,
-    job,
-    reportPreviewProgress
-  );
-  const insertRows = buildImportJobRowInserts(
-    job.id,
-    job.merchant_id,
-    preview.sourceRows,
-    preview.rows
-  );
-
   const { error: deleteError } = await supabase
     .from('import_job_rows')
     .delete()
@@ -114,10 +95,56 @@ async function processValidatingJob(
     );
   }
 
-  for (const chunk of chunkArray(insertRows, 250)) {
-    const { error } = await supabase.from('import_job_rows').insert(chunk);
-    if (error) {
-      throw new Error(`Failed to save import preview rows: ${error.message}`);
+  const persistedRowNumbers = new Set<number>();
+  let latestSummary: ImportPreviewSummary | Record<string, unknown> =
+    job.summary || {};
+  let latestTotalRows = 0;
+
+  for await (const previewChunk of buildImportPreviewChunksForJob(
+    supabase,
+    job,
+    reportPreviewProgress
+  )) {
+    const upsertRows = buildImportJobRowInserts(
+      job.id,
+      job.merchant_id,
+      previewChunk.sourceRows,
+      previewChunk.rows
+    );
+
+    if (upsertRows.length > 0) {
+      const { error } = await supabase
+        .from('import_job_rows')
+        .upsert(upsertRows, { onConflict: 'import_job_id,row_number' });
+
+      if (error) {
+        throw new Error(`Failed to save import preview rows: ${error.message}`);
+      }
+
+      upsertRows.forEach((row) => {
+        persistedRowNumbers.add(row.row_number);
+      });
+    }
+
+    latestSummary = previewChunk.partialSummary;
+    latestTotalRows = previewChunk.totalRows;
+
+    const { error: updateError } = await supabase
+      .from('import_jobs')
+      .update({
+        status: 'validating',
+        processed_rows: previewChunk.processedRows,
+        total_rows: previewChunk.totalRows,
+        summary: previewChunk.partialSummary,
+        error: null,
+        error_details: null,
+      })
+      .eq('id', job.id);
+
+    if (updateError) {
+      throw new Error(
+        `Failed to update import preview summary: ${updateError.message}`
+      );
     }
   }
 
@@ -125,11 +152,11 @@ async function processValidatingJob(
     .from('import_jobs')
     .update({
       status: 'preview_ready',
-      total_rows: preview.totalRows,
+      total_rows: latestTotalRows,
       // processed_rows reflects validated input rows for the UI progress bar,
-      // so it should use preview.totalRows instead of preview.rows.length.
-      processed_rows: preview.totalRows,
-      summary: preview.summary,
+      // so it should use total_rows instead of persisted preview row count.
+      processed_rows: latestTotalRows,
+      summary: latestSummary,
       error: null,
       error_details: null,
     })
@@ -144,9 +171,8 @@ async function processValidatingJob(
   return {
     id: job.id,
     status: 'preview_ready',
-    // processed reports the preview entries generated for downstream work,
-    // which can differ from processed_rows / preview.totalRows.
-    processed: preview.rows.length,
+    // processed reports the persisted preview entries available downstream.
+    processed: persistedRowNumbers.size,
   };
 }
 
