@@ -7,6 +7,7 @@ import { defineConfig } from 'vitest/config';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
+const appRequire = createRequire(path.join(__dirname, 'package.json'));
 
 function resolveTestingLibraryReactPath() {
   try {
@@ -18,22 +19,12 @@ function resolveTestingLibraryReactPath() {
 }
 
 const testingLibraryReactPath = resolveTestingLibraryReactPath();
-const testingLibraryRoot = path.dirname(
-  require.resolve('@testing-library/react/package.json')
-);
-const testingLibraryRequire = createRequire(
-  path.join(testingLibraryRoot, 'package.json')
-);
-const reactPath = testingLibraryRequire.resolve('react');
-const reactJsxRuntimePath = testingLibraryRequire.resolve('react/jsx-runtime');
-const reactJsxDevRuntimePath = testingLibraryRequire.resolve(
-  'react/jsx-dev-runtime'
-);
-const reactDomPath = testingLibraryRequire.resolve('react-dom');
-const reactDomClientPath = testingLibraryRequire.resolve('react-dom/client');
-const reactDomTestUtilsPath = testingLibraryRequire.resolve(
-  'react-dom/test-utils'
-);
+const reactPath = appRequire.resolve('react');
+const reactJsxRuntimePath = appRequire.resolve('react/jsx-runtime');
+const reactJsxDevRuntimePath = appRequire.resolve('react/jsx-dev-runtime');
+const reactDomPath = appRequire.resolve('react-dom');
+const reactDomClientPath = appRequire.resolve('react-dom/client');
+const reactDomTestUtilsPath = appRequire.resolve('react-dom/test-utils');
 
 export default defineConfig({
   plugins: [react()],
