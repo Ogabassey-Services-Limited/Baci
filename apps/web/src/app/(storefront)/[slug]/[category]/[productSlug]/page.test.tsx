@@ -88,6 +88,9 @@ vi.mock('@/lib/storefront-product-variants', () => ({
 
 vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: (value: string) => value.includes('.'),
+  isValidMerchantIdentifier: (value: string) =>
+    value.includes('.') ||
+    /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(value),
 }));
 
 vi.mock(
