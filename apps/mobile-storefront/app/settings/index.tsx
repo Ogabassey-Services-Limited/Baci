@@ -103,7 +103,9 @@ export default function SettingsScreen() {
                   key !== 'auth-storage'
               );
               if (cacheKeys.length > 0) {
-                await AsyncStorage.multiRemove(cacheKeys);
+                await Promise.all(
+                  cacheKeys.map((k) => AsyncStorage.removeItem(k))
+                );
               }
 
               toast.success('Cache cleared successfully.');

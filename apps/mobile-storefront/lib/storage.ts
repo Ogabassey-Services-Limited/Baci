@@ -7,6 +7,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { createLogger } from './logger';
 
 const log = createLogger('Storage');
@@ -123,8 +124,10 @@ export function initializeStorage(keys: string[]): Promise<void> {
   initializationPromise = (async () => {
     try {
       log.debug('Initializing with keys:', keys);
-      const pairs = await AsyncStorage.multiGet(keys);
-      for (const [key, value] of pairs) {
+      const entries = await Promise.all(
+        keys.map(async (key) => [key, await AsyncStorage.getItem(key)] as const)
+      );
+      for (const [key, value] of entries) {
         if (value !== null) {
           memoryCache[key] = value;
           log.debug(`Loaded "${key}" from AsyncStorage`);
