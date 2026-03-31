@@ -1,3 +1,19 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 31a5376..3e0c046 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -39,8 +39,10 @@ android {
+     release {
+       if (configureInRelease) {
+         java.srcDir 'src/debug/java'
++        kotlin.srcDir 'src/debug/java'
+         res.srcDir 'src/debug/res'
+       } else {
+         java.srcDir 'src/disableInRelease/java'
++        kotlin.srcDir 'src/disableInRelease/java'
+         res.srcDir 'src/disableInRelease/res'
+       }
+     }
 diff --git a/ios/DevMenuManager.swift b/ios/DevMenuManager.swift
 index 0fbf236b242e662b6f4de05435b1155af6a60068..2b4ffbe4b8fb691489106a0f046ed65289828270 100644
 --- a/ios/DevMenuManager.swift

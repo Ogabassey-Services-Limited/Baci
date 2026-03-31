@@ -62,6 +62,20 @@ react {
     autolinkLibrariesWithApp()
 }
 
+afterEvaluate {
+    def autolinkingTask = tasks.named("generateAutolinkingNewArchitectureFiles")
+    def dependencyCodegenTasks = rootProject.allprojects.collectMany { subproject ->
+        subproject.tasks.matching { task ->
+            task.name == "generateCodegenArtifactsFromSchema" || task.name == "generateCodegenSchemaFromJavaScript"
+        }.toList()
+    }
+
+    autolinkingTask.configure {
+        dependsOn(dependencyCodegenTasks)
+        outputs.upToDateWhen { false }
+    }
+}
+
 /**
  * Set this to true in release builds to optimize the app using [R8](https://developer.android.com/topic/performance/app-optimization/enable-app-optimization).
  */
@@ -103,15 +117,42 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        release {
+            def keystorePath = System.getenv("ANDROID_KEYSTORE_FILE") ?: null
+            def keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: null
+            def keyAliasVal = System.getenv("ANDROID_KEY_ALIAS") ?: null
+            def keyPasswordVal = System.getenv("ANDROID_KEY_PASSWORD") ?: null
+
+            if (keystorePath != null) {
+                if (!file(keystorePath).exists()) {
+                    throw new GradleException(
+                        "ANDROID_KEYSTORE_FILE is set to '${keystorePath}' but the file does not exist."
+                    )
+                }
+                if (!keystorePassword || !keyAliasVal || !keyPasswordVal) {
+                    throw new GradleException(
+                        "Release keystore found but signing credentials incomplete. " +
+                        "Missing: " +
+                        (!keystorePassword ? "ANDROID_KEYSTORE_PASSWORD " : "") +
+                        (!keyAliasVal ? "ANDROID_KEY_ALIAS " : "") +
+                        (!keyPasswordVal ? "ANDROID_KEY_PASSWORD " : "")
+                    )
+                }
+                storeFile file(keystorePath)
+                storePassword keystorePassword
+                keyAlias keyAliasVal
+                keyPassword keyPasswordVal
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            if (signingConfigs.release.storeFile != null) {
+                signingConfig signingConfigs.release
+            }
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds

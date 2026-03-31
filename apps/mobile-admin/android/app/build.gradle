@@ -62,6 +62,20 @@ react {
     autolinkLibrariesWithApp()
 }
 
+afterEvaluate {
+    def autolinkingTask = tasks.named("generateAutolinkingNewArchitectureFiles")
+    def dependencyCodegenTasks = rootProject.allprojects.collectMany { subproject ->
+        subproject.tasks.matching { task ->
+            task.name == "generateCodegenArtifactsFromSchema" || task.name == "generateCodegenSchemaFromJavaScript"
+        }.toList()
+    }
+
+    autolinkingTask.configure {
+        dependsOn(dependencyCodegenTasks)
+        outputs.upToDateWhen { false }
+    }
+}
+
 /**
  * Set this to true in release builds to optimize the app using [R8](https://developer.android.com/topic/performance/app-optimization/enable-app-optimization).
  */

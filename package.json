@@ -90,6 +90,7 @@
       "path-to-regexp": ">=8.4.0"
     },
     "patchedDependencies": {
+      "@expo/log-box@55.0.8": "patches/@expo/log-box@55.0.8.patch",
       "@react-native/gradle-plugin@0.84.1": "patches/@react-native/gradle-plugin@0.84.1.patch",
       "@react-native-async-storage/async-storage@3.0.2": "patches/@react-native-async-storage/async-storage@3.0.2.patch",
       "@react-native-community/datetimepicker@9.1.0": "patches/@react-native-community/datetimepicker@9.1.0.patch",
@@ -109,6 +110,7 @@
       "react-native-purchases@9.15.0": "patches/react-native-purchases@9.15.0.patch",
       "react-native-safe-area-context@5.7.0": "patches/react-native-safe-area-context@5.7.0.patch",
       "react-native-screens@4.24.0": "patches/react-native-screens@4.24.0.patch",
+      "react-native-tiktok-business@0.2.0": "patches/react-native-tiktok-business@0.2.0.patch",
       "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch",
       "react-native-worklets@0.8.1": "patches/react-native-worklets@0.8.1.patch",
       "react-native@0.84.1": "patches/react-native@0.84.1.patch",

@@ -1,0 +1,46 @@
+diff --git a/android/src/main/java/expo/modules/tiktokbusiness/TiktokBusinessApplicationLifecycleListener.kt b/android/src/main/java/expo/modules/tiktokbusiness/TiktokBusinessApplicationLifecycleListener.kt
+index 4989be4..391d9f2 100644
+--- a/android/src/main/java/expo/modules/tiktokbusiness/TiktokBusinessApplicationLifecycleListener.kt
++++ b/android/src/main/java/expo/modules/tiktokbusiness/TiktokBusinessApplicationLifecycleListener.kt
+@@ -1,5 +1,6 @@
+ package expo.modules.tiktokbusiness
+ 
+ import android.app.Application
++import android.content.pm.ApplicationInfo
+ import expo.modules.core.interfaces.ApplicationLifecycleListener
+ import com.tiktok.TikTokBusinessSdk;
+ import android.content.pm.PackageManager
+@@ -8,29 +9,30 @@ import android.content.pm.PackageManager
+ class TiktokBusinessApplicationLifecycleListener : ApplicationLifecycleListener {
+ 
+ 	override fun onCreate(application: Application) {
+ 	  val appId = getAppId(application)
+ 	  val ttAppId = getTikTokAppId(application)
++	  val isDebuggable = (application.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+       
+ 	  val ttConfig = TikTokBusinessSdk.TTConfig(application.applicationContext)
+ 	    .setAppId(appId) 
+ 	    .setTTAppId(ttAppId)
+ 
+-	if (BuildConfig.DEBUG) {
++	if (isDebuggable) {
+ 	  ttConfig.openDebugMode()
+ 	  ttConfig.setLogLevel(TikTokBusinessSdk.LogLevel.DEBUG)
+ 	}
+       
+ 	  TikTokBusinessSdk.initializeSdk(ttConfig, object : TikTokBusinessSdk.TTInitCallback {
+ 	    override fun success() {
+-		if (BuildConfig.DEBUG) {
++		if (isDebuggable) {
+ 		  println("TikTokBusinessSdk initialized")
+ 		}
+ 	    }
+ 	    
+ 	    override fun fail(code: Int, msg: String) {
+-	      if (BuildConfig.DEBUG) {
++	      if (isDebuggable) {
+ 		println("TikTokBusinessSdk initialization failed")
+ 	      }
+ 	    }
+ 	  })
+ 	  TikTokBusinessSdk.startTrack()

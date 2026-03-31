@@ -1,5 +1,5 @@
 diff --git a/android/build.gradle b/android/build.gradle
-index 4f80202..b22536a 100644
+index 4f80202..d75fe15 100644
 --- a/android/build.gradle
 +++ b/android/build.gradle
 @@ -9,7 +9,7 @@ buildscript {
@@ -44,7 +44,7 @@ index 4f80202..b22536a 100644
          disable "GradleCompatible"
      }
  
-@@ -78,6 +78,9 @@ android {
+@@ -78,6 +78,30 @@ android {
  }
  
  repositories {
@@ -54,6 +54,26 @@ index 4f80202..b22536a 100644
      mavenCentral()
      google()
  }
++
++afterEvaluate {
++    tasks.matching { task -> task.name ==~ /parse.+LocalResources/ }.configureEach { parseTask ->
++        def variantName = parseTask.name
++            .replaceFirst(/^parse/, "")
++            .replaceFirst(/LocalResources$/, "")
++        def variantDir = variantName[0].toLowerCase() + variantName.substring(1)
++        def symbolFile = layout.buildDirectory.file(
++            "intermediates/local_only_symbol_list/${variantDir}/${parseTask.name}/R-def.txt"
++        )
++        outputs.file(symbolFile)
++        doLast {
++            def output = symbolFile.get().asFile
++            if (!output.exists()) {
++                output.parentFile.mkdirs()
++                output.text = ""
++            }
++        }
++    }
++}
 diff --git a/android/config.gradle b/android/config.gradle
 index 5248899..ff7cc1c 100644
 --- a/android/config.gradle
@@ -63,7 +83,7 @@ index 5248899..ff7cc1c 100644
      }
  
 +    if (kotlinVersion.startsWith("2.3.")) {
-+        String kspVersion = "2.3.5"
++        String kspVersion = "2.3.6"
 +        logger.info("[AsyncStorage] Using KSP 2.x version with AGP 9 support: ${kspVersion}")
 +        return kspVersion
 +    }
