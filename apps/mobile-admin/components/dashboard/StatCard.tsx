@@ -32,6 +32,16 @@ export function StatCard({
   const isLarge = size === 'large';
   const finalIconColor = iconColor || colors.primary;
 
+  const trendAccessibilityText = trend
+    ? trend.direction === 'up'
+      ? `Up by ${trend.value}`
+      : trend.direction === 'down'
+        ? `Down by ${trend.value}`
+        : trend.value
+    : '';
+
+  const accessibilityLabel = `${label}, ${value}. ${trendAccessibilityText}`.trim();
+
   return (
     <View
       style={[
@@ -40,8 +50,15 @@ export function StatCard({
         shadows.sm,
         isLarge && styles.containerLarge,
       ]}
+      accessible={true}
+      accessibilityRole="text"
+      accessibilityLabel={accessibilityLabel}
     >
-      <View style={styles.header}>
+      <View
+        style={styles.header}
+        accessibilityElementsHidden={true}
+        importantForAccessibility="no"
+      >
         {icon ? (
           <View
             style={[
@@ -63,12 +80,18 @@ export function StatCard({
           { color: colors.text },
           isLarge && styles.valueLarge,
         ]}
+        accessibilityElementsHidden={true}
+        importantForAccessibility="no"
       >
         {value}
       </Text>
 
       {trend ? (
-        <View style={styles.trendContainer}>
+        <View
+          style={styles.trendContainer}
+          accessibilityElementsHidden={true}
+          importantForAccessibility="no"
+        >
           <Ionicons
             name={
               trend.direction === 'up'
