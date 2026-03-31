@@ -40,6 +40,7 @@ export function BranchModal({
   onSubmit,
   onClose,
 }: BranchModalProps) {
+  const cityInputRef = useRef<TextInput>(null);
   const isCreateDisabled = isPending || branchName.trim().length === 0;
 
   return (
@@ -71,8 +72,11 @@ export function BranchModal({
             value={branchName}
             onChangeText={onBranchNameChange}
             accessibilityLabel="Branch name"
+            returnKeyType="next"
+            onSubmitEditing={() => cityInputRef.current?.focus()}
           />
           <TextInput
+            ref={cityInputRef}
             style={[
               styles.input,
               {
@@ -86,6 +90,7 @@ export function BranchModal({
             value={branchCity}
             onChangeText={onBranchCityChange}
             accessibilityLabel="Branch city"
+            returnKeyType="done"
           />
           <View style={styles.modalButtons}>
             <Pressable
