@@ -639,8 +639,11 @@
     .animate-spin-optimized,
     .animate-checkmark,
     .animate-highlight,
-    .animate-progress-indeterminate {
+    .animate-progress-indeterminate,
+    .animate-entry,
+    .scroll-reveal {
       animation: none;
+      transition: none;
       opacity: 1;
       transform: none;
     }
