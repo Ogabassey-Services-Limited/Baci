@@ -175,8 +175,7 @@ function TopSellingProductItem({
   currencySymbol,
   onPress,
 }: TopSellingProductItemProps) {
-  const { colors, shadows, isDark } = useTheme();
-  const textOnGold = isDark ? colors.background : colors.text;
+  const { colors, shadows } = useTheme();
   const imageUrl = item.images?.[0];
 
   return (
@@ -192,14 +191,8 @@ function TopSellingProductItem({
       accessibilityRole="button"
       accessibilityHint="View product details"
     >
-      <View
-        style={[
-          styles.productRank,
-          { backgroundColor: colors.gold },
-          shadows.sm,
-        ]}
-      >
-        <Ionicons name="trophy" size={12} color={textOnGold} />
+      <View style={[styles.productRank, { backgroundColor: colors.gold }, shadows.sm]}>
+        <Ionicons name="trophy" size={12} color={colors.textOnPrimary} />
       </View>
 
       <View
@@ -284,7 +277,6 @@ function CategoryItem({ item, onPress }: CategoryItemProps) {
 
 export default function ProductsScreen() {
   const { colors, shadows, isDark } = useTheme();
-  const textOnGold = isDark ? colors.background : colors.text;
   const { merchant } = useMerchant();
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
 
@@ -464,12 +456,7 @@ export default function ProductsScreen() {
       accessibilityState={{ selected: isActive }}
       accessibilityHint={`Filter products by ${label.toLowerCase()}`}
     >
-      <Text
-        style={[
-          styles.statValue,
-          { color: isActive ? colors.textOnPrimary : color },
-        ]}
-      >
+      <Text style={[styles.statValue, { color: isActive ? colors.textOnPrimary : color }]}>
         {value}
       </Text>
       <Text
@@ -516,10 +503,7 @@ export default function ProductsScreen() {
           style={[
             styles.tabText,
             isActive
-              ? {
-                  color: isDark ? colors.background : colors.text,
-                  fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-                }
+              ? { color: isDark ? colors.background : colors.text, fontFamily: TYPOGRAPHY.fontFamily.semiBold }
               : { color: colors.textSecondary },
           ]}
         >
@@ -534,10 +518,7 @@ export default function ProductsScreen() {
       return (
         <View style={styles.summaryWrapper}>
           <View
-            style={[
-              styles.summaryBar,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
+            style={[styles.summaryBar, { backgroundColor: colors.card }]}
           >
             <Text style={{ color: colors.text }}>Loading stats...</Text>
           </View>
@@ -551,10 +532,7 @@ export default function ProductsScreen() {
           <View
             style={[
               styles.summaryBar,
-              {
-                backgroundColor: colors.errorLight,
-                borderColor: colors.border,
-              },
+              { backgroundColor: colors.errorLight },
             ]}
           >
             <Text style={{ color: colors.error }}>No stats data</Text>
@@ -765,10 +743,8 @@ export default function ProductsScreen() {
                   accessibilityRole="button"
                   accessibilityHint="Opens form to create a new product category"
                 >
-                  <Ionicons name="add" size={20} color={textOnGold} />
-                  <Text style={[styles.emptyButtonText, { color: textOnGold }]}>
-                    Create Category
-                  </Text>
+                  <Ionicons name="add" size={20} color={colors.textOnPrimary} />
+                  <Text style={[styles.emptyButtonText, { color: colors.textOnPrimary }]}>Create Category</Text>
                 </Pressable>
               </View>
             ) : null
@@ -869,10 +845,8 @@ export default function ProductsScreen() {
                   accessibilityRole="button"
                   accessibilityHint="Opens form to create a new product"
                 >
-                  <Ionicons name="add" size={20} color={textOnGold} />
-                  <Text style={[styles.emptyButtonText, { color: textOnGold }]}>
-                    Add Product
-                  </Text>
+                  <Ionicons name="add" size={20} color={colors.textOnPrimary} />
+                  <Text style={[styles.emptyButtonText, { color: colors.textOnPrimary }]}>Add Product</Text>
                 </Pressable>
               </View>
             ) : null
@@ -904,7 +878,7 @@ export default function ProductsScreen() {
             : 'Opens form to create a new product'
         }
       >
-        <Ionicons name="add" size={28} color={textOnGold} />
+        <Ionicons name="add" size={28} color={colors.textOnPrimary} />
       </Pressable>
 
       <InventorySummaryBar />
@@ -1008,9 +982,7 @@ export default function ProductsScreen() {
                 {createCategoryMutation.isPending ? (
                   <ActivityIndicator color={colors.textOnPrimary} />
                 ) : (
-                  <Text
-                    style={{ color: colors.textOnPrimary, fontWeight: '600' }}
-                  >
+                  <Text style={{ color: colors.textOnPrimary, fontWeight: '600' }}>
                     Create
                   </Text>
                 )}

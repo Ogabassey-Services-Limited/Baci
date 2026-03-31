@@ -10,18 +10,10 @@ import type {
 interface BuildBumpaProductPreviewInput {
   rows: Record<string, string>[];
   existingProducts: ExistingImportedProduct[];
-  chunkSize?: number;
   onProgress?: (progress: {
     processedRows: number;
     totalRows: number;
   }) => Promise<void> | void;
-}
-
-interface BuildBumpaProductPreviewChunk {
-  rows: ImportPreviewRow<NormalizedImportedProduct>[];
-  processedRows: number;
-  totalRows: number;
-  partialSummary: ImportPreviewSummary;
 }
 
 function splitImageField(value: string) {
@@ -64,24 +56,6 @@ function buildSummary(rows: ImportPreviewRow<NormalizedImportedProduct>[]) {
   );
 }
 
-function updateSummary(
-  summary: ImportPreviewSummary,
-  row: ImportPreviewRow<NormalizedImportedProduct>,
-  delta: 1 | -1 = 1
-) {
-  summary.totalRows += delta;
-
-  if (row.rowStatus === 'invalid') {
-    summary.invalidRows += delta;
-  } else {
-    summary.validRows += delta;
-  }
-
-  if (row.rowStatus === 'create') summary.createCount += delta;
-  if (row.rowStatus === 'update') summary.updateCount += delta;
-  if (row.rowStatus === 'duplicate') summary.duplicateCount += delta;
-}
-
 async function maybeReportProgress(
   onProgress: BuildBumpaProductPreviewInput['onProgress'],
   processedRows: number,
@@ -110,17 +84,13 @@ async function maybeReportProgress(
   }
 }
 
-export async function* buildBumpaProductPreviewChunks({
+export async function buildBumpaProductPreview({
   rows,
   existingProducts,
-  chunkSize = 250,
   onProgress,
 }: BuildBumpaProductPreviewInput) {
-  const effectiveChunkSize =
-    Number.isInteger(chunkSize) && chunkSize > 0 ? chunkSize : 250;
   const seenExternalIds = new Set<string>();
   const existingByExternalId = new Map<string, ExistingImportedProduct>();
-  const runningSummary = buildSummary([]);
 
   existingProducts.forEach((product) => {
     if (product.externalSource === 'bumpa' && product.externalId) {
@@ -128,59 +98,21 @@ export async function* buildBumpaProductPreviewChunks({
     }
   });
 
-  const pendingRows = new Map<
-    number,
-    ImportPreviewRow<NormalizedImportedProduct>
-  >();
-
-  function queuePendingRow(row: ImportPreviewRow<NormalizedImportedProduct>) {
-    pendingRows.set(row.rowNumber, row);
-  }
-
-  function buildChunk(
-    processedRows: number,
-    force = false
-  ): BuildBumpaProductPreviewChunk | null {
-    if (pendingRows.size === 0) {
-      return null;
-    }
-
-    if (!force && processedRows % effectiveChunkSize !== 0) {
-      return null;
-    }
-
-    const chunkRows = Array.from(pendingRows.values()).sort(
-      (left, right) => left.rowNumber - right.rowNumber
-    );
-    pendingRows.clear();
-
-    return {
-      rows: chunkRows,
-      processedRows,
-      totalRows: rows.length,
-      partialSummary: { ...runningSummary },
-    };
-  }
+  const previewRows: ImportPreviewRow<NormalizedImportedProduct>[] = [];
 
   for (const [index, rawRow] of rows.entries()) {
     const rowNumber = index + 2;
     const validationResult = bumpaProductRowSchema.safeParse(rawRow);
     if (!validationResult.success) {
-      const previewRow = {
+      previewRows.push({
         rowNumber,
         sourceExternalId: null,
         rowStatus: 'invalid',
         errors: validationResult.error.errors.map((error) => error.message),
         payload: null,
         meta: {},
-      } satisfies ImportPreviewRow<NormalizedImportedProduct>;
-      updateSummary(runningSummary, previewRow);
-      queuePendingRow(previewRow);
+      } satisfies ImportPreviewRow<NormalizedImportedProduct>);
       await maybeReportProgress(onProgress, index + 1, rows.length);
-      const chunk = buildChunk(index + 1, index + 1 === rows.length);
-      if (chunk) {
-        yield chunk;
-      }
       continue;
     }
 
@@ -189,21 +121,15 @@ export async function* buildBumpaProductPreviewChunks({
     const externalSourceId = row['Product ID'] || row['Source ID'];
 
     if (seenExternalIds.has(externalSourceId)) {
-      const previewRow = {
+      previewRows.push({
         rowNumber,
         sourceExternalId: externalSourceId,
         rowStatus: 'duplicate',
         errors: ['Duplicate Bumpa product id in the same file'],
         payload: null,
         meta: {},
-      } satisfies ImportPreviewRow<NormalizedImportedProduct>;
-      updateSummary(runningSummary, previewRow);
-      queuePendingRow(previewRow);
+      } satisfies ImportPreviewRow<NormalizedImportedProduct>);
       await maybeReportProgress(onProgress, index + 1, rows.length);
-      const chunk = buildChunk(index + 1, index + 1 === rows.length);
-      if (chunk) {
-        yield chunk;
-      }
       continue;
     }
 
@@ -247,7 +173,7 @@ export async function* buildBumpaProductPreviewChunks({
       },
     } satisfies NormalizedImportedProduct;
 
-    const previewRow = {
+    previewRows.push({
       rowNumber,
       sourceExternalId: externalSourceId,
       rowStatus:
@@ -259,43 +185,12 @@ export async function* buildBumpaProductPreviewChunks({
       errors,
       payload: errors.length > 0 ? null : payload,
       meta: {},
-    } satisfies ImportPreviewRow<NormalizedImportedProduct>;
-    updateSummary(runningSummary, previewRow);
-    queuePendingRow(previewRow);
+    } satisfies ImportPreviewRow<NormalizedImportedProduct>);
     await maybeReportProgress(onProgress, index + 1, rows.length);
-    const chunk = buildChunk(index + 1, index + 1 === rows.length);
-    if (chunk) {
-      yield chunk;
-    }
-  }
-}
-
-export async function buildBumpaProductPreview({
-  rows,
-  existingProducts,
-  chunkSize = 250,
-  onProgress,
-}: BuildBumpaProductPreviewInput) {
-  const previewRows = new Map<
-    number,
-    ImportPreviewRow<NormalizedImportedProduct>
-  >();
-  let summary = buildSummary([]);
-
-  for await (const chunk of buildBumpaProductPreviewChunks({
-    rows,
-    existingProducts,
-    chunkSize,
-    onProgress,
-  })) {
-    chunk.rows.forEach((row) => {
-      previewRows.set(row.rowNumber, row);
-    });
-    summary = chunk.partialSummary;
   }
 
   return {
-    rows: Array.from(previewRows.values()),
-    summary,
+    rows: previewRows,
+    summary: buildSummary(previewRows),
   };
 }
