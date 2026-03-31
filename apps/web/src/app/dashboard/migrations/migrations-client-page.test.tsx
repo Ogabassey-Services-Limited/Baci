@@ -492,22 +492,8 @@ describe('MigrationsClientPage', () => {
     await act(async () => {
       deferredRefresh.resolve(
         createJsonResponse({
-          job: {
-            id: 'job-1',
-            entity_type: 'orders',
-            source_platform: 'bumpa',
-            status: 'validating',
-            original_filename: 'orders.csv',
-            processed_rows: 2,
-            total_rows: 10,
-            summary: { validRows: 0, invalidRows: 0, receiptReadyOrders: 0 },
-            error: null,
-            created_at: '2026-03-22T10:00:00.000Z',
-            committed_at: null,
-            notified_at: null,
-            canCommit: false,
-            canNotify: false,
-          },
+          rows: [],
+          pagination: { page: 1, pageSize: 25, total: 0 },
         })
       );
       await Promise.resolve();
