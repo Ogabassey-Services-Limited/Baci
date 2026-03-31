@@ -123,8 +123,8 @@ export function initializeStorage(keys: string[]): Promise<void> {
   initializationPromise = (async () => {
     try {
       log.debug('Initializing with keys:', keys);
-      const pairs = await AsyncStorage.multiGet(keys);
-      for (const [key, value] of pairs) {
+      const pairs = await AsyncStorage.getMany(keys);
+      for (const [key, value] of Object.entries(pairs)) {
         if (value !== null) {
           memoryCache[key] = value;
           log.debug(`Loaded "${key}" from AsyncStorage`);
