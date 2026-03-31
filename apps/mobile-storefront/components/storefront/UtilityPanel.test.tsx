@@ -1,10 +1,11 @@
+import { jest } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Animated } from 'react-native';
 import Colors from '@/constants/Colors';
 import { UtilityPanel } from './UtilityPanel';
 
 type MockCategoriesResult = {
-  data: Array<unknown>;
+  data: unknown[];
   isLoading: boolean;
   error: Error | null;
 };
@@ -19,10 +20,18 @@ const createCategoriesResult = (
 });
 
 const mockUseColorScheme = jest.fn(() => 'light');
-const mockUseCategories = jest.fn<MockCategoriesResult, []>(() =>
+const mockUseCategories = jest.fn<() => MockCategoriesResult>(() =>
   createCategoriesResult()
 );
 const mockUsePrefetchBillers = jest.fn();
+
+function createAnimation() {
+  return {
+    start: (callback?: (result: { finished: boolean }) => void) => {
+      callback?.({ finished: true });
+    },
+  };
+}
 
 jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => mockUseColorScheme(),
@@ -42,6 +51,27 @@ describe('UtilityPanel', () => {
     jest.useFakeTimers();
     mockUseColorScheme.mockReturnValue('light');
     mockUseCategories.mockReturnValue(createCategoriesResult());
+    jest
+      .spyOn(Animated, 'timing')
+      .mockImplementation(
+        () => createAnimation() as ReturnType<typeof Animated.timing>
+      );
+    jest
+      .spyOn(Animated, 'spring')
+      .mockImplementation(
+        () => createAnimation() as ReturnType<typeof Animated.spring>
+      );
+    jest.spyOn(Animated, 'parallel').mockImplementation(
+      (animations) =>
+        ({
+          start: (callback?: (result: { finished: boolean }) => void) => {
+            for (const animation of animations) {
+              animation.start?.();
+            }
+            callback?.({ finished: true });
+          },
+        }) as ReturnType<typeof Animated.parallel>
+    );
   });
 
   afterEach(() => {
@@ -56,7 +86,10 @@ describe('UtilityPanel', () => {
     const onCategorySelect = jest.fn();
 
     const { rerender } = render(
-      <UtilityPanel selectedCategoryId={null} onCategorySelect={onCategorySelect} />
+      <UtilityPanel
+        selectedCategoryId={null}
+        onCategorySelect={onCategorySelect}
+      />
     );
 
     expect(screen.getByTestId('utility-panel-promo-banner')).toHaveStyle({
@@ -69,7 +102,10 @@ describe('UtilityPanel', () => {
     mockUseColorScheme.mockReturnValue('dark');
 
     rerender(
-      <UtilityPanel selectedCategoryId={null} onCategorySelect={onCategorySelect} />
+      <UtilityPanel
+        selectedCategoryId={null}
+        onCategorySelect={onCategorySelect}
+      />
     );
 
     expect(screen.getByTestId('utility-panel-promo-banner')).toHaveStyle({
@@ -101,7 +137,10 @@ describe('UtilityPanel', () => {
     const onCategorySelect = jest.fn();
 
     render(
-      <UtilityPanel selectedCategoryId={null} onCategorySelect={onCategorySelect} />
+      <UtilityPanel
+        selectedCategoryId={null}
+        onCategorySelect={onCategorySelect}
+      />
     );
 
     expect(screen.getByText('Airtime!')).toBeTruthy();
@@ -126,7 +165,10 @@ describe('UtilityPanel', () => {
   it('uses the selectedCategoryId prop to mark the chosen utility as active', () => {
     const onCategorySelect = jest.fn();
     const { rerender } = render(
-      <UtilityPanel selectedCategoryId={null} onCategorySelect={onCategorySelect} />
+      <UtilityPanel
+        selectedCategoryId={null}
+        onCategorySelect={onCategorySelect}
+      />
     );
 
     fireEvent.press(screen.getByLabelText('Data'));

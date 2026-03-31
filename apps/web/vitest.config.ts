@@ -7,8 +7,7 @@ import { defineConfig } from 'vitest/config';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
-const reactPath = path.dirname(require.resolve('react/package.json'));
-const reactDomPath = path.dirname(require.resolve('react-dom/package.json'));
+const appRequire = createRequire(path.join(__dirname, 'package.json'));
 
 function resolveTestingLibraryReactPath() {
   try {
@@ -20,24 +19,30 @@ function resolveTestingLibraryReactPath() {
 }
 
 const testingLibraryReactPath = resolveTestingLibraryReactPath();
+const reactPath = appRequire.resolve('react');
+const reactJsxRuntimePath = appRequire.resolve('react/jsx-runtime');
+const reactJsxDevRuntimePath = appRequire.resolve('react/jsx-dev-runtime');
+const reactDomPath = appRequire.resolve('react-dom');
+const reactDomClientPath = appRequire.resolve('react-dom/client');
+const reactDomTestUtilsPath = appRequire.resolve('react-dom/test-utils');
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@testing-library/react': testingLibraryReactPath,
-      react: reactPath,
-      'react/jsx-runtime': path.resolve(reactPath, 'jsx-runtime.js'),
-      'react/jsx-dev-runtime': path.resolve(reactPath, 'jsx-dev-runtime.js'),
-      'react-dom': reactDomPath,
-      'react-dom/client': path.resolve(reactDomPath, 'client.js'),
-      'react-dom/test-utils': path.resolve(reactDomPath, 'test-utils.js'),
-    },
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+      { find: '@testing-library/react', replacement: testingLibraryReactPath },
+      { find: /^react$/, replacement: reactPath },
+      { find: /^react\/jsx-runtime$/, replacement: reactJsxRuntimePath },
+      { find: /^react\/jsx-dev-runtime$/, replacement: reactJsxDevRuntimePath },
+      { find: /^react-dom$/, replacement: reactDomPath },
+      { find: /^react-dom\/client$/, replacement: reactDomClientPath },
+      { find: /^react-dom\/test-utils$/, replacement: reactDomTestUtilsPath },
+    ],
     dedupe: ['react', 'react-dom'],
   },
   ssr: {
-    noExternal: ['@testing-library/react'],
+    noExternal: true,
   },
   test: {
     environment: 'jsdom',
@@ -51,7 +56,7 @@ export default defineConfig({
     },
     server: {
       deps: {
-        inline: [/@testing-library\/react/],
+        inline: true,
       },
     },
   },

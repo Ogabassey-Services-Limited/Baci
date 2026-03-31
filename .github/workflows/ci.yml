@@ -54,12 +54,7 @@ jobs:
           node-version: "24"
           cache: "pnpm"
       - if: needs.changes.outputs.web == 'true'
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-modules-${{ hashFiles('pnpm-lock.yaml') }}
-      - if: needs.changes.outputs.web == 'true'
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
       # Run monorepo-wide lint/typecheck/test (not filtered to @baci/web)
       # to catch cross-package breakages from shared code changes
       - if: needs.changes.outputs.web == 'true'
@@ -88,7 +83,6 @@ jobs:
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: |
-            node_modules
             .turbo
             apps/web/.next/cache
           key: ${{ runner.os }}-build-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('apps/web/src/**', 'packages/shared/src/**') }}
@@ -96,7 +90,7 @@ jobs:
             ${{ runner.os }}-build-${{ hashFiles('pnpm-lock.yaml') }}-
             ${{ runner.os }}-build-
       - if: needs.changes.outputs.web == 'true'
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
       - if: needs.changes.outputs.web == 'true'
         run: pnpm turbo build --filter=@baci/web
         env:

@@ -1,0 +1,156 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 9bc5ea91c..88ae9661b 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -51,9 +51,11 @@ android {
+     release {
+       if (configureInRelease) {
+         java.srcDir 'src/debug/java'
++        kotlin.srcDir 'src/debug/java'
+         res.srcDir 'src/debug/res'
+       } else {
+         java.srcDir 'src/disableInRelease/java'
++        kotlin.srcDir 'src/disableInRelease/java'
+         res.srcDir 'src/disableInRelease/res'
+       }
+     }
+diff --git a/ios/DevMenuManager.swift b/ios/DevMenuManager.swift
+index 0fbf236b2..2b4ffbe4b 100644
+--- a/ios/DevMenuManager.swift
++++ b/ios/DevMenuManager.swift
+@@ -109,6 +109,7 @@ open class DevMenuManager: NSObject {
+   public private(set) var currentBridge: RCTBridge? {
+     didSet {
+       updateAutoLaunchObserver()
++      packagerConnectionHandler?.updateBridge(currentBridge)
+
+       if let currentBridge {
+         DispatchQueue.main.async {
+diff --git a/ios/DevMenuPackagerConnectionHandler.swift b/ios/DevMenuPackagerConnectionHandler.swift
+index aaeb55069..41e84809d 100644
+--- a/ios/DevMenuPackagerConnectionHandler.swift
++++ b/ios/DevMenuPackagerConnectionHandler.swift
+@@ -6,6 +6,10 @@ import React
+ class DevMenuPackagerConnectionHandler {
+   weak var manager: DevMenuManager?
+   private static var suppressRNDevMenu = true
++  private static var didSwizzleRCTDevMenuShow = false
++  private weak var registeredBridge: RCTBridge?
++  private var sendDevCommandToken: RCTHandlerToken?
++  private var devMenuToken: RCTHandlerToken?
+
+   init(manager: DevMenuManager) {
+     self.manager = manager
+@@ -16,26 +20,57 @@ class DevMenuPackagerConnectionHandler {
+     // It shouldn't diverge, because of the definition of `RCT_DEV`.
+ #if DEBUG
+     self.swizzleRCTDevMenuShow()
++    self.updateBridge(manager?.currentBridge)
++#endif
++  }
++
++  func updateBridge(_ bridge: RCTBridge?) {
++#if DEBUG
++    guard let bridge else {
++      if let registeredBridge {
++        unregisterHandlers(from: registeredBridge)
++        self.registeredBridge = nil
++      }
++      return
++    }
+
+-    RCTPackagerConnection
+-      .shared()
+-      .addNotificationHandler(
+-        self.sendDevCommandNotificationHandler,
+-        queue: DispatchQueue.main,
+-        forMethod: "sendDevCommand"
+-      )
+-
+-    RCTPackagerConnection
+-      .shared()
+-      .addNotificationHandler(
+-        self.devMenuNotificationHanlder,
+-        queue: DispatchQueue.main,
+-        forMethod: "devMenu"
+-      )
++    if registeredBridge === bridge {
++      return
++    }
++
++    if let registeredBridge {
++      unregisterHandlers(from: registeredBridge)
++    }
++
++    sendDevCommandToken = bridge.devSettings.addNotificationHandler(
++      self.sendDevCommandNotificationHandler,
++      queue: DispatchQueue.main,
++      forMethod: "sendDevCommand"
++    )
++
++    devMenuToken = bridge.devSettings.addNotificationHandler(
++      self.devMenuNotificationHanlder,
++      queue: DispatchQueue.main,
++      forMethod: "devMenu"
++    )
++
++    registeredBridge = bridge
++#endif
++  }
++
++  deinit {
++#if DEBUG
++    if let registeredBridge {
++      unregisterHandlers(from: registeredBridge)
++    }
+ #endif
+   }
+
+   private func swizzleRCTDevMenuShow() {
++    if DevMenuPackagerConnectionHandler.didSwizzleRCTDevMenuShow {
++      return
++    }
++
+     // [@alan] HACK: We are only doing this to prevent the RN dev menu from showing except when called from
+     // our dev menu. Without this, it will still respond to commands coming from the packager. I could not
+     // find an easier way to do this until we have a proper api.
+@@ -61,11 +96,29 @@ class DevMenuPackagerConnectionHandler {
+
+     let blockImpl = imp_implementationWithBlock(block)
+     method_setImplementation(originalMethod, blockImpl)
++    DevMenuPackagerConnectionHandler.didSwizzleRCTDevMenuShow = true
++  }
++
++  private func unregisterHandlers(from bridge: RCTBridge) {
++#if DEBUG
++    if let sendDevCommandToken {
++      bridge.devSettings.packagerConnection.removeHandler(sendDevCommandToken)
++      self.sendDevCommandToken = nil
++    }
++
++    if let devMenuToken {
++      bridge.devSettings.packagerConnection.removeHandler(devMenuToken)
++      self.devMenuToken = nil
++    }
++#else
++    _ = bridge
++#endif
+   }
+
+   @objc
+-  func sendDevCommandNotificationHandler(_ params: [String: Any]) {
++  func sendDevCommandNotificationHandler(_ params: [String: Any]?) {
+     guard let manager = manager,
++      let params,
+       let command = params["name"] as? String,
+       let bridge = manager.currentBridge
+     else {
+@@ -89,7 +142,7 @@ class DevMenuPackagerConnectionHandler {
+   }
+
+   @objc
+-  func devMenuNotificationHanlder(_ parames: [String: Any]) {
++  func devMenuNotificationHanlder(_ parames: [String: Any]?) {
+     self.manager?.toggleMenu()
+   }
+

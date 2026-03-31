@@ -172,7 +172,6 @@ export default function ExpensesScreen() {
             data={expenses}
             renderItem={renderExpenseItem}
             keyExtractor={(item) => item.id}
-            estimatedItemSize={78}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>

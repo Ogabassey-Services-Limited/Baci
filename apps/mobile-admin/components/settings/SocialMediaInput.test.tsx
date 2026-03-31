@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS } from '@/constants/theme';
 import SocialMediaInput from './SocialMediaInput';
@@ -11,13 +10,8 @@ vi.mock('react-native', async () => {
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
-    Text: ({
-      children,
-      style,
-    }: {
-      children?: React.ReactNode;
-      style?: unknown;
-    }) => React.createElement('span', { style }, children),
+    Text: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('span', null, children),
     TextInput: ({
       accessibilityLabel,
       onChangeText,

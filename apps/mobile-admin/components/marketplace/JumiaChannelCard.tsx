@@ -71,7 +71,7 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
       const result = await WebBrowser.openAuthSessionAsync(
         ticketData.authUrl,
         redirectUrl,
-        { preferEphemeralWebBrowserSession: true }
+        { preferEphemeralSession: true }
       );
 
       if (result.type === 'success' && result.url) {

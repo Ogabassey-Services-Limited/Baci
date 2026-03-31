@@ -28,13 +28,8 @@ vi.mock('react-native', async () => {
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
-    Text: ({
-      children,
-      style,
-    }: {
-      children?: React.ReactNode;
-      style?: unknown;
-    }) => React.createElement('span', { style }, children),
+    Text: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('span', null, children),
     View: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
@@ -59,13 +54,8 @@ vi.mock('expo-camera', () => ({
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({
-    children,
-    ...props
-  }: { children: React.ReactNode } & Record<string, unknown>) => (
-    <div data-testid="safe-area-view" {...props}>
-      {children}
-    </div>
+  SafeAreaView: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="safe-area-view">{children}</div>
   ),
 }));
 

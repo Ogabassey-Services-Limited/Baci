@@ -2,7 +2,9 @@ import '@testing-library/jest-native/extend-expect';
 
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () =>
-  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+  require(
+    `${__dirname}/../../node_modules/@react-native-async-storage/async-storage/lib/module/jest/AsyncStorageMock.js`
+  )
 );
 
 // Mock expo-haptics

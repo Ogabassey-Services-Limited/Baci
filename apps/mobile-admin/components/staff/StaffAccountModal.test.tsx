@@ -72,13 +72,8 @@ vi.mock('react-native', async () => {
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
-    Text: ({
-      children,
-      style,
-    }: {
-      children?: React.ReactNode;
-      style?: unknown;
-    }) => React.createElement('span', { style }, children),
+    Text: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('span', null, children),
     TextInput: ({
       onChangeText,
       placeholder,

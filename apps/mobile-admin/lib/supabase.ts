@@ -3,10 +3,29 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 import { storage } from './storage';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+type ExpoExtraConfig = {
+  supabaseAnonKey?: string;
+  supabaseUrl?: string;
+};
+
+function getExpoExtraConfig(): ExpoExtraConfig {
+  const expoExtra = Constants.expoConfig?.extra;
+
+  if (!expoExtra || typeof expoExtra !== 'object') {
+    return {};
+  }
+
+  return expoExtra as ExpoExtraConfig;
+}
+
+const expoExtra = getExpoExtraConfig();
+const supabaseUrl =
+  process.env.EXPO_PUBLIC_SUPABASE_URL || expoExtra.supabaseUrl || '';
+const supabaseAnonKey =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || expoExtra.supabaseAnonKey || '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error(
@@ -25,11 +44,27 @@ const mmkvStorage = {
   },
 };
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: mmkvStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
+function createMissingCredentialsClient() {
+  return new Proxy(
+    {},
+    {
+      get() {
+        throw new Error(
+          '[Supabase] Client accessed without EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.'
+        );
+      },
+    }
+  ) as ReturnType<typeof createClient>;
+}
+
+export const supabase =
+  supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          storage: mmkvStorage,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+        },
+      })
+    : createMissingCredentialsClient();
