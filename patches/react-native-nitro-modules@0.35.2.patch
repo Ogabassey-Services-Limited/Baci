@@ -27,7 +27,7 @@ index 368fc7d..962a75c 100644
    }
 
 diff --git a/android/fix-prefab.gradle b/android/fix-prefab.gradle
-index 9d76ce5..7d59646 100644
+index d6c010e..9020551 100644
 --- a/android/fix-prefab.gradle
 +++ b/android/fix-prefab.gradle
 @@ -1,3 +1,5 @@
@@ -36,7 +36,7 @@ index 9d76ce5..7d59646 100644
  tasks.configureEach { task ->
    // Make sure that we generate our prefab publication file only after having built the native library
    // so that not a header publication file, but a full configuration publication will be generated, which
-@@ -12,7 +14,6 @@ tasks.configureEach { task ->
+@@ -13,7 +15,6 @@ tasks.configureEach { task ->
  }
 
  afterEvaluate {
@@ -44,7 +44,7 @@ index 9d76ce5..7d59646 100644
    rootProject.allprojects.each { proj ->
      if (proj === rootProject) return
 
-@@ -28,20 +29,15 @@ afterEvaluate {
+@@ -28,23 +29,15 @@ afterEvaluate {
        return
      }
 

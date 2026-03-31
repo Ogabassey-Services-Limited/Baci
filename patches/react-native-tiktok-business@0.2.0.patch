@@ -1,8 +1,8 @@
 diff --git a/android/src/main/java/expo/modules/tiktokbusiness/TiktokBusinessApplicationLifecycleListener.kt b/android/src/main/java/expo/modules/tiktokbusiness/TiktokBusinessApplicationLifecycleListener.kt
-index 4989be4..391d9f2 100644
+index f161c7b..ba849b1 100644
 --- a/android/src/main/java/expo/modules/tiktokbusiness/TiktokBusinessApplicationLifecycleListener.kt
 +++ b/android/src/main/java/expo/modules/tiktokbusiness/TiktokBusinessApplicationLifecycleListener.kt
-@@ -1,5 +1,6 @@
+@@ -1,6 +1,7 @@
  package expo.modules.tiktokbusiness
  
  import android.app.Application
@@ -10,9 +10,7 @@ index 4989be4..391d9f2 100644
  import expo.modules.core.interfaces.ApplicationLifecycleListener
  import com.tiktok.TikTokBusinessSdk;
  import android.content.pm.PackageManager
-@@ -8,29 +9,30 @@ import android.content.pm.PackageManager
- class TiktokBusinessApplicationLifecycleListener : ApplicationLifecycleListener {
- 
+@@ -10,25 +11,26 @@ class TiktokBusinessApplicationLifecycleListener : ApplicationLifecycleListener
  	override fun onCreate(application: Application) {
  	  val appId = getAppId(application)
  	  val ttAppId = getTikTokAppId(application)
@@ -42,5 +40,3 @@ index 4989be4..391d9f2 100644
  		println("TikTokBusinessSdk initialization failed")
  	      }
  	    }
- 	  })
- 	  TikTokBusinessSdk.startTrack()

@@ -1,10 +1,10 @@
 diff --git a/android/build.gradle b/android/build.gradle
-index 4f80202..d75fe15 100644
+index 4f80202..549698d 100644
 --- a/android/build.gradle
 +++ b/android/build.gradle
 @@ -9,7 +9,7 @@ buildscript {
      }
- 
+
      dependencies {
 -        classpath "com.android.tools.build:gradle:8.7.2"
 +        classpath "com.android.tools.build:gradle:9.1.0"
@@ -12,41 +12,41 @@ index 4f80202..d75fe15 100644
          classpath "com.google.devtools.ksp:symbol-processing-gradle-plugin:${kspVersion}"
      }
 @@ -18,7 +18,7 @@ buildscript {
- 
+
  apply from: "config.gradle"
  apply plugin: "com.android.library"
 -apply plugin: "kotlin-android"
 +apply plugin: "org.jetbrains.kotlin.android"
  apply plugin: "com.facebook.react"
- 
+
  // ksp/room is required to support legacy storage
 @@ -28,11 +28,11 @@ apply plugin: 'com.google.devtools.ksp'
  android {
      namespace "org.asyncstorage"
- 
+
 -    compileSdkVersion project.ext.AsyncStorage.compileSdk
 +    compileSdk project.ext.AsyncStorage.compileSdk
- 
+
      defaultConfig {
 -        minSdkVersion project.ext.AsyncStorage.minSdk
 -        targetSdkVersion project.ext.AsyncStorage.targetSdk
 +        minSdk project.ext.AsyncStorage.minSdk
 +        targetSdk project.ext.AsyncStorage.targetSdk
      }
- 
+
      buildFeatures {
 @@ -45,7 +45,7 @@ android {
          }
      }
- 
+
 -    lintOptions {
 +    lint {
          disable "GradleCompatible"
      }
- 
-@@ -78,6 +78,30 @@ android {
+
+@@ -78,10 +78,33 @@ android {
  }
- 
+
  repositories {
 +    maven {
 +        url uri("$projectDir/local_repo")
@@ -54,7 +54,7 @@ index 4f80202..d75fe15 100644
      mavenCentral()
      google()
  }
-+
+
 +afterEvaluate {
 +    tasks.matching { task -> task.name ==~ /parse.+LocalResources/ }.configureEach { parseTask ->
 +        def variantName = parseTask.name
@@ -74,14 +74,18 @@ index 4f80202..d75fe15 100644
 +        }
 +    }
 +}
++
+ dependencies {
+     implementation "com.facebook.react:react-android"
+     api "org.asyncstorage.shared_storage:storage-android:1.0.0"
 diff --git a/android/config.gradle b/android/config.gradle
-index 5248899..ff7cc1c 100644
+index 5248899..31604ad 100644
 --- a/android/config.gradle
 +++ b/android/config.gradle
 @@ -29,6 +29,12 @@ String getKspVersion(String kotlinVersion) {
          return overriddenKspVersion
      }
- 
+
 +    if (kotlinVersion.startsWith("2.3.")) {
 +        String kspVersion = "2.3.6"
 +        logger.info("[AsyncStorage] Using KSP 2.x version with AGP 9 support: ${kspVersion}")
@@ -93,6 +97,6 @@ index 5248899..ff7cc1c 100644
      def kspVersions = [
 @@ -67,4 +73,3 @@ def getConfigValueOrDefault(name) {
  }
- 
- 
+
+
 -

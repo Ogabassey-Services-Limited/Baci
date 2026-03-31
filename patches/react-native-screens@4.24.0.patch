@@ -1,5 +1,5 @@
 diff --git a/android/build.gradle b/android/build.gradle
-index 885faa6..1763c75 100644
+index 885faa63f..ad5124f68 100644
 --- a/android/build.gradle
 +++ b/android/build.gradle
 @@ -20,7 +20,7 @@ buildscript {
@@ -44,26 +44,25 @@ index 885faa6..1763c75 100644
              path "CMakeLists.txt"
          }
      }
- -    lintOptions {
- +    lint {
-          abortOnError false
-      }
-      compileOptions {
-@@ -184,13 +184,15 @@ android {
-         java {
-             // Architecture specific
-             if (IS_NEW_ARCHITECTURE_ENABLED) {
-                 def architectureSpecificDirs = [
+-    lintOptions {
++    lint {
+         abortOnError false
+     }
+     compileOptions {
+@@ -193,10 +193,16 @@ android {
+                 srcDirs += [
                      "src/fabric/java",
                  ]
-                 srcDirs += architectureSpecificDirs
-+                kotlin.srcDirs += architectureSpecificDirs
++                kotlin.srcDirs += [
++                    "src/fabric/java",
++                ]
              } else {
-                 def architectureSpecificDirs = [
+                 srcDirs += [
                      "src/paper/java",
                  ]
-                 srcDirs += architectureSpecificDirs
-+                kotlin.srcDirs += architectureSpecificDirs
++                kotlin.srcDirs += [
++                    "src/paper/java",
++                ]
              }
          }
          res {

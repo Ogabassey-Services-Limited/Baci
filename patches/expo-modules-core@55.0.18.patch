@@ -1,5 +1,5 @@
 diff --git a/android/ExpoModulesCorePlugin.gradle b/android/ExpoModulesCorePlugin.gradle
-index 7910c77..fb74133 100644
+index 7910c7721..fb74133f6 100644
 --- a/android/ExpoModulesCorePlugin.gradle
 +++ b/android/ExpoModulesCorePlugin.gradle
 @@ -42,13 +42,9 @@ class KotlinExpoModulesCorePlugin implements Plugin<Project> {
@@ -19,11 +19,26 @@ index 7910c77..fb74133 100644
    apply plugin: KotlinExpoModulesCorePlugin
  }
  
+diff --git a/android/build.gradle b/android/build.gradle
+index 0d7b8a4a7..9025a5411 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -185,8 +185,10 @@ android {
+       java {
+         if (shouldIncludeCompose) {
+           srcDirs += 'src/compose'
++          kotlin.srcDirs += 'src/compose'
+         } else {
+           srcDirs += 'src/withoutCompose'
++          kotlin.srcDirs += 'src/withoutCompose'
+         }
+       }
+     }
 diff --git a/android/cmake/main.cmake b/android/cmake/main.cmake
-index c79b8c6..a8f8cfb 100644
+index c79b8c62a..cd3831657 100644
 --- a/android/cmake/main.cmake
 +++ b/android/cmake/main.cmake
-@@ -77,11 +77,29 @@ if (REACT_NATIVE_WORKLETS_DIR)
+@@ -77,11 +77,23 @@ if (REACT_NATIVE_WORKLETS_DIR)
      set(BUILD_TYPE "release")
    endif ()
  
@@ -39,17 +54,17 @@ index c79b8c6..a8f8cfb 100644
 +    )
 +  endif ()
 +
-  set_target_properties(
-    worklets
-    PROPERTIES
-    IMPORTED_LOCATION
+   set_target_properties(
+     worklets
+     PROPERTIES
+     IMPORTED_LOCATION
 -    "${REACT_NATIVE_WORKLETS_DIR}/android/build/intermediates/cmake/${BUILD_TYPE}/obj/${ANDROID_ABI}/libworklets.so"
 +    "${WORKLETS_IMPORTED_LOCATION}"
    )
  
    target_link_libraries(
 diff --git a/android/src/main/java/expo/modules/kotlin/Promise.kt b/android/src/main/java/expo/modules/kotlin/Promise.kt
-index cc342ff..01a1baf 100644
+index cc342ff82..01a1baf1a 100644
 --- a/android/src/main/java/expo/modules/kotlin/Promise.kt
 +++ b/android/src/main/java/expo/modules/kotlin/Promise.kt
 @@ -45,16 +45,16 @@ fun Promise.toBridgePromise(): com.facebook.react.bridge.Promise {
@@ -99,7 +114,7 @@ index cc342ff..01a1baf 100644
  
      override fun reject(code: String?, message: String?, throwable: Throwable?, userInfo: WritableMap?) {
 diff --git a/expo-module-gradle-plugin/build.gradle.kts b/expo-module-gradle-plugin/build.gradle.kts
-index ce67cc8..ef5ee67 100644
+index ce67cc869..ef5ee6701 100644
 --- a/expo-module-gradle-plugin/build.gradle.kts
 +++ b/expo-module-gradle-plugin/build.gradle.kts
 @@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -121,7 +136,7 @@ index ce67cc8..ef5ee67 100644
    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
  
 diff --git a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/ProjectConfiguration.kt b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/ProjectConfiguration.kt
-index 782ec39..542590d 100644
+index 782ec3932..542590d96 100644
 --- a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/ProjectConfiguration.kt
 +++ b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/ProjectConfiguration.kt
 @@ -2,7 +2,7 @@
@@ -167,10 +182,10 @@ index 782ec39..542590d 100644
      publishingExtension()
        .publications
 diff --git a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/AndroidLibraryExtension.kt b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/AndroidLibraryExtension.kt
-index 9bfae8d..8fc4f00 100644
+index 9bfae8d79..32b16be58 100644
 --- a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/AndroidLibraryExtension.kt
 +++ b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/AndroidLibraryExtension.kt
-@@ -1,22 +1,23 @@
+@@ -1,6 +1,6 @@
  package expo.modules.plugin.android
  
 -import com.android.build.gradle.LibraryExtension
@@ -178,11 +193,7 @@ index 9bfae8d..8fc4f00 100644
  
  internal fun LibraryExtension.applySDKVersions(compileSdk: Int, minSdk: Int, targetSdk: Int) {
    this.compileSdk = compileSdk
-   defaultConfig {
-     this@defaultConfig.minSdk = minSdk
-     this@defaultConfig.targetSdk = targetSdk
--    this@defaultConfig.targetSdk = targetSdk
-   }
+@@ -11,12 +11,14 @@ internal fun LibraryExtension.applySDKVersions(compileSdk: Int, minSdk: Int, tar
  }
  
  internal fun LibraryExtension.applyLinterOptions() {
@@ -201,7 +212,7 @@ index 9bfae8d..8fc4f00 100644
      }
    }
 diff --git a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/MavenPublicationExtension.kt b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/MavenPublicationExtension.kt
-index 127e7d6..d73f92f 100644
+index 127e7d6cb..d73f92f73 100644
 --- a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/MavenPublicationExtension.kt
 +++ b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/MavenPublicationExtension.kt
 @@ -41,9 +41,7 @@ internal data class PublicationInfo(
@@ -216,7 +227,7 @@ index 127e7d6..d73f92f 100644
  
    fun resolvePath(repositoryPath: Path): Path {
 diff --git a/ios/Legacy/Services/Permissions/EXPermissionsService.h b/ios/Legacy/Services/Permissions/EXPermissionsService.h
-index 46292b9..df40c83 100644
+index 46292b98b..df40c8392 100644
 --- a/ios/Legacy/Services/Permissions/EXPermissionsService.h
 +++ b/ios/Legacy/Services/Permissions/EXPermissionsService.h
 @@ -7,6 +7,8 @@
@@ -228,19 +239,3 @@ index 46292b9..df40c83 100644
  + (NSString *)permissionStringForStatus:(EXPermissionStatus)status;
  
  - (void)askForGlobalPermissionUsingRequesterClass:(Class)requesterClass
-diff --git a/android/build.gradle b/android/build.gradle
-index 4f09358..3e27146 100644
---- a/android/build.gradle
-+++ b/android/build.gradle
-@@ -174,9 +174,11 @@ android {
-     main {
-       java {
-         if (shouldIncludeCompose) {
-           srcDirs += 'src/compose'
-+          kotlin.srcDirs += 'src/compose'
-         } else {
-           srcDirs += 'src/withoutCompose'
-+          kotlin.srcDirs += 'src/withoutCompose'
-         }
-       }
-     }

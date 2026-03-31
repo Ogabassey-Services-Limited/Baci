@@ -1,8 +1,8 @@
 diff --git a/android/build.gradle b/android/build.gradle
-index 31a5376..3e0c046 100644
+index 9bc5ea9..88ae966 100644
 --- a/android/build.gradle
 +++ b/android/build.gradle
-@@ -39,8 +39,10 @@ android {
+@@ -51,9 +51,11 @@ android {
      release {
        if (configureInRelease) {
          java.srcDir 'src/debug/java'
@@ -15,7 +15,7 @@ index 31a5376..3e0c046 100644
        }
      }
 diff --git a/ios/DevMenuManager.swift b/ios/DevMenuManager.swift
-index 0fbf236b242e662b6f4de05435b1155af6a60068..2b4ffbe4b8fb691489106a0f046ed65289828270 100644
+index 0fbf236..2b4ffbe 100644
 --- a/ios/DevMenuManager.swift
 +++ b/ios/DevMenuManager.swift
 @@ -109,6 +109,7 @@ open class DevMenuManager: NSObject {
@@ -27,7 +27,7 @@ index 0fbf236b242e662b6f4de05435b1155af6a60068..2b4ffbe4b8fb691489106a0f046ed652
        if let currentBridge {
          DispatchQueue.main.async {
 diff --git a/ios/DevMenuPackagerConnectionHandler.swift b/ios/DevMenuPackagerConnectionHandler.swift
-index aaeb55069c0bc1d92a69fd446b3607d0bc877ee5..042f29a7592299569c0c0b05c434dddd4c6d103a 100644
+index aaeb550..cb3064e 100644
 --- a/ios/DevMenuPackagerConnectionHandler.swift
 +++ b/ios/DevMenuPackagerConnectionHandler.swift
 @@ -6,6 +6,10 @@ import React
@@ -41,7 +41,7 @@ index aaeb55069c0bc1d92a69fd446b3607d0bc877ee5..042f29a7592299569c0c0b05c434dddd
  
    init(manager: DevMenuManager) {
      self.manager = manager
-@@ -16,26 +20,53 @@ class DevMenuPackagerConnectionHandler {
+@@ -16,26 +20,57 @@ class DevMenuPackagerConnectionHandler {
      // It shouldn't diverge, because of the definition of `RCT_DEV`.
  #if DEBUG
      self.swizzleRCTDevMenuShow()
@@ -114,7 +114,7 @@ index aaeb55069c0bc1d92a69fd446b3607d0bc877ee5..042f29a7592299569c0c0b05c434dddd
      // [@alan] HACK: We are only doing this to prevent the RN dev menu from showing except when called from
      // our dev menu. Without this, it will still respond to commands coming from the packager. I could not
      // find an easier way to do this until we have a proper api.
-@@ -61,11 +92,25 @@ class DevMenuPackagerConnectionHandler {
+@@ -61,11 +96,25 @@ class DevMenuPackagerConnectionHandler {
  
      let blockImpl = imp_implementationWithBlock(block)
      method_setImplementation(originalMethod, blockImpl)
@@ -141,7 +141,7 @@ index aaeb55069c0bc1d92a69fd446b3607d0bc877ee5..042f29a7592299569c0c0b05c434dddd
        let command = params["name"] as? String,
        let bridge = manager.currentBridge
      else {
-@@ -89,7 +134,7 @@ class DevMenuPackagerConnectionHandler {
+@@ -89,7 +138,7 @@ class DevMenuPackagerConnectionHandler {
    }
  
    @objc

@@ -6,12 +6,6 @@ import { defineConfig } from 'vitest/config';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const require = createRequire(import.meta.url);
-const reactPath = require.resolve('react');
-const reactJsxRuntimePath = require.resolve('react/jsx-runtime');
-const reactJsxDevRuntimePath = require.resolve('react/jsx-dev-runtime');
-const reactDomPath = require.resolve('react-dom');
-const reactDomClientPath = require.resolve('react-dom/client');
-const reactDomTestUtilsPath = require.resolve('react-dom/test-utils');
 
 function resolveTestingLibraryReactPath() {
   // Use the package entry instead of an internal dist path to avoid brittle resolution.
@@ -26,6 +20,27 @@ function resolveTestingLibraryReactPath() {
 }
 
 const testingLibraryReactPath = resolveTestingLibraryReactPath();
+const testingLibraryRoot = path.dirname(
+  require.resolve('@testing-library/react/package.json')
+);
+const reactPath = require.resolve(
+  path.join(testingLibraryRoot, 'node_modules/react')
+);
+const reactJsxRuntimePath = require.resolve(
+  path.join(testingLibraryRoot, 'node_modules/react/jsx-runtime')
+);
+const reactJsxDevRuntimePath = require.resolve(
+  path.join(testingLibraryRoot, 'node_modules/react/jsx-dev-runtime')
+);
+const reactDomPath = require.resolve(
+  path.join(testingLibraryRoot, 'node_modules/react-dom')
+);
+const reactDomClientPath = require.resolve(
+  path.join(testingLibraryRoot, 'node_modules/react-dom/client')
+);
+const reactDomTestUtilsPath = require.resolve(
+  path.join(testingLibraryRoot, 'node_modules/react-dom/test-utils')
+);
 
 export default defineConfig({
   define: {
@@ -52,7 +67,12 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   ssr: {
-    noExternal: ['@testing-library/react', 'react', 'react-dom'],
+    noExternal: [
+      '@tanstack/react-query',
+      '@testing-library/react',
+      'react',
+      'react-dom',
+    ],
   },
   test: {
     environment: 'jsdom',
@@ -60,7 +80,12 @@ export default defineConfig({
     server: {
       deps: {
         // Prevent vitest from parsing native packages (Flow/JSX in .js files)
-        inline: [/@testing-library\/react/, /^react$/, /^react-dom$/],
+        inline: [
+          /@tanstack\/react-query/,
+          /@testing-library\/react/,
+          /^react$/,
+          /^react-dom$/,
+        ],
         external: [
           /expo-linear-gradient/,
           /@expo\/vector-icons/,
