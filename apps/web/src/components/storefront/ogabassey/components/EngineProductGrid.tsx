@@ -347,8 +347,8 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
         ) : (
           <div
             className={viewMode === 'grid'
-              ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6'
-              : 'flex flex-col gap-3 md:gap-4'}
+              ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 [content-visibility:auto] [contain-intrinsic-size:auto_400px]'
+              : 'flex flex-col gap-3 md:gap-4 [content-visibility:auto] [contain-intrinsic-size:auto_200px]'}
           >
             {visibleProducts.map((product, index) => {
               const isAdded = addedItems.includes(product.id);
