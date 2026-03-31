@@ -169,9 +169,12 @@ export default function VerifyScreen() {
     if (timer > 0) return;
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
+      // Use signInWithOtp instead of auth.resend — resend() bypasses the
+      // custom Send Email Hook (send-auth-email edge function → ZeptoMail),
+      // causing emails to silently fail since no SMTP is configured.
+      const { error } = await supabase.auth.signInWithOtp({
         email,
+        options: { shouldCreateUser: false },
       });
       if (error) throw error;
       Alert.alert('Sent', 'A new code has been sent to your email.');
