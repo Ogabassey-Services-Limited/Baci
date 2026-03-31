@@ -51,10 +51,10 @@ export const SavedPage: React.FC = () => {
 
                 <div className="relative aspect-square mb-3 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
                   <Image
-                    src={product.image}
+                    src={product.image || '/placeholder.png'}
                     alt={product.name}
                     fill
-                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                    sizes="(max-width: 1024px) 50vw, 25vw"
                     className="object-contain p-4 mix-blend-multiply"
                   />
                 </div>
