@@ -57,6 +57,12 @@ async function fetchMerchantAgentStatus(
   return data;
 }
 
+// Item height for getItemLayout optimization
+// postCard: padding 12*2 + border 1*2 + thumbnail 60 = 86
+// marginBottom: 12
+// Total = 98
+const POST_ITEM_HEIGHT = 98;
+
 export default function BlogListScreen() {
   const { colors, isDark } = useTheme();
   const { merchant } = useMerchant();
@@ -119,6 +125,15 @@ export default function BlogListScreen() {
       isMounted = false;
     };
   }, [merchant?.id]);
+
+  const getItemLayout = (
+    _data: ArrayLike<BlogPost> | null | undefined,
+    index: number
+  ) => ({
+    length: POST_ITEM_HEIGHT,
+    offset: POST_ITEM_HEIGHT * index,
+    index,
+  });
 
   const onRefresh = () => {
     if (!merchant?.id) {
@@ -386,6 +401,7 @@ export default function BlogListScreen() {
             data={filteredPosts}
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
+            getItemLayout={getItemLayout}
             contentContainerStyle={styles.listContent}
             refreshControl={
               <RefreshControl
