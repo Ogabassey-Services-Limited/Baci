@@ -162,7 +162,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
                   alt={slide.title || 'Banner'}
                   fill
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1400px"
-                  className="object-cover transition-transform duration-1000 group-hover:scale-105"
+                  className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                   priority={idx === 0}
                 />
                 <div

@@ -69,7 +69,7 @@ export function CopyButton({
             size={size}
             variant={variant}
             className={cn(
-              'relative z-10 transition-all duration-200',
+              'relative z-10 transition-colors duration-200',
               hasCopied &&
                 'text-green-600 border-green-600 bg-green-50 hover:bg-green-100 hover:text-green-700',
               className

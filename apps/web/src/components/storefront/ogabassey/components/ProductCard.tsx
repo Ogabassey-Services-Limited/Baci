@@ -98,7 +98,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   if (viewMode === 'grid') {
     return (
-      <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-all duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation">
+      <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-[box-shadow,transform] duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation">
         <Link
           href={productHref}
           title={linkTitle}
@@ -165,7 +165,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <div className="absolute top-1.5 right-1.5 md:top-2 md:right-2 z-20 flex flex-col gap-1.5 md:gap-2">
             <button
               onClick={toggleLike}
-              className={`h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${isLiked
+              className={`h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-95 ${isLiked
                 ? 'bg-white border-red-100 text-red-600'
                 : 'bg-white/90 backdrop-blur-sm border-white/50 text-gray-500 md:hover:text-red-600 md:hover:bg-white'
                 }`}
@@ -182,7 +182,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
             <button
               onClick={toggleCompare}
-              className={`h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${isComparing
+              className={`h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-95 ${isComparing
                 ? 'bg-primary/10 border-primary/20 text-primary'
                 : 'bg-white/90 backdrop-blur-sm border-white/50 text-gray-500 md:hover:text-primary md:hover:bg-white'
                 }`}
@@ -197,7 +197,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <button
             onClick={handleCartClick}
             aria-label={`Add ${product.name} to cart`}
-            className={`absolute bottom-2 right-2 md:bottom-3 md:right-3 z-20 h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-full shadow-lg border border-gray-100 transition-all duration-300 pointer-events-auto active:scale-90 bg-white text-gray-900 md:hover:bg-primary md:hover:text-white md:hover:border-primary overflow-visible`}
+            className={`absolute bottom-2 right-2 md:bottom-3 md:right-3 z-20 h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-full shadow-lg border border-gray-100 transition-all duration-300 pointer-events-auto active:scale-95 bg-white text-gray-900 md:hover:bg-primary md:hover:text-white md:hover:border-primary overflow-visible`}
           >
             <ShoppingCart
               size={16}
@@ -254,7 +254,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   // --- LIST VIEW ---
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation">
+    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-[box-shadow,border-color,transform] duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation">
       <Link
         href={productHref}
         title={linkTitle}
@@ -378,7 +378,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         onClick={toggleLike}
         aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
         title={isLiked ? 'Remove from Wishlist' : 'Add to Wishlist'}
-        className={`absolute top-4 right-4 z-20 p-2 rounded-full transition-all duration-200 pointer-events-auto active:scale-90 ${isLiked
+        className={`absolute top-4 right-4 z-20 p-2 rounded-full transition-all duration-200 pointer-events-auto active:scale-95 ${isLiked
           ? 'bg-primary/10 text-primary'
           : 'bg-white/80 backdrop-blur-sm text-gray-400 md:hover:bg-primary/10 md:hover:text-primary'
           }`}
