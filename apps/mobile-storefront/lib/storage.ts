@@ -11,6 +11,40 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createLogger } from './logger';
 
 const log = createLogger('Storage');
+type StorageEntry = readonly [string, string | null];
+
+interface AsyncStorageBatchCompat {
+  multiGet?: (keys: readonly string[]) => Promise<readonly StorageEntry[]>;
+  multiRemove?: (keys: readonly string[]) => Promise<void>;
+}
+
+const asyncStorageBatchCompat =
+  AsyncStorage as unknown as AsyncStorageBatchCompat;
+
+export async function getStorageEntries(
+  keys: readonly string[]
+): Promise<StorageEntry[]> {
+  if (keys.length === 0) return [];
+
+  if (typeof asyncStorageBatchCompat.multiGet === 'function') {
+    return [...(await asyncStorageBatchCompat.multiGet(keys))];
+  }
+
+  return Promise.all(
+    keys.map(async (key) => [key, await AsyncStorage.getItem(key)] as const)
+  );
+}
+
+export async function removeStorageItems(keys: readonly string[]): Promise<void> {
+  if (keys.length === 0) return;
+
+  if (typeof asyncStorageBatchCompat.multiRemove === 'function') {
+    await asyncStorageBatchCompat.multiRemove(keys);
+    return;
+  }
+
+  await Promise.all(keys.map((key) => AsyncStorage.removeItem(key)));
+}
 
 /**
  * AsyncStorage-based storage adapter for Zustand persist middleware
@@ -124,10 +158,8 @@ export function initializeStorage(keys: string[]): Promise<void> {
   initializationPromise = (async () => {
     try {
       log.debug('Initializing with keys:', keys);
-      const entries = await Promise.all(
-        keys.map(async (key) => [key, await AsyncStorage.getItem(key)] as const)
-      );
-      for (const [key, value] of entries) {
+      const pairs = await getStorageEntries(keys);
+      for (const [key, value] of pairs) {
         if (value !== null) {
           memoryCache[key] = value;
           log.debug(`Loaded "${key}" from AsyncStorage`);
