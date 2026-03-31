@@ -37,10 +37,11 @@ export function StatCard({
       ? `Up by ${trend.value}`
       : trend.direction === 'down'
         ? `Down by ${trend.value}`
-        : trend.value
+        : `No change at ${trend.value}`
     : '';
 
-  const accessibilityLabel = `${label}, ${value}. ${trendAccessibilityText}`.trim();
+  const accessibilityLabel =
+    `${label}, ${value}. ${trendAccessibilityText}`.trim();
 
   return (
     <View
@@ -57,7 +58,7 @@ export function StatCard({
       <View
         style={styles.header}
         accessibilityElementsHidden={true}
-        importantForAccessibility="no"
+        importantForAccessibility="no-hide-descendants"
       >
         {icon ? (
           <View
@@ -81,7 +82,7 @@ export function StatCard({
           isLarge && styles.valueLarge,
         ]}
         accessibilityElementsHidden={true}
-        importantForAccessibility="no"
+        importantForAccessibility="no-hide-descendants"
       >
         {value}
       </Text>
@@ -90,7 +91,7 @@ export function StatCard({
         <View
           style={styles.trendContainer}
           accessibilityElementsHidden={true}
-          importantForAccessibility="no"
+          importantForAccessibility="no-hide-descendants"
         >
           <Ionicons
             name={
