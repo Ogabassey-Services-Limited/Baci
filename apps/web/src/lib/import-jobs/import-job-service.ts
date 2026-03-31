@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getImportJobWorkerSecret } from '@/env';
-import { buildBumpaOrderPreviewChunks } from '@/lib/imports/bumpa/build-bumpa-order-preview';
-import { buildBumpaProductPreviewChunks } from '@/lib/imports/bumpa/build-bumpa-product-preview';
+import { buildBumpaOrderPreview } from '@/lib/imports/bumpa/build-bumpa-order-preview';
+import { buildBumpaProductPreview } from '@/lib/imports/bumpa/build-bumpa-product-preview';
 import type {
   ExistingImportedOrder,
   ExistingImportedProduct,
@@ -46,34 +46,10 @@ export interface ImportJobRecord {
   completed_at?: string | null;
 }
 
-export interface PendingImportUploadRecord {
-  id: string;
-  merchant_id: string;
-  created_by: string;
-  client_upload_id: string;
-  storage_path: string;
-  source_platform: 'bumpa';
-  entity_type: ImportJobEntityType;
-  original_filename: string;
-  content_type: string | null;
-  file_size_bytes: number | null;
-  claimed_at: string | null;
-  expires_at: string;
-  created_at?: string;
-}
-
 interface PreviewBuildResult {
   sourceRows: Record<string, string>[];
   rows: ImportPreviewRow<NormalizedImportedOrder | NormalizedImportedProduct>[];
   summary: ImportPreviewSummary;
-  totalRows: number;
-}
-
-export interface PreviewBuildChunk {
-  sourceRows: Record<string, string>[];
-  rows: ImportPreviewRow<NormalizedImportedOrder | NormalizedImportedProduct>[];
-  partialSummary: ImportPreviewSummary;
-  processedRows: number;
   totalRows: number;
 }
 
@@ -132,31 +108,15 @@ export function createImportStoragePath(
 }
 
 export function validateImportFile(file: File) {
-  return validateImportFileMetadata({
-    fileName: file.name,
-    fileSizeBytes: file.size,
-    contentType: file.type || null,
-  });
-}
-
-export function validateImportFileMetadata({
-  contentType,
-  fileName,
-  fileSizeBytes,
-}: {
-  fileName: string;
-  fileSizeBytes: number;
-  contentType?: string | null;
-}) {
-  if (!fileName.toLowerCase().endsWith('.csv')) {
+  if (!file.name.toLowerCase().endsWith('.csv')) {
     return 'Only CSV files are supported';
   }
 
-  if (fileSizeBytes > IMPORT_FILE_SIZE_LIMIT_BYTES) {
+  if (file.size > IMPORT_FILE_SIZE_LIMIT_BYTES) {
     return 'CSV file exceeds the 25MB upload limit';
   }
 
-  if (contentType && !IMPORT_FILE_MIME_TYPES.has(contentType)) {
+  if (file.type && !IMPORT_FILE_MIME_TYPES.has(file.type)) {
     return 'Unsupported CSV content type';
   }
 
@@ -231,122 +191,50 @@ async function loadExistingProducts(
   );
 }
 
-async function prepareImportPreviewBuild(
+export async function buildImportPreviewForJob(
   supabase: SupabaseClient,
-  job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>
-) {
+  job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>,
+  onProgress?: (progress: PreviewBuildProgress) => Promise<void> | void
+): Promise<PreviewBuildResult> {
   const [orders, products, fileText] = await Promise.all([
-    job.entity_type === 'orders'
-      ? loadExistingOrders(supabase, job.merchant_id)
-      : Promise.resolve([]),
+    loadExistingOrders(supabase, job.merchant_id),
     loadExistingProducts(supabase, job.merchant_id),
     readImportFileText(supabase, job.storage_path),
   ]);
 
-  return {
-    orders,
-    products,
-    rawRows: parseCsvText(fileText).rows,
-  };
-}
-
-function createEmptyPreviewSummary(): ImportPreviewSummary {
-  return {
-    totalRows: 0,
-    validRows: 0,
-    invalidRows: 0,
-    createCount: 0,
-    updateCount: 0,
-    duplicateCount: 0,
-    claimableCustomers: 0,
-    phoneOnlyCustomers: 0,
-    anonymousCustomers: 0,
-    unmatchedItems: 0,
-    receiptReadyOrders: 0,
-  };
-}
-
-export async function* buildImportPreviewChunksForJob(
-  supabase: SupabaseClient,
-  job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>,
-  onProgress?: (progress: PreviewBuildProgress) => Promise<void> | void
-): AsyncGenerator<PreviewBuildChunk> {
-  const { orders, products, rawRows } = await prepareImportPreviewBuild(
-    supabase,
-    job
-  );
-
+  const rawRows = parseCsvText(fileText).rows;
   await onProgress?.({
     processedRows: 0,
     totalRows: rawRows.length,
   });
 
   if (job.entity_type === 'orders') {
-    for await (const chunk of buildBumpaOrderPreviewChunks({
+    const preview = await buildBumpaOrderPreview({
       rows: rawRows,
       existingOrders: orders,
       existingProducts: products,
       onProgress,
-    })) {
-      yield {
-        sourceRows: rawRows,
-        rows: chunk.rows,
-        partialSummary: chunk.partialSummary,
-        processedRows: chunk.processedRows,
-        totalRows: chunk.totalRows,
-      };
-    }
-    return;
+    });
+
+    return {
+      sourceRows: rawRows,
+      rows: preview.rows,
+      summary: preview.summary,
+      totalRows: rawRows.length,
+    };
   }
 
-  for await (const chunk of buildBumpaProductPreviewChunks({
+  const preview = await buildBumpaProductPreview({
     rows: rawRows,
     existingProducts: products,
     onProgress,
-  })) {
-    yield {
-      sourceRows: rawRows,
-      rows: chunk.rows,
-      partialSummary: chunk.partialSummary,
-      processedRows: chunk.processedRows,
-      totalRows: chunk.totalRows,
-    };
-  }
-}
-
-export async function buildImportPreviewForJob(
-  supabase: SupabaseClient,
-  job: Pick<ImportJobRecord, 'entity_type' | 'merchant_id' | 'storage_path'>,
-  onProgress?: (progress: PreviewBuildProgress) => Promise<void> | void
-): Promise<PreviewBuildResult> {
-  const previewRows = new Map<
-    number,
-    ImportPreviewRow<NormalizedImportedOrder | NormalizedImportedProduct>
-  >();
-  let sourceRows: Record<string, string>[] = [];
-  let totalRows = 0;
-  let summary = createEmptyPreviewSummary();
-
-  for await (const chunk of buildImportPreviewChunksForJob(
-    supabase,
-    job,
-    onProgress
-  )) {
-    sourceRows = chunk.sourceRows;
-    totalRows = chunk.totalRows;
-    chunk.rows.forEach((row) => {
-      previewRows.set(row.rowNumber, row);
-    });
-    summary = chunk.partialSummary;
-  }
+  });
 
   return {
-    sourceRows,
-    rows: Array.from(previewRows.values()).sort(
-      (left, right) => left.rowNumber - right.rowNumber
-    ),
-    summary,
-    totalRows,
+    sourceRows: rawRows,
+    rows: preview.rows,
+    summary: preview.summary,
+    totalRows: rawRows.length,
   };
 }
 
