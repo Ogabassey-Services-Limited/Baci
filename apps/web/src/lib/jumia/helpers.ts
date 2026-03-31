@@ -46,6 +46,7 @@ export function getJumiaAuthUrl(config: {
     response_type: 'code',
     scope: 'openid',
     prompt: 'login',
+    max_age: '0',
     state: config.state,
   });
   return `${baseUrl}/login?${params.toString()}`;
