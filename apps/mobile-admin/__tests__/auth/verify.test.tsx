@@ -173,9 +173,9 @@ describe('VerifyScreen', () => {
     });
 
     it('shows error alert on failure', async () => {
-      mocks.signInWithOtp.mockRejectedValueOnce(
-        new Error('Rate limit exceeded')
-      );
+      mocks.signInWithOtp.mockResolvedValueOnce({
+        error: new Error('Rate limit exceeded'),
+      });
       render(<VerifyScreen />);
 
       act(() => {
@@ -213,11 +213,11 @@ describe('VerifyScreen', () => {
   });
 
   describe('verify with fallback', () => {
-    it('succeeds via email type fallback after signup type fails', async () => {
-      // First verifyOtp call (type: 'signup') fails
+    it('succeeds via signup type fallback after email type fails', async () => {
+      // First verifyOtp call (type: 'email') returns error → triggers throw
       mocks.verifyOtp
-        .mockRejectedValueOnce(new Error('Invalid OTP'))
-        // Second verifyOtp call (type: 'email') succeeds
+        .mockResolvedValueOnce({ error: new Error('Invalid OTP') })
+        // Second verifyOtp call (type: 'signup') succeeds
         .mockResolvedValueOnce({ error: null });
 
       render(<VerifyScreen />);
@@ -236,16 +236,16 @@ describe('VerifyScreen', () => {
         fireEvent.click(verifyButton);
       });
 
-      // Verify both OTP types were tried
-      expect(mocks.verifyOtp).toHaveBeenCalledWith({
-        email: 'test@example.com',
-        token: '123456',
-        type: 'signup',
-      });
+      // Verify both OTP types were tried: email first, then signup fallback
       expect(mocks.verifyOtp).toHaveBeenCalledWith({
         email: 'test@example.com',
         token: '123456',
         type: 'email',
+      });
+      expect(mocks.verifyOtp).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        token: '123456',
+        type: 'signup',
       });
 
       // Success overlay should be visible

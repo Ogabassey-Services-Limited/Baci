@@ -93,7 +93,15 @@ vi.mock('@/components/ui/form', async () => {
       control?: unknown;
     }) => {
       const { field } = (
-        rhf as { useController: (...args: any[]) => any }
+        rhf as {
+          useController: (opts: { name: string; control?: unknown }) => {
+            field: {
+              value: string;
+              onChange: (v: string) => void;
+              name: string;
+            };
+          };
+        }
       ).useController({
         name,
         control,
@@ -125,7 +133,7 @@ vi.mock('@/components/ui/input-otp', async () => {
         'div',
         { 'data-testid': 'input-otp' },
         React.createElement('input', {
-          'data-testid': 'otp-input',
+          'aria-label': 'Verification code',
           maxLength,
           value: props.value ?? '',
           onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -209,9 +217,9 @@ describe('VerifyForm', () => {
     });
 
     it('shows error toast on failure', async () => {
-      mocks.signInWithOtp.mockRejectedValueOnce(
-        new Error('Rate limit exceeded')
-      );
+      mocks.signInWithOtp.mockResolvedValueOnce({
+        error: new Error('Rate limit exceeded'),
+      });
       render(<VerifyForm />);
 
       act(() => {
@@ -246,19 +254,21 @@ describe('VerifyForm', () => {
   });
 
   describe('verify with fallback', () => {
-    it('succeeds via email type fallback after signup type fails', async () => {
-      // First verifyOtp (type: 'signup') returns error
+    it('succeeds via signup type fallback after email type fails', async () => {
+      // First verifyOtp (type: 'email') returns error
       mocks.verifyOtp
         .mockResolvedValueOnce({
-          error: { message: 'Invalid OTP for signup' },
+          error: { message: 'Invalid OTP for email type' },
         })
-        // Second verifyOtp (type: 'email') succeeds
+        // Second verifyOtp (type: 'signup') succeeds
         .mockResolvedValueOnce({ error: null });
 
       render(<VerifyForm />);
 
       // Type a 6-digit code into the OTP input
-      const otpInput = screen.getByTestId('otp-input');
+      const otpInput = screen.getByRole('textbox', {
+        name: /verification code/i,
+      });
       await act(() => {
         fireEvent.change(otpInput, { target: { value: '123456' } });
       });
@@ -269,16 +279,16 @@ describe('VerifyForm', () => {
         fireEvent.click(verifyButton);
       });
 
-      // Both OTP types should have been attempted
-      expect(mocks.verifyOtp).toHaveBeenCalledWith({
-        email: 'test@example.com',
-        token: '123456',
-        type: 'signup',
-      });
+      // Both OTP types should have been attempted: email first, then signup fallback
       expect(mocks.verifyOtp).toHaveBeenCalledWith({
         email: 'test@example.com',
         token: '123456',
         type: 'email',
+      });
+      expect(mocks.verifyOtp).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        token: '123456',
+        type: 'signup',
       });
 
       // Success toast should be shown
