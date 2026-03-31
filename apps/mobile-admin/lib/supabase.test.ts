@@ -77,4 +77,22 @@ describe('supabase client config', () => {
       expect.any(Object)
     );
   });
+
+  it('logs a critical error and skips createClient when credentials are missing', async () => {
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', '');
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_ANON_KEY', '');
+    testState.expoExtra = {};
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    await import('./supabase');
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[Supabase] CRITICAL: Supabase URL or Anon Key is missing from environment variables.'
+    );
+    expect(testState.createClient).not.toHaveBeenCalled();
+
+    consoleErrorSpy.mockRestore();
+  });
 });

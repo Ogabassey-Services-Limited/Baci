@@ -1,13 +1,19 @@
 FROM node:22-alpine AS base
 WORKDIR /app
+RUN corepack enable pnpm
 
 # Install dependencies only when needed
 FROM base AS deps
 # Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
 RUN apk add --no-cache libc6-compat
-COPY package.json package-lock.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/mobile-admin/package.json apps/mobile-admin/package.json
+COPY apps/mobile-storefront/package.json apps/mobile-storefront/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY packages/shared/package.json packages/shared/package.json
+COPY patches ./patches
 # Install all dependencies (including dev) for the build stage
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -17,14 +23,19 @@ COPY . .
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED 1
-RUN npm run build
+RUN pnpm run build
 
 # Production dependencies stage
 FROM base AS prod-deps
 RUN apk add --no-cache libc6-compat
-COPY package.json package-lock.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/mobile-admin/package.json apps/mobile-admin/package.json
+COPY apps/mobile-storefront/package.json apps/mobile-storefront/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY packages/shared/package.json packages/shared/package.json
+COPY patches ./patches
 # Install production dependencies only
-RUN npm ci --omit=dev
+RUN pnpm install --frozen-lockfile --prod
 
 # Production image, copy all the files and run next
 FROM base AS runner
@@ -46,7 +57,7 @@ USER nextjs
 
 EXPOSE 3000
 # nosemgrep: dockerfile.security.missing-user.missing-user
-CMD ["npm", "start"]
+CMD ["pnpm", "start"]
 
 # Development image
 FROM base AS dev
@@ -65,4 +76,4 @@ COPY --chown=nextjs:nodejs . .
 USER nextjs
 
 # nosemgrep: dockerfile.security.missing-user.missing-user
-CMD ["npm", "run", "dev"]
+CMD ["pnpm", "run", "dev"]

@@ -23,23 +23,18 @@ const testingLibraryReactPath = resolveTestingLibraryReactPath();
 const testingLibraryRoot = path.dirname(
   require.resolve('@testing-library/react/package.json')
 );
-const reactPath = require.resolve(
-  path.join(testingLibraryRoot, 'node_modules/react')
+const testingLibraryRequire = createRequire(
+  path.join(testingLibraryRoot, 'package.json')
 );
-const reactJsxRuntimePath = require.resolve(
-  path.join(testingLibraryRoot, 'node_modules/react/jsx-runtime')
+const reactPath = testingLibraryRequire.resolve('react');
+const reactJsxRuntimePath = testingLibraryRequire.resolve('react/jsx-runtime');
+const reactJsxDevRuntimePath = testingLibraryRequire.resolve(
+  'react/jsx-dev-runtime'
 );
-const reactJsxDevRuntimePath = require.resolve(
-  path.join(testingLibraryRoot, 'node_modules/react/jsx-dev-runtime')
-);
-const reactDomPath = require.resolve(
-  path.join(testingLibraryRoot, 'node_modules/react-dom')
-);
-const reactDomClientPath = require.resolve(
-  path.join(testingLibraryRoot, 'node_modules/react-dom/client')
-);
-const reactDomTestUtilsPath = require.resolve(
-  path.join(testingLibraryRoot, 'node_modules/react-dom/test-utils')
+const reactDomPath = testingLibraryRequire.resolve('react-dom');
+const reactDomClientPath = testingLibraryRequire.resolve('react-dom/client');
+const reactDomTestUtilsPath = testingLibraryRequire.resolve(
+  'react-dom/test-utils'
 );
 
 export default defineConfig({

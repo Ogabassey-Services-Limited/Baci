@@ -62,18 +62,18 @@ react {
     autolinkLibrariesWithApp()
 }
 
-afterEvaluate {
-    def autolinkingTask = tasks.named("generateAutolinkingNewArchitectureFiles")
-    def dependencyCodegenTasks = rootProject.allprojects.collectMany { subproject ->
+gradle.projectsEvaluated {
+    def autolinkingTask = tasks.named("generateAutolinkingNewArchitectureFiles").get()
+
+    rootProject.allprojects { subproject ->
         subproject.tasks.matching { task ->
             task.name == "generateCodegenArtifactsFromSchema" || task.name == "generateCodegenSchemaFromJavaScript"
-        }.toList()
+        }.configureEach { codegenTask ->
+            autolinkingTask.dependsOn(codegenTask)
+        }
     }
 
-    autolinkingTask.configure {
-        dependsOn(dependencyCodegenTasks)
-        outputs.upToDateWhen { false }
-    }
+    autolinkingTask.outputs.upToDateWhen { false }
 }
 
 /**

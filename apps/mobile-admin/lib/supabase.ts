@@ -44,11 +44,27 @@ const mmkvStorage = {
   },
 };
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: mmkvStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
+function createMissingCredentialsClient() {
+  return new Proxy(
+    {},
+    {
+      get() {
+        throw new Error(
+          '[Supabase] Client accessed without EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.'
+        );
+      },
+    }
+  ) as ReturnType<typeof createClient>;
+}
+
+export const supabase =
+  supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          storage: mmkvStorage,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+        },
+      })
+    : createMissingCredentialsClient();

@@ -138,6 +138,7 @@ index 2608e77..3de89b9 100644
 
 +import com.android.build.api.dsl.LibraryExtension
  import com.android.build.api.variant.ApplicationAndroidComponentsExtension
++import com.android.build.gradle.api.AndroidSourceFile
 -import com.android.build.api.variant.LibraryAndroidComponentsExtension
 -import com.android.build.gradle.LibraryExtension
  import com.facebook.react.ReactExtension
@@ -166,10 +167,11 @@ index 2608e77..3de89b9 100644
                if (ext.namespace == null) {
 -                val android = subproject.extensions.getByType(LibraryExtension::class.java)
 -                val manifestFile = android.sourceSets.getByName("main").manifest.srcFile
-+                val manifestFile = ext.sourceSets.getByName("main").manifest.srcFile
++                val manifestFile =
++                    (ext.sourceSets.getByName("main").manifest as? AndroidSourceFile)?.srcFile
 
                  manifestFile
-                     .takeIf { it.exists() }
+                     ?.takeIf { it.exists() }
 diff --git a/react-native-gradle-plugin/src/test/kotlin/com/facebook/react/tasks/GenerateAutolinkingNewArchitecturesFileTaskTest.kt b/react-native-gradle-plugin/src/test/kotlin/com/facebook/react/tasks/GenerateAutolinkingNewArchitecturesFileTaskTest.kt
 index 2b3f17d..99be59d 100644
 --- a/react-native-gradle-plugin/src/test/kotlin/com/facebook/react/tasks/GenerateAutolinkingNewArchitecturesFileTaskTest.kt

@@ -18,6 +18,27 @@ const config = getDefaultConfig(projectRoot);
 
 const { transformer, resolver } = config;
 
+function resolvePackageRoot(packageName) {
+  const projectPackageRoot = path.resolve(projectRoot, 'node_modules', packageName);
+
+  try {
+    require.resolve(path.join(projectPackageRoot, 'package.json'));
+    return projectPackageRoot;
+  } catch {
+    return path.resolve(workspaceRoot, 'node_modules', packageName);
+  }
+}
+
+const reactPackageRoot = resolvePackageRoot('react');
+const reactDomPackageRoot = resolvePackageRoot('react-dom');
+const reactNativePackageRoot = resolvePackageRoot('react-native');
+const expoPackageRoot = resolvePackageRoot('expo');
+const expoRouterPackageRoot = resolvePackageRoot('expo-router');
+const gestureHandlerPackageRoot = resolvePackageRoot('react-native-gesture-handler');
+const reanimatedPackageRoot = resolvePackageRoot('react-native-reanimated');
+const screensPackageRoot = resolvePackageRoot('react-native-screens');
+const safeAreaContextPackageRoot = resolvePackageRoot('react-native-safe-area-context');
+
 // Configure SVG support
 config.transformer = {
   ...transformer,
@@ -36,31 +57,18 @@ config.resolver = {
     path.resolve(projectRoot, 'node_modules'),
     path.resolve(workspaceRoot, 'node_modules'),
   ],
-  // Explicitly alias core libraries to the workspace root to prevent duplication
-  // and resolve issues where pnpm doesn't symlink to sub-packages correctly.
+  // Prefer the app-local core packages first so release bundles stay version-aligned.
   extraNodeModules: {
     '@baci/shared': path.resolve(workspaceRoot, 'packages/shared'),
-    'react-native': path.resolve(workspaceRoot, 'node_modules/react-native'),
-    react: path.resolve(workspaceRoot, 'node_modules/react'),
-    'react-dom': path.resolve(workspaceRoot, 'node_modules/react-dom'),
-    expo: path.resolve(workspaceRoot, 'node_modules/expo'),
-    'expo-router': path.resolve(workspaceRoot, 'node_modules/expo-router'),
-    'react-native-gesture-handler': path.resolve(
-      workspaceRoot,
-      'node_modules/react-native-gesture-handler'
-    ),
-    'react-native-reanimated': path.resolve(
-      workspaceRoot,
-      'node_modules/react-native-reanimated'
-    ),
-    'react-native-screens': path.resolve(
-      workspaceRoot,
-      'node_modules/react-native-screens'
-    ),
-    'react-native-safe-area-context': path.resolve(
-      workspaceRoot,
-      'node_modules/react-native-safe-area-context'
-    ),
+    'react-native': reactNativePackageRoot,
+    react: reactPackageRoot,
+    'react-dom': reactDomPackageRoot,
+    expo: expoPackageRoot,
+    'expo-router': expoRouterPackageRoot,
+    'react-native-gesture-handler': gestureHandlerPackageRoot,
+    'react-native-reanimated': reanimatedPackageRoot,
+    'react-native-screens': screensPackageRoot,
+    'react-native-safe-area-context': safeAreaContextPackageRoot,
   },
   // Critical for PNPM monorepos to resolve symlinked packages
   unstable_enableSymlinks: true,
