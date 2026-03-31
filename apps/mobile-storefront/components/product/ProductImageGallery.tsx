@@ -8,7 +8,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 import { ImageZoomModal } from '@/components/product/ImageZoomModal';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import type Colors from '@/constants/Colors';
@@ -20,7 +20,7 @@ export interface ProductImageGalleryProps {
   images: string[];
   selectedImageIndex: number;
   setSelectedImageIndex: (index: number) => void;
-  imageAnimatedStyle: StyleProp<ViewStyle>;
+  imageAnimatedStyle: StyleProp<AnimatedStyle<ViewStyle>>;
   showImageZoom: boolean;
   setShowImageZoom: (show: boolean) => void;
   discountPercentage: number | null | undefined;
@@ -87,7 +87,7 @@ export function ProductImageGallery({
           >
             {images.map((img, idx) => (
               <Pressable
-                key={idx}
+                key={`${img}-${idx}`}
                 onPress={() => setSelectedImageIndex(idx)}
                 style={[
                   styles.thumbnail,

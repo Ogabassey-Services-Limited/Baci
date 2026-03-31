@@ -20,7 +20,10 @@ vi.mock('./import-job-service', async () => {
 
   return {
     ...actual,
+    // Commit-flow tests start from persisted preview rows, so preview building
+    // is intentionally bypassed here and asserted via the rows query instead.
     buildImportPreviewForJob: vi.fn(),
+    buildImportPreviewChunksForJob: vi.fn(),
     buildImportJobRowInserts: vi.fn(),
   };
 });

@@ -17,15 +17,26 @@ import { createLogger } from './logger';
 
 const log = createLogger('Supabase');
 
-// Get Supabase credentials from app.json extra config
+type ExpoExtraConfig = {
+  supabaseAnonKey?: string;
+  supabaseUrl?: string;
+};
+
+function getExpoExtraConfig(): ExpoExtraConfig {
+  const expoExtra = Constants.expoConfig?.extra;
+
+  if (!expoExtra || typeof expoExtra !== 'object') {
+    return {};
+  }
+
+  return expoExtra as ExpoExtraConfig;
+}
+
+const expoExtra = getExpoExtraConfig();
 const supabaseUrl =
-  Constants.expoConfig?.extra?.supabaseUrl ||
-  process.env.EXPO_PUBLIC_SUPABASE_URL ||
-  '';
+  process.env.EXPO_PUBLIC_SUPABASE_URL || expoExtra.supabaseUrl || '';
 const supabaseAnonKey =
-  Constants.expoConfig?.extra?.supabaseAnonKey ||
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
-  '';
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || expoExtra.supabaseAnonKey || '';
 
 // Runtime warning when Supabase credentials are missing
 if (!supabaseUrl) {
@@ -37,6 +48,19 @@ if (!supabaseAnonKey) {
   console.warn(
     '[Supabase] SUPABASE_ANON_KEY is not configured. Set EXPO_PUBLIC_SUPABASE_ANON_KEY or configure extra.supabaseAnonKey in app.json.'
   );
+}
+
+function createMissingCredentialsClient() {
+  return new Proxy(
+    {},
+    {
+      get() {
+        throw new Error(
+          '[Supabase] Client accessed without EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.'
+        );
+      },
+    }
+  ) as ReturnType<typeof createClient>;
 }
 
 /**
@@ -97,15 +121,18 @@ const ExpoSecureStoreAdapter = {
 /**
  * Supabase client instance with secure storage
  */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: ExpoSecureStoreAdapter,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false, // Important for React Native
-    flowType: 'implicit', // Implicit flow is officially recommended for React Native (PKCE code_verifier gets lost with expo-web-browser)
-  },
-});
+export const supabase =
+  supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          storage: ExpoSecureStoreAdapter,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false, // Important for React Native
+          flowType: 'implicit', // Implicit flow is officially recommended for React Native (PKCE code_verifier gets lost with expo-web-browser)
+        },
+      })
+    : createMissingCredentialsClient();
 
 /**
  * Check if Supabase is configured

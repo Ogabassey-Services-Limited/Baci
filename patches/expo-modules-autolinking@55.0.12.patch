@@ -1,0 +1,141 @@
+diff --git a/android/expo-gradle-plugin/build.gradle.kts b/android/expo-gradle-plugin/build.gradle.kts
+index ced05f1ed..51dde214e 100644
+--- a/android/expo-gradle-plugin/build.gradle.kts
++++ b/android/expo-gradle-plugin/build.gradle.kts
+@@ -1,4 +1,4 @@
+ plugins {
+-  kotlin("jvm") version "2.1.20" apply false
++  kotlin("jvm") version "2.3.20" apply false
+   id("java-gradle-plugin")
+ }
+diff --git a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/ExpoAutolinkingPlugin.kt b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/ExpoAutolinkingPlugin.kt
+index b0d0cb600..9000e9ba6 100644
+--- a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/ExpoAutolinkingPlugin.kt
++++ b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/ExpoAutolinkingPlugin.kt
+@@ -10,10 +10,8 @@ import org.gradle.api.Plugin
+ import org.gradle.api.Project
+ import org.gradle.api.Task
+ import org.gradle.api.file.Directory
+-import org.gradle.api.file.RegularFile
+ import org.gradle.api.provider.Provider
+ import org.gradle.api.tasks.TaskProvider
+-import java.nio.file.Paths
+
+ const val generatedPackageListNamespace = "expo.modules"
+ const val generatedPackageListFilename = "ExpoModulesPackageList.kt"
+@@ -61,13 +59,24 @@ open class ExpoAutolinkingPlugin : Plugin<Project> {
+       .named("preBuild", Task::class.java)
+       .dependsOn(generatePackagesList)
+
++    val androidComponents = project.extensions.getByType(AndroidComponentsExtension::class.java)
++
+     // Adds the generated file to the source set.
+-    project.extensions.getByType(AndroidComponentsExtension::class.java).finalizeDsl { ext ->
++    androidComponents.finalizeDsl { ext ->
+       ext
+         .sourceSets
+         .getByName("main")
+         .java
+-        .srcDir(getPackageListDir(project))
++        .srcDir(getPackageListDir(project).get().asFile)
++    }
++
++    // Wire the generated package list into variant Kotlin sources so AGP 9 built-in Kotlin picks
++    // it up reliably in release builds as well.
++    androidComponents.onVariants(androidComponents.selector().all()) { variant ->
++      variant.sources.kotlin?.addGeneratedSourceDirectory(
++        generatePackagesList,
++        GeneratePackagesListTask::outputDirectory
++      )
+     }
+   }
+
+@@ -75,20 +84,11 @@ open class ExpoAutolinkingPlugin : Plugin<Project> {
+     return project.layout.buildDirectory.dir(generatedFilesSrcDir)
+   }
+
+-  fun getPackageListFile(project: Project): Provider<RegularFile> {
+-    val packageListRelativePath = Paths.get(
+-      generatedFilesSrcDir,
+-      generatedPackageListNamespace.replace('.', '/'),
+-      generatedPackageListFilename
+-    ).toString()
+-    return project.layout.buildDirectory.file(packageListRelativePath)
+-  }
+-
+   fun createGeneratePackagesListTask(project: Project, modules: List<ExpoModule>, hash: String): TaskProvider<GeneratePackagesListTask> {
+     return project.tasks.register("generatePackagesList", GeneratePackagesListTask::class.java) {
+       it.hash.set(hash)
+       it.namespace.set(generatedPackageListNamespace)
+-      it.outputFile.set(getPackageListFile(project))
++      it.outputDirectory.set(getPackageListDir(project))
+       it.modules = modules
+     }
+   }
+diff --git a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/GeneratePackagesListTask.kt b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/GeneratePackagesListTask.kt
+index d79a614a5..8139cf88f 100644
+--- a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/GeneratePackagesListTask.kt
++++ b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/GeneratePackagesListTask.kt
+@@ -2,12 +2,13 @@ package expo.modules.plugin
+
+ import expo.modules.plugin.configuration.ExpoModule
+ import org.gradle.api.DefaultTask
+-import org.gradle.api.file.RegularFileProperty
++import org.gradle.api.file.DirectoryProperty
+ import org.gradle.api.provider.Property
+ import org.gradle.api.tasks.Input
+ import org.gradle.api.tasks.Internal
+-import org.gradle.api.tasks.OutputFile
++import org.gradle.api.tasks.OutputDirectory
+ import org.gradle.api.tasks.TaskAction
++import java.io.File
+
+ /**
+  * Task that generates a list of packages that should be included in your app's runtime.
+@@ -38,19 +39,28 @@ abstract class GeneratePackagesListTask : DefaultTask() {
+   lateinit var modules: List<ExpoModule>
+
+   /**
+-   * The output file where the package list should be written.
++   * The output directory where the package list should be written.
+    */
+-  @get:OutputFile
+-  abstract val outputFile: RegularFileProperty
++  @get:OutputDirectory
++  abstract val outputDirectory: DirectoryProperty
+
+   @TaskAction
+   fun generatePackagesList() {
+-    val target = outputFile.get().asFile
++    val target = resolveOutputFile()
+     val content = generatePackageListFileContent()
+
++    target.parentFile.mkdirs()
+     target.writeText(content)
+   }
+
++  private fun resolveOutputFile(): File {
++    val targetDir = outputDirectory.get().asFile
++    return File(
++      targetDir,
++      "${namespace.get().replace('.', File.separatorChar)}${File.separator}${generatedPackageListFilename}"
++    )
++  }
++
+   private fun generatePackageListFileContent(): String {
+     return """package ${namespace.get()};
+
+diff --git a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/KSPLookup.kt b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/KSPLookup.kt
+index ebe9efdd6..c90e66a0a 100644
+--- a/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/KSPLookup.kt
++++ b/android/expo-gradle-plugin/expo-autolinking-plugin/src/main/kotlin/expo/modules/plugin/KSPLookup.kt
+@@ -4,7 +4,9 @@ package expo.modules.plugin
+
+ val KSPLookup = mapOf(
+   "2.2.21" to "2.2.21-2.0.5",
++  "2.3.20" to "2.3.6",
+   "2.3.1" to "2.3.1",
++  "2.3.10" to "2.3.6",
+   "2.3.0" to "2.3.0",
+   "2.2.20" to "2.2.20-2.0.4",
+   "2.2.10" to "2.2.10-2.0.2",

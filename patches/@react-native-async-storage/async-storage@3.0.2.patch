@@ -1,0 +1,105 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 4f80202ce..c782748e5 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -9,7 +9,7 @@ buildscript {
+     }
+
+     dependencies {
+-        classpath "com.android.tools.build:gradle:8.7.2"
++        classpath "com.android.tools.build:gradle:9.1.0"
+         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinVersion}"
+         classpath "com.google.devtools.ksp:symbol-processing-gradle-plugin:${kspVersion}"
+     }
+@@ -18,7 +18,10 @@ buildscript {
+
+ apply from: "config.gradle"
+ apply plugin: "com.android.library"
+-apply plugin: "kotlin-android"
++def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++if (!builtInKotlinEnabled) {
++    apply plugin: "org.jetbrains.kotlin.android"
++}
+ apply plugin: "com.facebook.react"
+
+ // ksp/room is required to support legacy storage
+@@ -28,11 +31,11 @@ apply plugin: 'com.google.devtools.ksp'
+ android {
+     namespace "org.asyncstorage"
+
+-    compileSdkVersion project.ext.AsyncStorage.compileSdk
++    compileSdk project.ext.AsyncStorage.compileSdk
+
+     defaultConfig {
+-        minSdkVersion project.ext.AsyncStorage.minSdk
+-        targetSdkVersion project.ext.AsyncStorage.targetSdk
++        minSdk project.ext.AsyncStorage.minSdk
++        targetSdk project.ext.AsyncStorage.targetSdk
+     }
+
+     buildFeatures {
+@@ -45,7 +48,7 @@ android {
+         }
+     }
+
+-    lintOptions {
++    lint {
+         disable "GradleCompatible"
+     }
+
+@@ -78,10 +81,33 @@ android {
+ }
+
+ repositories {
++    maven {
++        url uri("$projectDir/local_repo")
++    }
+     mavenCentral()
+     google()
+ }
+
++afterEvaluate {
++    tasks.matching { task -> task.name ==~ /parse.+LocalResources/ }.configureEach { parseTask ->
++        def variantName = parseTask.name
++            .replaceFirst(/^parse/, "")
++            .replaceFirst(/LocalResources$/, "")
++        def variantDir = variantName[0].toLowerCase() + variantName.substring(1)
++        def symbolFile = layout.buildDirectory.file(
++            "intermediates/local_only_symbol_list/${variantDir}/${parseTask.name}/R-def.txt"
++        )
++        outputs.file(symbolFile)
++        doLast {
++            def output = symbolFile.get().asFile
++            if (!output.exists()) {
++                output.parentFile.mkdirs()
++                output.text = ""
++            }
++        }
++    }
++}
++
+ dependencies {
+     implementation "com.facebook.react:react-android"
+     api "org.asyncstorage.shared_storage:storage-android:1.0.0"
+diff --git a/android/config.gradle b/android/config.gradle
+index 524889963..31604ad4f 100644
+--- a/android/config.gradle
++++ b/android/config.gradle
+@@ -29,6 +29,12 @@ String getKspVersion(String kotlinVersion) {
+         return overriddenKspVersion
+     }
+
++    if (kotlinVersion.startsWith("2.3.")) {
++        String kspVersion = "2.3.6"
++        logger.info("[AsyncStorage] Using KSP 2.x version with AGP 9 support: ${kspVersion}")
++        return kspVersion
++    }
++
+     // https://kotlinlang.org/docs/releases.html#release-details
+     // https://github.com/google/ksp/releases
+     def kspVersions = [
+@@ -67,4 +73,3 @@ def getConfigValueOrDefault(name) {
+ }
+
+
+-

@@ -1,0 +1,131 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 07875e1..4c3b268 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -5,7 +5,7 @@ buildscript {
+   dependencies {
+     classpath("org.jetbrains.kotlin.plugin.compose:org.jetbrains.kotlin.plugin.compose.gradle.plugin:${kotlinVersion}")
+     classpath("org.jetbrains.kotlin.plugin.serialization:org.jetbrains.kotlin.plugin.serialization.gradle.plugin:${kotlinVersion}")
+-    classpath("com.apollographql.apollo:apollo-gradle-plugin:4.3.1")
++    classpath("com.apollographql.apollo:apollo-gradle-plugin:4.4.1")
+   }
+ }
+
+@@ -13,9 +13,21 @@ apply plugin: 'com.android.library'
+ apply plugin: 'expo-module-gradle-plugin'
+ apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+ apply plugin: 'org.jetbrains.kotlin.plugin.serialization'
+-apply plugin: 'com.apollographql.apollo'
+
+ def configureInRelease = findProperty("expo.devlauncher.configureInRelease") == "true"
++def requestedTasks = gradle.startParameter.taskNames.collect { it.toLowerCase() }
++def releaseOnlyBuild = !requestedTasks.isEmpty() && requestedTasks.every { taskName ->
++  taskName == "clean" ||
++    taskName.endsWith(":clean") ||
++    taskName.contains("release") ||
++    taskName.contains("bundle")
++}
++def enableApolloPlugin = configureInRelease || !releaseOnlyBuild
++
++if (enableApolloPlugin) {
++  apply plugin: 'com.apollographql.apollo'
++}
++
+ if (configureInRelease) {
+   println("expo-dev-launcher will be enabled in release")
+ }
+@@ -55,9 +67,11 @@ android {
+     release {
+       if (configureInRelease) {
+         java.srcDir 'src/debug/java'
++        kotlin.srcDir 'src/debug/java'
+         res.srcDir 'src/debug/res'
+       } else {
+         java.srcDir 'src/disableInRelease/java'
++        kotlin.srcDir 'src/disableInRelease/java'
+         res.srcDir 'src/disableInRelease/res'
+       }
+     }
+@@ -69,23 +83,20 @@ android {
+   }
+ }
+
+-apollo {
+-  service("service") {
+-    packageName.set("expo.modules.devlauncher")
+-    srcDir("src/debug/graphql")
++if (enableApolloPlugin) {
++  apollo {
++    service("service") {
++      packageName.set("expo.modules.devlauncher")
++      srcDir("src/debug/graphql")
+
+-    introspection {
+-      endpointUrl.set("https://api.expo.dev/graphql")
+-      schemaFile.set(file("src/debug/graphql/schema.graphqls"))
+-    }
+-
+-    outputDir.set(project.layout.buildDirectory.dir("generated/apollo"))
+-    outputDirConnection {
+-      connectToKotlinSourceSet("debug")
+-      connectToKotlinSourceSet("debugOptimized")
++      introspection {
++        endpointUrl.set("https://api.expo.dev/graphql")
++        schemaFile.set(file("src/debug/graphql/schema.graphqls"))
++      }
+
+-      if (configureInRelease) {
+-        connectToKotlinSourceSet("release")
++      outputDir.set(project.layout.buildDirectory.dir("generated/apollo"))
++      outputDirConnection {
++        connectToAllAndroidVariants()
+       }
+     }
+   }
+@@ -149,7 +160,7 @@ dependencies {
+
+   debugOnly("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
+
+-  debugOnly("com.apollographql.apollo:apollo-runtime:4.3.1")
++  debugOnly("com.apollographql.apollo:apollo-runtime:4.4.1")
+
+   debugOnly("com.composables:core:1.43.1")
+
+diff --git a/expo-dev-launcher-gradle-plugin/build.gradle.kts b/expo-dev-launcher-gradle-plugin/build.gradle.kts
+index 0b097aa..5394ac7 100644
+--- a/expo-dev-launcher-gradle-plugin/build.gradle.kts
++++ b/expo-dev-launcher-gradle-plugin/build.gradle.kts
+@@ -2,7 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+ plugins {
+-  kotlin("jvm") version "2.1.20"
++  kotlin("jvm") version "2.3.20"
+   id("java-gradle-plugin")
+ }
+
+@@ -13,7 +13,7 @@ repositories {
+
+ dependencies {
+   implementation(gradleApi())
+-  compileOnly("com.android.tools.build:gradle:8.5.0")
++  compileOnly("com.android.tools.build:gradle:9.1.0")
+   implementation("com.facebook.react:react-native-gradle-plugin")
+ }
+
+diff --git a/ios/EXDevLauncherController.m b/ios/EXDevLauncherController.m
+index c9ca6fb..abedf82 100644
+--- a/ios/EXDevLauncherController.m
++++ b/ios/EXDevLauncherController.m
+@@ -475,7 +475,10 @@ - (void)_initAppWithUrl:(NSURL *)appUrl bundleUrl:(NSURL *)bundleUrl manifest:(E
+ #if RCT_DEV
+     // Connect to the websocket, ignore downloaded update bundles
+     if (![bundleUrl.scheme isEqualToString:@"file"]) {
+-      [[RCTPackagerConnection sharedPackagerConnection] setSocketConnectionURL:bundleUrl];
++      RCTBridge *bridge = self.appBridge;
++      if (bridge != nil) {
++        [bridge.devSettings.packagerConnection setSocketConnectionURL:bundleUrl];
++      }
+     }
+     self.networkInterceptor = [[EXDevLauncherNetworkInterceptor alloc] initWithBundleUrl:bundleUrl];
+ #endif

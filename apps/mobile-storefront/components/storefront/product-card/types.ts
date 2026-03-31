@@ -1,5 +1,6 @@
 import type { ImageProps } from 'expo-image';
 import type { StyleProp, ViewStyle } from 'react-native';
+import type { AnimatedStyle } from 'react-native-reanimated';
 import type Colors from '@/constants/Colors';
 import type { Product } from '@/types/product';
 
@@ -15,8 +16,8 @@ export interface BaseProductCardVariantProps {
   handleAddToCart: () => void;
   isSaved: boolean;
   cartItemCount: number;
-  animatedStyle: StyleProp<ViewStyle>;
-  heartAnimatedStyle: StyleProp<ViewStyle>;
+  animatedStyle: StyleProp<AnimatedStyle<ViewStyle>>;
+  heartAnimatedStyle: StyleProp<AnimatedStyle<ViewStyle>>;
 }
 
 export interface GridProductCardProps extends BaseProductCardVariantProps {

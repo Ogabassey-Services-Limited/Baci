@@ -14,6 +14,11 @@ const ACTIVE_MIGRATION_STATUSES = new Set<ImportJobStatus>([
   'notify_queued',
   'notifying',
 ]);
+const MIGRATION_ROWS_CACHE_KEY_DELIMITER = ':';
+
+function encodeMigrationRowsCacheKeyPart(value: string) {
+  return encodeURIComponent(value);
+}
 
 export function statusBadgeClass(status: ImportJobStatus | string) {
   if (status === 'completed' || status === 'committed') {
@@ -114,11 +119,39 @@ export function shouldFetchMigrationRows(status: ImportJobStatus) {
   return status !== 'uploaded' && status !== 'validating';
 }
 
-export function getInitialMigrationSelection(
-  statuses: Array<{ id: string; status: ImportJobStatus }>
+export function canLoadMigrationRows(
+  status: ImportJobStatus,
+  processedRows = 0
 ) {
   return (
-    statuses.find((job) => shouldFetchMigrationRows(job.status))?.id ?? null
+    shouldFetchMigrationRows(status) ||
+    (status === 'validating' && processedRows > 0)
+  );
+}
+
+export function getMigrationRowsCacheKey(
+  jobId: string,
+  filter: MigrationPreviewFilter,
+  page: number
+) {
+  return `${getMigrationRowsCacheKeyPrefix(jobId)}${encodeMigrationRowsCacheKeyPart(filter)}${MIGRATION_ROWS_CACHE_KEY_DELIMITER}${page}`;
+}
+
+export function getMigrationRowsCacheKeyPrefix(jobId: string) {
+  return `${encodeMigrationRowsCacheKeyPart(jobId)}${MIGRATION_ROWS_CACHE_KEY_DELIMITER}`;
+}
+
+export function getInitialMigrationSelection(
+  statuses: Array<{
+    id: string;
+    status: ImportJobStatus;
+    processed_rows?: number | null;
+  }>
+) {
+  return (
+    statuses.find((job) =>
+      canLoadMigrationRows(job.status, job.processed_rows ?? 0)
+    )?.id ?? null
   );
 }
 

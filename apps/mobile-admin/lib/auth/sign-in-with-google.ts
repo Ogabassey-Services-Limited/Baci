@@ -1,6 +1,10 @@
+import type {
+  SignInResponse,
+  SignInSuccessResponse,
+} from '@react-native-google-signin/google-signin';
+import type { Session, User } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
 interface GoogleSignInModule {
@@ -16,11 +20,11 @@ interface GoogleSignInModule {
       idToken?: string | null;
     }>;
     hasPlayServices: () => Promise<boolean>;
-    signIn: () => Promise<unknown>;
+    signIn: () => Promise<SignInResponse>;
   };
   isSuccessResponse: (
-    response: unknown
-  ) => response is { data?: { idToken?: string | null } };
+    response: SignInResponse
+  ) => response is SignInSuccessResponse;
   statusCodes: Record<string, string>;
 }
 
@@ -45,12 +49,10 @@ const googleConfig = {
 let cachedGoogleModule: GoogleSignInModule | null = null;
 let lastGoogleConfigSignature: string | null = null;
 
-function getGoogleConfigError():
-  | {
-      code: 'google_missing_client_id';
-      error: string;
-    }
-  | null {
+function getGoogleConfigError(): {
+  code: 'google_missing_client_id';
+  error: string;
+} | null {
   const missingConfigFields = [
     Platform.OS === 'ios' && !googleConfig.iosClientId
       ? 'googleConfig.iosClientId'
@@ -94,9 +96,7 @@ async function loadGoogleSignInModule(): Promise<GoogleSignInModule | null> {
   }
 }
 
-async function ensureGoogleConfigured(
-  googleModule: GoogleSignInModule
-): Promise<void> {
+function ensureGoogleConfigured(googleModule: GoogleSignInModule): void {
   const googleConfigError = getGoogleConfigError();
   if (googleConfigError) {
     throw Object.assign(new Error(googleConfigError.error), {
@@ -150,7 +150,7 @@ export async function signInWithGoogleNative(): Promise<GoogleSignInResult> {
   }
 
   try {
-    await ensureGoogleConfigured(googleModule);
+    ensureGoogleConfigured(googleModule);
     const hasPlayServices = await googleModule.GoogleSignin.hasPlayServices();
     if (!hasPlayServices) {
       return {
@@ -207,7 +207,9 @@ export async function signInWithGoogleNative(): Promise<GoogleSignInResult> {
 
     if (error || !data.session || !data.user) {
       return {
-        code: error ? 'google_supabase_exchange_failed' : 'google_missing_session',
+        code: error
+          ? 'google_supabase_exchange_failed'
+          : 'google_missing_session',
         error:
           error?.message ?? 'Google sign-in completed without a valid session.',
         metadata: {

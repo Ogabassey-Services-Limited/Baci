@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { revalidateMerchantFeed } from '@/lib/cache-revalidation';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import {
   isUuid,
   MerchantNotFoundError,
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
   }
 
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  if (!authHeader || !constantTimeEqual(authHeader, `Bearer ${cronSecret}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

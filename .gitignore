@@ -168,6 +168,10 @@ google-play-service-account.json
 *_log.txt
 apps/mobile-admin/metadata/
 apps/mobile-admin/screenshots.yaml
+apps/mobile-admin/credentials.json
+apps/mobile-admin/credentials/
+apps/mobile-storefront/credentials.json
+apps/mobile-storefront/credentials/
 
 # Static analysis output
 knip*.txt

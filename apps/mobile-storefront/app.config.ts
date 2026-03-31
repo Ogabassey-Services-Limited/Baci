@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
 const rawAndroidVersionCode = process.env.ANDROID_VERSION_CODE;
@@ -7,6 +8,7 @@ const parsedAndroidVersionCode =
     : Number(rawAndroidVersionCode);
 
 let androidVersionCode: number | undefined;
+const appVersion = '1.0.0';
 
 if (rawAndroidVersionCode !== undefined) {
   if (!Number.isInteger(parsedAndroidVersionCode)) {
@@ -31,7 +33,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Ogabassey - Easybuy Gadgets',
   slug: 'ogabassey-store',
   owner: 'ogabassey',
-  version: '1.0.0',
+  version: appVersion,
   orientation: 'portrait',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
@@ -159,7 +161,5 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     checkAutomatically: 'ON_ERROR_RECOVERY',
     fallbackToCacheTimeout: 0,
   },
-  runtimeVersion: {
-    policy: 'appVersion',
-  },
+  runtimeVersion: appVersion,
 });
