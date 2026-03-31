@@ -173,6 +173,90 @@ function createSupabaseMock({
   };
 }
 
+function createAtomicClaimRaceSupabaseMock() {
+  const exists = vi.fn().mockResolvedValue({
+    data: true,
+    error: null,
+  });
+  const initialLookup = createQuery({
+    data: null,
+    error: null,
+  });
+  const racedLookup = createQuery({
+    data: {
+      id: 'job-raced',
+      merchant_id: 'merchant-1',
+      created_by: 'user-1',
+      source_platform: 'bumpa',
+      entity_type: 'orders',
+      status: 'uploaded',
+      original_filename: 'orders.csv',
+      storage_path: 'merchant-1/orders/upload.csv',
+      content_type: 'text/csv',
+      file_size_bytes: 12,
+      total_rows: 0,
+      processed_rows: 0,
+      summary: {},
+      error: null,
+      created_at: '2026-03-30T10:00:00.000Z',
+      committed_at: null,
+      notified_at: null,
+      completed_at: null,
+    },
+    error: null,
+  });
+  const pendingLookup = createQuery({
+    data: {
+      id: 'pending-1',
+      merchant_id: 'merchant-1',
+      client_upload_id: 'client-upload-1',
+      storage_path: 'merchant-1/orders/upload.csv',
+      source_platform: 'bumpa',
+      entity_type: 'orders',
+      original_filename: 'orders.csv',
+      content_type: 'text/csv',
+      file_size_bytes: 12,
+      claimed_at: null,
+      expires_at: '2099-03-30T10:00:00.000Z',
+    },
+    error: null,
+  });
+  const pendingUpdate = createQuery({
+    data: null,
+    error: null,
+  });
+  let importJobsCallCount = 0;
+  let pendingUploadsCallCount = 0;
+
+  return {
+    storage: {
+      from: vi.fn(() => ({
+        exists,
+      })),
+    },
+    from: vi.fn((table: string) => {
+      if (table === 'import_jobs') {
+        importJobsCallCount += 1;
+        return importJobsCallCount === 1 ? initialLookup : racedLookup;
+      }
+
+      if (table === 'pending_import_uploads') {
+        pendingUploadsCallCount += 1;
+        return pendingUploadsCallCount === 1 ? pendingLookup : pendingUpdate;
+      }
+
+      return initialLookup;
+    }),
+    __mocks: {
+      exists,
+      initialLookup,
+      racedLookup,
+      pendingLookup,
+      pendingUpdate,
+    },
+  };
+}
+
 describe('POST /api/import-jobs/finalize', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -287,6 +371,51 @@ describe('POST /api/import-jobs/finalize', () => {
     });
   });
 
+  it('returns 429 when the finalize request is rate limited', async () => {
+    vi.mocked(checkRateLimit).mockResolvedValue(false);
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: {
+        userId: 'user-1',
+        merchantContext: { merchantId: 'merchant-1' },
+        supabase: createSupabaseMock({}),
+      } as never,
+    });
+
+    const response = await POST(
+      createRequest({
+        clientUploadId: '11111111-1111-4111-8111-111111111111',
+      }) as NextRequest
+    );
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Rate limit exceeded',
+      code: 'rate_limited',
+    });
+  });
+
+  it('returns 403 when CSRF protection fails', async () => {
+    vi.mocked(checkCsrfProtection).mockResolvedValue({ valid: false });
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: {
+        userId: 'user-1',
+        merchantContext: { merchantId: 'merchant-1' },
+        supabase: createSupabaseMock({}),
+      } as never,
+    });
+
+    const response = await POST(
+      createRequest({
+        clientUploadId: '11111111-1111-4111-8111-111111111111',
+      }) as NextRequest
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid CSRF token',
+    });
+  });
+
   it('returns 404 when the pending upload does not exist', async () => {
     const supabaseMock = createSupabaseMock({
       pendingUpload: null,
@@ -309,6 +438,117 @@ describe('POST /api/import-jobs/finalize', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Pending upload not found',
       code: 'pending_upload_not_found',
+    });
+  });
+
+  it('returns 403 when the merchant lacks permission for the upload entity type', async () => {
+    vi.mocked(hasImportRoutePermission).mockReturnValue(false);
+    const supabaseMock = createSupabaseMock({
+      pendingUpload: {
+        id: 'pending-1',
+        merchant_id: 'merchant-1',
+        client_upload_id: 'client-upload-1',
+        storage_path: 'merchant-1/orders/upload.csv',
+        source_platform: 'bumpa',
+        entity_type: 'orders',
+        original_filename: 'orders.csv',
+        content_type: 'text/csv',
+        file_size_bytes: 12,
+        claimed_at: null,
+        expires_at: '2099-03-30T10:00:00.000Z',
+      },
+    });
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: {
+        userId: 'user-1',
+        merchantContext: { merchantId: 'merchant-1' },
+        supabase: supabaseMock,
+      } as never,
+    });
+
+    const response = await POST(
+      createRequest({
+        clientUploadId: '11111111-1111-4111-8111-111111111111',
+      }) as NextRequest
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Forbidden',
+    });
+  });
+
+  it('returns 410 when the pending upload has expired', async () => {
+    const supabaseMock = createSupabaseMock({
+      pendingUpload: {
+        id: 'pending-1',
+        merchant_id: 'merchant-1',
+        client_upload_id: 'client-upload-1',
+        storage_path: 'merchant-1/orders/upload.csv',
+        source_platform: 'bumpa',
+        entity_type: 'orders',
+        original_filename: 'orders.csv',
+        content_type: 'text/csv',
+        file_size_bytes: 12,
+        claimed_at: null,
+        expires_at: '2000-03-30T10:00:00.000Z',
+      },
+    });
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: {
+        userId: 'user-1',
+        merchantContext: { merchantId: 'merchant-1' },
+        supabase: supabaseMock,
+      } as never,
+    });
+
+    const response = await POST(
+      createRequest({
+        clientUploadId: '11111111-1111-4111-8111-111111111111',
+      }) as NextRequest
+    );
+
+    expect(response.status).toBe(410);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Pending upload has expired',
+      code: 'upload_expired',
+    });
+  });
+
+  it('returns 409 when the pending upload has already been claimed', async () => {
+    const supabaseMock = createSupabaseMock({
+      pendingUpload: {
+        id: 'pending-1',
+        merchant_id: 'merchant-1',
+        client_upload_id: 'client-upload-1',
+        storage_path: 'merchant-1/orders/upload.csv',
+        source_platform: 'bumpa',
+        entity_type: 'orders',
+        original_filename: 'orders.csv',
+        content_type: 'text/csv',
+        file_size_bytes: 12,
+        claimed_at: '2026-03-30T10:05:00.000Z',
+        expires_at: '2099-03-30T10:00:00.000Z',
+      },
+    });
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: {
+        userId: 'user-1',
+        merchantContext: { merchantId: 'merchant-1' },
+        supabase: supabaseMock,
+      } as never,
+    });
+
+    const response = await POST(
+      createRequest({
+        clientUploadId: '11111111-1111-4111-8111-111111111111',
+      }) as NextRequest
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Pending upload has already been claimed',
+      code: 'upload_claimed',
     });
   });
 
@@ -347,6 +587,28 @@ describe('POST /api/import-jobs/finalize', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Uploaded file is missing',
       code: 'upload_missing',
+    });
+  });
+
+  it('returns 202 when another request wins the atomic claim race and creates the job', async () => {
+    const supabaseMock = createAtomicClaimRaceSupabaseMock();
+    vi.mocked(resolveImportRouteContext).mockResolvedValue({
+      context: {
+        userId: 'user-1',
+        merchantContext: { merchantId: 'merchant-1' },
+        supabase: supabaseMock,
+      } as never,
+    });
+
+    const response = await POST(
+      createRequest({
+        clientUploadId: '11111111-1111-4111-8111-111111111111',
+      }) as NextRequest
+    );
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({
+      job: expect.objectContaining({ id: 'job-raced', status: 'uploaded' }),
     });
   });
 
