@@ -1,11 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createFailingChunkGenerator } from '@/lib/import-jobs/import-job-test-helpers';
 
-const { buildImportPreviewForJobMock, sendImportNotificationCampaignMock } =
-  vi.hoisted(() => ({
-    buildImportPreviewForJobMock: vi.fn(),
-    sendImportNotificationCampaignMock: vi.fn(),
-  }));
+const {
+  buildImportPreviewChunksForJobMock,
+  sendImportNotificationCampaignMock,
+} = vi.hoisted(() => ({
+  buildImportPreviewChunksForJobMock: vi.fn(),
+  sendImportNotificationCampaignMock: vi.fn(),
+}));
 
 vi.mock('@/lib/import-commit/commit-bumpa-orders', () => ({
   commitBumpaOrders: vi.fn(),
@@ -23,13 +26,14 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn() },
 }));
 
-vi.mock('./import-job-service', () => ({
-  buildImportPreviewForJob: buildImportPreviewForJobMock,
+vi.mock('@/lib/import-jobs/import-job-service', () => ({
+  buildImportPreviewChunksForJob: buildImportPreviewChunksForJobMock,
+  buildImportPreviewForJob: vi.fn(),
   buildImportJobRowInserts: vi.fn(),
   mergeImportJobSummary: vi.fn((_current, summary) => summary),
 }));
 
-import { runClaimedImportJob } from './run-claimed-import-job';
+import { runClaimedImportJob } from '@/lib/import-jobs/run-claimed-import-job';
 
 function createJob(status: 'validating' | 'notifying') {
   return {
@@ -131,7 +135,16 @@ describe('runClaimedImportJob notification and failure flows', () => {
   });
 
   it('marks the job as failed when execution throws', async () => {
-    buildImportPreviewForJobMock.mockRejectedValue(new Error('Preview failed'));
+    buildImportPreviewChunksForJobMock.mockImplementation(() =>
+      createFailingChunkGenerator('Preview failed')
+    );
+
+    const deleteQuery = {
+      delete: vi.fn(),
+      eq: vi.fn(),
+    };
+    deleteQuery.delete.mockReturnValue(deleteQuery);
+    deleteQuery.eq.mockResolvedValue({ error: null });
 
     const failureUpdateQuery = {
       update: vi.fn(),
@@ -141,7 +154,10 @@ describe('runClaimedImportJob notification and failure flows', () => {
     failureUpdateQuery.eq.mockResolvedValue({ error: null });
 
     const supabase = {
-      from: vi.fn().mockReturnValueOnce(failureUpdateQuery),
+      from: vi
+        .fn()
+        .mockReturnValueOnce(deleteQuery)
+        .mockReturnValueOnce(failureUpdateQuery),
     } as unknown as SupabaseClient;
 
     const result = await runClaimedImportJob(supabase, createJob('validating'));

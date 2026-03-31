@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canLoadMigrationRows,
   decorateImportJob,
   filterMigrationRows,
+  getInitialMigrationSelection,
   getMigrationProgressDetail,
   getMigrationProgressValue,
+  getMigrationRowsCacheKey,
+  getMigrationRowsCacheKeyPrefix,
   statusBadgeClass,
 } from '@/app/dashboard/migrations/migration-utils';
 
@@ -155,5 +159,61 @@ describe('filterMigrationRows', () => {
   it('returns all rows for the default filter and handles empty arrays', () => {
     expect(filterMigrationRows([...rows], 'all')).toEqual([...rows]);
     expect(filterMigrationRows([], 'needs_fix')).toEqual([]);
+  });
+});
+
+describe('migration row loading helpers', () => {
+  it('allows persisted validating rows to load before preview_ready', () => {
+    expect(canLoadMigrationRows('validating', 0)).toBe(false);
+    expect(canLoadMigrationRows('validating', 1)).toBe(true);
+    expect(canLoadMigrationRows('preview_ready', 0)).toBe(true);
+    expect(canLoadMigrationRows('completed', 0)).toBe(true);
+    expect(canLoadMigrationRows('committed', 0)).toBe(true);
+    expect(canLoadMigrationRows('failed', 0)).toBe(true);
+  });
+
+  it('creates stable cache keys for job, filter, and page', () => {
+    expect(getMigrationRowsCacheKey('job-1', 'all', 1)).toBe('job-1:all:1');
+    expect(getMigrationRowsCacheKey('job-1', 'needs_fix', 2)).toBe(
+      'job-1:needs_fix:2'
+    );
+    expect(getMigrationRowsCacheKeyPrefix('job-1')).toBe('job-1:');
+  });
+
+  it('encodes cache key segments so delimiters cannot collide', () => {
+    expect(getMigrationRowsCacheKey('job:1', 'all', 2)).toBe('job%3A1:all:2');
+    expect(getMigrationRowsCacheKey('', 'all', -1)).toBe(':all:-1');
+    expect(getMigrationRowsCacheKeyPrefix('job:1')).toBe('job%3A1:');
+  });
+
+  it('auto-selects validating jobs once persisted preview rows exist', () => {
+    expect(getInitialMigrationSelection([])).toBeNull();
+
+    expect(
+      getInitialMigrationSelection([
+        { id: 'job-uploaded', status: 'uploaded', processed_rows: 0 },
+        { id: 'job-validating', status: 'validating', processed_rows: 0 },
+      ])
+    ).toBeNull();
+
+    expect(
+      getInitialMigrationSelection([
+        { id: 'job-uploaded', status: 'uploaded', processed_rows: 0 },
+        { id: 'job-validating', status: 'validating', processed_rows: 12 },
+      ])
+    ).toBe('job-validating');
+
+    expect(
+      getInitialMigrationSelection([
+        { id: 'job-validating', status: 'validating', processed_rows: 0 },
+      ])
+    ).toBeNull();
+
+    expect(
+      getInitialMigrationSelection([
+        { id: 'job-first', status: 'validating', processed_rows: 12 },
+        { id: 'job-second', status: 'validating', processed_rows: 24 },
+      ])
+    ).toBe('job-first');
   });
 });
