@@ -12,14 +12,9 @@ import type {
   ImportJobListItem,
   ImportJobRowsResponse,
 } from '@/app/dashboard/migrations/migration-types';
-import { createClient } from '@/lib/supabase/client';
 
 vi.mock('@/lib/csrf', () => ({
   buildCsrfHeaders: vi.fn(() => ({ 'x-csrf-token': 'token' })),
-}));
-
-vi.mock('@/lib/supabase/client', () => ({
-  createClient: vi.fn(),
 }));
 
 function createJsonResponse(body: unknown, ok = true): Response {
@@ -34,15 +29,6 @@ function createJsonResponse(body: unknown, ok = true): Response {
 describe('migration-job-api', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
-    vi.mocked(createClient).mockReturnValue({
-      storage: {
-        from: vi.fn(() => ({
-          uploadToSignedUrl: vi
-            .fn()
-            .mockResolvedValue({ data: {}, error: null }),
-        })),
-      },
-    } as never);
   });
 
   afterEach(() => {
@@ -156,54 +142,28 @@ describe('migration-job-api', () => {
     );
   });
 
-  it('initializes direct upload, uploads to signed storage, and finalizes the job', async () => {
+  it('posts upload and action requests with csrf headers', async () => {
     vi.mocked(fetch)
-      .mockResolvedValueOnce(
-        createJsonResponse({
-          upload: {
-            clientUploadId: 'client-upload-1',
-            storagePath: 'merchant-1/orders/upload.csv',
-            uploadToken: 'upload-token',
-          },
-        })
-      )
       .mockResolvedValueOnce(createJsonResponse({ job: { id: 'job-1' } }))
       .mockResolvedValueOnce(createJsonResponse({ ok: true }));
 
-    const file = new File(['id\n1'], 'orders.csv', { type: 'text/csv' });
+    const formData = new FormData();
+    formData.set('file', new Blob(['id\n1']), 'orders.csv');
 
-    await createImportJob({
-      entityType: 'orders',
-      file,
-      sourcePlatform: 'bumpa',
-    });
+    await createImportJob(formData);
     await postImportJobAction('/api/import-jobs/job-1/commit');
 
-    expect(createClient).toHaveBeenCalledTimes(1);
     expect(fetch).toHaveBeenNthCalledWith(
       1,
-      '/api/import-jobs/upload-init',
+      '/api/import-jobs',
       expect.objectContaining({
         method: 'POST',
-        headers: expect.objectContaining({
-          'content-type': 'application/json',
-          'x-csrf-token': 'token',
-        }),
+        headers: { 'x-csrf-token': 'token' },
+        body: formData,
       })
     );
     expect(fetch).toHaveBeenNthCalledWith(
       2,
-      '/api/import-jobs/finalize',
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          'content-type': 'application/json',
-          'x-csrf-token': 'token',
-        }),
-      })
-    );
-    expect(fetch).toHaveBeenNthCalledWith(
-      3,
       '/api/import-jobs/job-1/commit',
       expect.objectContaining({
         method: 'POST',
@@ -212,84 +172,15 @@ describe('migration-job-api', () => {
     );
   });
 
-  it('falls back to multipart upload when direct upload is explicitly disabled', async () => {
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(
-        createJsonResponse(
-          {
-            error: 'Direct upload is disabled',
-            code: 'direct_upload_disabled',
-          },
-          false
-        )
-      )
-      .mockResolvedValueOnce(createJsonResponse({ job: { id: 'job-1' } }));
-
-    const file = new File(['id\n1'], 'orders.csv', { type: 'text/csv' });
-
-    await createImportJob({
-      entityType: 'orders',
-      file,
-      sourcePlatform: 'bumpa',
-    });
-
-    expect(fetch).toHaveBeenNthCalledWith(
-      2,
-      '/api/import-jobs',
-      expect.objectContaining({
-        method: 'POST',
-        headers: { 'x-csrf-token': 'token' },
-        body: expect.any(FormData),
-      })
-    );
-  });
-
-  it('throws when direct upload initialization fails', async () => {
+  it('throws when upload creation fails', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       createJsonResponse({ error: 'Upload failed' }, false)
     );
 
-    const file = new File(['id\n1'], 'orders.csv', { type: 'text/csv' });
+    const formData = new FormData();
+    formData.set('file', new Blob(['id\n1']), 'orders.csv');
 
-    await expect(
-      createImportJob({
-        entityType: 'orders',
-        file,
-        sourcePlatform: 'bumpa',
-      })
-    ).rejects.toThrow('Upload failed');
-  });
-
-  it('throws when uploading to the signed storage target fails', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      createJsonResponse({
-        upload: {
-          clientUploadId: 'client-upload-1',
-          storagePath: 'merchant-1/orders/upload.csv',
-          uploadToken: 'upload-token',
-        },
-      })
-    );
-    vi.mocked(createClient).mockReturnValue({
-      storage: {
-        from: vi.fn(() => ({
-          uploadToSignedUrl: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'signed upload failed' },
-          }),
-        })),
-      },
-    } as never);
-
-    const file = new File(['id\n1'], 'orders.csv', { type: 'text/csv' });
-
-    await expect(
-      createImportJob({
-        entityType: 'orders',
-        file,
-        sourcePlatform: 'bumpa',
-      })
-    ).rejects.toThrow('signed upload failed');
+    await expect(createImportJob(formData)).rejects.toThrow('Upload failed');
   });
 
   it('throws when queueing a job action fails', async () => {

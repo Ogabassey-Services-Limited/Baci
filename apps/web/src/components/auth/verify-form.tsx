@@ -66,23 +66,23 @@ export default function VerifyForm() {
     setIsLoading(true);
 
     try {
+      // Try type:'email' first — matches what signInWithOtp() sends for resend.
+      // Falls back to type:'signup' for initial signup confirmation codes.
       const { error } = await supabase.auth.verifyOtp({
         email,
         token: data.code,
-        type: 'signup',
+        type: 'email',
       });
 
       if (error) {
-        // Fallback to 'email' type (magic link / recovery flow sometimes overlaps)
-        // But for strict signup verification, 'signup' or 'email' should be tried.
         console.warn(
-          'Signup verification failed, trying recovery type...',
+          'Email OTP verification failed, trying signup type...',
           error.message
         );
         const { error: retryError } = await supabase.auth.verifyOtp({
           email,
           token: data.code,
-          type: 'email',
+          type: 'signup',
         });
 
         if (retryError) {
@@ -116,9 +116,14 @@ export default function VerifyForm() {
     if (resendTimer > 0 || !email) return;
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.resend({
+      // Use signInWithOtp instead of auth.resend — resend() bypasses the
+      // custom Send Email Hook (send-auth-email edge function → ZeptoMail),
+      // causing emails to silently fail since no SMTP is configured.
+      // onSubmit tries type:'email' first (matching signInWithOtp), then
+      // falls back to type:'signup' for initial signup confirmation codes.
+      const { error } = await supabase.auth.signInWithOtp({
         email,
-        type: 'signup',
+        options: { shouldCreateUser: false },
       });
 
       if (error) throw error;
