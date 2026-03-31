@@ -12,11 +12,16 @@ vi.mock('@/lib/csrf', () => ({
   buildCsrfHeaders: vi.fn(() => ({ 'x-csrf-token': 'token' })),
 }));
 
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: vi.fn(),
+}));
+
 vi.mock('@/app/dashboard/migrations/migration-order-source-chip', () => ({
   default: () => <span>Source chip</span>,
 }));
 
 import MigrationsClientPage from '@/app/dashboard/migrations/migrations-client-page';
+import { createClient } from '@/lib/supabase/client';
 
 function createJsonResponse(body: unknown): Response {
   return {
@@ -36,9 +41,30 @@ function createDeferredResponse() {
   return { promise, resolve };
 }
 
+function createMockChannel() {
+  const channel = {
+    on: vi.fn().mockReturnThis(),
+    subscribe: vi.fn().mockReturnThis(),
+  };
+
+  return channel;
+}
+
 describe('MigrationsClientPage', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
+    const channel = createMockChannel();
+    vi.mocked(createClient).mockReturnValue({
+      channel: vi.fn().mockReturnValue(channel),
+      removeChannel: vi.fn(),
+      storage: {
+        from: vi.fn(() => ({
+          uploadToSignedUrl: vi
+            .fn()
+            .mockResolvedValue({ data: {}, error: null }),
+        })),
+      },
+    } as never);
   });
 
   afterEach(() => {
@@ -172,6 +198,15 @@ describe('MigrationsClientPage', () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(
         createJsonResponse({
+          upload: {
+            clientUploadId: 'client-upload-1',
+            storagePath: 'merchant-1/products/upload.csv',
+            uploadToken: 'upload-token',
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
           job: {
             id: 'job-2',
             entity_type: 'products',
@@ -230,12 +265,34 @@ describe('MigrationsClientPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /create preview/i }));
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith(
-        '/api/import-jobs',
+      expect(fetch).toHaveBeenNthCalledWith(
+        1,
+        '/api/import-jobs/upload-init',
         expect.objectContaining({
           method: 'POST',
-          headers: { 'x-csrf-token': 'token' },
-          body: expect.any(FormData),
+          headers: expect.objectContaining({
+            'content-type': 'application/json',
+            'x-csrf-token': 'token',
+          }),
+        })
+      );
+      const uploadInitRequest = vi.mocked(fetch).mock.calls[0]?.[1];
+      expect(JSON.parse(String(uploadInitRequest?.body))).toEqual({
+        sourcePlatform: 'bumpa',
+        entityType: 'products',
+        fileName: 'products.csv',
+        fileSizeBytes: 4,
+        contentType: 'text/csv',
+      });
+      expect(fetch).toHaveBeenNthCalledWith(
+        2,
+        '/api/import-jobs/finalize',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'content-type': 'application/json',
+            'x-csrf-token': 'token',
+          }),
         })
       );
     });
@@ -291,6 +348,15 @@ describe('MigrationsClientPage', () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(
         createJsonResponse({
+          upload: {
+            clientUploadId: 'client-upload-1',
+            storagePath: 'merchant-1/orders/upload.csv',
+            uploadToken: 'upload-token',
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
           job: {
             id: 'job-3',
             entity_type: 'orders',
@@ -340,7 +406,7 @@ describe('MigrationsClientPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /create preview/i }));
 
     expect(await screen.findByText(/building preview/i)).toBeInTheDocument();
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch).toHaveBeenCalledTimes(3);
     expect(
       screen.getByText(/no preview rows available yet/i)
     ).toBeInTheDocument();
@@ -492,22 +558,8 @@ describe('MigrationsClientPage', () => {
     await act(async () => {
       deferredRefresh.resolve(
         createJsonResponse({
-          job: {
-            id: 'job-1',
-            entity_type: 'orders',
-            source_platform: 'bumpa',
-            status: 'validating',
-            original_filename: 'orders.csv',
-            processed_rows: 2,
-            total_rows: 10,
-            summary: { validRows: 0, invalidRows: 0, receiptReadyOrders: 0 },
-            error: null,
-            created_at: '2026-03-22T10:00:00.000Z',
-            committed_at: null,
-            notified_at: null,
-            canCommit: false,
-            canNotify: false,
-          },
+          rows: [],
+          pagination: { page: 1, pageSize: 25, total: 0 },
         })
       );
       await Promise.resolve();

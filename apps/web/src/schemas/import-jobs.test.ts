@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   importJobEntityTypeSchema,
+  importJobFinalizeSchema,
   importJobParamsSchema,
   importJobRowsQuerySchema,
   importJobSourcePlatformSchema,
   importJobStatusSchema,
+  importJobUploadInitSchema,
   importJobUploadSchema,
   importJobWorkerRequestSchema,
 } from '@/schemas/import-jobs';
@@ -154,6 +156,59 @@ describe('importJobUploadSchema', () => {
     const result = importJobUploadSchema.safeParse({
       entityType: 'invoices',
     });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('importJobUploadInitSchema', () => {
+  it('accepts valid upload-init metadata', () => {
+    const result = importJobUploadInitSchema.parse({
+      entityType: 'orders',
+      fileName: 'orders.csv',
+      fileSizeBytes: 1024,
+      contentType: 'text/csv',
+    });
+
+    expect(result.sourcePlatform).toBe('bumpa');
+    expect(result.fileName).toBe('orders.csv');
+  });
+
+  it('rejects unexpected properties', () => {
+    const result = importJobUploadInitSchema.safeParse({
+      entityType: 'orders',
+      fileName: 'orders.csv',
+      fileSizeBytes: 1024,
+      contentType: 'text/csv',
+      extra: 'nope',
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('importJobFinalizeSchema', () => {
+  it('accepts a valid client upload id', () => {
+    const result = importJobFinalizeSchema.safeParse({
+      clientUploadId: '550e8400-e29b-41d4-a716-446655440000',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid client upload id format', () => {
+    const result = importJobFinalizeSchema.safeParse({
+      clientUploadId: 'not-a-uuid',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects unexpected properties', () => {
+    const result = importJobFinalizeSchema.safeParse({
+      clientUploadId: '550e8400-e29b-41d4-a716-446655440000',
+      extra: 'nope',
+    });
+
     expect(result.success).toBe(false);
   });
 });
