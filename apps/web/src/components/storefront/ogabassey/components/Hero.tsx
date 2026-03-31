@@ -175,7 +175,7 @@ export const Hero: React.FC = () => {
           {MOBILE_SLIDES.map((slide, index) => (
             <div
               key={slide.id}
-              className={`absolute inset-0 transition-opacity duration-400 ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'} ${slide.bgClass}`}
+              className={`absolute inset-0 transition-opacity duration-[400ms] ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'} ${slide.bgClass}`}
             >
               {/* TYPE: IMAGE */}
               {slide.type === 'image' && (
@@ -304,7 +304,7 @@ export const Hero: React.FC = () => {
             {DESKTOP_IPHONE_SLIDES.map((slide, idx) => (
               <div
                 key={slide.id}
-                className={`absolute inset-0 transition-opacity duration-400 ease-in-out ${idx === currentIphoneSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+                className={`absolute inset-0 transition-opacity duration-[400ms] ease-in-out ${idx === currentIphoneSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
               >
                 {/* Gradient Overlay for Readability */}
                 <div

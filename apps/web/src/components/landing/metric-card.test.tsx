@@ -21,28 +21,32 @@ describe('MetricCard', () => {
     expect(screen.getByText(/\$0/)).toBeDefined();
   });
 
-  it('shows final value immediately when prefers-reduced-motion is set', () => {
-    // Mock matchMedia to report reduced motion preference
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn().mockImplementation((query: string) => ({
-        matches: query === '(prefers-reduced-motion: reduce)',
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
-    });
+  it('shows final value immediately when prefers-reduced-motion is set', async () => {
+    // Save original and mock matchMedia to report reduced motion preference
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
 
     render(
       <MetricCard label="Revenue" value="$1,000" icon={<span>Icon</span>} />
     );
 
-    // With reduced motion, the final formatted value should render immediately
+    // Wait for useEffect to run and set the final value
+    await vi.waitFor(() => {
+      expect(screen.getByText('1,000')).toBeDefined();
+    });
+
     expect(screen.getByText('Revenue')).toBeDefined();
-    expect(screen.getByText('1,000')).toBeDefined();
+
+    // Restore original matchMedia
+    window.matchMedia = originalMatchMedia;
   });
 });

@@ -341,7 +341,7 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
                 },
               ].map((step, i) => (
                 <li key={step.step} className="relative">
-                  <article className="h-full p-8 rounded-2xl glass border border-slate-200 dark:border-slate-800 transition-[box-shadow,border-color] duration-200 group">
+                  <article className="h-full p-8 rounded-2xl glass border border-slate-200 dark:border-slate-800 group">
                     <div className="flex items-center gap-4 mb-6">
                       <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                         {step.icon}
