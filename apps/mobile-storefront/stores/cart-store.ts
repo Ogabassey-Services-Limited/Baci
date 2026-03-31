@@ -13,6 +13,7 @@ export interface CartItem {
   product_id: string;
   slug: string;
   variant_id?: string;
+  variant_attributes?: Record<string, string>;
   name: string;
   price: number;
   compare_at_price?: number;

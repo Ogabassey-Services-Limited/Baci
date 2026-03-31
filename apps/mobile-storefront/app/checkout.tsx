@@ -603,7 +603,7 @@ export default function CheckoutScreen() {
     );
 
     return () => backHandler.remove();
-  }, [step]);
+  }, [step, performBackTransition]);
 
   useEffect(() => {
     const fetchLocations = async () => {
@@ -1022,6 +1022,7 @@ export default function CheckoutScreen() {
               price: effectivePrice,
               image_url: item.image_url,
               variant_id: item.variant_id,
+              variant_attributes: item.variant_attributes,
               has_assurance: item.hasAssurance || false,
               assurance_fee: item.hasAssurance
                 ? Math.round(
@@ -1072,6 +1073,7 @@ export default function CheckoutScreen() {
             price: effectivePrice,
             image_url: item.image_url,
             variant_id: item.variant_id,
+            variant_attributes: item.variant_attributes,
             has_assurance: item.hasAssurance || false,
             assurance_fee: item.hasAssurance
               ? Math.round(
