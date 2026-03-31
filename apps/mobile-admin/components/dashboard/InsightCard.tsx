@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.9,
-    transform: [{ scale: 0.99 }],
+    transform: [{ scale: 0.96 }],
   },
   gradient: {
     padding: SPACING.md,
