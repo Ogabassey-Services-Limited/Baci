@@ -191,8 +191,8 @@ function TopSellingProductItem({
       accessibilityRole="button"
       accessibilityHint="View product details"
     >
-      <View style={[styles.productRank, { backgroundColor: colors.gold }]}>
-        <Ionicons name="trophy" size={12} color="#FFF" />
+      <View style={[styles.productRank, { backgroundColor: colors.gold }, shadows.sm]}>
+        <Ionicons name="trophy" size={12} color={colors.textOnPrimary} />
       </View>
 
       <View
@@ -456,13 +456,13 @@ export default function ProductsScreen() {
       accessibilityState={{ selected: isActive }}
       accessibilityHint={`Filter products by ${label.toLowerCase()}`}
     >
-      <Text style={[styles.statValue, { color: isActive ? '#FFF' : color }]}>
+      <Text style={[styles.statValue, { color: isActive ? colors.textOnPrimary : color }]}>
         {value}
       </Text>
       <Text
         style={[
           styles.statLabel,
-          { color: isActive ? 'rgba(255,255,255,0.9)' : colors.textSecondary },
+          { color: isActive ? colors.textOnPrimary : colors.textSecondary },
         ]}
       >
         {label}
@@ -503,7 +503,7 @@ export default function ProductsScreen() {
           style={[
             styles.tabText,
             isActive
-              ? { color: '#000000', fontFamily: TYPOGRAPHY.fontFamily.semiBold }
+              ? { color: isDark ? colors.background : colors.text, fontFamily: TYPOGRAPHY.fontFamily.semiBold }
               : { color: colors.textSecondary },
           ]}
         >
@@ -518,9 +518,9 @@ export default function ProductsScreen() {
       return (
         <View style={styles.summaryWrapper}>
           <View
-            style={[styles.summaryBar, { backgroundColor: 'rgba(0,0,0,0.5)' }]}
+            style={[styles.summaryBar, { backgroundColor: colors.card }]}
           >
-            <Text style={{ color: '#FFF' }}>Loading stats...</Text>
+            <Text style={{ color: colors.text }}>Loading stats...</Text>
           </View>
         </View>
       );
@@ -532,10 +532,10 @@ export default function ProductsScreen() {
           <View
             style={[
               styles.summaryBar,
-              { backgroundColor: 'rgba(255,0,0,0.5)' },
+              { backgroundColor: colors.errorLight },
             ]}
           >
-            <Text style={{ color: '#FFF' }}>No stats data</Text>
+            <Text style={{ color: colors.error }}>No stats data</Text>
           </View>
         </View>
       );
@@ -547,9 +547,7 @@ export default function ProductsScreen() {
           style={[
             styles.summaryBar,
             {
-              backgroundColor: isDark
-                ? 'rgba(30, 30, 30, 0.85)'
-                : 'rgba(255, 255, 255, 0.9)',
+              backgroundColor: colors.card,
               borderColor: colors.border,
             },
           ]}
@@ -745,8 +743,8 @@ export default function ProductsScreen() {
                   accessibilityRole="button"
                   accessibilityHint="Opens form to create a new product category"
                 >
-                  <Ionicons name="add" size={20} color="#FFFFFF" />
-                  <Text style={styles.emptyButtonText}>Create Category</Text>
+                  <Ionicons name="add" size={20} color={colors.textOnPrimary} />
+                  <Text style={[styles.emptyButtonText, { color: colors.textOnPrimary }]}>Create Category</Text>
                 </Pressable>
               </View>
             ) : null
@@ -847,8 +845,8 @@ export default function ProductsScreen() {
                   accessibilityRole="button"
                   accessibilityHint="Opens form to create a new product"
                 >
-                  <Ionicons name="add" size={20} color="#FFFFFF" />
-                  <Text style={styles.emptyButtonText}>Add Product</Text>
+                  <Ionicons name="add" size={20} color={colors.textOnPrimary} />
+                  <Text style={[styles.emptyButtonText, { color: colors.textOnPrimary }]}>Add Product</Text>
                 </Pressable>
               </View>
             ) : null
@@ -880,7 +878,7 @@ export default function ProductsScreen() {
             : 'Opens form to create a new product'
         }
       >
-        <Ionicons name="add" size={28} color="#FFFFFF" />
+        <Ionicons name="add" size={28} color={colors.textOnPrimary} />
       </Pressable>
 
       <InventorySummaryBar />
@@ -982,9 +980,9 @@ export default function ProductsScreen() {
                 accessibilityHint="Creates the new category"
               >
                 {createCategoryMutation.isPending ? (
-                  <ActivityIndicator color="#FFF" />
+                  <ActivityIndicator color={colors.textOnPrimary} />
                 ) : (
-                  <Text style={{ color: '#FFF', fontWeight: '600' }}>
+                  <Text style={{ color: colors.textOnPrimary, fontWeight: '600' }}>
                     Create
                   </Text>
                 )}
@@ -1138,11 +1136,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
   },
   productInfo: {
     flex: 1,
@@ -1208,7 +1201,6 @@ const styles = StyleSheet.create({
   emptyButtonText: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    color: '#FFFFFF',
   },
   footerLoader: {
     paddingVertical: SPACING.lg,

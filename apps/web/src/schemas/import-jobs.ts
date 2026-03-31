@@ -32,20 +32,6 @@ export const importJobUploadSchema = z.object({
   entityType: importJobEntityTypeSchema,
 });
 
-export const importJobUploadInitSchema = importJobUploadSchema
-  .extend({
-    fileName: z.string().trim().min(1),
-    fileSizeBytes: z.number().int().positive(),
-    contentType: z.string().trim().min(1).nullable().optional(),
-  })
-  .strict();
-
-export const importJobFinalizeSchema = z
-  .object({
-    clientUploadId: z.string().uuid(),
-  })
-  .strict();
-
 export const importJobWorkerRequestSchema = z
   .object({
     jobId: z.string().uuid().optional(),
@@ -59,10 +45,6 @@ export type ImportJobSourcePlatform = z.infer<
 >;
 export type ImportJobStatus = z.infer<typeof importJobStatusSchema>;
 export type ImportJobUploadInput = z.infer<typeof importJobUploadSchema>;
-export type ImportJobUploadInitInput = z.infer<
-  typeof importJobUploadInitSchema
->;
-export type ImportJobFinalizeInput = z.infer<typeof importJobFinalizeSchema>;
 export type ImportJobWorkerRequest = z.infer<
   typeof importJobWorkerRequestSchema
 >;
