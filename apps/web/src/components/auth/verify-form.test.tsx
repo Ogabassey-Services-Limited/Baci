@@ -286,6 +286,10 @@ describe('VerifyForm', () => {
         title: 'Success',
         description: 'Your email has been verified.',
       });
+
+      // Should navigate to dashboard after successful verification
+      expect(mocks.refresh).toHaveBeenCalled();
+      expect(mocks.replace).toHaveBeenCalledWith('/dashboard');
     });
   });
 });

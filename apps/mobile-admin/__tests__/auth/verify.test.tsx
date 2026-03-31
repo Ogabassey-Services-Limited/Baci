@@ -114,7 +114,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 // --- Import component after mocks ---
-import VerifyScreen from '../../app/(auth)/verify';
+import VerifyScreen from '@/app/(auth)/verify';
 
 describe('VerifyScreen', () => {
   beforeEach(() => {
@@ -198,13 +198,15 @@ describe('VerifyScreen', () => {
       const countdownText = screen.getByText(/Resend code in/);
       expect(countdownText).toBeTruthy();
 
-      // Try clicking the button (it should be disabled)
+      // The button should exist and be disabled
       const resendButton = countdownText.closest('button');
-      if (resendButton) {
-        await act(async () => {
-          fireEvent.click(resendButton);
-        });
-      }
+      expect(resendButton).not.toBeNull();
+      expect(resendButton?.disabled).toBe(true);
+
+      // Clicking disabled button should not trigger resend
+      await act(async () => {
+        fireEvent.click(resendButton!);
+      });
 
       expect(mocks.signInWithOtp).not.toHaveBeenCalled();
     });

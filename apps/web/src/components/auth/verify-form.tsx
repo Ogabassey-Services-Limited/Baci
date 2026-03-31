@@ -119,6 +119,8 @@ export default function VerifyForm() {
       // Use signInWithOtp instead of auth.resend — resend() bypasses the
       // custom Send Email Hook (send-auth-email edge function → ZeptoMail),
       // causing emails to silently fail since no SMTP is configured.
+      // Note: signInWithOtp produces type:'email' OTPs, but onSubmit handles
+      // this via its type:'signup' → type:'email' fallback chain.
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: { shouldCreateUser: false },
