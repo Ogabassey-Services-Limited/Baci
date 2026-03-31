@@ -93,10 +93,16 @@ export function MetricCard({
   delay = 0,
   duration = 2000,
 }: MetricCardProps) {
-  const [displayValue, setDisplayValue] = useState('0');
-  const [hasAnimated, setHasAnimated] = useState(false);
-  const cardRef = useRef<HTMLLIElement>(null);
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   const { prefix, number: targetNumber, suffix, decimals } = parseValue(value);
+  const [displayValue, setDisplayValue] = useState(
+    prefersReducedMotion ? formatNumber(targetNumber, decimals) : '0'
+  );
+  const [hasAnimated, setHasAnimated] = useState(prefersReducedMotion);
+  const cardRef = useRef<HTMLLIElement>(null);
 
   const startAnimation = () => {
     const startTime = performance.now() + delay;

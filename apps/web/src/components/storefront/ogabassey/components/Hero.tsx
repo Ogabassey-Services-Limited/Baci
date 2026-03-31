@@ -175,7 +175,7 @@ export const Hero: React.FC = () => {
           {MOBILE_SLIDES.map((slide, index) => (
             <div
               key={slide.id}
-              className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'} ${slide.bgClass}`}
+              className={`absolute inset-0 transition-opacity duration-400 ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'} ${slide.bgClass}`}
             >
               {/* TYPE: IMAGE */}
               {slide.type === 'image' && (
@@ -304,7 +304,7 @@ export const Hero: React.FC = () => {
             {DESKTOP_IPHONE_SLIDES.map((slide, idx) => (
               <div
                 key={slide.id}
-                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${idx === currentIphoneSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+                className={`absolute inset-0 transition-opacity duration-400 ease-in-out ${idx === currentIphoneSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
               >
                 {/* Gradient Overlay for Readability */}
                 <div
@@ -353,7 +353,7 @@ export const Hero: React.FC = () => {
                     alt={`${slide.title} ${slide.subtitle}`}
                     fill
                     sizes="(max-width: 1024px) 100vw, 75vw"
-                    className="object-cover object-center transition-transform duration-3000 ease-out scale-100 group-hover:scale-105"
+                    className="object-cover object-center transition-transform duration-[8000ms] ease-out scale-100 group-hover:scale-105"
                     priority={idx === 0}
                   />
                 </div>

@@ -28,6 +28,7 @@ const defaultPreferences: CookiePreferences = {
 
 export function CookieConsent() {
   const [isVisible, setIsVisible] = useState(false);
+  const [_isClosing, setIsClosing] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [preferences, setPreferences] =
     useState<CookiePreferences>(defaultPreferences);
@@ -52,7 +53,10 @@ export function CookieConsent() {
         timestamp: new Date().toISOString(),
       })
     );
-    setIsVisible(false);
+
+    // Trigger exit animation, then unmount after it completes
+    setIsClosing(true);
+    setTimeout(() => setIsVisible(false), 200);
 
     // Update Google Consent Mode v2
     updateConsentMode({
@@ -94,7 +98,9 @@ export function CookieConsent() {
     <div
       className={cn(
         'fixed bottom-4 left-4 right-4 z-50 md:left-1/2 md:right-auto md:-translate-x-1/2 md:max-w-5xl w-full',
-        'animate-in slide-in-from-bottom-4 duration-500',
+        isClosing
+          ? 'animate-out fade-out slide-out-to-bottom-4 duration-200'
+          : 'animate-in slide-in-from-bottom-4 duration-500',
         'will-change-transform'
       )}
       style={{
