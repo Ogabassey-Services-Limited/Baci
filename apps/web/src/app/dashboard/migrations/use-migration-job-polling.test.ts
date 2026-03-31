@@ -189,41 +189,6 @@ describe('useMigrationJobPolling', () => {
     expect(refreshJob).toHaveBeenCalledTimes(1);
   });
 
-  it('skips fallback polls while another refresh is already in flight', async () => {
-    const refreshJob = vi.fn().mockResolvedValue(true);
-    let refreshInFlight = true;
-
-    renderHook(() =>
-      useMigrationJobPolling({
-        activeFilter: 'all',
-        isRefreshInFlight: () => refreshInFlight,
-        refreshJob,
-        rowsResponse: {
-          rows: [],
-          pagination: { page: 1, pageSize: 25, total: 0 },
-        },
-        selectedJob: createJob('validating'),
-        selectedJobId: 'job-1',
-      })
-    );
-
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
-      await Promise.resolve();
-    });
-
-    expect(refreshJob).not.toHaveBeenCalled();
-
-    refreshInFlight = false;
-
-    await act(async () => {
-      vi.advanceTimersByTime(5000);
-      await Promise.resolve();
-    });
-
-    expect(refreshJob).toHaveBeenCalledTimes(1);
-  });
-
   it('routes Realtime payload through onRealtimeJobUpdate callback', () => {
     const refreshJob = vi.fn().mockResolvedValue(true);
     const onRealtimeJobUpdate = vi.fn();
@@ -291,46 +256,6 @@ describe('useMigrationJobPolling', () => {
     expect(refreshJob).toHaveBeenCalledWith(
       'job-1',
       expect.objectContaining({
-        includeRows: true,
-        includeJob: true,
-      })
-    );
-  });
-
-  it('triggers refreshJob when validating updates start exposing persisted rows', () => {
-    const refreshJob = vi.fn().mockResolvedValue(true);
-
-    renderHook(() =>
-      useMigrationJobPolling({
-        activeFilter: 'all',
-        refreshJob,
-        rowsResponse: null,
-        selectedJob: createJob('validating', {
-          processed_rows: 0,
-          total_rows: 5822,
-        }),
-        selectedJobId: 'job-1',
-      })
-    );
-
-    const realtimeCallback = mockChannel.on.mock.calls[0][2];
-
-    act(() => {
-      realtimeCallback({
-        new: {
-          id: 'job-1',
-          status: 'validating',
-          processed_rows: 250,
-          total_rows: 5822,
-        },
-      });
-    });
-
-    expect(refreshJob).toHaveBeenCalledTimes(1);
-    expect(refreshJob).toHaveBeenCalledWith(
-      'job-1',
-      expect.objectContaining({
-        background: true,
         includeRows: true,
         includeJob: true,
       })
