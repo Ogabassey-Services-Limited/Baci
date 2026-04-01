@@ -159,6 +159,7 @@ export async function PATCH(
       .from('product_reviews')
       .update(updates)
       .eq('id', id)
+      .eq('merchant_id', review.merchant_id)
       .select()
       .single();
 
@@ -238,7 +239,8 @@ export async function DELETE(
     const { error: deleteError } = await supabase
       .from('product_reviews')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('merchant_id', review.merchant_id);
 
     if (deleteError) {
       console.error('Error deleting review:', deleteError);
