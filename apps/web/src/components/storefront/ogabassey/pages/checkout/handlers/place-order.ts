@@ -19,6 +19,8 @@ export interface CheckoutCartItem {
   negotiatedPrice?: number;
   hasAssurance?: boolean;
   assuranceRate?: number;
+  variantId?: string;
+  variantAttributes?: Record<string, string>;
 }
 
 export interface PlaceOrderOptions {
@@ -249,6 +251,8 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
     quantity: item.quantity,
     price: item.negotiatedPrice || item.price,
     value: (item.negotiatedPrice || item.price) * item.quantity,
+    variantId: item.variantId,
+    variantAttributes: item.variantAttributes,
     has_assurance: item.hasAssurance || false,
     assurance_fee: item.hasAssurance
       ? (item.negotiatedPrice || item.price) * (item.assuranceRate || 0.05)

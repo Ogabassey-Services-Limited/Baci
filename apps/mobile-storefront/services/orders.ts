@@ -52,6 +52,7 @@ const OrderItemSchema = z.object({
   image_url: z.string().optional(),
   variant: z.string().optional(),
   variant_id: z.string().optional(),
+  variant_attributes: z.record(z.string(), z.string()).optional(),
   has_assurance: z.boolean().optional(),
   assurance_fee: z.number().min(0).optional(),
 });
@@ -188,6 +189,7 @@ export async function createOrder(
       price: item.price,
       value: Math.round(item.price * item.quantity),
       variant_id: item.variant_id,
+      variant_attributes: item.variant_attributes || {},
       has_assurance: item.has_assurance ?? false,
       assurance_fee: item.assurance_fee ?? 0,
     })),

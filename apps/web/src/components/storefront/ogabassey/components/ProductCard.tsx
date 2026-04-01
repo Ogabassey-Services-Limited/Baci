@@ -98,7 +98,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   if (viewMode === 'grid') {
     return (
-      <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-[box-shadow,transform] duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation">
+      <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-[box-shadow,transform] duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation [content-visibility:auto] [contain-intrinsic-size:auto_350px]">
         <Link
           href={productHref}
           title={linkTitle}
@@ -254,7 +254,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   // --- LIST VIEW ---
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-[box-shadow,border-color,transform] duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation">
+    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-[box-shadow,border-color,transform] duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation [content-visibility:auto] [contain-intrinsic-size:auto_200px]">
       <Link
         href={productHref}
         title={linkTitle}
