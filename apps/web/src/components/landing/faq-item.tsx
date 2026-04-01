@@ -19,7 +19,7 @@ export function FAQItem({
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           aria-expanded={isOpen}
-          className="flex w-full items-start justify-between text-left glass p-6 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-accent/50 transition-all"
+          className="flex w-full items-start justify-between text-left glass p-6 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-accent/50 transition-[border-color] duration-200"
         >
           <span className="text-lg font-semibold text-primary dark:text-white pr-4">
             {question}
@@ -32,7 +32,7 @@ export function FAQItem({
         </button>
       </dt>
       <dd
-        className={`overflow-hidden transition-all duration-300 ${
+        className={`overflow-hidden transition-[max-height,opacity,padding] duration-300 ${
           isOpen ? 'max-h-96 opacity-100 px-6 pb-4' : 'max-h-0 opacity-0'
         }`}
       >
