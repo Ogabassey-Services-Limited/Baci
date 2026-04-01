@@ -63,6 +63,7 @@ function createQuery<T>(result: { data: T; error: unknown }) {
   const query = {
     select: vi.fn(),
     eq: vi.fn(),
+    is: vi.fn(),
     gt: vi.fn(),
     maybeSingle: vi.fn(),
     single: vi.fn(),
@@ -71,6 +72,7 @@ function createQuery<T>(result: { data: T; error: unknown }) {
 
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
+  query.is.mockReturnValue(query);
   query.gt.mockReturnValue(query);
   query.maybeSingle.mockResolvedValue(result);
   query.single.mockResolvedValue(result);
@@ -345,6 +347,10 @@ describe('POST /api/import-jobs/finalize', () => {
       expect.objectContaining({
         claimed_at: expect.any(String),
       })
+    );
+    expect(supabaseMock.__mocks.pendingUpdate.is).toHaveBeenCalledWith(
+      'claimed_at',
+      null
     );
     await flushAfterCallbacks();
     expect(kickoffImportJob).toHaveBeenCalledWith('job-1', 'http://localhost');

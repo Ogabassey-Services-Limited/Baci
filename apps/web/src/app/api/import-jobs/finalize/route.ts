@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
       })
       .eq('merchant_id', context.merchantContext.merchantId)
       .eq('client_upload_id', parsedInput.data.clientUploadId)
-      .eq('claimed_at', null)
+      .is('claimed_at', null)
       .gt('expires_at', new Date().toISOString())
       .select('id, claimed_at')
       .maybeSingle();
