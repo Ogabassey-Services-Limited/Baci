@@ -4,6 +4,7 @@ import Animated, {
   cancelAnimation,
   Easing,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -106,8 +107,9 @@ export function SnowEffect() {
   const tokens = SEASONAL.getTokens(theme);
   // M34 fix: Use useWindowDimensions() hook instead of stale Dimensions.get('window')
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const reducedMotion = useReducedMotion();
 
-  if (!tokens.isSanta) return null;
+  if (!tokens.isSanta || reducedMotion) return null;
 
   return (
     <View style={styles.container} pointerEvents="none">
