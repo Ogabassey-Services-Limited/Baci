@@ -10,6 +10,20 @@ describe('MetricCard', () => {
       unobserve = vi.fn();
       disconnect = vi.fn();
     } as unknown as typeof IntersectionObserver;
+
+    // Mock matchMedia (not available in jsdom)
+    if (!window.matchMedia) {
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+    }
   });
 
   it('renders label and initial value of 0', () => {
