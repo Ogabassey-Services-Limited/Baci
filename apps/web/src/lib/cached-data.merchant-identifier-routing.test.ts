@@ -140,12 +140,14 @@ describe('cached-data getMerchantByIdentifier routing', () => {
 
   describe('domain lookup routing', () => {
     it('routes to domain lookup for domain-like identifier', async () => {
-      harness.mockSingle
-        .mockResolvedValueOnce({
-          data: { merchant_id: 'merchant-123', domain: 'store.com' },
-          error: null,
-        })
-        .mockResolvedValueOnce({ data: mockMerchant, error: null });
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: { merchant_id: 'merchant-123', domain: 'store.com' },
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: mockMerchant,
+        error: null,
+      });
 
       await expect(getMerchantByIdentifier('store.com')).resolves.toEqual({
         ...mockMerchant,
@@ -156,12 +158,14 @@ describe('cached-data getMerchantByIdentifier routing', () => {
     });
 
     it('lowercases domain identifier before lookup', async () => {
-      harness.mockSingle
-        .mockResolvedValueOnce({
-          data: { merchant_id: 'merchant-123', domain: 'store.com' },
-          error: null,
-        })
-        .mockResolvedValueOnce({ data: mockMerchant, error: null });
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: { merchant_id: 'merchant-123', domain: 'store.com' },
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: mockMerchant,
+        error: null,
+      });
 
       await expect(getMerchantByIdentifier('STORE.COM')).resolves.toEqual({
         ...mockMerchant,
@@ -171,12 +175,14 @@ describe('cached-data getMerchantByIdentifier routing', () => {
     });
 
     it('accepts subdomains', async () => {
-      harness.mockSingle
-        .mockResolvedValueOnce({
-          data: { merchant_id: 'merchant-123', domain: 'shop.store.com' },
-          error: null,
-        })
-        .mockResolvedValueOnce({ data: mockMerchant, error: null });
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: { merchant_id: 'merchant-123', domain: 'shop.store.com' },
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: mockMerchant,
+        error: null,
+      });
 
       await expect(getMerchantByIdentifier('shop.store.com')).resolves.toEqual({
         ...mockMerchant,

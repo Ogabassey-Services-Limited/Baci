@@ -11,6 +11,8 @@ export const VALID_SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
 export const VALID_DOMAIN_REGEX =
   /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i;
 
+const MAX_MERCHANT_IDENTIFIER_LENGTH = 254;
+
 /**
  * Reserved paths that should NOT be treated as merchant slugs to avoid routing conflicts.
  */
@@ -64,6 +66,13 @@ export function isDomainIdentifier(identifier: string): boolean {
     return false;
   }
 
+  if (
+    !identifier.trim() ||
+    identifier.length > MAX_MERCHANT_IDENTIFIER_LENGTH
+  ) {
+    return false;
+  }
+
   // Reject common file extensions to prevent filenames being treated as domains
   if (/\.(ico|json|png|jpg|jpeg|svg|css|js|map|txt|xml)$/i.test(identifier)) {
     return false;
@@ -84,6 +93,7 @@ export function isValidMerchantSlug(slug: string): boolean {
   return (
     typeof slug === 'string' &&
     !!slug.trim() &&
+    slug.length <= MAX_MERCHANT_IDENTIFIER_LENGTH &&
     !slug.includes('.') && // No file extensions
     !RESERVED_PATHS.has(slug.toLowerCase()) && // Not a reserved path
     VALID_SLUG_REGEX.test(slug.toLowerCase())
