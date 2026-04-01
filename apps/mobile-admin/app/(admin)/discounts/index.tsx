@@ -4,12 +4,12 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Pressable,
   StyleSheet,
   Text,
@@ -23,9 +23,6 @@ import { useDiscounts } from '@/hooks/useDiscounts';
 import { useTheme } from '@/hooks/useTheme';
 import type { DiscountCode } from '@/lib/types/discounts';
 import { formatCurrency } from '@/utils/format';
-
-// Item height for getItemLayout optimization
-const DISCOUNT_ITEM_HEIGHT = 132;
 
 export default function DiscountsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -65,15 +62,6 @@ export default function DiscountsScreen() {
       ]
     );
   };
-
-  const getItemLayout = (
-    _data: ArrayLike<DiscountCode> | null | undefined,
-    index: number
-  ) => ({
-    length: DISCOUNT_ITEM_HEIGHT,
-    offset: (DISCOUNT_ITEM_HEIGHT + SPACING.md) * index,
-    index,
-  });
 
   const renderItem = ({ item }: { item: DiscountCode }) => (
     <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
@@ -172,11 +160,11 @@ export default function DiscountsScreen() {
         {isLoading ? (
           <ScreenSkeleton variant="list" cards={4} />
         ) : (
-          <FlatList
+          <FlashList
             data={discounts}
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
-            getItemLayout={getItemLayout}
+            estimatedItemSize={80}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptyState}>

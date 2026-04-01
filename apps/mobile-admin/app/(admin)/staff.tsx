@@ -4,11 +4,11 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
-  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -444,10 +444,11 @@ export default function StaffScreen() {
         </View>
 
         {/* Staff List */}
-        <FlatList
+        <FlashList
           data={staff}
           renderItem={renderStaffMember}
           keyExtractor={(item) => item.id}
+          estimatedItemSize={80}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
