@@ -23,7 +23,7 @@ export function BentoCard({
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-sm transition-all duration-300 hover:shadow-md hover:border-white/20 min-w-[200px]',
+        'group relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-sm transition-[box-shadow,border-color] duration-300 hover:shadow-md hover:border-white/20 min-w-[200px]',
         className
       )}
     >
