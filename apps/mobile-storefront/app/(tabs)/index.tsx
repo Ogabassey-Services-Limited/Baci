@@ -1,4 +1,5 @@
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
+import type { Block } from '@/types/blocks';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -110,8 +111,8 @@ export default function HomeScreen() {
     setSelectedCategoryId(id);
   };
 
-  const defaultBlocks = [
-    { type: 'HeroCarousel', props: { id: 'default-hero' } },
+  const defaultBlocks: Block[] = [
+    { type: 'HeroCarousel', props: { id: 'default-hero', slides: [] } },
     {
       type: 'CategoryRail',
       props: { id: 'default-categories', title: 'Shop by Category' },
@@ -126,8 +127,9 @@ export default function HomeScreen() {
     },
   ];
 
-  const blocks = (() => {
-    let content = pageConfig?.content || defaultBlocks;
+  const blocks: Block[] = (() => {
+    const isBlockArray = (arr: unknown[]): arr is Block[] => arr.every(item => typeof item === 'object' && item !== null && 'type' in item && 'props' in item);
+    let content: Block[] = pageConfig?.content && isBlockArray(pageConfig.content) ? pageConfig.content : defaultBlocks;
 
     // Force CategoryRail if it's missing but it's an Elite design context
     if (
@@ -135,7 +137,7 @@ export default function HomeScreen() {
       !content.some((b) => b.type === 'CategoryRail')
     ) {
       const heroIndex = content.findIndex((b) => b.type === 'HeroCarousel');
-      const injected = {
+      const injected: Block = {
         type: 'CategoryRail' as const,
         props: { id: 'forced-categories', slug: 'utility' },
       };
@@ -153,9 +155,7 @@ export default function HomeScreen() {
     return content;
   })();
 
-  // biome-ignore lint/suspicious/noExplicitAny: Required for React 18 / FlashList types
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const renderItem = ({ item }: { item: any }) => (
+  const renderItem = ({ item }: ListRenderItemInfo<Block>) => (
     <BlockRenderer
       blocks={[item]}
       selectedCategoryId={selectedCategoryId}
@@ -231,9 +231,7 @@ export default function HomeScreen() {
       <FlashList
         data={blocks}
         renderItem={renderItem}
-        // biome-ignore lint/suspicious/noExplicitAny: Required for React 18 / FlashList types
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        keyExtractor={(item: any, index: number) =>
+        keyExtractor={(item: Block, index: number) =>
           item.props?.id || `block-${index}`
         }
         ListHeaderComponent={renderListHeader}
