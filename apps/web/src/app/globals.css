@@ -593,7 +593,7 @@
   }
 
   /* 2026 CSS: @starting-style for entry animations without JS */
-  @supports (selector(:popover-open)) {
+  @supports (transition-behavior: allow-discrete) {
     .animate-entry {
       opacity: 1;
       transform: translateY(0);
