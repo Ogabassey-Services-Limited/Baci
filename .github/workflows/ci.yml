@@ -47,12 +47,22 @@ jobs:
       - if: needs.changes.outputs.web == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - if: needs.changes.outputs.web == 'true'
+        name: Clean stale pnpm setup directory
+        run: rm -rf ~/setup-pnpm 2>/dev/null || true
+      - if: needs.changes.outputs.web == 'true'
         uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
       - if: needs.changes.outputs.web == 'true'
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "24"
-          cache: "pnpm"
+          # No cache: "pnpm" — the store is reset each run to avoid
+          # cross-runner corruption during pnpm install.
+      - if: needs.changes.outputs.web == 'true'
+        name: Reset pnpm store to fix cross-runner install issues
+        run: |
+          export PNPM_STORE_DIR="${RUNNER_TEMP}/pnpm-store"
+          rm -rf "${PNPM_STORE_DIR}" || true
+          pnpm config set store-dir "${PNPM_STORE_DIR}"
       - if: needs.changes.outputs.web == 'true'
         run: pnpm install --frozen-lockfile
       # Run monorepo-wide lint/typecheck/test (not filtered to @baci/web)
@@ -73,12 +83,22 @@ jobs:
       - if: needs.changes.outputs.web == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - if: needs.changes.outputs.web == 'true'
+        name: Clean stale pnpm setup directory
+        run: rm -rf ~/setup-pnpm 2>/dev/null || true
+      - if: needs.changes.outputs.web == 'true'
         uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
       - if: needs.changes.outputs.web == 'true'
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "24"
-          cache: "pnpm"
+          # No cache: "pnpm" — the store is reset each run to avoid
+          # cross-runner corruption during pnpm install.
+      - if: needs.changes.outputs.web == 'true'
+        name: Reset pnpm store to fix cross-runner install issues
+        run: |
+          export PNPM_STORE_DIR="${RUNNER_TEMP}/pnpm-store"
+          rm -rf "${PNPM_STORE_DIR}" || true
+          pnpm config set store-dir "${PNPM_STORE_DIR}"
       - if: needs.changes.outputs.web == 'true'
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
