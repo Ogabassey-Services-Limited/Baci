@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Check,
   ChevronLeft,
@@ -6,6 +8,7 @@ import {
   ShoppingCart,
   Star,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -35,12 +38,30 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   // Determine current image
-  const currentImage = product.images?.[activeColorIndex] || product.image;
+  const currentImage =
+    product.images?.[activeColorIndex] || product.image || '/placeholder.png';
 
   // Reset loading state when image source changes
   useEffect(() => {
     setIsImageLoaded(false);
-  }, []);
+  }, [currentImage]);
+
+  const conditionBadgeStyle =
+    product.condition === 'New'
+      ? {
+          backgroundColor: 'var(--store-background-text)',
+          color: 'var(--store-background)',
+        }
+      : product.condition === 'Open Box'
+        ? {
+            backgroundColor: 'var(--store-primary)',
+            color: 'var(--store-primary-text)',
+          }
+        : {
+            backgroundColor: 'var(--store-background)',
+            color: 'var(--store-background-text)',
+            borderColor: 'color-mix(in srgb, var(--store-background-text) 16%, transparent)',
+          };
 
   const handlePrevColor = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -102,10 +123,11 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
           </div>
         )}
 
-        <img
+        <Image
           src={currentImage}
           alt={product.name}
-          loading="lazy"
+          fill
+          sizes="(max-width: 768px) 112px, 192px"
           onLoad={() => setIsImageLoaded(true)}
           className={`w-3/4 h-3/4 object-contain md:group-hover:scale-110 transition-all duration-500 mix-blend-multiply z-10 ${isImageLoaded ? 'opacity-100' : 'opacity-0'}`}
         />
@@ -113,13 +135,8 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         {/* Condition Badge - Top Left */}
         {product.condition && (
           <div
-            className={`absolute top-2 left-2 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm whitespace-nowrap z-20 ${
-              product.condition === 'New'
-                ? 'bg-gray-900'
-                : product.condition === 'Open Box'
-                  ? 'bg-indigo-600'
-                  : 'bg-stone-500'
-            }`}
+            className="absolute top-2 left-2 border text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm whitespace-nowrap z-20"
+            style={conditionBadgeStyle}
           >
             {product.condition}
           </div>

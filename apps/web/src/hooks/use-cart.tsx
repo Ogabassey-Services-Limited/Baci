@@ -37,6 +37,7 @@ export interface CartItem extends Product {
   // Smart Cart Pro: Price Negotiation
   negotiatedPrice?: number;
   negotiationStatus?: 'none' | 'pending' | 'accepted' | 'rejected';
+  cartDiscount?: number;
 
   // Smart Cart Pro: Device Assurance
   hasAssurance?: boolean;

@@ -54,6 +54,10 @@ export const OgabasseyV2Orders: React.FC = () => {
 
       try {
         const res = await fetch(`/api/storefront/orders?merchantSlug=${merchantContext.merchant.slug}`);
+        if (!res.ok) {
+          throw new Error(`Failed to fetch orders: ${res.status}`);
+        }
+
         const data = await res.json();
         if (data.orders) {
           // Transform if necessary or use directly
@@ -293,7 +297,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                       {order.items?.length || 0} item(s)
                     </span>
                     <Link
-                      href={`/order/${order.id}` as any}
+                      href={asRoute(`${basePath}/account/orders/${order.id}`)}
                       className="text-sm font-bold text-gray-900 flex items-center gap-1 hover:text-red-600 transition-colors"
                     >
                       View Details <ChevronRight size={16} />

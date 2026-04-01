@@ -30,6 +30,7 @@ const AppNegotiateIcon = ({ size = 24, className = "" }: { size?: number; classN
   </svg>
 );
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -124,7 +125,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
     const hasAnyIndividualNegotiation = cart.some(i => i.negotiatedPrice != null);
 
     // Check if cart-wide discount is active (would need to check cartDiscount in items)
-    const hasBulkDiscount = cart.some(i => (i as any).cartDiscount > 0);
+    const hasBulkDiscount = cart.some((item) => (item.cartDiscount ?? 0) > 0);
 
     if (hasBulkDiscount) {
       // Bulk mode is active, show error
@@ -218,14 +219,16 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       {/* Image */}
                       <Link
                         href={productHref}
-                        className="w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 flex-shrink-0 flex items-center justify-center"
+                        className="w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 flex-shrink-0 flex items-center justify-center relative overflow-hidden"
                       >
-                        <img
+                        <Image
                           src={item.image || '/placeholder.png'}
                           alt={item.name}
-                          className="w-full h-full object-contain mix-blend-multiply"
+                          fill
+                          sizes="(max-width: 768px) 80px, 112px"
+                          className="object-contain mix-blend-multiply p-2"
                           onError={(e) => {
-                            e.currentTarget.onerror = null; // Prevent infinite loop
+                            e.currentTarget.onerror = null;
                             e.currentTarget.src = '/placeholder.png';
                           }}
                         />

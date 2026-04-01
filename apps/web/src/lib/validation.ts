@@ -47,7 +47,6 @@ export const RESERVED_PATHS = new Set([
   'help',
   'wallet',
   'repairs',
-  'repairs',
   'swap',
   'account',
   'delete-account',
