@@ -96,4 +96,40 @@ describe('storage batching helpers', () => {
     await removeStorageItems([]);
     expect(storageMock.removeMany).not.toHaveBeenCalled();
   });
+
+  it('propagates getMany errors', async () => {
+    storageMock.getMany?.mockRejectedValue(new Error('storage read failed'));
+
+    await expect(getStorageEntries(['cart'])).rejects.toThrow(
+      'storage read failed'
+    );
+  });
+
+  it('propagates removeMany errors', async () => {
+    storageMock.removeMany?.mockRejectedValue(
+      new Error('storage write failed')
+    );
+
+    await expect(removeStorageItems(['cache:a'])).rejects.toThrow(
+      'storage write failed'
+    );
+  });
+
+  it('propagates getItem fallback errors', async () => {
+    storageMock.getMany = undefined;
+    storageMock.getItem.mockRejectedValue(new Error('single read failed'));
+
+    await expect(getStorageEntries(['cart'])).rejects.toThrow(
+      'single read failed'
+    );
+  });
+
+  it('propagates removeItem fallback errors', async () => {
+    storageMock.removeMany = undefined;
+    storageMock.removeItem.mockRejectedValue(new Error('single remove failed'));
+
+    await expect(removeStorageItems(['cache:a'])).rejects.toThrow(
+      'single remove failed'
+    );
+  });
 });
