@@ -39,6 +39,18 @@ const reanimatedPackageRoot = resolvePackageRoot('react-native-reanimated');
 const screensPackageRoot = resolvePackageRoot('react-native-screens');
 const safeAreaContextPackageRoot = resolvePackageRoot('react-native-safe-area-context');
 
+const forcedPackageRoots = {
+  react: reactPackageRoot,
+  'react-dom': reactDomPackageRoot,
+  'react-native': reactNativePackageRoot,
+  expo: expoPackageRoot,
+  'expo-router': expoRouterPackageRoot,
+  'react-native-gesture-handler': gestureHandlerPackageRoot,
+  'react-native-reanimated': reanimatedPackageRoot,
+  'react-native-screens': screensPackageRoot,
+  'react-native-safe-area-context': safeAreaContextPackageRoot,
+};
+
 // Configure SVG support
 config.transformer = {
   ...transformer,
@@ -93,6 +105,34 @@ config.resolver = {
     // Other Node.js-only modules commonly pulled by build tools
     /node_modules[\\/]esbuild[\\/]/,
   ],
+  // Force Metro to resolve core native packages from the app-selected roots so
+  // release bundles do not depend on whatever nested install layout pnpm produced.
+  resolveRequest: (context, moduleName, platform) => {
+    try {
+      for (const [packageName, packageRoot] of Object.entries(forcedPackageRoots)) {
+        if (moduleName === packageName) {
+          return {
+            filePath: require.resolve(packageRoot),
+            type: 'sourceFile',
+          };
+        }
+
+        if (moduleName.startsWith(`${packageName}/`)) {
+          return {
+            filePath: require.resolve(
+              path.resolve(packageRoot, moduleName.slice(packageName.length + 1))
+            ),
+            type: 'sourceFile',
+          };
+        }
+      }
+    } catch {
+      // Fall through to Metro's default resolution when a forced package
+      // subpath is not present in the selected install layout.
+    }
+
+    return context.resolveRequest(context, moduleName, platform);
+  },
 };
 
 module.exports = config;

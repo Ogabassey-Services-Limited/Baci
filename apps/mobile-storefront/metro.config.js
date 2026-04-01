@@ -36,6 +36,22 @@ const reactDomPackageRoot = resolvePackageRoot('react-dom');
 const reactNativePackageRoot = resolvePackageRoot('react-native');
 const expoPackageRoot = resolvePackageRoot('expo');
 const expoRouterPackageRoot = resolvePackageRoot('expo-router');
+const gestureHandlerPackageRoot = resolvePackageRoot('react-native-gesture-handler');
+const reanimatedPackageRoot = resolvePackageRoot('react-native-reanimated');
+const screensPackageRoot = resolvePackageRoot('react-native-screens');
+const safeAreaContextPackageRoot = resolvePackageRoot('react-native-safe-area-context');
+
+const forcedPackageRoots = {
+  react: reactPackageRoot,
+  'react-dom': reactDomPackageRoot,
+  'react-native': reactNativePackageRoot,
+  expo: expoPackageRoot,
+  'expo-router': expoRouterPackageRoot,
+  'react-native-gesture-handler': gestureHandlerPackageRoot,
+  'react-native-reanimated': reanimatedPackageRoot,
+  'react-native-screens': screensPackageRoot,
+  'react-native-safe-area-context': safeAreaContextPackageRoot,
+};
 
 config.watchFolders = [workspaceRoot];
 config.resolver = {
@@ -46,11 +62,16 @@ config.resolver = {
   ],
   // Prefer the app-local core packages first so release bundles stay version-aligned.
   extraNodeModules: {
+    '@baci/shared': path.resolve(workspaceRoot, 'packages/shared'),
     'react-native': reactNativePackageRoot,
     react: reactPackageRoot,
     'react-dom': reactDomPackageRoot,
     expo: expoPackageRoot,
     'expo-router': expoRouterPackageRoot,
+    'react-native-gesture-handler': gestureHandlerPackageRoot,
+    'react-native-reanimated': reanimatedPackageRoot,
+    'react-native-screens': screensPackageRoot,
+    'react-native-safe-area-context': safeAreaContextPackageRoot,
   },
   // Critical for PNPM monorepos to resolve symlinked packages
   unstable_enableSymlinks: true,
@@ -79,38 +100,29 @@ config.resolver = {
   // Force all React resolutions to the app-selected React package so Metro
   // cannot accidentally mix the hoisted workspace copy with the app bundle.
   resolveRequest: (context, moduleName, platform) => {
-    // M27 fix: Wrap in try-catch to prevent metro bundler crash
-    // when react-dom or subpath cannot be resolved (e.g. missing package)
     try {
-      let forcedRoot = null;
+      for (const [packageName, packageRoot] of Object.entries(forcedPackageRoots)) {
+        if (moduleName === packageName) {
+          return {
+            filePath: require.resolve(packageRoot),
+            type: 'sourceFile',
+          };
+        }
 
-      if (moduleName === 'react') {
-        forcedRoot = reactPackageRoot;
-      } else if (moduleName === 'react-dom') {
-        forcedRoot = reactDomPackageRoot;
-      } else if (moduleName.startsWith('react/')) {
-        forcedRoot = path.resolve(
-          reactPackageRoot,
-          moduleName.slice('react/'.length)
-        );
-      } else if (moduleName.startsWith('react-dom/')) {
-        forcedRoot = path.resolve(
-          reactDomPackageRoot,
-          moduleName.slice('react-dom/'.length)
-        );
-      }
-
-      if (forcedRoot) {
-        return {
-          filePath: require.resolve(forcedRoot),
-          type: 'sourceFile',
-        };
+        if (moduleName.startsWith(`${packageName}/`)) {
+          return {
+            filePath: require.resolve(
+              path.resolve(packageRoot, moduleName.slice(packageName.length + 1))
+            ),
+            type: 'sourceFile',
+          };
+        }
       }
     } catch {
-      // If resolution fails (e.g. react-dom not installed for RN),
-      // fall through to default resolution
+      // Fall through to Metro's default resolution when a forced package
+      // subpath is not present in the selected install layout.
     }
-    // Fall back to default resolution for everything else
+
     return context.resolveRequest(context, moduleName, platform);
   },
 };

@@ -2,6 +2,18 @@ diff --git a/android/build.gradle b/android/build.gradle
 index c7d64d5..7a0b4cc 100644
 --- a/android/build.gradle
 +++ b/android/build.gradle
+@@ -17,7 +17,10 @@ def isNewArchitectureEnabled() {
+ }
+
+ apply plugin: "com.android.library"
+-apply plugin: 'org.jetbrains.kotlin.android'
++def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++if (!builtInKotlinEnabled) {
++  apply plugin: 'org.jetbrains.kotlin.android'
++}
+ apply from: '../nitrogen/generated/android/NitroMmkv+autolinking.gradle'
+ apply from: "./fix-prefab.gradle"
+
 @@ -39,11 +39,11 @@ android {
    namespace "com.margelo.nitro.mmkv"
 
@@ -26,16 +38,14 @@ index c7d64d5..7a0b4cc 100644
      disable "GradleCompatible"
    }
 
-@@ -119,11 +119,19 @@ android {
+@@ -119,11 +119,21 @@ android {
 
    sourceSets {
      main {
-+      def generatedKotlinDirs = [
-+        "${project.projectDir}/../nitrogen/generated/android/kotlin"
-+      ]
-+      java.srcDirs += generatedKotlinDirs
-+      kotlin.srcDirs += generatedKotlinDirs
-+
+       def generatedKotlinDirs = [
+         "${project.projectDir}/../nitrogen/generated/android/kotlin"
+       ]
+
        if (isNewArchitectureEnabled()) {
 -        java.srcDirs += [
 +        def codegenDirs = [
@@ -43,9 +53,17 @@ index c7d64d5..7a0b4cc 100644
            "${project.buildDir}/generated/source/codegen/java"
          ]
 +        java.srcDirs += codegenDirs
-+        kotlin.srcDirs += codegenDirs
        }
      }
++
++    named("main") {
++      kotlin.directories.add("src/main/java")
++      kotlin.directories.add("${project.projectDir}/../nitrogen/generated/android/kotlin")
++
++      if (isNewArchitectureEnabled()) {
++        kotlin.directories.add("${project.buildDir}/generated/source/codegen/java")
++      }
++    }
    }
 @@ -145,6 +153,7 @@ dependencies {
    implementation project(":react-native-nitro-modules")
@@ -57,3 +75,44 @@ index c7d64d5..7a0b4cc 100644
 +  }
  }
 -
+diff --git a/android/fix-prefab.gradle b/android/fix-prefab.gradle
+index 2ca3245..985ad34 100644
+--- a/android/fix-prefab.gradle
++++ b/android/fix-prefab.gradle
+@@ -28,22 +28,28 @@ afterEvaluate {
+       return
+     }
+
+-    def variants = proj.android.hasProperty('applicationVariants') ? proj.android.applicationVariants : proj.android.libraryVariants
++    def variants
++    if (proj.android.metaClass.hasProperty(proj.android, 'applicationVariants')) {
++      variants = proj.android.applicationVariants
++    } else if (proj.android.metaClass.hasProperty(proj.android, 'libraryVariants')) {
++      variants = proj.android.libraryVariants
++    } else {
++      variants = proj.android.buildTypes
++    }
++
+     // Touch the prefab_config.json files to ensure that in ExternalNativeJsonGenerator.kt we will re-trigger the prefab CLI to
+     // generate a libnameConfig.cmake file that will contain our native library (.so).
+-    // See this condition: https://cs.android.com/android-studio/platform/tools/base/+/mirror-goog-studio-main:build-system/gradle-core/src/main/java/com/android/build/gradle/tasks/ExternalNativeJsonGenerator.kt;l=207-219?q=createPrefabBuildSystemGlue
+     variants.all { variant ->
+       def variantName = variant.name
+       abis.each { abi ->
+         def searchDir = new File(proj.projectDir, ".cxx/${variantName}")
+         if (!searchDir.exists()) return
+-        def matches = []
++
+         searchDir.eachDir { randomDir ->
+-          def prefabFile = new File(randomDir, "${abi}/prefab_config.json")
+-          if (prefabFile.exists()) matches << prefabFile
+-        }
+-        matches.each { prefabConfig ->
+-          prefabConfig.setLastModified(System.currentTimeMillis())
++          def prefabConfig = new File(randomDir, "${abi}/prefab_config.json")
++          if (prefabConfig.exists()) {
++            prefabConfig.setLastModified(System.currentTimeMillis())
++          }
+         }
+       }
+     }
