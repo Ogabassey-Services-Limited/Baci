@@ -640,6 +640,9 @@ export default function ProductsScreen() {
             onChangeText={setSearchQuery}
             autoCapitalize="none"
             autoCorrect={false}
+            accessibilityLabel="Search products"
+            accessibilityRole="search"
+            returnKeyType="search"
           />
           {searchQuery.length > 0 ? (
             <Pressable
@@ -934,6 +937,9 @@ export default function ProductsScreen() {
               onChangeText={setNewCategoryName}
               placeholder="e.g. Electronics"
               placeholderTextColor={colors.textSecondary}
+              accessibilityLabel="Category name"
+              returnKeyType="done"
+              onSubmitEditing={handleCreateCategory}
             />
 
             <View style={{ flexDirection: 'row', gap: 12 }}>
