@@ -60,7 +60,7 @@ async function getProductCached(
   }
 
   const safeStoreSlug = sanitizeLookupLogValue(storeSlug);
-  const merchant = await getRequestScopedMerchant(safeStoreSlug);
+  const merchant = await getRequestScopedMerchant(storeSlug);
   if (!merchant) {
     console.warn(
       'Merchant not found for storefront product route:',

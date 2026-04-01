@@ -8,6 +8,10 @@ import {
 } from '@/env';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
+import {
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
 
 /**
  * Create a Supabase client for cached queries.
@@ -350,7 +354,7 @@ export async function getCachedMerchantByDomain(
     .select('merchant_id, domain')
     .eq('domain', normalizedDomain)
     .eq('status', 'active')
-    .single();
+    .maybeSingle();
 
   if (domainError) {
     const log = isTransientMerchantLookupError(domainError)
@@ -457,15 +461,6 @@ export async function getCachedMerchantByDomain(
   return result;
 }
 
-/**
- * Check if a string looks like a domain (contains a dot but isn't a UUID)
- */
-function isDomainIdentifier(identifier: string): boolean {
-  // UUIDs contain dashes but no dots
-  // Domains contain dots
-  return identifier.includes('.') && !identifier.includes('-');
-}
-
 const TRANSIENT_MERCHANT_LOOKUP_ERROR = Symbol('transient-merchant-lookup');
 
 type MerchantLookupError = Error & {
@@ -511,16 +506,6 @@ function isTransientMerchantLookupError(error: unknown): boolean {
     combined.includes('aborted due to timeout') ||
     combined.includes('network timeout')
   );
-}
-
-/**
- * Validate merchant identifier format
- * Prevents injection attacks and invalid lookups
- */
-function isValidMerchantIdentifier(identifier: string): boolean {
-  if (!identifier || typeof identifier !== 'string') return false;
-  // Allow slugs (alphanumeric, hyphens) and domains (alphanumeric, dots, hyphens)
-  return /^[a-z0-9][a-z0-9.-]{0,252}[a-z0-9]$/i.test(identifier);
 }
 
 /**
@@ -1608,10 +1593,7 @@ export async function getCachedBlogPost(
   cacheTag('blog-posts', `blog-${identifier}-${postSlug}`);
 
   const lookupKey = identifier.toLowerCase();
-  const merchant =
-    lookupKey.includes('.') && !lookupKey.includes('/')
-      ? await getCachedMerchantByDomain(lookupKey)
-      : await getCachedMerchant(lookupKey);
+  const merchant = await getMerchantSafe(lookupKey);
 
   if (!merchant) return null;
 
@@ -1696,10 +1678,7 @@ export async function getCachedBlogListing(
   const limit = BLOG_LISTING_PAGE_SIZE;
   const offset = (page - 1) * limit;
   const lookupKey = identifier.toLowerCase();
-  const merchant =
-    lookupKey.includes('.') && !lookupKey.includes('/')
-      ? await getCachedMerchantByDomain(lookupKey)
-      : await getCachedMerchant(lookupKey);
+  const merchant = await getMerchantSafe(lookupKey);
 
   if (!merchant) return null;
 

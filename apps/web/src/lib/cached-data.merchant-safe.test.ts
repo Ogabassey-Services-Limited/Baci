@@ -219,12 +219,14 @@ describe('cached-data merchant safety helpers', () => {
     });
 
     it('passes identifier to getMerchantSafe correctly', async () => {
-      harness.mockSingle
-        .mockResolvedValueOnce({
-          data: { merchant_id: 'merchant-123', domain: 'shop.example.com' },
-          error: null,
-        })
-        .mockResolvedValueOnce({ data: mockMerchant, error: null });
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: { merchant_id: 'merchant-123', domain: 'shop.example.com' },
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: mockMerchant,
+        error: null,
+      });
 
       await expect(
         getRequestScopedMerchant('shop.example.com')

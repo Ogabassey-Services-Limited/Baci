@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { isValidMerchantIdentifier, isValidMerchantSlug } from './validation';
+import {
+  isValidMerchantIdentifier,
+  isValidMerchantSlug,
+} from '@/lib/validation';
 
 describe('validation reserved storefront paths', () => {
   it('accepts a normal merchant slug', () => {
