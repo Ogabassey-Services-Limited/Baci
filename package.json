@@ -87,7 +87,8 @@
       "@unhead/vue": "^2.1.12",
       "happy-dom": ">=20.8.8",
       "node-forge": "1.4.0",
-      "path-to-regexp": ">=8.4.0"
+      "path-to-regexp": ">=8.4.0",
+      "@xmldom/xmldom": ">=0.8.12"
     },
     "patchedDependencies": {
       "@expo/log-box@55.0.8": "patches/@expo/log-box@55.0.8.patch",
