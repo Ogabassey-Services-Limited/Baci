@@ -293,6 +293,7 @@ export function FileUploader({
                     : `Preview ${index + 1}`
                 }
                 fill
+                sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
                 className="object-cover transition-transform group-hover:scale-105"
                 unoptimized
               />
