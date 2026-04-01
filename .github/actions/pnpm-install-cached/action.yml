@@ -32,7 +32,7 @@ runs:
       uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
       with:
         path: ${{ inputs.store-dir }}
-        key: ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+        key: ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
         restore-keys: |
           ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-
           ${{ runner.os }}-${{ runner.arch }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-

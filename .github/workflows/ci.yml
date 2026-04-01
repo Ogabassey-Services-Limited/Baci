@@ -32,6 +32,9 @@ jobs:
             web:
               - 'apps/web/**'
               - 'packages/shared/**'
+              - '.github/actions/pnpm-install-cached/**'
+              - '.github/actions/setup-pnpm-store/**'
+              - '.github/workflows/ci.yml'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'turbo.json'
