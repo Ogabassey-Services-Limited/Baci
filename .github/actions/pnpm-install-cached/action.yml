@@ -34,7 +34,7 @@ runs:
         path: ${{ inputs.store-dir }}
         key: ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
         restore-keys: |
-          ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-
+          ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
           ${{ runner.os }}-${{ runner.arch }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-
           ${{ runner.os }}-${{ runner.arch }}-pnpm-store-
 
