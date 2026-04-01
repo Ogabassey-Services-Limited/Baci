@@ -1,0 +1,59 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index c7d64d5..7a0b4cc 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -39,11 +39,11 @@ android {
+   namespace "com.margelo.nitro.mmkv"
+
+   ndkVersion getExtOrDefault("ndkVersion")
+-  compileSdkVersion getExtOrIntegerDefault("compileSdkVersion")
++  compileSdk getExtOrIntegerDefault("compileSdkVersion")
+
+   defaultConfig {
+-    minSdkVersion getExtOrIntegerDefault("minSdkVersion")
+-    targetSdkVersion getExtOrIntegerDefault("targetSdkVersion")
++    minSdk getExtOrIntegerDefault("minSdkVersion")
++    targetSdk getExtOrIntegerDefault("targetSdkVersion")
+     buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
+
+     externalNativeBuild {
+@@ -108,7 +108,7 @@ android {
+     }
+   }
+
+-  lintOptions {
++  lint {
+     disable "GradleCompatible"
+   }
+
+@@ -119,11 +119,19 @@ android {
+
+   sourceSets {
+     main {
++      def generatedKotlinDirs = [
++        "${project.projectDir}/../nitrogen/generated/android/kotlin"
++      ]
++      java.srcDirs += generatedKotlinDirs
++      kotlin.srcDirs += generatedKotlinDirs
++
+       if (isNewArchitectureEnabled()) {
+-        java.srcDirs += [
++        def codegenDirs = [
+           // React Codegen files
+           "${project.buildDir}/generated/source/codegen/java"
+         ]
++        java.srcDirs += codegenDirs
++        kotlin.srcDirs += codegenDirs
+       }
+     }
+   }
+@@ -145,6 +153,7 @@ dependencies {
+   implementation project(":react-native-nitro-modules")
+
+   // Add a dependency on mmkv core (this ships a C++ prefab)
+-  implementation "io.github.zhongwuzw:mmkv:2.4.0"
++  implementation("io.github.zhongwuzw:mmkv:2.4.0") {
++    exclude group: "io.github.zhongwuzw", module: "annotation"
++  }
+ }
+-

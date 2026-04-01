@@ -1,0 +1,259 @@
+diff --git a/android/ExpoModulesCorePlugin.gradle b/android/ExpoModulesCorePlugin.gradle
+index 7910c7721..7dbbd6f32 100644
+--- a/android/ExpoModulesCorePlugin.gradle
++++ b/android/ExpoModulesCorePlugin.gradle
+@@ -42,13 +42,10 @@ class KotlinExpoModulesCorePlugin implements Plugin<Project> {
+ }
+
+ ext.applyKotlinExpoModulesCorePlugin = {
+-  try {
+-    // Tries to apply the kotlin-android plugin if the client project does not apply yet.
+-    // On previous `applyKotlinExpoModulesCorePlugin`, it is inside the `project.buildscript` block.
+-    // We cannot use `project.plugins.hasPlugin()` yet but only to try-catch instead.
+-    apply plugin: 'kotlin-android'
+-  } catch (e) {}
+-
++  def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++  if (!builtInKotlinEnabled && !project.plugins.hasPlugin("org.jetbrains.kotlin.android")) {
++    apply plugin: "org.jetbrains.kotlin.android"
++  }
+   apply plugin: KotlinExpoModulesCorePlugin
+ }
+
+diff --git a/android/build.gradle b/android/build.gradle
+index 0d7b8a4a7..9025a5411 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -185,8 +185,10 @@ android {
+       java {
+         if (shouldIncludeCompose) {
+           srcDirs += 'src/compose'
++          kotlin.srcDirs += 'src/compose'
+         } else {
+           srcDirs += 'src/withoutCompose'
++          kotlin.srcDirs += 'src/withoutCompose'
+         }
+       }
+     }
+diff --git a/android/cmake/main.cmake b/android/cmake/main.cmake
+index c79b8c62a..cd3831657 100644
+--- a/android/cmake/main.cmake
++++ b/android/cmake/main.cmake
+@@ -77,11 +77,23 @@ if (REACT_NATIVE_WORKLETS_DIR)
+     set(BUILD_TYPE "release")
+   endif ()
+
++  set(
++    WORKLETS_IMPORTED_LOCATION
++    "${REACT_NATIVE_WORKLETS_DIR}/android/build/intermediates/library_jni/${BUILD_TYPE}/copy${WORKLETS_VARIANT}JniLibsProjectOnly/jni/${ANDROID_ABI}/libworklets.so"
++  )
++
++  if (NOT EXISTS "${WORKLETS_IMPORTED_LOCATION}")
++    set(
++      WORKLETS_IMPORTED_LOCATION
++      "${REACT_NATIVE_WORKLETS_DIR}/android/build/intermediates/prefab_package/${BUILD_TYPE}/prefab/modules/worklets/libs/android.${ANDROID_ABI}/libworklets.so"
++    )
++  endif ()
++
+   set_target_properties(
+     worklets
+     PROPERTIES
+     IMPORTED_LOCATION
+-    "${REACT_NATIVE_WORKLETS_DIR}/android/build/intermediates/cmake/${BUILD_TYPE}/obj/${ANDROID_ABI}/libworklets.so"
++    "${WORKLETS_IMPORTED_LOCATION}"
+   )
+
+   target_link_libraries(
+diff --git a/android/src/main/java/expo/modules/kotlin/Promise.kt b/android/src/main/java/expo/modules/kotlin/Promise.kt
+index cc342ff82..01a1baf1a 100644
+--- a/android/src/main/java/expo/modules/kotlin/Promise.kt
++++ b/android/src/main/java/expo/modules/kotlin/Promise.kt
+@@ -45,16 +45,16 @@ fun Promise.toBridgePromise(): com.facebook.react.bridge.Promise {
+       resolveMethod(value)
+     }
+
+-    override fun reject(code: String, message: String?) {
+-      expoPromise.reject(code, message, null)
++    override fun reject(code: String?, message: String?) {
++      expoPromise.reject(code ?: unknownCode, message, null)
+     }
+
+-    override fun reject(code: String, throwable: Throwable?) {
+-      expoPromise.reject(code, null, throwable)
++    override fun reject(code: String?, throwable: Throwable?) {
++      expoPromise.reject(code ?: unknownCode, null, throwable)
+     }
+
+-    override fun reject(code: String, message: String?, throwable: Throwable?) {
+-      expoPromise.reject(code, message, throwable)
++    override fun reject(code: String?, message: String?, throwable: Throwable?) {
++      expoPromise.reject(code ?: unknownCode, message, throwable)
+     }
+
+     override fun reject(throwable: Throwable) {
+@@ -65,16 +65,16 @@ fun Promise.toBridgePromise(): com.facebook.react.bridge.Promise {
+       expoPromise.reject(unknownCode, null, throwable)
+     }
+
+-    override fun reject(code: String, userInfo: WritableMap) {
+-      expoPromise.reject(code, null, null)
++    override fun reject(code: String?, userInfo: WritableMap) {
++      expoPromise.reject(code ?: unknownCode, null, null)
+     }
+
+-    override fun reject(code: String, throwable: Throwable?, userInfo: WritableMap) {
+-      expoPromise.reject(code, null, throwable)
++    override fun reject(code: String?, throwable: Throwable?, userInfo: WritableMap) {
++      expoPromise.reject(code ?: unknownCode, null, throwable)
+     }
+
+-    override fun reject(code: String, message: String?, userInfo: WritableMap) {
+-      expoPromise.reject(code, message, null)
++    override fun reject(code: String?, message: String?, userInfo: WritableMap) {
++      expoPromise.reject(code ?: unknownCode, message, null)
+     }
+
+     override fun reject(code: String?, message: String?, throwable: Throwable?, userInfo: WritableMap?) {
+diff --git a/expo-module-gradle-plugin/build.gradle.kts b/expo-module-gradle-plugin/build.gradle.kts
+index ce67cc869..ef5ee6701 100644
+--- a/expo-module-gradle-plugin/build.gradle.kts
++++ b/expo-module-gradle-plugin/build.gradle.kts
+@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
+ plugins {
+-  kotlin("jvm") version "2.1.20"
++  kotlin("jvm") version "2.3.20"
+   id("java-gradle-plugin")
+ }
+
+@@ -29,7 +29,7 @@ val isExpoAutolinkingSettingsPluginAvailable = expoAutolinkingSettingsPlugin ==
+
+ dependencies {
+   implementation(gradleApi())
+-  compileOnly("com.android.tools.build:gradle:8.5.0")
++  compileOnly("com.android.tools.build:gradle:9.1.0")
+   implementation("com.facebook.react:react-native-gradle-plugin")
+   implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
+diff --git a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/ProjectConfiguration.kt b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/ProjectConfiguration.kt
+index 782ec3932..ebf3881c7 100644
+--- a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/ProjectConfiguration.kt
++++ b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/ProjectConfiguration.kt
+@@ -2,7 +2,7 @@
+
+ package expo.modules.plugin
+
+-import com.android.build.gradle.LibraryExtension
++import com.android.build.api.dsl.LibraryExtension
+ import expo.modules.plugin.android.PublicationInfo
+ import expo.modules.plugin.android.applyLinterOptions
+ import expo.modules.plugin.android.applyPublishingVariant
+@@ -22,8 +22,14 @@ internal fun Project.applyDefaultPlugins() {
+   if (!plugins.hasPlugin("com.android.library")) {
+     plugins.apply("com.android.library")
+   }
+-  if (!plugins.hasPlugin("kotlin-android")) {
+-    plugins.apply("kotlin-android")
++  val builtInKotlinEnabled = providers
++    .gradleProperty("android.builtInKotlin")
++    .orNull
++    ?.toBoolean()
++    ?: true
++
++  if (!builtInKotlinEnabled && !plugins.hasPlugin("org.jetbrains.kotlin.android")) {
++    plugins.apply("org.jetbrains.kotlin.android")
+   }
+   if (!plugins.hasPlugin("maven-publish")) {
+     plugins.apply("maven-publish")
+@@ -78,7 +84,20 @@ internal fun Project.applyPublishing(expoModulesExtension: ExpoModuleExtension)
+     .applyPublishingVariant()
+
+   afterEvaluate {
+-    val publicationInfo = PublicationInfo(this)
++    val releaseComponent = components.findByName("release")
++      ?: run {
++        logger.warn("Skipping Expo publishing configuration because the release software component was not created")
++        return@afterEvaluate
++      }
++
++    val publicationInfo = PublicationInfo(
++      components = releaseComponent,
++      groupId = group.toString(),
++      artifactId = requireNotNull(androidLibraryExtension().namespace) {
++        "'android.namespace' is not defined"
++      },
++      version = version.toString(),
++    )
+
+     publishingExtension()
+       .publications
+@@ -100,6 +119,6 @@ internal fun Project.applyPublishing(expoModulesExtension: ExpoModuleExtension)
+   }
+ }
+
+-internal fun Project.androidLibraryExtension() = extensions.getByType(LibraryExtension::class.java)
++internal fun Project.androidLibraryExtension() = extensions.getByName("android") as LibraryExtension
+
+ internal fun Project.publishingExtension() = extensions.getByType(PublishingExtension::class.java)
+diff --git a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/AndroidLibraryExtension.kt b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/AndroidLibraryExtension.kt
+index 9bfae8d79..8fc4f00ae 100644
+--- a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/AndroidLibraryExtension.kt
++++ b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/AndroidLibraryExtension.kt
+@@ -1,22 +1,23 @@
+ package expo.modules.plugin.android
+
+-import com.android.build.gradle.LibraryExtension
++import com.android.build.api.dsl.LibraryExtension
+
+ internal fun LibraryExtension.applySDKVersions(compileSdk: Int, minSdk: Int, targetSdk: Int) {
+   this.compileSdk = compileSdk
+   defaultConfig {
+     this@defaultConfig.minSdk = minSdk
+-    this@defaultConfig.targetSdk = targetSdk
+   }
+ }
+
+ internal fun LibraryExtension.applyLinterOptions() {
+-  lintOptions.isAbortOnError = false
++  lint {
++    abortOnError = false
++  }
+ }
+
+ internal fun LibraryExtension.applyPublishingVariant() {
+-  publishing { publishing ->
+-    publishing.singleVariant("release") {
++  publishing {
++    singleVariant("release") {
+       withSourcesJar()
+     }
+   }
+diff --git a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/MavenPublicationExtension.kt b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/MavenPublicationExtension.kt
+index 127e7d6cb..d73f92f73 100644
+--- a/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/MavenPublicationExtension.kt
++++ b/expo-module-gradle-plugin/src/main/kotlin/expo/modules/plugin/android/MavenPublicationExtension.kt
+@@ -41,9 +41,7 @@ internal data class PublicationInfo(
+     artifactId = requireNotNull(project.androidLibraryExtension().namespace) {
+       "'android.namespace' is not defined"
+     },
+-    version = requireNotNull(project.androidLibraryExtension().defaultConfig.versionName) {
+-      "'android.defaultConfig.versionName' is not defined"
+-    },
++    version = project.version.toString(),
+   )
+
+   fun resolvePath(repositoryPath: Path): Path {
+diff --git a/ios/Legacy/Services/Permissions/EXPermissionsService.h b/ios/Legacy/Services/Permissions/EXPermissionsService.h
+index 46292b98b..df40c8392 100644
+--- a/ios/Legacy/Services/Permissions/EXPermissionsService.h
++++ b/ios/Legacy/Services/Permissions/EXPermissionsService.h
+@@ -7,6 +7,8 @@
+
+ + (EXPermissionStatus)statusForPermission:(NSDictionary *)permission;
+
+++ (NSDictionary *)parsePermissionFromRequester:(NSDictionary *)permission;
++
+ + (NSString *)permissionStringForStatus:(EXPermissionStatus)status;
+
+ - (void)askForGlobalPermissionUsingRequesterClass:(Class)requesterClass

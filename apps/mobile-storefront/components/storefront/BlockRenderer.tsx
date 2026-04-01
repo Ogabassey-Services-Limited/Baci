@@ -4,7 +4,11 @@ import { HeroSkeleton } from '@/components/ui/Skeleton';
 import { useCategories } from '@/hooks';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
-import type { Block, HeroCarouselBlock, ProductGridBlock } from '@/types/blocks';
+import type {
+  Block,
+  HeroCarouselBlock,
+  ProductGridBlock,
+} from '@/types/blocks';
 import { Hero, type HeroSlide } from './Hero';
 import ProductGrid from './ProductGrid';
 import { UtilityPanel } from './UtilityPanel';
@@ -59,7 +63,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
               subtitle: slide.subtitle,
               image: slide.image,
               ctaText: slide.ctaText,
-              ctaLink: slide.ctaLink,
+              ctaLink: slide.ctaLink as HeroSlide['ctaLink'],
             }));
 
             if (slides.length === 0) {

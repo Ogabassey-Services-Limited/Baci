@@ -28,24 +28,35 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn() },
 }));
 
+function createValidatingChunkGenerator() {
+  return (async function* () {
+    await Promise.resolve();
+    yield {
+      totalRows: 10,
+      processedRows: 10,
+      sourceRows: Array.from({ length: 10 }, () => ({})),
+      rows: Array.from({ length: 10 }, (_, i) => ({
+        rowNumber: i + 1,
+        sourceExternalId: `ext-${i}`,
+        rowStatus: 'create' as const,
+        errors: [],
+        payload: {
+          externalSourceId: `ext-${i}`,
+          customer: { email: `test${i}@example.com` },
+          items: [],
+        },
+        meta: {},
+      })),
+      partialSummary: { totalRows: 10, validRows: 10, invalidRows: 0 },
+    };
+  })();
+}
+
 vi.mock('./import-job-service', () => ({
-  buildImportPreviewForJob: vi.fn().mockResolvedValue({
-    totalRows: 10,
-    sourceRows: Array.from({ length: 10 }, () => ({})),
-    rows: Array.from({ length: 10 }, (_, i) => ({
-      rowNumber: i + 1,
-      sourceExternalId: `ext-${i}`,
-      rowStatus: 'create',
-      errors: [],
-      payload: {
-        externalSourceId: `ext-${i}`,
-        customer: { email: `test${i}@example.com` },
-        items: [],
-      },
-      meta: {},
-    })),
-    summary: { totalRows: 10, validRows: 10, invalidRows: 0 },
-  }),
+  buildImportPreviewChunksForJob: vi
+    .fn()
+    .mockImplementation(() => createValidatingChunkGenerator()),
+  buildImportPreviewForJob: vi.fn(),
   buildImportJobRowInserts: vi.fn().mockReturnValue(
     Array.from({ length: 10 }, (_, i) => ({
       import_job_id: 'job-1',
@@ -63,6 +74,7 @@ vi.mock('./import-job-service', () => ({
 }));
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createFailingChunkGenerator } from '@/lib/import-jobs/import-job-test-helpers';
 import type { ImportJobRecord } from './import-job-service';
 import { runClaimedImportJob } from './run-claimed-import-job';
 
@@ -91,7 +103,7 @@ function createMockSupabase() {
     eq: vi.fn().mockResolvedValue({ error: null }),
   });
 
-  const mockInsert = vi.fn().mockResolvedValue({ error: null });
+  const mockUpsert = vi.fn().mockResolvedValue({ error: null });
   const mockDelete = vi.fn().mockReturnValue({
     eq: vi.fn().mockResolvedValue({ error: null }),
   });
@@ -134,7 +146,7 @@ function createMockSupabase() {
   return {
     from: vi.fn().mockReturnValue({
       update: mockUpdate,
-      insert: mockInsert,
+      upsert: mockUpsert,
       delete: mockDelete,
       select: mockSelect,
     }),
@@ -193,10 +205,11 @@ describe('runClaimedImportJob', () => {
 
   it('catches errors and marks job as failed', async () => {
     const supabase = createMockSupabase();
-    // Make buildImportPreviewForJob throw
-    const { buildImportPreviewForJob } = await import('./import-job-service');
-    vi.mocked(buildImportPreviewForJob).mockRejectedValueOnce(
-      new Error('CSV parse error')
+    const { buildImportPreviewChunksForJob } = await import(
+      './import-job-service'
+    );
+    vi.mocked(buildImportPreviewChunksForJob).mockImplementationOnce(() =>
+      createFailingChunkGenerator('CSV parse error')
     );
 
     const result = await runClaimedImportJob(supabase, makeJob());

@@ -1,0 +1,60 @@
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -6,28 +6,42 @@
+     }
+
+     dependencies {
+-        classpath 'com.android.tools.build:gradle:8.13.2'
++        classpath 'com.android.tools.build:gradle:9.1.0'
+         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+     }
+ }
+
+ apply plugin: 'com.android.library'
+-apply plugin: 'kotlin-android'
++def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++if (!builtInKotlinEnabled) {
++    apply plugin: 'org.jetbrains.kotlin.android'
++}
+
+ def getExtOrDefault(name) {
+     return rootProject.ext.has(name) ? rootProject.ext.get(name) : project.properties['Purchases_' + name]
+ }
+
+ def getExtOrIntegerDefault(name) {
+-    return rootProject.ext.has(name) ? rootProject.ext.get(name) : (project.properties['Purchases_' + name]).toInteger()
++    def lookupKeys = name instanceof Collection ? name : [name]
++    def value = lookupKeys.findResult { key ->
++        if (rootProject.ext.has(key)) {
++            return rootProject.ext.get(key).toInteger()
++        }
++
++        def propertyValue = project.properties['Purchases_' + key]
++        return propertyValue != null ? propertyValue.toInteger() : null
++    }
++    return value
+ }
+
+ android {
+-    compileSdkVersion getExtOrIntegerDefault('compileSdkVersion')
++    compileSdk getExtOrIntegerDefault(['compileSdk', 'compileSdkVersion'])
+
++    namespace 'com.revenuecat.purchases.react'
++
+     defaultConfig {
+-        minSdkVersion getExtOrIntegerDefault('minSdkVersion')
+-        targetSdkVersion getExtOrIntegerDefault('targetSdkVersion')
++        minSdk getExtOrIntegerDefault(['minSdk', 'minSdkVersion'])
++        targetSdk getExtOrIntegerDefault(['targetSdk', 'targetSdkVersion'])
+         versionCode 1
+         versionName '9.15.0'
+     }
+@@ -37,7 +51,7 @@
+             minifyEnabled false
+         }
+     }
+-    lintOptions {
++    lint {
+         disable 'GradleCompatible'
+     }
+     compileOptions {

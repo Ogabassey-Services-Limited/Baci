@@ -45,13 +45,8 @@ vi.mock('react-native', async () => {
     StyleSheet: {
       create: (styles: Record<string, unknown>) => styles,
     },
-    Text: ({
-      children,
-      style,
-    }: {
-      children?: React.ReactNode;
-      style?: unknown;
-    }) => React.createElement('span', { style }, children),
+    Text: ({ children }: { children?: React.ReactNode }) =>
+      React.createElement('span', null, children),
     TextInput: ({
       onChangeText,
       placeholder,
@@ -222,7 +217,7 @@ describe('BlogPostDetailScreen - Delete handler', () => {
   it('scopes delete query to merchant_id for tenant isolation', async () => {
     const { eqId, eqMerchant } = setupSupabaseMocks({ error: null });
 
-    await act(async () => {
+    await act(() => {
       render(<BlogPostDetailScreen />);
     });
 
@@ -269,7 +264,7 @@ describe('BlogPostDetailScreen - Delete handler', () => {
     const supabaseError = { message: 'RLS policy violation', code: '42501' };
     setupSupabaseMocks({ error: supabaseError });
 
-    await act(async () => {
+    await act(() => {
       render(<BlogPostDetailScreen />);
     });
 

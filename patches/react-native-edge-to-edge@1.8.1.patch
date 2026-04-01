@@ -1,0 +1,57 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 5b18e5671..caeb287da 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -8,7 +8,7 @@ buildscript {
+     }
+     dependencies {
+         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${safeExtGet("kotlinVersion", "1.9.24")}")
+-        classpath("com.android.tools.build:gradle:8.13.0")
++        classpath("com.android.tools.build:gradle:9.1.0")
+     }
+ }
+
+@@ -17,7 +17,10 @@ def isNewArchitectureEnabled() {
+ }
+
+ apply plugin: "com.android.library"
+-apply plugin: "kotlin-android"
++def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++if (!builtInKotlinEnabled) {
++    apply plugin: "org.jetbrains.kotlin.android"
++}
+
+ if (isNewArchitectureEnabled()) {
+     apply plugin: "com.facebook.react"
+@@ -27,25 +30,27 @@ android {
+     namespace "com.zoontek.rnedgetoedge"
+
+     buildToolsVersion safeExtGet("buildToolsVersion", "35.0.0")
+-    compileSdkVersion safeExtGet("compileSdkVersion", 35)
++    compileSdk safeExtGet("compileSdkVersion", 35)
+
+     buildFeatures {
+         buildConfig true
+     }
+     defaultConfig {
+         buildConfigField("boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString())
+-        minSdkVersion safeExtGet("minSdkVersion", 24)
+-        targetSdkVersion safeExtGet("targetSdkVersion", 35)
++        minSdk safeExtGet("minSdkVersion", 24)
++        targetSdk safeExtGet("targetSdkVersion", 35)
+     }
+-    lintOptions {
++    lint {
+         abortOnError false
+     }
+     sourceSets {
+         main {
+             if (isNewArchitectureEnabled()) {
+                 java.srcDirs += ["src/newarch"]
++                kotlin.srcDirs += ["src/newarch"]
+             } else {
+                 java.srcDirs += ["src/oldarch"]
++                kotlin.srcDirs += ["src/oldarch"]
+             }
+         }
+     }

@@ -1,0 +1,71 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index e189e1ca5..83b169c7c 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -159,7 +159,7 @@ buildscript {
+         mavenCentral()
+     }
+     dependencies {
+-        classpath "com.android.tools.build:gradle:8.13.1"
++        classpath "com.android.tools.build:gradle:9.1.0"
+         classpath "de.undercouch:gradle-download-task:5.6.0"
+         classpath "com.diffplug.spotless:spotless-plugin-gradle:8.1.0"
+     }
+@@ -169,10 +169,13 @@ apply plugin: "com.android.library"
+ apply plugin: "maven-publish"
+ apply plugin: "de.undercouch.download"
+
++def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++if (!builtInKotlinEnabled) {
++    apply plugin: "org.jetbrains.kotlin.android"
++}
++
+ if (project == rootProject) {
+     apply from: "spotless.gradle"
+-} else {
+-    apply plugin: "org.jetbrains.kotlin.android"
+ }
+
+ apply from: "./fix-prefab.gradle"
+@@ -294,11 +297,6 @@ android {
+             }
+         }
+     }
+-    if (project != rootProject) {
+-        kotlinOptions {
+-            jvmTarget = '17'
+-        }
+-    }
+     tasks.withType(ExternalNativeBuildJsonTask).tap {
+         configureEach { compileTask ->
+             compileTask.doLast {
+@@ -388,4 +386,3 @@ afterEvaluate {
+         it.finalizedBy(cleanCMakeCache)
+     }
+ }
+-
+diff --git a/android/fix-prefab.gradle b/android/fix-prefab.gradle
+index fcf502a0c..c1743bd6f 100644
+--- a/android/fix-prefab.gradle
++++ b/android/fix-prefab.gradle
+@@ -30,11 +30,18 @@ afterEvaluate {
+             return
+         }
+
+-        def variants = proj.android.hasProperty('applicationVariants') ? proj.android.applicationVariants : proj.android.libraryVariants
++        def variants
++        if (proj.android.metaClass.hasProperty(proj.android, 'applicationVariants')) {
++            variants = proj.android.applicationVariants
++        } else if (proj.android.metaClass.hasProperty(proj.android, 'libraryVariants')) {
++            variants = proj.android.libraryVariants
++        } else {
++            variants = proj.android.buildTypes.collect { buildType -> [name: buildType.name] }
++        }
+         // Touch the prefab_config.json files to ensure that in ExternalNativeJsonGenerator.kt we will re-trigger the prefab CLI to
+         // generate a libnameConfig.cmake file that will contain our native library (.so).
+         // See this condition: https://cs.android.com/android-studio/platform/tools/base/+/mirror-goog-studio-main:build-system/gradle-core/src/main/java/com/android/build/gradle/tasks/ExternalNativeJsonGenerator.kt;l=207-219?q=createPrefabBuildSystemGlue
+-        variants.all { variant ->
++        variants.each { variant ->
+             def variantName = variant.name
+             abis.each { abi ->
+                 def searchDir = new File(proj.projectDir, ".cxx/${variantName}")

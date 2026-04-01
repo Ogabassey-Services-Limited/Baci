@@ -20,6 +20,23 @@ const config = getDefaultConfig(projectRoot);
 
 const { resolver } = config;
 
+function resolvePackageRoot(packageName) {
+  const projectPackageRoot = path.resolve(projectRoot, 'node_modules', packageName);
+
+  try {
+    require.resolve(path.join(projectPackageRoot, 'package.json'));
+    return projectPackageRoot;
+  } catch {
+    return path.resolve(workspaceRoot, 'node_modules', packageName);
+  }
+}
+
+const reactPackageRoot = resolvePackageRoot('react');
+const reactDomPackageRoot = resolvePackageRoot('react-dom');
+const reactNativePackageRoot = resolvePackageRoot('react-native');
+const expoPackageRoot = resolvePackageRoot('expo');
+const expoRouterPackageRoot = resolvePackageRoot('expo-router');
+
 config.watchFolders = [workspaceRoot];
 config.resolver = {
   ...resolver,
@@ -27,13 +44,13 @@ config.resolver = {
     path.resolve(projectRoot, 'node_modules'),
     path.resolve(workspaceRoot, 'node_modules'),
   ],
-  // Explicitly alias core libraries to the workspace root to prevent duplication
+  // Prefer the app-local core packages first so release bundles stay version-aligned.
   extraNodeModules: {
-    'react-native': path.resolve(workspaceRoot, 'node_modules/react-native'),
-    react: path.resolve(workspaceRoot, 'node_modules/react'),
-    'react-dom': path.resolve(workspaceRoot, 'node_modules/react-dom'),
-    expo: path.resolve(workspaceRoot, 'node_modules/expo'),
-    'expo-router': path.resolve(workspaceRoot, 'node_modules/expo-router'),
+    'react-native': reactNativePackageRoot,
+    react: reactPackageRoot,
+    'react-dom': reactDomPackageRoot,
+    expo: expoPackageRoot,
+    'expo-router': expoRouterPackageRoot,
   },
   // Critical for PNPM monorepos to resolve symlinked packages
   unstable_enableSymlinks: true,
@@ -59,24 +76,31 @@ config.resolver = {
     // Other Node.js-only modules commonly pulled by build tools
     /node_modules[\\/]esbuild[\\/]/,
   ],
-  // Force ALL React resolutions to the single workspace root copy
-  // This prevents nested node_modules (expo-keep-awake, expo-modules-core, etc.)
-  // from loading their own React 19.2.4 alongside the app's React 19.1.0
+  // Force all React resolutions to the app-selected React package so Metro
+  // cannot accidentally mix the hoisted workspace copy with the app bundle.
   resolveRequest: (context, moduleName, platform) => {
     // M27 fix: Wrap in try-catch to prevent metro bundler crash
     // when react-dom or subpath cannot be resolved (e.g. missing package)
     try {
-      if (
-        moduleName === 'react' ||
-        moduleName === 'react-dom' ||
-        moduleName.startsWith('react/') ||
-        moduleName.startsWith('react-dom/')
-      ) {
-        const forcedRoot = path.resolve(
-          workspaceRoot,
-          'node_modules',
-          moduleName
+      let forcedRoot = null;
+
+      if (moduleName === 'react') {
+        forcedRoot = reactPackageRoot;
+      } else if (moduleName === 'react-dom') {
+        forcedRoot = reactDomPackageRoot;
+      } else if (moduleName.startsWith('react/')) {
+        forcedRoot = path.resolve(
+          reactPackageRoot,
+          moduleName.slice('react/'.length)
         );
+      } else if (moduleName.startsWith('react-dom/')) {
+        forcedRoot = path.resolve(
+          reactDomPackageRoot,
+          moduleName.slice('react-dom/'.length)
+        );
+      }
+
+      if (forcedRoot) {
         return {
           filePath: require.resolve(forcedRoot),
           type: 'sourceFile',
