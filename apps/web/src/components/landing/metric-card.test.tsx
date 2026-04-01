@@ -40,8 +40,9 @@ describe('MetricCard', () => {
     );
 
     // Wait for useEffect to run and set the final value
+    // prefix ($) + displayValue (1,000) are in the same <p>, so match the full string
     await vi.waitFor(() => {
-      expect(screen.getByText('1,000')).toBeDefined();
+      expect(screen.getByText(/\$.*1,000/)).toBeDefined();
     });
 
     expect(screen.getByText('Revenue')).toBeDefined();

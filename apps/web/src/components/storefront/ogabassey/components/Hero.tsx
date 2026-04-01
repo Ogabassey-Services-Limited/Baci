@@ -353,7 +353,7 @@ export const Hero: React.FC = () => {
                     alt={`${slide.title} ${slide.subtitle}`}
                     fill
                     sizes="(max-width: 1024px) 100vw, 75vw"
-                    className="object-cover object-center transition-transform duration-[8000ms] ease-out scale-100 group-hover:scale-105"
+                    className="object-cover object-center transition-transform duration-[3000ms] ease-out scale-100 group-hover:scale-105"
                     priority={idx === 0}
                   />
                 </div>
