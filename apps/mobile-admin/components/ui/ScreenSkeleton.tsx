@@ -8,6 +8,7 @@ import { StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
@@ -42,12 +43,13 @@ function ShimmerBlock({
   animated?: boolean;
 }) {
   const { colors } = useTheme();
+  const reducedMotion = useReducedMotion();
   const opacity = useSharedValue(0.3);
 
   useEffect(() => {
-    if (!animated) {
+    if (!animated || reducedMotion) {
       cancelAnimation(opacity);
-      opacity.value = 0.3;
+      opacity.value = 0.5; // Static visible state
       return;
     }
 
@@ -56,7 +58,7 @@ function ShimmerBlock({
     return () => {
       cancelAnimation(opacity);
     };
-  }, [animated, opacity]);
+  }, [animated, opacity, reducedMotion]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
