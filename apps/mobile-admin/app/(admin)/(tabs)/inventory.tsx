@@ -4,11 +4,11 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   type ListRenderItemInfo,
   Pressable,
   RefreshControl,
@@ -31,9 +31,6 @@ import {
   getEffectiveProductStock,
   getProductStockBucket,
 } from '@/lib/product-inventory';
-
-// Item height for getItemLayout optimization
-const INVENTORY_ITEM_HEIGHT = 88;
 
 // Helper to get currency symbol from merchant's payout_currency
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
@@ -184,7 +181,9 @@ export default function InventoryScreen() {
 
   // Use server-side inventory stats for accurate global counts
   const totalProducts =
-    inventoryStats?.totalProducts ?? data?.pages[0]?.totalCount ?? products.length;
+    inventoryStats?.totalProducts ??
+    data?.pages[0]?.totalCount ??
+    products.length;
   const lowStockCount = inventoryStats?.lowStockCount ?? 0;
   const outOfStockCount = inventoryStats?.outOfStockCount ?? 0;
 
@@ -203,16 +202,6 @@ export default function InventoryScreen() {
   );
 
   const productKeyExtractor = (item: Product) => item.id;
-
-  // getItemLayout for consistent item heights
-  const getItemLayout = (
-    _data: ArrayLike<Product> | null | undefined,
-    index: number
-  ) => ({
-    length: INVENTORY_ITEM_HEIGHT,
-    offset: INVENTORY_ITEM_HEIGHT * index,
-    index,
-  });
 
   const renderFooter = () => {
     if (!isFetchingNextPage) return null;
@@ -349,15 +338,12 @@ export default function InventoryScreen() {
       </View>
 
       {/* Products List */}
-      <FlatList
+      <FlashList
         data={products}
         renderItem={renderProduct}
         keyExtractor={productKeyExtractor}
-        getItemLayout={getItemLayout}
+        estimatedItemSize={80}
         contentContainerStyle={styles.listContent}
-        removeClippedSubviews={true}
-        maxToRenderPerBatch={10}
-        windowSize={5}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}

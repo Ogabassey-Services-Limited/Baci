@@ -10,6 +10,7 @@ import Animated, {
   Easing,
   interpolate,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -123,9 +124,11 @@ function BaciSvgIcon({ size }: { size: number }) {
 }
 
 export function BagLoader({ size = 48 }: BagLoaderProps) {
+  const reducedMotion = useReducedMotion();
   const floatValue = useSharedValue(0);
 
   useEffect(() => {
+    if (reducedMotion) return;
     floatValue.set(
       withRepeat(
         withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
@@ -133,7 +136,7 @@ export function BagLoader({ size = 48 }: BagLoaderProps) {
         true
       )
     );
-  }, [floatValue]);
+  }, [floatValue, reducedMotion]);
 
   const floatStyle = useAnimatedStyle(() => {
     const translateY = interpolate(floatValue.get(), [0, 1], [-4, 4]);
