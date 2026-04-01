@@ -2,7 +2,7 @@
 
 import { Cookie, Settings2, Shield, X } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { Button } from '@/components/ui/button';
 import { useMerchantSafe } from '@/hooks/use-merchant';
@@ -51,7 +51,7 @@ export function CookieConsent() {
     return () => {
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     };
-  }, [closeTimerRef.current]);
+  }, []);
 
   const saveConsent = (prefs: CookiePreferences) => {
     localStorage.setItem(
