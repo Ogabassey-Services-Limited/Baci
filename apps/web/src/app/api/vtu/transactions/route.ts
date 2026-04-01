@@ -7,8 +7,6 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
-export const dynamic = 'force-dynamic';
-
 // GET /api/vtu/transactions - Get VTU transaction history for merchant
 export async function GET(request: Request) {
   try {

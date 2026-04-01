@@ -2,8 +2,6 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getBillersByCategory } from '@/lib/kuda-bills';
 import { billersQuerySchema } from '@/schemas/vtu';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * GET /api/vtu/billers?type=electricity
  * Returns available billers/providers for a given bill category.

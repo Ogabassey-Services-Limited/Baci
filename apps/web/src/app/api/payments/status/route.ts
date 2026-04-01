@@ -15,8 +15,6 @@ import {
 } from '@/lib/juicyway';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 
-export const dynamic = 'force-dynamic';
-
 const QuerySchema = z
   .object({
     gateway: z.enum(['juicyway', 'paystack', 'korapay']),
