@@ -17,7 +17,8 @@ export function getStorefrontProductHref(
   product: StorefrontProductHrefInput,
   basePath = ''
 ): Route {
-  const normalizedBasePath = basePath === '/' ? '' : basePath;
+  const normalizedBasePath =
+    basePath === '/' ? '' : basePath.replace(/\/+$/, '');
 
   return `${normalizedBasePath}${getProductUrl({
     ...product,

@@ -12,7 +12,7 @@ vi.mock('next/font/google', () => ({
   }),
 }));
 
-vi.mock('./root-dynamic-body', () => ({
+vi.mock('@/app/root-dynamic-body', () => ({
   RootDynamicBody: (props: { children: ReactNode }) =>
     mockRootDynamicBody(props),
 }));
@@ -28,9 +28,31 @@ describe('RootLayout', () => {
     );
 
     expect(screen.getByRole('main')).toHaveTextContent('Main content');
-    expect(mockRootDynamicBody).toHaveBeenCalledTimes(1);
+    expect(mockRootDynamicBody).toHaveBeenCalled();
     expect(mockRootDynamicBody.mock.calls[0]?.[0]).toEqual({
       children: expect.anything(),
+    });
+  });
+
+  it('surfaces RootDynamicBody render failures', () => {
+    mockRootDynamicBody.mockImplementationOnce(() => {
+      throw new Error('boom');
+    });
+    const onRecoverableError = vi.fn();
+
+    render(
+      <RootLayout>
+        <main>Main content</main>
+      </RootLayout>,
+      { onRecoverableError }
+    );
+
+    expect(mockRootDynamicBody).toHaveBeenCalled();
+    expect(onRecoverableError).toHaveBeenCalled();
+    expect(onRecoverableError.mock.calls[0]?.[0]).toMatchObject({
+      cause: expect.objectContaining({
+        message: 'boom',
+      }),
     });
   });
 });

@@ -2,7 +2,6 @@
 
 import { type MerchantData, useMerchantSafe } from '@/hooks/use-merchant';
 import type React from 'react';
-import { Suspense } from 'react';
 import { CartProvider } from '@/hooks/use-cart';
 
 import { ChatWidget } from './components/ChatWidget';
@@ -99,13 +98,7 @@ export function OgabasseyLayout({
               >
                 <GadgetPattern />
 
-                {!shouldHideNavigation && (
-                  <Suspense fallback={<div className="h-16 bg-[#0F0F0F]" />}>
-                    <Navbar
-                      storeSlug={basePath}
-                    />
-                  </Suspense>
-                )}
+                {!shouldHideNavigation && <Navbar storeSlug={basePath} />}
 
 
 

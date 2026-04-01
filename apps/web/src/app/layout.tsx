@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import './globals.css';
+import { RootDynamicBody } from '@/app/root-dynamic-body';
 import { PLATFORM_CONFIG } from '@/config/platform';
-import { RootDynamicBody } from './root-dynamic-body';
+import './globals.css';
 
 const inter = Inter({
   subsets: ['latin'],

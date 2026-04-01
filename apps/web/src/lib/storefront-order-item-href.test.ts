@@ -25,6 +25,19 @@ describe('getStorefrontOrderItemHref', () => {
     ).toBe('/ogabassey/products/iphone-15-pro-max');
   });
 
+  it('prefers categories.slug over category_slug when both are present', () => {
+    expect(
+      getStorefrontOrderItemHref(
+        {
+          product_slug: 'iphone-15-pro-max',
+          categories: { slug: 'preferred-category' },
+          category_slug: 'fallback-category',
+        },
+        '/ogabassey'
+      )
+    ).toBe('/ogabassey/preferred-category/iphone-15-pro-max');
+  });
+
   it('returns null when exact product route data is unavailable', () => {
     expect(
       getStorefrontOrderItemHref(

@@ -8,6 +8,8 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { walletTransactionsQuerySchema } from '@/schemas/wallet-transactions-query';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/wallet/transactions
  * Get wallet transaction history

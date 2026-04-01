@@ -7,6 +7,8 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Customer Loyalty API
  *

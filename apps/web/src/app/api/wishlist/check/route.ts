@@ -3,6 +3,8 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Hash a session token for privacy (don't store raw tokens)
  */
