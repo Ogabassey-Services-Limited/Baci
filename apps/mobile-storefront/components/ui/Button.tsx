@@ -146,13 +146,22 @@ export function Button({
     ? String(textStyle.color)
     : variantTextColors[variant];
 
+  // Ripple color adapts to variant — light ripple on dark backgrounds, dark on light
+  const variantRippleColors: Record<ButtonVariant, string> = {
+    default: 'rgba(255,255,255,0.2)',
+    secondary: 'rgba(0,0,0,0.1)',
+    outline: 'rgba(0,0,0,0.1)',
+    ghost: 'rgba(0,0,0,0.1)',
+    destructive: 'rgba(255,255,255,0.2)',
+  };
+
   return (
     <Pressable
       className={`${containerClasses} ${className || ''}`}
       disabled={disabled || loading}
       style={style}
       onPress={handlePress}
-      android_ripple={{ color: 'rgba(0,0,0,0.1)' }}
+      android_ripple={{ color: variantRippleColors[variant] }}
       // 2026 Accessibility: Proper button semantics
       accessibilityRole="button"
       accessibilityState={{

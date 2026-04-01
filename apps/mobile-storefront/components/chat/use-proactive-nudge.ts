@@ -13,14 +13,22 @@ export function useProactiveNudge(isChatOpen: boolean) {
   const nudgeFadeAnim = useRef(new Animated.Value(0)).current;
   const _nudgeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check reduced motion preference
+  // Check reduced motion preference with mounted guard
   useEffect(() => {
+    let mounted = true;
     const subscription = AccessibilityInfo.addEventListener(
       'reduceMotionChanged',
-      setReducedMotion
+      (value) => {
+        if (mounted) setReducedMotion(value);
+      }
     );
-    AccessibilityInfo.isReduceMotionEnabled().then(setReducedMotion);
-    return () => subscription.remove();
+    AccessibilityInfo.isReduceMotionEnabled().then((value) => {
+      if (mounted) setReducedMotion(value);
+    });
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
   }, []);
 
   // H25 fix: Proactive nudge logic with proper mounted guard to prevent timer leaks.
