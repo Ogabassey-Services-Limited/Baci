@@ -16,7 +16,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -135,10 +135,7 @@ export function CheckoutIdentityModal({
 
           {/* Header */}
           <View style={styles.header}>
-            <Text
-              style={styles.headerTitle}
-              accessibilityRole="header"
-            >
+            <Text style={styles.headerTitle} accessibilityRole="header">
               Checkout
             </Text>
             <Pressable
@@ -168,6 +165,8 @@ export function CheckoutIdentityModal({
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            // RN 0.84: prevent jarring auto-scroll when inputs receive focus on Android
+            scrollsChildToFocus={false}
             accessibilityRole="none"
           >
             {activeTab === 'new' ? (
