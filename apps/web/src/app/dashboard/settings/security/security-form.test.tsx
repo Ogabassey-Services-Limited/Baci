@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Hoist mock references
@@ -78,10 +78,12 @@ describe('SecurityForm', () => {
     });
 
     const { SecurityForm } = await import('./security-form');
-    render(<SecurityForm />);
+    const { container } = render(<SecurityForm />);
 
     // Description text unique to change-password variant
-    expect(screen.getByText('Update your existing password.')).toBeDefined();
+    expect(
+      within(container).getByText('Update your existing password.')
+    ).toBeDefined();
 
     // Should have all three password fields
     expect(screen.getByLabelText('Current Password')).toBeDefined();
