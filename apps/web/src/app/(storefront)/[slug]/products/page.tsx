@@ -4,8 +4,7 @@ import { notFound } from 'next/navigation';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
 import {
   getCachedCategories,
-  getCachedMerchant,
-  getCachedMerchantByDomain,
+  getRequestScopedMerchant,
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import type { Product } from '@/lib/products';
@@ -24,7 +23,10 @@ import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
 } from '@/lib/storefront-social-images';
-import { isDomainIdentifier } from '@/lib/validation';
+import {
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
 import { ProductIndexCard } from './product-index-card';
 
 interface PageProps {
@@ -48,9 +50,11 @@ export async function generateMetadata({
     notFound();
   }
 
-  const merchant = isDomainIdentifier(slug)
-    ? await getCachedMerchantByDomain(slug)
-    : await getCachedMerchant(slug);
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
+
+  const merchant = await getRequestScopedMerchant(slug);
 
   if (!merchant) {
     return {
@@ -125,9 +129,11 @@ export default async function ProductsPage({
     notFound();
   }
 
-  const merchant = isDomainIdentifier(slug)
-    ? await getCachedMerchantByDomain(slug)
-    : await getCachedMerchant(slug);
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
+
+  const merchant = await getRequestScopedMerchant(slug);
 
   if (!merchant) {
     notFound();

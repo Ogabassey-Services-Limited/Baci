@@ -12,10 +12,142 @@ interface OrderItem {
   id: string;
   product_id: string;
   variant_name?: string;
-  name: string;
+  product_name?: string;
+  name?: string;
   quantity: number;
   price: number;
   product_images?: string[];
+  product_slug?: string;
+  category?: string;
+  category_slug?: string;
+  categories?: { name?: string; slug?: string } | null;
+  products?:
+    | {
+        slug?: string;
+        category?: string;
+        category_slug?: string;
+        categories?:
+          | { name?: string; slug?: string }[]
+          | { name?: string; slug?: string }
+          | null;
+      }
+    | {
+        slug?: string;
+        category?: string;
+        category_slug?: string;
+        categories?:
+          | { name?: string; slug?: string }[]
+          | { name?: string; slug?: string }
+          | null;
+      }[]
+    | null;
+}
+
+function extractJoinedProduct(products: OrderItem['products']): {
+  slug?: string;
+  category?: string;
+  category_slug?: string;
+  categories?:
+    | { name?: string; slug?: string }[]
+    | { name?: string; slug?: string }
+    | null;
+} | null {
+  return Array.isArray(products) ? products[0] || null : products || null;
+}
+
+function flattenOrderItemProductData(item: OrderItem) {
+  const product = extractJoinedProduct(item.products);
+  const categories = Array.isArray(product?.categories)
+    ? product?.categories[0] || null
+    : product?.categories || item.categories || null;
+
+  return {
+    product_slug: product?.slug || item.product_slug,
+    category: product?.category || item.category,
+    category_slug: product?.category_slug || item.category_slug,
+    categories,
+  };
+}
+
+async function fetchProductRouteDetails(
+  items: OrderItem[],
+  loadProducts: (productIds: string[]) => Promise<{
+    data: Array<{
+      id: string;
+      slug: string | null;
+      category: string | null;
+      category_slug: string | null;
+      categories?:
+        | { name?: string; slug?: string }[]
+        | { name?: string; slug?: string }
+        | null;
+    }> | null;
+    error: { message?: string } | null;
+  }>
+) {
+  const productIds = Array.from(
+    new Set(
+      items
+        .map((item) => item.product_id)
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+
+  if (productIds.length === 0) {
+    return new Map<string, ReturnType<typeof flattenOrderItemProductData>>();
+  }
+
+  const { data, error } = await loadProducts(productIds);
+
+  if (error || !data) {
+    console.warn(
+      'Failed to fetch product route details for order items',
+      error
+    );
+    return new Map<string, ReturnType<typeof flattenOrderItemProductData>>();
+  }
+
+  return new Map(
+    data.map((product) => [
+      product.id,
+      {
+        product_slug: product.slug,
+        category: product.category,
+        category_slug: product.category_slug,
+        categories: Array.isArray(product.categories)
+          ? product.categories[0] || null
+          : product.categories || null,
+      },
+    ])
+  );
+}
+
+function mapOrderItemsWithRoutes(
+  items: OrderItem[],
+  productRouteDetails?: Map<
+    string,
+    {
+      product_slug?: string | null;
+      category?: string | null;
+      category_slug?: string | null;
+      categories?: { name?: string; slug?: string } | null;
+    }
+  >
+) {
+  return items.map((item: OrderItem) => {
+    const displayName = item.product_name || item.name || '';
+    return {
+      id: item.id,
+      product_id: item.product_id,
+      product_name: displayName,
+      name: displayName,
+      quantity: item.quantity,
+      price: item.price,
+      product_images: item.product_images,
+      ...flattenOrderItemProductData(item),
+      ...(productRouteDetails?.get(item.product_id) || {}),
+    };
+  });
 }
 
 export async function GET(
@@ -110,7 +242,23 @@ export async function GET(
         const { data: items, error: itemsError } = await supabase
           .from('order_items')
           .select(
-            'id, product_id, variant_name, product_name:name, quantity, price'
+            `
+              id,
+              product_id,
+              variant_name,
+              product_name:name,
+              quantity,
+              price,
+              products:products!order_items_product_id_fkey (
+                slug,
+                category,
+                category_slug,
+                categories:categories (
+                  name,
+                  slug
+                )
+              )
+            `
           )
           .eq('order_id', order.id);
 
@@ -125,7 +273,7 @@ export async function GET(
           ...order,
           shipping_cost: order.shipping_fee,
           short_id: order.order_number,
-          items: items || [],
+          items: mapOrderItemsWithRoutes(items || []),
         });
       }
     }
@@ -177,7 +325,23 @@ export async function GET(
           const { data: items } = await admin
             .from('order_items')
             .select(
-              'id, product_id, variant_name, product_name:name, quantity, price'
+              `
+                id,
+                product_id,
+                variant_name,
+                product_name:name,
+                quantity,
+                price,
+                products:products!order_items_product_id_fkey (
+                  slug,
+                  category,
+                  category_slug,
+                  categories:categories (
+                    name,
+                    slug
+                  )
+                )
+              `
             )
             .eq('order_id', order.id);
 
@@ -185,7 +349,7 @@ export async function GET(
             ...order,
             shipping_cost: order.shipping_fee,
             short_id: order.order_number,
-            items: items || [],
+            items: mapOrderItemsWithRoutes(items || []),
           });
         } else {
           console.debug(
@@ -248,7 +412,23 @@ export async function GET(
           const { data: items } = await admin
             .from('order_items')
             .select(
-              'id, product_id, variant_name, product_name:name, quantity, price'
+              `
+                id,
+                product_id,
+                variant_name,
+                product_name:name,
+                quantity,
+                price,
+                products:products!order_items_product_id_fkey (
+                  slug,
+                  category,
+                  category_slug,
+                  categories:categories (
+                    name,
+                    slug
+                  )
+                )
+              `
             )
             .eq('order_id', order.id);
 
@@ -256,7 +436,7 @@ export async function GET(
             ...order,
             shipping_cost: order.shipping_fee,
             short_id: order.order_number,
-            items: items || [],
+            items: mapOrderItemsWithRoutes(items || []),
           });
         } else {
           console.warn(
@@ -304,15 +484,24 @@ export async function GET(
     }
 
     const rawItems: OrderItem[] = Array.isArray(order.items) ? order.items : [];
-    const items = rawItems.map((item: OrderItem) => ({
-      id: item.id,
-      product_id: item.product_id,
-      product_name: item.name,
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-      product_images: item.product_images,
-    }));
+    const productRouteDetails = await fetchProductRouteDetails(
+      rawItems,
+      async (productIds) =>
+        anon
+          .from('products')
+          .select(`
+            id,
+            slug,
+            category,
+            category_slug,
+            categories:categories (
+              name,
+              slug
+            )
+          `)
+          .in('id', productIds)
+    );
+    const items = mapOrderItemsWithRoutes(rawItems, productRouteDetails);
 
     return NextResponse.json({
       id: order.id,

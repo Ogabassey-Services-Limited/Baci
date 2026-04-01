@@ -1,10 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import { headers } from 'next/headers';
 import { Suspense } from 'react';
-import './globals.css';
+import { RootDynamicBodyWithRequestProps } from '@/app/root-dynamic-body-with-request-props';
 import { PLATFORM_CONFIG } from '@/config/platform';
-import { isStorefrontRequest, RootDynamicBody } from './root-dynamic-body';
+import './globals.css';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -100,22 +99,6 @@ export const viewport: Viewport = {
   // Color scheme support
   colorScheme: 'light dark',
 };
-
-async function RootDynamicBodyWithRequestProps({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const headersList = await headers();
-  const nonce = headersList.get('x-nonce') || undefined;
-  const forcedTheme = isStorefrontRequest(headersList) ? 'light' : undefined;
-
-  return (
-    <RootDynamicBody nonce={nonce} forcedTheme={forcedTheme}>
-      {children}
-    </RootDynamicBody>
-  );
-}
 
 export default function RootLayout({
   children,

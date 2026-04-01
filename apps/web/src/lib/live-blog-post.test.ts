@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedMerchant: vi.fn(),
-  getCachedMerchantByDomain: vi.fn(),
   getCachedFeatureSettings: vi.fn(),
+  getMerchantSafe: vi.fn(),
 }));
 
 vi.mock('@/lib/storefront-blog-post-select', () => ({
@@ -40,11 +39,7 @@ vi.mock('@/lib/supabase/anon', () => ({
   })),
 }));
 
-import {
-  getCachedFeatureSettings,
-  getCachedMerchant,
-  getCachedMerchantByDomain,
-} from '@/lib/cached-data';
+import { getCachedFeatureSettings, getMerchantSafe } from '@/lib/cached-data';
 import { getLiveBlogPost } from '@/lib/live-blog-post';
 
 const mockMerchant = {
@@ -77,32 +72,30 @@ describe('getLiveBlogPost', () => {
   });
 
   it('looks up merchant by domain when identifier contains a dot and no slash', async () => {
-    vi.mocked(getCachedMerchantByDomain).mockResolvedValue(null);
+    vi.mocked(getMerchantSafe).mockResolvedValue(null);
 
     const result = await getLiveBlogPost('shop.example.com', 'my-post');
-    expect(getCachedMerchantByDomain).toHaveBeenCalledWith('shop.example.com');
-    expect(getCachedMerchant).not.toHaveBeenCalled();
+    expect(getMerchantSafe).toHaveBeenCalledWith('shop.example.com');
     expect(result).toBeNull();
   });
 
   it('looks up merchant by slug when identifier has no dot', async () => {
-    vi.mocked(getCachedMerchant).mockResolvedValue(null);
+    vi.mocked(getMerchantSafe).mockResolvedValue(null);
 
     const result = await getLiveBlogPost('test-store', 'my-post');
-    expect(getCachedMerchant).toHaveBeenCalledWith('test-store');
-    expect(getCachedMerchantByDomain).not.toHaveBeenCalled();
+    expect(getMerchantSafe).toHaveBeenCalledWith('test-store');
     expect(result).toBeNull();
   });
 
   it('returns null when merchant is not found', async () => {
-    vi.mocked(getCachedMerchant).mockResolvedValue(null);
+    vi.mocked(getMerchantSafe).mockResolvedValue(null);
 
     const result = await getLiveBlogPost('unknown-store', 'my-post');
     expect(result).toBeNull();
   });
 
   it('returns null when blog is not enabled', async () => {
-    vi.mocked(getCachedMerchant).mockResolvedValue(mockMerchant as never);
+    vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
     vi.mocked(getCachedFeatureSettings).mockResolvedValue({
       blog_enabled: false,
       shipping_insurance_enabled: false,
@@ -115,7 +108,7 @@ describe('getLiveBlogPost', () => {
   });
 
   it('returns null when blog post is not found', async () => {
-    vi.mocked(getCachedMerchant).mockResolvedValue(mockMerchant as never);
+    vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
     vi.mocked(getCachedFeatureSettings).mockResolvedValue({
       blog_enabled: true,
       shipping_insurance_enabled: false,
@@ -132,7 +125,7 @@ describe('getLiveBlogPost', () => {
   });
 
   it('returns post with merchant data and related posts on success', async () => {
-    vi.mocked(getCachedMerchant).mockResolvedValue(mockMerchant as never);
+    vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
     vi.mocked(getCachedFeatureSettings).mockResolvedValue({
       blog_enabled: true,
       shipping_insurance_enabled: false,
@@ -164,7 +157,7 @@ describe('getLiveBlogPost', () => {
   });
 
   it('returns empty relatedPosts when related posts query errors', async () => {
-    vi.mocked(getCachedMerchant).mockResolvedValue(mockMerchant as never);
+    vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
     vi.mocked(getCachedFeatureSettings).mockResolvedValue({
       blog_enabled: true,
       shipping_insurance_enabled: false,
@@ -191,7 +184,7 @@ describe('getLiveBlogPost', () => {
   });
 
   it('normalizes postSlug to lowercase and trimmed', async () => {
-    vi.mocked(getCachedMerchant).mockResolvedValue(mockMerchant as never);
+    vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
     vi.mocked(getCachedFeatureSettings).mockResolvedValue({
       blog_enabled: true,
       shipping_insurance_enabled: false,
@@ -207,7 +200,7 @@ describe('getLiveBlogPost', () => {
   });
 
   it('returns null and logs error for non-PGRST116 post errors', async () => {
-    vi.mocked(getCachedMerchant).mockResolvedValue(mockMerchant as never);
+    vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
     vi.mocked(getCachedFeatureSettings).mockResolvedValue({
       blog_enabled: true,
       shipping_insurance_enabled: false,

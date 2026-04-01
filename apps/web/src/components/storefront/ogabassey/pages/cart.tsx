@@ -18,6 +18,8 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type CartItem, useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
+import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from '../components/AdUnit';
 import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
@@ -130,6 +132,10 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
             {/* Cart Items List */}
             <div className="lg:col-span-8 space-y-4">
               {cart.map((item) => {
+                const productHref = getStorefrontProductHref(
+                  item,
+                  merchantContext?.basePath || `/${storeSlug || 'ogabassey'}`
+                );
                 const priceToUse =
                   item.negotiatedPrice !== undefined
                     ? item.negotiatedPrice
@@ -146,7 +152,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                     <div className="flex gap-4">
                       {/* Image */}
                       <Link
-                        href={`/product/${item.id}` as any}
+                        href={asRoute(productHref)}
                         className="w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 flex-shrink-0 flex items-center justify-center"
                       >
                         <img
@@ -158,7 +164,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
 
                       {/* Content */}
                       <div className="flex-1 min-w-0 pr-8">
-                        <Link href={`/product/${item.id}` as any}>
+                        <Link href={asRoute(productHref)}>
                           <h3 className="font-bold text-gray-900 text-sm md:text-base line-clamp-2 leading-tight mb-2 hover:text-red-600 transition-colors">
                             {item.name}
                           </h3>

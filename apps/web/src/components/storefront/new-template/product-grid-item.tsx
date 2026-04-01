@@ -12,6 +12,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
+import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import type { Product } from './types';
 
 interface ProductGridItemProps {
@@ -31,6 +34,8 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   isWishlisted,
   onToggleWishlist,
 }) => {
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
   const [activeColorIndex, setActiveColorIndex] = useState(0);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
   const iconSize = 18;
@@ -70,7 +75,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl active:shadow-md active:scale-[0.99] transition-all duration-300 group flex flex-col h-full relative">
       <Link
-        href={`/product/${product.id}` as any}
+        href={asRoute(getStorefrontProductHref(product, basePath))}
         className="absolute inset-0 z-0"
       />
 

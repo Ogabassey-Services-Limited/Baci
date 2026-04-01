@@ -8,6 +8,10 @@ import {
 } from '@/env';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
+import {
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
 
 /**
  * Create a Supabase client for cached queries.
@@ -254,24 +258,25 @@ export async function getCachedMerchant(
     .maybeSingle();
 
   if (error) {
-    // Sanitize user-controlled slug to prevent log injection
-    const safeSlug = String(slug || '')
-      .replace(/[\r\n]/g, '')
-      .substring(0, 100);
-    console.error(
+    const safeSlug = sanitizeLookupLogValue(slug);
+    const log = isTransientMerchantLookupError(error)
+      ? console.warn
+      : console.error;
+    log(
       'Error fetching merchant for slug:',
       safeSlug,
       JSON.stringify(error, null, 2)
     );
     // CRITICAL: Throwing instead of returning null prevents negative caching
     // Next.js will not cache this error, allowing retries or stale data serving.
-    throw new Error(`Failed to fetch merchant for slug: ${safeSlug}`);
+    throw createMerchantLookupError(
+      `Failed to fetch merchant for slug: ${safeSlug}`,
+      error
+    );
   }
 
   if (!data) {
-    const safeSlug = String(slug || '')
-      .replace(/[\r\n]/g, '')
-      .substring(0, 100);
+    const safeSlug = sanitizeLookupLogValue(slug);
     console.warn('No merchant data found for slug:', safeSlug);
   } else {
     // Normalize feature_settings from array to object (Edge Compatibility Pattern)
@@ -349,15 +354,21 @@ export async function getCachedMerchantByDomain(
     .select('merchant_id, domain')
     .eq('domain', normalizedDomain)
     .eq('status', 'active')
-    .single();
+    .maybeSingle();
 
   if (domainError) {
-    console.error('Error fetching domain', {
+    const log = isTransientMerchantLookupError(domainError)
+      ? console.warn
+      : console.error;
+    log('Error fetching domain', {
       domain: normalizedDomain,
       error: domainError,
     });
     // Throw on DB error to prevent negative caching
-    throw new Error(`Database error fetching domain: ${normalizedDomain}`);
+    throw createMerchantLookupError(
+      `Database error fetching domain: ${normalizedDomain}`,
+      domainError
+    );
   }
 
   if (!domainData) {
@@ -404,11 +415,17 @@ export async function getCachedMerchantByDomain(
     .single();
 
   if (error) {
-    console.error('Error fetching merchant for domain', {
+    const log = isTransientMerchantLookupError(error)
+      ? console.warn
+      : console.error;
+    log('Error fetching merchant for domain', {
       domain: normalizedDomain,
       error: error,
     });
-    throw new Error(`Failed to fetch merchant for domain: ${normalizedDomain}`);
+    throw createMerchantLookupError(
+      `Failed to fetch merchant for domain: ${normalizedDomain}`,
+      error
+    );
   }
 
   // Normalize feature_settings from array to object (Edge Compatibility Pattern)
@@ -444,23 +461,51 @@ export async function getCachedMerchantByDomain(
   return result;
 }
 
-/**
- * Check if a string looks like a domain (contains a dot but isn't a UUID)
- */
-function isDomainIdentifier(identifier: string): boolean {
-  // UUIDs contain dashes but no dots
-  // Domains contain dots
-  return identifier.includes('.') && !identifier.includes('-');
+const TRANSIENT_MERCHANT_LOOKUP_ERROR = Symbol('transient-merchant-lookup');
+
+type MerchantLookupError = Error & {
+  [TRANSIENT_MERCHANT_LOOKUP_ERROR]?: true;
+};
+
+function createMerchantLookupError(message: string, cause: unknown): Error {
+  const error = new Error(message) as MerchantLookupError;
+  if (isTransientMerchantLookupError(cause)) {
+    error[TRANSIENT_MERCHANT_LOOKUP_ERROR] = true;
+  }
+  return error;
 }
 
-/**
- * Validate merchant identifier format
- * Prevents injection attacks and invalid lookups
- */
-function isValidMerchantIdentifier(identifier: string): boolean {
-  if (!identifier || typeof identifier !== 'string') return false;
-  // Allow slugs (alphanumeric, hyphens) and domains (alphanumeric, dots, hyphens)
-  return /^[a-z0-9][a-z0-9.-]{0,252}[a-z0-9]$/i.test(identifier);
+export function sanitizeLookupLogValue(value: unknown): string {
+  return String(value || '')
+    .replace(/[\r\n\t]/g, '')
+    .substring(0, 100);
+}
+
+function isTransientMerchantLookupError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+
+  if (
+    TRANSIENT_MERCHANT_LOOKUP_ERROR in error &&
+    (error as MerchantLookupError)[TRANSIENT_MERCHANT_LOOKUP_ERROR]
+  ) {
+    return true;
+  }
+
+  const maybeError = error as {
+    details?: unknown;
+    message?: unknown;
+  };
+  const details =
+    typeof maybeError.details === 'string' ? maybeError.details : '';
+  const message =
+    typeof maybeError.message === 'string' ? maybeError.message : '';
+  const combined = `${message}\n${details}`.toLowerCase();
+
+  return (
+    combined.includes('timeouterror') ||
+    combined.includes('aborted due to timeout') ||
+    combined.includes('network timeout')
+  );
 }
 
 /**
@@ -492,11 +537,12 @@ export async function getMerchantSafe(
     // Retry once on transient failure (e.g., Supabase timeout during cache revalidation)
     try {
       return await getMerchantByIdentifier(identifier);
-    } catch {
-      const safeId = String(identifier || '')
-        .replace(/[\r\n]/g, '')
-        .substring(0, 100);
-      console.error('Merchant fetch failed after retry:', safeId);
+    } catch (retryError) {
+      const safeId = sanitizeLookupLogValue(identifier);
+      const log = isTransientMerchantLookupError(retryError)
+        ? console.warn
+        : console.error;
+      log('Merchant fetch failed after retry:', safeId);
       return null;
     }
   }
@@ -1547,10 +1593,7 @@ export async function getCachedBlogPost(
   cacheTag('blog-posts', `blog-${identifier}-${postSlug}`);
 
   const lookupKey = identifier.toLowerCase();
-  const merchant =
-    lookupKey.includes('.') && !lookupKey.includes('/')
-      ? await getCachedMerchantByDomain(lookupKey)
-      : await getCachedMerchant(lookupKey);
+  const merchant = await getMerchantSafe(lookupKey);
 
   if (!merchant) return null;
 
@@ -1635,10 +1678,7 @@ export async function getCachedBlogListing(
   const limit = BLOG_LISTING_PAGE_SIZE;
   const offset = (page - 1) * limit;
   const lookupKey = identifier.toLowerCase();
-  const merchant =
-    lookupKey.includes('.') && !lookupKey.includes('/')
-      ? await getCachedMerchantByDomain(lookupKey)
-      : await getCachedMerchant(lookupKey);
+  const merchant = await getMerchantSafe(lookupKey);
 
   if (!merchant) return null;
 
