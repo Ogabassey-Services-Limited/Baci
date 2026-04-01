@@ -20,6 +20,7 @@ import { type CartItem, useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { analytics } from '@/lib/analytics';
 import { asRoute } from '@/lib/routes';
+import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from './AdUnit';
 // import { ActionTooltip } from './Tooltip';
 import { EmptyState } from './empty-state';
@@ -172,6 +173,9 @@ export const CartSidebar: React.FC = () => {
               ) : (
                 <>
                   {cart.map((item) => {
+                    const productHref = asRoute(
+                      getStorefrontProductHref(item, basePath || '')
+                    );
                     const priceToUse =
                       item.negotiatedPrice !== undefined
                         ? item.negotiatedPrice
@@ -185,7 +189,7 @@ export const CartSidebar: React.FC = () => {
                         className="flex gap-4 animate-in fade-in duration-300 border-b border-gray-50 pb-6 last:border-0 last:pb-0"
                       >
                         <Link
-                          href={asRoute(getHref(`/product/${item.id}`))}
+                          href={productHref}
                           className="relative w-24 h-24 bg-gray-50 rounded-lg border border-gray-100 p-2 flex-shrink-0 self-start mt-1 block group/image"
                         >
                           <Image
@@ -215,7 +219,7 @@ export const CartSidebar: React.FC = () => {
                           <div>
                             <div className="flex justify-between items-start">
                               <Link
-                                href={asRoute(getHref(`/product/${item.id}`))}
+                                href={productHref}
                                 className="font-bold text-gray-900 line-clamp-1 text-sm hover:text-red-600 transition-colors"
                               >
                                 {item.name}

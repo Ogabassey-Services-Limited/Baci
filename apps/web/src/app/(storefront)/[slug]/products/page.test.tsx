@@ -3,8 +3,7 @@ import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getCachedCategories,
-  getCachedMerchant,
-  getCachedMerchantByDomain,
+  getRequestScopedMerchant,
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 
@@ -13,6 +12,7 @@ vi.mock('next/image', () => ({
     fill: _fill,
     ...props
   }: React.ImgHTMLAttributes<HTMLImageElement> & { fill?: boolean }) => (
+    // biome-ignore lint/performance/noImgElement: next/image test double
     <img {...props} alt={props.alt ?? ''} />
   ),
 }));
@@ -29,8 +29,7 @@ vi.mock('next/link', () => ({
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedCategories: vi.fn(),
-  getCachedMerchant: vi.fn(),
-  getCachedMerchantByDomain: vi.fn(),
+  getRequestScopedMerchant: vi.fn(),
 }));
 
 vi.mock('@/lib/cached-storefront-product-index', () => ({
@@ -54,6 +53,11 @@ vi.mock('@/lib/store-url', () => ({
 
 vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: (value: string) => value.includes('.'),
+  isValidMerchantIdentifier: (value: string) =>
+    value !== 'images' &&
+    value !== 'product' &&
+    (value.includes('.') ||
+      /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(value)),
 }));
 
 const notFound = vi.fn(() => {
@@ -103,14 +107,15 @@ const { default: ProductsPage, generateMetadata } = await import('./page');
 
 describe('products index page', () => {
   beforeEach(() => {
-    vi.mocked(getCachedMerchant).mockReset();
-    vi.mocked(getCachedMerchantByDomain).mockReset();
+    vi.mocked(getRequestScopedMerchant).mockReset();
     vi.mocked(getCachedCategories).mockReset();
     vi.mocked(getCachedStorefrontProductIndex).mockReset();
     notFound.mockClear();
 
-    vi.mocked(getCachedMerchant).mockResolvedValue(
-      merchant as unknown as Awaited<ReturnType<typeof getCachedMerchant>>
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      merchant as unknown as Awaited<
+        ReturnType<typeof getRequestScopedMerchant>
+      >
     );
     vi.mocked(getCachedStorefrontProductIndex).mockResolvedValue(productIndex);
     vi.mocked(getCachedCategories).mockResolvedValue([
@@ -176,7 +181,7 @@ describe('products index page', () => {
   });
 
   it('calls notFound when the merchant is missing', async () => {
-    vi.mocked(getCachedMerchant).mockResolvedValueOnce(null);
+    vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce(null);
 
     await expect(
       ProductsPage({
@@ -186,6 +191,17 @@ describe('products index page', () => {
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
     expect(notFound).toHaveBeenCalled();
+  });
+
+  it('calls notFound when the slug is invalid before lookup', async () => {
+    await expect(
+      ProductsPage({
+        params: Promise.resolve({ slug: 'images' }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(getRequestScopedMerchant).not.toHaveBeenCalled();
   });
 
   it('does not return notFound for paginated product pages when the index fetch fails', async () => {

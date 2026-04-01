@@ -100,6 +100,14 @@ describe('OgabasseyV2CartPage', () => {
     expect(screen.getByText('Test Product')).toBeInTheDocument();
   });
 
+  it('links cart items to canonical product routes', () => {
+    render(<OgabasseyV2CartPage storeSlug="test-store" />);
+    expect(screen.getAllByRole('link', { name: /test product/i })[0]).toHaveAttribute(
+      'href',
+      '/test-store/electronics/test-product'
+    );
+  });
+
   it('renders Negotiate Total button', () => {
     render(<OgabasseyV2CartPage storeSlug="test-store" />);
     expect(

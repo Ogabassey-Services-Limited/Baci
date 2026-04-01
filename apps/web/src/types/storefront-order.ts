@@ -3,6 +3,10 @@ import type { PaymentStatus, ShippingStatus } from '@baci/shared/types';
 export interface StorefrontOrderItem {
   id: string;
   product_id: string;
+  product_slug?: string;
+  category?: string;
+  category_slug?: string;
+  categories?: { name?: string; slug?: string } | null;
   variant_id?: string;
   variant_name?: string;
   name: string;

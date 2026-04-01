@@ -114,6 +114,14 @@ describe('CartSidebar', () => {
     expect(screen.getByText('Test Shoe')).toBeInTheDocument();
   });
 
+  it('links cart items to canonical product routes', () => {
+    render(<CartSidebar />);
+    expect(screen.getAllByRole('link', { name: /test shoe/i })[0]).toHaveAttribute(
+      'href',
+      '/test-store/shoes/test-shoe'
+    );
+  });
+
   it('renders Negotiate Total Amount button', () => {
     render(<CartSidebar />);
     expect(

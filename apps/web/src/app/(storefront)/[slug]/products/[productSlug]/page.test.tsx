@@ -8,7 +8,7 @@ const mockPermanentRedirect = vi.fn((_url: string) => {
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
-const mockGetMerchantByIdentifier = vi.fn();
+const mockGetRequestScopedMerchant = vi.fn();
 const mockGetCachedLegacyProductRedirectTarget = vi.fn();
 const mockGetCachedProduct = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
@@ -33,8 +33,8 @@ vi.mock('@/components/ui/skeletons', () => ({
 }));
 
 vi.mock('@/lib/cached-data', () => ({
-  getMerchantByIdentifier: (...args: unknown[]) =>
-    mockGetMerchantByIdentifier(...args),
+  getRequestScopedMerchant: (...args: unknown[]) =>
+    mockGetRequestScopedMerchant(...args),
   getCachedLegacyProductRedirectTarget: (...args: unknown[]) =>
     mockGetCachedLegacyProductRedirectTarget(...args),
   getCachedProduct: (...args: unknown[]) => mockGetCachedProduct(...args),
@@ -44,6 +44,10 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetCachedProductRatingStats(...args),
   getCachedProductReviews: (...args: unknown[]) =>
     mockGetCachedProductReviews(...args),
+  sanitizeLookupLogValue: (value: unknown) =>
+    String(value ?? '')
+      .replace(/[\r\n\t]/g, '')
+      .substring(0, 100),
 }));
 
 vi.mock('@/lib/sanitize-core', () => ({
@@ -197,7 +201,7 @@ describe('products/[productSlug] page', () => {
     mockConnection.mockImplementation(async () => undefined);
     mockGenerateProductSchema.mockImplementation(() => ({ offers: {} }));
     mockGetProductUrl.mockImplementation(defaultGetProductUrl);
-    mockGetMerchantByIdentifier.mockResolvedValue(baseMerchant);
+    mockGetRequestScopedMerchant.mockResolvedValue(baseMerchant);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedProductRatingStats.mockResolvedValue(null);

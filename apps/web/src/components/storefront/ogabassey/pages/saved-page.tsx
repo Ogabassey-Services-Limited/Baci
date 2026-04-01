@@ -7,6 +7,7 @@ import type React from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
+import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { EmptyState } from '../components/empty-state';
 import { useV2Saved } from '../providers/v2-saved-context';
 
@@ -44,7 +45,9 @@ export const SavedPage: React.FC = () => {
                 className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col relative"
               >
                 <Link
-                  href={asRoute(getHref(`/product/${product.id}`))}
+                  href={asRoute(
+                    getStorefrontProductHref(product, basePath)
+                  )}
                   className="absolute inset-0 z-0"
                 />
 

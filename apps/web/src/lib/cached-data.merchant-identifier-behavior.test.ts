@@ -64,7 +64,7 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
     });
 
     it('throws error when domain lookup fails', async () => {
-      harness.mockSingle.mockResolvedValueOnce({
+      harness.mockMaybeSingle.mockResolvedValueOnce({
         data: null,
         error: { message: 'Database error', code: 'DB_ERROR' },
       });
@@ -72,6 +72,32 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
       await expect(getMerchantByIdentifier('store.com')).rejects.toThrow(
         'Database error fetching domain: store.com'
       );
+    });
+
+    it('logs warning for transient domain lookup timeouts before throwing', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: null,
+        error: {
+          message: 'TimeoutError: The operation was aborted due to timeout',
+          details:
+            'TimeoutError: The operation was aborted due to timeout at undici',
+        },
+      });
+
+      await expect(getMerchantByIdentifier('store.com')).rejects.toThrow(
+        'Database error fetching domain: store.com'
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith('Error fetching domain', {
+        domain: 'store.com',
+        error: {
+          message: 'TimeoutError: The operation was aborted due to timeout',
+          details:
+            'TimeoutError: The operation was aborted due to timeout at undici',
+        },
+      });
     });
 
     it('returns null when merchant not found by slug', async () => {
@@ -86,7 +112,10 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
     });
 
     it('returns null when domain not found', async () => {
-      harness.mockSingle.mockResolvedValueOnce({ data: null, error: null });
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: null,
+        error: null,
+      });
 
       await expect(
         getMerchantByIdentifier('nonexistent.com')
@@ -116,12 +145,14 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
 
     it('redacts contact info when store is not published (domain lookup)', async () => {
       const unpublishedMerchant = { ...mockMerchant, is_published: false };
-      harness.mockSingle
-        .mockResolvedValueOnce({
-          data: { merchant_id: 'merchant-123', domain: 'store.com' },
-          error: null,
-        })
-        .mockResolvedValueOnce({ data: unpublishedMerchant, error: null });
+      harness.mockMaybeSingle.mockResolvedValueOnce({
+        data: { merchant_id: 'merchant-123', domain: 'store.com' },
+        error: null,
+      });
+      harness.mockSingle.mockResolvedValueOnce({
+        data: unpublishedMerchant,
+        error: null,
+      });
 
       await expect(getMerchantByIdentifier('store.com')).resolves.toEqual({
         ...unpublishedMerchant,

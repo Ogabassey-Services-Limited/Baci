@@ -112,6 +112,14 @@ describe('CartPage', () => {
     expect(screen.getByText('Test Gadget')).toBeInTheDocument();
   });
 
+  it('links cart items to canonical product routes', () => {
+    render(<CartPage />);
+    expect(screen.getAllByRole('link', { name: /test gadget/i })[0]).toHaveAttribute(
+      'href',
+      '/test-store/electronics/test-gadget'
+    );
+  });
+
   it('renders negotiate total button', () => {
     render(<CartPage />);
     expect(

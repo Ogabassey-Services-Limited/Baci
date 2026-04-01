@@ -15,9 +15,9 @@ import {
   type CachedLegacyProductRedirectTarget,
   type CachedMerchant,
   getCachedLegacyProductRedirectTarget,
-  getCachedMerchant,
-  getCachedMerchantByDomain,
   getCachedProductWithDetails,
+  getRequestScopedMerchant,
+  sanitizeLookupLogValue,
 } from '@/lib/cached-data';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
@@ -32,7 +32,7 @@ import {
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
-import { isDomainIdentifier } from '@/lib/validation';
+import { isValidMerchantIdentifier } from '@/lib/validation';
 
 /** KeySpecs interface for product_key_specs */
 interface KeySpecs {
@@ -603,13 +603,11 @@ const getProduct = async (
   categorySlug: string,
   productSlug: string
 ): Promise<CategoryProductResult> => {
-  // 1. Get Merchant using cached functions (bypasses RLS, more reliable)
-  const merchant = isDomainIdentifier(storeSlug)
-    ? await getCachedMerchantByDomain(storeSlug)
-    : await getCachedMerchant(storeSlug);
+  // 1. Get Merchant using request-scoped lookup so metadata/page/layout reuse the same request result.
+  const merchant = await getRequestScopedMerchant(storeSlug);
 
   if (!merchant) {
-    console.error('Merchant not found for slug/domain:', storeSlug);
+    console.warn('Merchant not found for storefront product route:', storeSlug);
     return null;
   }
 
@@ -640,7 +638,10 @@ const getProduct = async (
       };
     }
 
-    console.error('Product not found:', productSlug);
+    console.warn(
+      'Product not found for storefront product route:',
+      sanitizeLookupLogValue(productSlug)
+    );
     return null;
   }
 
@@ -729,6 +730,9 @@ export async function generateMetadata({
   searchParams,
 }: PageProps): Promise<Metadata> {
   const { slug, category, productSlug } = await params;
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
   const resolvedSearchParams = await searchParams;
   const result = await getProduct(slug, category, productSlug);
 
@@ -825,6 +829,9 @@ export async function generateMetadata({
 
 export default async function CategoryProductPage({ params }: PageProps) {
   const { slug, category, productSlug } = await params;
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
   const result = await getProduct(slug, category, productSlug);
 
   if (!result) {
