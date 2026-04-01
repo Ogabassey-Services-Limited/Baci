@@ -277,8 +277,8 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
                 },
               ].map((feature) => (
                 <li key={feature.title}>
-                  <article className="h-full p-8 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                    <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                  <article className="h-full p-8 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-[transform,box-shadow] duration-200 group">
+                    <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-200">
                       {feature.icon}
                     </div>
                     <h3 className="text-xl font-bold mb-3 text-primary dark:text-white">
@@ -341,9 +341,9 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
                 },
               ].map((step, i) => (
                 <li key={step.step} className="relative">
-                  <article className="h-full p-8 rounded-2xl glass border border-slate-200 dark:border-slate-800 transition-all duration-300 group">
+                  <article className="h-full p-8 rounded-2xl glass border border-slate-200 dark:border-slate-800 group">
                     <div className="flex items-center gap-4 mb-6">
-                      <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                      <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                         {step.icon}
                       </div>
                       <span className="text-6xl font-bold text-accent/20">
