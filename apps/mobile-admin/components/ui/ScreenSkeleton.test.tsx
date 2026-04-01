@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ScreenSkeleton } from './ScreenSkeleton';
 
 const reanimatedMocks = vi.hoisted(() => ({
+  reducedMotion: false,
   cancelAnimation: vi.fn(),
   withRepeat: vi.fn(
     (animation: unknown, repetitions: number, reverse: boolean) => ({
@@ -82,7 +83,7 @@ vi.mock('react-native-reanimated', async () => {
     },
     cancelAnimation: reanimatedMocks.cancelAnimation,
     useAnimatedStyle: (callback: () => object) => callback(),
-    useReducedMotion: () => false,
+    useReducedMotion: () => reanimatedMocks.reducedMotion,
     useSharedValue: (value: number) => ({ value }),
     withRepeat: reanimatedMocks.withRepeat,
     withTiming: reanimatedMocks.withTiming,
@@ -148,5 +149,18 @@ describe('ScreenSkeleton', () => {
     );
 
     expect(reanimatedMocks.cancelAnimation).toHaveBeenCalled();
+  });
+
+  it('skips shimmer animation when reduced motion is enabled', () => {
+    reanimatedMocks.reducedMotion = true;
+
+    render(<ScreenSkeleton variant="settings" cards={1} />);
+
+    // With reduced motion, withRepeat should not be called
+    expect(reanimatedMocks.withRepeat).not.toHaveBeenCalled();
+    expect(reanimatedMocks.cancelAnimation).toHaveBeenCalled();
+
+    // Restore for other tests
+    reanimatedMocks.reducedMotion = false;
   });
 });

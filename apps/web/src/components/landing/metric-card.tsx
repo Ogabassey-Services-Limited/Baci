@@ -93,10 +93,10 @@ export function MetricCard({
   delay = 0,
   duration = 2000,
 }: MetricCardProps) {
+  const { prefix, number: targetNumber, suffix, decimals } = parseValue(value);
   const [displayValue, setDisplayValue] = useState('0');
   const [hasAnimated, setHasAnimated] = useState(false);
   const cardRef = useRef<HTMLLIElement>(null);
-  const { prefix, number: targetNumber, suffix, decimals } = parseValue(value);
 
   const startAnimation = () => {
     const startTime = performance.now() + delay;
@@ -128,6 +128,13 @@ export function MetricCard({
   useEffect(() => {
     const element = cardRef.current;
     if (!element || hasAnimated) return;
+
+    // Skip animation for users who prefer reduced motion
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDisplayValue(formatNumber(targetNumber, decimals));
+      setHasAnimated(true);
+      return;
+    }
 
     // Use shared IntersectionObserver for better performance
     const observer = getSharedObserver();
