@@ -191,6 +191,43 @@ describe('handlePlaceOrder', () => {
       );
     });
 
+    it('includes variantId and variantAttributes in order items', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          order: { id: 'order-variant' },
+          wallet: null,
+          amountDueToGateway: 720000,
+        }),
+      });
+
+      const opts = buildOpts({
+        cart: [
+          {
+            id: 'p-variant',
+            name: 'MacBook Air M1',
+            quantity: 1,
+            price: 720000,
+            variantId: 'variant-256gb',
+            variantAttributes: { storage: '256GB', color: 'Space Gray' },
+            hasAssurance: false,
+          },
+        ],
+        cartTotal: 720000,
+        total: 720000,
+      });
+      await handlePlaceOrder(opts);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(fetchBody.items[0]).toEqual(
+        expect.objectContaining({
+          variantId: 'variant-256gb',
+          variantAttributes: { storage: '256GB', color: 'Space Gray' },
+        }),
+      );
+    });
+
     it('throws on failed order creation', async () => {
       const { toast } = await import('@/hooks/use-toast');
       mockFetch.mockResolvedValue({

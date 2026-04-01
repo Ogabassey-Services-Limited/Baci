@@ -46,6 +46,9 @@ const orderCreateSchemaBase = z.object({
           variantAttributes: z
             .record(z.string().transform((val) => sanitizeText(val).trim()))
             .optional(),
+          variant_attributes: z
+            .record(z.string().transform((val) => sanitizeText(val).trim()))
+            .optional(),
         })
         .refine((data) => data.product_id || data.productId || data.id, {
           message:

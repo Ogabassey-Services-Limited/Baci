@@ -335,7 +335,8 @@ export async function POST(request: NextRequest) {
     const orderItemsPayload = items.map((item) => ({
       product_id: item.product_id || item.productId || item.id,
       variant_id: item.variantId || item.variant_id,
-      variant_attributes: item.variantAttributes || null,
+      variant_attributes:
+        item.variantAttributes || item.variant_attributes || {},
       quantity: item.quantity,
       has_assurance: item.has_assurance || false,
       assurance_fee: item.assurance_fee || 0,
