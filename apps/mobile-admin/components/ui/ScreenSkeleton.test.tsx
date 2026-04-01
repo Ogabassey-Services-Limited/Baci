@@ -82,6 +82,7 @@ vi.mock('react-native-reanimated', async () => {
     },
     cancelAnimation: reanimatedMocks.cancelAnimation,
     useAnimatedStyle: (callback: () => object) => callback(),
+    useReducedMotion: () => false,
     useSharedValue: (value: number) => ({ value }),
     withRepeat: reanimatedMocks.withRepeat,
     withTiming: reanimatedMocks.withTiming,
