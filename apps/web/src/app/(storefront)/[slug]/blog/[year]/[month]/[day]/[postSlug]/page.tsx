@@ -20,5 +20,7 @@ export default async function DatedBlogPostRedirectPage({ params }: PageProps) {
     notFound();
   }
 
-  permanentRedirect(buildCanonicalBlogPostUrl(data.merchant, data.post.slug));
+  permanentRedirect(
+    buildCanonicalBlogPostUrl(data.merchant, data.post.slug) as never
+  );
 }
