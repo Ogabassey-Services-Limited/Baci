@@ -12,6 +12,43 @@ import { createLogger } from './logger';
 const log = createLogger('Storage');
 
 /**
+ * Batch storage helpers
+ * Uses v3 getMany/removeMany when available, falls back to individual calls.
+ */
+export async function getStorageEntries(
+  keys: readonly string[]
+): Promise<[string, string | null][]> {
+  if (keys.length === 0) return [];
+
+  if (typeof AsyncStorage.getMany === 'function') {
+    const record = await AsyncStorage.getMany([...keys]);
+    return Object.entries(record);
+  }
+
+  // Fallback: individual getItem calls
+  return Promise.all(
+    keys.map(
+      async (key) =>
+        [key, await AsyncStorage.getItem(key)] as [string, string | null]
+    )
+  );
+}
+
+export async function removeStorageItems(
+  keys: readonly string[]
+): Promise<void> {
+  if (keys.length === 0) return;
+
+  if (typeof AsyncStorage.removeMany === 'function') {
+    await AsyncStorage.removeMany([...keys]);
+    return;
+  }
+
+  // Fallback: individual removeItem calls
+  await Promise.all(keys.map((key) => AsyncStorage.removeItem(key)));
+}
+
+/**
  * AsyncStorage-based storage adapter for Zustand persist middleware
  * Fully compatible with Expo Go
  */
@@ -123,8 +160,8 @@ export function initializeStorage(keys: string[]): Promise<void> {
   initializationPromise = (async () => {
     try {
       log.debug('Initializing with keys:', keys);
-      const pairs = await AsyncStorage.getMany(keys);
-      for (const [key, value] of Object.entries(pairs)) {
+      const pairs = await getStorageEntries(keys);
+      for (const [key, value] of pairs) {
         if (value !== null) {
           memoryCache[key] = value;
           log.debug(`Loaded "${key}" from AsyncStorage`);
