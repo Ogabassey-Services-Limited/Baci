@@ -35,6 +35,7 @@ import {
   sanitizePhone,
   sanitizeText,
 } from '@/lib/sanitize';
+import { mergeOrderItem } from '@/lib/order-items';
 
 interface ShippingAddress {
   name: string;
@@ -43,7 +44,6 @@ interface ShippingAddress {
   city?: string;
   state?: string;
 }
-
 
 import {
   BRAND_COLORS,
@@ -55,7 +55,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
-import { type Customer, useCreateCustomer, useCustomers } from '@/hooks/useCustomers';
+import {
+  type Customer,
+  useCreateCustomer,
+  useCustomers,
+} from '@/hooks/useCustomers';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
 import { type Product, useProducts } from '@/hooks/useProducts';
@@ -225,8 +229,9 @@ export default function NewOrderScreen() {
     address: '',
   });
   const [selectedCountryCode, setSelectedCountryCode] = useState<string>('NG'); // For Google Places filtering
-  const [duplicateCustomer, setDuplicateCustomer] =
-    useState<Customer | null>(null);
+  const [duplicateCustomer, setDuplicateCustomer] = useState<Customer | null>(
+    null
+  );
 
   // Delivery Details
   const [sameAsCustomer, setSameAsCustomer] = useState(true);
@@ -287,42 +292,33 @@ export default function NewOrderScreen() {
 
   // Handlers (Same logic, just keeping cleanly separated)
   const handleAddProduct = (product: Product) => {
-    setOrderItems((prev) => {
-      const existing = prev.find((item) => item.product_id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.product_id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [
-        ...prev,
-        {
-          product_id: product.id,
-          name: product.name,
-          quantity: 1,
-          price: product.price,
-          image_url: product.images?.[0],
-        },
-      ];
-    });
+    setOrderItems((prev) =>
+      mergeOrderItem(prev, {
+        product_id: product.id,
+        name: product.name,
+        quantity: 1,
+        price: product.price,
+        image_url: product.images?.[0],
+      })
+    );
     setShowProductModal(false);
     setProductSearch('');
   };
 
   const handleAddCustomItem = () => {
-    if (!customItem.name || !customItem.price) return;
-    setOrderItems((prev) => [
-      ...prev,
-      {
-        product_id: `custom-${Date.now()}`,
-        name: customItem.name,
+    const normalizedName = customItem.name.trim().replace(/\s+/g, ' ');
+
+    if (!normalizedName || !customItem.price) return;
+
+    setOrderItems((prev) =>
+      mergeOrderItem(prev, {
+        product_id: `custom-${Crypto.randomUUID()}`,
+        name: normalizedName,
         quantity: 1,
         price: Number.parseFloat(customItem.price) || 0,
         is_custom: true,
-      },
-    ]);
+      })
+    );
     setCustomItem({ name: '', price: '' });
     setShowCustomItemModal(false);
   };
@@ -342,7 +338,9 @@ export default function NewOrderScreen() {
     const displayName =
       [item.first_name, item.last_name]
         .filter((name): name is string => Boolean(name))
-        .join(' ') || item.email?.split('@')[0] || '';
+        .join(' ') ||
+      item.email?.split('@')[0] ||
+      '';
     setCustomer({
       id: item.id,
       name: displayName,
