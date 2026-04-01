@@ -165,8 +165,6 @@ export function CheckoutIdentityModal({
             contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            // RN 0.84: prevent jarring auto-scroll when inputs receive focus on Android
-            scrollsChildToFocus={false}
             accessibilityRole="none"
           >
             {activeTab === 'new' ? (
