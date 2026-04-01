@@ -46,22 +46,24 @@ describe('SecurityForm', () => {
 
   it('renders "Set Password" form for OAuth-only user', async () => {
     const { SecurityForm } = await import('./security-form');
-    render(<SecurityForm />);
+    const { container } = render(<SecurityForm />);
 
     // Description text unique to set-password variant
     expect(
-      screen.getByText(/You signed in with a social account/)
+      within(container).getByText(/You signed in with a social account/)
     ).toBeDefined();
 
     // Should NOT have current password field
-    expect(screen.queryByLabelText('Current Password')).toBeNull();
+    expect(within(container).queryByLabelText('Current Password')).toBeNull();
 
     // Should have new password and confirm fields
-    expect(screen.getByLabelText('Password')).toBeDefined();
-    expect(screen.getByLabelText('Confirm Password')).toBeDefined();
+    expect(within(container).getByLabelText('Password')).toBeDefined();
+    expect(within(container).getByLabelText('Confirm Password')).toBeDefined();
 
     // Submit button
-    expect(screen.getByRole('button', { name: 'Set Password' })).toBeDefined();
+    expect(
+      within(container).getByRole('button', { name: 'Set Password' })
+    ).toBeDefined();
   });
 
   it('renders "Change Password" form for user with password identity', async () => {
@@ -86,13 +88,13 @@ describe('SecurityForm', () => {
     ).toBeDefined();
 
     // Should have all three password fields
-    expect(screen.getByLabelText('Current Password')).toBeDefined();
-    expect(screen.getByLabelText('New Password')).toBeDefined();
-    expect(screen.getByLabelText('Confirm Password')).toBeDefined();
+    expect(within(container).getByLabelText('Current Password')).toBeDefined();
+    expect(within(container).getByLabelText('New Password')).toBeDefined();
+    expect(within(container).getByLabelText('Confirm Password')).toBeDefined();
 
     // Submit button
     expect(
-      screen.getByRole('button', { name: 'Change Password' })
+      within(container).getByRole('button', { name: 'Change Password' })
     ).toBeDefined();
   });
 
@@ -123,8 +125,8 @@ describe('SecurityForm', () => {
     });
 
     const { SecurityForm } = await import('./security-form');
-    render(<SecurityForm />);
+    const { container } = render(<SecurityForm />);
 
-    expect(screen.getByText(/Apple/)).toBeDefined();
+    expect(within(container).getByText(/Apple/)).toBeDefined();
   });
 });
