@@ -106,6 +106,25 @@ describe('cached-data merchant safety helpers', () => {
       );
     });
 
+    it('logs warning after retry failure for transient timeout errors', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      const timeoutError = new Error(
+        'TimeoutError: The operation was aborted due to timeout'
+      );
+      harness.mockMaybeSingle
+        .mockRejectedValueOnce(timeoutError)
+        .mockRejectedValueOnce(timeoutError);
+
+      await getMerchantSafe('test-store');
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Merchant fetch failed after retry:',
+        'test-store'
+      );
+    });
+
     it('does not throw errors even when lookup fails twice', async () => {
       harness.mockMaybeSingle
         .mockRejectedValueOnce(new Error('Database timeout'))

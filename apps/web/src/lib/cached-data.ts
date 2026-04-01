@@ -352,7 +352,10 @@ export async function getCachedMerchantByDomain(
     .single();
 
   if (domainError) {
-    console.error('Error fetching domain', {
+    const log = isTransientMerchantLookupError(domainError)
+      ? console.warn
+      : console.error;
+    log('Error fetching domain', {
       domain: normalizedDomain,
       error: domainError,
     });
@@ -404,7 +407,10 @@ export async function getCachedMerchantByDomain(
     .single();
 
   if (error) {
-    console.error('Error fetching merchant for domain', {
+    const log = isTransientMerchantLookupError(error)
+      ? console.warn
+      : console.error;
+    log('Error fetching merchant for domain', {
       domain: normalizedDomain,
       error: error,
     });
@@ -453,6 +459,26 @@ function isDomainIdentifier(identifier: string): boolean {
   return identifier.includes('.') && !identifier.includes('-');
 }
 
+function isTransientMerchantLookupError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+
+  const maybeError = error as {
+    details?: unknown;
+    message?: unknown;
+  };
+  const details =
+    typeof maybeError.details === 'string' ? maybeError.details : '';
+  const message =
+    typeof maybeError.message === 'string' ? maybeError.message : '';
+  const combined = `${message}\n${details}`.toLowerCase();
+
+  return (
+    combined.includes('timeouterror') ||
+    combined.includes('aborted due to timeout') ||
+    combined.includes('network timeout')
+  );
+}
+
 /**
  * Validate merchant identifier format
  * Prevents injection attacks and invalid lookups
@@ -492,11 +518,14 @@ export async function getMerchantSafe(
     // Retry once on transient failure (e.g., Supabase timeout during cache revalidation)
     try {
       return await getMerchantByIdentifier(identifier);
-    } catch {
+    } catch (retryError) {
       const safeId = String(identifier || '')
         .replace(/[\r\n]/g, '')
         .substring(0, 100);
-      console.error('Merchant fetch failed after retry:', safeId);
+      const log = isTransientMerchantLookupError(retryError)
+        ? console.warn
+        : console.error;
+      log('Merchant fetch failed after retry:', safeId);
       return null;
     }
   }

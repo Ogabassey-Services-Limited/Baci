@@ -9,7 +9,7 @@ import {
   getCachedProductRatingStats,
   getCachedProductReviews,
   getCachedProductWithDetails,
-  getMerchantByIdentifier,
+  getRequestScopedMerchant,
 } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
@@ -41,7 +41,7 @@ interface PageProps {
 }
 
 type ResolvedMerchant = NonNullable<
-  Awaited<ReturnType<typeof getMerchantByIdentifier>>
+  Awaited<ReturnType<typeof getRequestScopedMerchant>>
 >;
 
 interface ProductLookupResult {
@@ -53,9 +53,9 @@ async function getProductCached(
   storeSlug: string,
   productSlug: string
 ): Promise<ProductLookupResult | null> {
-  const merchant = await getMerchantByIdentifier(storeSlug);
+  const merchant = await getRequestScopedMerchant(storeSlug);
   if (!merchant) {
-    console.error('Merchant not found for slug:', storeSlug);
+    console.warn('Merchant not found for storefront product route:', storeSlug);
     return null;
   }
   const cachedProduct = await getCachedProduct(merchant.id, productSlug);

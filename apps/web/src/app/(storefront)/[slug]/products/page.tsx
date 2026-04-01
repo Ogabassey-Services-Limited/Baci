@@ -4,8 +4,7 @@ import { notFound } from 'next/navigation';
 import { StorefrontPagination } from '@/components/storefront/ogabassey/components/StorefrontPagination';
 import {
   getCachedCategories,
-  getCachedMerchant,
-  getCachedMerchantByDomain,
+  getRequestScopedMerchant,
 } from '@/lib/cached-data';
 import { getCachedStorefrontProductIndex } from '@/lib/cached-storefront-product-index';
 import type { Product } from '@/lib/products';
@@ -48,9 +47,7 @@ export async function generateMetadata({
     notFound();
   }
 
-  const merchant = isDomainIdentifier(slug)
-    ? await getCachedMerchantByDomain(slug)
-    : await getCachedMerchant(slug);
+  const merchant = await getRequestScopedMerchant(slug);
 
   if (!merchant) {
     return {
@@ -125,9 +122,7 @@ export default async function ProductsPage({
     notFound();
   }
 
-  const merchant = isDomainIdentifier(slug)
-    ? await getCachedMerchantByDomain(slug)
-    : await getCachedMerchant(slug);
+  const merchant = await getRequestScopedMerchant(slug);
 
   if (!merchant) {
     notFound();

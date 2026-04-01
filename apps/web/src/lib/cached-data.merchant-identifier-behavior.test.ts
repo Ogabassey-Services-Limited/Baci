@@ -74,6 +74,32 @@ describe('cached-data getMerchantByIdentifier behavior', () => {
       );
     });
 
+    it('logs warning for transient domain lookup timeouts before throwing', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+      harness.mockSingle.mockResolvedValueOnce({
+        data: null,
+        error: {
+          message: 'TimeoutError: The operation was aborted due to timeout',
+          details:
+            'TimeoutError: The operation was aborted due to timeout at undici',
+        },
+      });
+
+      await expect(getMerchantByIdentifier('store.com')).rejects.toThrow(
+        'Database error fetching domain: store.com'
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith('Error fetching domain', {
+        domain: 'store.com',
+        error: {
+          message: 'TimeoutError: The operation was aborted due to timeout',
+          details:
+            'TimeoutError: The operation was aborted due to timeout at undici',
+        },
+      });
+    });
+
     it('returns null when merchant not found by slug', async () => {
       harness.mockMaybeSingle.mockResolvedValueOnce({
         data: null,

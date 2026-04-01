@@ -7,8 +7,7 @@ const mockPermanentRedirect = vi.fn((_url: string) => {
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
-const mockGetCachedMerchant = vi.fn();
-const mockGetCachedMerchantByDomain = vi.fn();
+const mockGetRequestScopedMerchant = vi.fn();
 const mockGetCachedLegacyProductRedirectTarget = vi.fn();
 const mockGetCachedProductWithDetails = vi.fn();
 
@@ -28,9 +27,8 @@ vi.mock('@/components/ui/skeletons', () => ({
 }));
 
 vi.mock('@/lib/cached-data', () => ({
-  getCachedMerchant: (...args: unknown[]) => mockGetCachedMerchant(...args),
-  getCachedMerchantByDomain: (...args: unknown[]) =>
-    mockGetCachedMerchantByDomain(...args),
+  getRequestScopedMerchant: (...args: unknown[]) =>
+    mockGetRequestScopedMerchant(...args),
   getCachedLegacyProductRedirectTarget: (...args: unknown[]) =>
     mockGetCachedLegacyProductRedirectTarget(...args),
   getCachedProductWithDetails: (...args: unknown[]) =>
@@ -144,7 +142,7 @@ const categorizedDetailedProduct = {
 describe('[category]/[productSlug] page metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCachedMerchant.mockResolvedValue(baseMerchant);
+    mockGetRequestScopedMerchant.mockResolvedValue(baseMerchant);
     mockGetCachedProductWithDetails.mockResolvedValue(null);
     mockGetCachedLegacyProductRedirectTarget.mockResolvedValue(null);
   });
@@ -249,7 +247,7 @@ describe('[category]/[productSlug] page metadata', () => {
 describe('[category]/[productSlug] page render', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCachedMerchant.mockResolvedValue({
+    mockGetRequestScopedMerchant.mockResolvedValue({
       ...baseMerchant,
       template_id: 'ogabassey',
     });
