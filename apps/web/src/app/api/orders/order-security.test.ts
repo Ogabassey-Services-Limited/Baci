@@ -259,4 +259,124 @@ describe('Order API Security', () => {
       })
     );
   });
+
+  describe('Variant attributes handling', () => {
+    beforeEach(() => {
+      vi.mocked(authenticateApiRequest).mockResolvedValue({
+        user: mockAuthUser('123e4567-e89b-12d3-a456-426614174099'),
+        error: null,
+        supabase: mockSupabase as unknown as never,
+      });
+      // Restore mocks cleared by outer beforeEach
+      sharedChainableMock.select.mockReturnThis();
+      sharedChainableMock.eq.mockReturnThis();
+      sharedChainableMock.single.mockResolvedValue({
+        data: {
+          id: '123e4567-e89b-12d3-a456-426614174000',
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+        },
+        error: null,
+      });
+      mockSupabase.rpc.mockResolvedValue({
+        data: [
+          {
+            id: 'order-id',
+            order_number: 'ORD-123',
+            total: 1000,
+            subtotal: 1000,
+            shipping_fee: 0,
+            customer_id: 'customer-id',
+          },
+        ],
+        error: null,
+      });
+    });
+
+    it('forwards variantAttributes (camelCase) to RPC', async () => {
+      const payload = {
+        ...validOrderPayload,
+        user_id: '123e4567-e89b-12d3-a456-426614174099',
+        items: [
+          {
+            product_id: 'product-id',
+            quantity: 1,
+            price: 1000,
+            name: 'Test Product',
+            variantId: 'v1',
+            variantAttributes: { color: 'Red', storage: '256GB' },
+          },
+        ],
+      };
+
+      const request = new NextRequest('http://localhost:3000/api/orders', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      await POST(request);
+
+      const rpcArgs = mockSupabase.rpc.mock.calls[0][1];
+      const items = Array.isArray(rpcArgs.p_items)
+        ? rpcArgs.p_items
+        : JSON.parse(rpcArgs.p_items);
+      expect(items[0].variant_attributes).toEqual({
+        color: 'Red',
+        storage: '256GB',
+      });
+    });
+
+    it('forwards variant_attributes (snake_case) to RPC', async () => {
+      const payload = {
+        ...validOrderPayload,
+        user_id: '123e4567-e89b-12d3-a456-426614174099',
+        items: [
+          {
+            product_id: 'product-id',
+            quantity: 1,
+            price: 1000,
+            name: 'Test Product',
+            variant_id: 'v1',
+            variant_attributes: { color: 'Blue' },
+          },
+        ],
+      };
+
+      const request = new NextRequest('http://localhost:3000/api/orders', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBeLessThan(300);
+
+      const rpcArgs = mockSupabase.rpc.mock.calls[0][1];
+      const items = Array.isArray(rpcArgs.p_items)
+        ? rpcArgs.p_items
+        : JSON.parse(rpcArgs.p_items);
+      expect(items[0].variant_attributes).toEqual({ color: 'Blue' });
+    });
+
+    it('defaults variant_attributes to {} when both keys missing', async () => {
+      const request = new NextRequest('http://localhost:3000/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...validOrderPayload,
+          user_id: '123e4567-e89b-12d3-a456-426614174099',
+        }),
+      });
+
+      await POST(request);
+
+      const rpcArgs = mockSupabase.rpc.mock.calls[0][1];
+      const items = Array.isArray(rpcArgs.p_items)
+        ? rpcArgs.p_items
+        : JSON.parse(rpcArgs.p_items);
+      expect(items[0].variant_attributes).toEqual({});
+    });
+  });
 });

@@ -34,6 +34,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { OfflineEmptyState } from '@/components/OfflineNotice';
 import { FlyToCartParticle } from '@/components/product/FlyToCartParticle';
 import { NegotiationModal } from '@/components/product/NegotiationModal';
@@ -42,14 +43,13 @@ import { ProductImageGallery } from '@/components/product/ProductImageGallery';
 import { StickyBottomActions } from '@/components/product/StickyBottomActions';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { useProduct } from '@/hooks';
 import { useEffectivePrice } from '@/hooks/use-effective-price';
 import { useHaptics } from '@/hooks/use-haptics';
 import { useNetworkState } from '@/hooks/use-network-state';
-import { useProduct } from '@/hooks';
 import { markReviewHelpful, useReviews } from '@/hooks/use-reviews';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
-import { useShallow } from 'zustand/react/shallow';
 import type { ProductCondition } from '@/types/product';
 import { getDiscountPercentage } from '@/types/product';
 
@@ -79,7 +79,14 @@ export default function ProductDetailScreen() {
   const { product, isLoading, error, refetch } = useProduct(
     isValidSlug ? slug : ''
   );
-  const { items, addItem, updateQuantity, removeItem } = useCartStore(useShallow((s) => ({ items: s.items, addItem: s.addItem, updateQuantity: s.updateQuantity, removeItem: s.removeItem })));
+  const { items, addItem, updateQuantity, removeItem } = useCartStore(
+    useShallow((s) => ({
+      items: s.items,
+      addItem: s.addItem,
+      updateQuantity: s.updateQuantity,
+      removeItem: s.removeItem,
+    }))
+  );
   const toggleSaved = useSavedStore((state) => state.toggleSaved);
   const isSaved = useSavedStore((state) => state.isSaved);
   const savedToastState = useSavedStore((state) => state.toastState);
@@ -436,11 +443,20 @@ export default function ProductDetailScreen() {
 
     if (event) triggerFlyToCart(event);
 
+    // Build variant_attributes from individual selections
+    const variantAttrs: Record<string, string> = {};
+    if (selectedColor) variantAttrs.color = selectedColor;
+    if (selectedStorage) variantAttrs.storage = selectedStorage;
+    const conditionDisplay = getConditionDisplay();
+    if (conditionDisplay) variantAttrs.condition = conditionDisplay;
+
     // Add item with quantity 1
     addItem({
       product_id: product.id,
       slug: product.slug,
       variant_id: selectedVariant || undefined,
+      variant_attributes:
+        Object.keys(variantAttrs).length > 0 ? variantAttrs : undefined,
       name: product.name,
       price: effectivePrice,
       compare_at_price: effectiveComparePrice,
@@ -448,7 +464,7 @@ export default function ProductDetailScreen() {
       image_url: images[0] || product.image,
       color: selectedColor || undefined,
       storage: selectedStorage || undefined,
-      condition: getConditionDisplay(),
+      condition: conditionDisplay,
     });
 
     setShowAddedToast(true);
@@ -462,7 +478,10 @@ export default function ProductDetailScreen() {
     }, 2000);
   };
 
-  const handleUpdateQuantity = (newQuantity: number, event?: GestureResponderEvent) => {
+  const handleUpdateQuantity = (
+    newQuantity: number,
+    event?: GestureResponderEvent
+  ) => {
     haptics.light();
 
     if (newQuantity > quantityInCart && event) {

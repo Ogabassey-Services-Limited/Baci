@@ -153,6 +153,10 @@ export function ProductCard({
   };
 
   const handleAddToCart = () => {
+    if (product.has_variants) {
+      router.push(`/product/${product.slug}`);
+      return;
+    }
     haptics.light();
 
     addItem({
@@ -169,17 +173,20 @@ export function ProductCard({
 
   const imageCandidates = normalizeProductImages(
     product.image
-      ? [product.image, ...(Array.isArray(product.images) ? product.images : [])]
+      ? [
+          product.image,
+          ...(Array.isArray(product.images) ? product.images : []),
+        ]
       : product.images
   );
-  const imageCandidatesKey = imageCandidates.join('|');
+  const _imageCandidatesKey = imageCandidates.join('|');
   const [imageAttempt, setImageAttempt] = useState(0);
   const [showLocalPlaceholder, setShowLocalPlaceholder] = useState(false);
 
   useEffect(() => {
     setImageAttempt(0);
     setShowLocalPlaceholder(false);
-  }, [product.id, imageCandidatesKey]);
+  }, []);
 
   const imageProps = {
     placeholder: { blurhash },
