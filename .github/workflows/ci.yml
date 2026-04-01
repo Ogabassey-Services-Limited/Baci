@@ -90,7 +90,9 @@ jobs:
             ${{ runner.os }}-build-${{ hashFiles('pnpm-lock.yaml') }}-
             ${{ runner.os }}-build-
       - if: needs.changes.outputs.web == 'true'
-        run: pnpm install --frozen-lockfile
+        run: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
+        env:
+          PNPM_STORE_DIR: ${{ runner.temp }}/pnpm-store
       - if: needs.changes.outputs.web == 'true'
         run: pnpm turbo build --filter=@baci/web
         env:
