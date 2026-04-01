@@ -202,7 +202,7 @@ export const ChatWidget: React.FC = () => {
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all duration-500 hover:scale-110 group relative ${isOpen
+          className={`w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-[transform,background-color,border-color,box-shadow,color] duration-200 hover:scale-110 group relative ${isOpen
             ? 'bg-gray-900 text-white rotate-90 shadow-xl border border-gray-100'
             : isSanta
               ? 'bg-transparent border-none shadow-none text-red-600'
