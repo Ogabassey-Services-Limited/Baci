@@ -1,6 +1,14 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const { noStoreMock } = vi.hoisted(() => ({
+  noStoreMock: vi.fn(),
+}));
+
+vi.mock('next/cache', () => ({
+  unstable_noStore: noStoreMock,
+}));
+
 vi.mock('@/lib/import-jobs/import-job-route-auth', () => ({
   getImportJobForMerchant: vi.fn(),
   hasImportRoutePermission: vi.fn(),
@@ -92,6 +100,18 @@ describe('GET /api/import-jobs/[jobId]/rows', () => {
     });
     vi.mocked(hasImportRoutePermission).mockReturnValue(true);
     vi.mocked(getImportJobForMerchant).mockResolvedValue(createImportJob());
+  });
+
+  it('disables caching via unstable_noStore', async () => {
+    const response = await GET(
+      new NextRequest(
+        `http://localhost/api/import-jobs/${jobId}/rows?page=1&pageSize=25`
+      ),
+      { params: Promise.resolve({ jobId }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(noStoreMock).toHaveBeenCalledTimes(1);
   });
 
   it('returns 400 for invalid pagination parameters', async () => {
