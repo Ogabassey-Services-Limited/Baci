@@ -57,3 +57,8 @@
 **Vulnerability:** The `POST /api/ai-jobs/worker` route used a standard string comparison (`authHeader !== \`Bearer \${expectedToken}\``) to verify the authorization token. This allows a timing attack where an attacker could theoretically guess the secret token by observing the response time, as standard string comparison returns `false` as soon as it finds a mismatch.
 **Learning:** Any API route that authenticates requests using a secret token (like webhooks or worker endpoints) must use constant-time comparison to prevent timing attacks.
 **Prevention:** Always use `crypto.timingSafeEqual` from `node:crypto` to compare secret tokens. Ensure that both strings are converted to `Buffer` objects and that their lengths are checked first, because `timingSafeEqual` will throw an error if the buffers are of different lengths.
+
+## 2026-03-25 - Prevent Timing Attacks on Blog Preview Authentication
+**Vulnerability:** The API route for blog preview (`GET /api/blog/preview`) used strict equality (`!==`) to compare the provided `secret` query parameter against the blog preview secret. This exposes the endpoint to timing attacks, where an attacker could theoretically guess the secret by observing differences in response times.
+**Learning:** Any endpoint that authenticates requests using a secret token or key must use constant-time comparison to prevent timing attacks. Simple string comparison operators short-circuit on the first mismatched character.
+**Prevention:** Use `constantTimeEqual` from `@/lib/constant-time-equal` to perform constant-time comparison for authentication tokens, webhook signatures, and secrets.

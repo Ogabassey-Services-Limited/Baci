@@ -412,6 +412,7 @@ function HeroCarouselComponent({
                   src={slide.image}
                   alt={slide.title}
                   fill
+                  sizes="100vw"
                   className="object-cover"
                   priority={slide.image === safeSlides[0]?.image}
                 />
@@ -2534,6 +2535,7 @@ export const builderConfig: Config<
                         src={image}
                         alt={title}
                         fill
+                        sizes="(max-width: 768px) 100vw, 50vw"
                         className="object-cover"
                       />
                     </div>
