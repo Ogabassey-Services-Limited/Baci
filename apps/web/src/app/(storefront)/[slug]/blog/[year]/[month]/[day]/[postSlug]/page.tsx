@@ -1,5 +1,6 @@
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getCachedBlogPost } from '@/lib/cached-data';
+import { asRoute } from '@/lib/routes';
 import { buildCanonicalBlogPostUrl } from '../../../../[postSlug]/blog-post-content';
 
 interface PageProps {
@@ -21,6 +22,6 @@ export default async function DatedBlogPostRedirectPage({ params }: PageProps) {
   }
 
   permanentRedirect(
-    buildCanonicalBlogPostUrl(data.merchant, data.post.slug) as never
+    asRoute(buildCanonicalBlogPostUrl(data.merchant, data.post.slug))
   );
 }

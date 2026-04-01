@@ -10,6 +10,7 @@ import {
   getCachedProductReviews,
   getCachedProductWithDetails,
   getRequestScopedMerchant,
+  sanitizeLookupLogValue,
 } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
 import { escapeHtml } from '@/lib/sanitize-core';
@@ -24,6 +25,7 @@ import {
   getProductUrl,
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
+import { isValidMerchantIdentifier } from '@/lib/validation';
 import type { FAQItem } from '@/types/faq';
 import { buildProductRedirectPath } from './build-product-redirect-path';
 import ProductDetailClient from './product-detail-client';
@@ -53,9 +55,17 @@ async function getProductCached(
   storeSlug: string,
   productSlug: string
 ): Promise<ProductLookupResult | null> {
-  const merchant = await getRequestScopedMerchant(storeSlug);
+  if (!isValidMerchantIdentifier(storeSlug)) {
+    return null;
+  }
+
+  const safeStoreSlug = sanitizeLookupLogValue(storeSlug);
+  const merchant = await getRequestScopedMerchant(safeStoreSlug);
   if (!merchant) {
-    console.warn('Merchant not found for storefront product route:', storeSlug);
+    console.warn(
+      'Merchant not found for storefront product route:',
+      safeStoreSlug
+    );
     return null;
   }
   const cachedProduct = await getCachedProduct(merchant.id, productSlug);

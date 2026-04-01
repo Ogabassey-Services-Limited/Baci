@@ -17,6 +17,7 @@ import {
   getCachedLegacyProductRedirectTarget,
   getCachedProductWithDetails,
   getRequestScopedMerchant,
+  sanitizeLookupLogValue,
 } from '@/lib/cached-data';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
@@ -639,7 +640,7 @@ const getProduct = async (
 
     console.warn(
       'Product not found for storefront product route:',
-      productSlug
+      sanitizeLookupLogValue(productSlug)
     );
     return null;
   }

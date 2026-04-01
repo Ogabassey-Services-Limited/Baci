@@ -53,6 +53,11 @@ vi.mock('@/lib/store-url', () => ({
 
 vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: (value: string) => value.includes('.'),
+  isValidMerchantIdentifier: (value: string) =>
+    value !== 'images' &&
+    value !== 'product' &&
+    (value.includes('.') ||
+      /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(value)),
 }));
 
 const notFound = vi.fn(() => {
@@ -186,6 +191,17 @@ describe('products index page', () => {
     ).rejects.toThrow('NEXT_NOT_FOUND');
 
     expect(notFound).toHaveBeenCalled();
+  });
+
+  it('calls notFound when the slug is invalid before lookup', async () => {
+    await expect(
+      ProductsPage({
+        params: Promise.resolve({ slug: 'images' }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(getRequestScopedMerchant).not.toHaveBeenCalled();
   });
 
   it('does not return notFound for paginated product pages when the index fetch fails', async () => {

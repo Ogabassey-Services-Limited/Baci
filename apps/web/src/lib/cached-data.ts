@@ -254,24 +254,25 @@ export async function getCachedMerchant(
     .maybeSingle();
 
   if (error) {
-    // Sanitize user-controlled slug to prevent log injection
-    const safeSlug = String(slug || '')
-      .replace(/[\r\n]/g, '')
-      .substring(0, 100);
-    console.error(
+    const safeSlug = sanitizeLookupLogValue(slug);
+    const log = isTransientMerchantLookupError(error)
+      ? console.warn
+      : console.error;
+    log(
       'Error fetching merchant for slug:',
       safeSlug,
       JSON.stringify(error, null, 2)
     );
     // CRITICAL: Throwing instead of returning null prevents negative caching
     // Next.js will not cache this error, allowing retries or stale data serving.
-    throw new Error(`Failed to fetch merchant for slug: ${safeSlug}`);
+    throw createMerchantLookupError(
+      `Failed to fetch merchant for slug: ${safeSlug}`,
+      error
+    );
   }
 
   if (!data) {
-    const safeSlug = String(slug || '')
-      .replace(/[\r\n]/g, '')
-      .substring(0, 100);
+    const safeSlug = sanitizeLookupLogValue(slug);
     console.warn('No merchant data found for slug:', safeSlug);
   } else {
     // Normalize feature_settings from array to object (Edge Compatibility Pattern)
@@ -360,7 +361,10 @@ export async function getCachedMerchantByDomain(
       error: domainError,
     });
     // Throw on DB error to prevent negative caching
-    throw new Error(`Database error fetching domain: ${normalizedDomain}`);
+    throw createMerchantLookupError(
+      `Database error fetching domain: ${normalizedDomain}`,
+      domainError
+    );
   }
 
   if (!domainData) {
@@ -414,7 +418,10 @@ export async function getCachedMerchantByDomain(
       domain: normalizedDomain,
       error: error,
     });
-    throw new Error(`Failed to fetch merchant for domain: ${normalizedDomain}`);
+    throw createMerchantLookupError(
+      `Failed to fetch merchant for domain: ${normalizedDomain}`,
+      error
+    );
   }
 
   // Normalize feature_settings from array to object (Edge Compatibility Pattern)
@@ -459,8 +466,35 @@ function isDomainIdentifier(identifier: string): boolean {
   return identifier.includes('.') && !identifier.includes('-');
 }
 
+const TRANSIENT_MERCHANT_LOOKUP_ERROR = Symbol('transient-merchant-lookup');
+
+type MerchantLookupError = Error & {
+  [TRANSIENT_MERCHANT_LOOKUP_ERROR]?: true;
+};
+
+function createMerchantLookupError(message: string, cause: unknown): Error {
+  const error = new Error(message) as MerchantLookupError;
+  if (isTransientMerchantLookupError(cause)) {
+    error[TRANSIENT_MERCHANT_LOOKUP_ERROR] = true;
+  }
+  return error;
+}
+
+export function sanitizeLookupLogValue(value: unknown): string {
+  return String(value || '')
+    .replace(/[\r\n\t]/g, '')
+    .substring(0, 100);
+}
+
 function isTransientMerchantLookupError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
+
+  if (
+    TRANSIENT_MERCHANT_LOOKUP_ERROR in error &&
+    (error as MerchantLookupError)[TRANSIENT_MERCHANT_LOOKUP_ERROR]
+  ) {
+    return true;
+  }
 
   const maybeError = error as {
     details?: unknown;
@@ -519,9 +553,7 @@ export async function getMerchantSafe(
     try {
       return await getMerchantByIdentifier(identifier);
     } catch (retryError) {
-      const safeId = String(identifier || '')
-        .replace(/[\r\n]/g, '')
-        .substring(0, 100);
+      const safeId = sanitizeLookupLogValue(identifier);
       const log = isTransientMerchantLookupError(retryError)
         ? console.warn
         : console.error;

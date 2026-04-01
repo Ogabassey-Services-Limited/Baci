@@ -23,7 +23,10 @@ import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
 } from '@/lib/storefront-social-images';
-import { isDomainIdentifier } from '@/lib/validation';
+import {
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
 import { ProductIndexCard } from './product-index-card';
 
 interface PageProps {
@@ -44,6 +47,10 @@ export async function generateMetadata({
   const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
 
   if (!currentPage) {
+    notFound();
+  }
+
+  if (!isValidMerchantIdentifier(slug)) {
     notFound();
   }
 
@@ -119,6 +126,10 @@ export default async function ProductsPage({
   const currentPage = parseStorefrontPageParam(resolvedSearchParams.page);
 
   if (!currentPage) {
+    notFound();
+  }
+
+  if (!isValidMerchantIdentifier(slug)) {
     notFound();
   }
 

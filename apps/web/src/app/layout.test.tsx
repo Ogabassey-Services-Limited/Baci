@@ -17,7 +17,7 @@ vi.mock('@/app/root-dynamic-body', () => ({
     mockRootDynamicBody(props),
 }));
 
-import RootLayout from './layout';
+import RootLayout from '@/app/layout';
 
 describe('RootLayout', () => {
   it('renders the global app shell without request-scoped props', () => {

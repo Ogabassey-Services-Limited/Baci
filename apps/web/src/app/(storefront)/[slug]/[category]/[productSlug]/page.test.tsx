@@ -33,6 +33,10 @@ vi.mock('@/lib/cached-data', () => ({
     mockGetCachedLegacyProductRedirectTarget(...args),
   getCachedProductWithDetails: (...args: unknown[]) =>
     mockGetCachedProductWithDetails(...args),
+  sanitizeLookupLogValue: (value: unknown) =>
+    String(value ?? '')
+      .replace(/[\r\n\t]/g, '')
+      .substring(0, 100),
 }));
 
 vi.mock('@/lib/product-stock', () => ({
@@ -85,10 +89,16 @@ vi.mock('@/lib/storefront-product-variants', () => ({
 }));
 
 vi.mock('@/lib/validation', () => ({
+  // Keep reserved storefront namespaces aligned with production validation.
   isDomainIdentifier: (value: string) => value.includes('.'),
-  isValidMerchantIdentifier: (value: string) =>
-    value.includes('.') ||
-    /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(value),
+  isValidMerchantIdentifier: (value: string) => {
+    const reservedNames = new Set(['images', 'product']);
+    return (
+      (value.includes('.') ||
+        /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(value)) &&
+      !reservedNames.has(value.toLowerCase())
+    );
+  },
 }));
 
 vi.mock(
