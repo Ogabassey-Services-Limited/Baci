@@ -43,8 +43,6 @@ jobs:
     needs: [changes]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    env:
-      PNPM_STORE_DIR: ${{ runner.temp }}/pnpm-store
     steps:
       - if: needs.changes.outputs.web == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -58,64 +56,9 @@ jobs:
         with:
           node-version: "24"
       - if: needs.changes.outputs.web == 'true'
-        id: pnpm-store-cache
-        name: Restore pnpm store cache
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+        uses: ./.github/actions/pnpm-install-cached
         with:
-          path: ${{ env.PNPM_STORE_DIR }}
-          key: ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-
-            ${{ runner.os }}-${{ runner.arch }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-
-            ${{ runner.os }}-${{ runner.arch }}-pnpm-store-
-      - if: needs.changes.outputs.web == 'true'
-        id: pnpm-store-validation
-        name: Validate pnpm store cache metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-          lockfile_hash="$(sha256sum pnpm-lock.yaml | cut -d ' ' -f1)"
-          marker_file="${PNPM_STORE_DIR}/.pnpm-lock-hash"
-          cache_valid="false"
-
-          if [[ -f "${marker_file}" ]] && [[ "$(cat "${marker_file}")" == "${lockfile_hash}" ]]; then
-            cache_valid="true"
-          fi
-
-          echo "lockfile_hash=${lockfile_hash}" >> "$GITHUB_OUTPUT"
-          echo "cache_valid=${cache_valid}" >> "$GITHUB_OUTPUT"
-      - if: needs.changes.outputs.web == 'true' && steps.pnpm-store-validation.outputs.cache_valid == 'true'
-        uses: ./.github/actions/setup-pnpm-store
-        with:
-          store-dir: ${{ env.PNPM_STORE_DIR }}
-      - if: needs.changes.outputs.web == 'true' && steps.pnpm-store-validation.outputs.cache_valid != 'true'
-        uses: ./.github/actions/setup-pnpm-store
-        with:
-          store-dir: ${{ env.PNPM_STORE_DIR }}
-          reset: 'true'
-      - if: needs.changes.outputs.web == 'true'
-        id: pnpm-install
-        name: Install dependencies
-        continue-on-error: true
-        run: pnpm install --frozen-lockfile
-      - if: needs.changes.outputs.web == 'true' && steps.pnpm-install.outcome == 'failure'
-        uses: ./.github/actions/setup-pnpm-store
-        with:
-          store-dir: ${{ env.PNPM_STORE_DIR }}
-          reset: 'true'
-      - if: needs.changes.outputs.web == 'true' && steps.pnpm-install.outcome == 'failure'
-        name: Retry dependency install with clean pnpm store
-        run: pnpm install --frozen-lockfile
-      - if: needs.changes.outputs.web == 'true'
-        name: Record pnpm store lockfile hash
-        shell: bash
-        run: printf '%s' '${{ steps.pnpm-store-validation.outputs.lockfile_hash }}' > "${PNPM_STORE_DIR}/.pnpm-lock-hash"
-      - if: needs.changes.outputs.web == 'true' && steps.pnpm-store-cache.outputs.cache-hit != 'true'
-        name: Save pnpm store cache
-        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        with:
-          path: ${{ env.PNPM_STORE_DIR }}
-          key: ${{ steps.pnpm-store-cache.outputs.cache-primary-key }}
+          store-dir: ${{ runner.temp }}/pnpm-store
       # Run monorepo-wide lint/typecheck/test (not filtered to @baci/web)
       # to catch cross-package breakages from shared code changes
       - if: needs.changes.outputs.web == 'true'
@@ -130,8 +73,6 @@ jobs:
     needs: [changes, quality]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    env:
-      PNPM_STORE_DIR: ${{ runner.temp }}/pnpm-store
     steps:
       - if: needs.changes.outputs.web == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -145,42 +86,6 @@ jobs:
         with:
           node-version: "24"
       - if: needs.changes.outputs.web == 'true'
-        id: pnpm-store-cache
-        name: Restore pnpm store cache
-        uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        with:
-          path: ${{ env.PNPM_STORE_DIR }}
-          key: ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-
-            ${{ runner.os }}-${{ runner.arch }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-
-            ${{ runner.os }}-${{ runner.arch }}-pnpm-store-
-      - if: needs.changes.outputs.web == 'true'
-        id: pnpm-store-validation
-        name: Validate pnpm store cache metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-          lockfile_hash="$(sha256sum pnpm-lock.yaml | cut -d ' ' -f1)"
-          marker_file="${PNPM_STORE_DIR}/.pnpm-lock-hash"
-          cache_valid="false"
-
-          if [[ -f "${marker_file}" ]] && [[ "$(cat "${marker_file}")" == "${lockfile_hash}" ]]; then
-            cache_valid="true"
-          fi
-
-          echo "lockfile_hash=${lockfile_hash}" >> "$GITHUB_OUTPUT"
-          echo "cache_valid=${cache_valid}" >> "$GITHUB_OUTPUT"
-      - if: needs.changes.outputs.web == 'true' && steps.pnpm-store-validation.outputs.cache_valid == 'true'
-        uses: ./.github/actions/setup-pnpm-store
-        with:
-          store-dir: ${{ env.PNPM_STORE_DIR }}
-      - if: needs.changes.outputs.web == 'true' && steps.pnpm-store-validation.outputs.cache_valid != 'true'
-        uses: ./.github/actions/setup-pnpm-store
-        with:
-          store-dir: ${{ env.PNPM_STORE_DIR }}
-          reset: 'true'
-      - if: needs.changes.outputs.web == 'true'
         uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
         with:
           path: |
@@ -191,28 +96,9 @@ jobs:
             ${{ runner.os }}-build-${{ hashFiles('pnpm-lock.yaml') }}-
             ${{ runner.os }}-build-
       - if: needs.changes.outputs.web == 'true'
-        id: pnpm-install
-        name: Install dependencies
-        continue-on-error: true
-        run: pnpm install --frozen-lockfile
-      - if: needs.changes.outputs.web == 'true' && steps.pnpm-install.outcome == 'failure'
-        uses: ./.github/actions/setup-pnpm-store
+        uses: ./.github/actions/pnpm-install-cached
         with:
-          store-dir: ${{ env.PNPM_STORE_DIR }}
-          reset: 'true'
-      - if: needs.changes.outputs.web == 'true' && steps.pnpm-install.outcome == 'failure'
-        name: Retry dependency install with clean pnpm store
-        run: pnpm install --frozen-lockfile
-      - if: needs.changes.outputs.web == 'true'
-        name: Record pnpm store lockfile hash
-        shell: bash
-        run: printf '%s' '${{ steps.pnpm-store-validation.outputs.lockfile_hash }}' > "${PNPM_STORE_DIR}/.pnpm-lock-hash"
-      - if: needs.changes.outputs.web == 'true' && steps.pnpm-store-cache.outputs.cache-hit != 'true'
-        name: Save pnpm store cache
-        uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
-        with:
-          path: ${{ env.PNPM_STORE_DIR }}
-          key: ${{ steps.pnpm-store-cache.outputs.cache-primary-key }}
+          store-dir: ${{ runner.temp }}/pnpm-store
       - if: needs.changes.outputs.web == 'true'
         run: pnpm turbo build --filter=@baci/web
         env:

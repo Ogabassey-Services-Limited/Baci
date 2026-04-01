@@ -1,0 +1,106 @@
+name: pnpm install with validated cache
+description: Restore and validate the pnpm store cache, install dependencies, and persist the refreshed store.
+
+inputs:
+  store-dir:
+    description: Absolute path to the pnpm store directory.
+    required: true
+  install-command:
+    description: Command used to install dependencies.
+    required: false
+    default: pnpm install --frozen-lockfile
+
+outputs:
+  cache_hit:
+    description: Whether the exact pnpm store cache key was restored.
+    value: ${{ steps.pnpm-store-cache.outputs.cache-hit }}
+  cache_valid:
+    description: Whether the restored pnpm store matches the current lockfile hash.
+    value: ${{ steps.pnpm-store-validation.outputs.cache_valid }}
+  install_outcome:
+    description: Outcome of the first dependency install attempt.
+    value: ${{ steps.pnpm-install.outputs.outcome }}
+  lockfile_hash:
+    description: SHA-256 hash of pnpm-lock.yaml.
+    value: ${{ steps.pnpm-store-validation.outputs.lockfile_hash }}
+
+runs:
+  using: composite
+  steps:
+    - id: pnpm-store-cache
+      name: Restore pnpm store cache
+      uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+      with:
+        path: ${{ inputs.store-dir }}
+        key: ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-
+          ${{ runner.os }}-${{ runner.arch }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}-
+          ${{ runner.os }}-${{ runner.arch }}-pnpm-store-
+
+    - id: pnpm-store-validation
+      name: Validate pnpm store cache metadata
+      shell: bash
+      run: |
+        set -euo pipefail
+        lockfile_hash="$(sha256sum pnpm-lock.yaml | cut -d ' ' -f1)"
+        marker_file="${{ inputs.store-dir }}/.pnpm-lock-hash"
+        cache_valid="false"
+
+        if [[ -f "${marker_file}" ]] && [[ "$(cat "${marker_file}")" == "${lockfile_hash}" ]]; then
+          cache_valid="true"
+        fi
+
+        echo "lockfile_hash=${lockfile_hash}" >> "$GITHUB_OUTPUT"
+        echo "cache_valid=${cache_valid}" >> "$GITHUB_OUTPUT"
+
+    - if: ${{ steps.pnpm-store-validation.outputs.cache_valid == 'true' }}
+      uses: ./.github/actions/setup-pnpm-store
+      with:
+        store-dir: ${{ inputs.store-dir }}
+
+    - if: ${{ steps.pnpm-store-validation.outputs.cache_valid != 'true' }}
+      uses: ./.github/actions/setup-pnpm-store
+      with:
+        store-dir: ${{ inputs.store-dir }}
+        reset: 'true'
+
+    - id: pnpm-install
+      name: Install dependencies
+      shell: bash
+      run: |
+        set +e
+        ${{ inputs.install-command }}
+        install_exit=$?
+
+        if [[ "${install_exit}" -eq 0 ]]; then
+          echo "outcome=success" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "outcome=failure" >> "$GITHUB_OUTPUT"
+        exit 0
+
+    - if: ${{ steps.pnpm-install.outputs.outcome == 'failure' }}
+      uses: ./.github/actions/setup-pnpm-store
+      with:
+        store-dir: ${{ inputs.store-dir }}
+        reset: 'true'
+
+    - if: ${{ steps.pnpm-install.outputs.outcome == 'failure' }}
+      name: Retry dependency install with clean pnpm store
+      shell: bash
+      run: ${{ inputs.install-command }}
+
+    - name: Record pnpm store lockfile hash
+      shell: bash
+      run: |
+        lockfile_hash='${{ steps.pnpm-store-validation.outputs.lockfile_hash }}'
+        printf '%s' "$lockfile_hash" > "${{ inputs.store-dir }}/.pnpm-lock-hash"
+
+    - if: ${{ steps.pnpm-store-cache.outputs.cache-hit != 'true' }}
+      name: Save pnpm store cache
+      uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
+      with:
+        path: ${{ inputs.store-dir }}
+        key: ${{ steps.pnpm-store-cache.outputs.cache-primary-key }}
