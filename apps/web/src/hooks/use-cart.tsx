@@ -492,6 +492,16 @@ export const CartProvider = ({
       return; // Silently reject - UI should show out of stock state
     }
 
+    // Variant validation: Prevent adding variant products without selection
+    if (product.has_variants && !options?.variantId) {
+      logger.warn({
+        message: 'Attempted to add variant product without selecting variant',
+        productId: product.id,
+        productName: product.name,
+      });
+      return;
+    }
+
     setCart((prev) => {
       const cartItemId = generateCartItemId(product.id, options);
 
