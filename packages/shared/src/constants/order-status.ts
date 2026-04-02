@@ -8,14 +8,38 @@ import type { PaymentStatus, ShippingStatus } from '../types/order';
 // Shipping Status Configuration
 export const SHIPPING_STATUS_CONFIG: Record<
   ShippingStatus,
-  { label: string; colorKey: string }
+  { label: string; colorKey: string; icon: string }
 > = {
-  pending: { label: 'Unfulfilled', colorKey: 'pending' },
-  processing: { label: 'Processing', colorKey: 'processing' },
-  shipped: { label: 'Shipped', colorKey: 'shipped' },
-  delivered: { label: 'Delivered', colorKey: 'delivered' },
-  cancelled: { label: 'Cancelled', colorKey: 'cancelled' },
-  returned: { label: 'Returned', colorKey: 'returned' },
+  pending: {
+    label: 'Unfulfilled',
+    colorKey: 'pending',
+    icon: 'receipt-outline',
+  },
+  processing: {
+    label: 'Processing',
+    colorKey: 'processing',
+    icon: 'construct-outline',
+  },
+  shipped: {
+    label: 'Shipped',
+    colorKey: 'shipped',
+    icon: 'car-outline',
+  },
+  delivered: {
+    label: 'Delivered',
+    colorKey: 'delivered',
+    icon: 'checkmark-done-outline',
+  },
+  cancelled: {
+    label: 'Cancelled',
+    colorKey: 'cancelled',
+    icon: 'close-circle-outline',
+  },
+  returned: {
+    label: 'Returned',
+    colorKey: 'returned',
+    icon: 'return-down-back-outline',
+  },
 };
 
 // Payment Status Configuration
