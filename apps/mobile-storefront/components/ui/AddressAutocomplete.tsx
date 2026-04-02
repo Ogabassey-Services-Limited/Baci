@@ -16,12 +16,14 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   type TextInputProps,
+  useWindowDimensions,
   View,
   type ViewStyle,
 } from 'react-native';
@@ -33,12 +35,16 @@ import Colors, {
   SHADOWS,
   SPACING,
 } from '@/constants/Colors';
+import { resolveApiBaseUrl } from '@/lib/api-url';
+import {
+  type AutocompleteDropdownFrame,
+  getAutocompleteDropdownFrame,
+} from './address-autocomplete-layout';
 
 // API base URL - follows same pattern as orders.ts for consistency
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl ||
-  'https://ogabassey.usebaci.com';
+const API_BASE_URL = resolveApiBaseUrl(
+  process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
+);
 
 interface PlacePrediction {
   placeId: string;
@@ -98,6 +104,8 @@ export function AddressAutocomplete({
   label,
   country = 'ng',
   placeholder = 'Start typing your address...',
+  onBlur,
+  onFocus,
   ...props
 }: AddressAutocompleteProps) {
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
@@ -115,10 +123,18 @@ export function AddressAutocomplete({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [internalValue, setInternalValue] = useState(value);
+  const [dropdownFrame, setDropdownFrame] =
+    useState<AutocompleteDropdownFrame | null>(null);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const isDark = (colorScheme ?? 'light') === 'dark';
+  const [isFocused, setIsFocused] = useState(false);
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
 
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const inputContainerRef = useRef<View>(null);
+  const windowMetricsRef = useRef({ windowHeight, windowWidth });
+  const syncDropdownFrameRef = useRef<() => void>(() => {});
 
   // M16 fix: Clean up debounce timer on unmount
   useEffect(() => {
@@ -134,6 +150,31 @@ export function AddressAutocomplete({
   useEffect(() => {
     setInternalValue(value);
   }, [value]);
+
+  windowMetricsRef.current = { windowHeight, windowWidth };
+
+  syncDropdownFrameRef.current = () => {
+    inputContainerRef.current?.measureInWindow((x, y, width, height) => {
+      setDropdownFrame(
+        getAutocompleteDropdownFrame({
+          anchorRect: { x, y, width, height },
+          windowHeight: windowMetricsRef.current.windowHeight,
+          windowWidth: windowMetricsRef.current.windowWidth,
+        })
+      );
+    });
+  };
+
+  useEffect(() => {
+    if (!isOpen || predictions.length === 0) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      syncDropdownFrameRef.current();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isOpen, predictions.length]);
 
   const fetchPredictions = async (input: string) => {
     if (input.length < 2) {
@@ -184,7 +225,7 @@ export function AddressAutocomplete({
   const handleInputChange = (text: string) => {
     setInternalValue(text);
     onChangeText?.(text);
-    setIsOpen(true);
+    setIsOpen(text.trim().length >= 2);
 
     // Debounce API call
     if (debounceTimer.current) {
@@ -254,20 +295,38 @@ export function AddressAutocomplete({
 
   return (
     <View style={[styles.wrapper, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && (
+        <Text style={[styles.label, { color: colors.textSecondary }]}>
+          {label}
+        </Text>
+      )}
 
       {/* L8 fix: Add borderColor to match other input components */}
       <View
+        ref={inputContainerRef}
         style={[
           styles.container,
-          { borderColor: colors.border },
-          error && styles.containerError,
+          {
+            backgroundColor: isDark
+              ? 'rgba(255, 255, 255, 0.05)'
+              : colors.muted,
+            borderColor: error
+              ? colors.error
+              : isFocused
+                ? BRAND.primary
+                : colors.border,
+          },
         ]}
+        onLayout={() => {
+          if (isOpen && predictions.length > 0) {
+            syncDropdownFrameRef.current();
+          }
+        }}
       >
         <Ionicons
           name="location-outline"
           size={18}
-          color={palette.gray[400]}
+          color={colors.textSecondary}
           style={styles.icon}
         />
 
@@ -275,9 +334,22 @@ export function AddressAutocomplete({
           style={[styles.input, { color: colors.text }]}
           value={internalValue}
           onChangeText={handleInputChange}
-          onFocus={() => setIsOpen(true)}
+          onFocus={(event) => {
+            setIsFocused(true);
+            if (internalValue.trim().length >= 2) {
+              setIsOpen(true);
+              requestAnimationFrame(() => {
+                syncDropdownFrameRef.current();
+              });
+            }
+            onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setIsFocused(false);
+            onBlur?.(event);
+          }}
           placeholder={placeholder}
-          placeholderTextColor={colors.textSecondary}
+          placeholderTextColor={colors.placeholder}
           autoComplete="street-address"
           textContentType="fullStreetAddress"
           accessibilityLabel="Street address"
@@ -318,82 +390,128 @@ export function AddressAutocomplete({
       )}
 
       {/* Predictions Dropdown */}
-      {isOpen && predictions.length > 0 && (
-        <View
-          style={[
-            styles.dropdown,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-            },
-          ]}
-          accessibilityRole="list"
-          accessibilityLabel="Address suggestions"
-        >
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
-            showsVerticalScrollIndicator={false}
-          >
-            {predictions.map((item) => (
-              <Pressable
-                key={item.placeId}
-                style={({ pressed }: { pressed: boolean }) => [
-                  styles.predictionRow,
-                  { borderBottomColor: colors.border },
-                  pressed && { backgroundColor: colors.muted },
-                ]}
-                onPress={() => handlePredictionSelect(item)}
-                accessibilityRole="button"
-                accessibilityLabel={`${item.mainText}, ${item.secondaryText}`}
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setIsOpen(false)}
+        statusBarTranslucent
+        transparent
+        visible={isOpen && predictions.length > 0 && dropdownFrame !== null}
+      >
+        <View style={styles.modalRoot} pointerEvents="box-none">
+          <Pressable
+            accessibilityLabel="Dismiss address suggestions"
+            onPress={() => setIsOpen(false)}
+            style={styles.dismissArea}
+          />
+          {dropdownFrame && (
+            <View
+              style={[
+                styles.dropdown,
+                styles.modalDropdown,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border,
+                  left: dropdownFrame.left,
+                  maxHeight: dropdownFrame.maxHeight,
+                  top: dropdownFrame.top,
+                  width: dropdownFrame.width,
+                },
+              ]}
+              accessibilityLabel="Address suggestions"
+              accessibilityRole="list"
+            >
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+                showsVerticalScrollIndicator={false}
               >
+                {predictions.map((item) => (
+                  <Pressable
+                    key={item.placeId}
+                    style={({ pressed }: { pressed: boolean }) => [
+                      styles.predictionItem,
+                      { borderBottomColor: isDark ? 'rgba(255,255,255,0.05)' : colors.border },
+                      pressed && {
+                        backgroundColor: isDark
+                          ? 'rgba(255,255,255,0.04)'
+                          : colors.muted,
+                      },
+                    ]}
+                    onPress={() => handlePredictionSelect(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.mainText}, ${item.secondaryText}`}
+                  >
+                    <View style={styles.predictionRow}>
+                      <View style={[styles.predictionPinRail, { backgroundColor: isDark ? 'rgba(217, 59, 48, 0.14)' : `${BRAND.primary}12` }]}>
+                        <Ionicons
+                          name="location"
+                          size={18}
+                          color={BRAND.primary}
+                          style={styles.predictionPin}
+                        />
+                      </View>
+                      <View style={styles.predictionText}>
+                        <Text
+                          style={[
+                            styles.predictionMain,
+                            { color: colors.text },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.mainText}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.predictionSecondary,
+                            { color: colors.textSecondary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.secondaryText}
+                        </Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                ))}
                 <View
                   style={[
-                    styles.predictionIcon,
-                    { backgroundColor: colors.muted },
+                    styles.footer,
+                    {
+                      backgroundColor: isDark
+                        ? 'rgba(255,255,255,0.04)'
+                        : colors.muted,
+                    },
                   ]}
                 >
-                  <Ionicons
-                    name="location"
-                    size={14}
-                    color={colors.textSecondary}
-                  />
-                </View>
-                <View style={styles.predictionText}>
                   <Text
-                    style={[styles.predictionMain, { color: colors.text }]}
-                    numberOfLines={1}
+                    style={[styles.footerText, { color: colors.textSecondary }]}
                   >
-                    {item.mainText}
+                    Powered by{' '}
                   </Text>
-                  <Text
-                    style={[
-                      styles.predictionSecondary,
-                      { color: colors.textSecondary },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {item.secondaryText}
+                  <Text style={[styles.footerText, { color: '#4285F4' }]}>
+                    G
+                  </Text>
+                  <Text style={[styles.footerText, { color: '#EA4335' }]}>
+                    o
+                  </Text>
+                  <Text style={[styles.footerText, { color: '#FBBC05' }]}>
+                    o
+                  </Text>
+                  <Text style={[styles.footerText, { color: '#4285F4' }]}>
+                    g
+                  </Text>
+                  <Text style={[styles.footerText, { color: '#34A853' }]}>
+                    l
+                  </Text>
+                  <Text style={[styles.footerText, { color: '#EA4335' }]}>
+                    e
                   </Text>
                 </View>
-              </Pressable>
-            ))}
-            <View style={[styles.footer, { backgroundColor: colors.muted }]}>
-              <Text
-                style={[styles.footerText, { color: colors.textSecondary }]}
-              >
-                Powered by{' '}
-              </Text>
-              <Text style={[styles.footerText, { color: '#4285F4' }]}>G</Text>
-              <Text style={[styles.footerText, { color: '#EA4335' }]}>o</Text>
-              <Text style={[styles.footerText, { color: '#FBBC05' }]}>o</Text>
-              <Text style={[styles.footerText, { color: '#4285F4' }]}>g</Text>
-              <Text style={[styles.footerText, { color: '#34A853' }]}>l</Text>
-              <Text style={[styles.footerText, { color: '#EA4335' }]}>e</Text>
+              </ScrollView>
             </View>
-          </ScrollView>
+          )}
         </View>
-      )}
+      </Modal>
     </View>
   );
 }
@@ -401,8 +519,6 @@ export function AddressAutocomplete({
 const styles = StyleSheet.create({
   wrapper: {
     position: 'relative',
-    zIndex: 100,
-    elevation: 5,
     overflow: 'visible',
   },
   label: {
@@ -417,6 +533,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
     overflow: 'visible',
     minHeight: 52,
+    borderColor: 'transparent',
   },
   containerError: {
     borderColor: palette.red[500],
@@ -442,54 +559,69 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   dropdown: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: RADIUS.xl,
-    marginTop: SPACING.sm,
-    maxHeight: 300,
-    ...SHADOWS.lg,
-    zIndex: 9999,
+    ...SHADOWS.md,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  modalRoot: {
+    flex: 1,
+  },
+  dismissArea: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalDropdown: {
+    position: 'absolute',
+  },
+  predictionItem: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   predictionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 12,
   },
-  predictionIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: RADIUS.full,
+  predictionPinRail: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  predictionPin: {
+    textAlign: 'center',
+    marginLeft: 1, // Visual center tweak for Ionicons location
+  },
   predictionText: {
     flex: 1,
-    gap: 2,
+    flexShrink: 1,
   },
   predictionMain: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
+    lineHeight: 22,
   },
   predictionSecondary: {
-    fontSize: 12,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: SPACING.md,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomLeftRadius: RADIUS.xl,
     borderBottomRightRadius: RADIUS.xl,
+    marginTop: 4,
   },
   footerText: {
     fontSize: 11,
     fontWeight: '600',
+    letterSpacing: 0.5,
   },
 });

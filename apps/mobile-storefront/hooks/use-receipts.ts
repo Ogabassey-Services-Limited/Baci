@@ -226,6 +226,7 @@ export function useMerchantReceiptInfo() {
               phone,
               support_email,
               support_phone,
+              rider_phone_number,
               business_address,
               cac_rc_number,
               tax_identification_number,

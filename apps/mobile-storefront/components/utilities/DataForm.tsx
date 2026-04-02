@@ -115,13 +115,13 @@ export function DataForm({ onSuccess }: DataFormProps) {
           style={[
             styles.input,
             {
-              backgroundColor: colors.card,
+              backgroundColor: colors.muted,
               color: colors.text,
               borderColor: colors.border,
             },
           ]}
           placeholder="08012345678"
-          placeholderTextColor={colors.textSecondary}
+          placeholderTextColor={colors.placeholder}
           keyboardType="phone-pad"
           value={phoneNumber}
           onChangeText={handlePhoneChange}
@@ -185,13 +185,13 @@ export function DataForm({ onSuccess }: DataFormProps) {
             style={[
               styles.input,
               {
-                backgroundColor: colors.card,
+                backgroundColor: colors.muted,
                 color: colors.text,
                 borderColor: colors.border,
               },
             ]}
             placeholder="Enter amount"
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.placeholder}
             keyboardType="number-pad"
             value={planAmount > 0 ? String(planAmount) : ''}
             onChangeText={(t) => setPlanAmount(Number(t.replace(/\D/g, '')))}
