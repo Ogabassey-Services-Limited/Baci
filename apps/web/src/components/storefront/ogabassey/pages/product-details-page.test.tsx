@@ -24,9 +24,9 @@ vi.mock('next/dynamic', () => {
   function ProductDetailsTabsMock({
     productData,
   }: {
-    productData: { reviews?: number };
+    productData?: { reviews?: number };
   }) {
-    const reviews = productData.reviews ?? 0;
+    const reviews = productData?.reviews ?? 0;
     const [activeTab, setActiveTab] = useState<'description' | 'reviews'>('description');
 
     return (
@@ -54,7 +54,9 @@ vi.mock('next/dynamic', () => {
     default: (loader: () => Promise<unknown>) => {
       const source = loader.toString();
 
-      return function DynamicComponent(props: Record<string, unknown>) {
+      return function DynamicComponent(
+        props: Record<string, unknown> & { productData?: { reviews?: number } }
+      ) {
         if (source.includes('product-details-tabs')) {
           return <ProductDetailsTabsMock {...props} />;
         }
