@@ -60,9 +60,10 @@ export async function purchaseBill(
   billItemIdentifier: string,
   customerIdentification: string,
   amount: number,
-  customerName: string = 'Customer'
+  customerName: string = 'Customer',
+  requestRef?: string
 ): Promise<PurchaseResult> {
-  const requestRef = generateRequestRef();
+  const reference = requestRef || generateRequestRef();
 
   try {
     // Kuda purchase response: { reference: string; pin: string | null }
@@ -77,13 +78,14 @@ export async function purchaseBill(
         PhoneNumber: customerIdentification,
         BillItemIdentifier: billItemIdentifier,
         Amount: (amount * 100).toString(), // Convert Naira to Kobo
+        trackingReference: reference,
       },
-      requestRef
+      reference
     );
 
     return {
       success: response.status,
-      reference: requestRef,
+      reference,
       transactionId: response.data?.reference,
       message: response.message,
       status: response.status ? 'successful' : 'failed',
@@ -92,7 +94,7 @@ export async function purchaseBill(
   } catch (error) {
     return {
       success: false,
-      reference: requestRef,
+      reference,
       message: error instanceof Error ? error.message : 'Bill purchase failed',
       status: 'failed',
       amount,

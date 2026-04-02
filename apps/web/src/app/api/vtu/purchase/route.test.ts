@@ -383,7 +383,8 @@ describe('POST /api/vtu/purchase', () => {
       '2348012345678',
       100,
       'MTN',
-      'Test Shop'
+      'Test Shop',
+      'BACI-123456-abcd'
     );
   });
 
@@ -418,7 +419,8 @@ describe('POST /api/vtu/purchase', () => {
       'MTN-1GB',
       1000,
       'MTN',
-      'Test Shop'
+      'Test Shop',
+      'BACI-123456-abcd'
     );
   });
 
@@ -452,7 +454,8 @@ describe('POST /api/vtu/purchase', () => {
       'ikeja-electric-prepaid',
       '12345678901',
       5000,
-      'Test Shop'
+      'Test Shop',
+      'BACI-123456-abcd'
     );
   });
 
