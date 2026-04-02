@@ -461,7 +461,7 @@ export function generateProductSchema(
       {
         key: 'card_slot_type',
         name: 'Card Slot',
-        check: () => keySpecs.has_card_slot,
+        check: () => Boolean(keySpecs.has_card_slot),
       },
 
       // Camera
@@ -490,7 +490,7 @@ export function generateProductSchema(
       {
         key: 'usb_type',
         name: 'USB',
-        format: (v) => v + (keySpecs.has_usb_otg ? ' (OTG)' : ''),
+        format: (v) => String(v) + (keySpecs.has_usb_otg ? ' (OTG)' : ''),
       },
       {
         key: 'has_fm_radio',
@@ -513,7 +513,7 @@ export function generateProductSchema(
         key: 'wireless_charging_watt',
         name: 'Wireless Charging',
         format: (v) => `${v}W`,
-        check: () => keySpecs.has_wireless_charging,
+        check: () => Boolean(keySpecs.has_wireless_charging),
       },
     ];
 
@@ -535,7 +535,7 @@ export function generateProductSchema(
 
     // Process configuration-driven specs
     for (const mapping of SPEC_MAPPINGS) {
-      const value = keySpecs[mapping.key];
+      const value = keySpecs[mapping.key] as string | number | boolean | undefined;
       const shouldInclude = mapping.check
         ? mapping.check(value)
         : value !== null && value !== undefined;
