@@ -342,6 +342,7 @@ export function PhoneInput({
           placeholder={placeholder}
           placeholderTextColor={colors.placeholder}
           keyboardType="phone-pad"
+          returnKeyType="done"
           autoComplete="tel"
           textContentType="telephoneNumber"
           accessibilityLabel={label || 'Phone number'}
@@ -418,6 +419,8 @@ export function PhoneInput({
               autoCapitalize="none"
               autoCorrect={false}
               accessibilityLabel="Search for a country"
+              returnKeyType="search"
+              clearButtonMode="while-editing"
             />
           </View>
 
