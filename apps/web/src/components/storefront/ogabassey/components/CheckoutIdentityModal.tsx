@@ -196,8 +196,9 @@ export function CheckoutIdentityModal({
 
               {/* Email */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Email Address</label>
+                <label htmlFor="checkout-email" className="text-sm font-medium text-gray-700">Email Address</label>
                 <input
+                  id="checkout-email"
                   type="email"
                   placeholder="name@example.com"
                   value={email}

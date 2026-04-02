@@ -61,7 +61,7 @@ export function AirtimeDataForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-gray-700">
+        <label htmlFor="phone-number" className="text-sm font-medium text-gray-700">
           Phone Number
         </label>
         <div className="relative">
@@ -70,6 +70,7 @@ export function AirtimeDataForm({
             size={18}
           />
           <input
+            id="phone-number"
             type="tel"
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
@@ -80,11 +81,13 @@ export function AirtimeDataForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-4 gap-3" role="radiogroup" aria-label="Network Provider">
         {AIRTIME_PROVIDERS.map((provider) => (
           <button
             key={provider.id}
             type="button"
+            role="radio"
+            aria-checked={selectedProvider === provider.id}
             onClick={() => setSelectedProvider(provider.id)}
             className={cn(
               'flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all aspect-square',
@@ -105,12 +108,13 @@ export function AirtimeDataForm({
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-gray-700">Amount</label>
+        <label htmlFor="airtime-amount" className="text-sm font-medium text-gray-700">Amount</label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
             ₦
           </span>
           <input
+            id="airtime-amount"
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
