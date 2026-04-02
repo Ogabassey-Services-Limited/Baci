@@ -117,6 +117,8 @@ export function rankProductMatches<T extends ProductMatchCandidate>(
     return [];
   }
 
+  const seenMatchIds = new Set<string>();
+
   const matches = products
     .filter((product) => product.id !== options?.excludeProductId)
     .map((product) => {
@@ -153,14 +155,13 @@ export function rankProductMatches<T extends ProductMatchCandidate>(
         isExact,
       };
     })
-    .filter(
-      (match, index, allMatches) =>
-        match.isExact ||
-        (match.score >= (options?.minScore ?? 0.45) &&
-          allMatches.findIndex(
-            (candidate) => candidate.product.id === match.product.id
-          ) === index)
-    )
+    .filter((match) => {
+      if (match.isExact) return true;
+      if (match.score < (options?.minScore ?? 0.45)) return false;
+      if (seenMatchIds.has(match.product.id)) return false;
+      seenMatchIds.add(match.product.id);
+      return true;
+    })
     .sort((left, right) => {
       if (left.isExact !== right.isExact) {
         return left.isExact ? -1 : 1;
