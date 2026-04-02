@@ -2,8 +2,15 @@ import { FlashList, type ListRenderItemInfo } from '@shopify/flash-list';
 import type { Block } from '@/types/blocks';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { RefreshControl, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  RefreshControl,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { BlockRenderer } from '@/components/storefront/BlockRenderer';
@@ -20,6 +27,7 @@ import { useNetworkState } from '@/hooks/use-network-state';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
 import { usePageConfig } from '@/hooks';
 import { CONFIG } from '@/lib/config';
+import { resolveScrollHeaderVisibility } from '@/lib/scroll-header-visibility';
 import { getTemplateConfig } from '@/lib/templates';
 
 const PATTERN_URI =
@@ -74,6 +82,11 @@ export default function HomeScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(150); // Initial estimate for spacer
+  const headerVisibility = useRef(new Animated.Value(1)).current;
+  const headerScrollState = useRef({
+    isVisible: true,
+    previousOffsetY: 0,
+  });
 
   // 2026 Best Practice: Network state monitoring for offline UX
   // Note: Manual onReconnect refetch removed — onlineManager.setOnline(true)
@@ -84,6 +97,11 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearch = () => {
+    headerScrollState.current = {
+      isVisible: true,
+      previousOffsetY: 0,
+    };
+    animateHeaderVisibility(true);
     setSearchVisible(true);
   };
 
@@ -98,6 +116,47 @@ export default function HomeScreen() {
       await refetch();
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const animateHeaderVisibility = (isVisible: boolean) => {
+    Animated.timing(headerVisibility, {
+      toValue: isVisible ? 1 : 0,
+      duration: 180,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const handleHeaderLayout = ({
+    nativeEvent,
+  }: {
+    nativeEvent: { layout: { height: number } };
+  }) => {
+    const nextHeight = nativeEvent.layout.height;
+    if (nextHeight > 0 && Math.abs(nextHeight - headerHeight) > 1) {
+      setHeaderHeight(nextHeight);
+    }
+  };
+
+  const handleListScroll = (
+    event: NativeSyntheticEvent<NativeScrollEvent>
+  ) => {
+    if (searchVisible) {
+      return;
+    }
+
+    const currentState = headerScrollState.current;
+    const nextState = resolveScrollHeaderVisibility({
+      currentOffsetY: event.nativeEvent.contentOffset.y,
+      previousOffsetY: currentState.previousOffsetY,
+      isVisible: currentState.isVisible,
+    });
+
+    headerScrollState.current.previousOffsetY = nextState.previousOffsetY;
+
+    if (nextState.isVisible !== currentState.isVisible) {
+      headerScrollState.current.isVisible = nextState.isVisible;
+      animateHeaderVisibility(nextState.isVisible);
     }
   };
 
@@ -163,7 +222,31 @@ export default function HomeScreen() {
     />
   );
 
-  const renderListHeader = () => <View style={{ height: headerHeight }} />;
+  const resolvedHeaderHeight = headerHeight > 0 ? headerHeight : 150;
+  const headerOverlayAnimatedStyle = {
+    opacity: headerVisibility.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 1],
+    }),
+    transform: [
+      {
+        translateY: headerVisibility.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-resolvedHeaderHeight, 0],
+        }),
+      },
+    ],
+  };
+  const headerSpacerAnimatedStyle = {
+    height: headerVisibility.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, resolvedHeaderHeight],
+    }),
+  };
+
+  const renderListHeader = () => (
+    <Animated.View style={headerSpacerAnimatedStyle} />
+  );
 
   const isElite = template.headerStyle === 'elite';
 
@@ -194,39 +277,44 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <View
-        style={[styles.headerOverlay, { zIndex: searchVisible ? 10000 : 100 }]}
-        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+      <Animated.View
+        style={[
+          styles.headerOverlay,
+          { zIndex: searchVisible ? 10000 : 100 },
+          headerOverlayAnimatedStyle,
+        ]}
       >
-        <Header
-          showSearch={true}
-          onSearchPress={handleSearch}
-          isSearchActive={searchVisible}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-          onSearchCancel={handleSearchCancel}
-        />
-
-        {!isOnline && pageConfig && (
-          <OfflineNotice
-            variant="banner"
-            showCachedDataNotice
-            showRetry
-            onRetry={handleRefresh}
-            isRetrying={refreshing}
+        <View onLayout={handleHeaderLayout}>
+          <Header
+            showSearch={true}
+            onSearchPress={handleSearch}
+            isSearchActive={searchVisible}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
+            onSearchCancel={handleSearchCancel}
           />
-        )}
 
-        {isError && isOnline && (
-          <OfflineNotice
-            variant="inline"
-            message="Failed to load content"
-            showRetry
-            onRetry={handleRefresh}
-            isRetrying={refreshing}
-          />
-        )}
-      </View>
+          {!isOnline && pageConfig && (
+            <OfflineNotice
+              variant="banner"
+              showCachedDataNotice
+              showRetry
+              onRetry={handleRefresh}
+              isRetrying={refreshing}
+            />
+          )}
+
+          {isError && isOnline && (
+            <OfflineNotice
+              variant="inline"
+              message="Failed to load content"
+              showRetry
+              onRetry={handleRefresh}
+              isRetrying={refreshing}
+            />
+          )}
+        </View>
+      </Animated.View>
 
       <FlashList
         data={blocks}
@@ -241,10 +329,12 @@ export default function HomeScreen() {
             onRefresh={handleRefresh}
             tintColor={BRAND.primary}
             colors={[BRAND.primary]}
-            progressViewOffset={headerHeight}
+            progressViewOffset={resolvedHeaderHeight}
           />
         }
         showsVerticalScrollIndicator={false}
+        onScroll={handleListScroll}
+        scrollEventThrottle={16}
       />
       <PermissionModal
         visible={showPermissionModal}
@@ -255,7 +345,7 @@ export default function HomeScreen() {
       <SearchDropdown
         isVisible={searchVisible}
         onClose={handleSearchCancel}
-        topOffset={headerHeight}
+        topOffset={resolvedHeaderHeight}
         query={searchQuery}
         onQueryChange={setSearchQuery}
         hideInput={true}

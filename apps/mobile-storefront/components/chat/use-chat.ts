@@ -5,6 +5,7 @@ import { Platform, type TextInput } from 'react-native';
 import { createLogger } from '@/lib/logger';
 import { useUIStore } from '@/stores/ui-store';
 import { API_BASE_URL } from './constants';
+import { readChatResponseText } from './read-chat-response';
 import type { ChatMessage } from './types';
 
 const log = createLogger('ChatWidget');
@@ -87,41 +88,52 @@ export function useChat(santaMode: boolean) {
 
       // Capture history before setMessages so concurrent renders can't duplicate
       const currentMessages = messagesRef.current;
-      let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
-
       try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: controller.signal,
-          body: JSON.stringify({
-            messages: [
-              ...currentMessages.map((m) => ({
-                role: m.role === 'model' ? 'assistant' : 'user',
-                content: m.text,
-              })),
-              { role: 'user', content: messageText },
-            ],
-          }),
-        });
+        const requestBody = {
+          messages: [
+            ...currentMessages.map((m) => ({
+              role: m.role === 'model' ? 'assistant' : 'user',
+              content: m.text,
+            })),
+            { role: 'user', content: messageText },
+          ],
+        };
 
-        if (!response.ok) {
-          throw new Error('Chat service unavailable');
+        const sendRequest = async () => {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'text/plain',
+              'Cache-Control': 'no-cache',
+            },
+            signal: controller.signal,
+            body: JSON.stringify(requestBody),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Chat service unavailable (${response.status})`);
+          }
+
+          const text = await readChatResponseText(response);
+          log.info('Chat response received', {
+            endpoint,
+            status: response.status,
+            length: text.length,
+          });
+
+          return text;
+        };
+
+        let aiResponseText = await sendRequest();
+
+        if (!aiResponseText) {
+          log.warn('Empty chat response, retrying once', { endpoint });
+          aiResponseText = await sendRequest();
         }
 
-        // Parse streaming response — plain text from toTextStreamResponse / text/plain
-        reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        let aiResponseText = '';
-
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            aiResponseText += decoder.decode(value, { stream: true });
-          }
-          // Flush any remaining multi-byte characters held in the decoder buffer
-          aiResponseText += decoder.decode();
+        if (!aiResponseText) {
+          throw new Error('Empty chat response');
         }
 
         // Clean response text (sanitizeHtml not needed — RN <Text> doesn't execute HTML)
@@ -132,7 +144,7 @@ export function useChat(santaMode: boolean) {
         const aiMessage: ChatMessage = {
           id: `ai-${++_msgCounter.current}`,
           role: 'model',
-          text: displayText || 'I apologize, I could not process that request.',
+          text: displayText,
           timestamp: new Date(),
         };
 
@@ -145,7 +157,6 @@ export function useChat(santaMode: boolean) {
         }
       } finally {
         clearTimeout(_timeoutId);
-        reader?.cancel();
       }
     } catch (error) {
       log.error('Chat error:', error);

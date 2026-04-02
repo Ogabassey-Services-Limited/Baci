@@ -30,6 +30,7 @@ import { ConnectivityBanner } from '@/components/ConnectivityBanner';
 import { ChatWidget } from '@/components/chat/ChatWidget';
 import { ErrorFallback, GlobalErrorBoundary } from '@/components/ErrorBoundary';
 import { NegotiationModal } from '@/components/modals/NegotiationModal';
+import { CompactStackHeader } from '@/components/navigation/CompactStackHeader';
 import { DrawerMenu } from '@/components/navigation/DrawerMenu';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -211,6 +212,7 @@ function RootLayoutNav({
           <GlobalErrorBoundary context="RootNavigation">
             <Stack
               screenOptions={{
+                header: (props) => <CompactStackHeader {...props} />,
                 headerStyle: {
                   backgroundColor: colors.background,
                 },
@@ -240,8 +242,7 @@ function RootLayoutNav({
               <Stack.Screen
                 name="product/[slug]"
                 options={{
-                  headerTransparent: true,
-                  headerTitle: '',
+                  headerShown: false,
                   // 2026 Best Practice: Native-standard slide transition for product deep-links
                   animation: 'slide_from_right',
                 }}

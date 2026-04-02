@@ -182,13 +182,13 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
                   styles.input,
                   styles.verifyInput,
                   {
-                    backgroundColor: colors.card,
+                    backgroundColor: colors.muted,
                     color: colors.text,
                     borderColor: colors.border,
                   },
                 ]}
                 placeholder={IDENTIFIER_PLACEHOLDERS[type]}
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor={colors.placeholder}
                 keyboardType="number-pad"
                 value={customerId}
                 onChangeText={(text) => {
@@ -237,13 +237,13 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
               style={[
                 styles.input,
                 {
-                  backgroundColor: colors.card,
+                  backgroundColor: colors.muted,
                   color: colors.text,
                   borderColor: colors.border,
                 },
               ]}
               placeholder="Enter amount"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={colors.placeholder}
               keyboardType="number-pad"
               value={amount}
               onChangeText={(t) => setAmount(t.replace(/\D/g, ''))}
