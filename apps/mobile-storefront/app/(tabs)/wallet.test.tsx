@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
-import Colors from '@/constants/Colors';
+import Colors, { palette } from '@/constants/Colors';
 import WalletTabScreen from './wallet';
 
 const mockPush = jest.fn();
@@ -47,7 +47,11 @@ describe('WalletTabScreen', () => {
       refetch: jest.fn(),
     });
     mockUseAuthStatus.mockReturnValue({
+      customer: null,
+      isAuthenticated: true,
+      isGuest: false,
       isInitialized: true,
+      isLoading: false,
       user: { id: 'user-1' },
     });
   });
@@ -76,9 +80,25 @@ describe('WalletTabScreen', () => {
 
     expect(
       StyleSheet.flatten(screen.getByText('Reward Points').props.style)
-    ).toMatchObject({ color: '#92400E' });
+    ).toMatchObject({ color: palette.amber[800] });
     expect(
       StyleSheet.flatten(screen.getByText('Redeem Points').props.style)
-    ).toMatchObject({ color: Colors.light.background });
+    ).toMatchObject({ color: Colors.light.secondaryForeground });
+  });
+
+  it('redirects away when the user is unauthenticated', () => {
+    mockUseAuthStatus.mockReturnValue({
+      customer: null,
+      isAuthenticated: false,
+      isGuest: true,
+      isInitialized: true,
+      isLoading: false,
+      user: null,
+    });
+
+    const { toJSON } = render(<WalletTabScreen />);
+
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)');
+    expect(toJSON()).toBeNull();
   });
 });

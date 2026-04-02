@@ -148,7 +148,14 @@ export default function WalletTabScreen() {
             ]}
             onPress={() => router.push('/wallet')}
           >
-            <Text style={[styles.redeemButtonText, { color: colors.background }]}>Redeem Points</Text>
+            <Text
+              style={[
+                styles.redeemButtonText,
+                { color: colors.secondaryForeground },
+              ]}
+            >
+              Redeem Points
+            </Text>
           </Pressable>
         </View>
 
