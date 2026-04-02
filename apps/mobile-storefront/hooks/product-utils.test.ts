@@ -38,6 +38,7 @@ jest.mock('@/lib/supabase', () => ({
 }));
 
 const {
+  PRODUCT_DETAIL_SELECT,
   PRODUCT_SELECT,
   fetchProductRow,
   fetchProductsPage,
@@ -92,14 +93,44 @@ const validProductRow = {
   compare_at_price: 600000,
   images: ['https://cdn.example.com/iphone-13-pro.jpg'],
   brand: 'Apple',
+  color: 'Blue',
   condition: 'New',
   average_rating: 4.6,
   review_count: 18,
   manage_stock: true,
+  stock: 4,
   stock_quantity: 4,
   status: 'active',
   specifications: { ram: '6GB' },
   has_variants: true,
+  colors: ['Blue'],
+  color_images: { Blue: ['https://cdn.example.com/iphone-13-pro-blue.jpg'] },
+  has_condition_offers: true,
+  offers: [
+    {
+      id: 'offer-used',
+      condition: 'used',
+      price: 510000,
+      compare_at_price: 540000,
+      stock_quantity: 2,
+      images: ['https://cdn.example.com/iphone-13-pro-used.jpg'],
+      condition_notes: 'Excellent condition',
+      grade: 'A',
+    },
+  ],
+  variants: [
+    {
+      id: 'variant-128gb',
+      product_id: '123e4567-e89b-12d3-a456-426614174000',
+      merchant_id: 'merchant-1',
+      sku: 'IPHONE-13-PRO-128',
+      price_override: 552000,
+      primary_image: 'https://cdn.example.com/iphone-13-pro-128.jpg',
+      images: ['https://cdn.example.com/iphone-13-pro-128.jpg'],
+      stock_quantity: 4,
+      attributes: { storage: '128GB' },
+    },
+  ],
   variant_attributes: [{ param: 'Storage', options: ['128GB', '256GB'] }],
   categories: [{ id: 'cat-1', name: 'Phones', slug: 'phones' }],
 };
@@ -126,7 +157,7 @@ describe('product-utils', () => {
 
     expect(result).toEqual({ data: validProductRow, error: null });
     expect(mockFrom).toHaveBeenCalledWith('products');
-    expect(query.select).toHaveBeenCalledWith(PRODUCT_SELECT);
+    expect(query.select).toHaveBeenCalledWith(PRODUCT_DETAIL_SELECT);
     expect(query.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(query.eq).toHaveBeenCalledWith('status', 'active');
     expect(query.eq).toHaveBeenCalledWith('slug', 'iphone-13-pro');
@@ -186,10 +217,45 @@ describe('product-utils', () => {
       rating: validProductRow.average_rating,
       review_count: validProductRow.review_count,
       category: 'Phones',
+      colors: validProductRow.colors,
+      color_images: validProductRow.color_images,
+      has_condition_offers: true,
+      offers: [
+        expect.objectContaining({
+          id: 'offer-used',
+          condition: 'used',
+          price: 510000,
+        }),
+      ],
       in_stock: true,
     });
 
     expect(transformProduct({ id: 'bad-id' })).toBeNull();
+  });
+
+  it('transformProduct uses effective stock when stock_quantity drifted to zero', () => {
+    expect(
+      transformProduct({
+        ...validProductRow,
+        stock: 7,
+        stock_quantity: 0,
+        manage_stock: true,
+      })
+    ).toMatchObject({
+      stock_quantity: 7,
+      in_stock: true,
+    });
+  });
+
+  it('transformProduct normalizes lowercase condition labels to sentence case', () => {
+    expect(
+      transformProduct({
+        ...validProductRow,
+        condition: 'refurbished',
+      })
+    ).toMatchObject({
+      condition: 'Refurbished',
+    });
   });
 
   it('fetchProductsPage applies filters, paginates, and returns transformed products', async () => {

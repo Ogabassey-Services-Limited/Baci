@@ -12,9 +12,11 @@ import {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
+import { resolveDefaultVariantSelection } from '../../../../packages/shared/src/lib/product-default-variant';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { SPRING_CONFIG } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/use-haptics';
+import { resolveCartItemImageUrl } from '@/lib/cart-display';
 import {
   getProductCardImageAttempt,
   normalizeProductImages,
@@ -75,6 +77,15 @@ export function ProductCard({
       .filter((item) => item.product_id === product.id)
       .reduce((total, item) => total + item.quantity, 0)
   );
+  const defaultVariantSelection = resolveDefaultVariantSelection(product);
+  const displayProduct =
+    product.has_variants && defaultVariantSelection
+      ? {
+          ...product,
+          price: defaultVariantSelection.price,
+          compare_at_price: defaultVariantSelection.compareAtPrice,
+        }
+      : product;
 
   const [, setStockQuantity] = useState<number | undefined>(
     product.stock_quantity
@@ -152,25 +163,6 @@ export function ProductCard({
     onWishlistToggle?.(product);
   };
 
-  const handleAddToCart = () => {
-    if (product.has_variants) {
-      router.push(`/product/${product.slug}`);
-      return;
-    }
-    haptics.light();
-
-    addItem({
-      product_id: product.id,
-      slug: product.slug,
-      name: product.name,
-      price: product.price,
-      compare_at_price: product.compare_at_price,
-      quantity: 1,
-      image_url: product.image,
-      condition: product.condition,
-    });
-  };
-
   const imageCandidates = normalizeProductImages(
     product.image
       ? [
@@ -208,11 +200,47 @@ export function ProductCard({
   const imageSource = {
     uri: getProductCardImageAttempt(imageCandidates, imageAttempt),
   };
+  const quickAddImageUrl = resolveCartItemImageUrl({
+    displayedImageUrl: imageSource.uri,
+    variantImageUrl: defaultVariantSelection?.variant.image,
+    variantImages: defaultVariantSelection?.variant.images,
+    fallbackImageUrl: product.image,
+  });
+
+  const handleAddToCart = () => {
+    if (product.has_variants && !defaultVariantSelection) {
+      router.push(`/product/${product.slug}`);
+      return;
+    }
+
+    haptics.light();
+
+    addItem({
+      product_id: product.id,
+      slug: product.slug,
+      name: product.name,
+      variant_id: defaultVariantSelection?.variant.id,
+      variant_attributes:
+        defaultVariantSelection &&
+        Object.keys(defaultVariantSelection.attributes).length > 0
+          ? defaultVariantSelection.attributes
+          : undefined,
+      price: defaultVariantSelection?.price ?? product.price,
+      compare_at_price:
+        defaultVariantSelection?.compareAtPrice ?? product.compare_at_price,
+      quantity: 1,
+      image_url: quickAddImageUrl,
+      condition: product.condition,
+      color: defaultVariantSelection?.color,
+      storage: defaultVariantSelection?.storage,
+      variant_name: defaultVariantSelection?.variant.name,
+    });
+  };
 
   if (variant === 'editorial') {
     return (
       <EditorialProductCard
-        product={product}
+        product={displayProduct}
         imageSource={imageSource}
         imageProps={imageProps}
         showLocalPlaceholder={showLocalPlaceholder}
@@ -234,7 +262,7 @@ export function ProductCard({
   if (variant === 'list') {
     return (
       <ListProductCard
-        product={product}
+        product={displayProduct}
         imageSource={imageSource}
         imageProps={imageProps}
         showLocalPlaceholder={showLocalPlaceholder}
@@ -254,7 +282,7 @@ export function ProductCard({
 
   return (
     <GridProductCard
-      product={product}
+      product={displayProduct}
       imageSource={imageSource}
       imageProps={imageProps}
       showLocalPlaceholder={showLocalPlaceholder}
