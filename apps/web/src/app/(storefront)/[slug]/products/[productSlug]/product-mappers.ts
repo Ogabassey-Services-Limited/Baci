@@ -143,10 +143,9 @@ export function mapLegacyCachedProductToProduct(
     category_slug: primaryCategory?.slug || undefined,
     has_variants: normalizedVariants.length > 0,
     variants: normalizedVariants,
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    specifications: cachedProduct.specifications as any,
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    product_key_specs: cachedProduct.product_key_specs as any,
+    specifications: cachedProduct.specifications as Product['specifications'],
+    product_key_specs:
+      cachedProduct.product_key_specs as Product['product_key_specs'],
   };
 }
 
@@ -214,9 +213,8 @@ export function mapDetailedCachedProductToProduct(
       : null,
     has_variants: normalizedVariants.length > 0,
     variants: normalizedVariants,
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    specifications: detailedProduct.specifications as any,
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
-    product_key_specs: detailedProduct.product_key_specs as any,
+    specifications: detailedProduct.specifications as Product['specifications'],
+    product_key_specs:
+      detailedProduct.product_key_specs as Product['product_key_specs'],
   } as Product;
 }

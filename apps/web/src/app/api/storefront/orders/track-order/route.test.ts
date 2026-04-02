@@ -136,4 +136,33 @@ describe('GET /api/storefront/orders/track-order', () => {
       p_tracking_token: 'track-token-123',
     });
   });
+
+  it('keeps the customer timeline free of processing when the raw status is processing', async () => {
+    mockAnonClient.rpc.mockResolvedValue({
+      data: [
+        makeTrackedOrder({
+          shipping_status: 'processing',
+          payment_status: 'paid',
+        }),
+      ],
+      error: null,
+    });
+
+    const request = new NextRequest(
+      'https://example.com/api/storefront/orders/track-order?token=track-token-123&merchant_slug=test-store'
+    );
+
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(
+      data.timeline.map((event: { title: string }) => event.title)
+    ).toEqual(['Order Placed', 'Payment Confirmed', 'On the way']);
+    expect(
+      data.timeline.some(
+        (event: { title: string }) => event.title === 'Processing'
+      )
+    ).toBe(false);
+  });
 });

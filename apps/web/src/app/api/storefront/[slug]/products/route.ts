@@ -5,16 +5,27 @@ import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { PRODUCT_COLUMNS } from '@/lib/product-queries';
 import { getEffectiveStock } from '@/lib/product-stock';
 
+// Extract primary image URL from mixed format (string[] or {url}[])
+function extractPrimaryImage(images: unknown): string {
+  if (!Array.isArray(images) || images.length === 0) return '';
+  const first = images[0];
+  if (typeof first === 'string') return first;
+  if (first && typeof first === 'object' && 'url' in first)
+    return (first as { url: string }).url || '';
+  return '';
+}
+
 // Map database product to API response format function
 function mapProduct(p: Record<string, unknown>) {
+  const primaryImage = extractPrimaryImage(p.images);
   return {
     id: p.id,
     name: p.name,
     description: p.description,
     price: p.price,
     compare_at_price: p.compare_at_price,
-    image: (p.images as { url: string }[])?.[0]?.url || '',
-    imageLarge: (p.images as { url: string }[])?.[0]?.url || '',
+    image: primaryImage,
+    imageLarge: primaryImage,
     imageHint: p.image_hint,
     category: p.category || 'General',
     brand: p.brand,

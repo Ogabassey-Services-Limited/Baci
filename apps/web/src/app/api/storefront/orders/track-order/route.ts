@@ -22,10 +22,10 @@ interface TimelineEvent {
   icon:
     | 'order'
     | 'payment'
-    | 'processing'
     | 'shipped'
     | 'delivered'
-    | 'cancelled';
+    | 'cancelled'
+    | 'returned';
 }
 
 interface ShippingAddress {
@@ -73,6 +73,23 @@ interface TrackedOrder {
   merchant_phone?: string | null;
   items?: OrderItemRow[] | null;
   shipping_state?: string;
+}
+
+function getCustomerOrderStatusKey(status: string): string {
+  switch (status) {
+    case 'shipped':
+    case 'out_for_delivery':
+      return 'shipped';
+    case 'delivered':
+      return 'delivered';
+    case 'cancelled':
+    case 'refunded':
+      return 'cancelled';
+    case 'returned':
+      return 'returned';
+    default:
+      return 'placed';
+  }
 }
 
 // Type-guard helper to safely extract first image URL from unknown product_images
@@ -296,13 +313,15 @@ function generateTimeline(order: {
   shipping_status: string;
   payment_status: string;
   created_at: string;
+  updated_at: string;
   paid_at?: string;
   shipped_at?: string;
   delivered_at?: string;
   cancelled_at?: string;
 }): TimelineEvent[] {
   const timeline: TimelineEvent[] = [];
-  const status = order.shipping_status;
+  const rawStatus = order.shipping_status;
+  const status = getCustomerOrderStatusKey(rawStatus);
 
   // Order placed
   timeline.push({
@@ -340,45 +359,36 @@ function generateTimeline(order: {
     });
   }
 
-  // Processing
-  if (['processing', 'shipped', 'delivered'].includes(status)) {
+  if (status === 'cancelled') {
     timeline.push({
-      status: status === 'processing' ? 'current' : 'completed',
-      title: 'Processing',
-      description: 'Your order is being prepared',
-      timestamp: order.paid_at || order.created_at,
-      icon: 'processing',
+      status: 'failed',
+      title: 'Cancelled',
+      description: 'This order has been cancelled',
+      timestamp: order.cancelled_at || order.updated_at || order.created_at,
+      icon: 'cancelled',
     });
-  } else if (order.payment_status === 'paid' && status === 'pending') {
-    timeline.push({
-      status: 'pending',
-      title: 'Processing',
-      description: 'Your order will be prepared soon',
-      timestamp: '',
-      icon: 'processing',
-    });
+
+    return timeline;
   }
 
-  // Shipped
-  if (['shipped', 'delivered'].includes(status)) {
+  if (['shipped', 'delivered', 'returned'].includes(status)) {
     timeline.push({
       status: status === 'shipped' ? 'current' : 'completed',
-      title: 'Shipped',
-      description: 'Your order is on its way',
+      title: 'On the way',
+      description: 'Your order has left the merchant and is on the way to you',
       timestamp: order.shipped_at || '',
       icon: 'shipped',
     });
-  } else if (['processing'].includes(status)) {
+  } else if (order.payment_status === 'paid') {
     timeline.push({
       status: 'pending',
-      title: 'Shipped',
-      description: 'Your order will be shipped soon',
+      title: 'On the way',
+      description: 'Tracking will appear once the merchant ships your order',
       timestamp: '',
       icon: 'shipped',
     });
   }
 
-  // Delivered
   if (status === 'delivered') {
     timeline.push({
       status: 'completed',
@@ -387,7 +397,7 @@ function generateTimeline(order: {
       timestamp: order.delivered_at || '',
       icon: 'delivered',
     });
-  } else if (['processing', 'shipped'].includes(status)) {
+  } else if (status === 'shipped') {
     timeline.push({
       status: 'pending',
       title: 'Delivered',
@@ -397,14 +407,13 @@ function generateTimeline(order: {
     });
   }
 
-  // Cancelled
-  if (status === 'cancelled') {
+  if (status === 'returned') {
     timeline.push({
-      status: 'failed',
-      title: 'Cancelled',
-      description: 'This order has been cancelled',
-      timestamp: order.cancelled_at || '',
-      icon: 'cancelled',
+      status: 'current',
+      title: 'Returned',
+      description: 'This order was returned after delivery',
+      timestamp: order.updated_at || order.delivered_at || order.created_at,
+      icon: 'returned',
     });
   }
 

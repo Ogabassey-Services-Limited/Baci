@@ -37,10 +37,8 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   badgeText: {
-    color: '#FFF',
     fontSize: 9,
     fontWeight: '800',
-    textTransform: 'uppercase',
   },
   wishlistBtn: {
     position: 'absolute',
@@ -53,9 +51,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   wishlistBlur: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.8)',
     justifyContent: 'center',
     alignItems: 'center',

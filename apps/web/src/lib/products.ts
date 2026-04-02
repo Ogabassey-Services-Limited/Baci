@@ -97,6 +97,62 @@ export interface Review {
   reviewRating: number;
 }
 
+export interface ProductKeySpecs {
+  screen_size_inches?: number;
+  refresh_rate_hz?: number;
+  chipset?: string;
+  ram_gb?: number;
+  storage_gb?: number;
+  main_camera_mp?: number;
+  battery_mah?: number;
+  charging_watt?: number;
+  has_5g?: boolean;
+  android_version?: string;
+  network_technology?: string;
+  sim_type?: string;
+  has_nfc?: boolean;
+  wifi_bands?: string;
+  bluetooth_version?: string;
+  usb_type?: string;
+  has_usb_otg?: boolean;
+  positioning?: string;
+  has_fm_radio?: boolean;
+  dimensions_mm?: string;
+  weight_g?: number;
+  build_materials?: string;
+  ip_rating?: string;
+  display_type?: string;
+  display_resolution?: string;
+  display_ppi?: number;
+  display_protection?: string;
+  display_peak_brightness?: number;
+  front_camera_mp?: number;
+  front_camera_features?: string;
+  front_camera_video?: string;
+  rear_camera_features?: string;
+  rear_camera_video?: string;
+  has_dual_camera?: boolean;
+  has_triple_camera?: boolean;
+  has_quad_camera?: boolean;
+  has_stereo_speakers?: boolean;
+  has_headphone_jack?: boolean;
+  fingerprint_type?: string;
+  sensors?: string;
+  battery_removable?: boolean;
+  has_wireless_charging?: boolean;
+  wireless_charging_watt?: number;
+  has_reverse_charging?: boolean;
+  cpu_cores?: string;
+  gpu?: string;
+  has_card_slot?: boolean;
+  card_slot_type?: string;
+  available_colors?: string;
+  model_numbers?: string;
+  announced_date?: string;
+  release_date?: string;
+  [key: string]: unknown;
+}
+
 export interface Product {
   id: string;
   merchant_id?: string;
@@ -170,8 +226,7 @@ export interface Product {
     category: string;
     items: { label: string; value: string }[];
   }[]; // JSONB structured specs
-  // biome-ignore lint/suspicious/noExplicitAny: JSONB specs have dynamic structure
-  product_key_specs?: Record<string, any>; // JSONB for key specs (screen_size, ram, etc.)
+  product_key_specs?: ProductKeySpecs; // JSONB for key specs (screen_size, ram, etc.)
   warranty?: string;
 
   // SEO
