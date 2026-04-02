@@ -48,6 +48,8 @@ export function resolveGoogleStoreWidgetPreference(
     return directPreference;
   }
 
+  // MerchantData.feature_settings carries loose keys, so we cast to inspect
+  // nested custom_settings here and still rely on runtime typeof checks below.
   const featureSettings = merchant?.feature_settings as
     | Record<string, unknown>
     | undefined;
