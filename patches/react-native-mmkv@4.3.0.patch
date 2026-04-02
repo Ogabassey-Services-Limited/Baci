@@ -1,10 +1,10 @@
 diff --git a/android/build.gradle b/android/build.gradle
-index c7d64d5..7a0b4cc 100644
+index c7d64d5..7a755a5 100644
 --- a/android/build.gradle
 +++ b/android/build.gradle
-@@ -17,7 +17,10 @@ def isNewArchitectureEnabled() {
+@@ -19,7 +19,10 @@ def isNewArchitectureEnabled() {
  }
-
+ 
  apply plugin: "com.android.library"
 -apply plugin: 'org.jetbrains.kotlin.android'
 +def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
@@ -13,39 +13,39 @@ index c7d64d5..7a0b4cc 100644
 +}
  apply from: '../nitrogen/generated/android/NitroMmkv+autolinking.gradle'
  apply from: "./fix-prefab.gradle"
-
-@@ -39,11 +39,11 @@ android {
+ 
+@@ -39,11 +42,11 @@ android {
    namespace "com.margelo.nitro.mmkv"
-
+ 
    ndkVersion getExtOrDefault("ndkVersion")
 -  compileSdkVersion getExtOrIntegerDefault("compileSdkVersion")
 +  compileSdk getExtOrIntegerDefault("compileSdkVersion")
-
+ 
    defaultConfig {
 -    minSdkVersion getExtOrIntegerDefault("minSdkVersion")
 -    targetSdkVersion getExtOrIntegerDefault("targetSdkVersion")
 +    minSdk getExtOrIntegerDefault("minSdkVersion")
 +    targetSdk getExtOrIntegerDefault("targetSdkVersion")
      buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
-
+ 
      externalNativeBuild {
-@@ -108,7 +108,7 @@ android {
+@@ -108,7 +111,7 @@ android {
      }
    }
-
+ 
 -  lintOptions {
 +  lint {
      disable "GradleCompatible"
    }
-
-@@ -119,11 +119,21 @@ android {
-
+ 
+@@ -119,11 +122,25 @@ android {
+ 
    sourceSets {
      main {
-       def generatedKotlinDirs = [
-         "${project.projectDir}/../nitrogen/generated/android/kotlin"
-       ]
-
++      def generatedKotlinDirs = [
++        "${project.projectDir}/../nitrogen/generated/android/kotlin"
++      ]
++
        if (isNewArchitectureEnabled()) {
 -        java.srcDirs += [
 +        def codegenDirs = [
@@ -53,8 +53,8 @@ index c7d64d5..7a0b4cc 100644
            "${project.buildDir}/generated/source/codegen/java"
          ]
 +        java.srcDirs += codegenDirs
-       }
-     }
++      }
++    }
 +
 +    named("main") {
 +      kotlin.directories.add("src/main/java")
@@ -62,12 +62,12 @@ index c7d64d5..7a0b4cc 100644
 +
 +      if (isNewArchitectureEnabled()) {
 +        kotlin.directories.add("${project.buildDir}/generated/source/codegen/java")
-+      }
-+    }
+       }
+     }
    }
-@@ -145,6 +153,7 @@ dependencies {
+@@ -145,6 +162,7 @@ dependencies {
    implementation project(":react-native-nitro-modules")
-
+ 
    // Add a dependency on mmkv core (this ships a C++ prefab)
 -  implementation "io.github.zhongwuzw:mmkv:2.4.0"
 +  implementation("io.github.zhongwuzw:mmkv:2.4.0") {
@@ -76,13 +76,13 @@ index c7d64d5..7a0b4cc 100644
  }
 -
 diff --git a/android/fix-prefab.gradle b/android/fix-prefab.gradle
-index 2ca3245..985ad34 100644
+index d6c010e..985ad34 100644
 --- a/android/fix-prefab.gradle
 +++ b/android/fix-prefab.gradle
 @@ -28,22 +28,28 @@ afterEvaluate {
        return
      }
-
+ 
 -    def variants = proj.android.hasProperty('applicationVariants') ? proj.android.applicationVariants : proj.android.libraryVariants
 +    def variants
 +    if (proj.android.metaClass.hasProperty(proj.android, 'applicationVariants')) {
