@@ -23,23 +23,34 @@ vi.mock('next/image', () => ({
 vi.mock('next/dynamic', () => {
   function ProductDetailsTabsMock({
     productData,
+    activeTab: initialTab = 'description',
+    onSelectTab,
   }: {
-    productData?: { reviews?: number };
+    productData?: { reviewCount?: number };
+    activeTab?: 'description' | 'reviews';
+    onSelectTab?: (tab: 'description' | 'reviews') => void;
   }) {
-    const reviews = productData?.reviews ?? 0;
-    const [activeTab, setActiveTab] = useState<'description' | 'reviews'>('description');
+    const reviewCount = productData?.reviewCount ?? 0;
+    const [activeTab, setActiveTab] = useState<'description' | 'reviews'>(
+      initialTab
+    );
+
+    const handleTabChange = (tab: 'description' | 'reviews') => {
+      setActiveTab(tab);
+      onSelectTab?.(tab);
+    };
 
     return (
       <div>
-        <button role="tab" onClick={() => setActiveTab('description')}>
+        <button role="tab" onClick={() => handleTabChange('description')}>
           Description
         </button>
-        <button role="tab" onClick={() => setActiveTab('reviews')}>
-          {`Reviews (${reviews})`}
+        <button role="tab" onClick={() => handleTabChange('reviews')}>
+          {`Reviews (${reviewCount})`}
         </button>
         {activeTab === 'reviews' ? (
-          <div role="tabpanel" aria-label={`Reviews (${reviews})`}>
-            {`Based on ${reviews} reviews`}
+          <div role="tabpanel" aria-label={`Reviews (${reviewCount})`}>
+            {`Based on ${reviewCount} reviews`}
           </div>
         ) : (
           <div role="tabpanel" aria-label="Description">
@@ -55,7 +66,9 @@ vi.mock('next/dynamic', () => {
       const source = loader.toString();
 
       return function DynamicComponent(
-        props: Record<string, unknown> & { productData?: { reviews?: number } }
+        props: Record<string, unknown> & {
+          productData?: { reviewCount?: number };
+        }
       ) {
         if (source.includes('product-details-tabs')) {
           return <ProductDetailsTabsMock {...props} />;
@@ -212,13 +225,14 @@ vi.mock('./product-details-page/use-product-details-state', () => ({
       videoUrl: null,
       image: product.image ?? '',
       images: product.images ?? [],
-      reviews: product.reviews ?? 0,
+      reviewCount: product.reviews ?? 0,
     },
     quantityInCart: 0,
     relatedProductsProduct: product,
     secondaryColor: null,
     selectedAttributes: {},
     selectedColor: null,
+    setSelectedColor: vi.fn(),
     selectedCondition: product.condition ?? 'new',
     selectedImage: product.image ?? '',
     setActiveTab: vi.fn(),

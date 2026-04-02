@@ -1,5 +1,6 @@
 'use client';
 
+import { resolveDefaultVariantSelection } from '@baci/shared';
 import { Check, ExternalLink, Minus, Plus, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -19,7 +20,6 @@ import { useToast } from '@/hooks/use-toast';
 import type { Product, ProductVariant } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
-import { resolveDefaultVariantSelection } from '../../../../../packages/shared/src/lib/product-default-variant';
 
 interface QuickViewModalProps {
   /** Product to display */
