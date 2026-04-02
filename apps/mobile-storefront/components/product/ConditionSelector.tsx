@@ -9,6 +9,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { RADIUS, SPACING } from '@/constants/Colors';
 import {
+  formatProductConditionDisplay,
   formatPrice,
   type ProductCondition,
   type ProductConditionOffer,
@@ -24,34 +25,29 @@ interface ConditionSelectorProps {
 
 const CONDITION_CONFIG: Record<
   ProductCondition,
-  { label: string; icon: string; color: string; description: string }
+  { icon: string; color: string; description: string }
 > = {
   new: {
-    label: 'New',
     icon: 'sparkles',
     color: '#10B981',
     description: 'Brand new, sealed',
   },
   used: {
-    label: 'Used',
     icon: 'refresh',
     color: '#F59E0B',
     description: 'Pre-owned, tested',
   },
   uk_used: {
-    label: 'UK Used',
     icon: 'airplane',
     color: '#3B82F6',
     description: 'Imported, pre-owned',
   },
   open_box: {
-    label: 'Open Box',
     icon: 'cube-outline',
     color: '#8B5CF6',
     description: 'Opened, never used',
   },
   refurbished: {
-    label: 'Refurbished',
     icon: 'construct',
     color: '#06B6D4',
     description: 'Restored to like-new',
@@ -132,6 +128,7 @@ export function ConditionSelector({
       <View style={styles.optionsContainer}>
         {availableConditions.map((item) => {
           const config = CONDITION_CONFIG[item.condition];
+          const displayLabel = formatProductConditionDisplay(item.condition);
           const isSelected = effectiveSelected === item.condition;
           const savings = basePrice - item.price;
           const hasSavings = savings > 0 && item.condition !== baseCondition;
@@ -150,7 +147,7 @@ export function ConditionSelector({
                 },
               ]}
               accessibilityRole="radio"
-              accessibilityLabel={`${config.label}${item.grade ? `, Grade ${item.grade}` : ''}${item.price ? `, ${formatPrice(item.price)}` : ''}`}
+              accessibilityLabel={`${displayLabel}${item.grade ? `, Grade ${item.grade}` : ''}${item.price ? `, ${formatPrice(item.price)}` : ''}`}
               accessibilityState={{ checked: isSelected }}
             >
               <View style={styles.optionHeader}>
@@ -177,7 +174,7 @@ export function ConditionSelector({
                       { color: isSelected ? config.color : colors.text },
                     ]}
                   >
-                    {config.label}
+                    {displayLabel}
                   </Text>
                   {item.grade && (
                     <Text
