@@ -533,14 +533,24 @@ export async function POST(request: NextRequest) {
     if (payOnDelivery || payment_method === 'invoice' || isWalletFullyPaid) {
       after(async () => {
         try {
-          await notifyNewOrder(merchant_id, orderNum, customer_name, orderTotal);
+          await notifyNewOrder(
+            merchant_id,
+            orderNum,
+            customer_name,
+            orderTotal
+          );
         } catch (err) {
           logger.error({ message: 'Push notification failed', error: err });
         }
 
         if (isWalletFullyPaid) {
           try {
-            await notifyPaymentReceived(merchant_id, orderTotal, 'NGN', orderNum);
+            await notifyPaymentReceived(
+              merchant_id,
+              orderTotal,
+              'NGN',
+              orderNum
+            );
           } catch (err) {
             logger.error({
               message: 'Payment push notification failed',

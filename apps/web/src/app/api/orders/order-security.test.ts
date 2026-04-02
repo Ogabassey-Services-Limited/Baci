@@ -9,14 +9,13 @@ const {
   mockSendEmail,
   mockCreateGiglShipment,
   mockAfter,
-} =
-  vi.hoisted(() => ({
-    mockNotifyNewOrder: vi.fn(() => Promise.resolve()),
-    mockNotifyPaymentReceived: vi.fn(() => Promise.resolve()),
-    mockSendEmail: vi.fn(() => Promise.resolve({ success: true })),
-    mockCreateGiglShipment: vi.fn(),
-    mockAfter: vi.fn((callback: () => unknown) => callback()),
-  }));
+} = vi.hoisted(() => ({
+  mockNotifyNewOrder: vi.fn(() => Promise.resolve()),
+  mockNotifyPaymentReceived: vi.fn(() => Promise.resolve()),
+  mockSendEmail: vi.fn(() => Promise.resolve({ success: true })),
+  mockCreateGiglShipment: vi.fn(),
+  mockAfter: vi.fn((callback: () => unknown) => callback()),
+}));
 
 // Mock env
 vi.mock('@/env', () => ({
@@ -94,9 +93,8 @@ vi.mock('next/headers', () => ({
 }));
 
 vi.mock('next/server', async () => {
-  const actual = await vi.importActual<typeof import('next/server')>(
-    'next/server'
-  );
+  const actual =
+    await vi.importActual<typeof import('next/server')>('next/server');
 
   return {
     ...actual,
