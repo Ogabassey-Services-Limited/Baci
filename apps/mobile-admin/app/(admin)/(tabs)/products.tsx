@@ -331,7 +331,10 @@ export default function ProductsScreen() {
   const createCategoryMutation = useCreateCategory();
 
   const handleCreateCategory = () => {
-    createCategoryMutation.mutate(newCategoryName, {
+    const trimmedCategoryName = newCategoryName.trim();
+    if (!trimmedCategoryName || createCategoryMutation.isPending) return;
+
+    createCategoryMutation.mutate(trimmedCategoryName, {
       onSuccess: () => {
         setNewCategoryName('');
         setIsCategoryModalVisible(false);
@@ -975,7 +978,10 @@ export default function ProductsScreen() {
                   justifyContent: 'center',
                 }}
                 onPress={handleCreateCategory}
-                disabled={createCategoryMutation.isPending}
+                disabled={
+                  createCategoryMutation.isPending ||
+                  !newCategoryName.trim()
+                }
                 accessibilityLabel={
                   createCategoryMutation.isPending
                     ? 'Creating category'
@@ -983,7 +989,9 @@ export default function ProductsScreen() {
                 }
                 accessibilityRole="button"
                 accessibilityState={{
-                  disabled: createCategoryMutation.isPending,
+                  disabled:
+                    createCategoryMutation.isPending ||
+                    !newCategoryName.trim(),
                 }}
                 accessibilityHint="Creates the new category"
               >
