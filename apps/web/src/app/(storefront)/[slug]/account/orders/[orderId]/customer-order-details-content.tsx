@@ -1,8 +1,23 @@
-import { ArrowLeft, CreditCard, Download, Package, Truck } from 'lucide-react';
+import {
+  ArrowLeft,
+  CreditCard,
+  Download,
+  Package,
+  Phone,
+  RotateCcw,
+  Star,
+  Truck,
+} from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
+import {
+  BACI_GOOGLE_REVIEW_URL,
+  canLeaveStorefrontGoogleReview,
+  canRequestStorefrontOrderReturn,
+  canShowStorefrontRiderContact,
+} from '@/lib/post-purchase-actions';
 import { asRoute } from '@/lib/routes';
 import type { StorefrontOrder } from '@/types/storefront-order';
 
@@ -44,6 +59,22 @@ export function CustomerOrderDetailsContent({
   const buyAgainHref = firstItem?.product_id
     ? asRoute(getHref(`/products/${firstItem.product_id}`))
     : null;
+  const shouldShowRiderContact =
+    canShowStorefrontRiderContact(order.shipping_status) &&
+    Boolean(order.rider_phone_number);
+  const shouldShowReview = canLeaveStorefrontGoogleReview(
+    order.shipping_status
+  );
+  const shouldShowReturn = canRequestStorefrontOrderReturn(
+    order.shipping_status
+  );
+  const returnHref = order.merchant_support_email
+    ? `mailto:${order.merchant_support_email}?subject=${encodeURIComponent(
+        `Return request for order ${order.order_number}`
+      )}`
+    : order.merchant_support_phone
+      ? `tel:${order.merchant_support_phone}`
+      : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
@@ -191,6 +222,34 @@ export function CustomerOrderDetailsContent({
                   {documentLabel}
                 </a>
               </Button>
+              {shouldShowRiderContact ? (
+                <Button asChild variant="outline" className="w-full">
+                  <a href={`tel:${order.rider_phone_number}`}>
+                    <Phone className="mr-2 h-4 w-4" />
+                    Call Rider {order.rider_phone_number}
+                  </a>
+                </Button>
+              ) : null}
+              {shouldShowReview ? (
+                <Button asChild variant="outline" className="w-full">
+                  <a
+                    href={BACI_GOOGLE_REVIEW_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Star className="mr-2 h-4 w-4" />
+                    Leave a Google Review
+                  </a>
+                </Button>
+              ) : null}
+              {shouldShowReturn && returnHref ? (
+                <Button asChild variant="outline" className="w-full">
+                  <a href={returnHref}>
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Return Order
+                  </a>
+                </Button>
+              ) : null}
               {buyAgainHref ? (
                 <Button asChild variant="outline" className="w-full">
                   <Link href={buyAgainHref}>

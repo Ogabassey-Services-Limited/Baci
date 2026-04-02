@@ -13,6 +13,7 @@ import {
   MapPin,
   Package,
   ShoppingBag,
+  Star,
   Truck,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -21,6 +22,7 @@ import { useEffect, useState } from 'react';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { asRoute } from '@/lib/routes';
 
 /**
@@ -400,6 +402,15 @@ export default function CheckoutSuccessPage() {
               <Package className="w-5 h-5" />
               Track Order
             </Link>
+            <a
+              href={BACI_GOOGLE_REVIEW_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 inline-flex items-center justify-center gap-2 bg-white text-gray-700 py-4 px-6 rounded-2xl font-semibold hover:bg-gray-50 transition-all border border-gray-200"
+            >
+              <Star className="w-5 h-5" />
+              Leave a Google Review
+            </a>
           </motion.div>
 
           {/* Ad Placement: Post-Purchase Cross-Sell */}
