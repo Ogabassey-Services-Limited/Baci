@@ -1,5 +1,10 @@
 'use client';
 
+import {
+  GoogleStoreWidget,
+  normalizeHostname,
+  resolveGoogleStoreWidgetPreference,
+} from '@/components/analytics/google-store-widget';
 import { type MerchantData, useMerchantSafe } from '@/hooks/use-merchant';
 import type React from 'react';
 import { CartProvider } from '@/hooks/use-cart';
@@ -39,6 +44,9 @@ export function OgabasseyLayout({
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath ?? `/${merchant?.slug || 'ogabassey'}`;
   const pathname = usePathname();
+  const normalizedCustomDomain = normalizeHostname(merchant?.custom_domain);
+  const merchantControlledGoogleStoreWidget =
+    resolveGoogleStoreWidgetPreference(merchant);
 
   // Dynamic check for client-side navigation (fixes persistent layout causing stale props)
   const isCheckout = pathname?.includes('/checkout');
@@ -48,6 +56,11 @@ export function OgabasseyLayout({
     pathname?.includes('/auth/');
 
   const shouldHideNavigation = initialHideNavigation || isCheckout || isAuthPage;
+  const shouldEnableGoogleStoreWidget =
+    typeof merchantControlledGoogleStoreWidget === 'boolean'
+      ? merchantControlledGoogleStoreWidget
+      : merchant?.slug === 'ogabassey' ||
+        normalizedCustomDomain === 'ogabassey.com';
 
   // No debug logging in production
 
@@ -59,6 +72,12 @@ export function OgabasseyLayout({
           <V2ComparisonProvider>
             <V2NotificationProvider>
               <GoogleAdManager />
+              {merchant && (
+                <GoogleStoreWidget
+                  merchant={merchant}
+                  enabled={shouldEnableGoogleStoreWidget}
+                />
+              )}
               <div
                 className="text-gray-900 bg-[#0F0F0F] min-h-screen flex flex-col relative overflow-hidden"
                 style={{

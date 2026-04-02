@@ -5,6 +5,7 @@ import { SafeImage } from '@/components/ui/SafeImage';
 import { DEFAULT_ASSURANCE_RATE } from '@/constants/assurance';
 import Colors, { BRAND } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
+import { resolveColorSwatchValue } from '@/lib/cart-display';
 import type { CartItem } from '@/stores/cart-store';
 import AssuranceToggle from './AssuranceToggle';
 import CartQuantityInput from './CartQuantityInput';
@@ -47,6 +48,9 @@ export default function CartItemCard({
   const assuranceCost = item.hasAssurance
     ? Math.round(itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE))
     : 0;
+  const colorSwatchValue = item.color
+    ? resolveColorSwatchValue(item.color)
+    : undefined;
 
   return (
     <View
@@ -128,7 +132,7 @@ export default function CartItemCard({
                   style={[
                     styles.colorDot,
                     {
-                      backgroundColor: item.color,
+                      backgroundColor: colorSwatchValue || 'transparent',
                       borderColor: colors.border,
                     },
                   ]}

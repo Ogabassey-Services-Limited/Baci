@@ -1,10 +1,11 @@
 'use client';
 
-import { ArrowRight, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowRight, CheckCircle, Loader2, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { asRoute } from '@/lib/routes';
 
 interface OrderData {
@@ -190,6 +191,16 @@ function OrderSuccessContent() {
                 Track My Order
               </Link>
             ) : null}
+
+            <a
+              href={BACI_GOOGLE_REVIEW_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-6 py-4 bg-white text-gray-900 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors w-full"
+            >
+              <Star size={18} />
+              Leave a Google Review
+            </a>
           </div>
         </div>
       </div>

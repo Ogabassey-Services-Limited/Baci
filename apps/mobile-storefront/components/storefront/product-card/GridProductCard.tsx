@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import Colors, { BRAND } from '@/constants/Colors';
-import { formatPrice } from '@/types/product';
+import { formatPrice, formatProductConditionDisplay } from '@/types/product';
 import styles from '../ProductCard.styles';
 import type { GridProductCardProps } from './types';
 
@@ -28,6 +28,17 @@ export default function GridProductCard({
   colors = Colors.light,
 }: GridProductCardProps) {
   const rating = product.rating;
+  const conditionLabel = formatProductConditionDisplay(product.condition);
+  const conditionBadgeColors =
+    conditionLabel === 'New'
+      ? {
+          backgroundColor: colors.success,
+          color: colors.background,
+        }
+      : {
+          backgroundColor: BRAND.primary,
+          color: '#FFF',
+        };
 
   return (
     <AnimatedPressable
@@ -63,22 +74,24 @@ export default function GridProductCard({
           <Animated.View style={[heartAnimatedStyle, styles.wishlistBlur]}>
             <Ionicons
               name={isSaved ? 'heart' : 'heart-outline'}
-              size={18}
+              size={16}
               color={isSaved ? colors.destructive : colors.mutedForeground}
             />
           </Animated.View>
         </Pressable>
 
-        {product.condition && (
+        {conditionLabel && (
           <View
             style={[
               styles.badgeContainer,
-              product.condition === 'New'
-                ? { backgroundColor: colors.text }
-                : { backgroundColor: colors.primary },
+              { backgroundColor: conditionBadgeColors.backgroundColor },
             ]}
           >
-            <Text style={styles.badgeText}>{product.condition}</Text>
+            <Text
+              style={[styles.badgeText, { color: conditionBadgeColors.color }]}
+            >
+              {conditionLabel}
+            </Text>
           </View>
         )}
 

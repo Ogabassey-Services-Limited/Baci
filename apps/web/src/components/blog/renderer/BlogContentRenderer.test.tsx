@@ -67,6 +67,7 @@ vi.mock('next/image', () => ({
           ? src.default.src
           : src?.src;
 
+    // biome-ignore lint/performance/noImgElement: Next.js Image component cannot be fully mocked simply
     return <img alt={alt} src={normalizedSrc} {...props} />;
   },
 }));
