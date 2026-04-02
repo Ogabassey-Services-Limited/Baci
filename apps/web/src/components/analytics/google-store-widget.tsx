@@ -3,6 +3,12 @@
 import Script from 'next/script';
 import { useEffect, useState } from 'react';
 import type { MerchantData } from '@/hooks/use-merchant';
+import { normalizeHostname } from './google-store-widget-utils';
+
+export {
+  normalizeHostname,
+  resolveGoogleStoreWidgetPreference,
+} from './google-store-widget-utils';
 
 interface MerchantWidgetOptions {
   position?: 'LEFT_BOTTOM' | 'RIGHT_BOTTOM';
@@ -28,38 +34,6 @@ declare global {
 
 const WIDGET_SCRIPT_SRC =
   'https://www.gstatic.com/shopping/merchant/merchantwidget.js';
-
-export function normalizeHostname(value?: string) {
-  return (value || '')
-    .trim()
-    .toLowerCase()
-    .replace(/^https?:\/\//, '')
-    .replace(/\/.*$/, '')
-    .replace(/^www\./, '');
-}
-
-export function resolveGoogleStoreWidgetPreference(
-  merchant?: MerchantData
-): boolean | undefined {
-  const directPreference =
-    merchant?.feature_settings?.google_store_widget_enabled;
-
-  if (typeof directPreference === 'boolean') {
-    return directPreference;
-  }
-
-  // MerchantData.feature_settings carries loose keys, so we cast to inspect
-  // nested custom_settings here and still rely on runtime typeof checks below.
-  const featureSettings = merchant?.feature_settings as
-    | Record<string, unknown>
-    | undefined;
-  const customSettings = featureSettings?.custom_settings as
-    | Record<string, unknown>
-    | undefined;
-  const customPreference = customSettings?.google_store_widget_enabled;
-
-  return typeof customPreference === 'boolean' ? customPreference : undefined;
-}
 
 export function GoogleStoreWidget({
   merchant,
