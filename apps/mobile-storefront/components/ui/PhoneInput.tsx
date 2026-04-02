@@ -215,6 +215,7 @@ interface PhoneInputProps
   containerStyle?: ViewStyle;
   error?: string;
   label?: string;
+  returnKeyType?: TextInputProps['returnKeyType'];
 }
 
 export function PhoneInput({
@@ -224,6 +225,7 @@ export function PhoneInput({
   containerStyle,
   error,
   label,
+  returnKeyType = 'next',
   placeholder = '8012345678',
   ...props
 }: PhoneInputProps) {
@@ -342,11 +344,11 @@ export function PhoneInput({
           placeholder={placeholder}
           placeholderTextColor={colors.placeholder}
           keyboardType="phone-pad"
-          returnKeyType="done"
           autoComplete="tel"
           textContentType="telephoneNumber"
           accessibilityLabel={label || 'Phone number'}
           maxLength={selectedCountry.maxLength || 15}
+          returnKeyType={returnKeyType}
           {...props}
         />
       </View>
