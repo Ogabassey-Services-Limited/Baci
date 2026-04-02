@@ -45,7 +45,7 @@ overrides:
   '@tiptap/extension-color': ^3.20.0
   '@tiptap/extension-highlight': ^3.20.0
   '@tiptap/extension-horizontal-rule': ^3.20.0
-  '@tiptap/extension-image': ^3.20.0
+  '@tiptap/extension-image': ^3.22.1
   '@tiptap/extension-link': ^3.20.0
   '@tiptap/extension-placeholder': ^3.20.0
   '@tiptap/extension-task-item': ^3.20.0
@@ -771,8 +771,8 @@ importers:
         specifier: ^3.20.0
         version: 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extension-image':
-        specifier: ^3.20.0
-        version: 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
+        specifier: ^3.22.1
+        version: 3.22.1(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extension-link':
         specifier: ^3.20.0
         version: 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)
@@ -5829,8 +5829,8 @@ packages:
       '@tiptap/core': 3.20.5
       '@tiptap/pm': 3.20.5
 
-  '@tiptap/extension-image@3.20.0':
-    resolution: {integrity: sha512-0t7HYncV0kYEQS79NFczxdlZoZ8zu8X4VavDqt+mbSAUKRq3gCvgtZ5Zyd778sNmtmbz3arxkEYMIVou2swD0g==}
+  '@tiptap/extension-image@3.22.1':
+    resolution: {integrity: sha512-FtZCOWyyaEvSfaOPoH78IKb1BlG/Vao4PARdlrVCD1FlV1YGLAgSW5YkQAJ/vPTLwyNNZtqryaBpZrA8Wm25nQ==}
     peerDependencies:
       '@tiptap/core': 3.20.5
 
@@ -18737,7 +18737,7 @@ snapshots:
       '@tiptap/extension-drag-handle-vue-3': 3.20.0(@tiptap/extension-drag-handle@3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/extension-collaboration@3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(yjs@13.6.29))(@tiptap/extension-node-range@3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)))(@tiptap/pm@3.20.5)(@tiptap/vue-3@3.20.0(@floating-ui/dom@1.7.5)(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(vue@3.5.29(typescript@5.9.3)))(vue@3.5.29(typescript@5.9.3))
       '@tiptap/extension-floating-menu': 3.20.0(@floating-ui/dom@1.7.5)(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)
       '@tiptap/extension-horizontal-rule': 3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)
-      '@tiptap/extension-image': 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
+      '@tiptap/extension-image': 3.22.1(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extension-mention': 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(@tiptap/suggestion@3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))
       '@tiptap/extension-node-range': 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)
       '@tiptap/extension-placeholder': 3.20.0(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))
@@ -18851,7 +18851,7 @@ snapshots:
       '@tiptap/extension-drag-handle-vue-3': 3.20.0(@tiptap/extension-drag-handle@3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/extension-collaboration@3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29))(yjs@13.6.29))(@tiptap/extension-node-range@3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(@tiptap/y-tiptap@3.0.1(prosemirror-model@1.25.4)(prosemirror-state@1.4.4)(prosemirror-view@1.41.7)(y-protocols@1.0.7(yjs@13.6.29))(yjs@13.6.29)))(@tiptap/pm@3.20.5)(@tiptap/vue-3@3.20.0(@floating-ui/dom@1.7.5)(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(vue@3.5.29(typescript@5.9.3)))(vue@3.5.29(typescript@5.9.3))
       '@tiptap/extension-floating-menu': 3.20.0(@floating-ui/dom@1.7.5)(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)
       '@tiptap/extension-horizontal-rule': 3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)
-      '@tiptap/extension-image': 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
+      '@tiptap/extension-image': 3.22.1(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extension-mention': 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)(@tiptap/suggestion@3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))
       '@tiptap/extension-node-range': 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)
       '@tiptap/extension-placeholder': 3.20.0(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))
@@ -21600,7 +21600,7 @@ snapshots:
       '@tiptap/core': 3.20.5(@tiptap/pm@3.20.5)
       '@tiptap/pm': 3.20.5
 
-  '@tiptap/extension-image@3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))':
+  '@tiptap/extension-image@3.22.1(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))':
     dependencies:
       '@tiptap/core': 3.20.5(@tiptap/pm@3.20.5)
 
@@ -29866,7 +29866,7 @@ snapshots:
       '@tiptap/extension-color': 3.20.0(@tiptap/extension-text-style@3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5)))
       '@tiptap/extension-highlight': 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extension-horizontal-rule': 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)
-      '@tiptap/extension-image': 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
+      '@tiptap/extension-image': 3.22.1(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))
       '@tiptap/extension-link': 3.20.0(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5)
       '@tiptap/extension-placeholder': 3.20.0(@tiptap/extensions@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))
       '@tiptap/extension-task-item': 3.20.0(@tiptap/extension-list@3.20.5(@tiptap/core@3.20.5(@tiptap/pm@3.20.5))(@tiptap/pm@3.20.5))
