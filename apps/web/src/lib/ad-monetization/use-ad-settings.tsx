@@ -87,7 +87,7 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
       const [
         { data: mainSettings, error: mainError },
         { data: placements, error: placementsError },
-        { data: rewardedSettings, error: rewardedError }
+        { data: rewardedSettings, error: rewardedError },
       ] = await Promise.all([
         supabase
           .from('merchant_ad_settings')
@@ -108,7 +108,7 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
             'enabled, reward_type, reward_value, reward_expiry_days, min_order_value'
           )
           .eq('merchant_id', merchant.merchant.id)
-          .single()
+          .single(),
       ]);
 
       if (mainError && mainError.code !== 'PGRST116') {
