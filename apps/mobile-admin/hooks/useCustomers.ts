@@ -140,6 +140,7 @@ export function useCustomer(customerId: string) {
       ]);
 
       if (customerRes.error) throw new Error(customerRes.error.message);
+      if (ordersRes.error) throw new Error(ordersRes.error.message);
 
       return {
         ...customerRes.data,
@@ -197,6 +198,13 @@ export function useCustomerStats() {
             .is('deleted_at', null)
             .gt('total_orders', 1),
         ]);
+
+      if (totalRes.error) throw new Error(totalRes.error.message);
+      if (newThisMonthRes.error) {
+        throw new Error(newThisMonthRes.error.message);
+      }
+      if (newThisWeekRes.error) throw new Error(newThisWeekRes.error.message);
+      if (returningRes.error) throw new Error(returningRes.error.message);
 
       const { count: total } = totalRes;
       const { count: newThisMonth } = newThisMonthRes;
