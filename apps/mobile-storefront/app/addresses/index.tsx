@@ -21,6 +21,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { createLogger } from '@/lib/logger';
+import { normalizeSavedAddresses } from '@/lib/saved-addresses';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -75,9 +76,10 @@ export default function AddressesScreen() {
       const parsed = Array.isArray(data?.saved_addresses)
         ? (data.saved_addresses as Address[])
         : [];
+      const normalized = normalizeSavedAddresses(parsed);
       // Sort: default addresses first
-      parsed.sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
-      setAddresses(parsed);
+      normalized.sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
+      setAddresses(normalized);
       setError(null);
     } catch (err) {
       log.error('Error fetching addresses:', err);
@@ -146,15 +148,16 @@ export default function AddressesScreen() {
 
             try {
               const updated = addresses.filter((a) => a.id !== address.id);
+              const normalized = normalizeSavedAddresses(updated);
               const { error: deleteError } = await supabase
                 .from('customers')
-                .update({ saved_addresses: updated })
+                .update({ saved_addresses: normalized })
                 .eq('id', customer.id)
                 .eq('merchant_id', merchantId);
 
               if (deleteError) throw deleteError;
 
-              setAddresses(updated);
+              setAddresses(normalized);
             } catch (err) {
               log.error('Error deleting address:', err);
               Alert.alert('Error', 'Failed to delete address');

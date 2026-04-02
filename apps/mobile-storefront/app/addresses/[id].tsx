@@ -25,6 +25,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { TextContentTypes } from '@/hooks/use-keyboard';
 import { createLogger } from '@/lib/logger';
+import { normalizeSavedAddresses } from '@/lib/saved-addresses';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -242,6 +243,8 @@ export default function AddressFormScreen() {
         addresses = addresses.map((a) => (a.id === id ? addressEntry : a));
       }
 
+      addresses = normalizeSavedAddresses(addresses);
+
       // Write updated array back
       const { error: updateError } = await supabase
         .from('customers')
@@ -359,15 +362,15 @@ export default function AddressFormScreen() {
             style={[
               styles.input,
               {
-                backgroundColor: colors.card,
+                backgroundColor: colors.muted,
                 color: colors.text,
-                borderColor: errors.full_name ? '#EF4444' : colors.border,
+                borderColor: errors.full_name ? colors.error : colors.border,
               },
             ]}
             value={form.full_name}
             onChangeText={(value) => updateField('full_name', value)}
             placeholder="Enter full name"
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.placeholder}
             textContentType={TextContentTypes.name}
             autoComplete="name"
             returnKeyType="next"
@@ -386,15 +389,15 @@ export default function AddressFormScreen() {
             style={[
               styles.input,
               {
-                backgroundColor: colors.card,
+                backgroundColor: colors.muted,
                 color: colors.text,
-                borderColor: errors.phone ? '#EF4444' : colors.border,
+                borderColor: errors.phone ? colors.error : colors.border,
               },
             ]}
             value={form.phone}
             onChangeText={(value) => updateField('phone', value)}
             placeholder="e.g. 08012345678"
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.placeholder}
             keyboardType="phone-pad"
             textContentType={TextContentTypes.telephoneNumber}
             autoComplete="tel"
@@ -413,15 +416,15 @@ export default function AddressFormScreen() {
               styles.input,
               styles.textArea,
               {
-                backgroundColor: colors.card,
+                backgroundColor: colors.muted,
                 color: colors.text,
-                borderColor: errors.address ? '#EF4444' : colors.border,
+                borderColor: errors.address ? colors.error : colors.border,
               },
             ]}
             value={form.address}
             onChangeText={(value) => updateField('address', value)}
             placeholder="Enter street address"
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.placeholder}
             multiline
             numberOfLines={3}
             textContentType={TextContentTypes.fullStreetAddress}
@@ -439,15 +442,15 @@ export default function AddressFormScreen() {
             style={[
               styles.input,
               {
-                backgroundColor: colors.card,
+                backgroundColor: colors.muted,
                 color: colors.text,
-                borderColor: errors.city ? '#EF4444' : colors.border,
+                borderColor: errors.city ? colors.error : colors.border,
               },
             ]}
             value={form.city}
             onChangeText={(value) => updateField('city', value)}
             placeholder="Enter city"
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.placeholder}
             textContentType={TextContentTypes.addressCity}
             autoComplete="postal-address-locality"
             returnKeyType="next"
@@ -500,7 +503,7 @@ export default function AddressFormScreen() {
             style={[
               styles.input,
               {
-                backgroundColor: colors.card,
+                backgroundColor: colors.muted,
                 color: colors.text,
                 borderColor: colors.border,
               },
@@ -508,14 +511,14 @@ export default function AddressFormScreen() {
             value={form.postal_code}
             onChangeText={(value) => updateField('postal_code', value)}
             placeholder="Enter postal code"
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.placeholder}
             keyboardType="number-pad"
           />
         </View>
 
         {/* Set as Default */}
         <TouchableOpacity
-          style={[styles.defaultToggle, { backgroundColor: colors.card }]}
+          style={[styles.defaultToggle, { backgroundColor: colors.muted }]}
           onPress={() => updateField('is_default', !form.is_default)}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: form.is_default }}

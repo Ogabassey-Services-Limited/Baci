@@ -91,6 +91,10 @@ export function useReceiptPreview() {
     setState({ status: 'loading', orderId: item.id });
   };
 
+  const openPreviewByOrderId = (orderId: string) => {
+    setState({ status: 'loading', orderId });
+  };
+
   const closePreview = () => {
     setState({ status: 'idle' });
   };
@@ -101,6 +105,7 @@ export function useReceiptPreview() {
     html: state.status === 'open' ? state.html : '',
     isPaid: state.status === 'open' ? state.isPaid : false,
     openPreview,
+    openPreviewByOrderId,
     closePreview,
   };
 }
