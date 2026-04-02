@@ -25,8 +25,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-// useSafeAreaInsets kept for future use
-// import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import CartItemCard from '@/components/cart/CartItemCard';
 import NegotiationWarningModal from '@/components/cart/NegotiationWarningModal';
@@ -34,12 +33,13 @@ import styles from '@/components/cart/styles';
 import { CheckoutIdentityModal } from '@/components/checkout/checkout-identity';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
+import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { isValidCartStore } from '@/lib/cart-validation';
-import { useAuthStore } from '@/stores/auth-store';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
 import { useUIStore } from '@/stores/ui-store';
 
 export default function CartScreen() {
+  const insets = useSafeAreaInsets();
   const colorScheme = (useColorScheme() ?? 'light') as 'light' | 'dark';
   const colors = Colors[colorScheme];
   const isDark = colorScheme === 'dark';
@@ -132,7 +132,7 @@ export default function CartScreen() {
       }
     : cartStore.toggleAssurance;
 
-  const { session } = useAuthStore(useShallow((s) => ({ session: s.session })));
+  const { isAuthenticated } = useAuthStatus();
   const { openNegotiation } = useUIStore(
     useShallow((s) => ({ openNegotiation: s.openNegotiation }))
   );
@@ -148,7 +148,7 @@ export default function CartScreen() {
     arrowTranslateX.set(
       withRepeat(
         withSequence(
-          withTiming(6, { duration: 800 }),
+          withTiming(12, { duration: 800 }),
           withTiming(0, { duration: 800 })
         ),
         -1,
@@ -163,7 +163,7 @@ export default function CartScreen() {
   }, [arrowTranslateX, hasItems]);
 
   const animatedArrowStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: arrowTranslateX.get() }],
+    transform: [{ translateX: arrowTranslateX.value }],
   }));
 
   const triggerHaptic = () => {
@@ -211,7 +211,7 @@ export default function CartScreen() {
 
   const handleCheckout = () => {
     triggerHaptic();
-    if (session) {
+    if (isAuthenticated) {
       router.push('/checkout');
     } else {
       setIsIdentityModalOpen(true);
@@ -416,6 +416,7 @@ export default function CartScreen() {
           {
             backgroundColor: colors.background,
             borderBottomColor: colors.border,
+            paddingTop: insets.top + SPACING.sm,
           },
         ]}
       >
@@ -559,6 +560,8 @@ export default function CartScreen() {
           <Pressable
             style={styles.checkoutButtonContainer}
             onPress={handleCheckout}
+            accessibilityRole="button"
+            accessibilityLabel={`Proceed to checkout, total ${formatPrice(grandTotal)}`}
           >
             {/* Forced Background Layer */}
             <View
