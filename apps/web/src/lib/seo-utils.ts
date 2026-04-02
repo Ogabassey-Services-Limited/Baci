@@ -535,7 +535,11 @@ export function generateProductSchema(
 
     // Process configuration-driven specs
     for (const mapping of SPEC_MAPPINGS) {
-      const value = keySpecs[mapping.key] as string | number | boolean | undefined;
+      const value = keySpecs[mapping.key] as
+        | string
+        | number
+        | boolean
+        | undefined;
       const shouldInclude = mapping.check
         ? mapping.check(value)
         : value !== null && value !== undefined;

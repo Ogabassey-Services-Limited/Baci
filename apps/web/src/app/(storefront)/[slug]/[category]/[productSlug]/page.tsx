@@ -677,7 +677,8 @@ const getProduct = async (
   // Create extended product with category info
   const productWithCategorySlug: Product = {
     ...product,
-    product_key_specs: product.product_key_specs as unknown as Product['product_key_specs'],
+    product_key_specs:
+      product.product_key_specs as unknown as Product['product_key_specs'],
     description: product.description || '',
     price:
       typeof product.price === 'string'
