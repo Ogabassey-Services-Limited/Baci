@@ -71,6 +71,7 @@ describe('CustomerOrderDetailsContent', () => {
           shipping_status: 'shipped',
           current_document_kind: 'receipt',
           receipt_eligible: true,
+          rider_phone_number: '08012345678',
         }}
         basePath="/ogabassey"
         merchantSlug="ogabassey"
@@ -93,10 +94,37 @@ describe('CustomerOrderDetailsContent', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText('Shipped')).toBeInTheDocument();
     expect(screen.getByText('Paid')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /call rider 08012345678/i })
+    ).toHaveAttribute('href', 'tel:08012345678');
     expect(screen.getByRole('link', { name: /buy again/i })).toHaveAttribute(
       'href',
       '/ogabassey/products/prod-1'
     );
     expect(screen.getByText('Blue / 128GB')).toBeInTheDocument();
+  });
+
+  it('shows review and return actions once the order is delivered', () => {
+    render(
+      <CustomerOrderDetailsContent
+        order={{
+          ...baseOrder,
+          shipping_status: 'delivered',
+          current_document_kind: 'receipt',
+          receipt_eligible: true,
+          merchant_support_email: 'support@ogabassey.com',
+        }}
+        basePath="/ogabassey"
+        merchantSlug="ogabassey"
+      />
+    );
+
+    expect(
+      screen.getByRole('link', { name: /leave a google review/i })
+    ).toHaveAttribute('href', 'https://g.page/r/CR1gsFYL8eu9EBM/review');
+    expect(screen.getByRole('link', { name: /return order/i })).toHaveAttribute(
+      'href',
+      'mailto:support@ogabassey.com?subject=Return%20request%20for%20order%20ORD-1001'
+    );
   });
 });
