@@ -2,7 +2,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MerchantData } from '@/hooks/use-merchant';
-import { GoogleStoreWidget } from './google-store-widget';
+import {
+  GoogleStoreWidget,
+  resolveGoogleStoreWidgetPreference,
+} from './google-store-widget';
 
 vi.mock('next/script', () => ({
   default: ({
@@ -117,5 +120,46 @@ describe('GoogleStoreWidget', () => {
     expect(
       screen.queryByTestId('google-store-widget-script')
     ).not.toBeInTheDocument();
+  });
+
+  it('does not throw when merchantwidget API is unavailable after script load', async () => {
+    delete window.merchantwidget;
+
+    expect(() =>
+      render(
+        <GoogleStoreWidget merchant={baseMerchant} hostname="ogabassey.com" />
+      )
+    ).not.toThrow();
+
+    await screen.findByTestId('google-store-widget-script');
+  });
+});
+
+describe('resolveGoogleStoreWidgetPreference', () => {
+  it('prefers the direct feature setting when present', () => {
+    expect(
+      resolveGoogleStoreWidgetPreference({
+        ...baseMerchant,
+        feature_settings: {
+          google_store_widget_enabled: false,
+          custom_settings: { google_store_widget_enabled: true },
+        },
+      })
+    ).toBe(false);
+  });
+
+  it('falls back to custom settings when the direct feature setting is absent', () => {
+    expect(
+      resolveGoogleStoreWidgetPreference({
+        ...baseMerchant,
+        feature_settings: {
+          custom_settings: { google_store_widget_enabled: true },
+        },
+      })
+    ).toBe(true);
+  });
+
+  it('returns undefined when no explicit preference is configured', () => {
+    expect(resolveGoogleStoreWidgetPreference(baseMerchant)).toBeUndefined();
   });
 });

@@ -3,6 +3,7 @@
 import {
   GoogleStoreWidget,
   normalizeHostname,
+  resolveGoogleStoreWidgetPreference,
 } from '@/components/analytics/google-store-widget';
 import { type MerchantData, useMerchantSafe } from '@/hooks/use-merchant';
 import type React from 'react';
@@ -45,7 +46,7 @@ export function OgabasseyLayout({
   const pathname = usePathname();
   const normalizedCustomDomain = normalizeHostname(merchant?.custom_domain);
   const merchantControlledGoogleStoreWidget =
-    merchant?.feature_settings?.google_store_widget_enabled;
+    resolveGoogleStoreWidgetPreference(merchant);
 
   // Dynamic check for client-side navigation (fixes persistent layout causing stale props)
   const isCheckout = pathname?.includes('/checkout');

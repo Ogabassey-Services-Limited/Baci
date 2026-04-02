@@ -38,6 +38,27 @@ export function normalizeHostname(value?: string) {
     .replace(/^www\./, '');
 }
 
+export function resolveGoogleStoreWidgetPreference(
+  merchant?: MerchantData
+): boolean | undefined {
+  const directPreference =
+    merchant?.feature_settings?.google_store_widget_enabled;
+
+  if (typeof directPreference === 'boolean') {
+    return directPreference;
+  }
+
+  const featureSettings = merchant?.feature_settings as
+    | Record<string, unknown>
+    | undefined;
+  const customSettings = featureSettings?.custom_settings as
+    | Record<string, unknown>
+    | undefined;
+  const customPreference = customSettings?.google_store_widget_enabled;
+
+  return typeof customPreference === 'boolean' ? customPreference : undefined;
+}
+
 export function GoogleStoreWidget({
   merchant,
   enabled = true,
