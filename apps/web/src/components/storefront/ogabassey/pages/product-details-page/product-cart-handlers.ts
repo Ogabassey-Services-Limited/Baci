@@ -9,7 +9,7 @@ interface ProductCartHandlersArgs {
   addToCart: (
     product: ReturnType<typeof buildCartProduct>,
     quantity: number,
-    metadata?: Record<string, string | undefined>
+    metadata?: Record<string, string | Record<string, string> | undefined>
   ) => void;
   applyNegotiatedPrice?: (cartItemId: string, price: number) => void;
   currentCartItemId: string;
@@ -24,6 +24,7 @@ interface ProductCartHandlersArgs {
   selectedColor: number | null;
   selectedCondition: ConditionType;
   selectedImage: number;
+  selectedVariantId?: string;
   setInputValue: (value: string) => void;
   setIsNegotiationOpen: (isOpen: boolean) => void;
   setIsSelectionModalOpen: (isOpen: boolean) => void;
@@ -54,6 +55,7 @@ export function createProductCartHandlers({
   selectedColor,
   selectedCondition,
   selectedImage,
+  selectedVariantId,
   setInputValue,
   setIsNegotiationOpen,
   setIsSelectionModalOpen,
@@ -78,6 +80,8 @@ export function createProductCartHandlers({
         : undefined,
     storage: selectedAttributes.storage,
     condition: selectedCondition,
+    variantId: selectedVariantId,
+    variantAttributes: selectedVariantId ? selectedAttributes : undefined,
   });
 
   const validateAndAddToCart = (missing = getMissingFields()) => {

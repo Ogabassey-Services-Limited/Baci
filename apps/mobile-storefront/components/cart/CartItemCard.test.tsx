@@ -102,6 +102,18 @@ describe('CartItemCard', () => {
     expect(screen.getByText(formatPrice(800 * item.quantity))).toBeTruthy();
   });
 
+  it('renders the selected color label for named merchant colors', () => {
+    const item = createItem({
+      color: 'Blue Titanium',
+      storage: '256GB',
+    });
+
+    renderCard(item);
+
+    expect(screen.getByText('Blue Titanium')).toBeTruthy();
+    expect(screen.getByText('256GB')).toBeTruthy();
+  });
+
   it('wires quantity controls and quantity input updates', () => {
     const item = createItem();
     const handleQuantityChange = jest.fn();
