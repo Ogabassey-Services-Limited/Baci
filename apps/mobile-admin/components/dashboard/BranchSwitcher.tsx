@@ -169,23 +169,22 @@ export function BranchSwitcher() {
               accessibilityHint="Double tap to set as active branch"
               accessibilityState={{ selected: isActive }}
             >
-              {/* Design assumption: primary color is always dark, ensuring white text contrast */}
               <Ionicons
                 name="location"
                 size={14}
-                color={isActive ? '#FFFFFF' : colors.primary}
+                color={isActive ? colors.textOnPrimary : colors.primary}
               />
               <Text
                 style={[
                   styles.branchName,
-                  { color: isActive ? '#FFFFFF' : colors.text },
+                  { color: isActive ? colors.textOnPrimary : colors.text },
                 ]}
                 numberOfLines={1}
               >
                 {branch.name}
               </Text>
               {isActive && (
-                <Ionicons name="checkmark-circle" size={14} color="#FFFFFF" />
+                <Ionicons name="checkmark-circle" size={14} color={colors.textOnPrimary} />
               )}
             </Pressable>
           );
@@ -367,9 +366,9 @@ function CreateBranchModal({
               }
             >
               {isLoading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.textOnPrimary} />
               ) : (
-                <Text style={styles.submitButtonText}>Create Branch</Text>
+                <Text style={[styles.submitButtonText, { color: colors.textOnPrimary }]}>Create Branch</Text>
               )}
             </Pressable>
           </View>
@@ -502,8 +501,6 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    // Design assumption: primary color is always dark, ensuring white text contrast
-    color: '#FFFFFF',
   },
   buttonDisabled: {
     opacity: 0.6,
