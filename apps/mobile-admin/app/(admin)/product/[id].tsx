@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Crypto from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,9 +24,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
+import { ExistingProductSuggestions } from '@/components/product/ExistingProductSuggestions';
 import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import SafeImage from '@/components/ui/SafeImage';
 import { useMerchant } from '@/hooks/useMerchant';
+import { useProductNameSuggestions } from '@/hooks/useProductNameSuggestions';
 import {
   useCategories,
   useCreateCategory,
@@ -36,6 +38,8 @@ import {
   useUpdateProductStatus,
 } from '@/hooks/useProducts';
 import { useTheme } from '@/hooks/useTheme';
+import { normalizeComparableProductName } from '@/lib/product-matching';
+import { runSingleFlight } from '@/lib/single-flight';
 import { supabase } from '@/lib/supabase';
 import { stripHtmlTags } from '@/lib/utils';
 
@@ -276,6 +280,18 @@ export default function ProductEditScreen() {
   const updateProductMutation = useUpdateProduct();
   const createProductMutation = useCreateProduct();
   const updateStatusMutation = useUpdateProductStatus();
+  const saveInFlightRef = useRef(false);
+  const { data: productNameSuggestions = [] } = useProductNameSuggestions({
+    productName: formData.name,
+    excludeProductId: isEditing ? id : undefined,
+    enabled: !isEditing,
+  });
+  const exactProductSuggestion = productNameSuggestions.find(
+    (suggestion) =>
+      suggestion.isExact &&
+      normalizeComparableProductName(suggestion.product.name) ===
+        normalizeComparableProductName(formData.name)
+  )?.product;
 
   // Show error screen for invalid route params (after all hooks)
   if (!validatedParams || !id) {
@@ -287,7 +303,15 @@ export default function ProductEditScreen() {
     );
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (
+      saveInFlightRef.current ||
+      updateProductMutation.isPending ||
+      createProductMutation.isPending
+    ) {
+      return;
+    }
+
     if (!formData.name?.trim()) {
       Alert.alert('Validation Error', 'Product name is required');
       return;
@@ -316,26 +340,36 @@ export default function ProductEditScreen() {
 
     const payload = { ...formData };
 
-    if (isEditing) {
-      updateProductMutation.mutate(
-        { id, updates: payload },
-        {
-          onSuccess: () => {
-            Alert.alert('Success', 'Product updated successfully');
-            router.back();
+    if (!isEditing && exactProductSuggestion) {
+      Alert.alert(
+        'Existing product found',
+        `"${exactProductSuggestion.name}" already exists. Open it instead of creating a duplicate product.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Open product',
+            onPress: () => router.push(`/product/${exactProductSuggestion.id}`),
           },
-          onError: (err: unknown) =>
-            Alert.alert('Error', (err as Error).message),
-        }
+        ]
       );
-    } else {
-      createProductMutation.mutate(payload, {
-        onSuccess: () => {
-          Alert.alert('Success', 'Product created successfully');
+      return;
+    }
+
+    try {
+      await runSingleFlight(saveInFlightRef, async () => {
+        if (isEditing) {
+          await updateProductMutation.mutateAsync({ id, updates: payload });
+          Alert.alert('Success', 'Product updated successfully');
           router.back();
-        },
-        onError: (err: unknown) => Alert.alert('Error', (err as Error).message),
+          return;
+        }
+
+        await createProductMutation.mutateAsync(payload);
+        Alert.alert('Success', 'Product created successfully');
+        router.back();
       });
+    } catch (err: unknown) {
+      Alert.alert('Error', (err as Error).message);
     }
   };
 
@@ -513,7 +547,11 @@ export default function ProductEditScreen() {
     const percentage =
       price > 0 ? `${((profit / price) * 100).toFixed(1)}%` : '0.0%';
     const color =
-      profit > 0 ? colors.success : profit < 0 ? colors.error : colors.textSecondary;
+      profit > 0
+        ? colors.success
+        : profit < 0
+          ? colors.error
+          : colors.textSecondary;
     return { profit, percentage, color, active: true };
   };
 
@@ -547,7 +585,9 @@ export default function ProductEditScreen() {
         options={{
           headerRight: () => (
             <Pressable
-              onPress={handleSave}
+              onPress={() => {
+                void handleSave();
+              }}
               disabled={
                 updateProductMutation.isPending ||
                 createProductMutation.isPending
@@ -722,6 +762,15 @@ export default function ProductEditScreen() {
             placeholder="Enter product name"
             placeholderTextColor={colors.textSecondary}
           />
+          {!isEditing ? (
+            <ExistingProductSuggestions
+              colors={colors}
+              suggestions={productNameSuggestions}
+              onOpenProduct={(productId) =>
+                router.push(`/product/${productId}`)
+              }
+            />
+          ) : null}
 
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             SKU <Text style={{ color: colors.error }}>*</Text>
