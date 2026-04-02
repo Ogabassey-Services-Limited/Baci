@@ -70,7 +70,7 @@ const RatingModal: React.FC<RatingModalProps> = ({
             <Image
               src={product.image}
               alt={product.name}
-              fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              fill sizes="64px"
               className="object-contain mix-blend-multiply p-2"
             />
           </div>
@@ -297,7 +297,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
                     <Image
                       src={item.image}
                       alt={item.name}
-                      fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      fill sizes="64px"
                       className="object-contain mix-blend-multiply p-1"
                     />
                   </div>
@@ -341,7 +341,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
                         // Handle joined product data structure
                         src={review.products?.images?.[0] || '/placeholder.png'}
                         alt={review.products?.name || 'Product'}
-                        fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        fill sizes="48px"
                         className="object-contain mix-blend-multiply p-1"
                       />
                     </div>

@@ -238,7 +238,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                                 <Image
                                   src={item.image || item.product_image || '/placeholder.png'}
                                   alt={item.name}
-                                  fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                  fill sizes="64px"
                                   className="object-contain mix-blend-multiply p-1"
                                 />
                               </div>
@@ -269,7 +269,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                               <Image
                                 src={item.image || item.product_image || '/placeholder.png'}
                                 alt={item.name}
-                                fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                fill sizes="64px"
                                 className="object-contain mix-blend-multiply p-1"
                               />
                             </div>

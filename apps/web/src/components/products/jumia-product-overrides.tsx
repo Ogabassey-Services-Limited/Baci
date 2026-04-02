@@ -158,7 +158,7 @@ export function JumiaProductOverrides({
                 src="/jumia-logo.png"
                 alt="Jumia"
                 fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                sizes="24px"
                 className="object-cover"
               />
             </div>

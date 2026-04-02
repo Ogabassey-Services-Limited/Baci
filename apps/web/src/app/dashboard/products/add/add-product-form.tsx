@@ -1247,7 +1247,7 @@ export default function AddProductForm({
                                         src={colorImages[color]}
                                         alt={color}
                                         fill
-                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 220px"
                                         className="object-cover"
                                       />
                                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5">
