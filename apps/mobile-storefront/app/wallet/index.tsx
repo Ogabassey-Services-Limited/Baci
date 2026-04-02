@@ -324,7 +324,7 @@ export default function WalletScreen() {
                 style={[
                   styles.redeemInput,
                   {
-                    backgroundColor: colors.background,
+                    backgroundColor: colors.muted,
                     borderColor: colors.border,
                     color: colors.text,
                   },
@@ -333,7 +333,7 @@ export default function WalletScreen() {
                 onChangeText={setRedeemPoints}
                 keyboardType="number-pad"
                 placeholder="Enter points to redeem (min 100)"
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor={colors.placeholder}
               />
 
               <View style={styles.redeemModalActions}>

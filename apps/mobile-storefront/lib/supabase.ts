@@ -13,6 +13,11 @@ import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import {
+  calculateOrderTotals,
+  canFallbackToLocalOrderTotals,
+  normalizeRemoteOrderTotals,
+} from './commerce';
 import { createLogger } from './logger';
 
 const log = createLogger('Supabase');
@@ -295,6 +300,35 @@ export async function calculateCommerce(
     }
 
     if (error) {
+      if (
+        action === 'calculate_order' &&
+        canFallbackToLocalOrderTotals(error)
+      ) {
+        const fallbackResult = calculateOrderTotals(
+          data as CalculateOrderInputType
+        );
+
+        log.warn(
+          `Commerce Brain unavailable [${action}], using local totals fallback.`,
+          error
+        );
+
+        try {
+          const { trackEvent } = await import('@/services/analytics');
+          trackEvent('commerce_brain_fallback', {
+            action,
+            duration_ms: Date.now() - startTime,
+            reason:
+              (error as { message?: string })?.message ||
+              'Edge function unavailable',
+          });
+        } catch (trackErr) {
+          log.warn('Failed to track fallback event:', trackErr);
+        }
+
+        return fallbackResult;
+      }
+
       log.error(`Commerce Brain Error [${action}]:`, error);
 
       // Track commerce brain failure with safe dynamic import
@@ -318,6 +352,14 @@ export async function calculateCommerce(
       );
     }
 
+    const normalizedResult =
+      action === 'calculate_order'
+        ? normalizeRemoteOrderTotals(
+            data as CalculateOrderInputType,
+            result as Partial<CalculateOrderOutputType> | null | undefined
+          )
+        : result;
+
     // Track successful commerce brain call
     try {
       const { trackEvent } = await import('@/services/analytics');
@@ -332,7 +374,7 @@ export async function calculateCommerce(
 
     // Type assertion needed: Supabase edge function returns untyped JSON.
     // The function overloads above guarantee the correct return type per action.
-    return result as
+    return normalizedResult as
       | CalculateOrderOutputType
       | CalculateVTUOutputType
       | RedeemLoyaltyOutputType;

@@ -541,6 +541,9 @@ export default function CustomersScreen() {
             onChangeText={setSearchQuery}
             autoCapitalize="none"
             autoCorrect={false}
+            accessibilityLabel="Search customers"
+            accessibilityRole="search"
+            returnKeyType="search"
           />
           {searchQuery.length > 0 ? (
             <Pressable

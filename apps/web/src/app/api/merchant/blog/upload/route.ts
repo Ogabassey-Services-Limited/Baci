@@ -8,6 +8,7 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -60,7 +61,9 @@ export async function POST(request: NextRequest) {
     // BACI_DEV_OVERRIDE_SECRET is intentionally not in env.ts - only needed in dev mode
     const expectedSecret = process.env.BACI_DEV_OVERRIDE_SECRET;
     const hasValidSecret =
-      expectedSecret && devOverrideSecret === expectedSecret;
+      !!expectedSecret &&
+      !!devOverrideSecret &&
+      constantTimeEqual(devOverrideSecret, expectedSecret);
     const isDevOverride =
       !user &&
       isDevEnv &&

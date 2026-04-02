@@ -151,6 +151,7 @@ export function GadgetDefaultTemplate({
                 src={heroImage}
                 alt="Hero"
                 fill
+                sizes="100vw"
                 className="object-cover"
                 priority
               />
@@ -217,6 +218,7 @@ export function GadgetDefaultTemplate({
                     src={heroImage}
                     alt="Hero"
                     fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
                     className="object-cover transition-transform hover:scale-105 duration-700"
                   />
                 </div>

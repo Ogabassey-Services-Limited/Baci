@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { router, Stack } from 'expo-router';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useEffectEvent, useRef } from 'react';
 import {
   type Control,
   Controller,
@@ -33,6 +33,14 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
 import {
@@ -57,7 +65,19 @@ import {
   getMerchantTaxRate,
   useMerchantPaymentSettings,
 } from '@/hooks/useMerchantPaymentSettings';
+import { resolveApiBaseUrl } from '@/lib/api-url';
+import { deriveCheckoutIdentity } from '@/lib/checkout-identity';
+import {
+  getDefaultSavedAddress,
+  toCheckoutAddressValues,
+  upsertSavedAddress,
+  type SavedAddress,
+} from '@/lib/checkout-saved-address';
 import { setClipboardString } from '@/lib/clipboard';
+import {
+  buildShippingQuoteContextKey,
+  getPreferredShippingQuoteId,
+} from '@/lib/shipping-quotes';
 import { calculateCommerce, supabase } from '@/lib/supabase';
 import {
   type ShippingAddressInput,
@@ -71,7 +91,7 @@ import {
 } from '@/services/analytics';
 import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
 import { scheduleLocalNotification } from '@/services/push-notifications';
-import { type Customer, useAuthStore } from '@/stores/auth-store';
+import { type Customer } from '@/stores/auth-store';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
 
 type CheckoutStep = 'address' | 'payment' | 'review';
@@ -119,9 +139,9 @@ interface PendingCryptoOrder {
 }
 
 const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl ||
-  'https://ogabassey.usebaci.com';
+  resolveApiBaseUrl(
+    process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
+  );
 
 const MERCHANT_ID =
   Constants.expoConfig?.extra?.merchantId ||
@@ -233,6 +253,9 @@ function FormField({
   maxLength?: number;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
 }) {
+  const [isFocused, setIsFocused] = React.useState(false);
+  const isDark = colors.text === '#FFFFFF' || colors.background === '#111827';
+
   return (
     <View style={[styles.inputGroup, containerStyle]}>
       <Text style={[styles.label, { color: colors.textSecondary }]}>
@@ -249,8 +272,17 @@ function FormField({
               style={[
                 styles.input,
                 multiline && styles.multilineInput,
-                { backgroundColor: colors.card, color: colors.text },
-                { borderColor: errors[name] ? colors.error : colors.border },
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.05)'
+                    : colors.muted,
+                  color: colors.text,
+                  borderColor: errors[name]
+                    ? colors.error
+                    : isFocused
+                      ? BRAND.primary
+                      : colors.border,
+                },
               ]}
               value={stringValue}
               onChangeText={(text) => {
@@ -262,10 +294,14 @@ function FormField({
                   onChange(processed);
                 }
               }}
-              onBlur={onBlur}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => {
+                setIsFocused(false);
+                onBlur();
+              }}
               maxLength={maxLength}
               placeholder={placeholder}
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={colors.placeholder}
               keyboardType={keyboardType}
               multiline={multiline}
               numberOfLines={multiline ? 2 : 1}
@@ -303,7 +339,11 @@ type FetchQuotesArgs = {
   watchedEmail: string;
   setIsLoadingQuotes: (value: boolean) => void;
   setSelectedQuoteId: (value: string) => void;
+  setResolvedShippingQuoteContextKey: (value: string) => void;
   setShippingQuotes: (value: ShippingQuote[]) => void;
+  previousSelectedQuoteId?: string | null;
+  quoteContextKey: string;
+  shouldResetSelection: boolean;
   signal?: AbortSignal;
 };
 
@@ -320,13 +360,21 @@ const fetchShippingQuotes = async ({
   watchedEmail,
   setIsLoadingQuotes,
   setSelectedQuoteId,
+  setResolvedShippingQuoteContextKey,
   setShippingQuotes,
+  previousSelectedQuoteId,
+  quoteContextKey,
+  shouldResetSelection,
   signal,
 }: FetchQuotesArgs) => {
   if (!state || !city || items.length === 0) return;
 
   setIsLoadingQuotes(true);
-  setSelectedQuoteId('');
+  if (shouldResetSelection) {
+    setShippingQuotes([]);
+    setSelectedQuoteId('');
+    setResolvedShippingQuoteContextKey('');
+  }
 
   try {
     const res = await fetch(`${apiUrl}/api/shipping/quotes`, {
@@ -361,20 +409,25 @@ const fetchShippingQuotes = async ({
       const data: QuoteResponse & { warnings?: string[] } = await res.json();
       const quotes = data.quotes?.all || [];
       setShippingQuotes(quotes);
-
-      if (quotes.length > 0) {
-        const cheapest = quotes.reduce((prev, current) =>
-          prev.price <= current.price ? prev : current
-        );
-        setSelectedQuoteId(String(cheapest.id));
-      }
+      setResolvedShippingQuoteContextKey(quoteContextKey);
+      setSelectedQuoteId(
+        getPreferredShippingQuoteId(quotes, previousSelectedQuoteId)
+      );
     } else {
-      setShippingQuotes([]);
+      if (shouldResetSelection) {
+        setShippingQuotes([]);
+        setSelectedQuoteId('');
+        setResolvedShippingQuoteContextKey('');
+      }
     }
   } catch (_error) {
     // Don't update state if the request was aborted (superseded by a newer request)
     if (signal?.aborted) return;
-    setShippingQuotes([]);
+    if (shouldResetSelection) {
+      setShippingQuotes([]);
+      setSelectedQuoteId('');
+      setResolvedShippingQuoteContextKey('');
+    }
   } finally {
     // Don't clear loading state if aborted — the newer request owns loading state
     if (!signal?.aborted) {
@@ -384,14 +437,20 @@ const fetchShippingQuotes = async ({
 };
 
 export default function CheckoutScreen() {
+  const ctaArrowTranslateX = useSharedValue(0);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const isDark = (colorScheme ?? 'light') === 'dark';
 
   const items = useCartStore((state) => state.items);
   const subtotal = useCartStore((state) => state.subtotal());
   const clearCart = useCartStore((state) => state.clearCart);
-  const customer = useAuthStore((state) => state.customer);
-  const { isInitialized } = useAuthStatus();
+  const { customer, isAuthenticated, user } = useAuthStatus();
+  const checkoutIdentity = deriveCheckoutIdentity({ customer, user });
+  const checkoutEmail = checkoutIdentity.email;
+  const checkoutFirstName = checkoutIdentity.firstName;
+  const checkoutLastName = checkoutIdentity.lastName;
+  const checkoutPhone = checkoutIdentity.phone;
 
   const { data: paymentSettings } = useMerchantPaymentSettings();
   const enabledPaymentMethods = getEnabledPaymentMethods(paymentSettings);
@@ -412,13 +471,28 @@ export default function CheckoutScreen() {
     []
   );
   const [selectedQuoteId, setSelectedQuoteId] = React.useState<string>('');
+  const [resolvedShippingQuoteContextKey, setResolvedShippingQuoteContextKey] =
+    React.useState('');
   const [isLoadingLocations, setIsLoadingLocations] = React.useState(false);
   const [isLoadingCities, setIsLoadingCities] = React.useState(false);
   const [isLoadingQuotes, setIsLoadingQuotes] = React.useState(false);
   const [showStatePicker, setShowStatePicker] = React.useState(false);
   const [showCityPicker, setShowCityPicker] = React.useState(false);
   const [citySearch, setCitySearch] = React.useState('');
+  const [citySearchFocused, setCitySearchFocused] = React.useState(false);
   const [saveDetails, setSaveDetails] = React.useState(false);
+  const [saveAsDefaultAddress, setSaveAsDefaultAddress] =
+    React.useState(false);
+  const [savedAddresses, setSavedAddresses] = React.useState<SavedAddress[]>(
+    []
+  );
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = React.useState<
+    string | null
+  >(null);
+  const [isLoadingSavedAddresses, setIsLoadingSavedAddresses] =
+    React.useState(false);
+  const [isContactCollapsed, setIsContactCollapsed] = React.useState(false);
+  const [isDeliveryCollapsed, setIsDeliveryCollapsed] = React.useState(false);
   const [accountPassword, setAccountPassword] = React.useState('');
 
   // Crypto payment inline modal state
@@ -456,10 +530,10 @@ export default function CheckoutScreen() {
   } = useForm<ShippingAddressInput>({
     resolver: shippingAddressResolver,
     defaultValues: {
-      email: customer?.email || '',
-      firstName: customer?.first_name || '',
-      lastName: customer?.last_name || '',
-      phone: customer?.phone || '',
+      email: checkoutEmail,
+      firstName: checkoutFirstName,
+      lastName: checkoutLastName,
+      phone: checkoutPhone,
       address: '',
       city: '',
       state: '',
@@ -475,9 +549,15 @@ export default function CheckoutScreen() {
   const watchedFirstName = watch('firstName');
   const watchedLastName = watch('lastName');
   const watchedEmail = watch('email');
+  const currentShippingQuoteContextKey = buildShippingQuoteContextKey(
+    watchedState,
+    watchedCity,
+    items
+  );
 
   const hasTrackedStart = useRef(false);
   const isOrderInFlight = useRef(false);
+  const hasHydratedSavedAddressRef = useRef(false);
   // Sentinel: stores the city Google Places suggested, so we can match it
   // against the Topship cities list once they load.
   // null = no pending suggestion, '' = state=city edge case (open picker)
@@ -487,6 +567,53 @@ export default function CheckoutScreen() {
   const shippingQuoteAbortRef = useRef<AbortController | null>(null);
   // Timer ref for crypto copy feedback — prevents setState after unmount
   const cryptoCopyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shippingQuoteReceiverRef = useRef({
+    customer,
+    watchedFirstName,
+    watchedLastName,
+    watchedPhone,
+    watchedAddress,
+    watchedEmail,
+  });
+
+  shippingQuoteReceiverRef.current = {
+    customer,
+    watchedFirstName,
+    watchedLastName,
+    watchedPhone,
+    watchedAddress,
+    watchedEmail,
+  };
+  const selectedQuoteIdRef = useRef(selectedQuoteId);
+  selectedQuoteIdRef.current = selectedQuoteId;
+  const hasSavedAddresses = isAuthenticated && savedAddresses.length > 0;
+  const hasContactIdentity = Boolean(
+    checkoutEmail && checkoutFirstName && checkoutLastName && checkoutPhone
+  );
+  const selectedSavedAddress =
+    savedAddresses.find((item) => item.id === selectedSavedAddressId) ?? null;
+  const defaultSavedAddress = getDefaultSavedAddress(savedAddresses);
+
+  const applySavedAddressToForm = (
+    savedAddress: SavedAddress,
+    options?: { collapse?: boolean }
+  ) => {
+    const checkoutValues = toCheckoutAddressValues(savedAddress);
+
+    setValue('firstName', checkoutValues.firstName, { shouldValidate: true });
+    setValue('lastName', checkoutValues.lastName, { shouldValidate: true });
+    setValue('phone', checkoutValues.phone, { shouldValidate: true });
+    setValue('address', checkoutValues.address, { shouldValidate: true });
+    setValue('city', checkoutValues.city, { shouldValidate: true });
+    setValue('state', checkoutValues.state, { shouldValidate: true });
+    setSelectedSavedAddressId(savedAddress.id);
+    setSaveAsDefaultAddress(Boolean(savedAddress.is_default));
+
+    if (options?.collapse !== false) {
+      setIsContactCollapsed(true);
+      setIsDeliveryCollapsed(true);
+    }
+  };
 
   // Cleanup crypto copy timer on unmount
   useEffect(() => {
@@ -494,6 +621,80 @@ export default function CheckoutScreen() {
       if (cryptoCopyTimerRef.current) clearTimeout(cryptoCopyTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const fetchSavedAddresses = async () => {
+      if (!isAuthenticated || !customer?.id) {
+        setSavedAddresses([]);
+        setSelectedSavedAddressId(null);
+        setIsLoadingSavedAddresses(false);
+        setIsContactCollapsed(false);
+        setIsDeliveryCollapsed(false);
+        setSaveAsDefaultAddress(false);
+        hasHydratedSavedAddressRef.current = false;
+        return;
+      }
+
+      setIsLoadingSavedAddresses(true);
+
+      try {
+        const { data, error } = await supabase
+          .from('customers')
+          .select('saved_addresses')
+          .eq('id', customer.id)
+          .eq('merchant_id', MERCHANT_ID)
+          .single();
+
+        if (error) throw error;
+
+        const nextAddresses = Array.isArray(data?.saved_addresses)
+          ? ([...data.saved_addresses] as SavedAddress[])
+          : [];
+
+        nextAddresses.sort(
+          (left, right) => Number(Boolean(right.is_default)) - Number(Boolean(left.is_default))
+        );
+        setSavedAddresses(nextAddresses);
+      } catch (error) {
+        trackError(
+          'checkout_saved_addresses_fetch',
+          error instanceof Error
+            ? error.message
+            : 'Failed to load saved addresses'
+        );
+        setSavedAddresses([]);
+      } finally {
+        setIsLoadingSavedAddresses(false);
+      }
+    };
+
+    fetchSavedAddresses();
+  }, [customer?.id, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || hasHydratedSavedAddressRef.current) return;
+
+    if (!defaultSavedAddress) {
+      setIsContactCollapsed(hasContactIdentity);
+      setIsDeliveryCollapsed(false);
+      setSaveAsDefaultAddress(true);
+      hasHydratedSavedAddressRef.current = true;
+      return;
+    }
+
+    const checkoutValues = toCheckoutAddressValues(defaultSavedAddress);
+    setValue('firstName', checkoutValues.firstName, { shouldValidate: true });
+    setValue('lastName', checkoutValues.lastName, { shouldValidate: true });
+    setValue('phone', checkoutValues.phone, { shouldValidate: true });
+    setValue('address', checkoutValues.address, { shouldValidate: true });
+    setValue('city', checkoutValues.city, { shouldValidate: true });
+    setValue('state', checkoutValues.state, { shouldValidate: true });
+    setSelectedSavedAddressId(defaultSavedAddress.id);
+    setSaveAsDefaultAddress(Boolean(defaultSavedAddress.is_default));
+    setIsContactCollapsed(hasContactIdentity);
+    setIsDeliveryCollapsed(true);
+    hasHydratedSavedAddressRef.current = true;
+  }, [defaultSavedAddress, hasContactIdentity, isAuthenticated, setValue]);
 
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {
@@ -506,33 +707,15 @@ export default function CheckoutScreen() {
     }
   }, [items, subtotal]);
 
-  // Auth check for protected checkout actions
+  // Keep checkout identity aligned with auth state while preserving guest-edited fields.
   useEffect(() => {
-    if (!isInitialized) return;
-
-    // Check if user is trying to place order but not authenticated
-    // This prevents unauthorized checkout attempts
-    if (step === 'review' && !customer) {
-      Alert.alert(
-        'Sign In Required',
-        'Please sign in to complete your order.',
-        [
-          { text: 'Cancel', style: 'cancel', onPress: () => router.back() },
-          { text: 'Sign In', onPress: () => router.push('/auth/login') },
-        ]
-      );
-    }
-  }, [step, customer, isInitialized]);
-
-  // Mid-checkout login: sync customer data into form, preserving fields the user already edited
-  useEffect(() => {
-    if (!customer) return;
+    if (!isAuthenticated) return;
     reset(
       {
-        email: customer.email || '',
-        firstName: customer.first_name || '',
-        lastName: customer.last_name || '',
-        phone: customer.phone || '',
+        email: checkoutEmail,
+        firstName: checkoutFirstName,
+        lastName: checkoutLastName,
+        phone: checkoutPhone,
         address: getValues('address'),
         city: getValues('city'),
         state: getValues('state'),
@@ -540,7 +723,113 @@ export default function CheckoutScreen() {
       },
       { keepDirtyValues: true }
     );
-  }, [customer, reset, getValues]);
+  }, [
+    checkoutEmail,
+    checkoutFirstName,
+    checkoutLastName,
+    checkoutPhone,
+    getValues,
+    isAuthenticated,
+    reset,
+  ]);
+
+  const currentContactSummary = `${watchedFirstName} ${watchedLastName}`.trim();
+  const currentDeliverySummary = [watchedAddress, watchedCity, watchedState]
+    .filter(Boolean)
+    .join(', ');
+  const deliverySummaryEyebrow = selectedSavedAddress?.is_default
+    ? 'Using your default address'
+    : selectedSavedAddress
+      ? 'Using your saved address'
+      : 'Delivery details for this order';
+
+  const renderSavedAddressOptions = () => {
+    if (!hasSavedAddresses) return null;
+
+    return (
+      <View style={styles.savedAddressSection}>
+        <View style={styles.savedAddressHeader}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Saved Addresses
+          </Text>
+          {isLoadingSavedAddresses && (
+            <ActivityIndicator size="small" color={BRAND.primary} />
+          )}
+        </View>
+        {savedAddresses.map((savedAddress) => {
+          const isSelected = savedAddress.id === selectedSavedAddressId;
+
+          return (
+            <Pressable
+              key={savedAddress.id}
+              onPress={() => applySavedAddressToForm(savedAddress, { collapse: false })}
+              style={[
+                styles.savedAddressOption,
+                {
+                  backgroundColor: isSelected
+                    ? isDark
+                      ? 'rgba(217, 59, 48, 0.12)'
+                      : palette.red[50]
+                    : colors.background,
+                  borderColor: isSelected ? BRAND.primary : colors.border,
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Use ${savedAddress.label || 'saved'} address`}
+            >
+              <View style={styles.savedAddressOptionBody}>
+                <View style={styles.savedAddressOptionTitleRow}>
+                  <Text
+                    style={[styles.savedAddressOptionTitle, { color: colors.text }]}
+                  >
+                    {savedAddress.label || 'Saved Address'}
+                  </Text>
+                  {savedAddress.is_default && (
+                    <View
+                      style={[
+                        styles.savedAddressDefaultBadge,
+                        { backgroundColor: `${BRAND.primary}14` },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.savedAddressDefaultBadgeText,
+                          { color: BRAND.primary },
+                        ]}
+                      >
+                        Default
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text
+                  style={[
+                    styles.savedAddressMeta,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {savedAddress.full_name}
+                </Text>
+                <Text
+                  style={[
+                    styles.savedAddressMeta,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  {savedAddress.address}, {savedAddress.city}, {savedAddress.state}
+                </Text>
+              </View>
+              <Ionicons
+                name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                size={20}
+                color={isSelected ? BRAND.primary : colors.textSecondary}
+              />
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  };
 
   // Reset payment method if current selection is not in enabled list
   useEffect(() => {
@@ -559,7 +848,7 @@ export default function CheckoutScreen() {
     }
   }, [enabledPaymentMethods, selectedPayment, paymentTab]);
 
-  const performBackTransition = () => {
+  const handleBack = () => {
     if (step === 'payment') {
       setStep('address');
     } else if (step === 'review') {
@@ -569,41 +858,75 @@ export default function CheckoutScreen() {
     }
   };
 
-  const handleBack = () => {
-    performBackTransition();
-  };
+  const handleHardwareBackPress = useEffectEvent(() => {
+    if (isOrderInFlight.current) {
+      return true;
+    }
+    if (step === 'address') {
+      Alert.alert(
+        'Leave Checkout?',
+        'Your cart items will be saved. Are you sure you want to leave?',
+        [
+          { text: 'Stay', style: 'cancel' },
+          {
+            text: 'Leave',
+            style: 'destructive',
+            onPress: () => router.back(),
+          },
+        ]
+      );
+      return true;
+    }
+
+    if (step === 'payment') {
+      setStep('address');
+    } else if (step === 'review') {
+      setStep('payment');
+    } else {
+      router.back();
+    }
+
+    return true;
+  });
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
-      () => {
-        if (isOrderInFlight.current) {
-          return true;
-        }
-        if (step === 'address') {
-          Alert.alert(
-            'Leave Checkout?',
-            'Your cart items will be saved. Are you sure you want to leave?',
-            [
-              { text: 'Stay', style: 'cancel' },
-              {
-                text: 'Leave',
-                style: 'destructive',
-                onPress: () => performBackTransition(),
-              },
-            ]
-          );
-          return true;
-        }
-        performBackTransition();
-        return true;
-      }
+      handleHardwareBackPress
     );
 
     return () => backHandler.remove();
-  }, [step, performBackTransition]);
+  }, []);
+
+  useEffect(() => {
+    if (isProcessing) {
+      cancelAnimation(ctaArrowTranslateX);
+      ctaArrowTranslateX.set(0);
+      return;
+    }
+
+    ctaArrowTranslateX.set(
+      withRepeat(
+        withSequence(
+          withTiming(6, { duration: 800 }),
+          withTiming(0, { duration: 800 })
+        ),
+        -1,
+        true
+      )
+    );
+
+    return () => {
+      cancelAnimation(ctaArrowTranslateX);
+      ctaArrowTranslateX.set(0);
+    };
+  }, [ctaArrowTranslateX, isProcessing]);
+
+  const animatedCtaArrowStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: ctaArrowTranslateX.get() }],
+  }));
 
   useEffect(() => {
     const fetchLocations = async () => {
@@ -627,6 +950,9 @@ export default function CheckoutScreen() {
     if (!watchedState) {
       setShippingCities([]);
       setIsLoadingCities(false);
+      setShippingQuotes([]);
+      setSelectedQuoteId('');
+      setResolvedShippingQuoteContextKey('');
       return;
     }
     const controller = new AbortController();
@@ -714,27 +1040,37 @@ export default function CheckoutScreen() {
     if (watchedState && watchedCity) {
       const controller = new AbortController();
       shippingQuoteAbortRef.current = controller;
+      const shouldResetSelection =
+        resolvedShippingQuoteContextKey !== currentShippingQuoteContextKey;
+      const receiver = shippingQuoteReceiverRef.current;
 
       fetchShippingQuotes({
         apiUrl: API_BASE_URL,
         state: watchedState,
         city: watchedCity,
         items,
-        customer,
-        watchedFirstName,
-        watchedLastName,
-        watchedPhone,
-        watchedAddress,
-        watchedEmail,
+        customer: receiver.customer,
+        watchedFirstName: receiver.watchedFirstName,
+        watchedLastName: receiver.watchedLastName,
+        watchedPhone: receiver.watchedPhone,
+        watchedAddress: receiver.watchedAddress,
+        watchedEmail: receiver.watchedEmail,
         setIsLoadingQuotes,
         setSelectedQuoteId,
+        setResolvedShippingQuoteContextKey,
         setShippingQuotes,
+        previousSelectedQuoteId: shouldResetSelection
+          ? null
+          : selectedQuoteIdRef.current,
+        quoteContextKey: currentShippingQuoteContextKey,
+        shouldResetSelection,
         signal: controller.signal,
       });
     } else {
       shippingQuoteAbortRef.current = null;
       setShippingQuotes([]);
       setSelectedQuoteId('');
+      setResolvedShippingQuoteContextKey('');
     }
 
     return () => {
@@ -743,17 +1079,12 @@ export default function CheckoutScreen() {
         shippingQuoteAbortRef.current.abort();
       }
     };
-    // Only refetch when location or items change — receiver details don't affect quote pricing
   }, [
     watchedState,
     watchedCity,
     items,
-    customer,
-    watchedAddress,
-    watchedEmail,
-    watchedFirstName,
-    watchedLastName,
-    watchedPhone,
+    currentShippingQuoteContextKey,
+    resolvedShippingQuoteContextKey,
   ]);
 
   const selectedQuote = shippingQuotes.find(
@@ -955,6 +1286,14 @@ export default function CheckoutScreen() {
       return;
     }
 
+    if (isLoadingQuotes) {
+      Alert.alert(
+        'Still Fetching Delivery',
+        'Please wait for delivery options to finish loading before placing your order.'
+      );
+      return;
+    }
+
     // Re-validate that the selected payment method is still enabled
     // (merchant may have toggled it since the user selected it)
     if (
@@ -971,10 +1310,15 @@ export default function CheckoutScreen() {
 
     // Validate that a shipping quote is selected when shipping quotes are
     // available (i.e. the address step fetched quotes for the chosen location)
-    if (shippingQuotes.length > 0 && !selectedQuoteId) {
+    const requiresFreshShippingQuote = Boolean(currentShippingQuoteContextKey);
+    const hasFreshShippingQuoteSelection =
+      resolvedShippingQuoteContextKey === currentShippingQuoteContextKey &&
+      Boolean(selectedQuote);
+
+    if (requiresFreshShippingQuote && !hasFreshShippingQuoteSelection) {
       Alert.alert(
         'Shipping Required',
-        'Please select a delivery option before placing your order.',
+        'Please confirm a delivery option before placing your order.',
         [{ text: 'OK', onPress: () => setStep('address') }]
       );
       return;
@@ -1036,6 +1380,10 @@ export default function CheckoutScreen() {
           subtotal: snapshotSubtotal,
           shipping_fee: snapshotDeliveryFee,
           tax_amount: snapshotTaxAmount,
+          selected_quote_id:
+            selectedQuote?.id != null ? String(selectedQuote.id) : undefined,
+          shipping_provider:
+            selectedQuote?.provider || selectedQuote?.carrierName || undefined,
           payment_method: selectedPayment,
           shipping_address: address,
           source: 'mobile_app',
@@ -1085,6 +1433,10 @@ export default function CheckoutScreen() {
         subtotal: snapshotSubtotal,
         shipping_fee: snapshotDeliveryFee,
         tax_amount: snapshotTaxAmount,
+        selected_quote_id:
+          selectedQuote?.id != null ? String(selectedQuote.id) : undefined,
+        shipping_provider:
+          selectedQuote?.provider || selectedQuote?.carrierName || undefined,
         payment_method: selectedPayment,
         shipping_address: address,
         source: 'mobile_app',
@@ -1093,6 +1445,73 @@ export default function CheckoutScreen() {
       const { order } = orderResponse;
       const orderNumber =
         order.order_number || order.id.slice(0, 8).toUpperCase();
+      const runPostOrderSideEffects = () => {
+        void (async () => {
+          if (isAuthenticated && customer?.id && saveAsDefaultAddress) {
+            try {
+              const { data, error } = await supabase
+                .from('customers')
+                .select('saved_addresses')
+                .eq('id', customer.id)
+                .eq('merchant_id', MERCHANT_ID)
+                .single();
+
+              if (error) throw error;
+
+              const nextSavedAddresses = upsertSavedAddress(
+                Array.isArray(data?.saved_addresses)
+                  ? (data.saved_addresses as SavedAddress[])
+                  : [],
+                address,
+                {
+                  selectedSavedAddressId,
+                  setAsDefault: true,
+                }
+              );
+
+              const { error: updateError } = await supabase
+                .from('customers')
+                .update({ saved_addresses: nextSavedAddresses })
+                .eq('id', customer.id)
+                .eq('merchant_id', MERCHANT_ID);
+
+              if (updateError) throw updateError;
+            } catch (error) {
+              trackError(
+                'checkout_save_default_address',
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to save default address'
+              );
+            }
+          }
+
+          await scheduleLocalNotification(
+            'Order Received! 📦',
+            `Your order #${orderNumber} is being processed. We'll notify you when it ships.`,
+            { type: 'order_update', orderNumber, orderId: order.id },
+            1
+          );
+
+          if (!isAuthenticated && saveDetails && accountPassword.length >= 6) {
+            try {
+              await supabase.auth.signUp({
+                email: customerEmail,
+                password: accountPassword,
+                options: {
+                  data: {
+                    first_name: address.firstName,
+                    last_name: address.lastName,
+                    phone: address.phone,
+                  },
+                },
+              });
+            } catch {
+              // Non-blocking: order already placed, account creation is best-effort
+            }
+          }
+        })();
+      };
 
       trackOrderCompleted({
         orderId: order.id,
@@ -1105,32 +1524,6 @@ export default function CheckoutScreen() {
         itemCount: itemsSnapshot.reduce((acc, item) => acc + item.quantity, 0),
         paymentMethod: selectedPayment,
       });
-
-      await scheduleLocalNotification(
-        'Order Received! 📦',
-        `Your order #${orderNumber} is being processed. We'll notify you when it ships.`,
-        { type: 'order_update', orderNumber, orderId: order.id },
-        1
-      );
-
-      // Silent account creation for guests who opted in
-      if (saveDetails && accountPassword.length >= 6) {
-        try {
-          await supabase.auth.signUp({
-            email: customerEmail,
-            password: accountPassword,
-            options: {
-              data: {
-                first_name: address.firstName,
-                last_name: address.lastName,
-                phone: address.phone,
-              },
-            },
-          });
-        } catch {
-          // Non-blocking: order already placed, account creation is best-effort
-        }
-      }
 
       // Route based on payment method
       const isOnlinePayment =
@@ -1151,6 +1544,7 @@ export default function CheckoutScreen() {
         setIsProcessing(false);
         isOrderInFlight.current = false;
         setShowCryptoSelection(true);
+        runPostOrderSideEffects();
         return;
       }
 
@@ -1226,6 +1620,7 @@ export default function CheckoutScreen() {
             },
           });
         }
+        runPostOrderSideEffects();
         return;
       }
 
@@ -1259,6 +1654,7 @@ export default function CheckoutScreen() {
           }),
         },
       });
+      runPostOrderSideEffects();
     } catch (error) {
       // BUG-1-002 Fix: Rollback cart on error
       // Restore cart items if order creation failed
@@ -1341,9 +1737,18 @@ export default function CheckoutScreen() {
           <Text style={[styles.stepTitle, { color: colors.text }]}>
             Checkout
           </Text>
-          <View style={styles.stepBadge}>
+          <View
+            style={[
+              styles.stepBadge,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(217, 59, 48, 0.16)'
+                  : palette.red[50],
+              },
+            ]}
+          >
             <Ionicons name="checkmark" size={12} color={BRAND.primary} />
-            <Text style={styles.stepBadgeText}>
+            <Text style={[styles.stepBadgeText, { color: BRAND.primary }]}>
               {items.length} item{items.length === 1 ? '' : 's'}
             </Text>
           </View>
@@ -1351,7 +1756,16 @@ export default function CheckoutScreen() {
         <Text style={[styles.stepSubtitle, { color: colors.textSecondary }]}>
           Step {currentIndex + 1} of 3
         </Text>
-        <View style={styles.stepProgress}>
+	        <View
+	          style={[
+	            styles.stepProgress,
+	            {
+	              backgroundColor: isDark
+	                ? 'rgba(148, 163, 184, 0.16)'
+	                : palette.gray[200],
+	            },
+	          ]}
+	        >
           <View
             style={[
               styles.stepProgressActive,
@@ -1368,41 +1782,66 @@ export default function CheckoutScreen() {
                 key={s}
                 style={[
                   styles.stepPill,
-                  {
-                    backgroundColor: isActive ? palette.red[50] : colors.card,
-                    borderColor:
-                      isActive || isCompleted ? BRAND.primary : colors.border,
-                  },
+	                  {
+	                    backgroundColor: isActive
+	                      ? isDark
+	                        ? 'rgba(217, 59, 48, 0.16)'
+	                        : palette.red[50]
+	                      : colors.card,
+	                    borderColor:
+	                      isActive || isCompleted 
+                          ? BRAND.primary 
+                          : isDark 
+                            ? 'rgba(255, 255, 255, 0.08)' 
+                            : colors.border,
+	                  },
                 ]}
               >
                 <View
                   style={[
                     styles.stepPillDot,
-                    {
-                      backgroundColor:
-                        isActive || isCompleted ? BRAND.primary : colors.border,
-                    },
-                  ]}
-                >
+	                    {
+	                      backgroundColor:
+	                        isActive || isCompleted
+	                          ? BRAND.primary
+	                          : isDark
+	                            ? 'rgba(148, 163, 184, 0.22)'
+	                            : palette.gray[200],
+	                    },
+	                  ]}
+	                >
                   {isCompleted ? (
                     <Ionicons name="checkmark" size={12} color="#FFFFFF" />
                   ) : (
                     <Text
-                      style={[
-                        styles.stepPillNumber,
-                        { color: isActive ? '#FFFFFF' : colors.textSecondary },
-                      ]}
-                    >
+	                      style={[
+	                        styles.stepPillNumber,
+	                        {
+	                          color:
+	                            isActive || isCompleted
+	                              ? '#FFFFFF'
+	                              : colors.textSecondary,
+	                        },
+	                      ]}
+	                    >
                       {index + 1}
                     </Text>
                   )}
                 </View>
                 <Text
-                  style={[
-                    styles.stepPillText,
-                    { color: isActive ? colors.text : colors.textSecondary },
-                  ]}
-                >
+	                  style={[
+	                    styles.stepPillText,
+	                    {
+	                      color: isActive
+	                        ? isDark
+	                          ? '#FDECEA'
+	                          : BRAND.primary
+	                        : isCompleted
+	                          ? colors.text
+	                          : colors.textSecondary,
+	                    },
+	                  ]}
+	                >
                   {STEP_PILL_LABELS[s]}
                 </Text>
               </View>
@@ -1426,7 +1865,9 @@ export default function CheckoutScreen() {
           Delivery Address
         </Text>
         <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-          Use your default details or edit for this delivery.
+          {isAuthenticated
+            ? 'Your saved details are ready. Edit only if this order needs something different.'
+            : 'Add your contact and delivery details to continue.'}
         </Text>
       </View>
 
@@ -1435,77 +1876,128 @@ export default function CheckoutScreen() {
           styles.card,
           {
             backgroundColor: colors.card,
-            borderColor: colors.border,
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
             overflow: 'visible',
             zIndex: 20,
             position: 'relative',
           },
         ]}
       >
-        <View style={styles.cardHeader}>
-          <Ionicons name="person-outline" size={16} color={BRAND.primary} />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Contact
-          </Text>
+        <View style={styles.cardHeaderActionRow}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="person-outline" size={16} color={BRAND.primary} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Contact
+            </Text>
+          </View>
+          {isAuthenticated && hasContactIdentity && (
+            <Pressable
+              style={[
+                styles.inlineEditButton,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.04)'
+                    : palette.gray[50],
+                },
+              ]}
+              onPress={() => setIsContactCollapsed((value) => !value)}
+              accessibilityRole="button"
+              accessibilityLabel={isContactCollapsed ? 'Edit contact details' : 'Collapse contact details'}
+            >
+              <View style={styles.inlineActionContent}>
+                <Ionicons
+                  name={isContactCollapsed ? 'create-outline' : 'checkmark-outline'}
+                  size={16}
+                  color={BRAND.primary}
+                />
+                <Text style={styles.inlineActionText}>
+                  {isContactCollapsed ? 'Edit' : 'Done'}
+                </Text>
+              </View>
+            </Pressable>
+          )}
         </View>
-        <View style={styles.cardBody}>
+        {isContactCollapsed ? (
+          <View style={styles.summarySection}>
+            <Text style={[styles.summaryEyebrow, { color: BRAND.primary }]}>
+              Using your signed-in details
+            </Text>
+            <Text style={[styles.summaryTitle, { color: colors.text }]}>
+              {currentContactSummary || 'Contact details'}
+            </Text>
+            <Text style={[styles.summaryLine, { color: colors.textSecondary }]}>
+              {watchedEmail}
+            </Text>
+            <Text style={[styles.summaryLine, { color: colors.textSecondary }]}>
+              {watchedPhone}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.cardBody}>
           <View style={styles.row}>
             <View style={styles.halfInput}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                First Name
+              </Text>
               <FormField
                 name="firstName"
-                label="First Name"
-                placeholder="John"
+                label=""
+                placeholder="E.g. John"
                 control={control}
                 errors={errors}
                 colors={colors}
-                maxLength={50}
-                transformText={(text) => text.replace(/\d/g, '')}
+                autoCapitalize="words"
               />
             </View>
             <View style={styles.halfInput}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                Last Name
+              </Text>
               <FormField
                 name="lastName"
-                label="Last Name"
-                placeholder="Doe"
+                label=""
+                placeholder="E.g. Doe"
                 control={control}
                 errors={errors}
                 colors={colors}
-                maxLength={50}
-                transformText={(text) => text.replace(/\d/g, '')}
+                autoCapitalize="words"
               />
             </View>
           </View>
 
+          <Text style={[styles.label, { color: colors.textSecondary, marginBottom: 8 }]}>
+            Phone Number
+          </Text>
           <Controller
             control={control}
             name="phone"
-            render={({ field: { value, onChange } }) => (
+            render={({ field: { value, onChange, onBlur } }) => (
               <PhoneInput
                 value={value}
                 onChangeText={onChange}
-                label="Phone Number"
-                placeholder="8012345678"
+                onBlur={onBlur}
                 error={errors.phone?.message}
                 containerStyle={styles.inputGroup}
               />
             )}
           />
 
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Email Address
+          </Text>
           <FormField
             name="email"
-            label="Email Address"
-            placeholder="you@example.com"
+            label=""
+            placeholder="john@example.com"
             control={control}
             errors={errors}
             colors={colors}
             keyboardType="email-address"
-            maxLength={255}
             autoCapitalize="none"
-            transformText={(text) => text.toLowerCase()}
           />
 
           {/* Save Details Checkbox — guests only */}
-          {!customer && (
+          {!isAuthenticated && (
             <View style={styles.saveDetailsSection}>
               <Pressable
                 style={styles.checkboxRow}
@@ -1595,7 +2087,8 @@ export default function CheckoutScreen() {
               )}
             </View>
           )}
-        </View>
+          </View>
+        )}
       </View>
 
       <View
@@ -1603,19 +2096,80 @@ export default function CheckoutScreen() {
           styles.card,
           {
             backgroundColor: colors.card,
-            borderColor: colors.border,
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
             zIndex: 10,
             position: 'relative',
           },
         ]}
       >
-        <View style={styles.cardHeader}>
-          <Ionicons name="location-outline" size={16} color={BRAND.primary} />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Delivery
-          </Text>
+        <View style={styles.cardHeaderActionRow}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="location-outline" size={16} color={BRAND.primary} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>
+              Delivery
+            </Text>
+          </View>
+          {(hasSavedAddresses || Boolean(currentDeliverySummary)) && (
+            <Pressable
+              style={[
+                styles.inlineEditButton,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.04)'
+                    : palette.gray[50],
+                },
+              ]}
+              onPress={() => setIsDeliveryCollapsed((value) => !value)}
+              accessibilityRole="button"
+              accessibilityLabel={isDeliveryCollapsed ? 'Edit delivery address' : 'Collapse delivery address'}
+            >
+              <View style={styles.inlineActionContent}>
+                <Ionicons
+                  name={isDeliveryCollapsed ? 'create-outline' : 'checkmark-outline'}
+                  size={16}
+                  color={BRAND.primary}
+                />
+                <Text style={styles.inlineActionText}>
+                  {isDeliveryCollapsed ? 'Edit' : 'Done'}
+                </Text>
+              </View>
+            </Pressable>
+          )}
         </View>
-        <View style={[styles.cardBody, { overflow: 'visible', zIndex: 50 }]}>
+        {isDeliveryCollapsed ? (
+          <View style={styles.summarySection}>
+            <Text style={[styles.summaryEyebrow, { color: BRAND.primary }]}>
+              {deliverySummaryEyebrow}
+            </Text>
+            <View style={styles.summaryTitleRow}>
+              <Text style={[styles.summaryTitle, { color: colors.text }]}>
+                {selectedSavedAddress?.label || 'Delivery address'}
+              </Text>
+              {selectedSavedAddress?.is_default && (
+                <View
+                  style={[
+                    styles.savedAddressDefaultBadge,
+                    { backgroundColor: `${BRAND.primary}14` },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.savedAddressDefaultBadgeText,
+                      { color: BRAND.primary },
+                    ]}
+                  >
+                    Default
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.summaryLine, { color: colors.textSecondary }]}>
+              {currentDeliverySummary || 'No delivery address selected yet'}
+            </Text>
+          </View>
+        ) : (
+          <View style={[styles.cardBody, { overflow: 'visible', zIndex: 50 }]}>
+          {renderSavedAddressOptions()}
           <Controller
             control={control}
             name="address"
@@ -1671,20 +2225,23 @@ export default function CheckoutScreen() {
                         styles.input,
                         styles.selectInput,
                         {
-                          backgroundColor: colors.card,
-                          borderColor: errors.city ? '#EF4444' : colors.border,
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB',
+                          borderColor: errors.city ? '#EF4444' : 'transparent',
                         },
                       ]}
                       accessibilityRole="button"
                       accessibilityLabel="Select city"
                     >
-                      <Text
-                        style={{
-                          color: value ? colors.text : colors.textSecondary,
-                        }}
-                      >
-                        {value || 'Select city'}
-                      </Text>
+	                      <Text
+	                        style={[
+	                          styles.selectInputText,
+	                          {
+	                            color: value ? colors.text : colors.textSecondary,
+	                          },
+	                        ]}
+	                      >
+	                        {value || 'Select city'}
+	                      </Text>
                       {isLoadingCities ? (
                         <ActivityIndicator
                           size="small"
@@ -1725,20 +2282,23 @@ export default function CheckoutScreen() {
                         styles.input,
                         styles.selectInput,
                         {
-                          backgroundColor: colors.card,
-                          borderColor: errors.state ? '#EF4444' : colors.border,
+                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB',
+                          borderColor: errors.state ? '#EF4444' : 'transparent',
                         },
                       ]}
                       accessibilityRole="button"
                       accessibilityLabel="Select state"
                     >
-                      <Text
-                        style={{
-                          color: value ? colors.text : colors.textSecondary,
-                        }}
-                      >
-                        {value || 'Select state'}
-                      </Text>
+	                      <Text
+	                        style={[
+	                          styles.selectInputText,
+	                          {
+	                            color: value ? colors.text : colors.textSecondary,
+	                          },
+	                        ]}
+	                      >
+	                        {value || 'Select state'}
+	                      </Text>
                       {isLoadingLocations ? (
                         <ActivityIndicator
                           size="small"
@@ -1765,13 +2325,47 @@ export default function CheckoutScreen() {
               />
             </View>
           </View>
-        </View>
+          {isAuthenticated && (
+            <View style={styles.saveDetailsSection}>
+              <Pressable
+                style={styles.checkboxRow}
+                onPress={() => setSaveAsDefaultAddress((value) => !value)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: saveAsDefaultAddress }}
+                accessibilityLabel="Set as default address"
+              >
+                <View
+                  style={[
+                    styles.checkbox,
+                    saveAsDefaultAddress && styles.checkboxChecked,
+                    {
+                      borderColor: saveAsDefaultAddress
+                        ? BRAND.primary
+                        : colors.border,
+                    },
+                  ]}
+                >
+                  {saveAsDefaultAddress && (
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                  )}
+                </View>
+                <Text style={[styles.checkboxLabel, { color: colors.text }]}>
+                  Set as default address
+                </Text>
+              </Pressable>
+            </View>
+          )}
+          </View>
+        )}
       </View>
 
       <View
         style={[
           styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
+          { 
+            backgroundColor: colors.card, 
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+          },
         ]}
       >
         <View style={styles.cardHeader}>
@@ -1798,6 +2392,9 @@ export default function CheckoutScreen() {
             <Pressable
               onPress={() => {
                 if (watchedState && watchedCity) {
+                  const shouldResetSelection =
+                    resolvedShippingQuoteContextKey !==
+                    currentShippingQuoteContextKey;
                   fetchShippingQuotes({
                     apiUrl: API_BASE_URL,
                     state: watchedState,
@@ -1811,26 +2408,83 @@ export default function CheckoutScreen() {
                     watchedEmail,
                     setIsLoadingQuotes,
                     setSelectedQuoteId,
+                    setResolvedShippingQuoteContextKey,
                     setShippingQuotes,
+                    previousSelectedQuoteId: shouldResetSelection
+                      ? null
+                      : selectedQuoteId,
+                    quoteContextKey: currentShippingQuoteContextKey,
+                    shouldResetSelection,
                   });
                 }
               }}
-              style={styles.retryCard}
+              style={[
+                styles.retryCard,
+                {
+                  borderColor: isDark
+                    ? 'rgba(245, 158, 11, 0.4)'
+                    : '#FCD34D',
+                  backgroundColor: isDark
+                    ? 'rgba(245, 158, 11, 0.08)'
+                    : '#FFFBEB',
+                },
+              ]}
               accessibilityRole="button"
               accessibilityLabel="Reload delivery rates"
             >
-              <View style={styles.retryIconWrap}>
-                <Ionicons name="car-outline" size={22} color="#B45309" />
+              <View
+                style={[
+                  styles.retryIconWrap,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(245, 158, 11, 0.14)'
+                      : '#FEF3C7',
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="car-outline"
+                  size={22}
+                  color={isDark ? colors.warning : '#B45309'}
+                />
               </View>
               <View style={styles.retryTextWrap}>
-                <Text style={styles.retryTitle}>Oops! Rates took a detour</Text>
-                <Text style={styles.retrySubtitle}>
+                <Text
+                  style={[
+                    styles.retryTitle,
+                    { color: isDark ? colors.text : '#111827' },
+                  ]}
+                >
+                  Oops! Rates took a detour
+                </Text>
+                <Text
+                  style={[
+                    styles.retrySubtitle,
+                    { color: isDark ? colors.textSecondary : '#B45309' },
+                  ]}
+                >
                   Our delivery partners are a bit slow today. Tap here to try
                   again.
                 </Text>
               </View>
-              <View style={styles.retryBadge}>
-                <Text style={styles.retryBadgeText}>Refresh Rates</Text>
+              <View
+                style={[
+                  styles.retryBadge,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(245, 158, 11, 0.14)'
+                      : '#FEF3C7',
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.retryBadgeText,
+                    { color: isDark ? colors.warning : '#B45309' },
+                  ]}
+                >
+                  Refresh Rates
+                </Text>
               </View>
             </Pressable>
           ) : (
@@ -1848,23 +2502,36 @@ export default function CheckoutScreen() {
                 <Pressable
                   key={String(quote.id)}
                   onPress={() => setSelectedQuoteId(String(quote.id))}
-                  style={[
-                    styles.quoteRow,
-                    {
-                      borderColor: isSelected ? BRAND.primary : colors.border,
-                      backgroundColor: isSelected
-                        ? palette.red[50]
-                        : colors.card,
-                    },
-                  ]}
+	                  style={[
+	                    styles.quoteRow,
+	                    {
+	                      borderColor: isSelected ? BRAND.primary : colors.border,
+	                      backgroundColor: isSelected
+	                        ? isDark
+	                          ? 'rgba(217, 59, 48, 0.16)'
+	                          : palette.red[50]
+	                        : colors.card,
+	                    },
+	                  ]}
                   accessibilityRole="button"
                   accessibilityLabel={`Select ${quote.displayName} for ${formatPrice(quote.price)}`}
                 >
                   <View style={styles.quoteInfo}>
-                    <View style={styles.quoteHeader}>
-                      <Text style={[styles.quoteTitle, { color: colors.text }]}>
-                        {quote.displayName}
-                      </Text>
+	                    <View style={styles.quoteHeader}>
+	                      <Text
+	                        style={[
+	                          styles.quoteTitle,
+	                          {
+	                            color: isSelected
+	                              ? isDark
+	                                ? '#FDECEA'
+	                                : BRAND.primary
+	                              : colors.text,
+	                          },
+	                        ]}
+	                      >
+	                        {quote.displayName}
+	                      </Text>
                       {carrier.includes('GIG') && (
                         <View style={styles.quoteBadgeDark}>
                           <Text style={styles.quoteBadgeText}>GIGL</Text>
@@ -1876,19 +2543,36 @@ export default function CheckoutScreen() {
                         </View>
                       )}
                     </View>
-                    <Text
-                      style={[
-                        styles.quoteMeta,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {carrier} • Est. {eta}
-                    </Text>
-                  </View>
-                  <View style={styles.quoteRight}>
-                    <Text style={[styles.quotePrice, { color: colors.text }]}>
-                      {formatPrice(quote.price)}
-                    </Text>
+	                    <Text
+	                      style={[
+	                        styles.quoteMeta,
+	                        {
+	                          color: isSelected
+	                            ? isDark
+	                              ? palette.gray[200]
+	                              : '#B42318'
+	                            : colors.textSecondary,
+	                        },
+	                      ]}
+	                    >
+	                      {carrier} • Est. {eta}
+	                    </Text>
+	                  </View>
+	                  <View style={styles.quoteRight}>
+	                    <Text
+	                      style={[
+	                        styles.quotePrice,
+	                        {
+	                          color: isSelected
+	                            ? isDark
+	                              ? '#FFF5F4'
+	                              : BRAND.primary
+	                            : colors.text,
+	                        },
+	                      ]}
+	                    >
+	                      {formatPrice(quote.price)}
+	                    </Text>
                     <Ionicons
                       name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
                       size={20}
@@ -1905,7 +2589,10 @@ export default function CheckoutScreen() {
       <View
         style={[
           styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
+          { 
+            backgroundColor: colors.card, 
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent', 
+          },
         ]}
       >
         <View style={styles.cardHeader}>
@@ -1919,9 +2606,12 @@ export default function CheckoutScreen() {
           </Text>
         </View>
         <View style={styles.cardBody}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Notes (Optional)
+          </Text>
           <FormField
             name="notes"
-            label="Notes (Optional)"
+            label=""
             placeholder="Any special instructions for delivery"
             multiline
             control={control}
@@ -1986,7 +2676,11 @@ export default function CheckoutScreen() {
         <View
           style={[
             styles.reviewCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            { 
+              backgroundColor: colors.card, 
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+              ...SHADOWS.sm,
+            },
           ]}
         >
           <View style={styles.reviewHeader}>
@@ -2016,7 +2710,11 @@ export default function CheckoutScreen() {
         <View
           style={[
             styles.reviewCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            { 
+              backgroundColor: colors.card, 
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+              ...SHADOWS.sm,
+            },
           ]}
         >
           <View style={styles.reviewHeader}>
@@ -2037,7 +2735,11 @@ export default function CheckoutScreen() {
         <View
           style={[
             styles.reviewCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            { 
+              backgroundColor: colors.card, 
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+              ...SHADOWS.sm,
+            },
           ]}
         >
           <Text style={[styles.reviewTitle, { color: colors.text }]}>
@@ -2046,9 +2748,7 @@ export default function CheckoutScreen() {
           {items.map((item) => (
             <View key={item.id} style={styles.orderItem}>
               <Text
-                style={[styles.orderItemName, { color: colors.text }]}
-                numberOfLines={1}
-              >
+                style={[styles.orderItemName, { color: colors.text }]}>
                 {item.name}
               </Text>
               <Text
@@ -2068,7 +2768,11 @@ export default function CheckoutScreen() {
         <View
           style={[
             styles.totalCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            { 
+              backgroundColor: colors.card, 
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+              ...SHADOWS.sm,
+            },
           ]}
         >
           <View style={styles.totalRow}>
@@ -2128,92 +2832,123 @@ export default function CheckoutScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Checkout',
-          headerLeft: () => (
-            <Pressable onPress={handleBack} style={styles.backBtn}>
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </Pressable>
-          ),
+          headerShown: false,
         }}
       />
 
-      <KeyboardAvoidingView
-        style={[styles.container, { backgroundColor: colors.muted }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['top']}
       >
-        {renderStepIndicator()}
-
-        {step === 'address' && renderAddressForm()}
-        {step === 'payment' && renderPaymentOptions()}
-        {step === 'review' && renderReview()}
-
-        <SafeAreaView
-          edges={['bottom']}
+        <View
           style={[
-            styles.bottomAction,
-            { backgroundColor: colors.card, borderTopColor: colors.border },
+            styles.screenHeader,
+            {
+              backgroundColor: colors.background,
+              borderBottomColor: colors.border,
+            },
           ]}
         >
-          <View style={styles.bottomBar}>
-            <View style={styles.bottomSummary}>
-              <Text
-                style={[styles.bottomLabel, { color: colors.textSecondary }]}
-              >
-                Total
-              </Text>
-              <Text style={[styles.bottomValue, { color: colors.text }]}>
-                {formatPrice(displayTotal)}
-              </Text>
-              <Text
-                style={[styles.bottomSubtle, { color: colors.textSecondary }]}
-              >
-                {items.length} item{items.length === 1 ? '' : 's'}
-              </Text>
-            </View>
+          <Pressable
+            onPress={handleBack}
+            style={styles.backBtn}
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="arrow-back" size={22} color={colors.text} />
+          </Pressable>
+          <Text style={[styles.screenHeaderTitle, { color: colors.text }]}>
+            Checkout
+          </Text>
+          <View style={styles.screenHeaderSpacer} />
+        </View>
 
-            {step === 'review' ? (
-              <Pressable
-                style={[
-                  styles.actionButton,
-                  { backgroundColor: BRAND.primary },
-                ]}
-                onPress={handlePlaceOrder}
-                disabled={isProcessing}
-                accessibilityRole="button"
-                accessibilityLabel={`Place order for ${formatPrice(total)}`}
-                accessibilityState={{
-                  disabled: isProcessing,
-                  busy: isProcessing,
-                }}
-              >
-                {isProcessing ? (
-                  <View style={styles.processingContainer}>
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                    <Text style={styles.actionButtonText}>Processing...</Text>
-                  </View>
-                ) : (
-                  <>
-                    <Text style={styles.actionButtonText}>Place Order</Text>
+        <KeyboardAvoidingView
+          style={[styles.contentShell, { backgroundColor: colors.muted }]}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          {renderStepIndicator()}
+
+          {step === 'address' && renderAddressForm()}
+          {step === 'payment' && renderPaymentOptions()}
+          {step === 'review' && renderReview()}
+
+          <SafeAreaView
+            edges={['bottom']}
+            style={[
+              styles.bottomAction,
+              { backgroundColor: colors.card, borderTopColor: colors.border },
+            ]}
+          >
+            <View style={styles.bottomBar}>
+              <View style={styles.bottomSummary}>
+                <Text
+                  style={[styles.bottomLabel, { color: colors.textSecondary }]}
+                >
+                  Total
+                </Text>
+                <Text style={[styles.bottomValue, { color: colors.text }]}>
+                  {formatPrice(displayTotal)}
+                </Text>
+                <Text
+                  style={[styles.bottomSubtle, { color: colors.textSecondary }]}
+                >
+                  {items.length} item{items.length === 1 ? '' : 's'}
+                </Text>
+              </View>
+
+              {step === 'review' ? (
+                <Pressable
+                  style={[
+                    styles.actionButton,
+                    { backgroundColor: BRAND.primary },
+                  ]}
+                  onPress={handlePlaceOrder}
+                  disabled={isProcessing}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Place order for ${formatPrice(total)}`}
+                  accessibilityState={{
+                    disabled: isProcessing,
+                    busy: isProcessing,
+                  }}
+                >
+                  {isProcessing ? (
+                    <View style={styles.processingContainer}>
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                      <Text style={styles.actionButtonText}>Processing...</Text>
+                    </View>
+                  ) : (
+                    <>
+                      <Text style={styles.actionButtonText}>Place Order</Text>
+                      <Animated.View style={animatedCtaArrowStyle}>
+                        <Ionicons
+                          name="arrow-forward"
+                          size={18}
+                          color="#FFFFFF"
+                        />
+                      </Animated.View>
+                    </>
+                  )}
+                </Pressable>
+              ) : (
+                <Pressable
+                  style={[
+                    styles.actionButton,
+                    { backgroundColor: BRAND.primary },
+                  ]}
+                  onPress={handleContinue}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Continue to ${step === 'address' ? 'payment' : 'review'}`}
+                >
+                  <Text style={styles.actionButtonText}>Continue</Text>
+                  <Animated.View style={animatedCtaArrowStyle}>
                     <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-                  </>
-                )}
-              </Pressable>
-            ) : (
-              <Pressable
-                style={[
-                  styles.actionButton,
-                  { backgroundColor: BRAND.primary },
-                ]}
-                onPress={handleContinue}
-                accessibilityRole="button"
-                accessibilityLabel={`Continue to ${step === 'address' ? 'payment' : 'review'}`}
-              >
-                <Text style={styles.actionButtonText}>Continue</Text>
-                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-              </Pressable>
-            )}
-          </View>
-        </SafeAreaView>
+                  </Animated.View>
+                </Pressable>
+              )}
+            </View>
+          </SafeAreaView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
 
         {/* State Picker */}
         <Modal
@@ -2244,18 +2979,46 @@ export default function CheckoutScreen() {
               <FlatList
                 data={shippingStates}
                 keyExtractor={(item) => item}
-                renderItem={({ item }) => (
-                  <Pressable
-                    style={styles.pickerItem}
-                    onPress={() => handleSelectState(item)}
-                  >
-                    <Text
-                      style={[styles.pickerItemText, { color: colors.text }]}
-                    >
-                      {item}
-                    </Text>
-                  </Pressable>
-                )}
+	                renderItem={({ item }) => (
+	                  <Pressable
+	                    style={[
+	                      styles.pickerItem,
+	                      { borderBottomColor: colors.border },
+	                      item === watchedState && {
+	                        backgroundColor: isDark
+	                          ? 'rgba(217, 59, 48, 0.14)'
+	                          : palette.red[50],
+	                      },
+	                    ]}
+	                    onPress={() => handleSelectState(item)}
+	                  >
+	                    <View style={styles.pickerItemContent}>
+	                      <Text
+	                        style={[
+	                          styles.pickerItemText,
+	                          {
+	                            color:
+	                              item === watchedState
+	                                ? isDark
+	                                  ? '#FDECEA'
+	                                  : BRAND.primary
+	                                : colors.text,
+	                            fontWeight: item === watchedState ? '700' : '500',
+	                          },
+	                        ]}
+	                      >
+	                        {item}
+	                      </Text>
+	                      {item === watchedState && (
+	                        <Ionicons
+	                          name="checkmark"
+	                          size={18}
+	                          color={BRAND.primary}
+	                        />
+	                      )}
+	                    </View>
+	                  </Pressable>
+	                )}
                 ListEmptyComponent={
                   <Text
                     style={[styles.helperText, { color: colors.textSecondary }]}
@@ -2303,13 +3066,16 @@ export default function CheckoutScreen() {
               <View
                 style={[
                   styles.citySearchContainer,
-                  { borderColor: colors.border },
+                  { 
+                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB',
+                    borderColor: citySearchFocused ? BRAND.primary : 'transparent' 
+                  },
                 ]}
               >
                 <Ionicons
                   name="search"
                   size={16}
-                  color={colors.textSecondary}
+                  color={citySearchFocused ? BRAND.primary : colors.textSecondary}
                 />
                 <TextInput
                   style={[styles.citySearchInput, { color: colors.text }]}
@@ -2317,6 +3083,8 @@ export default function CheckoutScreen() {
                   placeholderTextColor={colors.textSecondary}
                   value={citySearch}
                   onChangeText={setCitySearch}
+                  onFocus={() => setCitySearchFocused(true)}
+                  onBlur={() => setCitySearchFocused(false)}
                   autoCapitalize="words"
                   autoCorrect={false}
                   returnKeyType="done"
@@ -2341,18 +3109,46 @@ export default function CheckoutScreen() {
                 }
                 keyExtractor={(item) => item}
                 keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => (
-                  <Pressable
-                    style={styles.pickerItem}
-                    onPress={() => handleSelectCity(item)}
-                  >
-                    <Text
-                      style={[styles.pickerItemText, { color: colors.text }]}
-                    >
-                      {item}
-                    </Text>
-                  </Pressable>
-                )}
+	                renderItem={({ item }) => (
+	                  <Pressable
+	                    style={[
+	                      styles.pickerItem,
+	                      { borderBottomColor: colors.border },
+	                      item === watchedCity && {
+	                        backgroundColor: isDark
+	                          ? 'rgba(217, 59, 48, 0.14)'
+	                          : palette.red[50],
+	                      },
+	                    ]}
+	                    onPress={() => handleSelectCity(item)}
+	                  >
+	                    <View style={styles.pickerItemContent}>
+	                      <Text
+	                        style={[
+	                          styles.pickerItemText,
+	                          {
+	                            color:
+	                              item === watchedCity
+	                                ? isDark
+	                                  ? '#FDECEA'
+	                                  : BRAND.primary
+	                                : colors.text,
+	                            fontWeight: item === watchedCity ? '700' : '500',
+	                          },
+	                        ]}
+	                      >
+	                        {item}
+	                      </Text>
+	                      {item === watchedCity && (
+	                        <Ionicons
+	                          name="checkmark"
+	                          size={18}
+	                          color={BRAND.primary}
+	                        />
+	                      )}
+	                    </View>
+	                  </Pressable>
+	                )}
                 ListHeaderComponent={null}
                 ListEmptyComponent={
                   !citySearch.trim() ? (
@@ -2370,7 +3166,6 @@ export default function CheckoutScreen() {
             </View>
           </View>
         </Modal>
-      </KeyboardAvoidingView>
 
       <CryptoSelectionModal
         visible={showCryptoSelection}
@@ -2628,16 +3423,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  contentShell: {
+    flex: 1,
+  },
+  screenHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
   backBtn: {
-    padding: 10,
-    minWidth: 44,
-    minHeight: 44,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  screenHeaderTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  screenHeaderSpacer: {
+    width: 40,
+  },
   stepIndicator: {
     paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
+    paddingTop: SPACING.md,
     paddingBottom: SPACING.md,
   },
   stepHeaderRow: {
@@ -2729,23 +3542,71 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: RADIUS.xl,
-    borderWidth: 1,
-    padding: SPACING.md,
+    padding: SPACING.lg,
     marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'transparent',
     ...SHADOWS.sm,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  cardHeaderActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
   },
   cardTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  inlineEditButton: {
+    minHeight: 32,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineActionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  inlineActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: BRAND.primary,
   },
   cardBody: {
     gap: SPACING.sm,
+  },
+  summarySection: {
+    gap: 6,
+  },
+  summaryEyebrow: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
+  summaryTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  summaryTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  summaryLine: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   row: {
     flexDirection: 'row',
@@ -2759,7 +3620,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     marginBottom: 8,
   },
   input: {
@@ -2768,6 +3629,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
+    borderColor: 'transparent',
   },
   multilineInput: {
     minHeight: 80,
@@ -2778,8 +3640,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  selectInputText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    marginRight: 8,
+  },
   helperText: {
     fontSize: 12,
+  },
+  savedAddressSection: {
+    marginBottom: SPACING.sm,
+    gap: 10,
+  },
+  savedAddressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  savedAddressOption: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  savedAddressOptionBody: {
+    flex: 1,
+    gap: 4,
+  },
+  savedAddressOptionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  savedAddressOptionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  savedAddressMeta: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  savedAddressDefaultBadge: {
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  savedAddressDefaultBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   quoteRow: {
     borderWidth: 1,
@@ -2838,10 +3750,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   reviewCard: {
-    padding: 16,
-    borderRadius: 12,
+    padding: SPACING.lg,
+    borderRadius: RADIUS.xl,
     borderWidth: 1,
-    marginBottom: 16,
+    borderColor: 'transparent',
+    marginBottom: SPACING.md,
   },
   reviewHeader: {
     flexDirection: 'row',
@@ -2879,9 +3792,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   totalCard: {
-    padding: 16,
-    borderRadius: 12,
+    padding: SPACING.lg,
+    borderRadius: RADIUS.xl,
     borderWidth: 1,
+    borderColor: 'transparent',
     marginBottom: 100,
   },
   totalRow: {
@@ -2992,9 +3906,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   pickerItem: {
+    minHeight: 48,
     paddingVertical: 12,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
+    borderRadius: 12,
+    justifyContent: 'center',
+  },
+  pickerItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   pickerItemText: {
     fontSize: 14,

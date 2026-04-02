@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import type { RefObject } from 'react';
 import {
-  ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Modal,
@@ -16,6 +15,7 @@ import {
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { styles } from './styles';
+import { TypingIndicator } from './TypingIndicator';
 import { type ChatMessage, SUGGESTIONS } from './types';
 
 interface ChatModalProps {
@@ -231,7 +231,7 @@ export function ChatModal({
                       },
                     ]}
                   >
-                    <ActivityIndicator size="small" color={BRAND.primary} />
+                    <TypingIndicator />
                   </View>
                 </View>
               ) : null

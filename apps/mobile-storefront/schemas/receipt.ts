@@ -95,6 +95,7 @@ export const MerchantReceiptInfoSchema = z.object({
   phone: z.string().nullable(),
   support_email: z.string().nullable(),
   support_phone: z.string().nullable(),
+  rider_phone_number: z.string().nullable().optional(),
   business_address: z.string().nullable(),
   cac_rc_number: z.string().nullable(),
   tax_identification_number: z.string().nullable(),

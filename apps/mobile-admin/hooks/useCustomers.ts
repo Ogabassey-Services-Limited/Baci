@@ -120,28 +120,31 @@ export function useCustomer(customerId: string) {
   return useQuery({
     queryKey: ['customer', customerId],
     queryFn: async () => {
-      // Fetch customer
-      const { data: customer, error } = await supabase
-        .from('customers')
-        .select(CUSTOMER_ADMIN_COLUMNS)
-        .eq('id', customerId)
-        .eq('merchant_id', merchant?.id)
-        .single();
+      // PERFORMANCE: Use Promise.all to fetch customer details and recent orders concurrently
+      const [customerRes, ordersRes] = await Promise.all([
+        // Fetch customer
+        supabase
+          .from('customers')
+          .select(CUSTOMER_ADMIN_COLUMNS)
+          .eq('id', customerId)
+          .eq('merchant_id', merchant?.id)
+          .single(),
+        // Fetch recent orders
+        supabase
+          .from('orders')
+          .select('id, order_number, total, shipping_status, created_at')
+          .eq('merchant_id', merchant?.id)
+          .eq('customer_id', customerId)
+          .order('created_at', { ascending: false })
+          .limit(5),
+      ]);
 
-      if (error) throw new Error(error.message);
-
-      // Fetch recent orders
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('id, order_number, total, shipping_status, created_at')
-        .eq('merchant_id', merchant?.id)
-        .eq('customer_id', customerId)
-        .order('created_at', { ascending: false })
-        .limit(5);
+      if (customerRes.error) throw new Error(customerRes.error.message);
+      if (ordersRes.error) throw new Error(ordersRes.error.message);
 
       return {
-        ...customer,
-        recent_orders: orders ?? [],
+        ...customerRes.data,
+        recent_orders: ordersRes.data ?? [],
       };
     },
     enabled: !!customerId && !!merchant?.id,
@@ -164,36 +167,49 @@ export function useCustomerStats() {
         now.getTime() - 7 * 24 * 60 * 60 * 1000
       ).toISOString();
 
-      // Total customers (excluding deleted)
-      const { count: total } = await supabase
-        .from('customers')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchant?.id)
-        .is('deleted_at', null);
+      // PERFORMANCE: Use Promise.all to run independent count queries concurrently
+      const [totalRes, newThisMonthRes, newThisWeekRes, returningRes] =
+        await Promise.all([
+          // Total customers (excluding deleted)
+          supabase
+            .from('customers')
+            .select('id', { count: 'exact', head: true })
+            .eq('merchant_id', merchant?.id)
+            .is('deleted_at', null),
+          // New this month
+          supabase
+            .from('customers')
+            .select('id', { count: 'exact', head: true })
+            .eq('merchant_id', merchant?.id)
+            .is('deleted_at', null)
+            .gte('created_at', startOfMonth),
+          // New this week
+          supabase
+            .from('customers')
+            .select('id', { count: 'exact', head: true })
+            .eq('merchant_id', merchant?.id)
+            .is('deleted_at', null)
+            .gte('created_at', startOfWeek),
+          // Returning customers (more than 1 order)
+          supabase
+            .from('customers')
+            .select('id', { count: 'exact', head: true })
+            .eq('merchant_id', merchant?.id)
+            .is('deleted_at', null)
+            .gt('total_orders', 1),
+        ]);
 
-      // New this month
-      const { count: newThisMonth } = await supabase
-        .from('customers')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchant?.id)
-        .is('deleted_at', null)
-        .gte('created_at', startOfMonth);
+      if (totalRes.error) throw new Error(totalRes.error.message);
+      if (newThisMonthRes.error) {
+        throw new Error(newThisMonthRes.error.message);
+      }
+      if (newThisWeekRes.error) throw new Error(newThisWeekRes.error.message);
+      if (returningRes.error) throw new Error(returningRes.error.message);
 
-      // New this week
-      const { count: newThisWeek } = await supabase
-        .from('customers')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchant?.id)
-        .is('deleted_at', null)
-        .gte('created_at', startOfWeek);
-
-      // Returning customers (more than 1 order)
-      const { count: returning } = await supabase
-        .from('customers')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchant?.id)
-        .is('deleted_at', null)
-        .gt('total_orders', 1);
+      const { count: total } = totalRes;
+      const { count: newThisMonth } = newThisMonthRes;
+      const { count: newThisWeek } = newThisWeekRes;
+      const { count: returning } = returningRes;
 
       return {
         total: total ?? 0,

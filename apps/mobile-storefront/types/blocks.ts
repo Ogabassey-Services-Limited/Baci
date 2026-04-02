@@ -84,7 +84,8 @@ export interface CategoryRailBlock extends BaseBlock {
   type: 'CategoryRail';
   props: {
     id: string;
-    title: string;
+    title?: string;
+    slug?: string;
   };
 }
 

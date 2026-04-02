@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -112,6 +112,14 @@ export function PaymentMethodSelector({
 }: PaymentMethodSelectorProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const isDark = (colorScheme ?? 'light') === 'dark';
+  const warningBackground = isDark
+    ? 'rgba(245, 158, 11, 0.12)'
+    : palette.amber[100];
+  const warningTextColor = isDark ? colors.text : palette.amber[800];
+  const warningSubtleTextColor = isDark
+    ? colors.textSecondary
+    : palette.amber[800];
 
   // Check BNPL eligibility based on order total
   // Guard against null/undefined/NaN — BNPL requires a valid positive total
@@ -211,14 +219,14 @@ export function PaymentMethodSelector({
             {
               backgroundColor: isBNPLEligible
                 ? `${BRAND.primary}10`
-                : '#FEF3C7',
+                : warningBackground,
             },
           ]}
         >
           <Ionicons
             name={isBNPLEligible ? 'information-circle' : 'warning'}
             size={20}
-            color={isBNPLEligible ? BRAND.primary : '#F59E0B'}
+            color={isBNPLEligible ? BRAND.primary : colors.warning}
           />
           <View style={styles.installmentTextContainer}>
             {isBNPLEligible ? (
@@ -245,12 +253,22 @@ export function PaymentMethodSelector({
               </>
             ) : (
               <>
-                <Text style={[styles.installmentTitle, { color: '#92400E' }]}>
+                <Text
+                  style={[
+                    styles.installmentTitle,
+                    { color: warningTextColor },
+                  ]}
+                >
                   {!hasValidTotal || orderTotal < BNPL_MIN_AMOUNT
                     ? 'Minimum Order Required'
                     : 'Maximum Order Exceeded'}
                 </Text>
-                <Text style={[styles.installmentDesc, { color: '#92400E' }]}>
+                <Text
+                  style={[
+                    styles.installmentDesc,
+                    { color: warningSubtleTextColor },
+                  ]}
+                >
                   {!hasValidTotal || orderTotal < BNPL_MIN_AMOUNT
                     ? `BNPL is available for orders above ${formatPrice(BNPL_MIN_AMOUNT)}.`
                     : `BNPL is available for orders up to ${formatPrice(BNPL_MAX_AMOUNT)}.`}
@@ -366,10 +384,12 @@ export function PaymentMethodSelector({
 
       {/* Pay on Delivery Info */}
       {selectedMethod === 'pay_on_delivery' && selectedTab === 'full' && (
-        <View style={[styles.bankInfo, { backgroundColor: '#FEF3C7' }]}>
-          <Ionicons name="warning" size={18} color="#F59E0B" />
-          <Text style={[styles.bankInfoText, { color: '#92400E' }]}>
-            Available in Lagos only. A 5% processing fee may apply.
+        <View
+          style={[styles.bankInfo, { backgroundColor: warningBackground }]}
+        >
+          <Ionicons name="warning" size={18} color={colors.warning} />
+          <Text style={[styles.bankInfoText, { color: warningTextColor }]}>
+            Available in Lagos only.
           </Text>
         </View>
       )}

@@ -4,6 +4,11 @@
  * Calls GET /api/storefront/orders/track-order?token=TOKEN&merchant_slug=SLUG
  */
 
+import {
+  getCustomerOrderStatusKey,
+  getCustomerOrderStatusMeta,
+  type CustomerOrderStatusKey,
+} from '@/lib/customer-order-status';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -22,11 +27,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { resolveApiBaseUrl } from '@/lib/api-url';
 
 const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.apiUrl ||
-  'https://ogabassey.usebaci.com';
+  resolveApiBaseUrl(
+    process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
+  );
 
 const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug || 'ogabassey';
 
@@ -41,7 +47,8 @@ interface TimelineEvent {
     | 'processing'
     | 'shipped'
     | 'delivered'
-    | 'cancelled';
+    | 'cancelled'
+    | 'returned';
 }
 
 interface OrderItem {
@@ -101,6 +108,7 @@ const TIMELINE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   shipped: 'airplane-outline',
   delivered: 'checkmark-circle-outline',
   cancelled: 'close-circle-outline',
+  returned: 'return-down-back-outline',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -133,24 +141,17 @@ function formatDateTime(dateStr: string): string {
   });
 }
 
-function getStatusBadge(status: string): {
-  label: string;
-  color: string;
-  bg: string;
-} {
-  switch (status) {
-    case 'delivered':
-      return { label: 'Delivered', color: '#065F46', bg: '#D1FAE5' };
-    case 'shipped':
-      return { label: 'Shipped', color: '#1E40AF', bg: '#DBEAFE' };
-    case 'processing':
-      return { label: 'Processing', color: '#92400E', bg: '#FEF3C7' };
-    case 'cancelled':
-      return { label: 'Cancelled', color: '#991B1B', bg: '#FEE2E2' };
-    default:
-      return { label: 'Pending', color: '#6B7280', bg: '#F3F4F6' };
-  }
-}
+const CUSTOMER_STATUS_BADGES: Record<
+  CustomerOrderStatusKey,
+  { color: string; bg: string }
+> = {
+  placed: { color: BRAND.primary, bg: 'rgba(220, 38, 38, 0.10)' },
+  confirmed: { color: '#1E40AF', bg: 'rgba(37, 99, 235, 0.10)' },
+  shipped: { color: '#1E40AF', bg: 'rgba(37, 99, 235, 0.10)' },
+  delivered: { color: '#065F46', bg: 'rgba(5, 150, 105, 0.10)' },
+  cancelled: { color: '#991B1B', bg: 'rgba(220, 38, 38, 0.12)' },
+  returned: { color: '#4B5563', bg: 'rgba(107, 114, 128, 0.12)' },
+};
 
 export default function TrackOrderScreen() {
   const colorScheme = useColorScheme();
@@ -263,7 +264,8 @@ export default function TrackOrderScreen() {
     estimated_delivery,
     merchant,
   } = data;
-  const badge = getStatusBadge(order.status);
+  const statusMeta = getCustomerOrderStatusMeta(order.status);
+  const badge = CUSTOMER_STATUS_BADGES[getCustomerOrderStatusKey(order.status)];
 
   return (
     <>
@@ -316,8 +318,15 @@ export default function TrackOrderScreen() {
                 </Text>
               </View>
               <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+                <Ionicons
+                  name={
+                    statusMeta.icon as React.ComponentProps<typeof Ionicons>['name']
+                  }
+                  size={14}
+                  color={badge.color}
+                />
                 <Text style={[styles.badgeText, { color: badge.color }]}>
-                  {badge.label}
+                  {statusMeta.shortLabel}
                 </Text>
               </View>
             </View>
@@ -400,14 +409,16 @@ export default function TrackOrderScreen() {
                     >
                       {event.description}
                     </Text>
-                    <Text
-                      style={[
-                        styles.timelineTime,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      {formatDateTime(event.timestamp)}
-                    </Text>
+                    {event.timestamp ? (
+                      <Text
+                        style={[
+                          styles.timelineTime,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {formatDateTime(event.timestamp)}
+                      </Text>
+                    ) : null}
                   </View>
                 </View>
               );
@@ -790,6 +801,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 20,

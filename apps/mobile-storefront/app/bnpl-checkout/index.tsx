@@ -20,6 +20,7 @@ import { WebView, type WebViewNavigation } from 'react-native-webview';
 import { z } from 'zod';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { resolveApiBaseUrl } from '@/lib/api-url';
 import { useCartStore } from '@/stores/cart-store';
 
 // 2026 Critical Fix: Zod schema for route parameter validation
@@ -35,8 +36,7 @@ const BNPLParamsSchema = z.object({
   merchantSlug: z.string().optional(),
 });
 
-// API base URL - use environment variable in production
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ogabassey.com';
+const API_BASE_URL = resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_URL);
 
 export default function BNPLCheckoutScreen() {
   const colorScheme = useColorScheme();

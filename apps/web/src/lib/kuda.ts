@@ -137,10 +137,11 @@ interface KudaApiResponse<T = unknown> {
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 /**
- * Generate a unique request reference
+ * Generate a provider-safe request reference.
+ * Kuda bill purchases are sensitive to punctuation-heavy refs.
  */
 export function generateRequestRef(): string {
-  return `BACI-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+  return crypto.randomBytes(12).toString('hex');
 }
 
 /**
@@ -365,9 +366,10 @@ export async function purchaseAirtime(
   phoneNumber: string,
   amount: number,
   networkProvider: NetworkProvider,
-  customerName: string = 'Customer'
+  customerName: string = 'Customer',
+  requestRef?: string
 ): Promise<PurchaseResult> {
-  const requestRef = generateRequestRef();
+  const reference = requestRef || generateRequestRef();
 
   // Map network provider to Kuda VTU identifier
   // These identifiers are from the Kuda API response
@@ -383,7 +385,7 @@ export async function purchaseAirtime(
   if (!billItemIdentifier) {
     return {
       success: false,
-      reference: requestRef,
+      reference,
       message: `Invalid network provider: ${networkProvider}`,
       status: 'failed',
       amount,
@@ -405,13 +407,14 @@ export async function purchaseAirtime(
         PhoneNumber: phoneNumber,
         BillItemIdentifier: billItemIdentifier,
         Amount: (amount * 100).toString(), // Convert Naira to Kobo
+        trackingReference: reference,
       },
-      requestRef
+      reference
     );
 
     return {
       success: response.status,
-      reference: requestRef,
+      reference,
       transactionId: response.data?.reference,
       message: response.message,
       status: response.status ? 'successful' : 'failed',
@@ -422,7 +425,7 @@ export async function purchaseAirtime(
   } catch (error) {
     return {
       success: false,
-      reference: requestRef,
+      reference,
       message: error instanceof Error ? error.message : 'Purchase failed',
       status: 'failed',
       amount,
@@ -441,9 +444,10 @@ export async function purchaseData(
   dataPlanCode: string,
   amount: number,
   networkProvider: NetworkProvider,
-  customerName: string = 'Customer'
+  customerName: string = 'Customer',
+  requestRef?: string
 ): Promise<PurchaseResult> {
-  const requestRef = generateRequestRef();
+  const reference = requestRef || generateRequestRef();
 
   try {
     // Kuda purchase response: { reference: string; pin: string | null }
@@ -458,13 +462,14 @@ export async function purchaseData(
         PhoneNumber: phoneNumber,
         BillItemIdentifier: dataPlanCode,
         Amount: (amount * 100).toString(), // Convert Naira to Kobo
+        trackingReference: reference,
       },
-      requestRef
+      reference
     );
 
     return {
       success: response.status,
-      reference: requestRef,
+      reference,
       transactionId: response.data?.reference,
       message: response.message,
       status: response.status ? 'successful' : 'failed',
@@ -475,7 +480,7 @@ export async function purchaseData(
   } catch (error) {
     return {
       success: false,
-      reference: requestRef,
+      reference,
       message: error instanceof Error ? error.message : 'Purchase failed',
       status: 'failed',
       amount,

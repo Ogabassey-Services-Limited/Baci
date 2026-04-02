@@ -2537,7 +2537,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - RNSVG (15.15.3):
+  - RNSVG (15.15.4):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2558,9 +2558,9 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
-    - RNSVG/common (= 15.15.3)
+    - RNSVG/common (= 15.15.4)
     - Yoga
-  - RNSVG/common (15.15.3):
+  - RNSVG/common (15.15.4):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -3162,7 +3162,7 @@ SPEC CHECKSUMS:
   FirebaseCore: f4428e22415ea3b3eca652c2098413dabf2a23a9
   FirebaseCoreInternal: e7bbaeb00ab73011298f35ed223aa7371e212948
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
-  hermes-engine: 3719a70e284b42f35ad715f15b29495d9fe5114c
+  hermes-engine: 6b7b602b0fbca43d4716baab47772ca9a77d116e
   libavif: 5f8e715bea24debec477006f21ef9e95432e254d
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
@@ -3180,7 +3180,7 @@ SPEC CHECKSUMS:
   React: 1ba7d364ade7d883a1ec055bfc3606f35fdee17b
   React-callinvoker: bc2a26f8d84fb01f003fc6de6c9337b64715f95b
   React-Core: 7840d3a80b43a95c5e80ef75146bd70925ebab0f
-  React-Core-prebuilt: fc1338c333d8df1cca0d492c23d22abe7c64fd8f
+  React-Core-prebuilt: 6ae29c6a046b7f477b114189104ec3ee74e36daf
   React-CoreModules: 2eb010400b63b89e53a324ffb3c112e4c7c3ce42
   React-cxxreact: a558e92199d26f145afa9e62c4233cf8e7950efe
   React-debug: d196e6df0599d78360b3211367e28c5583054133
@@ -3246,12 +3246,12 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: e96e93b493d8d86eeaee3e590ba0be53f6abe46f
   ReactCodegen: 0d7d78e221fde7ae406297d8de9baf54843b5c4d
   ReactCommon: 07572bf9e687c8a52fbe4a3641e9e3a1a477c78e
-  ReactNativeDependencies: ed708bb337aeeaf55715b9e63a7d3508f8799481
+  ReactNativeDependencies: 7b55cd01b9c27f9d116b666d93cf9cbea992ffb8
   RNFBApp: 7a234f611af9c79d8ab4d0cfbbce7b266ee022e5
   RNGestureHandler: 2d9fbac3450b0317d1d599a1db9c5f230221370e
   RNReanimated: d9fffe90263607a6a770456b1a7931056c8698ab
   RNScreens: ca829379d20b0d1ff41a0b87bc37bdc50276cef5
-  RNSVG: 4a9f0b92f0a95bf3af7f787fd36a9c762d4d3d42
+  RNSVG: 68baaafbd26ef58405193d56290537362fa8e6e4
   RNWorklets: 9df54090e67c12b662f1eb1dc98132adafcfa666
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   SDWebImageAVIFCoder: afe194a084e851f70228e4be35ef651df0fc5c57
