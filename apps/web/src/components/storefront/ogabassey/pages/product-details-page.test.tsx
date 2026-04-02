@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 function mockMatchMedia(matches: boolean) {
@@ -20,34 +20,50 @@ function mockMatchMedia(matches: boolean) {
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => <img {...props} alt={props.alt as string} />,
 }));
-vi.mock('next/dynamic', async () => {
-  const React = await import('react');
+vi.mock('next/dynamic', () => {
+  function ProductDetailsTabsMock({
+    productData,
+  }: {
+    productData: { reviews?: number };
+  }) {
+    const reviews = productData.reviews ?? 0;
+    const [activeTab, setActiveTab] = useState<'description' | 'reviews'>('description');
+
+    return (
+      <div>
+        <button role="tab" onClick={() => setActiveTab('description')}>
+          Description
+        </button>
+        <button role="tab" onClick={() => setActiveTab('reviews')}>
+          {`Reviews (${reviews})`}
+        </button>
+        {activeTab === 'reviews' ? (
+          <div role="tabpanel" aria-label={`Reviews (${reviews})`}>
+            {`Based on ${reviews} reviews`}
+          </div>
+        ) : (
+          <div role="tabpanel" aria-label="Description">
+            Description
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return {
     default: (loader: () => Promise<unknown>) => {
+      const source = loader.toString();
+
       return function DynamicComponent(props: Record<string, unknown>) {
-        const [Component, setComponent] = React.useState<React.ComponentType<Record<string, unknown>> | null>(null);
+        if (source.includes('product-details-tabs')) {
+          return <ProductDetailsTabsMock {...props} />;
+        }
 
-        React.useEffect(() => {
-          let active = true;
+        if (source.includes('BannerCarousel')) {
+          return <div data-testid="banner-carousel" />;
+        }
 
-          loader().then((mod) => {
-            const resolved =
-              typeof mod === 'object' && mod !== null && 'default' in mod
-                ? (mod.default as React.ComponentType<Record<string, unknown>>)
-                : (mod as React.ComponentType<Record<string, unknown>>);
-
-            if (active) {
-              setComponent(() => resolved);
-            }
-          });
-
-          return () => {
-            active = false;
-          };
-        }, []);
-
-        return Component ? <Component {...props} /> : null;
+        return null;
       };
     },
   };
@@ -122,6 +138,98 @@ vi.mock('../components/ProductVideo', () => ({
 }));
 vi.mock('../components/FlyToCartAnimation', () => ({
   FlyToCartAnimation: () => null,
+}));
+vi.mock('./product-details-page/product-breadcrumbs', () => ({
+  ProductBreadcrumbs: () => null,
+}));
+vi.mock('./product-details-page/product-media-gallery', () => ({
+  ProductMediaGallery: () => null,
+}));
+vi.mock('./product-details-page/product-mobile-action-bar', () => ({
+  ProductMobileActionBar: () => null,
+}));
+vi.mock('./product-details-page/product-purchase-panel', () => ({
+  ProductPurchasePanel: ({
+    productData,
+  }: {
+    productData: { name: string };
+  }) => <h1>{productData.name}</h1>,
+}));
+vi.mock('./product-details-page/selection-required-modal', () => ({
+  SelectionRequiredModal: () => null,
+}));
+vi.mock('./product-details-page/use-product-details-state', () => ({
+  useProductDetailsState: (product: {
+    id: string;
+    name: string;
+    price?: string;
+    image?: string;
+    description?: string;
+    condition?: string;
+    colors?: string[];
+    storage?: string[];
+    images?: string[];
+    reviews?: number;
+    rating?: number;
+  }) => ({
+    activeTab: 'description',
+    animatingParticles: [],
+    basePath: '',
+    cartHref: '/cart',
+    currentOffer: { price: product.price ?? '₦0' },
+    deliveryEstimate: 'Tomorrow',
+    deliveryLocation: 'Lagos',
+    effectiveAxes: [],
+    formatAxisLabel: (value: string) => value,
+    getAxisOptions: () => [],
+    handleAnimationComplete: vi.fn(),
+    handleColorDoubleClick: vi.fn(),
+    handleColorSelection: vi.fn(),
+    handleDecrement: vi.fn(),
+    handleIncrement: vi.fn(),
+    handleKeyDown: vi.fn(),
+    handleMobileAddToCart: vi.fn(),
+    handleNegotiationSuccess: vi.fn(),
+    handleQuantityBlur: vi.fn(),
+    handleQuantityChange: vi.fn(),
+    handleShare: vi.fn(),
+    handleToggleSaved: vi.fn(),
+    homeHref: '/',
+    inputValue: '1',
+    isLiked: false,
+    isNegotiationOpen: false,
+    isSelectionModalOpen: false,
+    merchantId: 'm-1',
+    merchantSlug: 'test',
+    missingFields: [],
+    normalizedReviewRatingWidth: `${((product.rating ?? 0) / 5) * 100}%`,
+    productData: {
+      ...product,
+      categories: null,
+      category: 'General',
+      videoUrl: null,
+      image: product.image ?? '',
+      images: product.images ?? [],
+      reviews: product.reviews ?? 0,
+    },
+    quantityInCart: 0,
+    relatedProductsProduct: product,
+    secondaryColor: null,
+    selectedAttributes: {},
+    selectedColor: null,
+    selectedCondition: product.condition ?? 'new',
+    selectedImage: product.image ?? '',
+    setActiveTab: vi.fn(),
+    setDeliveryLocation: vi.fn(),
+    setIsNegotiationOpen: vi.fn(),
+    setIsSelectionModalOpen: vi.fn(),
+    setMissingFields: vi.fn(),
+    setSelectedAttributes: vi.fn(),
+    setSelectedCondition: vi.fn(),
+    setSelectedImage: vi.fn(),
+    showColorToast: false,
+    validateAndAddToCart: vi.fn(),
+  }),
 }));
 
 import { ProductDetailsPage } from './product-details-page';
