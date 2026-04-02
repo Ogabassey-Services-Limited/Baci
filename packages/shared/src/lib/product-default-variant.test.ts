@@ -38,6 +38,7 @@ describe('product-default-variant', () => {
       },
     ],
   };
+  const variants = product.variants ?? [];
 
   it('picks the cheapest in-stock variant as the default selection', () => {
     expect(resolveDefaultVariantSelection(product)).toMatchObject({
@@ -52,7 +53,7 @@ describe('product-default-variant', () => {
     expect(
       resolveDefaultVariantSelection({
         ...product,
-        variants: product.variants.map((variant, index) => ({
+        variants: variants.map((variant, index) => ({
           ...variant,
           stock_quantity: index === 0 ? 2 : 0,
         })),
