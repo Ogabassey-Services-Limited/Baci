@@ -309,14 +309,14 @@ export default function SearchScreen() {
           <View
             style={[
               styles.searchInputContainer,
-              { backgroundColor: colors.card, borderColor: colors.border },
+              { backgroundColor: colors.muted, borderColor: colors.border },
             ]}
           >
             <Ionicons name="search-outline" size={18} color={colors.icon} />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
               placeholder="Search products..."
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={colors.placeholder}
               value={query}
               onChangeText={(text) => {
                 setQuery(text);

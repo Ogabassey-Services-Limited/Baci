@@ -111,13 +111,13 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
             style={[
               styles.input,
               {
-                backgroundColor: colors.card,
+                backgroundColor: colors.muted,
                 color: colors.text,
                 borderColor: colors.border,
               },
             ]}
             placeholder="08012345678"
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.placeholder}
             keyboardType="phone-pad"
             value={phoneNumber}
             onChangeText={handlePhoneChange}
@@ -132,13 +132,13 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
             style={[
               styles.input,
               {
-                backgroundColor: colors.card,
+                backgroundColor: colors.muted,
                 color: colors.text,
                 borderColor: colors.border,
               },
             ]}
             placeholder="1,000"
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.placeholder}
             keyboardType="number-pad"
             value={amount}
             onChangeText={(t) => setAmount(t.replace(/\D/g, ''))}
