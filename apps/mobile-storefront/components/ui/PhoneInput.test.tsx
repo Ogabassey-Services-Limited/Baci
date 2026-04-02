@@ -24,4 +24,26 @@ describe('PhoneInput', () => {
     expect(screen.getByPlaceholderText('8123456789')).toBeTruthy();
     expect(screen.queryByPlaceholderText('8012345678')).toBeNull();
   });
+
+  it('defaults the return key to next for chained form flows', () => {
+    render(<PhoneInput value="" onChangeText={() => {}} />);
+
+    expect(screen.getByLabelText('Phone number').props.returnKeyType).toBe(
+      'next'
+    );
+  });
+
+  it('allows callers to override the return key type', () => {
+    render(
+      <PhoneInput
+        value=""
+        onChangeText={() => {}}
+        returnKeyType="done"
+      />
+    );
+
+    expect(screen.getByLabelText('Phone number').props.returnKeyType).toBe(
+      'done'
+    );
+  });
 });

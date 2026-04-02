@@ -85,6 +85,17 @@ describe('GridProductCard', () => {
     expect(screen.queryAllByTestId('icon-star-outline')).toHaveLength(1);
   });
 
+  it('formats condition badges in sentence case on the grid card', () => {
+    renderCard({
+      product: {
+        ...baseProduct,
+        condition: 'Open Box',
+      },
+    });
+
+    expect(screen.getByText('Open Box')).toBeTruthy();
+  });
+
   it('renders a no-ratings state when product rating is missing', () => {
     renderCard({
       product: {

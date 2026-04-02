@@ -1,6 +1,8 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CartProvider, useCart } from './use-cart';
+
+type AddToCartProduct = Parameters<ReturnType<typeof useCart>['addToCart']>[0];
 
 // Mock logger to avoid console clutter
 vi.mock('@/lib/logger', () => ({
@@ -43,16 +45,22 @@ describe('useCart - Validation', () => {
 
   const mockProduct = {
     id: 'prod-1',
+    merchant_id: 'merch-1',
     name: 'Test Product',
+    description: '',
+    status: 'active' as const,
     price: 100,
+    manage_stock: true,
+    stock: 10,
+    image: '',
+    imageLarge: '',
+    imageHint: '',
+    brand: 'Test Brand',
+    gtin: '',
+    mpn: '',
     slug: 'test-product',
     images: [],
-    description: '',
     category_id: 'cat-1',
-    merchant_id: 'merch-1',
-    created_at: '',
-    updated_at: '',
-    stock: 10,
     sku: 'SKU-1',
   };
 
@@ -144,5 +152,62 @@ describe('useCart - Validation', () => {
       },
       { timeout: 2000 }
     );
+  });
+
+  it('auto-selects the cheapest available variant for quick add flows', async () => {
+    const variantProduct: AddToCartProduct = {
+      ...mockProduct,
+      id: 'variant-product',
+      has_variants: true,
+      manage_stock: true,
+      variants: [
+        {
+          id: 'variant-256',
+          product_id: 'variant-product',
+          merchant_id: 'merch-1',
+          price_override: 150,
+          stock_quantity: 2,
+          attributes: { storage: '256GB' },
+        },
+        {
+          id: 'variant-128',
+          product_id: 'variant-product',
+          merchant_id: 'merch-1',
+          price_override: 100,
+          stock_quantity: 5,
+          attributes: { storage: '128GB' },
+        },
+      ],
+    };
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <CartProvider>{children}</CartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        invalidProductIds: [],
+        priceChanges: [],
+      }),
+    });
+
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    act(() => {
+      result.current.addToCart(variantProduct, 1);
+    });
+
+    await waitFor(() => {
+      expect(result.current.cart).toHaveLength(1);
+      expect(result.current.cart[0]).toMatchObject({
+        id: 'variant-product',
+        variantId: 'variant-128',
+        selectedStorage: '128GB',
+        price: 100,
+      });
+    });
   });
 });

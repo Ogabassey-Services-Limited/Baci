@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Star } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { MerchantProvider, useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
+import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 
 interface OrderData {
   order_id?: string;
@@ -139,9 +140,22 @@ function SuccessPageContent() {
             </div>
           )}
           <div className="mt-8 text-center">
-            <Link href="/">
-              <ThemedButton colorRole="primary">Continue Shopping</ThemedButton>
-            </Link>
+            <div className="flex flex-col items-center gap-3">
+              <Link href="/">
+                <ThemedButton colorRole="primary">
+                  Continue Shopping
+                </ThemedButton>
+              </Link>
+              <a
+                href={BACI_GOOGLE_REVIEW_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-medium text-foreground/80 hover:text-foreground"
+              >
+                <Star className="h-4 w-4" />
+                Leave a Google Review
+              </a>
+            </div>
           </div>
         </CardContent>
       </Card>

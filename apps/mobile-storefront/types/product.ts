@@ -18,6 +18,67 @@ export type ProductConditionDisplay =
   | 'Used'
   | 'New & Used';
 
+const VARIANT_AXIS_LABEL_MAP: Record<string, string> = {
+  color: 'Color',
+  platform: 'Platform',
+  ram: 'RAM',
+  rom: 'ROM',
+  sim_type: 'SIM Type',
+  storage: 'Storage',
+};
+
+export function formatVariantAxisLabel(
+  axis: string | null | undefined
+): string | undefined {
+  if (!axis) {
+    return undefined;
+  }
+
+  const normalized = axis.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (VARIANT_AXIS_LABEL_MAP[normalized]) {
+    return VARIANT_AXIS_LABEL_MAP[normalized];
+  }
+
+  return normalized
+    .split('_')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
+export function formatProductConditionDisplay(
+  condition: ProductCondition | string | null | undefined
+): ProductConditionDisplay | undefined {
+  if (!condition) {
+    return undefined;
+  }
+
+  const normalized = condition.trim().toLowerCase().replace(/[\s-]+/g, '_');
+
+  switch (normalized) {
+    case 'new':
+      return 'New';
+    case 'used':
+      return 'Used';
+    case 'uk_used':
+      return 'UK Used';
+    case 'open_box':
+      return 'Open Box';
+    case 'refurbished':
+      return 'Refurbished';
+    case 'new_and_used':
+    case 'new_&_used':
+      return 'New & Used';
+    default:
+      return condition
+        .trim()
+        .replace(/\b\w/g, (char) => char.toUpperCase()) as ProductConditionDisplay;
+  }
+}
+
 export interface ProductConditionOffer {
   id: string;
   condition: ProductCondition;
