@@ -204,6 +204,9 @@ export function buildStorefrontAccountDocumentBundle({
     customer_name: customerName,
     customer_email: customerEmail,
     customer_phone: customerPhone,
+    merchant_support_email: merchant.support_email || null,
+    merchant_support_phone: merchant.support_phone || null,
+    rider_phone_number: merchant.rider_phone_number || null,
     notes: order.notes || null,
     transactions: transactions.map((transaction) => ({
       id: transaction.id || undefined,

@@ -24,6 +24,7 @@ import {
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
+import { normalizeSavedAddresses } from '@/lib/saved-addresses';
 
 const emptyAddress: Omit<SavedAddress, 'id'> = {
   label: '',
@@ -110,7 +111,9 @@ export default function CustomerAddressesPage() {
       return;
     }
 
-    const newAddresses = addresses.filter((a) => a.id !== addressId);
+    const newAddresses = normalizeSavedAddresses(
+      addresses.filter((a) => a.id !== addressId)
+    );
     try {
       const result = await updateCustomer({ saved_addresses: newAddresses });
 
@@ -137,10 +140,13 @@ export default function CustomerAddressesPage() {
   };
 
   const handleSetDefault = async (addressId: string) => {
-    const newAddresses = addresses.map((a) => ({
-      ...a,
-      is_default: a.id === addressId,
-    }));
+    const newAddresses = normalizeSavedAddresses(
+      addresses.map((a) => ({
+        ...a,
+        is_default: a.id === addressId,
+      }))
+    );
+
     const result = await updateCustomer({ saved_addresses: newAddresses });
 
     if (result.success) {

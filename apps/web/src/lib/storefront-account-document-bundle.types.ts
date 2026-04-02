@@ -10,6 +10,7 @@ export interface StorefrontAccountDocumentMerchantRow {
   phone: string | null;
   support_email: string | null;
   support_phone: string | null;
+  rider_phone_number?: string | null;
   business_address: string | null;
   cac_rc_number: string | null;
   tax_identification_number: string | null;

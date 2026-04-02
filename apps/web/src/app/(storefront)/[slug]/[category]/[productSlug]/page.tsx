@@ -398,10 +398,8 @@ function toOgabasseyProduct(
 
   // Fallback to old specifications format if no product_key_specs
   if (detailedSpecs.length === 0 && product.specifications) {
-    // biome-ignore lint/suspicious/noExplicitAny: Legacy specifications format is untyped
-    detailedSpecs = (product.specifications as any) || [];
-    // biome-ignore lint/suspicious/noExplicitAny: Legacy specifications format is untyped
-    specs = (product.specifications as any)?.[0]?.items || [];
+    detailedSpecs = product.specifications || [];
+    specs = product.specifications?.[0]?.items || [];
   }
 
   // Production data currently stores variant_attributes as either:
@@ -679,6 +677,8 @@ const getProduct = async (
   // Create extended product with category info
   const productWithCategorySlug: Product = {
     ...product,
+    product_key_specs:
+      product.product_key_specs as unknown as Product['product_key_specs'],
     description: product.description || '',
     price:
       typeof product.price === 'string'
