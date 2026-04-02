@@ -64,6 +64,34 @@ describe('GoogleStoreWidget', () => {
     });
   });
 
+  it('renders when the merchant has no custom domain configured', async () => {
+    const start = vi.fn();
+    window.merchantwidget = { start };
+    const merchantWithoutDomain = {
+      ...baseMerchant,
+      custom_domain: undefined,
+    };
+
+    render(
+      <GoogleStoreWidget
+        merchant={merchantWithoutDomain}
+        hostname="preview.usebaci.com"
+      />
+    );
+
+    await screen.findByTestId('google-store-widget-script');
+
+    await waitFor(() => {
+      expect(start).toHaveBeenCalledWith({
+        position: 'LEFT_BOTTOM',
+        sideMargin: 24,
+        bottomMargin: 24,
+        mobileSideMargin: 16,
+        mobileBottomMargin: 104,
+      });
+    });
+  });
+
   it('does not render when the current hostname does not match the merchant domain', () => {
     render(
       <GoogleStoreWidget

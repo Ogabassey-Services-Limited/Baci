@@ -1,6 +1,9 @@
 'use client';
 
-import { GoogleStoreWidget } from '@/components/analytics/google-store-widget';
+import {
+  GoogleStoreWidget,
+  normalizeHostname,
+} from '@/components/analytics/google-store-widget';
 import { type MerchantData, useMerchantSafe } from '@/hooks/use-merchant';
 import type React from 'react';
 import { CartProvider } from '@/hooks/use-cart';
@@ -40,10 +43,7 @@ export function OgabasseyLayout({
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath ?? `/${merchant?.slug || 'ogabassey'}`;
   const pathname = usePathname();
-  const normalizedCustomDomain = merchant?.custom_domain
-    ?.trim()
-    .toLowerCase()
-    .replace(/^www\./, '');
+  const normalizedCustomDomain = normalizeHostname(merchant?.custom_domain);
   const merchantControlledGoogleStoreWidget =
     merchant?.feature_settings?.google_store_widget_enabled;
 

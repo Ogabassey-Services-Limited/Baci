@@ -29,7 +29,7 @@ declare global {
 const WIDGET_SCRIPT_SRC =
   'https://www.gstatic.com/shopping/merchant/merchantwidget.js';
 
-function normalizeHostname(value?: string) {
+export function normalizeHostname(value?: string) {
   return (value || '')
     .trim()
     .toLowerCase()
