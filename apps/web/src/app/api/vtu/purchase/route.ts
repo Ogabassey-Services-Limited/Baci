@@ -219,7 +219,8 @@ export async function POST(request: Request) {
         formattedPhone,
         amount,
         networkProvider as NetworkProvider,
-        customerFirstName
+        customerFirstName,
+        requestRef
       );
     } else if (type === 'data') {
       if (!dataPlanCode) {
@@ -233,7 +234,8 @@ export async function POST(request: Request) {
         dataPlanCode,
         amount,
         networkProvider as NetworkProvider,
-        customerFirstName
+        customerFirstName,
+        requestRef
       );
     } else if (billItemIdentifier && customerIdentifier) {
       // Electricity, Cable TV, Betting — generic bill purchase
@@ -241,7 +243,8 @@ export async function POST(request: Request) {
         billItemIdentifier,
         customerIdentifier,
         amount,
-        customerFirstName
+        customerFirstName,
+        requestRef
       );
     } else {
       return NextResponse.json(

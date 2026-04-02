@@ -180,6 +180,7 @@ describe('purchaseBill', () => {
         PhoneNumber: '1234567890',
         BillItemIdentifier: 'EKEDC-PREPAID',
         Amount: '500000', // 5000 Naira = 500000 Kobo
+        trackingReference: 'BACI-1234567890-abcd1234',
       },
       'BACI-1234567890-abcd1234'
     );
@@ -320,6 +321,7 @@ describe('purchaseBill', () => {
         PhoneNumber: customerIdentification,
         BillItemIdentifier: 'IKEJA-ELECTRIC',
         Amount: '1000000', // 10000 Naira = 1000000 Kobo
+        trackingReference: expect.any(String),
       },
       expect.any(String)
     );
