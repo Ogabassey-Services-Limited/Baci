@@ -82,33 +82,42 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
     setError(null);
 
     try {
-      // Load main settings
-      const { data: mainSettings, error: mainError } = await supabase
-        .from('merchant_ad_settings')
-        .select('*')
-        .eq('merchant_id', merchant.merchant.id)
-        .single();
+      // PERFORMANCE: Use Promise.all to fetch independent queries concurrently
+      // Load main settings, placements, and rewarded settings at once
+      const [
+        { data: mainSettings, error: mainError },
+        { data: placements, error: placementsError },
+        { data: rewardedSettings, error: rewardedError }
+      ] = await Promise.all([
+        supabase
+          .from('merchant_ad_settings')
+          .select(
+            'enabled, network_code, adsense_id, provider, revenue_share_percent, test_mode, max_ads_per_page, min_content_between_ads, track_impressions, track_clicks, gdpr_compliant, ccpa_compliant, show_ad_labels, created_at, updated_at, ad_tier'
+          )
+          .eq('merchant_id', merchant.merchant.id)
+          .single(),
+        supabase
+          .from('merchant_ad_placements')
+          .select(
+            'placement_key, enabled, custom_ad_unit_id, custom_sizes, frequency'
+          )
+          .eq('merchant_id', merchant.merchant.id),
+        supabase
+          .from('merchant_rewarded_ad_settings')
+          .select(
+            'enabled, reward_type, reward_value, reward_expiry_days, min_order_value'
+          )
+          .eq('merchant_id', merchant.merchant.id)
+          .single()
+      ]);
 
       if (mainError && mainError.code !== 'PGRST116') {
         throw mainError;
       }
 
-      // Load placements
-      const { data: placements, error: placementsError } = await supabase
-        .from('merchant_ad_placements')
-        .select('*')
-        .eq('merchant_id', merchant.merchant.id);
-
       if (placementsError) {
         throw placementsError;
       }
-
-      // Load rewarded ad settings
-      const { data: rewardedSettings, error: rewardedError } = await supabase
-        .from('merchant_rewarded_ad_settings')
-        .select('*')
-        .eq('merchant_id', merchant.merchant.id)
-        .single();
 
       if (rewardedError && rewardedError.code !== 'PGRST116') {
         throw rewardedError;
