@@ -1,0 +1,27 @@
+name: Setup pnpm store
+description: Configure the pnpm store directory with optional reset.
+
+inputs:
+  store-dir:
+    description: Absolute path to the pnpm store directory.
+    required: true
+  reset:
+    description: Whether to remove the store directory before configuring pnpm.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Export PNPM_STORE_DIR
+      shell: bash
+      run: echo "PNPM_STORE_DIR=${{ inputs.store-dir }}" >> "$GITHUB_ENV"
+
+    - name: Reset pnpm store directory
+      if: ${{ inputs.reset == 'true' }}
+      shell: bash
+      run: rm -rf "${{ inputs.store-dir }}" || true
+
+    - name: Configure pnpm store directory
+      shell: bash
+      run: pnpm config set store-dir "${{ inputs.store-dir }}"

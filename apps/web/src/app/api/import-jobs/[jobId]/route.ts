@@ -1,3 +1,4 @@
+import { unstable_noStore as noStore } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   getImportJobForMerchant,
@@ -12,6 +13,8 @@ export async function GET(
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   try {
+    noStore();
+
     const authResult = await resolveImportRouteContext(request);
     if (!authResult.context) {
       return (
