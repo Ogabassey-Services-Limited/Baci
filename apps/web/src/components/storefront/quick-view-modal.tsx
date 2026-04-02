@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Product, ProductVariant } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
+import { resolveDefaultVariantSelection } from '../../../../../packages/shared/src/lib/product-default-variant';
 
 interface QuickViewModalProps {
   /** Product to display */
@@ -71,17 +72,12 @@ export function QuickViewModal({
       setSelectedVariant(null);
       setSelectedAttributes({});
 
-      // Auto-select first variant if product has variants
-      if (
-        product.has_variants &&
-        product.variants &&
-        product.variants.length > 0
-      ) {
-        const firstVariant = product.variants[0];
-        setSelectedVariant(firstVariant);
-        setSelectedAttributes(firstVariant.attributes);
-        if (firstVariant.primary_image) {
-          setSelectedImage(firstVariant.primary_image);
+      const defaultVariantSelection = resolveDefaultVariantSelection(product);
+      if (defaultVariantSelection) {
+        setSelectedVariant(defaultVariantSelection.variant);
+        setSelectedAttributes(defaultVariantSelection.attributes);
+        if (defaultVariantSelection.variant.primary_image) {
+          setSelectedImage(defaultVariantSelection.variant.primary_image);
         }
       }
     }
@@ -134,16 +130,18 @@ export function QuickViewModal({
     }
 
     // Create a product object with variant info if applicable
-    const productToAdd = selectedVariant
-      ? {
-          ...product,
-          price: currentPrice,
-          variantId: selectedVariant.id,
-          variantAttributes: selectedAttributes,
-        }
-      : product;
-
-    addToCart(productToAdd as Product, quantity);
+    addToCart(
+      product,
+      quantity,
+      selectedVariant
+        ? {
+            variantId: selectedVariant.id,
+            variantAttributes: selectedAttributes,
+            storage: selectedAttributes.storage,
+            color: selectedAttributes.color,
+          }
+        : undefined
+    );
     toast({
       title: 'Added to cart',
       description: `${quantity} x ${product.name} has been added to your cart.`,

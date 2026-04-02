@@ -28,8 +28,10 @@ export interface ProductDetailsBodyProps {
   setSelectedVariant: (id: string) => void;
   selectedCondition: ProductCondition | null;
   setSelectedCondition: (c: ProductCondition) => void;
+  selectedAttributes: Record<string, string>;
   selectedColor: string | null;
   selectedStorage: string | null;
+  onSelectAttribute: (axis: string, value: string) => void;
   onSelectColor: (color: string, imgs?: string[]) => void;
   onSelectStorage: (storage: string) => void;
   onOpenNegotiation: () => void;
@@ -51,8 +53,10 @@ export function ProductDetailsBody({
   setSelectedVariant,
   selectedCondition,
   setSelectedCondition,
+  selectedAttributes,
   selectedColor,
   selectedStorage,
+  onSelectAttribute,
   onSelectColor,
   onSelectStorage,
   onOpenNegotiation,
@@ -64,6 +68,20 @@ export function ProductDetailsBody({
   onMarkHelpful,
   colors,
 }: ProductDetailsBodyProps) {
+  const showVariantSelector =
+    Boolean(product.colors) ||
+    Boolean(product.color_images) ||
+    Boolean(
+      product.variant_attributes &&
+        Object.keys(product.variant_attributes).length > 0
+    ) ||
+    Boolean(product.variant_attributes?.storage) ||
+    Boolean(
+      product.variants?.some(
+        (v) => v.attributes && Object.keys(v.attributes).length > 0
+      )
+    );
+
   return (
     <Animated.View
       entering={FadeInDown.delay(200).duration(600)}
@@ -166,12 +184,10 @@ export function ProductDetailsBody({
       )}
 
       {/* Advanced Variant Selection */}
-      {(product.colors ||
-        product.color_images ||
-        product.variant_attributes?.storage ||
-        product.variants?.some((v) => v.attributes?.storage)) && (
+      {showVariantSelector && (
         <View style={styles.section}>
           <VariantSelector
+            attributes={product.variant_attributes}
             colors={product.colors}
             colorImages={product.color_images}
             storage={
@@ -181,11 +197,13 @@ export function ProductDetailsBody({
                 .filter((s): s is string => !!s)
             }
             variants={product.variants}
+            manageStock={product.manage_stock}
+            selectedAttributes={selectedAttributes}
             selectedColor={selectedColor}
             selectedStorage={selectedStorage}
+            onSelectAttribute={onSelectAttribute}
             onSelectColor={onSelectColor}
             onSelectStorage={onSelectStorage}
-            basePrice={effectivePrice}
           />
         </View>
       )}
