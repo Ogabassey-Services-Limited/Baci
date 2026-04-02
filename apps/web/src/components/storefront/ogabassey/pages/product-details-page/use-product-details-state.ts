@@ -56,6 +56,12 @@ export function useProductDetailsState(serverProduct: Product) {
     manage_stock: productData.manage_stock,
     variants: productData.variants,
   });
+  const defaultVariantAttributesKey = JSON.stringify(
+    defaultVariantSelection?.attributes ?? {}
+  );
+  const defaultVariantColorName = defaultVariantSelection?.color ?? null;
+  const defaultVariantId = defaultVariantSelection?.variant.id ?? null;
+  const colorOptionsKey = productData.colors.map((color) => color.name).join('||');
 
   const buyActionHandled = useRef(false);
   const [selectedCondition, setSelectedCondition] = useState<ConditionType>(
@@ -151,15 +157,24 @@ export function useProductDetailsState(serverProduct: Product) {
       return;
     }
 
-    setSelectedAttributes(defaultVariantSelection.attributes);
-    const defaultColorIndex = defaultVariantSelection.color
+    setSelectedAttributes(
+      JSON.parse(defaultVariantAttributesKey) as Record<string, string>
+    );
+    const defaultColorIndex = defaultVariantColorName
       ? productData.colors.findIndex(
-          (color) => color.name === defaultVariantSelection.color
+          (color) => color.name === defaultVariantColorName
         )
       : -1;
     setSelectedColor(defaultColorIndex >= 0 ? defaultColorIndex : null);
     setSecondaryColor(null);
-  }, [defaultVariantSelection, productData.condition, productData.id, productData.colors]);
+  }, [
+    colorOptionsKey,
+    defaultVariantAttributesKey,
+    defaultVariantColorName,
+    defaultVariantId,
+    productData.condition,
+    productData.id,
+  ]);
 
   const currentCartItemId = buildCartItemId(productData.id, {
     color:
