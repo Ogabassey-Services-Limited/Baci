@@ -1,4 +1,5 @@
-import { resolveDefaultVariantSelection } from '../../../../packages/shared/src/lib/product-default-variant';
+import { resolveDefaultVariantSelection } from '@baci/shared/lib';
+import { resolveCartItemImageUrl } from '@/lib/cart-display';
 
 const mockPush = jest.fn();
 jest.mock('expo-router', () => ({
@@ -63,10 +64,11 @@ describe('ProductCard handleAddToCart logic', () => {
       compare_at_price:
         defaultVariantSelection?.compareAtPrice ?? product.compare_at_price,
       quantity: 1,
-      image_url:
-        defaultVariantSelection?.variant.image ||
-        defaultVariantSelection?.variant.images?.[0] ||
-        product.image,
+      image_url: resolveCartItemImageUrl({
+        variantImageUrl: defaultVariantSelection?.variant.image,
+        variantImages: defaultVariantSelection?.variant.images,
+        fallbackImageUrl: product.image,
+      }),
       condition: product.condition,
       color: defaultVariantSelection?.color,
       storage: defaultVariantSelection?.storage,

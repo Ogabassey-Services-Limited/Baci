@@ -3,6 +3,7 @@
  * Supports 'grid', 'editorial', and 'list' layouts with Reanimated motion
  */
 
+import { resolveDefaultVariantSelection } from '@baci/shared/lib';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -12,7 +13,6 @@ import {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
-import { resolveDefaultVariantSelection } from '../../../../packages/shared/src/lib/product-default-variant';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { SPRING_CONFIG } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/use-haptics';

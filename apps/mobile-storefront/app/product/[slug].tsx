@@ -24,6 +24,10 @@ import { createLogger } from '@/lib/logger';
 
 const log = createLogger('ProductDetail');
 
+import {
+  resolveDefaultVariantSelection,
+  resolveVariantSelection,
+} from '@baci/shared/lib';
 import Animated, {
   Extrapolate,
   FadeIn,
@@ -35,10 +39,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
-import {
-  resolveDefaultVariantSelection,
-  resolveVariantSelection,
-} from '../../../../packages/shared/src/lib/product-default-variant';
 import { OfflineEmptyState } from '@/components/OfflineNotice';
 import { FlyToCartParticle } from '@/components/product/FlyToCartParticle';
 import { NegotiationModal } from '@/components/product/NegotiationModal';
@@ -47,12 +47,12 @@ import { ProductImageGallery } from '@/components/product/ProductImageGallery';
 import { StickyBottomActions } from '@/components/product/StickyBottomActions';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
-import { resolveCartItemImageUrl } from '@/lib/cart-display';
 import { useProduct } from '@/hooks';
 import { useEffectivePrice } from '@/hooks/use-effective-price';
 import { useHaptics } from '@/hooks/use-haptics';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { markReviewHelpful, useReviews } from '@/hooks/use-reviews';
+import { resolveCartItemImageUrl } from '@/lib/cart-display';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import {
@@ -129,7 +129,7 @@ export default function ProductDetailScreen() {
     ? resolveDefaultVariantSelection(product)
     : null;
   const currentVariantSelection = product?.has_variants
-    ? resolveVariantSelection(product, {
+    ? (resolveVariantSelection(product, {
         variantId: selectedVariant,
         attributes: {
           storage: selectedStorage,
@@ -142,13 +142,14 @@ export default function ProductDetailScreen() {
       !selectedColor &&
       Object.keys(selectedAttributes).length === 0
         ? defaultVariantSelection
-        : null)
+        : null))
     : null;
   const effectiveSelectedVariantId =
     currentVariantSelection?.variant.id ?? selectedVariant;
   const effectiveSelectedStorage =
     currentVariantSelection?.storage ?? selectedStorage;
-  const effectiveSelectedColor = currentVariantSelection?.color ?? selectedColor;
+  const effectiveSelectedColor =
+    currentVariantSelection?.color ?? selectedColor;
   const effectiveSelectedAttributes = {
     ...selectedAttributes,
     ...Object.fromEntries(
@@ -222,7 +223,7 @@ export default function ProductDetailScreen() {
     );
     setColorImages(
       defaultSelection?.color
-        ? product.color_images?.[defaultSelection.color] ?? null
+        ? (product.color_images?.[defaultSelection.color] ?? null)
         : null
     );
     setSelectedImageIndex(0);
@@ -522,7 +523,8 @@ export default function ProductDetailScreen() {
     // Build variant_attributes from individual selections
     const variantAttrs: Record<string, string> = {};
     if (effectiveSelectedColor) variantAttrs.color = effectiveSelectedColor;
-    if (effectiveSelectedStorage) variantAttrs.storage = effectiveSelectedStorage;
+    if (effectiveSelectedStorage)
+      variantAttrs.storage = effectiveSelectedStorage;
     for (const [axis, value] of Object.entries(effectiveSelectedAttributes)) {
       if (value) {
         variantAttrs[axis] = value;
