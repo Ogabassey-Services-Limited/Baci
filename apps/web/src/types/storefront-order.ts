@@ -104,6 +104,9 @@ export interface StorefrontOrder {
   customer_name?: string;
   customer_email?: string;
   customer_phone?: string | null;
+  merchant_support_email?: string | null;
+  merchant_support_phone?: string | null;
+  rider_phone_number?: string | null;
   notes?: string | null;
   virtual_account?: StorefrontVirtualAccount | null;
   transactions?: StorefrontTransaction[];
