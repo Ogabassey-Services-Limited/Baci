@@ -6,12 +6,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Animated,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PermissionModal } from '@/components/ui/PermissionModal';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { usePermissionBooster } from '@/hooks/use-permission-booster';
+import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function OrderSuccessScreen() {
@@ -70,6 +79,17 @@ export default function OrderSuccessScreen() {
       });
     } else {
       router.replace('/orders');
+    }
+  };
+
+  const handleLeaveGoogleReview = async () => {
+    try {
+      await Linking.openURL(BACI_GOOGLE_REVIEW_URL);
+    } catch {
+      Alert.alert(
+        'Unable to open review link',
+        'Please try again in a browser later.'
+      );
     }
   };
 
@@ -250,6 +270,16 @@ export default function OrderSuccessScreen() {
               View My Orders
             </Text>
           </Pressable>
+
+          <Pressable
+            style={[styles.reviewButton, { borderColor: colors.border }]}
+            onPress={handleLeaveGoogleReview}
+          >
+            <Ionicons name="logo-google" size={18} color={colors.text} />
+            <Text style={[styles.reviewButtonText, { color: colors.text }]}>
+              Leave a Google Review
+            </Text>
+          </Pressable>
         </View>
       </SafeAreaView>
 
@@ -380,6 +410,19 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     fontSize: 16,
+    fontWeight: '600',
+  },
+  reviewButton: {
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  reviewButtonText: {
+    fontSize: 15,
     fontWeight: '600',
   },
 });

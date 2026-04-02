@@ -1,19 +1,41 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import Colors from '@/constants/Colors';
 import CartScreen from './cart';
 
+type MockAuthStatus = {
+  customer: null;
+  isAuthenticated: boolean;
+  isGuest: boolean;
+  isInitialized: boolean;
+  isLoading: boolean;
+  user: { id: string } | null;
+};
+
 const mockOpenNegotiation = jest.fn();
 const mockUseColorScheme = jest.fn(() => 'dark');
+const mockRouterPush = jest.fn();
+const buildAuthStatus = (
+  overrides: Partial<MockAuthStatus> = {}
+): MockAuthStatus => ({
+  customer: null,
+  isAuthenticated: false,
+  isGuest: true,
+  isInitialized: true,
+  isLoading: false,
+  user: null,
+  ...overrides,
+});
+const mockUseAuthStatus = jest.fn((): MockAuthStatus => buildAuthStatus());
 
 jest.mock('expo-router', () => ({
   router: {
-    push: jest.fn(),
+    push: (...args: unknown[]) => mockRouterPush(...args),
   },
 }));
 
 jest.mock('expo-haptics', () => ({
-  impactAsync: jest.fn(),
+  impactAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light' },
 }));
 
@@ -51,9 +73,16 @@ jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => mockUseColorScheme(),
 }));
 
-jest.mock('@/components/checkout/checkout-identity', () => ({
-  CheckoutIdentityModal: () => null,
-}));
+jest.mock('@/components/checkout/checkout-identity', () => {
+  const { Text: MockText } = jest.requireActual('react-native');
+
+  return ({
+  CheckoutIdentityModal: ({ isOpen }: { isOpen: boolean }) => {
+    if (!isOpen) return null;
+    return <MockText>Checkout Identity Modal</MockText>;
+  },
+  });
+});
 
 jest.mock('@/components/ui/SafeImage', () => ({
   SafeImage: function MockSafeImage() {
@@ -94,9 +123,17 @@ jest.mock('@/stores/cart-store', () => ({
     selector(mockCartState),
 }));
 
-jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: (selector: (state: { session: null }) => unknown) =>
-    selector({ session: null }),
+jest.mock('@/hooks/use-auth-guard', () => ({
+  useAuthStatus: () => mockUseAuthStatus(),
+}));
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({
+    top: 16,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  }),
 }));
 
 jest.mock('@/stores/ui-store', () => ({
@@ -108,6 +145,7 @@ describe('CartScreen theming', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseColorScheme.mockReturnValue('dark');
+    mockUseAuthStatus.mockReturnValue(buildAuthStatus());
     mockCartState = createMockCartState();
   });
 
@@ -149,6 +187,7 @@ describe('CartScreen state', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseColorScheme.mockReturnValue('dark');
+    mockUseAuthStatus.mockReturnValue(buildAuthStatus());
     mockCartState = createMockCartState();
   });
 
@@ -182,5 +221,31 @@ describe('CartScreen state', () => {
     expect(screen.getByText('Unable to load cart')).toBeTruthy();
     expect(screen.getByText('Retry')).toBeTruthy();
     expect(screen.queryByText('Lenovo ThinkPad E16 Gen 2')).toBeNull();
+  });
+
+  it('opens guest identity modal for guests and routes signed-in users straight to checkout', () => {
+    const { rerender } = render(<CartScreen />);
+
+    fireEvent.press(
+      screen.getByRole('button', { name: /Proceed to checkout, total/i })
+    );
+
+    expect(screen.getByText('Checkout Identity Modal')).toBeTruthy();
+    expect(mockRouterPush).not.toHaveBeenCalled();
+
+    mockUseAuthStatus.mockReturnValue(
+      buildAuthStatus({
+        isAuthenticated: true,
+        isGuest: false,
+        user: { id: 'user-1' },
+      })
+    );
+
+    rerender(<CartScreen />);
+    fireEvent.press(
+      screen.getByRole('button', { name: /Proceed to checkout, total/i })
+    );
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/checkout');
   });
 });
