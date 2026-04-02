@@ -1229,6 +1229,15 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                 { backgroundColor: `${shippingColor}15` },
               ]}
             >
+              <Ionicons
+                name={
+                  shippingConfig.icon as React.ComponentProps<
+                    typeof Ionicons
+                  >['name']
+                }
+                size={14}
+                color={shippingColor}
+              />
               <Text style={[styles.statusTextBig, { color: shippingColor }]}>
                 {shippingConfig.label}
               </Text>
@@ -1255,26 +1264,49 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
 
               return steps.map((step, index) => {
                 const currentStepIndex = steps.indexOf(currentStatus);
-                // If cancelled/returned, all previous steps should be "active" (or at least valid)
-                // But simplified: show active up to current
                 const isActive = index <= currentStepIndex;
+                const isCurrent = index === currentStepIndex;
                 const isLast = index === steps.length - 1;
+                const config =
+                  SHIPPING_STATUS_CONFIG[step as ShippingStatus] ??
+                  SHIPPING_STATUS_CONFIG.pending;
+                const stepColor = getStatusColor(step, colors);
 
                 return (
                   <React.Fragment key={step}>
-                    <View
-                      style={[
-                        styles.progressDot,
-                        {
-                          backgroundColor: isActive
-                            ? getStatusColor(step, colors)
-                            : colors.border,
-                        },
-                      ]}
-                    >
-                      {isActive && (
-                        <Ionicons name="checkmark" size={10} color="#FFF" />
-                      )}
+                    <View style={styles.progressStep}>
+                      <View
+                        style={[
+                          styles.progressDot,
+                          {
+                            backgroundColor: isActive
+                              ? stepColor
+                              : colors.inputBg,
+                            borderColor: isActive ? stepColor : colors.border,
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name={
+                            config.icon as React.ComponentProps<
+                              typeof Ionicons
+                            >['name']
+                          }
+                          size={12}
+                          color={isActive ? '#FFF' : colors.textMuted}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.progressLabel,
+                          {
+                            color: isCurrent ? colors.text : colors.textMuted,
+                            fontWeight: isCurrent ? '700' : '600',
+                          },
+                        ]}
+                      >
+                        {config.label}
+                      </Text>
                     </View>
                     {!isLast && (
                       <View
@@ -1282,9 +1314,7 @@ Thank you for choosing ${merchant?.business_name || 'us'}!
                           styles.progressLine,
                           {
                             backgroundColor:
-                              index < currentStepIndex
-                                ? getStatusColor(step, colors)
-                                : colors.border,
+                              index < currentStepIndex ? stepColor : colors.border,
                           },
                         ]}
                       />
@@ -2414,6 +2444,9 @@ const styles = StyleSheet.create({
   sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sourceText: { fontSize: TYPOGRAPHY.size.xs, fontWeight: '500' },
   statusBadgeBig: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: RADIUS.full,
@@ -2427,19 +2460,35 @@ const styles = StyleSheet.create({
 
   progressContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
+  },
+  progressStep: {
+    width: 72,
+    alignItems: 'center',
+    gap: 8,
   },
   progressDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 2,
+    borderWidth: 1,
   },
-  progressLine: { flex: 1, height: 2, marginHorizontal: -2 },
+  progressLabel: {
+    fontSize: TYPOGRAPHY.size.xs,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  progressLine: {
+    flex: 1,
+    height: 2,
+    marginHorizontal: 4,
+    marginTop: 16,
+  },
 
   cardHeader: {
     flexDirection: 'row',

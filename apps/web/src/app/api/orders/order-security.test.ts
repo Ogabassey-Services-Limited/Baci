@@ -3,6 +3,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { POST } from './route';
 
+const {
+  mockNotifyNewOrder,
+  mockNotifyPaymentReceived,
+  mockSendEmail,
+  mockCreateGiglShipment,
+  mockAfter,
+} =
+  vi.hoisted(() => ({
+    mockNotifyNewOrder: vi.fn(() => Promise.resolve()),
+    mockNotifyPaymentReceived: vi.fn(() => Promise.resolve()),
+    mockSendEmail: vi.fn(() => Promise.resolve({ success: true })),
+    mockCreateGiglShipment: vi.fn(),
+    mockAfter: vi.fn((callback: () => unknown) => callback()),
+  }));
+
 // Mock env
 vi.mock('@/env', () => ({
   getSupabaseUrl: () => 'https://mock.supabase.co',
@@ -78,10 +93,34 @@ vi.mock('next/headers', () => ({
   }),
 }));
 
+vi.mock('next/server', async () => {
+  const actual = await vi.importActual<typeof import('next/server')>(
+    'next/server'
+  );
+
+  return {
+    ...actual,
+    after: mockAfter,
+  };
+});
+
 // Mock other dependencies
 vi.mock('@/lib/email-templates', () => ({
   generateOrderConfirmationEmail: vi.fn(),
   generateOrderConfirmationText: vi.fn(),
+}));
+
+vi.mock('@/lib/expo-push', () => ({
+  notifyNewOrder: mockNotifyNewOrder,
+  notifyPaymentReceived: mockNotifyPaymentReceived,
+}));
+
+vi.mock('@/lib/gigl', () => ({
+  createGiglShipment: mockCreateGiglShipment,
+}));
+
+vi.mock('@/lib/zeptomail', () => ({
+  sendEmail: mockSendEmail,
 }));
 
 vi.mock('@/lib/geo-privacy', () => ({
@@ -256,6 +295,54 @@ describe('Order API Security', () => {
       'create_storefront_order',
       expect.objectContaining({
         p_user_id: authUserId,
+      })
+    );
+  });
+
+  it('treats pay_on_delivery like pod for downstream notification handling', async () => {
+    const request = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validOrderPayload,
+        payment_method: 'pay_on_delivery',
+        payment_status: 'pending',
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(201);
+    expect(mockAfter).toHaveBeenCalled();
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+    expect(mockNotifyNewOrder).toHaveBeenCalledWith(
+      validOrderPayload.merchant_id,
+      'ORD-123',
+      validOrderPayload.customer_name,
+      1000
+    );
+    expect(mockNotifyPaymentReceived).not.toHaveBeenCalled();
+  });
+
+  it('does not try to book GIGL shipments during order creation', async () => {
+    const request = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validOrderPayload,
+        shipping_provider: 'GIGL',
+        selected_quote_id: '11111111-1111-1111-1111-111111111111',
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(201);
+    expect(mockCreateGiglShipment).not.toHaveBeenCalled();
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_selected_quote_id: '11111111-1111-1111-1111-111111111111',
+        p_shipping_provider: 'GIGL',
+        p_tracking_number: null,
       })
     );
   });

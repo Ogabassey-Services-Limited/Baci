@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
   generateOrderConfirmationEmail,
@@ -11,154 +11,24 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { createGiglShipment } from '@/lib/gigl';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { getClientIdentifier } from '@/lib/rate-limit';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
-import { giglProvider } from '@/lib/shipping/providers/gigl';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import { orderCreateSchema } from '@/schemas/orders';
 
-// GIGL-specific shipment creation logic is now in its own function
-interface OrderItem {
-  value?: number;
-  quantity: number;
-  product_id?: string;
-  productId?: string;
-  id?: string;
+function isPayOnDelivery(paymentMethod: string): boolean {
+  return paymentMethod === 'pod' || paymentMethod === 'pay_on_delivery';
+}
+
+type EmailOrderItem = {
   name?: string;
   productName?: string;
+  quantity?: number;
   price?: number;
-  negotiatedPrice?: number;
-}
-
-interface CustomerInfo {
-  name: string;
-  phone: string;
-}
-
-interface ShippingAddress {
-  address: string;
-  city?: string;
-  state?: string;
-}
-
-const GIGL_DEFAULT_SENDER_DETAILS = {
-  location: { Latitude: '6.5244', Longitude: '3.3792' },
-  name: 'Baci Store',
-  phone: 'PLACEHOLDER_PHONE',
-  stationId: 4,
-  address: 'Merchant Address',
-  locality: 'Lagos',
-} as const;
-
-// GIGL-specific shipment creation logic is now in its own function
-async function handleGiglShipment(
-  order: { items: OrderItem[] },
-  customer: CustomerInfo,
-  shippingAddress: ShippingAddress,
-  merchant: {
-    business_name?: string | null;
-    rider_phone_number?: string | null;
-    business_address?: string | null;
-  }
-) {
-  try {
-    const senderName =
-      merchant.business_name || GIGL_DEFAULT_SENDER_DETAILS.name;
-    const senderPhone =
-      merchant.rider_phone_number || GIGL_DEFAULT_SENDER_DETAILS.phone;
-    const senderAddress =
-      merchant.business_address || GIGL_DEFAULT_SENDER_DETAILS.address;
-    if (!senderPhone || senderPhone === GIGL_DEFAULT_SENDER_DETAILS.phone) {
-      logger.warn({
-        message: 'GIGL sender phone missing or placeholder',
-        senderName,
-      });
-      return null;
-    }
-    let receiverLocation = { Longitude: '3.3792', Latitude: '6.5244' };
-    let receiverStationId = 4;
-
-    if (shippingAddress.city && shippingAddress.state) {
-      try {
-        const locations = await giglProvider.getLocations();
-        const matched = locations.find(
-          (location) =>
-            location.city?.toLowerCase() ===
-              shippingAddress.city?.toLowerCase() ||
-            location.state?.toLowerCase() ===
-              shippingAddress.state?.toLowerCase()
-        );
-        if (matched?.latitude && matched?.longitude) {
-          receiverLocation = {
-            Longitude: String(matched.longitude),
-            Latitude: String(matched.latitude),
-          };
-        }
-        if (matched?.stationId) {
-          receiverStationId = matched.stationId;
-        }
-      } catch (stationError) {
-        logger.warn({
-          message: 'Failed to resolve GIGL receiver station, using fallback',
-          error: stationError,
-        });
-      }
-    }
-
-    const giglShipmentPayload = {
-      SenderDetails: {
-        SenderLocation: GIGL_DEFAULT_SENDER_DETAILS.location,
-        SenderName: senderName,
-        SenderPhoneNumber: senderPhone,
-        SenderStationId: GIGL_DEFAULT_SENDER_DETAILS.stationId,
-        SenderAddress: senderAddress,
-        InputtedSenderAddress: senderAddress,
-        SenderLocality: GIGL_DEFAULT_SENDER_DETAILS.locality,
-      },
-      ReceiverDetails: {
-        ReceiverLocation: receiverLocation,
-        ReceiverStationId: receiverStationId,
-        ReceiverName: customer.name,
-        ReceiverPhoneNumber: customer.phone,
-        ReceiverAddress: shippingAddress.address,
-        InputtedReceiverAddress: shippingAddress.address,
-      },
-      ShipmentDetails: { VehicleType: 1, IsFromAgility: 0, IsBatchPickUp: 0 },
-      ShipmentItems: order.items.map(
-        (item: { value?: number; quantity: number; price?: number }) => ({
-          SpecialPackageId: 10,
-          Quantity: item.quantity,
-          Value: item.value ?? item.price ?? 0,
-          ShipmentType: 0, // Special
-        })
-      ),
-    };
-    const giglResult = await createGiglShipment(giglShipmentPayload);
-    if (giglResult.status === 200 && giglResult.data.Waybill) {
-      logger.info({
-        message: 'GIGL shipment created successfully',
-        waybill: giglResult.data.Waybill,
-      });
-      return {
-        shipping_provider: 'GIGL',
-        tracking_number: giglResult.data.Waybill,
-      };
-    } else {
-      logger.error({ message: 'GIGL shipment creation failed', giglResult });
-      return null;
-    }
-  } catch (giglError) {
-    logger.error({
-      message: 'Error calling GIGL create shipment API',
-      error: giglError,
-    });
-    return null;
-  }
-}
+};
 
 // GET /api/orders - Fetch orders for authenticated merchant
 export async function GET(request: NextRequest) {
@@ -386,27 +256,13 @@ export async function POST(request: NextRequest) {
           }
         : null;
 
-    let resolvedShippingProvider = body.shipping_provider ?? null;
-    let resolvedTrackingNumber = body.tracking_number ?? null;
-    if (resolvedShippingProvider === 'GIGL' && shipping_address) {
-      const shipmentDetails = await handleGiglShipment(
-        { items },
-        { name: customer_name, phone: customer_phone || '' },
-        shipping_address,
-        {
-          business_name: merchant.business_name,
-          rider_phone_number: merchant.rider_phone_number,
-          business_address: merchant.business_address,
-        }
-      );
-      if (shipmentDetails) {
-        resolvedShippingProvider = shipmentDetails.shipping_provider;
-        resolvedTrackingNumber = shipmentDetails.tracking_number;
-      }
-    }
+    const resolvedShippingProvider = body.shipping_provider ?? null;
+    const resolvedTrackingNumber = body.tracking_number ?? null;
+
+    const payOnDelivery = isPayOnDelivery(payment_method);
 
     let effectivePaymentStatus = payment_status;
-    if (payment_method === 'pod') {
+    if (payOnDelivery) {
       effectivePaymentStatus = 'pending';
 
       if (merchant?.rider_phone_number) {
@@ -590,11 +446,7 @@ export async function POST(request: NextRequest) {
     // - POD (Pay on Delivery) or Invoice: no payment gateway redirect
     // - Wallet-paid orders: payment already confirmed via wallet redemption
     const isWalletFullyPaid = walletFinalized;
-    if (
-      payment_method === 'pod' ||
-      payment_method === 'invoice' ||
-      isWalletFullyPaid
-    ) {
+    if (payOnDelivery || payment_method === 'invoice' || isWalletFullyPaid) {
       try {
         if (merchant.business_name && merchant.slug) {
           const rootDomain =
@@ -602,7 +454,7 @@ export async function POST(request: NextRequest) {
           const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
           // Format items for email template
-          const emailItems = items.map((item: OrderItem) => ({
+          const emailItems = items.map((item: EmailOrderItem) => ({
             name: item.name || item.productName || 'Product',
             quantity: item.quantity || 1,
             price: item.price || 0,
@@ -678,25 +530,25 @@ export async function POST(request: NextRequest) {
     // Notify merchant of new order — only for POD/invoice/wallet-paid orders.
     // Gateway-payment orders (Paystack, Korapay, etc.) are notified via their webhook handlers
     // to avoid duplicate notifications.
-    if (
-      payment_method === 'pod' ||
-      payment_method === 'invoice' ||
-      isWalletFullyPaid
-    ) {
-      notifyNewOrder(merchant_id, orderNum, customer_name, orderTotal).catch(
-        (err) =>
-          logger.error({ message: 'Push notification failed', error: err })
-      );
+    if (payOnDelivery || payment_method === 'invoice' || isWalletFullyPaid) {
+      after(async () => {
+        try {
+          await notifyNewOrder(merchant_id, orderNum, customer_name, orderTotal);
+        } catch (err) {
+          logger.error({ message: 'Push notification failed', error: err });
+        }
 
-      if (isWalletFullyPaid) {
-        notifyPaymentReceived(merchant_id, orderTotal, 'NGN', orderNum).catch(
-          (err) =>
+        if (isWalletFullyPaid) {
+          try {
+            await notifyPaymentReceived(merchant_id, orderTotal, 'NGN', orderNum);
+          } catch (err) {
             logger.error({
               message: 'Payment push notification failed',
               error: err,
-            })
-        );
-      }
+            });
+          }
+        }
+      });
     }
 
     const responseOrder = isWalletFullyPaid

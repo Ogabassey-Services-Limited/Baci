@@ -2,6 +2,7 @@
 
 export * from './constants';
 export * from './contracts';
+export * from './lib/customer-order-status';
 export * from './lib';
 export * from './receipt';
 export * from './schemas';
