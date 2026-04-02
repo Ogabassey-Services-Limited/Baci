@@ -540,9 +540,8 @@ export const OgabasseyImeiChecker: React.FC = () => {
                       <Image
                         src={result.deviceImage}
                         alt={result.device}
-                        fill
+                        fill sizes="112px"
                         className="object-contain p-2"
-                        unoptimized
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-300">

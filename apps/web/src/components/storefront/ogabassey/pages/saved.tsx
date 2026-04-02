@@ -108,7 +108,7 @@ export const OgabasseyV2SavedItems: React.FC = () => {
                   <Image
                     src={product.image}
                     alt={product.name}
-                    fill
+                    fill sizes="(max-width: 1024px) 50vw, 25vw"
                     className="object-contain mix-blend-multiply p-4"
                   />
                 </div>

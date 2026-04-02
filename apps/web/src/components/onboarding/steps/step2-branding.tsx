@@ -401,6 +401,7 @@ export default function Step2_Branding() {
                       src={currentLogoDataUri || logoUrl}
                       alt="Logo"
                       fill
+                      sizes="(max-width: 768px) 160px, 224px"
                       priority
                       unoptimized
                       className="object-contain p-4 transition-all duration-300 group-hover:scale-95 group-hover:opacity-50 group-hover:blur-[1px]"
