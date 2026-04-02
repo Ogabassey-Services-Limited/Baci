@@ -47,6 +47,7 @@ export function ImagePickerField({
             src={value}
             alt="Preview"
             fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover"
             onError={(e) => {
               e.currentTarget.style.display = 'none';

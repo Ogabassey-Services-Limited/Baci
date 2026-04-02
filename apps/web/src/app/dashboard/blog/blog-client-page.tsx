@@ -505,6 +505,7 @@ export function BlogClientPage({
                         src={post.featured_image_url}
                         alt=""
                         fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         className="object-cover"
                       />
                     </div>

@@ -322,6 +322,7 @@ export default function ProductDetailClient({
                   alt={product.name}
                   data-ai-hint={product.imageHint}
                   fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   priority
                   className="object-cover"
                 />
@@ -346,6 +347,7 @@ export default function ProductDetailClient({
                       }
                       alt={`${product.name} - Main image`}
                       fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       className="object-cover"
                     />
                   </button>
@@ -367,6 +369,7 @@ export default function ProductDetailClient({
                           src={img.url}
                           alt={img.alt || `Product image ${idx + 1}`}
                           fill
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                           className="object-cover"
                         />
                       </button>
