@@ -41,18 +41,6 @@ const reanimatedPackageRoot = resolvePackageRoot('react-native-reanimated');
 const screensPackageRoot = resolvePackageRoot('react-native-screens');
 const safeAreaContextPackageRoot = resolvePackageRoot('react-native-safe-area-context');
 
-const forcedPackageRoots = {
-  react: reactPackageRoot,
-  'react-dom': reactDomPackageRoot,
-  'react-native': reactNativePackageRoot,
-  expo: expoPackageRoot,
-  'expo-router': expoRouterPackageRoot,
-  'react-native-gesture-handler': gestureHandlerPackageRoot,
-  'react-native-reanimated': reanimatedPackageRoot,
-  'react-native-screens': screensPackageRoot,
-  'react-native-safe-area-context': safeAreaContextPackageRoot,
-};
-
 config.watchFolders = [workspaceRoot];
 config.resolver = {
   ...resolver,
@@ -75,8 +63,9 @@ config.resolver = {
   },
   // Critical for PNPM monorepos to resolve symlinked packages
   unstable_enableSymlinks: true,
-  // 2026: Enable package exports as it is now the standard for modern libraries
-  unstable_enablePackageExports: false,
+  // 2026: Enable package exports so shared-package subpath imports resolve the
+  // same way in Metro as they do in the rest of the monorepo.
+  unstable_enablePackageExports: true,
   // Block test files and Node.js-only modules from being bundled by Metro.
   // This prevents Hermes runtime errors when build tool dependencies pull in
   // modules that use import.meta syntax (which is Node.js-only).
@@ -97,34 +86,6 @@ config.resolver = {
     // Other Node.js-only modules commonly pulled by build tools
     /node_modules[\\/]esbuild[\\/]/,
   ],
-  // Force all React resolutions to the app-selected React package so Metro
-  // cannot accidentally mix the hoisted workspace copy with the app bundle.
-  resolveRequest: (context, moduleName, platform) => {
-    try {
-      for (const [packageName, packageRoot] of Object.entries(forcedPackageRoots)) {
-        if (moduleName === packageName) {
-          return {
-            filePath: require.resolve(packageRoot),
-            type: 'sourceFile',
-          };
-        }
-
-        if (moduleName.startsWith(`${packageName}/`)) {
-          return {
-            filePath: require.resolve(
-              path.resolve(packageRoot, moduleName.slice(packageName.length + 1))
-            ),
-            type: 'sourceFile',
-          };
-        }
-      }
-    } catch {
-      // Fall through to Metro's default resolution when a forced package
-      // subpath is not present in the selected install layout.
-    }
-
-    return context.resolveRequest(context, moduleName, platform);
-  },
 };
 
 module.exports = config;

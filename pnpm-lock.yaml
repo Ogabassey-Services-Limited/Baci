@@ -110,10 +110,10 @@ patchedDependencies:
     hash: a6ffbb4929fe78c76f3b2f26254d97b5c5a05c9702c14b7a702cbfde30541d4e
     path: patches/react-native-edge-to-edge@1.8.1.patch
   react-native-gesture-handler@2.30.1:
-    hash: dd43f48dd2bb768fb5a63c15aa10d3214dd0b38ae06abf411fa5511ba31cb5eb
+    hash: e0d7d34789dece91d46cad73ad4b7375f64377696a242422cdc066876d4fbaf7
     path: patches/react-native-gesture-handler@2.30.1.patch
   react-native-mmkv@4.3.0:
-    hash: d3ce2c6bbfc7e63acfce07e0506f3825f6ceb0421d1ecbe534337a24ef0ae384
+    hash: 00e5dfe7dca3f1ae57e77705120797ea7a671e21f4f7e9f8688b88511a481ca3
     path: patches/react-native-mmkv@4.3.0.patch
   react-native-nitro-modules@0.35.2:
     hash: 4389d08533b644ae94941500e6ef507bc1bcdf985e85a341b3b7cc193cb9f242
@@ -128,7 +128,7 @@ patchedDependencies:
     hash: 022d5666269cc6cf57103809a9f2731abf75f568e475b7fadf03dea4bea7595b
     path: patches/react-native-safe-area-context@5.7.0.patch
   react-native-screens@4.24.0:
-    hash: a61512c3b32f716aad0de0e4c1e88aabdb76a63ff066776fb450ac3b3295ad47
+    hash: 91f4db3da89d5ebbc2cb99a483d0953a52988385ba7e74d86b5d98766315ef84
     path: patches/react-native-screens@4.24.0.patch
   react-native-tiktok-business@0.2.0:
     hash: c0b26f140d7ecbafc217d51544aeb82a1b424ce154e2ee537a41a11e2e33b561
@@ -278,7 +278,7 @@ importers:
         version: 55.0.9(expo@55.0.9)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))
       expo-router:
         specifier: ~55.0.8
-        version: 55.0.8(6ac3e41478c2a4abbb3d6fa7be3bba99)
+        version: 55.0.8(443f4a5e90f9d563af19f092d8c5f703)
       expo-secure-store:
         specifier: ~55.0.9
         version: 55.0.9(expo@55.0.9)
@@ -311,13 +311,13 @@ importers:
         version: 1.8.1(patch_hash=a6ffbb4929fe78c76f3b2f26254d97b5c5a05c9702c14b7a702cbfde30541d4e)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-gesture-handler:
         specifier: ~2.30.1
-        version: 2.30.1(patch_hash=dd43f48dd2bb768fb5a63c15aa10d3214dd0b38ae06abf411fa5511ba31cb5eb)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+        version: 2.30.1(patch_hash=e0d7d34789dece91d46cad73ad4b7375f64377696a242422cdc066876d4fbaf7)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-google-places-autocomplete:
         specifier: ^2.6.4
         version: 2.6.4(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))
       react-native-mmkv:
         specifier: ^4.3.0
-        version: 4.3.0(patch_hash=d3ce2c6bbfc7e63acfce07e0506f3825f6ceb0421d1ecbe534337a24ef0ae384)(react-native-nitro-modules@0.35.2(patch_hash=4389d08533b644ae94941500e6ef507bc1bcdf985e85a341b3b7cc193cb9f242)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+        version: 4.3.0(patch_hash=00e5dfe7dca3f1ae57e77705120797ea7a671e21f4f7e9f8688b88511a481ca3)(react-native-nitro-modules@0.35.2(patch_hash=4389d08533b644ae94941500e6ef507bc1bcdf985e85a341b3b7cc193cb9f242)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-nitro-modules:
         specifier: ^0.35.2
         version: 0.35.2(patch_hash=4389d08533b644ae94941500e6ef507bc1bcdf985e85a341b3b7cc193cb9f242)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
@@ -335,7 +335,7 @@ importers:
         version: 5.7.0(patch_hash=022d5666269cc6cf57103809a9f2731abf75f568e475b7fadf03dea4bea7595b)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-screens:
         specifier: 4.24.0
-        version: 4.24.0(patch_hash=a61512c3b32f716aad0de0e4c1e88aabdb76a63ff066776fb450ac3b3295ad47)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+        version: 4.24.0(patch_hash=91f4db3da89d5ebbc2cb99a483d0953a52988385ba7e74d86b5d98766315ef84)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-svg:
         specifier: 15.15.4
         version: 15.15.4(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
@@ -513,7 +513,7 @@ importers:
         version: 55.0.9(expo@55.0.9)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))
       expo-router:
         specifier: ~55.0.8
-        version: 55.0.8(a39c4f93d5a2a8345a69418e1f8474a7)
+        version: 55.0.8(5dc9e3f5c923075288a9fae231fa1fc9)
       expo-secure-store:
         specifier: ~55.0.9
         version: 55.0.9(expo@55.0.9)
@@ -567,13 +567,13 @@ importers:
         version: 13.4.3(expo@55.0.9)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))
       react-native-gesture-handler:
         specifier: ~2.30.1
-        version: 2.30.1(patch_hash=dd43f48dd2bb768fb5a63c15aa10d3214dd0b38ae06abf411fa5511ba31cb5eb)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+        version: 2.30.1(patch_hash=e0d7d34789dece91d46cad73ad4b7375f64377696a242422cdc066876d4fbaf7)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-google-places-autocomplete:
         specifier: ^2.6.4
         version: 2.6.4(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))
       react-native-mmkv:
         specifier: ^4.3.0
-        version: 4.3.0(patch_hash=d3ce2c6bbfc7e63acfce07e0506f3825f6ceb0421d1ecbe534337a24ef0ae384)(react-native-nitro-modules@0.35.2(patch_hash=4389d08533b644ae94941500e6ef507bc1bcdf985e85a341b3b7cc193cb9f242)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+        version: 4.3.0(patch_hash=00e5dfe7dca3f1ae57e77705120797ea7a671e21f4f7e9f8688b88511a481ca3)(react-native-nitro-modules@0.35.2(patch_hash=4389d08533b644ae94941500e6ef507bc1bcdf985e85a341b3b7cc193cb9f242)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-nitro-modules:
         specifier: ^0.35.2
         version: 0.35.2(patch_hash=4389d08533b644ae94941500e6ef507bc1bcdf985e85a341b3b7cc193cb9f242)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
@@ -588,7 +588,7 @@ importers:
         version: 5.7.0(patch_hash=022d5666269cc6cf57103809a9f2731abf75f568e475b7fadf03dea4bea7595b)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-screens:
         specifier: 4.24.0
-        version: 4.24.0(patch_hash=a61512c3b32f716aad0de0e4c1e88aabdb76a63ff066776fb450ac3b3295ad47)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+        version: 4.24.0(patch_hash=91f4db3da89d5ebbc2cb99a483d0953a52988385ba7e74d86b5d98766315ef84)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-svg:
         specifier: 15.15.4
         version: 15.15.4(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
@@ -16927,7 +16927,7 @@ snapshots:
       ws: 8.19.0
       zod: 3.25.76
     optionalDependencies:
-      expo-router: 55.0.8(6ac3e41478c2a4abbb3d6fa7be3bba99)
+      expo-router: 55.0.8(443f4a5e90f9d563af19f092d8c5f703)
       react-native: 0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
     transitivePeerDependencies:
       - '@expo/dom-webview'
@@ -17194,7 +17194,7 @@ snapshots:
       react: 19.2.3
     optionalDependencies:
       '@expo/metro-runtime': 6.1.2(expo@55.0.9)(react-dom@19.2.3(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
-      expo-router: 55.0.8(6ac3e41478c2a4abbb3d6fa7be3bba99)
+      expo-router: 55.0.8(443f4a5e90f9d563af19f092d8c5f703)
       react-dom: 19.2.3(react@19.2.3)
     transitivePeerDependencies:
       - supports-color
@@ -20593,7 +20593,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.14
 
-  '@react-navigation/bottom-tabs@7.15.9(cc025f37636e0c4e15d094d04f99e6eb)':
+  '@react-navigation/bottom-tabs@7.15.9(ef4b9080bc7d40298366579b449420af)':
     dependencies:
       '@react-navigation/elements': 2.9.14(@react-navigation/native@7.1.33(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native-safe-area-context@5.7.0(patch_hash=022d5666269cc6cf57103809a9f2731abf75f568e475b7fadf03dea4bea7595b)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       '@react-navigation/native': 7.1.33(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
@@ -20601,7 +20601,7 @@ snapshots:
       react: 19.2.3
       react-native: 0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
       react-native-safe-area-context: 5.7.0(patch_hash=022d5666269cc6cf57103809a9f2731abf75f568e475b7fadf03dea4bea7595b)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
-      react-native-screens: 4.24.0(patch_hash=a61512c3b32f716aad0de0e4c1e88aabdb76a63ff066776fb450ac3b3295ad47)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+      react-native-screens: 4.24.0(patch_hash=91f4db3da89d5ebbc2cb99a483d0953a52988385ba7e74d86b5d98766315ef84)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       sf-symbols-typescript: 2.2.0
     transitivePeerDependencies:
       - '@react-native-masked-view/masked-view'
@@ -20640,7 +20640,7 @@ snapshots:
       use-latest-callback: 0.2.6(react@19.2.3)
       use-sync-external-store: 1.6.0(react@19.2.3)
 
-  '@react-navigation/native-stack@7.14.10(cc025f37636e0c4e15d094d04f99e6eb)':
+  '@react-navigation/native-stack@7.14.10(ef4b9080bc7d40298366579b449420af)':
     dependencies:
       '@react-navigation/elements': 2.9.14(@react-navigation/native@7.1.33(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native-safe-area-context@5.7.0(patch_hash=022d5666269cc6cf57103809a9f2731abf75f568e475b7fadf03dea4bea7595b)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       '@react-navigation/native': 7.1.33(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
@@ -20648,7 +20648,7 @@ snapshots:
       react: 19.2.3
       react-native: 0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
       react-native-safe-area-context: 5.7.0(patch_hash=022d5666269cc6cf57103809a9f2731abf75f568e475b7fadf03dea4bea7595b)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
-      react-native-screens: 4.24.0(patch_hash=a61512c3b32f716aad0de0e4c1e88aabdb76a63ff066776fb450ac3b3295ad47)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+      react-native-screens: 4.24.0(patch_hash=91f4db3da89d5ebbc2cb99a483d0953a52988385ba7e74d86b5d98766315ef84)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       sf-symbols-typescript: 2.2.0
       warn-once: 0.1.1
     transitivePeerDependencies:
@@ -25456,16 +25456,16 @@ snapshots:
       expo: 55.0.9(patch_hash=1bc81805fe22effc8da39504ac2af5505ed745d39bfd755782b9216b8c32e1b8)(@babel/core@7.29.0)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@6.1.2)(expo-router@55.0.8)(react-dom@19.2.3(react@19.2.3))(react-native-webview@13.16.1(patch_hash=34b7961d6df97ee992e0d52e66df88c9b5de85d32572f999bb6654aaa8080199)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)(typescript@6.0.2)
       react-native: 0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
 
-  expo-router@55.0.8(6ac3e41478c2a4abbb3d6fa7be3bba99):
+  expo-router@55.0.8(443f4a5e90f9d563af19f092d8c5f703):
     dependencies:
       '@expo/log-box': 55.0.8(patch_hash=7aa9d02aac86e798106bdea1a4d1c3446a108cacbae9fca63a27420ef3072600)(@expo/dom-webview@55.0.3)(expo@55.0.9)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       '@expo/metro-runtime': 6.1.2(expo@55.0.9)(react-dom@19.2.3(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       '@expo/schema-utils': 55.0.2
       '@radix-ui/react-slot': 1.2.4(@types/react@19.2.14)(react@19.2.3)
       '@radix-ui/react-tabs': 1.1.13(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@react-navigation/bottom-tabs': 7.15.9(cc025f37636e0c4e15d094d04f99e6eb)
+      '@react-navigation/bottom-tabs': 7.15.9(ef4b9080bc7d40298366579b449420af)
       '@react-navigation/native': 7.1.33(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
-      '@react-navigation/native-stack': 7.14.10(cc025f37636e0c4e15d094d04f99e6eb)
+      '@react-navigation/native-stack': 7.14.10(ef4b9080bc7d40298366579b449420af)
       client-only: 0.0.1
       debug: 4.4.3
       escape-string-regexp: 4.0.0
@@ -25485,7 +25485,7 @@ snapshots:
       react-native: 0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
       react-native-is-edge-to-edge: 1.2.1(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-safe-area-context: 5.7.0(patch_hash=022d5666269cc6cf57103809a9f2731abf75f568e475b7fadf03dea4bea7595b)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
-      react-native-screens: 4.24.0(patch_hash=a61512c3b32f716aad0de0e4c1e88aabdb76a63ff066776fb450ac3b3295ad47)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+      react-native-screens: 4.24.0(patch_hash=91f4db3da89d5ebbc2cb99a483d0953a52988385ba7e74d86b5d98766315ef84)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       semver: 7.6.3
       server-only: 0.0.1
       sf-symbols-typescript: 2.2.0
@@ -25495,7 +25495,7 @@ snapshots:
     optionalDependencies:
       '@testing-library/react-native': 13.3.3(jest@30.3.0(@types/node@25.5.0))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react-test-renderer@19.2.4(react@19.2.3))(react@19.2.3)
       react-dom: 19.2.3(react@19.2.3)
-      react-native-gesture-handler: 2.30.1(patch_hash=dd43f48dd2bb768fb5a63c15aa10d3214dd0b38ae06abf411fa5511ba31cb5eb)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+      react-native-gesture-handler: 2.30.1(patch_hash=e0d7d34789dece91d46cad73ad4b7375f64377696a242422cdc066876d4fbaf7)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-reanimated: 4.3.0(react-native-worklets@0.8.1(patch_hash=2b2888968880192837cff05e1a5b2d9b6aa64fab683f8aaf8b1c72d814a5ca59)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-web: 0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
     transitivePeerDependencies:
@@ -25505,16 +25505,16 @@ snapshots:
       - expo-font
       - supports-color
 
-  expo-router@55.0.8(a39c4f93d5a2a8345a69418e1f8474a7):
+  expo-router@55.0.8(5dc9e3f5c923075288a9fae231fa1fc9):
     dependencies:
       '@expo/log-box': 55.0.8(patch_hash=7aa9d02aac86e798106bdea1a4d1c3446a108cacbae9fca63a27420ef3072600)(@expo/dom-webview@55.0.3)(expo@55.0.9)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       '@expo/metro-runtime': 6.1.2(expo@55.0.9)(react-dom@19.2.3(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       '@expo/schema-utils': 55.0.2
       '@radix-ui/react-slot': 1.2.4(@types/react@19.2.14)(react@19.2.3)
       '@radix-ui/react-tabs': 1.1.13(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@react-navigation/bottom-tabs': 7.15.9(cc025f37636e0c4e15d094d04f99e6eb)
+      '@react-navigation/bottom-tabs': 7.15.9(ef4b9080bc7d40298366579b449420af)
       '@react-navigation/native': 7.1.33(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
-      '@react-navigation/native-stack': 7.14.10(cc025f37636e0c4e15d094d04f99e6eb)
+      '@react-navigation/native-stack': 7.14.10(ef4b9080bc7d40298366579b449420af)
       client-only: 0.0.1
       debug: 4.4.3
       escape-string-regexp: 4.0.0
@@ -25534,7 +25534,7 @@ snapshots:
       react-native: 0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
       react-native-is-edge-to-edge: 1.2.1(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-safe-area-context: 5.7.0(patch_hash=022d5666269cc6cf57103809a9f2731abf75f568e475b7fadf03dea4bea7595b)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
-      react-native-screens: 4.24.0(patch_hash=a61512c3b32f716aad0de0e4c1e88aabdb76a63ff066776fb450ac3b3295ad47)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+      react-native-screens: 4.24.0(patch_hash=91f4db3da89d5ebbc2cb99a483d0953a52988385ba7e74d86b5d98766315ef84)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       semver: 7.6.3
       server-only: 0.0.1
       sf-symbols-typescript: 2.2.0
@@ -25544,7 +25544,7 @@ snapshots:
     optionalDependencies:
       '@testing-library/react-native': 13.3.3(jest@30.3.0(@types/node@20.19.32))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react-test-renderer@19.2.3(react@19.2.3))(react@19.2.3)
       react-dom: 19.2.3(react@19.2.3)
-      react-native-gesture-handler: 2.30.1(patch_hash=dd43f48dd2bb768fb5a63c15aa10d3214dd0b38ae06abf411fa5511ba31cb5eb)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
+      react-native-gesture-handler: 2.30.1(patch_hash=e0d7d34789dece91d46cad73ad4b7375f64377696a242422cdc066876d4fbaf7)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-reanimated: 4.3.0(react-native-worklets@0.8.1(patch_hash=2b2888968880192837cff05e1a5b2d9b6aa64fab683f8aaf8b1c72d814a5ca59)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)
       react-native-web: 0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
     transitivePeerDependencies:
@@ -31096,7 +31096,7 @@ snapshots:
     optionalDependencies:
       expo: 55.0.9(patch_hash=1bc81805fe22effc8da39504ac2af5505ed745d39bfd755782b9216b8c32e1b8)(@babel/core@7.29.0)(@expo/dom-webview@55.0.3)(@expo/metro-runtime@6.1.2)(expo-router@55.0.8)(react-dom@19.2.3(react@19.2.3))(react-native-webview@13.16.1(patch_hash=34b7961d6df97ee992e0d52e66df88c9b5de85d32572f999bb6654aaa8080199)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)(typescript@6.0.2)
 
-  react-native-gesture-handler@2.30.1(patch_hash=dd43f48dd2bb768fb5a63c15aa10d3214dd0b38ae06abf411fa5511ba31cb5eb)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3):
+  react-native-gesture-handler@2.30.1(patch_hash=e0d7d34789dece91d46cad73ad4b7375f64377696a242422cdc066876d4fbaf7)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3):
     dependencies:
       '@egjs/hammerjs': 2.0.17
       hoist-non-react-statics: 3.3.2
@@ -31121,7 +31121,7 @@ snapshots:
       react: 19.2.3
       react-native: 0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
 
-  react-native-mmkv@4.3.0(patch_hash=d3ce2c6bbfc7e63acfce07e0506f3825f6ceb0421d1ecbe534337a24ef0ae384)(react-native-nitro-modules@0.35.2(patch_hash=4389d08533b644ae94941500e6ef507bc1bcdf985e85a341b3b7cc193cb9f242)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3):
+  react-native-mmkv@4.3.0(patch_hash=00e5dfe7dca3f1ae57e77705120797ea7a671e21f4f7e9f8688b88511a481ca3)(react-native-nitro-modules@0.35.2(patch_hash=4389d08533b644ae94941500e6ef507bc1bcdf985e85a341b3b7cc193cb9f242)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3):
     dependencies:
       react: 19.2.3
       react-native: 0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
@@ -31183,7 +31183,7 @@ snapshots:
       react: 19.2.3
       react-native: 0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3)
 
-  react-native-screens@4.24.0(patch_hash=a61512c3b32f716aad0de0e4c1e88aabdb76a63ff066776fb450ac3b3295ad47)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3):
+  react-native-screens@4.24.0(patch_hash=91f4db3da89d5ebbc2cb99a483d0953a52988385ba7e74d86b5d98766315ef84)(react-native@0.84.1(patch_hash=8d59541cd1bad91d72ef33a133f0d4e3f013a0cea711583bdf66d8543ee3e261)(@babel/core@7.29.0)(@react-native/metro-config@0.84.1(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3):
     dependencies:
       react: 19.2.3
       react-freeze: 1.0.4(react@19.2.3)

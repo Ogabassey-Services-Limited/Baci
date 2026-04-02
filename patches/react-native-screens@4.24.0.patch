@@ -91,12 +91,11 @@ index 705055c7b..ff8f3437e 100644
 -import { StyleSheet } from 'react-native';
 
  function SafeAreaView(props: SafeAreaViewProps) {
-+  const { insetType: _insetType, ...rest } = props;
-+
 +  if (Platform.OS === 'ios') {
++    const { insetType: _insetType, ...iosProps } = props;
 +    return (
 +      <SafeAreaContextView
-+        {...rest}
++        {...iosProps}
 +        style={[styles.flex, props.style]}
 +        edges={getContextEdgesProp(props.edges)}
 +      />
@@ -106,7 +105,7 @@ index 705055c7b..ff8f3437e 100644
    return (
      <SafeAreaViewNativeComponent
 -      {...props}
-+      {...rest}
++      {...props}
        style={[styles.flex, props.style]}
        edges={getNativeEdgesProp(props.edges)}
      />
@@ -116,12 +115,15 @@ index 705055c7b..ff8f3437e 100644
 
 +function getContextEdgesProp(
 +  edges: SafeAreaViewProps['edges'],
-+): SafeAreaContextEdgeRecord {
++): SafeAreaContextEdgeRecord | undefined {
++  if (!edges) {
++    return undefined;
++  }
 +  return {
-+    top: edges?.top ? 'additive' : 'off',
-+    bottom: edges?.bottom ? 'additive' : 'off',
-+    left: edges?.left ? 'additive' : 'off',
-+    right: edges?.right ? 'additive' : 'off',
++    top: edges.top === false ? 'off' : 'additive',
++    bottom: edges.bottom === false ? 'off' : 'additive',
++    left: edges.left === false ? 'off' : 'additive',
++    right: edges.right === false ? 'off' : 'additive',
 +  };
 +}
 +
@@ -142,17 +144,17 @@ index 0327b6b16..bf52bb386 100644
 +import { Platform, StyleSheet } from 'react-native';
  function SafeAreaView(props) {
 -  return /*#__PURE__*/React.createElement(SafeAreaViewNativeComponent, _extends({}, props, {
-+  const {
-+    insetType: _insetType,
-+    ...rest
-+  } = props;
 +  if (Platform.OS === 'ios') {
-+    return /*#__PURE__*/React.createElement(SafeAreaContextView, _extends({}, rest, {
++    const {
++      insetType: _insetType,
++      ...iosProps
++    } = props;
++    return /*#__PURE__*/React.createElement(SafeAreaContextView, _extends({}, iosProps, {
 +      style: [styles.flex, props.style],
 +      edges: getContextEdgesProp(props.edges)
 +    }));
 +  }
-+  return /*#__PURE__*/React.createElement(SafeAreaViewNativeComponent, _extends({}, rest, {
++  return /*#__PURE__*/React.createElement(SafeAreaViewNativeComponent, _extends({}, props, {
      style: [styles.flex, props.style],
      edges: getNativeEdgesProp(props.edges)
    }));
@@ -161,11 +163,14 @@ index 0327b6b16..bf52bb386 100644
    };
  }
 +function getContextEdgesProp(edges) {
++  if (!edges) {
++    return undefined;
++  }
 +  return {
-+    top: edges != null && edges.top ? 'additive' : 'off',
-+    bottom: edges != null && edges.bottom ? 'additive' : 'off',
-+    left: edges != null && edges.left ? 'additive' : 'off',
-+    right: edges != null && edges.right ? 'additive' : 'off'
++    top: edges.top === false ? 'off' : 'additive',
++    bottom: edges.bottom === false ? 'off' : 'additive',
++    left: edges.left === false ? 'off' : 'additive',
++    right: edges.right === false ? 'off' : 'additive'
 +  };
 +}
  const styles = StyleSheet.create({
@@ -187,17 +192,17 @@ index f1e44900f..da6f5288a 100644
  function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
  function SafeAreaView(props) {
 -  return /*#__PURE__*/_react.default.createElement(_SafeAreaViewNativeComponent.default, _extends({}, props, {
-+  const {
-+    insetType: _insetType,
-+    ...rest
-+  } = props;
 +  if (_reactNative.Platform.OS === 'ios') {
-+    return /*#__PURE__*/_react.default.createElement(_reactNativeSafeAreaContext.SafeAreaView, _extends({}, rest, {
++    const {
++      insetType: _insetType,
++      ...iosProps
++    } = props;
++    return /*#__PURE__*/_react.default.createElement(_reactNativeSafeAreaContext.SafeAreaView, _extends({}, iosProps, {
 +      style: [styles.flex, props.style],
 +      edges: getContextEdgesProp(props.edges)
 +    }));
 +  }
-+  return /*#__PURE__*/_react.default.createElement(_SafeAreaViewNativeComponent.default, _extends({}, rest, {
++  return /*#__PURE__*/_react.default.createElement(_SafeAreaViewNativeComponent.default, _extends({}, props, {
      style: [styles.flex, props.style],
      edges: getNativeEdgesProp(props.edges)
    }));
@@ -207,11 +212,14 @@ index f1e44900f..da6f5288a 100644
    };
  }
 +function getContextEdgesProp(edges) {
++  if (!edges) {
++    return undefined;
++  }
 +  return {
-+    top: edges != null && edges.top ? 'additive' : 'off',
-+    bottom: edges != null && edges.bottom ? 'additive' : 'off',
-+    left: edges != null && edges.left ? 'additive' : 'off',
-+    right: edges != null && edges.right ? 'additive' : 'off'
++    top: edges.top === false ? 'off' : 'additive',
++    bottom: edges.bottom === false ? 'off' : 'additive',
++    left: edges.left === false ? 'off' : 'additive',
++    right: edges.right === false ? 'off' : 'additive'
 +  };
 +}
  const styles = _reactNative.StyleSheet.create({
