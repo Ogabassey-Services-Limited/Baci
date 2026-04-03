@@ -46,7 +46,7 @@ import { ProductDetailsBody } from '@/components/product/ProductDetailsBody';
 import { ProductImageGallery } from '@/components/product/ProductImageGallery';
 import { StickyBottomActions } from '@/components/product/StickyBottomActions';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import Colors, { BRAND, RADIUS } from '@/constants/Colors';
 import { useProduct } from '@/hooks';
 import { useEffectivePrice } from '@/hooks/use-effective-price';
 import { useHaptics } from '@/hooks/use-haptics';
@@ -614,14 +614,23 @@ export default function ProductDetailScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          marginTop: -insets.top,
+          marginBottom: -insets.bottom,
+        },
+      ]}
+    >
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Floating Dynamic Header */}
       <Animated.View
         style={[
           styles.header,
-          { height: insets.top + 50 },
+          { height: insets.top + 46 },
           headerAnimatedStyle,
         ]}
       >
@@ -636,7 +645,9 @@ export default function ProductDetailScreen() {
       </Animated.View>
 
       {/* Static Header Buttons (Always Visible) */}
-      <View style={[styles.headerButtons, { top: insets.top }]}>
+      <View
+        style={[styles.headerButtons, { top: Math.max(insets.top - 4, 0) }]}
+      >
         <Animated.View style={[styles.iconCircle, backButtonAnimatedStyle]}>
           <Pressable
             onPress={() =>
@@ -688,7 +699,10 @@ export default function ProductDetailScreen() {
         onScroll={onScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentInsetAdjustmentBehavior="never"
+        contentContainerStyle={{
+          paddingBottom: 92,
+        }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
@@ -760,7 +774,6 @@ export default function ProductDetailScreen() {
         onIncrement={(e) => handleUpdateQuantity(quantityInCart + 1, e)}
         onAddToCart={(e) => handleAddToCart(e)}
         colors={colors}
-        paddingBottom={insets.bottom + SPACING.md}
       />
 
       {/* Fly to Cart Particles */}
