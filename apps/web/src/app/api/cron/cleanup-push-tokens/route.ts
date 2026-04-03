@@ -20,12 +20,25 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase.rpc('cleanup_stale_push_tokens');
+  const [
+    { data: staleTokens, error: staleTokensError },
+    { data: attempts, error: attemptsError },
+  ] = await Promise.all([
+    supabase.rpc('cleanup_stale_push_tokens'),
+    supabase.rpc('cleanup_old_push_attempts'),
+  ]);
 
-  if (error) {
-    console.error('Stale push token cleanup failed:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (staleTokensError || attemptsError) {
+    const error = staleTokensError ?? attemptsError;
+    console.error('Push notification cleanup failed:', error);
+    return NextResponse.json(
+      { error: error?.message ?? 'Push cleanup failed' },
+      { status: 500 }
+    );
   }
 
-  return NextResponse.json({ cleaned: data ?? 0 });
+  return NextResponse.json({
+    cleanedTokens: staleTokens ?? 0,
+    cleanedAttempts: attempts ?? 0,
+  });
 }

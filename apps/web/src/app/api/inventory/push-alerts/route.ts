@@ -66,6 +66,7 @@ export async function POST() {
         // Send push notification to merchant
         await notifyLowStock(
           alert.merchant_id,
+          product?.id ?? null,
           productName,
           alert.current_stock,
           threshold

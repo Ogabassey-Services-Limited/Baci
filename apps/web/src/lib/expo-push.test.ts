@@ -66,6 +66,7 @@ let sendPushNotification: typeof import('./expo-push').sendPushNotification;
 let sendPushNotifications: typeof import('./expo-push').sendPushNotifications;
 let notifyMerchant: typeof import('./expo-push').notifyMerchant;
 let notifyCustomer: typeof import('./expo-push').notifyCustomer;
+let notifyAdminUserDevices: typeof import('./expo-push').notifyAdminUserDevices;
 let notifyNewOrder: typeof import('./expo-push').notifyNewOrder;
 let notifyPaymentReceived: typeof import('./expo-push').notifyPaymentReceived;
 let notifyLowStock: typeof import('./expo-push').notifyLowStock;
@@ -78,6 +79,7 @@ beforeEach(async () => {
   sendPushNotifications = mod.sendPushNotifications;
   notifyMerchant = mod.notifyMerchant;
   notifyCustomer = mod.notifyCustomer;
+  notifyAdminUserDevices = mod.notifyAdminUserDevices;
   notifyNewOrder = mod.notifyNewOrder;
   notifyPaymentReceived = mod.notifyPaymentReceived;
   notifyLowStock = mod.notifyLowStock;
@@ -270,6 +272,7 @@ describe('notifyMerchant', () => {
   it('deactivates DeviceNotRegistered tokens', async () => {
     const updateChain = createChainableMock();
     const ticketInsertChain = createChainableMock();
+    const attemptInsertChain = createChainableMock();
     const selectChain = createChainableMock([
       { token: 'ExponentPushToken[good]' },
       { token: 'ExponentPushToken[stale]' },
@@ -279,7 +282,8 @@ describe('notifyMerchant', () => {
       .fn()
       .mockReturnValueOnce(selectChain) // first call: select tokens
       .mockReturnValueOnce(updateChain) // second call: update to deactivate
-      .mockReturnValueOnce(ticketInsertChain); // third call: store tickets
+      .mockReturnValueOnce(ticketInsertChain) // third call: store tickets
+      .mockReturnValueOnce(attemptInsertChain); // fourth call: store attempt
 
     vi.mocked(createAdminClient).mockReturnValue({
       from: mockFromFn,
@@ -348,6 +352,26 @@ describe('notifyCustomer', () => {
   });
 });
 
+describe('notifyAdminUserDevices', () => {
+  it('queries only the authenticated admin user devices', async () => {
+    const mockChain = createChainableMock([{ token: 'ExponentPushToken[a1]' }]);
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(mockChain),
+    } as never);
+
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      { status: 'ok', id: 'ticket-a1' },
+    ]);
+
+    const result = await notifyAdminUserDevices('user-123', 'Test', 'Body');
+
+    expect(mockChain.eq).toHaveBeenCalledWith('user_id', 'user-123');
+    expect(mockChain.eq).toHaveBeenCalledWith('app_type', 'admin');
+    expect(result).toEqual({ sent: 1, failed: 0, errors: [] });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Event helpers
 // ---------------------------------------------------------------------------
@@ -362,7 +386,7 @@ describe('notifyNewOrder', () => {
       { status: 'ok', id: 't1' },
     ]);
 
-    await notifyNewOrder('merchant-1', 'ORD001', 'John Doe', 15000);
+    await notifyNewOrder('merchant-1', 'order-1', 'ORD001', 'John Doe', 15000);
 
     const sentMessages = mockChunkPushNotifications.mock
       .calls[0][0] as ExpoPushMessage[];
@@ -371,7 +395,11 @@ describe('notifyNewOrder', () => {
     expect(sentMessages[0].body).toContain('John Doe');
     expect(sentMessages[0].channelId).toBe('orders');
     expect(sentMessages[0].data).toEqual(
-      expect.objectContaining({ type: 'new_order', order_number: 'ORD001' })
+      expect.objectContaining({
+        type: 'new_order',
+        order_id: 'order-1',
+        order_number: 'ORD001',
+      })
     );
   });
 });
@@ -387,12 +415,19 @@ describe('notifyPaymentReceived', () => {
       { status: 'ok', id: 't1' },
     ]);
 
-    await notifyPaymentReceived('merchant-1', 5000, 'NGN', 'ORD002');
+    await notifyPaymentReceived('merchant-1', 5000, 'NGN', 'ORD002', 'order-2');
 
     const sentMessages = mockChunkPushNotifications.mock
       .calls[0][0] as ExpoPushMessage[];
     expect(sentMessages[0].body).toContain('ORD002');
     expect(sentMessages[0].channelId).toBe('payments');
+    expect(sentMessages[0].data).toEqual(
+      expect.objectContaining({
+        type: 'payment_received',
+        order_id: 'order-2',
+        order_number: 'ORD002',
+      })
+    );
   });
 });
 
@@ -407,13 +442,20 @@ describe('notifyLowStock', () => {
       { status: 'ok', id: 't1' },
     ]);
 
-    await notifyLowStock('merchant-1', 'Red Sneakers', 3, 10);
+    await notifyLowStock('merchant-1', 'product-1', 'Red Sneakers', 3, 10);
 
     const sentMessages = mockChunkPushNotifications.mock
       .calls[0][0] as ExpoPushMessage[];
     expect(sentMessages[0].body).toContain('Red Sneakers');
     expect(sentMessages[0].body).toContain('3');
     expect(sentMessages[0].channelId).toBe('stock');
+    expect(sentMessages[0].data).toEqual(
+      expect.objectContaining({
+        type: 'low_stock',
+        product_id: 'product-1',
+        product_name: 'Red Sneakers',
+      })
+    );
   });
 });
 

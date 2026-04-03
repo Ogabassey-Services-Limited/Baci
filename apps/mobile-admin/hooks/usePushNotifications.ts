@@ -148,6 +148,7 @@ export function usePushNotifications(): UsePushNotificationsResult {
    */
   useEffect(() => {
     if (!Notifications) return;
+    let cancelled = false;
 
     // Listener for notifications received while app is foregrounded
     notificationListener.current =
@@ -231,8 +232,73 @@ export function usePushNotifications(): UsePushNotificationsResult {
         }
       );
 
+    Notifications.getLastNotificationResponseAsync?.().then((response) => {
+      if (cancelled || !response) {
+        return;
+      }
+
+      clearBadge();
+
+      const navParams = getNotificationNavigationParams(response);
+      if (!navParams) {
+        return;
+      }
+
+      const entityId = encodeAdminEntityId(navParams.params?.id);
+
+      if (navParams.screen === 'order') {
+        router.push(
+          entityId
+            ? (`/(admin)/order/${entityId}` as Href)
+            : '/(admin)/(tabs)/orders'
+        );
+        return;
+      }
+
+      if (navParams.screen === 'product') {
+        router.push(
+          entityId
+            ? (`/(admin)/product/${entityId}` as Href)
+            : '/(admin)/(tabs)/products'
+        );
+        return;
+      }
+
+      if (navParams.screen === 'orders') {
+        router.push('/(admin)/(tabs)/orders');
+        return;
+      }
+
+      if (navParams.screen === 'products') {
+        router.push('/(admin)/(tabs)/products');
+        return;
+      }
+
+      if (navParams.screen === 'notifications') {
+        router.push('/(admin)/notifications');
+        return;
+      }
+
+      if (navParams.screen === 'negotiations') {
+        router.push('/(admin)/negotiations');
+        return;
+      }
+
+      if (navParams.screen === 'negotiation') {
+        router.push(
+          entityId
+            ? (`/(admin)/negotiations/${entityId}` as Href)
+            : '/(admin)/negotiations'
+        );
+        return;
+      }
+
+      router.push('/(admin)/(tabs)');
+    });
+
     // Cleanup listeners on unmount
     return () => {
+      cancelled = true;
       if (notificationListener.current) {
         notificationListener.current.remove();
       }

@@ -68,21 +68,26 @@ describe('GET /api/cron/cleanup-push-tokens', () => {
   });
 
   it('calls cleanup_stale_push_tokens and returns cleaned count', async () => {
-    mockRpc.mockResolvedValue({ data: 12, error: null });
+    mockRpc
+      .mockResolvedValueOnce({ data: 12, error: null })
+      .mockResolvedValueOnce({ data: 7, error: null });
 
     const response = await GET(createCronRequest('Bearer test-cron-secret'));
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toEqual({ cleaned: 12 });
+    expect(data).toEqual({ cleanedTokens: 12, cleanedAttempts: 7 });
     expect(mockRpc).toHaveBeenCalledWith('cleanup_stale_push_tokens');
+    expect(mockRpc).toHaveBeenCalledWith('cleanup_old_push_attempts');
   });
 
   it('returns 500 when RPC fails', async () => {
-    mockRpc.mockResolvedValue({
-      data: null,
-      error: { message: 'function not found' },
-    });
+    mockRpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'function not found' },
+      })
+      .mockResolvedValueOnce({ data: 0, error: null });
 
     const response = await GET(createCronRequest('Bearer test-cron-secret'));
     const data = await response.json();
@@ -92,12 +97,14 @@ describe('GET /api/cron/cleanup-push-tokens', () => {
   });
 
   it('returns cleaned: 0 when RPC returns null', async () => {
-    mockRpc.mockResolvedValue({ data: null, error: null });
+    mockRpc
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
 
     const response = await GET(createCronRequest('Bearer test-cron-secret'));
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toEqual({ cleaned: 0 });
+    expect(data).toEqual({ cleanedTokens: 0, cleanedAttempts: 0 });
   });
 });
