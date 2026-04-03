@@ -300,7 +300,7 @@ export default function OrderDetailsScreen() {
     // Cleanup: unsubscribe on unmount to prevent memory leaks
     return () => {
       if (channelRef.current) {
-        channelRef.current.unsubscribe();
+        supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
