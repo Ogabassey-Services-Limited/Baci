@@ -38,6 +38,15 @@ const VariantAttributeEntrySchema = z.object({
   options: z.array(z.string()),
 });
 
+const ProductImageEntrySchema = z.union([
+  z.string(),
+  z.object({
+    url: z.string().optional(),
+    src: z.string().optional(),
+    uri: z.string().optional(),
+  }),
+]);
+
 const ProductVariantSchema = z.object({
   id: z.string(),
   product_id: z.string().optional(),
@@ -50,7 +59,7 @@ const ProductVariantSchema = z.object({
   price_modifier: z.number().nullable().optional(),
   image: z.string().nullable().optional(),
   primary_image: z.string().nullable().optional(),
-  images: z.array(z.string()).nullable().optional(),
+  images: z.array(ProductImageEntrySchema).nullable().optional(),
   in_stock: z.boolean().nullable().optional(),
   stock_quantity: z.number().nullable().optional(),
   attributes: z.record(z.string(), z.string()).nullable().optional(),
@@ -70,7 +79,7 @@ const ProductConditionOfferSchema = z.object({
   price: z.number(),
   compare_at_price: z.number().nullable().optional(),
   stock_quantity: z.number().nullable().optional(),
-  images: z.array(z.string()).nullable().optional(),
+  images: z.array(ProductImageEntrySchema).nullable().optional(),
   condition_notes: z.string().nullable().optional(),
   grade: z.enum(['A', 'B', 'C', 'D']).nullable().optional(),
 });
@@ -87,7 +96,7 @@ export const ProductRowSchema = z.object({
   description: z.string().nullable().optional(),
   price: z.number(),
   compare_at_price: z.number().nullable().optional(),
-  images: z.array(z.string()).nullable().optional(),
+  images: z.array(ProductImageEntrySchema).nullable().optional(),
   brand: z.string().nullable().optional(),
   color: z.string().nullable().optional(),
   condition: z.string().nullable().optional(),
@@ -99,14 +108,11 @@ export const ProductRowSchema = z.object({
   status: z.string().optional(),
   specifications: z.record(z.string(), z.string()).nullable().optional(),
   has_variants: z.boolean().nullable().optional(),
-  variant_attributes: z
-    .union([z.array(VariantAttributeEntrySchema), VariantAttributeRecordSchema])
-    .nullable()
-    .optional(),
+  variant_attributes: z.unknown().nullable().optional(),
   variants: z.array(ProductVariantSchema).nullable().optional(),
   colors: z.array(ProductColorSchema).nullable().optional(),
   color_images: z
-    .record(z.string(), z.array(z.string()).nullable().optional())
+    .record(z.string(), z.array(ProductImageEntrySchema).nullable().optional())
     .nullable()
     .optional(),
   has_condition_offers: z.boolean().nullable().optional(),

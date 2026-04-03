@@ -343,6 +343,39 @@ describe('useProduct', () => {
     });
   });
 
+  it('merges live variant-only axes into variant_attributes for the product page selector', async () => {
+    mockResolveAndEvictProduct.mockResolvedValue({
+      ...validProductRow,
+      variant_attributes: [{ param: 'storage', options: ['256GB', '512GB'] }],
+      variants: [
+        {
+          ...validProductRow.variants[0],
+          attributes: { storage: '256GB', ram: '12GB' },
+        },
+        {
+          ...validProductRow.variants[0],
+          id: 'variant-512gb',
+          sku: 'IPHONE-13-PRO-512',
+          attributes: { storage: '512GB', ram: '12GB' },
+        },
+      ],
+    });
+    const queryClient = createQueryClient();
+
+    const { result } = renderHook(() => useProduct('iphone-13-pro'), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => {
+      expect(result.current.product).not.toBeNull();
+    });
+
+    expect(result.current.product?.variant_attributes).toEqual({
+      storage: ['256GB', '512GB'],
+      ram: ['12GB'],
+    });
+  });
+
   it('hydrates from any matching cached products query key', () => {
     const queryClient = createQueryClient();
     const cachedProduct: Product = {

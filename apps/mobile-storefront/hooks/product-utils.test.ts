@@ -233,6 +233,24 @@ describe('product-utils', () => {
     expect(transformProduct({ id: 'bad-id' })).toBeNull();
   });
 
+  it('transformProduct accepts object-based product images from live rows', () => {
+    expect(
+      transformProduct({
+        ...validProductRow,
+        images: [
+          { url: 'https://cdn.example.com/iphone-13-pro-front.jpg' },
+          { src: 'https://cdn.example.com/iphone-13-pro-back.jpg' },
+        ],
+      })
+    ).toMatchObject({
+      image: 'https://cdn.example.com/iphone-13-pro-front.jpg',
+      images: [
+        'https://cdn.example.com/iphone-13-pro-front.jpg',
+        'https://cdn.example.com/iphone-13-pro-back.jpg',
+      ],
+    });
+  });
+
   it('transformProduct uses effective stock when stock_quantity drifted to zero', () => {
     expect(
       transformProduct({

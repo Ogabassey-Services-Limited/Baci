@@ -167,12 +167,7 @@ export default function ProductGrid({
         onViewModeChange={setViewMode}
       />
 
-      <View
-        style={[
-          currentVariant === 'list' ? styles.list : styles.grid,
-          { opacity: isFetching ? 0.6 : 1 },
-        ]}
-      >
+      <View style={currentVariant === 'list' ? styles.list : styles.grid}>
         {orderedProducts.length === 0 && !isFetching ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: palette.gray[400] }]}>

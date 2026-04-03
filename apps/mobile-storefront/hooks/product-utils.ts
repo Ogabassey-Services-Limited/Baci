@@ -132,7 +132,9 @@ export function normalizeProductVariants(
         variant.name ||
         'Variant';
       const primaryImage = variant.primary_image ?? variant.image ?? undefined;
-      const images = variant.images ?? (primaryImage ? [primaryImage] : undefined);
+      const images = normalizeProductImages(
+        variant.images ?? (primaryImage ? [primaryImage] : undefined)
+      );
       const stockQuantity = variant.stock_quantity ?? undefined;
 
       return {
@@ -150,7 +152,7 @@ export function normalizeProductVariants(
         price_override: variant.price_override ?? undefined,
         price_modifier: variant.price_modifier ?? undefined,
         image: primaryImage,
-        images,
+        images: images.length > 0 ? images : undefined,
         in_stock:
           typeof stockQuantity === 'number'
             ? stockQuantity > 0
@@ -256,12 +258,7 @@ export function transformProduct(item: unknown): Product | null {
       ? Object.fromEntries(
           Object.entries(product.color_images).map(([color, images]) => [
             color,
-            Array.isArray(images)
-              ? images.filter(
-                  (image): image is string =>
-                    typeof image === 'string' && image.length > 0
-                )
-              : [],
+            normalizeProductImages(images),
           ])
         )
       : undefined;
@@ -294,7 +291,7 @@ export function transformProduct(item: unknown): Product | null {
         price: offer.price,
         compare_at_price: offer.compare_at_price ?? undefined,
         stock_quantity: offer.stock_quantity ?? undefined,
-        images: offer.images ?? undefined,
+        images: normalizeProductImages(offer.images),
         condition_notes: offer.condition_notes ?? undefined,
         grade: offer.grade ?? undefined,
       }))
