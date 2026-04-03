@@ -197,7 +197,7 @@ export async function kudaRequest<T = unknown>(
   const payload = {
     serviceType,
     requestRef: ref,
-    data,
+    Data: data,
   };
 
   const response = await fetch(KUDA_API_BASE_URL, {
