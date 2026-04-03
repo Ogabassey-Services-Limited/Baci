@@ -40,11 +40,15 @@ const VariantAttributeEntrySchema = z.object({
 
 const ProductImageEntrySchema = z.union([
   z.string(),
-  z.object({
-    url: z.string().optional(),
-    src: z.string().optional(),
-    uri: z.string().optional(),
-  }),
+  z
+    .object({
+      url: z.string().optional(),
+      src: z.string().optional(),
+      uri: z.string().optional(),
+    })
+    .refine((value) => Boolean(value.url || value.src || value.uri), {
+      message: 'Expected at least one image source (url, src, or uri)',
+    }),
 ]);
 
 const ProductVariantSchema = z.object({
@@ -108,7 +112,16 @@ export const ProductRowSchema = z.object({
   status: z.string().optional(),
   specifications: z.record(z.string(), z.string()).nullable().optional(),
   has_variants: z.boolean().nullable().optional(),
-  variant_attributes: z.unknown().nullable().optional(),
+  variant_attributes: z
+    .union([
+      z.array(VariantAttributeEntrySchema),
+      z.array(z.string()),
+      VariantAttributeRecordSchema,
+      z.record(z.string(), z.unknown()),
+      z.array(z.unknown()),
+    ])
+    .nullable()
+    .optional(),
   variants: z.array(ProductVariantSchema).nullable().optional(),
   colors: z.array(ProductColorSchema).nullable().optional(),
   color_images: z

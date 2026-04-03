@@ -50,7 +50,8 @@ export const SuccessIcon = ({
   });
 
   const animatedPathProps = useAnimatedProps(() => {
-    const pathLength = 100; // approximate length of checkmark path
+    // strokeDasharray must be >= actual path length (~60); using 100 for clean animation math
+    const pathLength = 100;
     return {
       strokeDashoffset: pathLength * (1 - pathProgress.value),
     };
