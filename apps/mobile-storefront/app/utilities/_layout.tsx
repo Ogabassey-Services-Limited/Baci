@@ -1,5 +1,4 @@
 import { Stack } from 'expo-router';
-import { CompactStackHeader } from '@/components/navigation/CompactStackHeader';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 
@@ -10,23 +9,13 @@ export default function UtilitiesLayout() {
   return (
     <Stack
       screenOptions={{
-        header: (props) => <CompactStackHeader {...props} />,
-        headerStyle: {
-          backgroundColor: colors.background,
+        headerShown: false,
+        contentStyle: {
+          backgroundColor: colors.muted,
         },
-        headerTintColor: colors.text,
-        headerTitleStyle: {
-          fontWeight: '600',
-        },
-        headerShadowVisible: false,
       }}
     >
-      <Stack.Screen
-        name="[type]"
-        options={{
-          title: 'Purchase Utility',
-        }}
-      />
+      <Stack.Screen name="[type]" />
     </Stack>
   );
 }

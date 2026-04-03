@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useVTUPurchase } from '@/hooks/use-vtu-purchase';
@@ -28,6 +29,7 @@ interface AirtimeFormProps {
 export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
   const purchase = useVTUPurchase();
 
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
@@ -88,7 +90,10 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, styles.contentWithFooter]}
+      >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Select Provider
         </Text>
@@ -162,7 +167,12 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
       <View
         style={[
           styles.footer,
-          { borderTopColor: colors.border, backgroundColor: colors.background },
+          {
+            borderTopColor: colors.border,
+            backgroundColor: colors.muted,
+            marginBottom: -Math.max(insets.bottom - 4, 0),
+            paddingBottom: Math.max(insets.bottom - 26, 0),
+          },
         ]}
       >
         {purchase.error && (
@@ -197,7 +207,11 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
 }
 
 const styles = StyleSheet.create({
+  scrollView: { flex: 1 },
   content: { padding: SPACING.md },
+  contentWithFooter: {
+    paddingBottom: 120,
+  },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   inputGroup: { marginBottom: 16 },
   label: { fontSize: 14, marginBottom: 8 },
@@ -221,7 +235,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   quickChipText: { fontSize: 13, fontWeight: '500' },
-  footer: { padding: SPACING.md, borderTopWidth: 1 },
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.sm,
+    borderTopWidth: 1,
+  },
   payButton: {
     height: 50,
     borderRadius: 12,
