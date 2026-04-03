@@ -320,6 +320,7 @@ export async function POST(request: NextRequest) {
           try {
             await notifyNewOrder(
               order.merchant_id,
+              order.id,
               orderNum,
               order.customer_name || 'Customer',
               totalAmount
@@ -336,7 +337,8 @@ export async function POST(request: NextRequest) {
               order.merchant_id,
               totalAmount,
               'NGN',
-              orderNum
+              orderNum,
+              order.id
             );
           } catch (err) {
             logger.error({
@@ -418,7 +420,7 @@ async function sendOrderConfirmationEmail(
   // Import email sending function
   const { sendEmail } = await import('@/lib/zeptomail');
 
-  await sendEmail({
+  const emailResult = await sendEmail({
     to: order.customer_email,
     toName: order.customer_name,
     subject: `Order Confirmed - Thank you for your purchase!`,
@@ -444,6 +446,12 @@ async function sendOrderConfirmationEmail(
       </div>
     `,
   });
+
+  if (!emailResult.success) {
+    throw new Error(
+      emailResult.error || 'Credit Direct confirmation email was not sent'
+    );
+  }
 }
 
 // Ensure webhook route is not cached

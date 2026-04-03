@@ -310,15 +310,56 @@ describe('Order API Security', () => {
     const response = await POST(request);
 
     expect(response.status).toBe(201);
-    expect(mockAfter).toHaveBeenCalled();
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
     expect(mockNotifyNewOrder).toHaveBeenCalledWith(
       validOrderPayload.merchant_id,
+      'order-id',
       'ORD-123',
       validOrderPayload.customer_name,
       1000
     );
     expect(mockNotifyPaymentReceived).not.toHaveBeenCalled();
+  });
+
+  it('waits for pay_on_delivery confirmation email dispatch before responding', async () => {
+    let signalEmailStarted: (() => void) | undefined;
+    let resolveEmail:
+      | ((value: { success: boolean; messageId: string }) => void)
+      | undefined;
+    const emailStarted = new Promise<void>((resolve) => {
+      signalEmailStarted = resolve;
+    });
+
+    mockSendEmail.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          signalEmailStarted?.();
+          resolveEmail = resolve;
+        })
+    );
+
+    const request = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validOrderPayload,
+        payment_method: 'pay_on_delivery',
+        payment_status: 'pending',
+      }),
+    });
+
+    let settled = false;
+    const responsePromise = POST(request).then((response) => {
+      settled = true;
+      return response;
+    });
+
+    await emailStarted;
+    expect(settled).toBe(false);
+
+    resolveEmail?.({ success: true, messageId: 'zepto-msg-1' });
+
+    const response = await responsePromise;
+    expect(response.status).toBe(201);
   });
 
   it('does not try to book GIGL shipments during order creation', async () => {
