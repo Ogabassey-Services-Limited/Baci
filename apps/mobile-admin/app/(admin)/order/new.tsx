@@ -373,7 +373,7 @@ export default function NewOrderScreen() {
 
       const { data: existingCustomers, error: searchError } = await supabase
         .from('customers')
-        .select('*')
+        .select('id, first_name, last_name, phone, email, address, total_orders')
         .eq('merchant_id', merchant?.id)
         .or(conditions.join(','))
         .limit(1);

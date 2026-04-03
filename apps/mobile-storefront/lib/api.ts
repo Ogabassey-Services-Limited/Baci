@@ -283,7 +283,7 @@ export async function fetchJsonWithRetry<T>(
  * @example
  * ```ts
  * const { data, error } = await withRetry(
- *   () => supabase.from('products').select('*').eq('status', 'active'),
+ *   () => supabase.from('products').select('id, name, price, in_stock').eq('status', 'active'),
  *   { maxRetries: 3 }
  * );
  * ```
@@ -366,7 +366,7 @@ export async function withRetry<T>(
  * @example
  * ```ts
  * const result = await withSupabaseRetry(
- *   () => supabase.from('products').select('*').eq('status', 'active')
+ *   () => supabase.from('products').select('id, name, price, in_stock').eq('status', 'active')
  * );
  *
  * if (result.error) {
@@ -385,7 +385,7 @@ export async function withRetry<T>(
  * @example
  * ```ts
  * const result = await withSupabaseRetry(
- *   () => supabase.from('products').select('*').eq('status', 'active')
+ *   () => supabase.from('products').select('id, name, price, in_stock').eq('status', 'active')
  * );
  *
  * if (result.error) {
