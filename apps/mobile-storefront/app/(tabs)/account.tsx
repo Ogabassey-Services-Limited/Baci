@@ -19,17 +19,17 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { getAccountMenuSections } from '@/components/profile/account-menu';
 import { type MenuItem, MenuSection } from '@/components/profile/MenuSection';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { SocialLinks } from '@/components/profile/SocialLinks';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { useMerchant } from '@/hooks';
+import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { supabase } from '@/lib/supabase';
 import { type Customer, useAuthStore } from '@/stores/auth-store';
-import { useShallow } from 'zustand/react/shallow';
 
 export default function AccountScreen() {
   const colorScheme = useColorScheme();
@@ -140,7 +140,9 @@ export default function AccountScreen() {
         onPress: async () => {
           router.replace('/(tabs)');
           InteractionManager.runAfterInteractions(() => {
-            void signOut();
+            signOut().catch((err: unknown) =>
+              console.error('Sign-out failed:', err)
+            );
           });
         },
       },

@@ -7,7 +7,7 @@ export interface ShippingQuoteLike {
 
 export function normalizeShippingQuotePrice(value: number | string): number {
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
+    return Math.max(0, value);
   }
 
   if (typeof value === 'string') {
@@ -15,7 +15,7 @@ export function normalizeShippingQuotePrice(value: number | string): number {
     const parsed = Number(cleaned);
 
     if (Number.isFinite(parsed)) {
-      return parsed;
+      return Math.max(0, parsed);
     }
   }
 
@@ -53,10 +53,7 @@ export function buildShippingQuoteContextKey(
     return '';
   }
 
-  const itemKey = items
-    .map(buildShippingQuoteItemKey)
-    .sort()
-    .join('|');
+  const itemKey = items.map(buildShippingQuoteItemKey).sort().join('|');
 
   return `${normalizeFragment(state)}::${normalizeFragment(city)}::${itemKey}`;
 }
@@ -79,7 +76,7 @@ export function getPreferredShippingQuoteId(
   return String(
     quotes.reduce((prev, current) =>
       normalizeShippingQuotePrice(prev.price) <=
-        normalizeShippingQuotePrice(current.price)
+      normalizeShippingQuotePrice(current.price)
         ? prev
         : current
     ).id

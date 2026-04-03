@@ -18,6 +18,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const body = await request.json().catch(() => null);
+  const parsed = adminPushTestSchema.safeParse(body ?? {});
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid request data', details: parsed.error.format() },
+      { status: 400 }
+    );
+  }
+
   const auth = await authenticateApiRequest(request);
   if (!auth.user || !auth.supabase) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -36,34 +45,36 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = adminPushTestSchema.safeParse(body ?? {});
-  if (!parsed.success) {
+  let result: Awaited<ReturnType<typeof notifyAdminUserDevices>>;
+  try {
+    result = await notifyAdminUserDevices(
+      auth.user.id,
+      parsed.data.title,
+      parsed.data.body,
+      {
+        type: 'admin_broadcast',
+        source: 'admin_push_test',
+        merchant_id: merchantContext.merchantId,
+        tested_at: new Date().toISOString(),
+      },
+      'admin'
+    );
+  } catch (err) {
+    console.error('Push test send failed:', err);
     return NextResponse.json(
-      { error: 'Invalid request data', details: parsed.error.format() },
-      { status: 400 }
+      { error: 'Failed to send test notification' },
+      { status: 500 }
     );
   }
 
-  const result = await notifyAdminUserDevices(
-    auth.user.id,
-    parsed.data.title,
-    parsed.data.body,
-    {
-      type: 'admin_broadcast',
-      source: 'admin_push_test',
-      merchant_id: merchantContext.merchantId,
-      tested_at: new Date().toISOString(),
-    },
-    'admin'
-  );
-
   const status =
-    result.sent > 0
-      ? 'sent'
-      : result.errors.length > 0
-        ? 'failed'
-        : 'skipped_no_tokens';
+    result.sent > 0 && result.failed > 0
+      ? 'partial_failure'
+      : result.sent > 0
+        ? 'sent'
+        : result.failed > 0
+          ? 'send_failed'
+          : 'skipped_no_tokens';
 
   return NextResponse.json({
     status,

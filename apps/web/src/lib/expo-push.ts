@@ -542,15 +542,16 @@ async function recordPushAttempt(
   supabase: ReturnType<typeof createAdminClient>,
   context: PushAttemptContext
 ): Promise<void> {
+  const notificationType =
+    context.notificationType ??
+    (typeof context.payload?.type === 'string' ? context.payload.type : null);
+
   const { error } = await supabase.from('push_notification_attempts').insert({
     merchant_id: context.merchantId ?? null,
     user_id: context.userId ?? null,
     app_type: context.appType ?? 'admin',
     channel: context.channel ?? null,
-    notification_type: context.notificationType ?? null,
-    title: context.title,
-    body: context.body,
-    payload: context.payload ?? {},
+    notification_type: notificationType,
     token_count: context.tokenCount,
     sent_count: context.result.sent,
     failed_count: context.result.failed,

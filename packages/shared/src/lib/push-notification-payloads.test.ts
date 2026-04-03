@@ -36,6 +36,16 @@ describe('getAdminNotificationNavigationTarget', () => {
       screen: 'negotiation',
       params: { id: 'neg-42' },
     });
+
+    expect(
+      getAdminNotificationNavigationTarget({
+        type: 'negotiation',
+        negotiation_id: 'neg-99',
+      })
+    ).toEqual({
+      screen: 'negotiation',
+      params: { id: 'neg-99' },
+    });
   });
 });
 
