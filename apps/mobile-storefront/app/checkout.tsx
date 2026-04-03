@@ -41,7 +41,10 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
 import {
   PaymentMethodSelector,
@@ -69,14 +72,15 @@ import { resolveApiBaseUrl } from '@/lib/api-url';
 import { deriveCheckoutIdentity } from '@/lib/checkout-identity';
 import {
   getDefaultSavedAddress,
+  type SavedAddress,
   toCheckoutAddressValues,
   upsertSavedAddress,
-  type SavedAddress,
 } from '@/lib/checkout-saved-address';
 import { setClipboardString } from '@/lib/clipboard';
 import {
   buildShippingQuoteContextKey,
   getPreferredShippingQuoteId,
+  normalizeShippingQuotes,
 } from '@/lib/shipping-quotes';
 import { calculateCommerce, supabase } from '@/lib/supabase';
 import {
@@ -91,10 +95,11 @@ import {
 } from '@/services/analytics';
 import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
 import { scheduleLocalNotification } from '@/services/push-notifications';
-import { type Customer } from '@/stores/auth-store';
+import type { Customer } from '@/stores/auth-store';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
 
 type CheckoutStep = 'address' | 'payment' | 'review';
+type DeliveryMethod = 'door' | 'airport' | 'pickup_station';
 
 type ThemeColors = (typeof Colors)[keyof typeof Colors];
 
@@ -129,6 +134,15 @@ interface ShippingLocation {
   city: string;
 }
 
+const AIRPORT_DELIVERY_FEE = 25000;
+const PICKUP_STATION_ADDRESS_LINES = [
+  'Taiyelolu Towers',
+  'First Floor',
+  '2 Olaide Tomori Street Ikeja Lagos',
+] as const;
+const PICKUP_STATION_CITY = 'Ikeja';
+const PICKUP_STATION_STATE = 'Lagos';
+
 interface PendingCryptoOrder {
   order: OrderResponse['order'];
   orderResponse: OrderResponse;
@@ -138,10 +152,9 @@ interface PendingCryptoOrder {
   trackingToken?: string;
 }
 
-const API_BASE_URL =
-  resolveApiBaseUrl(
-    process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
-  );
+const API_BASE_URL = resolveApiBaseUrl(
+  process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
+);
 
 const MERCHANT_ID =
   Constants.expoConfig?.extra?.merchantId ||
@@ -157,6 +170,8 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
   credpal: 'CredPal (Buy Now Pay Later)',
   credit_direct: 'Credit Direct (Installments)',
   juicyway: 'Crypto (Juicyway)',
+  invoice: 'Generate Invoice',
+  payforme: 'Pay for Me',
 };
 
 const STEP_PILL_LABELS: Record<CheckoutStep, string> = {
@@ -164,6 +179,56 @@ const STEP_PILL_LABELS: Record<CheckoutStep, string> = {
   payment: 'Payment',
   review: 'Review',
 };
+
+function getDeliveryMethodFee(
+  deliveryMethod: DeliveryMethod,
+  selectedQuote: ShippingQuote | undefined
+) {
+  if (deliveryMethod === 'airport') return AIRPORT_DELIVERY_FEE;
+  if (deliveryMethod === 'pickup_station') return 0;
+  return selectedQuote?.price ?? 0;
+}
+
+function getDeliveryMethodLabel(deliveryMethod: DeliveryMethod) {
+  switch (deliveryMethod) {
+    case 'airport':
+      return 'Airport Delivery';
+    case 'pickup_station':
+      return 'Pick Up Station';
+    default:
+      return 'Door Delivery';
+  }
+}
+
+function getDeliveryMethodSummary(
+  deliveryMethod: DeliveryMethod,
+  selectedQuote: ShippingQuote | undefined
+) {
+  if (deliveryMethod === 'airport') {
+    return 'Est Delivery within 24-48 working hours';
+  }
+  if (deliveryMethod === 'pickup_station') {
+    return PICKUP_STATION_ADDRESS_LINES.join(', ');
+  }
+
+  const carrier = selectedQuote?.carrierName || selectedQuote?.provider || 'Topship';
+  const eta =
+    selectedQuote?.deliveryRange ||
+    (selectedQuote?.estimatedDays
+      ? `${selectedQuote.estimatedDays} days`
+      : 'Delivery estimate shown after selection');
+
+  return `${carrier} • ${eta}`;
+}
+
+function getShippingProviderForMethod(
+  deliveryMethod: DeliveryMethod,
+  selectedQuote: ShippingQuote | undefined
+) {
+  if (deliveryMethod === 'airport') return 'Airport Delivery';
+  if (deliveryMethod === 'pickup_station') return 'Pick Up Station';
+  return selectedQuote?.provider || selectedQuote?.carrierName || undefined;
+}
 
 const GOOGLE_STATE_ALIASES: Record<string, string> = {
   'federal capital territory': 'FCT - Abuja',
@@ -222,6 +287,29 @@ function normalizeStateName(
   return trimmed;
 }
 
+function humanizeCheckoutFieldName(field: keyof ShippingAddressInput): string {
+  switch (field) {
+    case 'firstName':
+      return 'first name';
+    case 'lastName':
+      return 'last name';
+    case 'phone':
+      return 'phone number';
+    case 'email':
+      return 'email address';
+    case 'address':
+      return 'delivery address';
+    case 'city':
+      return 'city';
+    case 'state':
+      return 'state';
+    case 'notes':
+      return 'delivery notes';
+    default:
+      return field;
+  }
+}
+
 function FormField({
   name,
   label,
@@ -258,9 +346,11 @@ function FormField({
 
   return (
     <View style={[styles.inputGroup, containerStyle]}>
-      <Text style={[styles.label, { color: colors.textSecondary }]}>
-        {label}
-      </Text>
+      {label ? (
+        <Text style={[styles.label, { color: colors.textSecondary }]}>
+          {label}
+        </Text>
+      ) : null}
       <Controller
         control={control}
         name={name}
@@ -407,18 +497,16 @@ const fetchShippingQuotes = async ({
 
     if (res.ok) {
       const data: QuoteResponse & { warnings?: string[] } = await res.json();
-      const quotes = data.quotes?.all || [];
+      const quotes = normalizeShippingQuotes(data.quotes?.all || []);
       setShippingQuotes(quotes);
       setResolvedShippingQuoteContextKey(quoteContextKey);
       setSelectedQuoteId(
         getPreferredShippingQuoteId(quotes, previousSelectedQuoteId)
       );
-    } else {
-      if (shouldResetSelection) {
-        setShippingQuotes([]);
-        setSelectedQuoteId('');
-        setResolvedShippingQuoteContextKey('');
-      }
+    } else if (shouldResetSelection) {
+      setShippingQuotes([]);
+      setSelectedQuoteId('');
+      setResolvedShippingQuoteContextKey('');
     }
   } catch (_error) {
     // Don't update state if the request was aborted (superseded by a newer request)
@@ -441,6 +529,7 @@ export default function CheckoutScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const isDark = (colorScheme ?? 'light') === 'dark';
+  const insets = useSafeAreaInsets();
 
   const items = useCartStore((state) => state.items);
   const subtotal = useCartStore((state) => state.subtotal());
@@ -454,6 +543,13 @@ export default function CheckoutScreen() {
 
   const { data: paymentSettings } = useMerchantPaymentSettings();
   const enabledPaymentMethods = getEnabledPaymentMethods(paymentSettings);
+  const availablePaymentMethods: PaymentMethodType[] = Array.from(
+    new Set<PaymentMethodType>([
+      ...enabledPaymentMethods,
+      'invoice',
+      'payforme',
+    ])
+  );
 
   const [step, setStep] = React.useState<CheckoutStep>('address');
   const [isProcessing, setIsProcessing] = React.useState(false);
@@ -464,6 +560,8 @@ export default function CheckoutScreen() {
   const [selectedPayment, setSelectedPayment] =
     React.useState<PaymentMethodType>('paystack');
   const [paymentTab, setPaymentTab] = React.useState<PaymentTab>('full');
+  const [deliveryMethod, setDeliveryMethod] =
+    React.useState<DeliveryMethod>('door');
 
   const [shippingStates, setShippingStates] = React.useState<string[]>([]);
   const [shippingCities, setShippingCities] = React.useState<string[]>([]);
@@ -481,14 +579,14 @@ export default function CheckoutScreen() {
   const [citySearch, setCitySearch] = React.useState('');
   const [citySearchFocused, setCitySearchFocused] = React.useState(false);
   const [saveDetails, setSaveDetails] = React.useState(false);
-  const [saveAsDefaultAddress, setSaveAsDefaultAddress] =
-    React.useState(false);
+  const [saveAsDefaultAddress, setSaveAsDefaultAddress] = React.useState(false);
   const [savedAddresses, setSavedAddresses] = React.useState<SavedAddress[]>(
     []
   );
   const [selectedSavedAddressId, setSelectedSavedAddressId] = React.useState<
     string | null
   >(null);
+  const [isAddingNewAddress, setIsAddingNewAddress] = React.useState(false);
   const [isLoadingSavedAddresses, setIsLoadingSavedAddresses] =
     React.useState(false);
   const [isContactCollapsed, setIsContactCollapsed] = React.useState(false);
@@ -607,6 +705,7 @@ export default function CheckoutScreen() {
     setValue('city', checkoutValues.city, { shouldValidate: true });
     setValue('state', checkoutValues.state, { shouldValidate: true });
     setSelectedSavedAddressId(savedAddress.id);
+    setIsAddingNewAddress(false);
     setSaveAsDefaultAddress(Boolean(savedAddress.is_default));
 
     if (options?.collapse !== false) {
@@ -623,10 +722,11 @@ export default function CheckoutScreen() {
   }, []);
 
   useEffect(() => {
-    const fetchSavedAddresses = async () => {
+    const fetchAndHydrate = async () => {
       if (!isAuthenticated || !customer?.id) {
         setSavedAddresses([]);
         setSelectedSavedAddressId(null);
+        setIsAddingNewAddress(true);
         setIsLoadingSavedAddresses(false);
         setIsContactCollapsed(false);
         setIsDeliveryCollapsed(false);
@@ -637,64 +737,82 @@ export default function CheckoutScreen() {
 
       setIsLoadingSavedAddresses(true);
 
-      try {
-        const { data, error } = await supabase
-          .from('customers')
-          .select('saved_addresses')
-          .eq('id', customer.id)
-          .eq('merchant_id', MERCHANT_ID)
-          .single();
+      const nextAddresses = await (async (): Promise<SavedAddress[]> => {
+        try {
+          const { data, error } = await supabase
+            .from('customers')
+            .select('saved_addresses')
+            .eq('id', customer.id)
+            .eq('merchant_id', MERCHANT_ID)
+            .single();
 
-        if (error) throw error;
+          if (error) throw error;
 
-        const nextAddresses = Array.isArray(data?.saved_addresses)
-          ? ([...data.saved_addresses] as SavedAddress[])
-          : [];
+          const addresses = Array.isArray(data?.saved_addresses)
+            ? ([...data.saved_addresses] as SavedAddress[])
+            : [];
 
-        nextAddresses.sort(
-          (left, right) => Number(Boolean(right.is_default)) - Number(Boolean(left.is_default))
-        );
-        setSavedAddresses(nextAddresses);
-      } catch (error) {
-        trackError(
-          'checkout_saved_addresses_fetch',
-          error instanceof Error
-            ? error.message
-            : 'Failed to load saved addresses'
-        );
-        setSavedAddresses([]);
-      } finally {
-        setIsLoadingSavedAddresses(false);
+          addresses.sort(
+            (left, right) =>
+              Number(Boolean(right.is_default)) -
+              Number(Boolean(left.is_default))
+          );
+          return addresses;
+        } catch (error) {
+          trackError(
+            'checkout_saved_addresses_fetch',
+            error instanceof Error
+              ? error.message
+              : 'Failed to load saved addresses'
+          );
+          return [];
+        }
+      })();
+      setSavedAddresses(nextAddresses);
+      setIsLoadingSavedAddresses(false);
+
+      // Hydrate form with default saved address after fetch completes
+      if (hasHydratedSavedAddressRef.current) return;
+
+      const defaultAddr = getDefaultSavedAddress(nextAddresses);
+
+      if (!defaultAddr) {
+        setIsContactCollapsed(hasContactIdentity);
+        setIsDeliveryCollapsed(false);
+        setIsAddingNewAddress(true);
+        setSaveAsDefaultAddress(true);
+        hasHydratedSavedAddressRef.current = true;
+        return;
       }
+
+      const checkoutValues = toCheckoutAddressValues(defaultAddr);
+      setValue('firstName', checkoutValues.firstName, { shouldValidate: true });
+      setValue('lastName', checkoutValues.lastName, { shouldValidate: true });
+      setValue('phone', checkoutValues.phone, { shouldValidate: true });
+      setValue('address', checkoutValues.address, { shouldValidate: true });
+      setValue('city', checkoutValues.city, { shouldValidate: true });
+      setValue('state', checkoutValues.state, { shouldValidate: true });
+      setSelectedSavedAddressId(defaultAddr.id);
+      setIsAddingNewAddress(false);
+      setSaveAsDefaultAddress(Boolean(defaultAddr.is_default));
+      setIsContactCollapsed(true);
+      setIsDeliveryCollapsed(true);
+      hasHydratedSavedAddressRef.current = true;
     };
 
-    fetchSavedAddresses();
-  }, [customer?.id, isAuthenticated]);
+    fetchAndHydrate();
+  }, [customer?.id, isAuthenticated, hasContactIdentity, setValue]);
 
   useEffect(() => {
-    if (!isAuthenticated || hasHydratedSavedAddressRef.current) return;
-
-    if (!defaultSavedAddress) {
-      setIsContactCollapsed(hasContactIdentity);
-      setIsDeliveryCollapsed(false);
-      setSaveAsDefaultAddress(true);
-      hasHydratedSavedAddressRef.current = true;
+    if (!hasSavedAddresses) {
+      setIsAddingNewAddress(true);
       return;
     }
 
-    const checkoutValues = toCheckoutAddressValues(defaultSavedAddress);
-    setValue('firstName', checkoutValues.firstName, { shouldValidate: true });
-    setValue('lastName', checkoutValues.lastName, { shouldValidate: true });
-    setValue('phone', checkoutValues.phone, { shouldValidate: true });
-    setValue('address', checkoutValues.address, { shouldValidate: true });
-    setValue('city', checkoutValues.city, { shouldValidate: true });
-    setValue('state', checkoutValues.state, { shouldValidate: true });
-    setSelectedSavedAddressId(defaultSavedAddress.id);
-    setSaveAsDefaultAddress(Boolean(defaultSavedAddress.is_default));
-    setIsContactCollapsed(hasContactIdentity);
-    setIsDeliveryCollapsed(true);
-    hasHydratedSavedAddressRef.current = true;
-  }, [defaultSavedAddress, hasContactIdentity, isAuthenticated, setValue]);
+    if (selectedSavedAddressId) {
+      setIsAddingNewAddress(false);
+    }
+  }, [hasSavedAddresses, selectedSavedAddressId]);
 
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {
@@ -737,11 +855,16 @@ export default function CheckoutScreen() {
   const currentDeliverySummary = [watchedAddress, watchedCity, watchedState]
     .filter(Boolean)
     .join(', ');
-  const deliverySummaryEyebrow = selectedSavedAddress?.is_default
-    ? 'Using your default address'
-    : selectedSavedAddress
-      ? 'Using your saved address'
-      : 'Delivery details for this order';
+  const openNewAddressEditor = () => {
+    if (selectedSavedAddressId) {
+      setValue('address', '', { shouldValidate: false });
+      setValue('city', '', { shouldValidate: false });
+      setValue('state', '', { shouldValidate: false });
+    }
+    setSelectedSavedAddressId(null);
+    setIsAddingNewAddress(true);
+    setSaveAsDefaultAddress(savedAddresses.length <= 1);
+  };
 
   const renderSavedAddressOptions = () => {
     if (!hasSavedAddresses) return null;
@@ -749,20 +872,99 @@ export default function CheckoutScreen() {
     return (
       <View style={styles.savedAddressSection}>
         <View style={styles.savedAddressHeader}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Saved Addresses
+          <Text style={[styles.savedAddressSectionTitle, { color: colors.text }]}>
+            Delivery options
           </Text>
           {isLoadingSavedAddresses && (
             <ActivityIndicator size="small" color={BRAND.primary} />
           )}
         </View>
-        {savedAddresses.map((savedAddress) => {
+        <View
+          style={[
+            styles.addressModeSwitch,
+            {
+              backgroundColor: isDark
+                ? 'rgba(255, 255, 255, 0.05)'
+                : palette.gray[100],
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Pressable
+            style={[
+              styles.addressModeChip,
+              {
+                backgroundColor: !isAddingNewAddress
+                  ? BRAND.primary
+                  : 'transparent',
+              },
+            ]}
+            onPress={() => {
+              const fallbackSavedAddress =
+                selectedSavedAddress ?? defaultSavedAddress ?? savedAddresses[0];
+              if (fallbackSavedAddress) {
+                applySavedAddressToForm(fallbackSavedAddress, {
+                  collapse: false,
+                });
+              } else {
+                setIsAddingNewAddress(false);
+              }
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Use a saved address"
+          >
+            <Ionicons
+              name="bookmark-outline"
+              size={15}
+              color={!isAddingNewAddress ? '#FFFFFF' : BRAND.primary}
+            />
+            <Text
+              style={[
+                styles.addressModeChipText,
+                { color: !isAddingNewAddress ? '#FFFFFF' : colors.text },
+              ]}
+            >
+              Saved
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.addressModeChip,
+              {
+                backgroundColor: isAddingNewAddress
+                  ? BRAND.primary
+                  : 'transparent',
+              },
+            ]}
+            onPress={openNewAddressEditor}
+            accessibilityRole="button"
+            accessibilityLabel="Add a new delivery address"
+          >
+            <Ionicons
+              name="add-outline"
+              size={16}
+              color={isAddingNewAddress ? '#FFFFFF' : BRAND.primary}
+            />
+            <Text
+              style={[
+                styles.addressModeChipText,
+                { color: isAddingNewAddress ? '#FFFFFF' : colors.text },
+              ]}
+            >
+              New address
+            </Text>
+          </Pressable>
+        </View>
+        {!isAddingNewAddress &&
+          savedAddresses.map((savedAddress) => {
           const isSelected = savedAddress.id === selectedSavedAddressId;
 
           return (
             <Pressable
               key={savedAddress.id}
-              onPress={() => applySavedAddressToForm(savedAddress, { collapse: false })}
+              onPress={() =>
+                applySavedAddressToForm(savedAddress, { collapse: false })
+              }
               style={[
                 styles.savedAddressOption,
                 {
@@ -780,7 +982,10 @@ export default function CheckoutScreen() {
               <View style={styles.savedAddressOptionBody}>
                 <View style={styles.savedAddressOptionTitleRow}>
                   <Text
-                    style={[styles.savedAddressOptionTitle, { color: colors.text }]}
+                    style={[
+                      styles.savedAddressOptionTitle,
+                      { color: colors.text },
+                    ]}
                   >
                     {savedAddress.label || 'Saved Address'}
                   </Text>
@@ -816,7 +1021,8 @@ export default function CheckoutScreen() {
                     { color: colors.textSecondary },
                   ]}
                 >
-                  {savedAddress.address}, {savedAddress.city}, {savedAddress.state}
+                  {savedAddress.address}, {savedAddress.city},{' '}
+                  {savedAddress.state}
                 </Text>
               </View>
               <Ionicons
@@ -831,22 +1037,95 @@ export default function CheckoutScreen() {
     );
   };
 
+  const renderDefaultAddressCheckbox = (label: string) => (
+    <View style={styles.saveDetailsSection}>
+      <Pressable
+        style={styles.checkboxRow}
+        onPress={() => setSaveAsDefaultAddress((value) => !value)}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: saveAsDefaultAddress }}
+        accessibilityLabel={label}
+      >
+        <View
+          style={[
+            styles.checkbox,
+            saveAsDefaultAddress && styles.checkboxChecked,
+            {
+              borderColor: saveAsDefaultAddress
+                ? BRAND.primary
+                : colors.border,
+            },
+          ]}
+        >
+          {saveAsDefaultAddress && (
+            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+          )}
+        </View>
+        <Text style={[styles.checkboxLabel, { color: colors.text }]}>
+          {label}
+        </Text>
+      </Pressable>
+    </View>
+  );
+
+  const getPaymentTabForMethod = (method: PaymentMethodType): PaymentTab => {
+    if (method === 'credpal' || method === 'credit_direct') {
+      return 'installments';
+    }
+    if (method === 'invoice' || method === 'payforme') {
+      return 'pay_later';
+    }
+    return 'full';
+  };
+
+  const getAvailableMethodsForTab = (tab: PaymentTab) =>
+    availablePaymentMethods.filter(
+      (method) => getPaymentTabForMethod(method) === tab
+    );
+
+  const handleSelectPaymentTab = (tab: PaymentTab) => {
+    setPaymentTab(tab);
+    const tabMethods = getAvailableMethodsForTab(tab);
+    if (tabMethods.length > 0) {
+      setSelectedPayment(tabMethods[0]);
+    }
+  };
+
   // Reset payment method if current selection is not in enabled list
   useEffect(() => {
-    if (
-      enabledPaymentMethods.length > 0 &&
-      !enabledPaymentMethods.includes(selectedPayment)
-    ) {
-      setSelectedPayment(enabledPaymentMethods[0]);
-      // Reset to full tab if BNPL methods are disabled
-      if (paymentTab === 'installments') {
-        const hasBNPL = enabledPaymentMethods.some(
-          (m) => m === 'credpal' || m === 'credit_direct'
+    const currentTabMethods = availablePaymentMethods.filter(
+      (method) => getPaymentTabForMethod(method) === paymentTab
+    );
+    const paymentStillAvailable = availablePaymentMethods.includes(selectedPayment);
+
+    if (!paymentStillAvailable) {
+      const fallbackMethod =
+        currentTabMethods[0] ?? availablePaymentMethods[0] ?? 'paystack';
+      setSelectedPayment(fallbackMethod);
+      setPaymentTab(getPaymentTabForMethod(fallbackMethod));
+      return;
+    }
+
+    if (!currentTabMethods.includes(selectedPayment)) {
+      const fallbackMethod = currentTabMethods[0];
+      if (fallbackMethod) {
+        setSelectedPayment(fallbackMethod);
+      } else {
+        const fallbackTab =
+          (['full', 'installments', 'pay_later'] as const).find(
+            (tab) =>
+              availablePaymentMethods.some(
+                (method) => getPaymentTabForMethod(method) === tab
+              )
+          ) ?? 'full';
+        setPaymentTab(fallbackTab);
+        const nextMethod = availablePaymentMethods.find(
+          (method) => getPaymentTabForMethod(method) === fallbackTab
         );
-        if (!hasBNPL) setPaymentTab('full');
+        if (nextMethod) setSelectedPayment(nextMethod);
       }
     }
-  }, [enabledPaymentMethods, selectedPayment, paymentTab]);
+  }, [availablePaymentMethods, selectedPayment, paymentTab]);
 
   const handleBack = () => {
     if (step === 'payment') {
@@ -1090,7 +1369,7 @@ export default function CheckoutScreen() {
   const selectedQuote = shippingQuotes.find(
     (quote) => String(quote.id) === String(selectedQuoteId)
   );
-  const deliveryFee = selectedQuote?.price ?? 0;
+  const deliveryFee = getDeliveryMethodFee(deliveryMethod, selectedQuote);
 
   // Calculate total assurance fee from cart items (2026 Best Practice: Single Source of Truth)
   const assuranceFee = items.reduce((sum, item) => {
@@ -1140,12 +1419,56 @@ export default function CheckoutScreen() {
     setStep('payment');
   };
 
+  const handleAddressValidationError = (errors: FieldErrors<ShippingAddressInput>) => {
+    const hasContactErrors = Boolean(
+      errors.firstName || errors.lastName || errors.phone || errors.email
+    );
+    const hasDeliveryErrors = Boolean(
+      errors.address || errors.city || errors.state
+    );
+
+    if (hasContactErrors) {
+      setIsContactCollapsed(false);
+    }
+
+    if (hasDeliveryErrors) {
+      setIsDeliveryCollapsed(false);
+    }
+
+    const failingFields = (
+      Object.keys(errors) as Array<keyof ShippingAddressInput>
+    ).filter((field) => Boolean(errors[field]));
+
+    const firstField = failingFields[0];
+    const message =
+      firstField && errors[firstField]?.message
+        ? errors[firstField]?.message
+        : firstField
+          ? `Please complete your ${humanizeCheckoutFieldName(firstField)} before continuing.`
+          : hasDeliveryErrors
+            ? 'Please complete your delivery address before continuing.'
+            : 'Please complete your contact details before continuing.';
+
+    Alert.alert(
+      'Incomplete Details',
+      message,
+      [{ text: 'OK' }]
+    );
+  };
+
   const handleContinue = () => {
     Keyboard.dismiss();
 
     if (step === 'address') {
-      handleSubmit(onAddressSubmit)();
+      handleSubmit(onAddressSubmit, handleAddressValidationError)();
     } else if (step === 'payment') {
+      if (!selectedPayment) {
+        Alert.alert(
+          'Select Payment Method',
+          'Choose how you want to pay before continuing to review.'
+        );
+        return;
+      }
       trackCheckoutStep('payment_method', {
         payment_method: selectedPayment,
       });
@@ -1297,8 +1620,8 @@ export default function CheckoutScreen() {
     // Re-validate that the selected payment method is still enabled
     // (merchant may have toggled it since the user selected it)
     if (
-      enabledPaymentMethods.length > 0 &&
-      !enabledPaymentMethods.includes(selectedPayment)
+      availablePaymentMethods.length > 0 &&
+      !availablePaymentMethods.includes(selectedPayment)
     ) {
       Alert.alert(
         'Payment Method Unavailable',
@@ -1310,7 +1633,8 @@ export default function CheckoutScreen() {
 
     // Validate that a shipping quote is selected when shipping quotes are
     // available (i.e. the address step fetched quotes for the chosen location)
-    const requiresFreshShippingQuote = Boolean(currentShippingQuoteContextKey);
+    const requiresFreshShippingQuote =
+      deliveryMethod === 'door' && Boolean(currentShippingQuoteContextKey);
     const hasFreshShippingQuoteSelection =
       resolvedShippingQuoteContextKey === currentShippingQuoteContextKey &&
       Boolean(selectedQuote);
@@ -1347,6 +1671,23 @@ export default function CheckoutScreen() {
       const customerEmail = customer?.email || address.email;
       const customerPhone = address.phone;
       const customerName = `${address.firstName} ${address.lastName}`;
+      const paymentMethodForOrder =
+        selectedPayment === 'payforme' ? 'invoice' : selectedPayment;
+      const orderShippingAddress =
+        deliveryMethod === 'pickup_station'
+          ? {
+              ...address,
+              address: PICKUP_STATION_ADDRESS_LINES.join(', '),
+              city: PICKUP_STATION_CITY,
+              state: PICKUP_STATION_STATE,
+            }
+          : deliveryMethod === 'airport'
+            ? {
+                ...address,
+                address:
+                  address.address || 'Airport Delivery (Outside Lagos)',
+              }
+            : address;
 
       const isBNPL =
         selectedPayment === 'credpal' || selectedPayment === 'credit_direct';
@@ -1381,11 +1722,15 @@ export default function CheckoutScreen() {
           shipping_fee: snapshotDeliveryFee,
           tax_amount: snapshotTaxAmount,
           selected_quote_id:
-            selectedQuote?.id != null ? String(selectedQuote.id) : undefined,
-          shipping_provider:
-            selectedQuote?.provider || selectedQuote?.carrierName || undefined,
-          payment_method: selectedPayment,
-          shipping_address: address,
+            deliveryMethod === 'door' && selectedQuote?.id != null
+              ? String(selectedQuote.id)
+              : undefined,
+          shipping_provider: getShippingProviderForMethod(
+            deliveryMethod,
+            selectedQuote
+          ),
+          payment_method: paymentMethodForOrder,
+          shipping_address: orderShippingAddress,
           source: 'mobile_app',
         });
 
@@ -1434,11 +1779,15 @@ export default function CheckoutScreen() {
         shipping_fee: snapshotDeliveryFee,
         tax_amount: snapshotTaxAmount,
         selected_quote_id:
-          selectedQuote?.id != null ? String(selectedQuote.id) : undefined,
-        shipping_provider:
-          selectedQuote?.provider || selectedQuote?.carrierName || undefined,
-        payment_method: selectedPayment,
-        shipping_address: address,
+          deliveryMethod === 'door' && selectedQuote?.id != null
+            ? String(selectedQuote.id)
+            : undefined,
+        shipping_provider: getShippingProviderForMethod(
+          deliveryMethod,
+          selectedQuote
+        ),
+        payment_method: paymentMethodForOrder,
+        shipping_address: orderShippingAddress,
         source: 'mobile_app',
       });
 
@@ -1649,6 +1998,7 @@ export default function CheckoutScreen() {
         params: {
           orderId: order.id,
           orderNumber,
+          paymentMethod: selectedPayment,
           ...(order.tracking_token && {
             trackingToken: order.tracking_token,
           }),
@@ -1756,16 +2106,16 @@ export default function CheckoutScreen() {
         <Text style={[styles.stepSubtitle, { color: colors.textSecondary }]}>
           Step {currentIndex + 1} of 3
         </Text>
-	        <View
-	          style={[
-	            styles.stepProgress,
-	            {
-	              backgroundColor: isDark
-	                ? 'rgba(148, 163, 184, 0.16)'
-	                : palette.gray[200],
-	            },
-	          ]}
-	        >
+        <View
+          style={[
+            styles.stepProgress,
+            {
+              backgroundColor: isDark
+                ? 'rgba(148, 163, 184, 0.16)'
+                : palette.gray[200],
+            },
+          ]}
+        >
           <View
             style={[
               styles.stepProgressActive,
@@ -1777,74 +2127,85 @@ export default function CheckoutScreen() {
           {steps.map((s, index) => {
             const isActive = s === step;
             const isCompleted = index < currentIndex;
+            const isClickable = index <= currentIndex;
             return (
-              <View
+              <Pressable
                 key={s}
+                onPress={() => {
+                  if (isClickable && s !== step) {
+                    setStep(s);
+                  }
+                }}
+                disabled={!isClickable || s === step}
                 style={[
                   styles.stepPill,
-	                  {
-	                    backgroundColor: isActive
-	                      ? isDark
-	                        ? 'rgba(217, 59, 48, 0.16)'
-	                        : palette.red[50]
-	                      : colors.card,
-	                    borderColor:
-	                      isActive || isCompleted 
-                          ? BRAND.primary 
-                          : isDark 
-                            ? 'rgba(255, 255, 255, 0.08)' 
-                            : colors.border,
-	                  },
+                  {
+                    backgroundColor: isActive
+                      ? isDark
+                        ? 'rgba(217, 59, 48, 0.16)'
+                        : palette.red[50]
+                      : colors.card,
+                    borderColor:
+                      isActive || isCompleted
+                        ? BRAND.primary
+                        : isDark
+                          ? 'rgba(255, 255, 255, 0.08)'
+                          : colors.border,
+                    opacity: isClickable ? 1 : 0.72,
+                  },
                 ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Go to ${STEP_PILL_LABELS[s]} step`}
+                accessibilityState={{ disabled: !isClickable || s === step }}
               >
                 <View
                   style={[
                     styles.stepPillDot,
-	                    {
-	                      backgroundColor:
-	                        isActive || isCompleted
-	                          ? BRAND.primary
-	                          : isDark
-	                            ? 'rgba(148, 163, 184, 0.22)'
-	                            : palette.gray[200],
-	                    },
-	                  ]}
-	                >
+                    {
+                      backgroundColor:
+                        isActive || isCompleted
+                          ? BRAND.primary
+                          : isDark
+                            ? 'rgba(148, 163, 184, 0.22)'
+                            : palette.gray[200],
+                    },
+                  ]}
+                >
                   {isCompleted ? (
                     <Ionicons name="checkmark" size={12} color="#FFFFFF" />
                   ) : (
                     <Text
-	                      style={[
-	                        styles.stepPillNumber,
-	                        {
-	                          color:
-	                            isActive || isCompleted
-	                              ? '#FFFFFF'
-	                              : colors.textSecondary,
-	                        },
-	                      ]}
-	                    >
+                      style={[
+                        styles.stepPillNumber,
+                        {
+                          color:
+                            isActive || isCompleted
+                              ? '#FFFFFF'
+                              : colors.textSecondary,
+                        },
+                      ]}
+                    >
                       {index + 1}
                     </Text>
                   )}
                 </View>
                 <Text
-	                  style={[
-	                    styles.stepPillText,
-	                    {
-	                      color: isActive
-	                        ? isDark
-	                          ? '#FDECEA'
-	                          : BRAND.primary
-	                        : isCompleted
-	                          ? colors.text
-	                          : colors.textSecondary,
-	                    },
-	                  ]}
-	                >
+                  style={[
+                    styles.stepPillText,
+                    {
+                      color: isActive
+                        ? isDark
+                          ? '#FDECEA'
+                          : BRAND.primary
+                        : isCompleted
+                          ? colors.text
+                          : colors.textSecondary,
+                    },
+                  ]}
+                >
                   {STEP_PILL_LABELS[s]}
                 </Text>
-              </View>
+              </Pressable>
             );
           })}
         </View>
@@ -1866,7 +2227,7 @@ export default function CheckoutScreen() {
         </Text>
         <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
           {isAuthenticated
-            ? 'Your saved details are ready. Edit only if this order needs something different.'
+            ? 'Choose how this order should be delivered.'
             : 'Add your contact and delivery details to continue.'}
         </Text>
       </View>
@@ -1884,29 +2245,29 @@ export default function CheckoutScreen() {
         ]}
       >
         <View style={styles.cardHeaderActionRow}>
-          <View style={styles.cardHeader}>
+          <View style={[styles.cardHeader, styles.cardHeaderInline]}>
             <Ionicons name="person-outline" size={16} color={BRAND.primary} />
             <Text style={[styles.cardTitle, { color: colors.text }]}>
               Contact
             </Text>
           </View>
-          {isAuthenticated && hasContactIdentity && (
+          {isAuthenticated && (isContactCollapsed || hasContactIdentity) && (
             <Pressable
-              style={[
-                styles.inlineEditButton,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(255, 255, 255, 0.04)'
-                    : palette.gray[50],
-                },
-              ]}
+              style={styles.inlineEditButton}
               onPress={() => setIsContactCollapsed((value) => !value)}
+              hitSlop={10}
               accessibilityRole="button"
-              accessibilityLabel={isContactCollapsed ? 'Edit contact details' : 'Collapse contact details'}
+              accessibilityLabel={
+                isContactCollapsed
+                  ? 'Edit contact details'
+                  : 'Collapse contact details'
+              }
             >
               <View style={styles.inlineActionContent}>
                 <Ionicons
-                  name={isContactCollapsed ? 'create-outline' : 'checkmark-outline'}
+                  name={
+                    isContactCollapsed ? 'create-outline' : 'checkmark-outline'
+                  }
                   size={16}
                   color={BRAND.primary}
                 />
@@ -1918,175 +2279,210 @@ export default function CheckoutScreen() {
           )}
         </View>
         {isContactCollapsed ? (
-          <View style={styles.summarySection}>
-            <Text style={[styles.summaryEyebrow, { color: BRAND.primary }]}>
-              Using your signed-in details
-            </Text>
+          <View
+            style={[
+              styles.summaryPanel,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(255, 255, 255, 0.04)'
+                  : palette.gray[50],
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View style={styles.summaryMetaRow}>
+              <Ionicons
+                name="person-circle-outline"
+                size={16}
+                color={BRAND.primary}
+              />
+              <Text
+                style={[styles.summaryMetaLabel, { color: colors.textSecondary }]}
+              >
+                Signed in
+              </Text>
+            </View>
             <Text style={[styles.summaryTitle, { color: colors.text }]}>
               {currentContactSummary || 'Contact details'}
             </Text>
-            <Text style={[styles.summaryLine, { color: colors.textSecondary }]}>
-              {watchedEmail}
-            </Text>
-            <Text style={[styles.summaryLine, { color: colors.textSecondary }]}>
-              {watchedPhone}
-            </Text>
+            {watchedEmail ? (
+              <Text
+                style={[styles.summaryLine, { color: colors.textSecondary }]}
+              >
+                {watchedEmail}
+              </Text>
+            ) : null}
+            {watchedPhone ? (
+              <Text
+                style={[styles.summaryLine, { color: colors.textSecondary }]}
+              >
+                {watchedPhone}
+              </Text>
+            ) : null}
           </View>
         ) : (
-          <View style={styles.cardBody}>
-          <View style={styles.row}>
-            <View style={styles.halfInput}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                First Name
-              </Text>
-              <FormField
-                name="firstName"
-                label=""
-                placeholder="E.g. John"
-                control={control}
-                errors={errors}
-                colors={colors}
-                autoCapitalize="words"
-              />
-            </View>
-            <View style={styles.halfInput}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Last Name
-              </Text>
-              <FormField
-                name="lastName"
-                label=""
-                placeholder="E.g. Doe"
-                control={control}
-                errors={errors}
-                colors={colors}
-                autoCapitalize="words"
-              />
-            </View>
-          </View>
-
-          <Text style={[styles.label, { color: colors.textSecondary, marginBottom: 8 }]}>
-            Phone Number
-          </Text>
-          <Controller
-            control={control}
-            name="phone"
-            render={({ field: { value, onChange, onBlur } }) => (
-              <PhoneInput
-                value={value}
-                onChangeText={onChange}
-                onBlur={onBlur}
-                error={errors.phone?.message}
-                containerStyle={styles.inputGroup}
-              />
-            )}
-          />
-
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Email Address
-          </Text>
-          <FormField
-            name="email"
-            label=""
-            placeholder="john@example.com"
-            control={control}
-            errors={errors}
-            colors={colors}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-
-          {/* Save Details Checkbox — guests only */}
-          {!isAuthenticated && (
-            <View style={styles.saveDetailsSection}>
-              <Pressable
-                style={styles.checkboxRow}
-                onPress={() => setSaveDetails(!saveDetails)}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: saveDetails }}
-                accessibilityLabel="Save my details for faster checkout"
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    saveDetails && styles.checkboxChecked,
-                    {
-                      borderColor: saveDetails ? BRAND.primary : colors.border,
-                    },
-                  ]}
-                >
-                  {saveDetails && (
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                  )}
-                </View>
-                <Text style={[styles.checkboxLabel, { color: colors.text }]}>
-                  Save my details for faster checkout
+          <View style={[styles.cardBody, styles.contactCardBody]}>
+            <View style={styles.row}>
+              <View style={styles.halfInput}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  First Name
                 </Text>
-              </Pressable>
+                <FormField
+                  name="firstName"
+                  label=""
+                  placeholder="E.g. John"
+                  control={control}
+                  errors={errors}
+                  colors={colors}
+                  autoCapitalize="words"
+                />
+              </View>
+              <View style={styles.halfInput}>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  Last Name
+                </Text>
+                <FormField
+                  name="lastName"
+                  label=""
+                  placeholder="E.g. Doe"
+                  control={control}
+                  errors={errors}
+                  colors={colors}
+                  autoCapitalize="words"
+                />
+              </View>
+            </View>
 
-              {saveDetails && (
-                <>
+            <Text
+              style={[
+                styles.label,
+                { color: colors.textSecondary, marginBottom: 8 },
+              ]}
+            >
+              Phone Number
+            </Text>
+            <Controller
+              control={control}
+              name="phone"
+              render={({ field: { value, onChange, onBlur } }) => (
+                <PhoneInput
+                  value={value}
+                  onChangeText={onChange}
+                  onBlur={onBlur}
+                  error={errors.phone?.message}
+                  containerStyle={styles.compactInputGroup}
+                />
+              )}
+            />
+
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
+              Email Address
+            </Text>
+            <FormField
+              name="email"
+              label=""
+              placeholder="john@example.com"
+              control={control}
+              errors={errors}
+              colors={colors}
+              containerStyle={styles.compactInputGroup}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            {/* Save Details Checkbox — guests only */}
+            {!isAuthenticated && (
+              <View style={styles.saveDetailsSection}>
+                <Pressable
+                  style={styles.checkboxRow}
+                  onPress={() => setSaveDetails(!saveDetails)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: saveDetails }}
+                  accessibilityLabel="Save my details for faster checkout"
+                >
                   <View
                     style={[
-                      styles.accountInfoBanner,
-                      { backgroundColor: `${BRAND.primary}10` },
+                      styles.checkbox,
+                      saveDetails && styles.checkboxChecked,
+                      {
+                        borderColor: saveDetails
+                          ? BRAND.primary
+                          : colors.border,
+                      },
                     ]}
                   >
-                    <Ionicons
-                      name="information-circle"
-                      size={18}
-                      color={BRAND.primary}
-                    />
-                    <Text
-                      style={[
-                        styles.accountInfoText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      This will create an account so you can track your order
-                      and checkout faster next time.
-                    </Text>
+                    {saveDetails && (
+                      <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                    )}
                   </View>
+                  <Text style={[styles.checkboxLabel, { color: colors.text }]}>
+                    Save my details for faster checkout
+                  </Text>
+                </Pressable>
 
-                  <View style={styles.inputGroup}>
-                    <Text
-                      style={[styles.label, { color: colors.textSecondary }]}
-                    >
-                      Create a Password
-                    </Text>
-                    <TextInput
+                {saveDetails && (
+                  <>
+                    <View
                       style={[
-                        styles.input,
-                        {
-                          backgroundColor: colors.card,
-                          color: colors.text,
-                          borderColor:
-                            accountPassword.length > 0 &&
-                            accountPassword.length < 6
-                              ? '#EF4444'
-                              : colors.border,
-                        },
+                        styles.accountInfoBanner,
+                        { backgroundColor: `${BRAND.primary}10` },
                       ]}
-                      value={accountPassword}
-                      onChangeText={setAccountPassword}
-                      placeholder="Min. 6 characters"
-                      placeholderTextColor={colors.textSecondary}
-                      secureTextEntry
-                      autoComplete="new-password"
-                      textContentType="newPassword"
-                      accessibilityLabel="Create a password"
-                    />
-                    {accountPassword.length > 0 &&
-                      accountPassword.length < 6 && (
-                        <Text style={styles.fieldError}>
-                          Password must be at least 6 characters
-                        </Text>
-                      )}
-                  </View>
-                </>
-              )}
-            </View>
-          )}
+                    >
+                      <Ionicons
+                        name="information-circle"
+                        size={18}
+                        color={BRAND.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.accountInfoText,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        This will create an account so you can track your order
+                        and checkout faster next time.
+                      </Text>
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                      <Text
+                        style={[styles.label, { color: colors.textSecondary }]}
+                      >
+                        Create a Password
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.input,
+                          {
+                            backgroundColor: colors.card,
+                            color: colors.text,
+                            borderColor:
+                              accountPassword.length > 0 &&
+                              accountPassword.length < 6
+                                ? '#EF4444'
+                                : colors.border,
+                          },
+                        ]}
+                        value={accountPassword}
+                        onChangeText={setAccountPassword}
+                        placeholder="Min. 6 characters"
+                        placeholderTextColor={colors.textSecondary}
+                        secureTextEntry
+                        autoComplete="new-password"
+                        textContentType="newPassword"
+                        accessibilityLabel="Create a password"
+                      />
+                      {accountPassword.length > 0 &&
+                        accountPassword.length < 6 && (
+                          <Text style={styles.fieldError}>
+                            Password must be at least 6 characters
+                          </Text>
+                        )}
+                    </View>
+                  </>
+                )}
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -2103,7 +2499,7 @@ export default function CheckoutScreen() {
         ]}
       >
         <View style={styles.cardHeaderActionRow}>
-          <View style={styles.cardHeader}>
+          <View style={[styles.cardHeader, styles.cardHeaderInline]}>
             <Ionicons name="location-outline" size={16} color={BRAND.primary} />
             <Text style={[styles.cardTitle, { color: colors.text }]}>
               Delivery
@@ -2111,21 +2507,21 @@ export default function CheckoutScreen() {
           </View>
           {(hasSavedAddresses || Boolean(currentDeliverySummary)) && (
             <Pressable
-              style={[
-                styles.inlineEditButton,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(255, 255, 255, 0.04)'
-                    : palette.gray[50],
-                },
-              ]}
+              style={styles.inlineEditButton}
               onPress={() => setIsDeliveryCollapsed((value) => !value)}
+              hitSlop={10}
               accessibilityRole="button"
-              accessibilityLabel={isDeliveryCollapsed ? 'Edit delivery address' : 'Collapse delivery address'}
+              accessibilityLabel={
+                isDeliveryCollapsed
+                  ? 'Edit delivery address'
+                  : 'Collapse delivery address'
+              }
             >
               <View style={styles.inlineActionContent}>
                 <Ionicons
-                  name={isDeliveryCollapsed ? 'create-outline' : 'checkmark-outline'}
+                  name={
+                    isDeliveryCollapsed ? 'create-outline' : 'checkmark-outline'
+                  }
                   size={16}
                   color={BRAND.primary}
                 />
@@ -2137,10 +2533,31 @@ export default function CheckoutScreen() {
           )}
         </View>
         {isDeliveryCollapsed ? (
-          <View style={styles.summarySection}>
-            <Text style={[styles.summaryEyebrow, { color: BRAND.primary }]}>
-              {deliverySummaryEyebrow}
-            </Text>
+          <View
+            style={[
+              styles.summaryPanel,
+              {
+                backgroundColor: isDark
+                  ? 'rgba(255, 255, 255, 0.04)'
+                  : palette.gray[50],
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View style={styles.summaryMetaRow}>
+              <Ionicons
+                name="navigate-circle-outline"
+                size={16}
+                color={BRAND.primary}
+              />
+              <Text
+                style={[styles.summaryMetaLabel, { color: colors.textSecondary }]}
+              >
+                {selectedSavedAddress?.is_default
+                  ? 'Default address'
+                  : 'Delivery destination'}
+              </Text>
+            </View>
             <View style={styles.summaryTitleRow}>
               <Text style={[styles.summaryTitle, { color: colors.text }]}>
                 {selectedSavedAddress?.label || 'Delivery address'}
@@ -2169,192 +2586,221 @@ export default function CheckoutScreen() {
           </View>
         ) : (
           <View style={[styles.cardBody, { overflow: 'visible', zIndex: 50 }]}>
-          {renderSavedAddressOptions()}
-          <Controller
-            control={control}
-            name="address"
-            render={({ field: { value, onChange } }) => (
-              <AddressAutocomplete
-                value={value}
-                onChangeText={onChange}
-                onSelect={(place) => {
-                  onChange(place.formattedAddress || '');
-                  const normalizedState = place.state
-                    ? normalizeStateName(place.state, shippingStates)
-                    : '';
-                  // Store Google city for sentinel matching against Topship list
-                  if (place.city) {
-                    const normalizedCity = place.city.trim().toLowerCase();
-                    if (
-                      normalizedState &&
-                      normalizedCity === normalizedState.toLowerCase()
-                    ) {
-                      // State = City edge case: sentinel will open picker
-                      googleSuggestedCityRef.current = '';
-                    } else {
-                      googleSuggestedCityRef.current = place.city;
-                    }
-                  }
-                  // Clear city - sentinel will set it after Topship cities load
-                  setValue('city', '', { shouldValidate: false });
-                  if (normalizedState) {
-                    setValue('state', normalizedState, {
-                      shouldValidate: true,
-                    });
-                  }
-                }}
-                label="Street Address"
-                placeholder="Start typing your address..."
-              />
-            )}
-          />
-
-          <View style={styles.row}>
-            <View style={styles.halfInput}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                City
-              </Text>
-              <Controller
-                control={control}
-                name="city"
-                render={({ field: { value } }) => (
-                  <>
-                    <Pressable
-                      onPress={() => setShowCityPicker(true)}
-                      style={[
-                        styles.input,
-                        styles.selectInput,
-                        {
-                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB',
-                          borderColor: errors.city ? '#EF4444' : 'transparent',
-                        },
-                      ]}
-                      accessibilityRole="button"
-                      accessibilityLabel="Select city"
-                    >
-	                      <Text
-	                        style={[
-	                          styles.selectInputText,
-	                          {
-	                            color: value ? colors.text : colors.textSecondary,
-	                          },
-	                        ]}
-	                      >
-	                        {value || 'Select city'}
-	                      </Text>
-                      {isLoadingCities ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={colors.textSecondary}
-                        />
-                      ) : (
-                        <Ionicons
-                          name="chevron-down"
-                          size={18}
-                          color={colors.textSecondary}
-                        />
-                      )}
-                    </Pressable>
-                    {errors.city && (
+            {renderSavedAddressOptions()}
+            {hasSavedAddresses && !isAddingNewAddress ? (
+              isAuthenticated &&
+              renderDefaultAddressCheckbox(
+                selectedSavedAddress?.is_default
+                  ? 'Keep as default address'
+                  : 'Make selected address my default'
+              )
+            ) : (
+              <>
+                {hasSavedAddresses && (
+                  <View
+                    style={[
+                      styles.newAddressIntro,
+                      {
+                        backgroundColor: isDark
+                          ? 'rgba(255, 255, 255, 0.04)'
+                          : palette.gray[50],
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="sparkles-outline"
+                      size={18}
+                      color={BRAND.primary}
+                    />
+                    <View style={styles.newAddressIntroBody}>
                       <Text
-                        style={styles.fieldError}
-                        accessibilityLiveRegion="polite"
+                        style={[
+                          styles.newAddressIntroTitle,
+                          { color: colors.text },
+                        ]}
                       >
-                        {errors.city?.message}
+                        New delivery address
                       </Text>
-                    )}
-                  </>
-                )}
-              />
-            </View>
-            <View style={styles.halfInput}>
-              <Text style={[styles.label, { color: colors.textSecondary }]}>
-                State
-              </Text>
-              <Controller
-                control={control}
-                name="state"
-                render={({ field: { value } }) => (
-                  <>
-                    <Pressable
-                      onPress={() => setShowStatePicker(true)}
-                      style={[
-                        styles.input,
-                        styles.selectInput,
-                        {
-                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB',
-                          borderColor: errors.state ? '#EF4444' : 'transparent',
-                        },
-                      ]}
-                      accessibilityRole="button"
-                      accessibilityLabel="Select state"
-                    >
-	                      <Text
-	                        style={[
-	                          styles.selectInputText,
-	                          {
-	                            color: value ? colors.text : colors.textSecondary,
-	                          },
-	                        ]}
-	                      >
-	                        {value || 'Select state'}
-	                      </Text>
-                      {isLoadingLocations ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={colors.textSecondary}
-                        />
-                      ) : (
-                        <Ionicons
-                          name="chevron-down"
-                          size={18}
-                          color={colors.textSecondary}
-                        />
-                      )}
-                    </Pressable>
-                    {errors.state && (
                       <Text
-                        style={styles.fieldError}
-                        accessibilityLiveRegion="polite"
+                        style={[
+                          styles.newAddressIntroText,
+                          { color: colors.textSecondary },
+                        ]}
                       >
-                        {errors.state?.message}
+                        Use this if this order should go somewhere else.
                       </Text>
-                    )}
-                  </>
+                    </View>
+                  </View>
                 )}
-              />
-            </View>
-          </View>
-          {isAuthenticated && (
-            <View style={styles.saveDetailsSection}>
-              <Pressable
-                style={styles.checkboxRow}
-                onPress={() => setSaveAsDefaultAddress((value) => !value)}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: saveAsDefaultAddress }}
-                accessibilityLabel="Set as default address"
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    saveAsDefaultAddress && styles.checkboxChecked,
-                    {
-                      borderColor: saveAsDefaultAddress
-                        ? BRAND.primary
-                        : colors.border,
-                    },
-                  ]}
-                >
-                  {saveAsDefaultAddress && (
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                <Controller
+                  control={control}
+                  name="address"
+                  render={({ field: { value, onChange } }) => (
+                    <AddressAutocomplete
+                      value={value}
+                      onChangeText={onChange}
+                      onSelect={(place) => {
+                        onChange(place.formattedAddress || '');
+                        const normalizedState = place.state
+                          ? normalizeStateName(place.state, shippingStates)
+                          : '';
+                        if (place.city) {
+                          const normalizedCity = place.city.trim().toLowerCase();
+                          if (
+                            normalizedState &&
+                            normalizedCity === normalizedState.toLowerCase()
+                          ) {
+                            googleSuggestedCityRef.current = '';
+                          } else {
+                            googleSuggestedCityRef.current = place.city;
+                          }
+                        }
+                        setValue('city', '', { shouldValidate: false });
+                        if (normalizedState) {
+                          setValue('state', normalizedState, {
+                            shouldValidate: true,
+                          });
+                        }
+                      }}
+                      label="Street Address"
+                      placeholder="Start typing your address..."
+                    />
                   )}
+                />
+
+                <View style={styles.row}>
+                  <View style={styles.halfInput}>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>
+                      City
+                    </Text>
+                    <Controller
+                      control={control}
+                      name="city"
+                      render={({ field: { value } }) => (
+                        <>
+                          <Pressable
+                            onPress={() => setShowCityPicker(true)}
+                            style={[
+                              styles.input,
+                              styles.selectInput,
+                              {
+                                backgroundColor: isDark
+                                  ? 'rgba(255, 255, 255, 0.05)'
+                                  : '#F9FAFB',
+                                borderColor: errors.city
+                                  ? '#EF4444'
+                                  : 'transparent',
+                              },
+                            ]}
+                            accessibilityRole="button"
+                            accessibilityLabel="Select city"
+                          >
+                            <Text
+                              style={[
+                                styles.selectInputText,
+                                {
+                                  color: value
+                                    ? colors.text
+                                    : colors.textSecondary,
+                                },
+                              ]}
+                            >
+                              {value || 'Select city'}
+                            </Text>
+                            {isLoadingCities ? (
+                              <ActivityIndicator
+                                size="small"
+                                color={colors.textSecondary}
+                              />
+                            ) : (
+                              <Ionicons
+                                name="chevron-down"
+                                size={18}
+                                color={colors.textSecondary}
+                              />
+                            )}
+                          </Pressable>
+                          {errors.city && (
+                            <Text
+                              style={styles.fieldError}
+                              accessibilityLiveRegion="polite"
+                            >
+                              {errors.city?.message}
+                            </Text>
+                          )}
+                        </>
+                      )}
+                    />
+                  </View>
+                  <View style={styles.halfInput}>
+                    <Text style={[styles.label, { color: colors.textSecondary }]}>
+                      State
+                    </Text>
+                    <Controller
+                      control={control}
+                      name="state"
+                      render={({ field: { value } }) => (
+                        <>
+                          <Pressable
+                            onPress={() => setShowStatePicker(true)}
+                            style={[
+                              styles.input,
+                              styles.selectInput,
+                              {
+                                backgroundColor: isDark
+                                  ? 'rgba(255, 255, 255, 0.05)'
+                                  : '#F9FAFB',
+                                borderColor: errors.state
+                                  ? '#EF4444'
+                                  : 'transparent',
+                              },
+                            ]}
+                            accessibilityRole="button"
+                            accessibilityLabel="Select state"
+                          >
+                            <Text
+                              style={[
+                                styles.selectInputText,
+                                {
+                                  color: value
+                                    ? colors.text
+                                    : colors.textSecondary,
+                                },
+                              ]}
+                            >
+                              {value || 'Select state'}
+                            </Text>
+                            {isLoadingLocations ? (
+                              <ActivityIndicator
+                                size="small"
+                                color={colors.textSecondary}
+                              />
+                            ) : (
+                              <Ionicons
+                                name="chevron-down"
+                                size={18}
+                                color={colors.textSecondary}
+                              />
+                            )}
+                          </Pressable>
+                          {errors.state && (
+                            <Text
+                              style={styles.fieldError}
+                              accessibilityLiveRegion="polite"
+                            >
+                              {errors.state?.message}
+                            </Text>
+                          )}
+                        </>
+                      )}
+                    />
+                  </View>
                 </View>
-                <Text style={[styles.checkboxLabel, { color: colors.text }]}>
-                  Set as default address
-                </Text>
-              </Pressable>
-            </View>
-          )}
+                {isAuthenticated &&
+                  renderDefaultAddressCheckbox('Set as default address')}
+              </>
+            )}
           </View>
         )}
       </View>
@@ -2362,8 +2808,8 @@ export default function CheckoutScreen() {
       <View
         style={[
           styles.card,
-          { 
-            backgroundColor: colors.card, 
+          {
+            backgroundColor: colors.card,
             borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
           },
         ]}
@@ -2371,227 +2817,436 @@ export default function CheckoutScreen() {
         <View style={styles.cardHeader}>
           <Ionicons name="cube-outline" size={16} color={BRAND.primary} />
           <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Shipping
+            Delivery Methods
           </Text>
         </View>
         <View style={styles.cardBody}>
-          {!watchedState || !watchedCity ? (
-            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-              Select your state and city to see delivery options.
-            </Text>
-          ) : isLoadingQuotes ? (
-            <View style={styles.quoteLoadingRow}>
-              <ActivityIndicator size="small" color={BRAND.primary} />
-              <Text
-                style={[styles.helperText, { color: colors.textSecondary }]}
-              >
-                Fetching delivery options...
-              </Text>
-            </View>
-          ) : shippingQuotes.length === 0 ? (
-            <Pressable
-              onPress={() => {
-                if (watchedState && watchedCity) {
-                  const shouldResetSelection =
-                    resolvedShippingQuoteContextKey !==
-                    currentShippingQuoteContextKey;
-                  fetchShippingQuotes({
-                    apiUrl: API_BASE_URL,
-                    state: watchedState,
-                    city: watchedCity,
-                    items,
-                    customer,
-                    watchedFirstName,
-                    watchedLastName,
-                    watchedPhone,
-                    watchedAddress,
-                    watchedEmail,
-                    setIsLoadingQuotes,
-                    setSelectedQuoteId,
-                    setResolvedShippingQuoteContextKey,
-                    setShippingQuotes,
-                    previousSelectedQuoteId: shouldResetSelection
-                      ? null
-                      : selectedQuoteId,
-                    quoteContextKey: currentShippingQuoteContextKey,
-                    shouldResetSelection,
-                  });
-                }
-              }}
-              style={[
-                styles.retryCard,
-                {
-                  borderColor: isDark
-                    ? 'rgba(245, 158, 11, 0.4)'
-                    : '#FCD34D',
-                  backgroundColor: isDark
-                    ? 'rgba(245, 158, 11, 0.08)'
-                    : '#FFFBEB',
-                },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Reload delivery rates"
-            >
-              <View
-                style={[
-                  styles.retryIconWrap,
-                  {
-                    backgroundColor: isDark
-                      ? 'rgba(245, 158, 11, 0.14)'
-                      : '#FEF3C7',
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="car-outline"
-                  size={22}
-                  color={isDark ? colors.warning : '#B45309'}
-                />
-              </View>
-              <View style={styles.retryTextWrap}>
-                <Text
-                  style={[
-                    styles.retryTitle,
-                    { color: isDark ? colors.text : '#111827' },
-                  ]}
-                >
-                  Oops! Rates took a detour
-                </Text>
-                <Text
-                  style={[
-                    styles.retrySubtitle,
-                    { color: isDark ? colors.textSecondary : '#B45309' },
-                  ]}
-                >
-                  Our delivery partners are a bit slow today. Tap here to try
-                  again.
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.retryBadge,
-                  {
-                    backgroundColor: isDark
-                      ? 'rgba(245, 158, 11, 0.14)'
-                      : '#FEF3C7',
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.retryBadgeText,
-                    { color: isDark ? colors.warning : '#B45309' },
-                  ]}
-                >
-                  Refresh Rates
-                </Text>
-              </View>
-            </Pressable>
-          ) : (
-            shippingQuotes.map((quote) => {
-              const isSelected = String(quote.id) === String(selectedQuoteId);
-              const eta =
-                quote.deliveryRange ||
-                (quote.estimatedDays
-                  ? `${quote.estimatedDays} days`
-                  : 'ETA unavailable');
+          <Text style={[styles.helperText, { color: colors.textSecondary }]}>
+            Choose how you want to receive this order.
+          </Text>
 
-              const carrier = quote.carrierName || quote.provider || 'Delivery';
+          <View style={styles.deliveryMethodList}>
+            {(
+              [
+                {
+                  id: 'door',
+                  title: 'Door delivery',
+                  subtitle:
+                    selectedQuote != null
+                      ? getDeliveryMethodSummary('door', selectedQuote)
+                      : 'Use our current Topship delivery options',
+                  price:
+                    selectedQuote != null
+                      ? formatPrice(selectedQuote.price)
+                      : 'Select option',
+                },
+                {
+                  id: 'airport',
+                  title: 'Airport Delivery (Outside Lagos)',
+                  subtitle: 'Est Delivery within 24-48 working hours',
+                  price: formatPrice(AIRPORT_DELIVERY_FEE),
+                },
+                {
+                  id: 'pickup_station',
+                  title: 'Pick Up Station',
+                  subtitle: PICKUP_STATION_ADDRESS_LINES.join(', '),
+                  price: 'Free',
+                },
+              ] as const
+            ).map((option) => {
+              const isSelected = deliveryMethod === option.id;
 
               return (
                 <Pressable
-                  key={String(quote.id)}
-                  onPress={() => setSelectedQuoteId(String(quote.id))}
-	                  style={[
-	                    styles.quoteRow,
-	                    {
-	                      borderColor: isSelected ? BRAND.primary : colors.border,
-	                      backgroundColor: isSelected
-	                        ? isDark
-	                          ? 'rgba(217, 59, 48, 0.16)'
-	                          : palette.red[50]
-	                        : colors.card,
-	                    },
-	                  ]}
+                  key={option.id}
+                  onPress={() => setDeliveryMethod(option.id)}
+                  style={[
+                    styles.deliveryMethodCard,
+                    {
+                      borderColor: isSelected ? BRAND.primary : colors.border,
+                      backgroundColor: isSelected
+                        ? isDark
+                          ? 'rgba(217, 59, 48, 0.14)'
+                          : palette.red[50]
+                        : colors.background,
+                    },
+                  ]}
                   accessibilityRole="button"
-                  accessibilityLabel={`Select ${quote.displayName} for ${formatPrice(quote.price)}`}
+                  accessibilityLabel={`Select ${option.title}`}
                 >
-                  <View style={styles.quoteInfo}>
-	                    <View style={styles.quoteHeader}>
-	                      <Text
-	                        style={[
-	                          styles.quoteTitle,
-	                          {
-	                            color: isSelected
-	                              ? isDark
-	                                ? '#FDECEA'
-	                                : BRAND.primary
-	                              : colors.text,
-	                          },
-	                        ]}
-	                      >
-	                        {quote.displayName}
-	                      </Text>
-                      {carrier.includes('GIG') && (
-                        <View style={styles.quoteBadgeDark}>
-                          <Text style={styles.quoteBadgeText}>GIGL</Text>
+                  <View style={styles.deliveryMethodTopRow}>
+                    <View style={styles.deliveryMethodLabelWrap}>
+                      <Text
+                        style={[
+                          styles.deliveryMethodTitle,
+                          {
+                            color: isSelected
+                              ? BRAND.primary
+                              : colors.text,
+                          },
+                        ]}
+                      >
+                        {option.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.deliveryMethodSubtitle,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        {option.subtitle}
+                      </Text>
+                    </View>
+                    <View style={styles.deliveryMethodMeta}>
+                      <Text
+                        style={[
+                          styles.deliveryMethodPrice,
+                          {
+                            color: isSelected
+                              ? BRAND.primary
+                              : colors.text,
+                          },
+                        ]}
+                      >
+                        {option.price}
+                      </Text>
+                      <Ionicons
+                        name={
+                          isSelected ? 'checkmark-circle' : 'ellipse-outline'
+                        }
+                        size={20}
+                        color={
+                          isSelected ? BRAND.primary : colors.textSecondary
+                        }
+                      />
+                    </View>
+                  </View>
+
+                  {isSelected && option.id === 'door' ? (
+                    <View style={styles.deliveryMethodExpanded}>
+                      {!watchedState || !watchedCity ? (
+                        <Text
+                          style={[
+                            styles.helperText,
+                            { color: colors.textSecondary },
+                          ]}
+                        >
+                          Select your state and city to load Topship delivery
+                          options.
+                        </Text>
+                      ) : isLoadingQuotes ? (
+                        <View style={styles.quoteLoadingRow}>
+                          <ActivityIndicator size="small" color={BRAND.primary} />
+                          <Text
+                            style={[
+                              styles.helperText,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            Fetching delivery options...
+                          </Text>
                         </View>
-                      )}
-                      {carrier.toLowerCase().includes('topship') && (
-                        <View style={styles.quoteBadge}>
-                          <Text style={styles.quoteBadgeText}>Topship</Text>
-                        </View>
+                      ) : shippingQuotes.length === 0 ? (
+                        <Pressable
+                          onPress={() => {
+                            if (watchedState && watchedCity) {
+                              const shouldResetSelection =
+                                resolvedShippingQuoteContextKey !==
+                                currentShippingQuoteContextKey;
+                              fetchShippingQuotes({
+                                apiUrl: API_BASE_URL,
+                                state: watchedState,
+                                city: watchedCity,
+                                items,
+                                customer,
+                                watchedFirstName,
+                                watchedLastName,
+                                watchedPhone,
+                                watchedAddress,
+                                watchedEmail,
+                                setIsLoadingQuotes,
+                                setSelectedQuoteId,
+                                setResolvedShippingQuoteContextKey,
+                                setShippingQuotes,
+                                previousSelectedQuoteId: shouldResetSelection
+                                  ? null
+                                  : selectedQuoteId,
+                                quoteContextKey: currentShippingQuoteContextKey,
+                                shouldResetSelection,
+                              });
+                            }
+                          }}
+                          style={[
+                            styles.retryCard,
+                            {
+                              borderColor: isDark
+                                ? 'rgba(245, 158, 11, 0.4)'
+                                : '#FCD34D',
+                              backgroundColor: isDark
+                                ? 'rgba(245, 158, 11, 0.08)'
+                                : '#FFFBEB',
+                            },
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel="Reload delivery rates"
+                        >
+                          <View
+                            style={[
+                              styles.retryIconWrap,
+                              {
+                                backgroundColor: isDark
+                                  ? 'rgba(245, 158, 11, 0.14)'
+                                  : '#FEF3C7',
+                              },
+                            ]}
+                          >
+                            <Ionicons
+                              name="car-outline"
+                              size={22}
+                              color={isDark ? colors.warning : '#B45309'}
+                            />
+                          </View>
+                          <View style={styles.retryTextWrap}>
+                            <Text
+                              style={[
+                                styles.retryTitle,
+                                { color: isDark ? colors.text : '#111827' },
+                              ]}
+                            >
+                              Oops! Rates took a detour
+                            </Text>
+                            <Text
+                              style={[
+                                styles.retrySubtitle,
+                                {
+                                  color: isDark
+                                    ? colors.textSecondary
+                                    : '#B45309',
+                                },
+                              ]}
+                            >
+                              Our delivery partners are a bit slow today. Tap
+                              here to try again.
+                            </Text>
+                          </View>
+                          <View
+                            style={[
+                              styles.retryBadge,
+                              {
+                                backgroundColor: isDark
+                                  ? 'rgba(245, 158, 11, 0.14)'
+                                  : '#FEF3C7',
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.retryBadgeText,
+                                {
+                                  color: isDark
+                                    ? colors.warning
+                                    : '#B45309',
+                                },
+                              ]}
+                            >
+                              Refresh Rates
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ) : (
+                        shippingQuotes.map((quote) => {
+                          const isSelectedQuote =
+                            String(quote.id) === String(selectedQuoteId);
+                          const eta =
+                            quote.deliveryRange ||
+                            (quote.estimatedDays
+                              ? `${quote.estimatedDays} days`
+                              : 'ETA unavailable');
+
+                          const carrier =
+                            quote.carrierName ||
+                            quote.provider ||
+                            'Delivery';
+
+                          return (
+                            <Pressable
+                              key={String(quote.id)}
+                              onPress={() => setSelectedQuoteId(String(quote.id))}
+                              style={[
+                                styles.quoteRow,
+                                {
+                                  borderColor: isSelectedQuote
+                                    ? BRAND.primary
+                                    : colors.border,
+                                  backgroundColor: isSelectedQuote
+                                    ? isDark
+                                      ? 'rgba(217, 59, 48, 0.16)'
+                                      : palette.red[50]
+                                    : colors.card,
+                                },
+                              ]}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Select ${quote.displayName} for ${formatPrice(quote.price)}`}
+                            >
+                              <View style={styles.quoteInfo}>
+                                <View style={styles.quoteHeader}>
+                                  <Text
+                                    style={[
+                                      styles.quoteTitle,
+                                      {
+                                        color: isSelectedQuote
+                                          ? isDark
+                                            ? '#FDECEA'
+                                            : BRAND.primary
+                                          : colors.text,
+                                      },
+                                    ]}
+                                  >
+                                    {quote.displayName}
+                                  </Text>
+                                  {carrier.includes('GIG') && (
+                                    <View style={styles.quoteBadgeDark}>
+                                      <Text style={styles.quoteBadgeText}>
+                                        GIGL
+                                      </Text>
+                                    </View>
+                                  )}
+                                  {carrier.toLowerCase().includes('topship') && (
+                                    <View style={styles.quoteBadge}>
+                                      <Text style={styles.quoteBadgeText}>
+                                        Topship
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
+                                <Text
+                                  style={[
+                                    styles.quoteMeta,
+                                    {
+                                      color: isSelectedQuote
+                                        ? isDark
+                                          ? palette.gray[200]
+                                          : '#B42318'
+                                        : colors.textSecondary,
+                                    },
+                                  ]}
+                                >
+                                  {carrier} • Est. {eta}
+                                </Text>
+                              </View>
+                              <View style={styles.quoteRight}>
+                                <Text
+                                  style={[
+                                    styles.quotePrice,
+                                    {
+                                      color: isSelectedQuote
+                                        ? isDark
+                                          ? '#FFF5F4'
+                                          : BRAND.primary
+                                        : colors.text,
+                                    },
+                                  ]}
+                                >
+                                  {formatPrice(quote.price)}
+                                </Text>
+                                <Ionicons
+                                  name={
+                                    isSelectedQuote
+                                      ? 'checkmark-circle'
+                                      : 'ellipse-outline'
+                                  }
+                                  size={20}
+                                  color={
+                                    isSelectedQuote
+                                      ? BRAND.primary
+                                      : colors.textSecondary
+                                  }
+                                />
+                              </View>
+                            </Pressable>
+                          );
+                        })
                       )}
                     </View>
-	                    <Text
-	                      style={[
-	                        styles.quoteMeta,
-	                        {
-	                          color: isSelected
-	                            ? isDark
-	                              ? palette.gray[200]
-	                              : '#B42318'
-	                            : colors.textSecondary,
-	                        },
-	                      ]}
-	                    >
-	                      {carrier} • Est. {eta}
-	                    </Text>
-	                  </View>
-	                  <View style={styles.quoteRight}>
-	                    <Text
-	                      style={[
-	                        styles.quotePrice,
-	                        {
-	                          color: isSelected
-	                            ? isDark
-	                              ? '#FFF5F4'
-	                              : BRAND.primary
-	                            : colors.text,
-	                        },
-	                      ]}
-	                    >
-	                      {formatPrice(quote.price)}
-	                    </Text>
-                    <Ionicons
-                      name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={20}
-                      color={isSelected ? BRAND.primary : colors.textSecondary}
-                    />
-                  </View>
+                  ) : null}
+
+                  {isSelected && option.id === 'airport' ? (
+                    <View
+                      style={[
+                        styles.deliveryMethodExpanded,
+                        styles.deliveryStaticInfo,
+                        {
+                          backgroundColor: isDark
+                            ? 'rgba(255, 255, 255, 0.04)'
+                            : palette.gray[50],
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.deliveryStaticTitle,
+                          { color: colors.text },
+                        ]}
+                      >
+                        Airport Delivery
+                      </Text>
+                      <Text
+                        style={[
+                          styles.deliveryStaticText,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
+                        Est Delivery within 24-48 working hours
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {isSelected && option.id === 'pickup_station' ? (
+                    <View
+                      style={[
+                        styles.deliveryMethodExpanded,
+                        styles.deliveryStaticInfo,
+                        {
+                          backgroundColor: isDark
+                            ? 'rgba(255, 255, 255, 0.04)'
+                            : palette.gray[50],
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      {PICKUP_STATION_ADDRESS_LINES.map((line) => (
+                        <Text
+                          key={line}
+                          style={[
+                            styles.deliveryStaticText,
+                            {
+                              color: colors.text,
+                              fontWeight:
+                                line === PICKUP_STATION_ADDRESS_LINES[0]
+                                  ? '700'
+                                  : '500',
+                            },
+                          ]}
+                        >
+                          {line}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
                 </Pressable>
               );
-            })
-          )}
+            })}
+          </View>
         </View>
       </View>
 
       <View
         style={[
           styles.card,
-          { 
-            backgroundColor: colors.card, 
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent', 
+          {
+            backgroundColor: colors.card,
+            borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
           },
         ]}
       >
@@ -2644,9 +3299,9 @@ export default function CheckoutScreen() {
         selectedMethod={selectedPayment}
         onSelectMethod={setSelectedPayment}
         selectedTab={paymentTab}
-        onSelectTab={setPaymentTab}
+        onSelectTab={handleSelectPaymentTab}
         orderTotal={total}
-        enabledMethods={enabledPaymentMethods}
+        enabledMethods={availablePaymentMethods}
       />
     </ScrollView>
   );
@@ -2676,8 +3331,8 @@ export default function CheckoutScreen() {
         <View
           style={[
             styles.reviewCard,
-            { 
-              backgroundColor: colors.card, 
+            {
+              backgroundColor: colors.card,
               borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
               ...SHADOWS.sm,
             },
@@ -2685,7 +3340,7 @@ export default function CheckoutScreen() {
         >
           <View style={styles.reviewHeader}>
             <Text style={[styles.reviewTitle, { color: colors.text }]}>
-              Delivery Address
+              Delivery
             </Text>
             <Pressable onPress={() => setStep('address')}>
               <Text style={[styles.editLink, { color: BRAND.primary }]}>
@@ -2693,6 +3348,12 @@ export default function CheckoutScreen() {
               </Text>
             </Pressable>
           </View>
+          <Text style={[styles.reviewTextStrong, { color: colors.text }]}>
+            {getDeliveryMethodLabel(deliveryMethod)}
+          </Text>
+          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
+            {getDeliveryMethodSummary(deliveryMethod, selectedQuote)}
+          </Text>
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
             {address.firstName} {address.lastName}
           </Text>
@@ -2703,15 +3364,19 @@ export default function CheckoutScreen() {
             {address.phone}
           </Text>
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {address.address}, {address.city}, {address.state}
+            {deliveryMethod === 'pickup_station'
+              ? PICKUP_STATION_ADDRESS_LINES.join(', ')
+              : deliveryMethod === 'airport'
+                ? `${address.city}, ${address.state}`
+                : `${address.address}, ${address.city}, ${address.state}`}
           </Text>
         </View>
 
         <View
           style={[
             styles.reviewCard,
-            { 
-              backgroundColor: colors.card, 
+            {
+              backgroundColor: colors.card,
               borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
               ...SHADOWS.sm,
             },
@@ -2735,8 +3400,8 @@ export default function CheckoutScreen() {
         <View
           style={[
             styles.reviewCard,
-            { 
-              backgroundColor: colors.card, 
+            {
+              backgroundColor: colors.card,
               borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
               ...SHADOWS.sm,
             },
@@ -2747,8 +3412,7 @@ export default function CheckoutScreen() {
           </Text>
           {items.map((item) => (
             <View key={item.id} style={styles.orderItem}>
-              <Text
-                style={[styles.orderItemName, { color: colors.text }]}>
+              <Text style={[styles.orderItemName, { color: colors.text }]}>
                 {item.name}
               </Text>
               <Text
@@ -2768,8 +3432,8 @@ export default function CheckoutScreen() {
         <View
           style={[
             styles.totalCard,
-            { 
-              backgroundColor: colors.card, 
+            {
+              backgroundColor: colors.card,
               borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
               ...SHADOWS.sm,
             },
@@ -2837,8 +3501,11 @@ export default function CheckoutScreen() {
       />
 
       <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['top']}
+        style={[
+          styles.container,
+          { backgroundColor: colors.background, marginBottom: -insets.bottom },
+        ]}
+        edges={['left', 'right']}
       >
         <View
           style={[
@@ -2846,6 +3513,8 @@ export default function CheckoutScreen() {
             {
               backgroundColor: colors.background,
               borderBottomColor: colors.border,
+              paddingTop: 0,
+              paddingBottom: SPACING.sm,
             },
           ]}
         >
@@ -2872,11 +3541,14 @@ export default function CheckoutScreen() {
           {step === 'payment' && renderPaymentOptions()}
           {step === 'review' && renderReview()}
 
-          <SafeAreaView
-            edges={['bottom']}
+          <View
             style={[
               styles.bottomAction,
-              { backgroundColor: colors.card, borderTopColor: colors.border },
+              {
+                backgroundColor: colors.card,
+                borderTopColor: colors.border,
+                paddingBottom: insets.bottom,
+              },
             ]}
           >
             <View style={styles.bottomBar}>
@@ -2905,7 +3577,7 @@ export default function CheckoutScreen() {
                   onPress={handlePlaceOrder}
                   disabled={isProcessing}
                   accessibilityRole="button"
-                  accessibilityLabel={`Place order for ${formatPrice(total)}`}
+                  accessibilityLabel={`${selectedPayment === 'invoice' ? 'Generate invoice' : selectedPayment === 'payforme' ? 'Prepare pay for me order' : 'Place order'} for ${formatPrice(total)}`}
                   accessibilityState={{
                     disabled: isProcessing,
                     busy: isProcessing,
@@ -2918,7 +3590,13 @@ export default function CheckoutScreen() {
                     </View>
                   ) : (
                     <>
-                      <Text style={styles.actionButtonText}>Place Order</Text>
+                      <Text style={styles.actionButtonText}>
+                        {selectedPayment === 'invoice'
+                          ? 'Generate Invoice'
+                          : selectedPayment === 'payforme'
+                            ? 'Pay for Me'
+                            : 'Place Order'}
+                      </Text>
                       <Animated.View style={animatedCtaArrowStyle}>
                         <Ionicons
                           name="arrow-forward"
@@ -2946,226 +3624,212 @@ export default function CheckoutScreen() {
                 </Pressable>
               )}
             </View>
-          </SafeAreaView>
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-        {/* State Picker */}
-        <Modal
-          visible={showStatePicker}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowStatePicker(false)}
-        >
-          <View style={styles.pickerOverlay}>
-            <View
-              style={[styles.pickerSheet, { backgroundColor: colors.card }]}
-            >
-              <View style={styles.pickerHeader}>
-                <Text style={[styles.pickerTitle, { color: colors.text }]}>
-                  Select State
-                </Text>
+      {/* State Picker */}
+      <Modal
+        visible={showStatePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowStatePicker(false)}
+      >
+        <View style={styles.pickerOverlay}>
+          <View style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
+            <View style={styles.pickerHeader}>
+              <Text style={[styles.pickerTitle, { color: colors.text }]}>
+                Select State
+              </Text>
+              <Pressable onPress={() => setShowStatePicker(false)} hitSlop={12}>
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+            <FlatList
+              data={shippingStates}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
                 <Pressable
-                  onPress={() => setShowStatePicker(false)}
-                  hitSlop={12}
+                  style={[
+                    styles.pickerItem,
+                    { borderBottomColor: colors.border },
+                    item === watchedState && {
+                      backgroundColor: isDark
+                        ? 'rgba(217, 59, 48, 0.14)'
+                        : palette.red[50],
+                    },
+                  ]}
+                  onPress={() => handleSelectState(item)}
                 >
+                  <View style={styles.pickerItemContent}>
+                    <Text
+                      style={[
+                        styles.pickerItemText,
+                        {
+                          color:
+                            item === watchedState
+                              ? isDark
+                                ? '#FDECEA'
+                                : BRAND.primary
+                              : colors.text,
+                          fontWeight: item === watchedState ? '700' : '500',
+                        },
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                    {item === watchedState && (
+                      <Ionicons
+                        name="checkmark"
+                        size={18}
+                        color={BRAND.primary}
+                      />
+                    )}
+                  </View>
+                </Pressable>
+              )}
+              ListEmptyComponent={
+                <Text
+                  style={[styles.helperText, { color: colors.textSecondary }]}
+                >
+                  No states available.
+                </Text>
+              }
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* City Picker */}
+      <Modal
+        visible={showCityPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setShowCityPicker(false);
+          setCitySearch('');
+        }}
+      >
+        <View style={styles.pickerOverlay}>
+          <View style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
+            <View style={styles.pickerHeader}>
+              <Text style={[styles.pickerTitle, { color: colors.text }]}>
+                Select City
+              </Text>
+              <Pressable
+                onPress={() => {
+                  setShowCityPicker(false);
+                  setCitySearch('');
+                }}
+                hitSlop={12}
+              >
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+            <View
+              style={[
+                styles.citySearchContainer,
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(255, 255, 255, 0.05)'
+                    : '#F9FAFB',
+                  borderColor: citySearchFocused
+                    ? BRAND.primary
+                    : 'transparent',
+                },
+              ]}
+            >
+              <Ionicons
+                name="search"
+                size={16}
+                color={citySearchFocused ? BRAND.primary : colors.textSecondary}
+              />
+              <TextInput
+                style={[styles.citySearchInput, { color: colors.text }]}
+                placeholder="Search or type your city..."
+                placeholderTextColor={colors.textSecondary}
+                value={citySearch}
+                onChangeText={setCitySearch}
+                onFocus={() => setCitySearchFocused(true)}
+                onBlur={() => setCitySearchFocused(false)}
+                autoCapitalize="words"
+                autoCorrect={false}
+                returnKeyType="done"
+              />
+              {citySearch.length > 0 && (
+                <Pressable onPress={() => setCitySearch('')} hitSlop={8}>
                   <Ionicons
-                    name="close"
-                    size={22}
+                    name="close-circle"
+                    size={18}
                     color={colors.textSecondary}
                   />
                 </Pressable>
-              </View>
-              <FlatList
-                data={shippingStates}
-                keyExtractor={(item) => item}
-	                renderItem={({ item }) => (
-	                  <Pressable
-	                    style={[
-	                      styles.pickerItem,
-	                      { borderBottomColor: colors.border },
-	                      item === watchedState && {
-	                        backgroundColor: isDark
-	                          ? 'rgba(217, 59, 48, 0.14)'
-	                          : palette.red[50],
-	                      },
-	                    ]}
-	                    onPress={() => handleSelectState(item)}
-	                  >
-	                    <View style={styles.pickerItemContent}>
-	                      <Text
-	                        style={[
-	                          styles.pickerItemText,
-	                          {
-	                            color:
-	                              item === watchedState
-	                                ? isDark
-	                                  ? '#FDECEA'
-	                                  : BRAND.primary
-	                                : colors.text,
-	                            fontWeight: item === watchedState ? '700' : '500',
-	                          },
-	                        ]}
-	                      >
-	                        {item}
-	                      </Text>
-	                      {item === watchedState && (
-	                        <Ionicons
-	                          name="checkmark"
-	                          size={18}
-	                          color={BRAND.primary}
-	                        />
-	                      )}
-	                    </View>
-	                  </Pressable>
-	                )}
-                ListEmptyComponent={
+              )}
+            </View>
+            <FlatList
+              data={
+                citySearch
+                  ? shippingCities.filter((c) =>
+                      c.toLowerCase().includes(citySearch.toLowerCase())
+                    )
+                  : shippingCities
+              }
+              keyExtractor={(item) => item}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item }) => (
+                <Pressable
+                  style={[
+                    styles.pickerItem,
+                    { borderBottomColor: colors.border },
+                    item === watchedCity && {
+                      backgroundColor: isDark
+                        ? 'rgba(217, 59, 48, 0.14)'
+                        : palette.red[50],
+                    },
+                  ]}
+                  onPress={() => handleSelectCity(item)}
+                >
+                  <View style={styles.pickerItemContent}>
+                    <Text
+                      style={[
+                        styles.pickerItemText,
+                        {
+                          color:
+                            item === watchedCity
+                              ? isDark
+                                ? '#FDECEA'
+                                : BRAND.primary
+                              : colors.text,
+                          fontWeight: item === watchedCity ? '700' : '500',
+                        },
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                    {item === watchedCity && (
+                      <Ionicons
+                        name="checkmark"
+                        size={18}
+                        color={BRAND.primary}
+                      />
+                    )}
+                  </View>
+                </Pressable>
+              )}
+              ListHeaderComponent={null}
+              ListEmptyComponent={
+                !citySearch.trim() ? (
                   <Text
                     style={[styles.helperText, { color: colors.textSecondary }]}
                   >
-                    No states available.
+                    No cities available. Type your city above.
                   </Text>
-                }
-              />
-            </View>
+                ) : null
+              }
+            />
           </View>
-        </Modal>
-
-        {/* City Picker */}
-        <Modal
-          visible={showCityPicker}
-          transparent
-          animationType="slide"
-          onRequestClose={() => {
-            setShowCityPicker(false);
-            setCitySearch('');
-          }}
-        >
-          <View style={styles.pickerOverlay}>
-            <View
-              style={[styles.pickerSheet, { backgroundColor: colors.card }]}
-            >
-              <View style={styles.pickerHeader}>
-                <Text style={[styles.pickerTitle, { color: colors.text }]}>
-                  Select City
-                </Text>
-                <Pressable
-                  onPress={() => {
-                    setShowCityPicker(false);
-                    setCitySearch('');
-                  }}
-                  hitSlop={12}
-                >
-                  <Ionicons
-                    name="close"
-                    size={22}
-                    color={colors.textSecondary}
-                  />
-                </Pressable>
-              </View>
-              <View
-                style={[
-                  styles.citySearchContainer,
-                  { 
-                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#F9FAFB',
-                    borderColor: citySearchFocused ? BRAND.primary : 'transparent' 
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="search"
-                  size={16}
-                  color={citySearchFocused ? BRAND.primary : colors.textSecondary}
-                />
-                <TextInput
-                  style={[styles.citySearchInput, { color: colors.text }]}
-                  placeholder="Search or type your city..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={citySearch}
-                  onChangeText={setCitySearch}
-                  onFocus={() => setCitySearchFocused(true)}
-                  onBlur={() => setCitySearchFocused(false)}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  returnKeyType="done"
-                />
-                {citySearch.length > 0 && (
-                  <Pressable onPress={() => setCitySearch('')} hitSlop={8}>
-                    <Ionicons
-                      name="close-circle"
-                      size={18}
-                      color={colors.textSecondary}
-                    />
-                  </Pressable>
-                )}
-              </View>
-              <FlatList
-                data={
-                  citySearch
-                    ? shippingCities.filter((c) =>
-                        c.toLowerCase().includes(citySearch.toLowerCase())
-                      )
-                    : shippingCities
-                }
-                keyExtractor={(item) => item}
-                keyboardShouldPersistTaps="handled"
-	                renderItem={({ item }) => (
-	                  <Pressable
-	                    style={[
-	                      styles.pickerItem,
-	                      { borderBottomColor: colors.border },
-	                      item === watchedCity && {
-	                        backgroundColor: isDark
-	                          ? 'rgba(217, 59, 48, 0.14)'
-	                          : palette.red[50],
-	                      },
-	                    ]}
-	                    onPress={() => handleSelectCity(item)}
-	                  >
-	                    <View style={styles.pickerItemContent}>
-	                      <Text
-	                        style={[
-	                          styles.pickerItemText,
-	                          {
-	                            color:
-	                              item === watchedCity
-	                                ? isDark
-	                                  ? '#FDECEA'
-	                                  : BRAND.primary
-	                                : colors.text,
-	                            fontWeight: item === watchedCity ? '700' : '500',
-	                          },
-	                        ]}
-	                      >
-	                        {item}
-	                      </Text>
-	                      {item === watchedCity && (
-	                        <Ionicons
-	                          name="checkmark"
-	                          size={18}
-	                          color={BRAND.primary}
-	                        />
-	                      )}
-	                    </View>
-	                  </Pressable>
-	                )}
-                ListHeaderComponent={null}
-                ListEmptyComponent={
-                  !citySearch.trim() ? (
-                    <Text
-                      style={[
-                        styles.helperText,
-                        { color: colors.textSecondary },
-                      ]}
-                    >
-                      No cities available. Type your city above.
-                    </Text>
-                  ) : null
-                }
-              />
-            </View>
-          </View>
-        </Modal>
+        </View>
+      </Modal>
 
       <CryptoSelectionModal
         visible={showCryptoSelection}
@@ -3527,7 +4191,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
   },
   formContent: {
-    paddingBottom: 140,
+    paddingBottom: 116,
   },
   sectionHeader: {
     marginBottom: SPACING.md,
@@ -3542,8 +4206,10 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingTop: 14,
+    paddingBottom: SPACING.md,
+    marginBottom: SPACING.sm,
     borderWidth: 1,
     borderColor: 'transparent',
     ...SHADOWS.sm,
@@ -3553,6 +4219,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: SPACING.md,
+  },
+  cardHeaderInline: {
+    marginBottom: 0,
   },
   cardHeaderActionRow: {
     flexDirection: 'row',
@@ -3566,33 +4235,43 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   inlineEditButton: {
-    minHeight: 32,
-    borderRadius: 16,
-    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   inlineActionContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   inlineActionText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
     color: BRAND.primary,
   },
   cardBody: {
     gap: SPACING.sm,
   },
+  contactCardBody: {
+    gap: 10,
+  },
   summarySection: {
+    gap: 8,
+  },
+  summaryPanel: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 14,
+    gap: 8,
+  },
+  summaryMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
-  summaryEyebrow: {
+  summaryMetaLabel: {
     fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-    textTransform: 'uppercase',
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
   summaryTitleRow: {
     flexDirection: 'row',
@@ -3601,7 +4280,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   summaryTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
   },
   summaryLine: {
@@ -3617,6 +4296,9 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 12,
+  },
+  compactInputGroup: {
+    marginBottom: 8,
   },
   label: {
     fontSize: 13,
@@ -3658,6 +4340,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  savedAddressSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  addressModeSwitch: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  addressModeChip: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  addressModeChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
   savedAddressOption: {
     borderWidth: 1,
     borderRadius: 14,
@@ -3692,6 +4399,77 @@ const styles = StyleSheet.create({
   savedAddressDefaultBadgeText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  deliveryMethodList: {
+    gap: 10,
+  },
+  deliveryMethodCard: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 14,
+    gap: 12,
+  },
+  deliveryMethodTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  deliveryMethodLabelWrap: {
+    flex: 1,
+    gap: 4,
+  },
+  deliveryMethodTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  deliveryMethodSubtitle: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  deliveryMethodMeta: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  deliveryMethodPrice: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  deliveryMethodExpanded: {
+    gap: 10,
+  },
+  deliveryStaticInfo: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 12,
+  },
+  deliveryStaticTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  deliveryStaticText: {
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  newAddressIntro: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  newAddressIntroBody: {
+    flex: 1,
+    gap: 2,
+  },
+  newAddressIntroTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  newAddressIntroText: {
+    fontSize: 12,
+    lineHeight: 18,
   },
   quoteRow: {
     borderWidth: 1,
@@ -3766,6 +4544,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+  reviewTextStrong: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
   editLink: {
     fontSize: 14,
     fontWeight: '500',
@@ -3830,7 +4613,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    padding: SPACING.md,
+    zIndex: 80,
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
     borderTopWidth: 1,
     ...SHADOWS.lg,
   },
