@@ -64,7 +64,7 @@ export function CompactStackHeader({
         {
           backgroundColor,
           borderBottomColor: colors.border,
-          paddingTop: Math.max(insets.top, 8),
+          paddingTop: Math.max(insets.top - 8, 6),
         },
       ]}
     >
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   container: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
   row: {
     minHeight: 44,

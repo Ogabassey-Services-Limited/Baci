@@ -42,6 +42,11 @@ function _getExpo(): Expo {
 // ── Public types ─────────────────────────────────────────────────────────────
 
 export type { ExpoPushMessage, ExpoPushTicket };
+export interface NotificationSendResult {
+  sent: number;
+  failed: number;
+  errors: string[];
+}
 
 /**
  * Notification channel types for Android
@@ -51,6 +56,7 @@ export type NotificationChannel =
   | 'payments'
   | 'stock'
   | 'general'
+  | 'admin'
   | 'promotions';
 
 // ── Core send functions ──────────────────────────────────────────────────────
@@ -168,7 +174,7 @@ export async function notifyMerchant(
   body: string,
   data?: Record<string, unknown>,
   channelId: NotificationChannel = 'general'
-): Promise<{ sent: number; failed: number; errors: string[] }> {
+): Promise<NotificationSendResult> {
   const supabase = createAdminClient();
 
   const { data: tokens, error } = await supabase
@@ -180,11 +186,35 @@ export async function notifyMerchant(
 
   if (error) {
     console.error('Error fetching push tokens:', error);
-    return { sent: 0, failed: 0, errors: [error.message] };
+    const result = { sent: 0, failed: 0, errors: [error.message] };
+    await recordPushAttempt(supabase, {
+      merchantId,
+      appType: 'admin',
+      channel: channelId,
+      notificationType: readNotificationType(data),
+      title,
+      body,
+      payload: data,
+      tokenCount: 0,
+      result,
+    });
+    return result;
   }
 
   if (!tokens || tokens.length === 0) {
-    return { sent: 0, failed: 0, errors: [] };
+    const result = { sent: 0, failed: 0, errors: [] };
+    await recordPushAttempt(supabase, {
+      merchantId,
+      appType: 'admin',
+      channel: channelId,
+      notificationType: readNotificationType(data),
+      title,
+      body,
+      payload: data,
+      tokenCount: 0,
+      result,
+    });
+    return result;
   }
 
   const messages: ExpoPushMessage[] = tokens.map((t) => ({
@@ -201,12 +231,24 @@ export async function notifyMerchant(
 
   const tickets = await sendPushNotifications(messages);
 
-  return processTickets(tickets, tokens, supabase, {
+  const result = await processTickets(tickets, tokens, supabase, {
     merchantId,
     appType: 'admin',
     channel: channelId,
-    notificationType: (data?.type as string) ?? undefined,
+    notificationType: readNotificationType(data),
   });
+  await recordPushAttempt(supabase, {
+    merchantId,
+    appType: 'admin',
+    channel: channelId,
+    notificationType: readNotificationType(data),
+    title,
+    body,
+    payload: data,
+    tokenCount: tokens.length,
+    result,
+  });
+  return result;
 }
 
 /**
@@ -218,7 +260,7 @@ export async function notifyCustomer(
   body: string,
   data?: Record<string, unknown>,
   channelId: NotificationChannel = 'orders'
-): Promise<{ sent: number; failed: number; errors: string[] }> {
+): Promise<NotificationSendResult> {
   const supabase = createAdminClient();
 
   const { data: tokens, error } = await supabase
@@ -230,11 +272,35 @@ export async function notifyCustomer(
 
   if (error) {
     console.error('Error fetching customer push tokens:', error);
-    return { sent: 0, failed: 0, errors: [error.message] };
+    const result = { sent: 0, failed: 0, errors: [error.message] };
+    await recordPushAttempt(supabase, {
+      userId,
+      appType: 'storefront',
+      channel: channelId,
+      notificationType: readNotificationType(data),
+      title,
+      body,
+      payload: data,
+      tokenCount: 0,
+      result,
+    });
+    return result;
   }
 
   if (!tokens || tokens.length === 0) {
-    return { sent: 0, failed: 0, errors: [] };
+    const result = { sent: 0, failed: 0, errors: [] };
+    await recordPushAttempt(supabase, {
+      userId,
+      appType: 'storefront',
+      channel: channelId,
+      notificationType: readNotificationType(data),
+      title,
+      body,
+      payload: data,
+      tokenCount: 0,
+      result,
+    });
+    return result;
   }
 
   const messages: ExpoPushMessage[] = tokens.map((t) => ({
@@ -251,12 +317,108 @@ export async function notifyCustomer(
 
   const tickets = await sendPushNotifications(messages);
 
-  return processTickets(tickets, tokens, supabase, {
+  const result = await processTickets(tickets, tokens, supabase, {
     userId,
     appType: 'storefront',
     channel: channelId,
-    notificationType: (data?.type as string) ?? undefined,
+    notificationType: readNotificationType(data),
   });
+  await recordPushAttempt(supabase, {
+    userId,
+    appType: 'storefront',
+    channel: channelId,
+    notificationType: readNotificationType(data),
+    title,
+    body,
+    payload: data,
+    tokenCount: tokens.length,
+    result,
+  });
+  return result;
+}
+
+/**
+ * Send notification only to the authenticated admin user's own registered devices.
+ * Useful for safe test pushes without broadcasting to the whole merchant team.
+ */
+export async function notifyAdminUserDevices(
+  userId: string,
+  title: string,
+  body: string,
+  data?: Record<string, unknown>,
+  channelId: NotificationChannel = 'admin'
+): Promise<NotificationSendResult> {
+  const supabase = createAdminClient();
+
+  const { data: tokens, error } = await supabase
+    .from('push_tokens')
+    .select('token')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .eq('app_type', 'admin');
+
+  if (error) {
+    console.error('Error fetching admin user push tokens:', error);
+    const result = { sent: 0, failed: 0, errors: [error.message] };
+    await recordPushAttempt(supabase, {
+      userId,
+      appType: 'admin',
+      channel: channelId,
+      notificationType: readNotificationType(data),
+      title,
+      body,
+      payload: data,
+      tokenCount: 0,
+      result,
+    });
+    return result;
+  }
+
+  if (!tokens || tokens.length === 0) {
+    const result = { sent: 0, failed: 0, errors: [] };
+    await recordPushAttempt(supabase, {
+      userId,
+      appType: 'admin',
+      channel: channelId,
+      notificationType: readNotificationType(data),
+      title,
+      body,
+      payload: data,
+      tokenCount: 0,
+      result,
+    });
+    return result;
+  }
+
+  const messages: ExpoPushMessage[] = tokens.map((t) => ({
+    to: t.token,
+    title,
+    body,
+    data,
+    sound: 'default' as const,
+    channelId,
+    priority: 'default',
+  }));
+
+  const tickets = await sendPushNotifications(messages);
+  const result = await processTickets(tickets, tokens, supabase, {
+    userId,
+    appType: 'admin',
+    channel: channelId,
+    notificationType: readNotificationType(data),
+  });
+  await recordPushAttempt(supabase, {
+    userId,
+    appType: 'admin',
+    channel: channelId,
+    notificationType: readNotificationType(data),
+    title,
+    body,
+    payload: data,
+    tokenCount: tokens.length,
+    result,
+  });
+  return result;
 }
 
 // ── Shared ticket processing ─────────────────────────────────────────────────
@@ -274,7 +436,7 @@ async function processTickets(
   tokens: { token: string }[],
   supabase: ReturnType<typeof createAdminClient>,
   context?: TicketContext
-): Promise<{ sent: number; failed: number; errors: string[] }> {
+): Promise<NotificationSendResult> {
   let sent = 0;
   let failed = 0;
   const errors: string[] = [];
@@ -343,6 +505,64 @@ async function processTickets(
   return { sent, failed, errors };
 }
 
+interface PushAttemptContext extends TicketContext {
+  title: string;
+  body: string;
+  payload?: Record<string, unknown>;
+  tokenCount: number;
+  result: NotificationSendResult;
+}
+
+function readNotificationType(
+  data?: Record<string, unknown>
+): string | undefined {
+  return typeof data?.type === 'string' ? data.type : undefined;
+}
+
+function derivePushAttemptStatus(
+  tokenCount: number,
+  result: NotificationSendResult
+): 'sent' | 'partial_failure' | 'failed' | 'skipped_no_tokens' {
+  if (tokenCount === 0) {
+    return 'skipped_no_tokens';
+  }
+
+  if (result.sent > 0 && result.failed === 0 && result.errors.length === 0) {
+    return 'sent';
+  }
+
+  if (result.sent > 0) {
+    return 'partial_failure';
+  }
+
+  return 'failed';
+}
+
+async function recordPushAttempt(
+  supabase: ReturnType<typeof createAdminClient>,
+  context: PushAttemptContext
+): Promise<void> {
+  const { error } = await supabase.from('push_notification_attempts').insert({
+    merchant_id: context.merchantId ?? null,
+    user_id: context.userId ?? null,
+    app_type: context.appType ?? 'admin',
+    channel: context.channel ?? null,
+    notification_type: context.notificationType ?? null,
+    title: context.title,
+    body: context.body,
+    payload: context.payload ?? {},
+    token_count: context.tokenCount,
+    sent_count: context.result.sent,
+    failed_count: context.result.failed,
+    status: derivePushAttemptStatus(context.tokenCount, context.result),
+    errors: context.result.errors,
+  });
+
+  if (error) {
+    console.error('Failed to store push attempt:', error);
+  }
+}
+
 // =============================================================================
 // MERCHANT NOTIFICATION EVENT HELPERS
 // =============================================================================
@@ -350,21 +570,23 @@ async function processTickets(
 /**
  * Notify merchant of a new order.
  */
-export async function notifyNewOrder(
+export function notifyNewOrder(
   merchantId: string,
+  orderId: string,
   orderNumber: string,
   customerName: string,
   amount: number,
   currency = 'NGN'
-): Promise<void> {
+): Promise<NotificationSendResult> {
   const formattedAmount = formatCurrency(amount, currency);
 
-  await notifyMerchant(
+  return notifyMerchant(
     merchantId,
     '🛒 New Order',
     `Order #${orderNumber} from ${customerName} - ${formattedAmount}`,
     {
       type: 'new_order',
+      order_id: orderId,
       order_number: orderNumber,
       amount,
       currency,
@@ -376,19 +598,20 @@ export async function notifyNewOrder(
 /**
  * Notify merchant of payment received.
  */
-export async function notifyPaymentReceived(
+export function notifyPaymentReceived(
   merchantId: string,
   amount: number,
   currency = 'NGN',
-  orderNumber?: string
-): Promise<void> {
+  orderNumber?: string,
+  orderId?: string
+): Promise<NotificationSendResult> {
   const formattedAmount = formatCurrency(amount, currency);
 
   const body = orderNumber
     ? `Payment of ${formattedAmount} received for order #${orderNumber}`
     : `Payment of ${formattedAmount} received`;
 
-  await notifyMerchant(
+  return notifyMerchant(
     merchantId,
     '💰 Payment Received',
     body,
@@ -396,6 +619,7 @@ export async function notifyPaymentReceived(
       type: 'payment_received',
       amount,
       currency,
+      order_id: orderId,
       order_number: orderNumber,
     },
     'payments'
@@ -407,6 +631,7 @@ export async function notifyPaymentReceived(
  */
 export async function notifyLowStock(
   merchantId: string,
+  productId: string | null,
   productName: string,
   currentStock: number,
   threshold: number
@@ -417,6 +642,7 @@ export async function notifyLowStock(
     `${productName} is low on stock (${currentStock} remaining, threshold: ${threshold})`,
     {
       type: 'low_stock',
+      product_id: productId,
       product_name: productName,
       current_stock: currentStock,
       threshold,
