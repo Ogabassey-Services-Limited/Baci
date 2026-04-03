@@ -13,6 +13,7 @@ import {
   Alert,
   BackHandler,
   Dimensions,
+  InteractionManager,
   Platform,
   Pressable,
   ScrollView,
@@ -164,7 +165,10 @@ export function DrawerMenu() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          await signOut();
+          router.replace('/(tabs)');
+          InteractionManager.runAfterInteractions(() => {
+            void signOut();
+          });
         },
       },
     ]);

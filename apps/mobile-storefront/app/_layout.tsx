@@ -23,8 +23,10 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { ConnectivityBanner } from '@/components/ConnectivityBanner';
 import { ChatWidget } from '@/components/chat/ChatWidget';
@@ -38,6 +40,7 @@ import { useAuthGuard } from '@/hooks/use-auth-guard';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { offlineQueue } from '@/lib/offline-queue';
 import { QueryProvider } from '@/lib/QueryProvider';
+import { initializeStorage } from '@/lib/storage';
 import { initAnalytics } from '@/services/analytics';
 import { type CreateOrderRequest, createOrder } from '@/services/orders';
 import { useAuthStore } from '@/stores/auth-store';
@@ -83,6 +86,13 @@ const OgabasseyDarkTheme = {
   },
 };
 
+const PERSISTED_STORAGE_KEYS = [
+  'cart-storage',
+  'saved-storage',
+  'comparison-storage',
+  'search_history',
+] as const;
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -102,6 +112,7 @@ export default function RootLayout() {
   const { register: registerPushNotifications } = usePushNotifications();
   const initPromiseRef = useRef<Promise<void> | null>(null);
   const [showSplash, setShowSplash] = useState(true);
+  const [isStorageReady, setIsStorageReady] = useState(false);
 
   useEffect(() => {
     if (!isInitialized) {
@@ -111,6 +122,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     const initializeApp = async () => {
+      await initializeStorage(PERSISTED_STORAGE_KEYS);
+      setIsStorageReady(true);
+
       if (!useAuthStore.getState().isInitialized) {
         await initialize();
       }
@@ -128,6 +142,7 @@ export default function RootLayout() {
         // own errors, but failures after that point were previously unhandled
         // and could leave Android stuck on the splash screen.
         console.error('App initialization error:', err);
+        setIsStorageReady(true);
       });
     }
 
@@ -173,7 +188,7 @@ export default function RootLayout() {
   if (showSplash) {
     return (
       <AnimatedSplash
-        isReady={isInitialized}
+        isReady={isInitialized && isStorageReady}
         onAnimationEnd={() => setShowSplash(false)}
       >
         <RootLayoutNav persistenceEnabled={false} />
@@ -202,35 +217,41 @@ function RootLayoutNav({
 
   return (
     <QueryProvider persistenceEnabled={persistenceEnabled}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <ThemeProvider
-          value={
-            colorScheme === 'dark' ? OgabasseyDarkTheme : OgabasseyLightTheme
-          }
-        >
-          <SystemBars style={colorScheme === 'dark' ? 'light' : 'dark'} />
-          <GlobalErrorBoundary context="RootNavigation">
-            <Stack
-              screenOptions={{
-                header: (props) => <CompactStackHeader {...props} />,
-                headerStyle: {
-                  backgroundColor: colors.background,
-                },
-                headerTintColor: colors.text,
-                headerTitleStyle: {
-                  fontWeight: '600',
-                },
-                headerShadowVisible: false,
-                contentStyle: {
-                  backgroundColor: colors.background,
-                },
-                // 2026 Best Practice: Smooth native transition animations
-                animation: 'slide_from_right',
-                gestureEnabled: true,
-                gestureDirection: 'horizontal',
-                headerBackTitle: '', // Fix: Hide "index" or other route names from back buttons
-              }}
+      <GestureHandlerRootView
+        style={[styles.root, { backgroundColor: colors.background }]}
+      >
+        <SafeAreaProvider>
+          <ThemeProvider
+            value={
+              colorScheme === 'dark' ? OgabasseyDarkTheme : OgabasseyLightTheme
+            }
+          >
+            <SystemBars style={colorScheme === 'dark' ? 'light' : 'dark'} />
+            <View
+              style={[styles.appShell, { backgroundColor: colors.background }]}
             >
+              <GlobalErrorBoundary context="RootNavigation">
+                <Stack
+                  screenOptions={{
+                    header: (props) => <CompactStackHeader {...props} />,
+                    headerStyle: {
+                      backgroundColor: colors.background,
+                    },
+                    headerTintColor: colors.text,
+                    headerTitleStyle: {
+                      fontWeight: '600',
+                    },
+                    headerShadowVisible: false,
+                    contentStyle: {
+                      backgroundColor: colors.background,
+                    },
+                    // 2026 Best Practice: Smooth native transition animations
+                    animation: 'slide_from_right',
+                    gestureEnabled: true,
+                    gestureDirection: 'horizontal',
+                    headerBackTitle: '', // Fix: Hide "index" or other route names from back buttons
+                  }}
+                >
               <Stack.Screen
                 name="(tabs)"
                 options={{
@@ -349,6 +370,9 @@ function RootLayoutNav({
                 options={{
                   headerShown: false,
                   animation: 'slide_from_right',
+                  contentStyle: {
+                    backgroundColor: colors.muted,
+                  },
                 }}
               />
               <Stack.Screen
@@ -416,15 +440,26 @@ function RootLayoutNav({
                   animation: 'slide_from_right',
                 }}
               />
-            </Stack>
-          </GlobalErrorBoundary>
-          {/* Crash-isolation toggle for startup overlays */}
-          {enableConnectivityBanner ? <ConnectivityBanner /> : null}
-          {enableChatWidget ? <ChatWidget bottomOffset={140} /> : null}
-          {enableNegotiationModal ? <NegotiationModal /> : null}
-          {enableDrawerMenu ? <DrawerMenu /> : null}
-        </ThemeProvider>
+                </Stack>
+              </GlobalErrorBoundary>
+              {/* Crash-isolation toggle for startup overlays */}
+              {enableConnectivityBanner ? <ConnectivityBanner /> : null}
+              {enableChatWidget ? <ChatWidget bottomOffset={140} /> : null}
+              {enableNegotiationModal ? <NegotiationModal /> : null}
+              {enableDrawerMenu ? <DrawerMenu /> : null}
+            </View>
+          </ThemeProvider>
+        </SafeAreaProvider>
       </GestureHandlerRootView>
     </QueryProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  appShell: {
+    flex: 1,
+  },
+});

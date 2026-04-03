@@ -86,11 +86,17 @@ export const asyncStorage = {
 const memoryCache: Record<string, string> = {};
 let isStorageInitialized = false;
 let initializationPromise: Promise<void> | null = null;
+const DEFAULT_SYNC_STORAGE_KEYS = [
+  'cart-storage',
+  'saved-storage',
+  'comparison-storage',
+  'search_history',
+] as const;
 
 export const syncStorage = {
   getItem: (name: string): string | null => {
     // BUG-4-007 FIX: Warn if accessed before initialization to help debug race conditions
-    if (!isStorageInitialized) {
+    if (!isStorageInitialized && !initializationPromise) {
       log.warn(
         `Storage accessed ("${name}") before initialization complete. ` +
           'Ensure initializeStorage() is called and awaited in _layout.tsx before Zustand stores are accessed.'
@@ -145,7 +151,7 @@ export async function waitForStorageReady(): Promise<void> {
  *
  * 2026 Critical Fix: Added deduplication to prevent multiple concurrent initializations
  */
-export function initializeStorage(keys: string[]): Promise<void> {
+export function initializeStorage(keys: readonly string[]): Promise<void> {
   // Prevent multiple concurrent initializations
   if (initializationPromise) {
     log.debug('Initialization already in progress, waiting...');
@@ -180,3 +186,5 @@ export function initializeStorage(keys: string[]): Promise<void> {
 
   return initializationPromise;
 }
+
+void initializeStorage(DEFAULT_SYNC_STORAGE_KEYS);
