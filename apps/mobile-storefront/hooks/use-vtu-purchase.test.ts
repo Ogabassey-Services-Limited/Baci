@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { notifyManager } from '@tanstack/query-core';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react-native';
 import { createElement, type PropsWithChildren } from 'react';
 
@@ -41,7 +41,11 @@ import { useVTUPurchase } from './use-vtu-purchase';
 
 function createWrapper(queryClient: QueryClient) {
   return function Wrapper({ children }: PropsWithChildren) {
-    return createElement(QueryClientProvider, { client: queryClient }, children);
+    return createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children
+    );
   };
 }
 
@@ -123,6 +127,41 @@ describe('useVTUPurchase', () => {
     });
     expect(result.current.isPending).toBe(false);
     expect(mockScheduleLocalNotification).toHaveBeenCalledTimes(1);
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('throws with server error message when API returns non-OK response', async () => {
+    const queryClient = createTestClient();
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        error: 'Insufficient wallet balance',
+      }),
+    });
+
+    const { result, unmount } = renderHook(() => useVTUPurchase(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    let caught: Error | undefined;
+    await act(async () => {
+      try {
+        await result.current.mutateAsync({
+          type: 'airtime',
+          amount: 1000,
+          phoneNumber: '08012345678',
+          networkProvider: 'mtn',
+        });
+      } catch (err) {
+        caught = err as Error;
+      }
+    });
+
+    expect(caught).toBeDefined();
+    expect(caught?.message).toBe('Insufficient wallet balance');
+    expect(mockScheduleLocalNotification).not.toHaveBeenCalled();
 
     unmount();
     queryClient.clear();

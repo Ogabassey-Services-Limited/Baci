@@ -19,7 +19,10 @@ export const PRODUCT_PLACEHOLDER_IMAGE =
   'https://placehold.co/400x400/f3f4f6/9ca3af?text=No+Image';
 
 function canonicalizeVariantAxis(axis: string) {
-  return axis.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return axis
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
 }
 
 function normalizeStringArray(values: unknown) {
@@ -82,7 +85,8 @@ export function normalizeProductImages(images: unknown) {
   }
 
   const normalized = images.reduce<string[]>((result, value) => {
-    const candidate = getImageCandidate(value);
+    const raw = getImageCandidate(value);
+    const candidate = raw?.trim() || null;
     if (!candidate || result.includes(candidate)) {
       return result;
     }
@@ -91,7 +95,7 @@ export function normalizeProductImages(images: unknown) {
     return result;
   }, []);
 
-  return normalizeStringArray(normalized);
+  return normalized;
 }
 
 export function getPrimaryProductImage(images: unknown) {
@@ -189,7 +193,9 @@ export function mergeVariantAttributes(
   }
 
   for (const variant of variants ?? []) {
-    for (const [rawAxis, rawValue] of Object.entries(variant.attributes ?? {})) {
+    for (const [rawAxis, rawValue] of Object.entries(
+      variant.attributes ?? {}
+    )) {
       const axis = canonicalizeVariantAxis(rawAxis);
       const value = normalizeAttributeValue(rawValue);
 

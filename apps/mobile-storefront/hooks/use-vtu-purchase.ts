@@ -113,8 +113,9 @@ export function useVTUPurchase() {
           `₦${data.cashback.amount.toLocaleString()} cashback added to your wallet.`,
           { type: 'wallet_cashback', amount: data.cashback.amount },
           1
-        ).catch(() => {
+        ).catch((err) => {
           // Notification delivery should not keep VTU purchases pending.
+          console.debug('[VTU] Cashback notification scheduling failed:', err);
         });
 
         // Invalidate wallet query so balance refreshes

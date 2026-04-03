@@ -140,4 +140,24 @@ describe('POST /api/admin/push/test', () => {
 
     expect(data.status).toBe('skipped_no_tokens');
   });
+
+  it('returns 400 when the payload fails schema validation', async () => {
+    const response = await POST(
+      createRequest({ title: '', body: 'x'.repeat(300) })
+    );
+
+    expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error).toBe('Invalid request data');
+  });
+
+  it('returns 404 when the merchant is not found', async () => {
+    mockGetMerchantForApiRequest.mockResolvedValue(null);
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(404);
+    const data = await response.json();
+    expect(data.error).toBe('Merchant not found');
+  });
 });

@@ -86,7 +86,7 @@ export const asyncStorage = {
 const memoryCache: Record<string, string> = {};
 let isStorageInitialized = false;
 let initializationPromise: Promise<void> | null = null;
-const DEFAULT_SYNC_STORAGE_KEYS = [
+export const DEFAULT_SYNC_STORAGE_KEYS = [
   'cart-storage',
   'saved-storage',
   'comparison-storage',

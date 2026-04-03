@@ -28,6 +28,11 @@ export function normalizeCheckoutPhone(
     return `+234${digits.slice(1)}`;
   }
 
+  // Handle 10-digit numbers missing the leading zero (e.g. 8012345678)
+  if (digits.length === 10 && /^[789]/.test(digits)) {
+    return `+234${digits}`;
+  }
+
   if (hasPlusPrefix) {
     return `+${digits}`;
   }

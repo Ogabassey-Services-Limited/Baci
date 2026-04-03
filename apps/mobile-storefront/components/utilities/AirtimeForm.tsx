@@ -18,6 +18,9 @@ import { ProviderGrid } from './ProviderGrid';
 
 const QUICK_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
 
+/** Height reserved for the absolutely-positioned payment footer */
+const FOOTER_HEIGHT = 120;
+
 interface AirtimeFormProps {
   onSuccess: (data: {
     reference: string;
@@ -210,7 +213,7 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   content: { padding: SPACING.md },
   contentWithFooter: {
-    paddingBottom: 120,
+    paddingBottom: FOOTER_HEIGHT,
   },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   inputGroup: { marginBottom: 16 },

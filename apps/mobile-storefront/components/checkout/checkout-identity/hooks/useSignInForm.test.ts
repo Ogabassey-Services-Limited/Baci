@@ -64,11 +64,53 @@ describe('useSignInForm', () => {
     act(() => {
       useAuthStore.setState({
         signInWithApple: (...args: unknown[]) => mockSignInWithApple(...args),
-        signInWithGoogle: (...args: unknown[]) =>
-          mockSignInWithGoogle(...args),
+        signInWithGoogle: (...args: unknown[]) => mockSignInWithGoogle(...args),
         user: null,
       });
     });
+  });
+
+  it('sets error when Apple sign-in fails', async () => {
+    mockSignInWithApple.mockResolvedValue({
+      success: false,
+      error: 'Apple sign-in failed. Please try again.',
+    });
+
+    const onSuccess = jest.fn();
+    const { result } = renderHook(() => useSignInForm({ onSuccess }));
+
+    await act(async () => {
+      await result.current.handleAppleSignIn();
+    });
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(result.current.error).toBe(
+      'Apple sign-in failed. Please try again.'
+    );
+  });
+
+  it('sets error when sign-in with invalid credentials fails', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { supabase } = require('@/lib/supabase');
+    supabase.auth.signInWithPassword.mockResolvedValue({
+      error: { message: 'Invalid login credentials' },
+      data: { user: null, session: null },
+    });
+
+    const onSuccess = jest.fn();
+    const { result } = renderHook(() => useSignInForm({ onSuccess }));
+
+    await act(async () => {
+      result.current.setValue('email', 'test@example.com');
+      result.current.setValue('password', 'wrongpassword');
+    });
+
+    await act(async () => {
+      await result.current.handleSignIn();
+    });
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(result.current.error).toBeTruthy();
   });
 
   it('reacts to Google auth state changes after the browser round-trip', async () => {

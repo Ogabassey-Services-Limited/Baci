@@ -367,6 +367,7 @@ describe('notifyAdminUserDevices', () => {
     const result = await notifyAdminUserDevices('user-123', 'Test', 'Body');
 
     expect(mockChain.eq).toHaveBeenCalledWith('user_id', 'user-123');
+    expect(mockChain.eq).toHaveBeenCalledWith('is_active', true);
     expect(mockChain.eq).toHaveBeenCalledWith('app_type', 'admin');
     expect(result).toEqual({ sent: 1, failed: 0, errors: [] });
   });

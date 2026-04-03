@@ -20,19 +20,30 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  const [
-    { data: staleTokens, error: staleTokensError },
-    { data: attempts, error: attemptsError },
-  ] = await Promise.all([
-    supabase.rpc('cleanup_stale_push_tokens'),
-    supabase.rpc('cleanup_old_push_attempts'),
-  ]);
+  let staleTokens: number | null = null;
+  let attempts: number | null = null;
 
-  if (staleTokensError || attemptsError) {
-    const error = staleTokensError ?? attemptsError;
-    console.error('Push notification cleanup failed:', error);
+  try {
+    const [staleResult, attemptsResult] = await Promise.all([
+      supabase.rpc('cleanup_stale_push_tokens'),
+      supabase.rpc('cleanup_old_push_attempts'),
+    ]);
+
+    if (staleResult.error || attemptsResult.error) {
+      const error = staleResult.error ?? attemptsResult.error;
+      console.error('Push notification cleanup failed:', error);
+      return NextResponse.json(
+        { error: error?.message ?? 'Push cleanup failed' },
+        { status: 500 }
+      );
+    }
+
+    staleTokens = staleResult.data;
+    attempts = attemptsResult.data;
+  } catch (err) {
+    console.error('Push notification cleanup rejected:', err);
     return NextResponse.json(
-      { error: error?.message ?? 'Push cleanup failed' },
+      { error: 'Push cleanup failed unexpectedly' },
       { status: 500 }
     );
   }

@@ -38,6 +38,9 @@ const IDENTIFIER_PLACEHOLDERS: Record<string, string> = {
   gaming: 'Enter account ID',
 };
 
+/** Height reserved for the absolutely-positioned payment footer */
+const FOOTER_HEIGHT = 120;
+
 interface BillFormProps {
   type: 'tv' | 'power' | 'gaming';
   onSuccess: (data: {
@@ -305,7 +308,7 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   content: { padding: SPACING.md },
   contentWithFooter: {
-    paddingBottom: 120,
+    paddingBottom: FOOTER_HEIGHT,
   },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   input: {

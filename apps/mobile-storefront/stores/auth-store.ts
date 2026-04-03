@@ -654,14 +654,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const authenticatedSession = data.session ?? null;
       const authenticatedUser = authenticatedSession?.user ?? data.user ?? null;
 
-      if (authenticatedUser) {
-        await syncAuthenticatedState({
-          merchantId: get().merchantId,
-          session: authenticatedSession,
-          set,
-          user: authenticatedUser,
-        });
+      if (!authenticatedUser) {
+        log.error('Apple OAuth completed without a user');
+        set({ isLoading: false });
+        return {
+          success: false,
+          error: 'Unable to complete sign-in. Please try again.',
+        };
       }
+
+      await syncAuthenticatedState({
+        merchantId: get().merchantId,
+        session: authenticatedSession,
+        set,
+        user: authenticatedUser,
+      });
 
       // If we got a name, and it's a new user, update metadata + customer record
       if (fullName && data.user && !data.user.user_metadata?.full_name) {
