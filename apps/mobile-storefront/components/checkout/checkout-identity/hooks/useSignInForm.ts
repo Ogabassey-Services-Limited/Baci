@@ -10,7 +10,7 @@
  */
 
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/lib/supabase';
@@ -41,8 +41,10 @@ export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFor
   const { triggerHaptic } = useHapticFeedback();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pendingSocialSignInRef = useRef(false);
 
   // Auth store methods
+  const user = useAuthStore((state) => state.user);
   const signInWithGoogle = useAuthStore((state) => state.signInWithGoogle);
   const signInWithApple = useAuthStore((state) => state.signInWithApple);
 
@@ -67,6 +69,18 @@ export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFor
   const clearError = () => {
     if (error) setError(null);
   };
+
+  useEffect(() => {
+    if (!pendingSocialSignInRef.current || !user) {
+      return;
+    }
+
+    pendingSocialSignInRef.current = false;
+    setIsLoading(false);
+    triggerHaptic('success');
+    onSuccess();
+    router.replace('/checkout');
+  }, [onSuccess, triggerHaptic, user]);
 
   /**
    * Validate form data with Zod and set field errors
@@ -132,21 +146,28 @@ export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFor
     triggerHaptic('light');
     setIsLoading(true);
     setError(null);
+    pendingSocialSignInRef.current = true;
 
     try {
       const result = await signInWithGoogle();
 
-      if (result.success) {
-        onSuccess();
-        router.push('/checkout');
-      } else if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
+      if (!result.success) {
+        pendingSocialSignInRef.current = false;
+        setIsLoading(false);
+      }
+
+      if (
+        !result.success &&
+        result.error &&
+        result.error !== SOCIAL_ERROR_MESSAGES.cancelled
+      ) {
         setError(result.error);
         triggerHaptic('error');
       }
     } catch {
+      pendingSocialSignInRef.current = false;
       setError(SOCIAL_ERROR_MESSAGES.google);
       triggerHaptic('error');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -158,21 +179,28 @@ export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFor
     triggerHaptic('light');
     setIsLoading(true);
     setError(null);
+    pendingSocialSignInRef.current = true;
 
     try {
       const result = await signInWithApple();
 
-      if (result.success) {
-        onSuccess();
-        router.push('/checkout');
-      } else if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
+      if (!result.success) {
+        pendingSocialSignInRef.current = false;
+        setIsLoading(false);
+      }
+
+      if (
+        !result.success &&
+        result.error &&
+        result.error !== SOCIAL_ERROR_MESSAGES.cancelled
+      ) {
         setError(result.error);
         triggerHaptic('error');
       }
     } catch {
+      pendingSocialSignInRef.current = false;
       setError(SOCIAL_ERROR_MESSAGES.apple);
       triggerHaptic('error');
-    } finally {
       setIsLoading(false);
     }
   };
