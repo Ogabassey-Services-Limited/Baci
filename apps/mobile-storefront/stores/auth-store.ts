@@ -583,7 +583,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user: authenticatedUser,
         });
 
-        log.info('Session established for:', authenticatedUser.email);
+        log.info('Session established');
         set({ isLoading: false });
         return { success: true };
       }

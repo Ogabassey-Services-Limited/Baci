@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       : result.sent > 0
         ? 'sent'
         : result.failed > 0
-          ? 'send_failed'
+          ? 'failed'
           : 'skipped_no_tokens';
 
   return NextResponse.json({

@@ -371,6 +371,34 @@ describe('notifyAdminUserDevices', () => {
     expect(mockChain.eq).toHaveBeenCalledWith('app_type', 'admin');
     expect(result).toEqual({ sent: 1, failed: 0, errors: [] });
   });
+
+  it('returns zeroed result and skips send when no tokens are found', async () => {
+    const mockChain = createChainableMock([]);
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(mockChain),
+    } as never);
+
+    const result = await notifyAdminUserDevices('user-empty', 'Title', 'Body');
+
+    expect(result).toEqual({ sent: 0, failed: 0, errors: [] });
+    expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
+  });
+
+  it('returns errors when the database query fails', async () => {
+    const mockChain = createChainableMock(null, {
+      message: 'DB connection lost',
+    });
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(mockChain),
+    } as never);
+
+    const result = await notifyAdminUserDevices('user-err', 'Title', 'Body');
+
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors[0]).toContain('DB connection lost');
+  });
 });
 
 // ---------------------------------------------------------------------------

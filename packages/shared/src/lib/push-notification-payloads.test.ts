@@ -50,11 +50,23 @@ describe('getAdminNotificationNavigationTarget', () => {
 });
 
 describe('getStorefrontNotificationNavigationTarget', () => {
-  it('routes order update payloads to order details using either orderId key', () => {
+  it('routes order update payloads to order details using snake_case order_id', () => {
     expect(
       getStorefrontNotificationNavigationTarget({
         type: 'order_update',
         order_id: 'order-456',
+      })
+    ).toEqual({
+      screen: 'order-details',
+      params: { id: 'order-456' },
+    });
+  });
+
+  it('routes order update payloads to order details using camelCase orderId', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'order_update',
+        orderId: 'order-456',
       })
     ).toEqual({
       screen: 'order-details',
@@ -82,5 +94,41 @@ describe('getStorefrontNotificationNavigationTarget', () => {
       screen: 'category',
       params: { slug: 'laptops' },
     });
+  });
+
+  it('returns null for null or undefined payload', () => {
+    expect(getStorefrontNotificationNavigationTarget(null)).toBeNull();
+    expect(getStorefrontNotificationNavigationTarget(undefined)).toBeNull();
+  });
+
+  it('returns home for an unknown notification type', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({ type: 'unknown_type' })
+    ).toEqual({ screen: 'home' });
+  });
+
+  it('falls back to orders list when order_update lacks an order id', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({ type: 'order_update' })
+    ).toEqual({ screen: 'orders' });
+  });
+
+  it('falls back to home when promotion has no slug', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({ type: 'promotion' })
+    ).toEqual({ screen: 'home' });
+  });
+});
+
+describe('getAdminNotificationNavigationTarget — edge cases', () => {
+  it('returns null for null or undefined payload', () => {
+    expect(getAdminNotificationNavigationTarget(null)).toBeNull();
+    expect(getAdminNotificationNavigationTarget(undefined)).toBeNull();
+  });
+
+  it('returns index for an unknown notification type', () => {
+    expect(
+      getAdminNotificationNavigationTarget({ type: 'unknown_type' })
+    ).toEqual({ screen: 'index' });
   });
 });
