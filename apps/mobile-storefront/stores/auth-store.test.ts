@@ -26,6 +26,9 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 const mockUnsubscribe = jest.fn();
 // Holds the raw auth-state-change callback so tests can invoke it directly
 let mockAuthListenerCb: (event: string, session: unknown) => Promise<void>;
+const mockMakeRedirectUri = jest.fn(() => 'ogabassey://auth');
+const mockGetQueryParams = jest.fn();
+const mockOpenAuthSessionAsync = jest.fn();
 
 jest.mock('../lib/supabase', () => ({
   supabase: {
@@ -36,12 +39,26 @@ jest.mock('../lib/supabase', () => ({
       getSession: jest.fn(),
       getUser: jest.fn(),
       refreshSession: jest.fn(),
+      setSession: jest.fn(),
       signOut: jest.fn().mockResolvedValue({ error: null }),
+      signInWithOAuth: jest.fn(),
       signInWithIdToken: jest.fn(),
       updateUser: jest.fn(),
       onAuthStateChange: jest.fn(),
     },
   },
+}));
+
+jest.mock('expo-auth-session', () => ({
+  makeRedirectUri: mockMakeRedirectUri,
+}));
+
+jest.mock('expo-auth-session/build/QueryParams', () => ({
+  getQueryParams: mockGetQueryParams,
+}));
+
+jest.mock('expo-web-browser', () => ({
+  openAuthSessionAsync: mockOpenAuthSessionAsync,
 }));
 
 jest.mock('../lib/auth-helpers', () => ({
@@ -219,6 +236,13 @@ function resetStore() {
   });
 }
 
+async function flushAuthHydration() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 /**
  * Wire up default mock implementations on supabase.*
  * Individual tests override these as needed.
@@ -249,6 +273,14 @@ function resetSupabaseMocks({
   });
   (supabase.auth.getUser as jest.Mock).mockResolvedValue(getUser);
   (supabase.auth.refreshSession as jest.Mock).mockResolvedValue(refreshSession);
+  (supabase.auth.setSession as jest.Mock).mockResolvedValue({
+    data: { session: null, user: null },
+    error: null,
+  });
+  (supabase.auth.signInWithOAuth as jest.Mock).mockResolvedValue({
+    data: { url: 'https://accounts.google.com/o/oauth2/v2/auth' },
+    error: null,
+  });
   (supabase.auth.signInWithIdToken as jest.Mock).mockResolvedValue({
     data: { user: null, session: null },
     error: null,
@@ -275,6 +307,18 @@ describe('useAuthStore', () => {
     mockAuthListenerCb = async () => {};
     resetStore();
     resetSupabaseMocks();
+    mockMakeRedirectUri.mockReturnValue('ogabassey://auth');
+    mockGetQueryParams.mockReturnValue({
+      errorCode: null,
+      params: {
+        access_token: 'oauth-access-token',
+        refresh_token: 'oauth-refresh-token',
+      },
+    });
+    mockOpenAuthSessionAsync.mockResolvedValue({
+      type: 'success',
+      url: 'ogabassey://auth#access_token=oauth-access-token&refresh_token=oauth-refresh-token',
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -291,6 +335,7 @@ describe('useAuthStore', () => {
       await act(async () => {
         await useAuthStore.getState().initialize();
       });
+      await flushAuthHydration();
 
       // Assert
       const state = useAuthStore.getState();
@@ -347,6 +392,7 @@ describe('useAuthStore', () => {
       await act(async () => {
         await useAuthStore.getState().initialize();
       });
+      await flushAuthHydration();
 
       // Assert
       expect(supabase.rpc).toHaveBeenCalledWith('upsert_customer_on_auth', {
@@ -381,6 +427,7 @@ describe('useAuthStore', () => {
       await act(async () => {
         await useAuthStore.getState().initialize();
       });
+      await flushAuthHydration();
 
       // Assert
       const state = useAuthStore.getState();
@@ -458,6 +505,7 @@ describe('useAuthStore', () => {
       await act(async () => {
         await useAuthStore.getState().initialize();
       });
+      await flushAuthHydration();
 
       // Assert
       const state = useAuthStore.getState();
@@ -579,47 +627,39 @@ describe('useAuthStore', () => {
 
   // -------------------------------------------------------------------------
   describe('initialize() — customer hydration timeouts', () => {
-    it('preserves user/session and completes init when customer fetch hangs', async () => {
-      jest.useFakeTimers();
+    it('preserves user/session and completes init without waiting when customer fetch hangs', async () => {
+      const sessionWithoutEmail = {
+        ...mockSession,
+        user: { ...mockUser, email: null },
+      };
 
-      try {
-        const sessionWithoutEmail = {
-          ...mockSession,
-          user: { ...mockUser, email: null },
-        };
+      resetSupabaseMocks({
+        session: sessionWithoutEmail,
+        getUser: { data: { user: sessionWithoutEmail.user }, error: null },
+      });
 
-        resetSupabaseMocks({
-          session: sessionWithoutEmail,
-          getUser: { data: { user: sessionWithoutEmail.user }, error: null },
-        });
+      (supabase.from as jest.Mock).mockImplementation((table: string) => {
+        if (table === 'merchants') {
+          return makeChain({ data: mockMerchantRow, error: null });
+        }
 
-        (supabase.from as jest.Mock).mockImplementation((table: string) => {
-          if (table === 'merchants') {
-            return makeChain({ data: mockMerchantRow, error: null });
-          }
+        const hangingCustomersChain = makeChain({ data: null, error: null });
+        hangingCustomersChain.maybeSingle.mockImplementation(
+          () => new Promise(() => void 0)
+        );
+        return hangingCustomersChain;
+      });
 
-          const hangingCustomersChain = makeChain({ data: null, error: null });
-          hangingCustomersChain.maybeSingle.mockImplementation(
-            () => new Promise(() => void 0)
-          );
-          return hangingCustomersChain;
-        });
+      await act(async () => {
+        await useAuthStore.getState().initialize();
+      });
 
-        await act(async () => {
-          const initPromise = useAuthStore.getState().initialize();
-          await jest.advanceTimersByTimeAsync(10_001);
-          await initPromise;
-        });
-
-        const state = useAuthStore.getState();
-        expect(state.user?.id).toBe(USER_ID);
-        expect(state.session).toEqual(sessionWithoutEmail);
-        expect(state.customer).toBeNull();
-        expect(state.isInitialized).toBe(true);
-        expect(state.isLoading).toBe(false);
-      } finally {
-        jest.useRealTimers();
-      }
+      const state = useAuthStore.getState();
+      expect(state.user?.id).toBe(USER_ID);
+      expect(state.session).toEqual(sessionWithoutEmail);
+      expect(state.customer).toBeNull();
+      expect(state.isInitialized).toBe(true);
+      expect(state.isLoading).toBe(false);
     });
   });
 
@@ -820,6 +860,62 @@ describe('useAuthStore', () => {
   });
 
   // -------------------------------------------------------------------------
+  describe('signInWithGoogle()', () => {
+    beforeEach(() => {
+      (useAuthStore.setState as (s: object) => void)({
+        merchantId: MERCHANT_ID,
+        isLoading: false,
+        isInitialized: true,
+      });
+      (supabase.auth.setSession as jest.Mock).mockResolvedValue({
+        data: {
+          session: mockSession,
+          user: mockUser,
+        },
+        error: null,
+      });
+    });
+
+    it('sets local auth state immediately after OAuth session creation', async () => {
+      (supabase.from as jest.Mock).mockImplementation((table: string) => {
+        if (table === 'customers') {
+          return makeChain({ data: mockCustomerRow, error: null });
+        }
+
+        return makeChain({ data: mockMerchantRow, error: null });
+      });
+
+      let result!: { success: boolean; error?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().signInWithGoogle();
+      });
+
+      expect(result).toEqual({ success: true });
+      expect(useAuthStore.getState().user?.id).toBe(USER_ID);
+      expect(useAuthStore.getState().session?.access_token).toBe(
+        'access-token-abc'
+      );
+      expect(useAuthStore.getState().customer?.id).toBe('customer-uuid-1');
+    });
+
+    it('returns an error when no authenticated user is available after setSession', async () => {
+      (supabase.auth.setSession as jest.Mock).mockResolvedValue({
+        data: { session: null, user: null },
+        error: null,
+      });
+
+      let result!: { success: boolean; error?: string };
+      await act(async () => {
+        result = await useAuthStore.getState().signInWithGoogle();
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Unable to complete sign-in');
+      expect(useAuthStore.getState().user).toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
   describe('signInWithApple()', () => {
     beforeEach(() => {
       // Set default implementations for this describe block.
@@ -877,6 +973,13 @@ describe('useAuthStore', () => {
 
     it('skips updateUser and RPC when user already has full_name in metadata', async () => {
       // Arrange: returning Apple user — metadata already has full_name
+      (supabase.from as jest.Mock).mockImplementation((table: string) => {
+        if (table === 'customers') {
+          return makeChain({ data: mockCustomerRow, error: null });
+        }
+
+        return makeChain({ data: mockMerchantRow, error: null });
+      });
       mockAppleSignInAsync.mockResolvedValueOnce({
         identityToken: 'apple-id-token',
         fullName: { givenName: 'Chidi', familyName: 'Anagonye' },
@@ -983,6 +1086,10 @@ describe('useAuthStore', () => {
 
       // Assert
       expect(result.success).toBe(true);
+      expect(useAuthStore.getState().user?.id).toBe(USER_ID);
+      expect(useAuthStore.getState().session?.access_token).toBe(
+        'access-token-abc'
+      );
       expect(useAuthStore.getState().isLoading).toBe(false);
     });
   });

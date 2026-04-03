@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  InteractionManager,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -109,16 +110,6 @@ export default function AccountScreen() {
     };
   }, [safeCustomer?.id]);
 
-  useEffect(() => {
-    if (!isInitialized) {
-      return;
-    }
-
-    if (!authUser) {
-      router.replace('/(tabs)');
-    }
-  }, [authUser, isInitialized]);
-
   if (!isInitialized) {
     return (
       <View
@@ -147,7 +138,10 @@ export default function AccountScreen() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
-          await signOut();
+          router.replace('/(tabs)');
+          InteractionManager.runAfterInteractions(() => {
+            void signOut();
+          });
         },
       },
     ]);
