@@ -4,6 +4,8 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   removeItem: jest.fn(),
   getMany: jest.fn(),
   removeMany: jest.fn(),
+  multiGet: jest.fn(),
+  multiRemove: jest.fn(),
 }));
 
 jest.mock('./logger', () => ({
@@ -24,6 +26,8 @@ type AsyncStorageMock = {
   removeItem: jest.Mock;
   getMany?: jest.Mock;
   removeMany?: jest.Mock;
+  multiGet: jest.Mock;
+  multiRemove: jest.Mock;
 };
 
 const storageMock = AsyncStorage as unknown as AsyncStorageMock;
@@ -51,11 +55,12 @@ describe('storage batching helpers', () => {
     expect(storageMock.getItem).not.toHaveBeenCalled();
   });
 
-  it('falls back to getItem when getMany is unavailable', async () => {
+  it('falls back to multiGet when getMany is unavailable', async () => {
     storageMock.getMany = undefined;
-    storageMock.getItem
-      .mockResolvedValueOnce('cached-cart')
-      .mockResolvedValueOnce(null);
+    storageMock.multiGet.mockResolvedValue([
+      ['cart', 'cached-cart'],
+      ['prefs', null],
+    ]);
 
     const result = await getStorageEntries(['cart', 'prefs']);
 
@@ -63,8 +68,7 @@ describe('storage batching helpers', () => {
       ['cart', 'cached-cart'],
       ['prefs', null],
     ]);
-    expect(storageMock.getItem).toHaveBeenNthCalledWith(1, 'cart');
-    expect(storageMock.getItem).toHaveBeenNthCalledWith(2, 'prefs');
+    expect(storageMock.multiGet).toHaveBeenCalledWith(['cart', 'prefs']);
   });
 
   it('uses removeMany (v3 batch API) when available', async () => {
@@ -76,14 +80,13 @@ describe('storage batching helpers', () => {
     expect(storageMock.removeItem).not.toHaveBeenCalled();
   });
 
-  it('falls back to removeItem when removeMany is unavailable', async () => {
+  it('falls back to multiRemove when removeMany is unavailable', async () => {
     storageMock.removeMany = undefined;
-    storageMock.removeItem.mockResolvedValue(undefined);
+    storageMock.multiRemove.mockResolvedValue(undefined);
 
     await removeStorageItems(['cache:a', 'cache:b']);
 
-    expect(storageMock.removeItem).toHaveBeenNthCalledWith(1, 'cache:a');
-    expect(storageMock.removeItem).toHaveBeenNthCalledWith(2, 'cache:b');
+    expect(storageMock.multiRemove).toHaveBeenCalledWith(['cache:a', 'cache:b']);
   });
 
   it('returns empty array for empty keys', async () => {
@@ -115,21 +118,21 @@ describe('storage batching helpers', () => {
     );
   });
 
-  it('propagates getItem fallback errors', async () => {
+  it('propagates multiGet fallback errors', async () => {
     storageMock.getMany = undefined;
-    storageMock.getItem.mockRejectedValue(new Error('single read failed'));
+    storageMock.multiGet.mockRejectedValue(new Error('multi read failed'));
 
     await expect(getStorageEntries(['cart'])).rejects.toThrow(
-      'single read failed'
+      'multi read failed'
     );
   });
 
-  it('propagates removeItem fallback errors', async () => {
+  it('propagates multiRemove fallback errors', async () => {
     storageMock.removeMany = undefined;
-    storageMock.removeItem.mockRejectedValue(new Error('single remove failed'));
+    storageMock.multiRemove.mockRejectedValue(new Error('multi remove failed'));
 
     await expect(removeStorageItems(['cache:a'])).rejects.toThrow(
-      'single remove failed'
+      'multi remove failed'
     );
   });
 });
