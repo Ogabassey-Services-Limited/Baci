@@ -3,17 +3,13 @@ name: Deploy to Vercel
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
   group: deploy-${{ github.ref }}
-  # Only cancel in-progress for PRs (previews). Production deploys run to completion
-  # to avoid the cascade-cancel problem where rapid merges kill every deploy.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 env:
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -43,7 +39,7 @@ jobs:
 
   deploy-production:
     needs: [changes]
-    if: github.event_name == 'push' && needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true'
     runs-on: baci-deploy
     timeout-minutes: 20
     env:
@@ -193,47 +189,3 @@ jobs:
           echo "Storefront blog smoke check failed after cache recovery attempts."
           exit 1
 
-  deploy-preview:
-    needs: [changes]
-    # Skip for forks (different repo) AND Dependabot (actor check).
-    # Both lack access to VERCEL_TOKEN — deploy steps would hard-fail.
-    if: >-
-      github.event_name == 'pull_request'
-      && needs.changes.outputs.web == 'true'
-      && github.event.pull_request.head.repo.full_name == github.repository
-      && github.actor != 'dependabot[bot]'
-    runs-on: baci-deploy
-    timeout-minutes: 20
-    env:
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      # Fix OOM error on runner
-      NODE_OPTIONS: "--max_old_space_size=8192"
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-      - name: Clean stale pnpm setup directory
-        run: rm -rf ~/setup-pnpm 2>/dev/null || true
-      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
-        with:
-          node-version: "24"
-          # No cache: "pnpm" — the store is nuked each run to fix cross-runner
-          # issues, so caching it causes Post Run path validation errors.
-      - name: Reset pnpm store to fix cross-runner install issues
-        run: |
-          export PNPM_STORE_DIR="${RUNNER_TEMP}/pnpm-store"
-          rm -rf "${PNPM_STORE_DIR}" || true
-          pnpm config set store-dir "${PNPM_STORE_DIR}"
-      - run: pnpm install
-      - name: Pull Vercel Environment Information
-        if: ${{ env.VERCEL_TOKEN != '' }}
-        run: pnpm dlx vercel pull --yes --environment=preview --token="${{ env.VERCEL_TOKEN }}"
-      - name: Build Project Artifacts
-        if: ${{ env.VERCEL_TOKEN != '' }}
-        run: pnpm dlx vercel build --yes --token="${{ env.VERCEL_TOKEN }}"
-      # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
-      # Do NOT remove it — without it, each deploy uploads thousands of individual files.
-      - name: Deploy to Vercel (with retry)
-        if: ${{ env.VERCEL_TOKEN != '' }}
-        run: .github/scripts/deploy-with-retry.sh pnpm dlx vercel deploy --yes --prebuilt --archive=tgz --token="${{ env.VERCEL_TOKEN }}"
