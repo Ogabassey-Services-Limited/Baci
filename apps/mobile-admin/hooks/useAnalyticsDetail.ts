@@ -256,7 +256,7 @@ export function useAnalyticsDetail({
         const prevStartDate = new Date(prevYear, 0, 1);
         const prevEndDate = new Date(prevYear, 11, 31, 23, 59, 59);
 
-        const { data: prevOrders } = await supabase
+        const prevOrdersQuery = supabase
           .from('orders')
           .select('id, total, tax_amount, payment_status, created_at')
           .eq('merchant_id', merchant.id)
@@ -264,24 +264,45 @@ export function useAnalyticsDetail({
           .gte('created_at', prevStartDate.toISOString())
           .lte('created_at', prevEndDate.toISOString());
 
-        // Fetch previous year order_items for profit calculation
-        let prevOrderItems: OrderItemWithJoins[] = [];
-        if (metric === 'profits') {
-          const { data } = await supabase
-            .from('order_items')
-            .select(`
+        const prevOrderItemsQuery =
+          metric === 'profits'
+            ? supabase
+                .from('order_items')
+                .select(`
                     quantity,
                     price,
                     products!inner(cost_price),
                     orders!inner(id, merchant_id, payment_status, created_at)
                 `)
-            .eq('orders.merchant_id', merchant.id)
-            .eq('orders.payment_status', 'paid')
-            .gte('orders.created_at', prevStartDate.toISOString())
-            .lte('orders.created_at', prevEndDate.toISOString());
-          prevOrderItems =
-            (data as unknown as OrderItemWithJoins[] | null) ?? [];
+                .eq('orders.merchant_id', merchant.id)
+                .eq('orders.payment_status', 'paid')
+                .gte('orders.created_at', prevStartDate.toISOString())
+                .lte('orders.created_at', prevEndDate.toISOString())
+            : Promise.resolve<{
+                data: OrderItemWithJoins[] | null;
+                error: null;
+              }>({
+                data: [],
+                error: null,
+              });
+
+        const [
+          { data: prevOrders, error: prevOrdersError },
+          { data: prevOrderItems, error: prevOrderItemsError },
+        ] = await Promise.all([prevOrdersQuery, prevOrderItemsQuery]);
+
+        if (prevOrdersError) {
+          throw new Error(
+            `Failed to fetch comparison orders: ${prevOrdersError.message}`
+          );
         }
+
+        if (prevOrderItemsError) {
+          throw new Error(
+            `Failed to fetch comparison order items: ${prevOrderItemsError.message}`
+          );
+        }
+        const comparisonOrderItems = prevOrderItems ?? [];
 
         comparisonData = buckets.map((label) => ({
           label,
@@ -321,7 +342,7 @@ export function useAnalyticsDetail({
         if (metric === 'profits' && comparisonData) {
           const comparisonBuckets = comparisonData;
 
-          prevOrderItems.forEach((item) => {
+          comparisonOrderItems.forEach((item) => {
             const order = getJoinedRecord(item.orders);
             const product = getJoinedRecord(item.products);
             if (!order || !product) return;
