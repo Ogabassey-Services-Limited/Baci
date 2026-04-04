@@ -144,7 +144,7 @@ describe('CartItemCard', () => {
 
     const quantityInput = screen.getByLabelText('Quantity input');
     fireEvent.changeText(quantityInput, '4');
-    fireEvent(quantityInput, 'blur');
+    fireEvent(quantityInput, 'endEditing');
     expect(updateQuantity).toHaveBeenCalledWith(item.id, 4);
   });
 

@@ -13,7 +13,7 @@ describe('CartQuantityInput', () => {
     expect(screen.getByDisplayValue('12')).toBeTruthy();
   });
 
-  it('calls onChange on valid blur and resets to prop value on invalid blur', () => {
+  it('calls onChange on end editing and resets to prop value on invalid end editing', () => {
     const onChange = jest.fn();
 
     render(<CartQuantityInput value={3} onChange={onChange} />);
@@ -21,19 +21,33 @@ describe('CartQuantityInput', () => {
     const input = screen.getByLabelText('Quantity input');
 
     fireEvent.changeText(input, '15');
-    fireEvent(input, 'blur');
+    fireEvent(input, 'endEditing');
     expect(onChange).toHaveBeenCalledWith(15);
     expect(onChange).toHaveBeenCalledTimes(1);
 
     fireEvent.changeText(input, '');
-    fireEvent(input, 'blur');
+    fireEvent(input, 'endEditing');
     expect(screen.getByDisplayValue('3')).toBeTruthy();
     expect(onChange).toHaveBeenCalledTimes(1);
 
     fireEvent.changeText(input, '0');
-    fireEvent(input, 'blur');
+    fireEvent(input, 'endEditing');
     expect(screen.getByDisplayValue('3')).toBeTruthy();
     expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not commit on blur alone', () => {
+    const onChange = jest.fn();
+
+    render(<CartQuantityInput value={4} onChange={onChange} />);
+
+    const input = screen.getByLabelText('Quantity input');
+
+    fireEvent.changeText(input, '9');
+    fireEvent(input, 'blur');
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue('9')).toBeTruthy();
   });
 
   it('syncs local input value when external value prop changes', () => {
