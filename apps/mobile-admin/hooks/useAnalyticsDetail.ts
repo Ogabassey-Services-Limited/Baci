@@ -111,32 +111,35 @@ export function useAnalyticsDetail({
       const startDate = new Date(year, 0, 1);
       const endDate = new Date(year, 11, 31, 23, 59, 59);
 
-      // Fetch orders for the year
-      const { data: orders, error: ordersError } = await supabase
-        .from('orders')
-        .select('id, total, tax_amount, payment_status, created_at')
-        .eq('merchant_id', merchant.id)
-        .eq('payment_status', 'paid')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString());
-
-      if (ordersError) {
-        throw new Error(`Failed to fetch orders: ${ordersError.message}`);
-      }
-
-      // Fetch order items for profit calculation
-      const { data: orderItems, error: orderItemsError } = await supabase
-        .from('order_items')
-        .select(`
+      // Fetch orders and order items concurrently
+      const [
+        { data: orders, error: ordersError },
+        { data: orderItems, error: orderItemsError },
+      ] = await Promise.all([
+        supabase
+          .from('orders')
+          .select('id, total, tax_amount, payment_status, created_at')
+          .eq('merchant_id', merchant.id)
+          .eq('payment_status', 'paid')
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString()),
+        supabase
+          .from('order_items')
+          .select(`
                     quantity,
                     price,
                     products!inner(cost_price),
                     orders!inner(id, merchant_id, payment_status, created_at)
                 `)
-        .eq('orders.merchant_id', merchant.id)
-        .eq('orders.payment_status', 'paid')
-        .gte('orders.created_at', startDate.toISOString())
-        .lte('orders.created_at', endDate.toISOString());
+          .eq('orders.merchant_id', merchant.id)
+          .eq('orders.payment_status', 'paid')
+          .gte('orders.created_at', startDate.toISOString())
+          .lte('orders.created_at', endDate.toISOString())
+      ]);
+
+      if (ordersError) {
+        throw new Error(`Failed to fetch orders: ${ordersError.message}`);
+      }
 
       if (orderItemsError) {
         throw new Error(
