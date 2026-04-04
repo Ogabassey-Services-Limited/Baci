@@ -9,6 +9,15 @@ interface ProductImageObject {
   url?: unknown;
 }
 
+interface ProductSpecificationItem {
+  label?: unknown;
+  value?: unknown;
+}
+
+interface ProductSpecificationSection {
+  items?: unknown;
+}
+
 export type VariantAttributeSource = unknown;
 
 interface VariantAttributeCarrier {
@@ -50,6 +59,18 @@ function normalizeAttributeValue(value: unknown) {
   }
 
   return value.trim();
+}
+
+function normalizeSpecificationValue(value: unknown) {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  return '';
 }
 
 function getImageCandidate(value: unknown) {
@@ -114,6 +135,59 @@ export function getProductCardImageAttempt(images: unknown, attempt: number) {
   }
 
   return PRODUCT_PLACEHOLDER_IMAGE;
+}
+
+export function normalizeProductSpecifications(specifications: unknown) {
+  const normalized: Record<string, string> = {};
+
+  if (Array.isArray(specifications)) {
+    for (const section of specifications) {
+      if (!section || typeof section !== 'object') {
+        continue;
+      }
+
+      const items = Array.isArray((section as ProductSpecificationSection).items)
+        ? ((section as ProductSpecificationSection).items as unknown[])
+        : [];
+
+      for (const item of items) {
+        if (!item || typeof item !== 'object') {
+          continue;
+        }
+
+        const rawLabel = (item as ProductSpecificationItem).label;
+        const label = typeof rawLabel === 'string' ? rawLabel.trim() : '';
+        const value = normalizeSpecificationValue(
+          (item as ProductSpecificationItem).value
+        );
+
+        if (!label || !value) {
+          continue;
+        }
+
+        normalized[label] = value;
+      }
+    }
+
+    return Object.keys(normalized).length > 0 ? normalized : undefined;
+  }
+
+  if (!specifications || typeof specifications !== 'object') {
+    return undefined;
+  }
+
+  for (const [rawLabel, rawValue] of Object.entries(specifications)) {
+    const label = rawLabel.trim();
+    const value = normalizeSpecificationValue(rawValue);
+
+    if (!label || !value) {
+      continue;
+    }
+
+    normalized[label] = value;
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 
 export function normalizeVariantAttributes(source: VariantAttributeSource) {

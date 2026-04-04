@@ -22,7 +22,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
-import { useCategories, useProducts } from '@/hooks';
+import { useCategories, useProductBrands, useProducts } from '@/hooks';
+import {
+  resolveSelectedCategoryId,
+} from '@/lib/product-filter-options';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { syncStorage as storage } from '@/lib/storage';
 import type { Product } from '@/types/product';
@@ -128,25 +131,37 @@ export default function SearchScreen() {
     });
   };
 
+  const { data: categories = [] } = useCategories();
+  const selectedCategoryId = resolveSelectedCategoryId(selectedCategory, categories);
+
   const { products, isLoading } = useProducts({
     search: query.length >= 2 ? query : undefined,
     limit: 20,
-    category: selectedCategory !== 'All' ? selectedCategory : undefined,
+    category: selectedCategoryId,
     brand: selectedBrand !== 'All' ? selectedBrand : undefined,
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minPrice: minPrice > 0 ? minPrice : undefined,
     maxPrice: maxPrice > 0 ? maxPrice : undefined,
     minRating: minRating > 0 ? minRating : undefined,
   });
-
-  const { data: categories = [] } = useCategories();
+  const { brands: brandNames } = useProductBrands({
+    search: query.length >= 2 ? query : undefined,
+    category: selectedCategoryId,
+    condition: selectedCondition !== 'All' ? selectedCondition : undefined,
+    minPrice: minPrice > 0 ? minPrice : undefined,
+    maxPrice: maxPrice > 0 ? maxPrice : undefined,
+    minRating: minRating > 0 ? minRating : undefined,
+  });
 
   // Derived data for filters (mocking for now)
   // Derive brand names for filter
   const categoryNames = ['All', ...categories.map((c) => c.name)];
-  const brandNames = Array.from(
-    new Set(products.map((p) => p.brand).filter(Boolean) as string[])
-  ).slice(0, 10);
+
+  useEffect(() => {
+    if (selectedBrand !== 'All' && !brandNames.includes(selectedBrand)) {
+      setSelectedBrand('All');
+    }
+  }, [brandNames, selectedBrand]);
 
   const handleRecentSearch = (search: string) => {
     setQuery(search);
@@ -162,6 +177,15 @@ export default function SearchScreen() {
 
   const handleProductPress = (product: Product) => {
     router.push(`/product/${product.slug}`);
+  };
+
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category);
+    setMinPrice(0);
+    setMaxPrice(0);
+    setSelectedBrand('All');
+    setSelectedCondition('All');
+    setMinRating(0);
   };
 
   const renderSearchResults = () => {
@@ -351,7 +375,7 @@ export default function SearchScreen() {
           <FilterBar
             categories={categoryNames}
             selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
+            onSelectCategory={handleCategorySelect}
             minPrice={minPrice}
             maxPrice={maxPrice}
             onPriceChange={(min, max) => {

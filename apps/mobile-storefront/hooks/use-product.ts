@@ -26,7 +26,6 @@ function augmentProduct(item: z.infer<typeof ProductRowSchema>): Product {
 
   return {
     ...baseProduct,
-    specifications: item.specifications ?? undefined,
     has_variants: item.has_variants ?? false,
     variant_attributes: mergeVariantAttributes(item.variant_attributes, variants),
     variants,

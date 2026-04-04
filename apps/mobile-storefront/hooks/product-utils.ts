@@ -6,8 +6,10 @@ import { createLogger } from '@/lib/logger';
 import {
   getPrimaryProductImage,
   normalizeProductImages,
+  normalizeProductSpecifications,
   normalizeVariantAttributes,
 } from '@/lib/product-normalization';
+import { normalizeProductConditionFilterValue } from '@/lib/product-filter-options';
 import { removeProductSlugFromProductsCache } from '@/lib/product-query-cache';
 import { getProductSlugFallbackCandidates } from '@/lib/product-slug-fallback';
 import { supabase } from '@/lib/supabase';
@@ -236,6 +238,93 @@ export async function resolveAndEvictProduct(
   );
 }
 
+export async function fetchAvailableBrands(
+  merchantId: string,
+  options: UseProductsOptions
+) {
+  const brands = new Set<string>();
+  const pageSize = 500;
+  let offset = 0;
+
+  while (true) {
+    let query = supabase
+      .from('products')
+      .select('brand')
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active');
+
+    if (options.category) {
+      query = query.eq('category_id', options.category);
+    }
+    if (options.search) {
+      const escapedSearch = options.search
+        .replace(/\\/g, '\\\\')
+        .replace(/%/g, '\\%')
+        .replace(/_/g, '\\_');
+      query = query.ilike('name', `%${escapedSearch}%`);
+    }
+
+    const normalizedCondition = normalizeProductConditionFilterValue(
+      options.condition
+    );
+    if (normalizedCondition) {
+      query = query.eq('condition', normalizedCondition);
+    }
+    if (options.minPrice !== undefined) {
+      query = query.gte('price', options.minPrice);
+    }
+    if (options.maxPrice !== undefined) {
+      query = query.lte('price', options.maxPrice);
+    }
+    if (options.minRating !== undefined && options.minRating > 0) {
+      query = query.gte('average_rating', options.minRating);
+    }
+
+    query = query.order('brand', { ascending: true }).range(
+      offset,
+      offset + pageSize - 1
+    );
+
+    const result = await withSupabaseRetry(async () => await query, {
+      maxRetries: 3,
+      onRetry: (attempt, err) => {
+        log.warn(`Brand retry ${attempt}: ${err.message}`);
+      },
+    });
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    const rows = result.data ?? [];
+    for (const row of rows) {
+      if (!row || typeof row !== 'object') {
+        continue;
+      }
+
+      const brand = (row as { brand?: unknown }).brand;
+      if (typeof brand !== 'string') {
+        continue;
+      }
+
+      const trimmedBrand = brand.trim();
+      if (!trimmedBrand) {
+        continue;
+      }
+
+      brands.add(trimmedBrand);
+    }
+
+    if (rows.length < pageSize) {
+      break;
+    }
+
+    offset += pageSize;
+  }
+
+  return Array.from(brands).sort((left, right) => left.localeCompare(right));
+}
+
 export function transformProduct(item: unknown): Product | null {
   const validated = ProductRowSchema.safeParse(item);
   if (!validated.success) {
@@ -319,6 +408,7 @@ export function transformProduct(item: unknown): Product | null {
       : product.categories != null
         ? (product.categories as unknown as Category).name
         : '',
+    specifications: normalizeProductSpecifications(product.specifications),
     condition: formatProductConditionDisplay(product.condition),
     rating,
     review_count: reviewCount,
@@ -361,8 +451,11 @@ export async function fetchProductsPage(
       .replace(/_/g, '\\_');
     query = query.ilike('name', `%${escapedSearch}%`);
   }
-  if (options.condition) {
-    query = query.eq('condition', options.condition);
+  const normalizedCondition = normalizeProductConditionFilterValue(
+    options.condition
+  );
+  if (normalizedCondition) {
+    query = query.eq('condition', normalizedCondition);
   }
   if (options.brand) {
     query = query.eq('brand', options.brand);

@@ -110,6 +110,28 @@ describe('ProductRowSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts section-array specifications from live product rows', () => {
+    const result = ProductRowSchema.safeParse({
+      id: '900bbe6f-9312-4b01-a183-df7c3f36b259',
+      name: 'HP OMEN MAX 16T-AH000 Gaming Laptop',
+      slug: 'hp-omen-max-16t-ah000-gaming-laptop',
+      price: 2500000,
+      images: ['https://cdn.example.com/hp-omen.jpg'],
+      specifications: [
+        {
+          category: 'Specs',
+          items: [
+            { label: 'Brand', value: 'HP' },
+            { label: 'RAM', value: '16GB' },
+          ],
+        },
+      ],
+      status: 'active',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it('accepts malformed array-based variant attributes for later normalization', () => {
     const result = ProductRowSchema.safeParse({
       id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',

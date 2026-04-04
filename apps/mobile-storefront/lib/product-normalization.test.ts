@@ -3,6 +3,7 @@ import {
   getPrimaryProductImage,
   mergeVariantAttributes,
   normalizeProductImages,
+  normalizeProductSpecifications,
   normalizeVariantAttributes,
   PRODUCT_PLACEHOLDER_IMAGE,
 } from './product-normalization';
@@ -97,6 +98,44 @@ describe('normalizeProductImages', () => {
       'https://cdn.example.com/iphone-13-pro-back.jpg',
       'https://cdn.example.com/iphone-13-pro-side.jpg',
     ]);
+  });
+});
+
+describe('normalizeProductSpecifications', () => {
+  it('flattens section-based live specifications into a record', () => {
+    expect(
+      normalizeProductSpecifications([
+        {
+          category: 'Display',
+          items: [
+            { label: 'Brand', value: 'HP' },
+            { label: 'Refresh Rate', value: 165 },
+          ],
+        },
+        {
+          category: 'Battery',
+          items: [{ label: 'Fast Charging', value: true }],
+        },
+      ])
+    ).toEqual({
+      Brand: 'HP',
+      'Fast Charging': 'true',
+      'Refresh Rate': '165',
+    });
+  });
+
+  it('normalizes object-map specifications and drops empty values', () => {
+    expect(
+      normalizeProductSpecifications({
+        RAM: '16GB',
+        Storage: '1TB SSD',
+        Empty: '',
+        Nullish: null,
+      })
+    ).toEqual({
+      RAM: '16GB',
+      Storage: '1TB SSD',
+    });
   });
 });
 

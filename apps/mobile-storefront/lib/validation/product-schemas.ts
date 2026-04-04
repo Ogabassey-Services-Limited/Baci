@@ -93,6 +93,11 @@ const VariantAttributeRecordSchema = z.record(
   z.union([z.array(z.string()), z.string(), z.null()])
 );
 
+const ProductSpecificationRecordSchema = z.record(
+  z.string(),
+  z.union([z.string(), z.number(), z.boolean(), z.null(), z.unknown()])
+);
+
 export const ProductRowSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
@@ -110,7 +115,26 @@ export const ProductRowSchema = z.object({
   stock: z.number().nullable().optional(),
   stock_quantity: z.number().nullable().optional(),
   status: z.string().optional(),
-  specifications: z.record(z.string(), z.string()).nullable().optional(),
+  specifications: z
+    .union([
+      ProductSpecificationRecordSchema,
+      z.array(
+        z.object({
+          category: z.string().optional(),
+          items: z
+            .array(
+              z.object({
+                label: z.string().optional(),
+                value: z.unknown().optional(),
+              })
+            )
+            .optional(),
+        })
+      ),
+      z.array(z.unknown()),
+    ])
+    .nullable()
+    .optional(),
   has_variants: z.boolean().nullable().optional(),
   variant_attributes: z
     .union([

@@ -111,6 +111,61 @@ jest.mock('@/hooks/product-utils', () => {
           ? ((firstCategory as { name: string }).name ?? '')
           : '';
 
+      const specifications = Array.isArray(item.specifications)
+        ? item.specifications.reduce<Record<string, string>>((result, section) => {
+            if (!section || typeof section !== 'object') {
+              return result;
+            }
+
+            const items = Array.isArray(
+              (section as { items?: unknown }).items
+            )
+              ? ((section as { items: unknown[] }).items ?? [])
+              : [];
+
+            for (const spec of items) {
+              if (!spec || typeof spec !== 'object') {
+                continue;
+              }
+
+              const label =
+                typeof (spec as { label?: unknown }).label === 'string'
+                  ? (spec as { label: string }).label.trim()
+                  : '';
+              const rawValue = (spec as { value?: unknown }).value;
+              const value =
+                typeof rawValue === 'string'
+                  ? rawValue.trim()
+                  : typeof rawValue === 'number' || typeof rawValue === 'boolean'
+                    ? String(rawValue)
+                    : '';
+
+              if (!label || !value) {
+                continue;
+              }
+
+              result[label] = value;
+            }
+
+            return result;
+          }, {})
+        : item.specifications &&
+            typeof item.specifications === 'object' &&
+            !Array.isArray(item.specifications)
+          ? Object.fromEntries(
+              Object.entries(item.specifications as Record<string, unknown>)
+                .map(([key, value]) => [
+                  key,
+                  typeof value === 'string'
+                    ? value
+                    : typeof value === 'number' || typeof value === 'boolean'
+                      ? String(value)
+                      : '',
+                ])
+                .filter(([, value]) => value.length > 0)
+            )
+          : undefined;
+
       return {
         id: item.id,
         name: item.name,
@@ -126,6 +181,7 @@ jest.mock('@/hooks/product-utils', () => {
         images,
         brand: typeof item.brand === 'string' ? item.brand : undefined,
         category: categoryName,
+        specifications,
         condition: typeof item.condition === 'string' ? item.condition : undefined,
         rating:
           typeof item.average_rating === 'number' ? item.average_rating : undefined,
@@ -373,6 +429,35 @@ describe('useProduct', () => {
     expect(result.current.product?.variant_attributes).toEqual({
       storage: ['256GB', '512GB'],
       ram: ['12GB'],
+    });
+  });
+
+  it('preserves normalized specifications instead of leaking raw section arrays', async () => {
+    mockResolveAndEvictProduct.mockResolvedValue({
+      ...validProductRow,
+      specifications: [
+        {
+          category: 'Specs',
+          items: [
+            { label: 'Brand', value: 'HP' },
+            { label: 'RAM', value: '16GB' },
+          ],
+        },
+      ],
+    });
+    const queryClient = createQueryClient();
+
+    const { result } = renderHook(() => useProduct('iphone-13-pro'), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => {
+      expect(result.current.product).not.toBeNull();
+    });
+
+    expect(result.current.product?.specifications).toEqual({
+      Brand: 'HP',
+      RAM: '16GB',
     });
   });
 

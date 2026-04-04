@@ -7,6 +7,17 @@ const CATEGORY_PRIORITY = {
 
 const DEFAULT_CATEGORY_PRIORITY = 100;
 
+const PRODUCT_GRID_CATEGORY_GROUPS = [
+  ['Smartphones', 'Phones'],
+  ['Gaming Laptops'],
+  ['Laptops', 'Computers'],
+  ['Tablets', 'iPads', 'iPad'],
+  ['Audio', 'Headphones', 'Earbuds', 'Speakers', 'Soundbars'],
+  ['Accessories', 'Gaming Accessories'],
+  ['Printers'],
+  ['Gaming'],
+] as const;
+
 function getCategoryPriority(categoryName: string): number {
   if (
     (categoryName.includes('phone') &&
@@ -57,4 +68,31 @@ export function sortCategoriesByPriority(categories: ReadonlyArray<unknown>): st
 
       return a.localeCompare(b);
     });
+}
+
+export function getProductGridCategories(
+  categories: ReadonlyArray<unknown>
+): string[] {
+  const normalizedCategories = [...categories]
+    .filter((category): category is string => typeof category === 'string')
+    .map((category) => category.trim())
+    .filter((category, index, all) => category.length > 0 && all.indexOf(category) === index);
+
+  const matchedCategories = PRODUCT_GRID_CATEGORY_GROUPS.flatMap((group) => {
+    const match = group
+      .map((candidate) =>
+        normalizedCategories.find(
+          (category) => category.toLowerCase() === candidate.toLowerCase()
+        )
+      )
+      .find((category): category is string => Boolean(category));
+
+    return match ? [match] : [];
+  });
+
+  if (matchedCategories.length > 0) {
+    return matchedCategories;
+  }
+
+  return sortCategoriesByPriority(normalizedCategories).slice(0, 6);
 }
