@@ -20,3 +20,83 @@ index f21668fff..1763159a8 100644
  ktfmt = "0.22.0"
  mockito = "3.12.4"
  mockito-kotlin = "3.2.0"
+diff --git a/third-party-podspecs/ReactNativeDependencies.podspec b/third-party-podspecs/ReactNativeDependencies.podspec
+index e08e6c2b09..39a012be56 100644
+--- a/third-party-podspecs/ReactNativeDependencies.podspec
++++ b/third-party-podspecs/ReactNativeDependencies.podspec
+@@ -38,7 +38,7 @@ Pod::Spec.new do |spec|
+ 
+   spec.source               = source
+   spec.preserve_paths       = '**/*.*'
+-  spec.vendored_frameworks  = 'framework/packages/react-native/ReactNativeDependencies.xcframework'
++  spec.vendored_frameworks  = 'framework/packages/react-native/third-party/ReactNativeDependencies.xcframework'
+   spec.header_mappings_dir  = 'Headers'
+   spec.source_files         = 'Headers/**/*.{h,hpp}'
+ 
+@@ -46,8 +46,18 @@ Pod::Spec.new do |spec|
+   # than the one from the maven repo
+   spec.prepare_command    = <<-CMD
+     CURRENT_PATH=$(pwd)
++    TARGET_XCFRAMEWORK_PATH="$CURRENT_PATH/framework/packages/react-native/third-party/ReactNativeDependencies.xcframework"
++    LEGACY_XCFRAMEWORK_PATH="$CURRENT_PATH/framework/packages/react-native/ReactNativeDependencies.xcframework"
+     mkdir -p Headers
+-    XCFRAMEWORK_PATH=$(find "$CURRENT_PATH" -type d -name "ReactNativeDependencies.xcframework")
++
++    if [ -d "$TARGET_XCFRAMEWORK_PATH" ]; then
++      XCFRAMEWORK_PATH="$TARGET_XCFRAMEWORK_PATH"
++    elif [ -d "$LEGACY_XCFRAMEWORK_PATH" ]; then
++      XCFRAMEWORK_PATH="$LEGACY_XCFRAMEWORK_PATH"
++    else
++      XCFRAMEWORK_PATH=$(find "$CURRENT_PATH" -type d -name "ReactNativeDependencies.xcframework" | head -n 1)
++    fi
++
+     HEADERS_PATH=$(find "$XCFRAMEWORK_PATH" -type d -name "Headers" | head -n 1)
+ 
+     # Check if XCFRAMEWORK_PATH is empty
+@@ -63,10 +73,12 @@ Pod::Spec.new do |spec|
+     fi
+ 
+     cp -R "$HEADERS_PATH/." Headers
+-    mkdir -p framework/packages/react-native
+-    cp -R "$XCFRAMEWORK_PATH/../." framework/packages/react-native/
+-    find "$XCFRAMEWORK_PATH/.." -type f -exec rm {} +
+-    find "$CURRENT_PATH" -type d -empty -delete
++    mkdir -p "$(dirname "$TARGET_XCFRAMEWORK_PATH")"
++
++    if [ "$XCFRAMEWORK_PATH" != "$TARGET_XCFRAMEWORK_PATH" ]; then
++      rm -rf "$TARGET_XCFRAMEWORK_PATH"
++      cp -R "$XCFRAMEWORK_PATH" "$TARGET_XCFRAMEWORK_PATH"
++    fi
+   CMD
+ 
+   # If we are passing a local tarball, we don't want to switch between Debug and Release
+diff --git a/third-party-podspecs/replace_dependencies_version.js b/third-party-podspecs/replace_dependencies_version.js
+index 66fa888758..0c22e5f586 100644
+--- a/third-party-podspecs/replace_dependencies_version.js
++++ b/third-party-podspecs/replace_dependencies_version.js
+@@ -70,24 +70,14 @@ function replaceRNDepsConfiguration(
+     stdio: 'inherit',
+   });
+ 
+-  // Now we need to remove the extra third-party folder as we do in the podspec's prepare-script
+-  // We need to take the ReactNativeDependencies.xcframework folder and move it up one level
+-  // from ${finalLocation}/packages/react-native/third-party/ to ${finalLocation}/packages/react-native/
+   console.log('Resolving ReactNativeDependencies.xcframework folder structure');
+   const thirdPartyPath = `${finalLocation}/packages/react-native/third-party`;
+   const sourcePath = `${thirdPartyPath}/ReactNativeDependencies.xcframework`;
+-  const destinationPath = `${finalLocation}/packages/react-native/ReactNativeDependencies.xcframework`;
+-  if (fs.existsSync(sourcePath)) {
+-    fs.renameSync(sourcePath, destinationPath);
+-  } else {
++  if (!fs.existsSync(sourcePath)) {
+     throw new Error(
+       `Expected ReactNativeDependencies.xcframework to be at ${sourcePath}, but it was not found.`,
+     );
+   }
+-
+-  if (fs.existsSync(thirdPartyPath)) {
+-    fs.rmSync(thirdPartyPath, {force: true, recursive: true});
+-  }
+ }
+ 
+ function updateLastBuildConfiguration(configuration /*: string */) {
