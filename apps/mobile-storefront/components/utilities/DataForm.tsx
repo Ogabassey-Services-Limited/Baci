@@ -19,6 +19,7 @@ import { ProviderGrid } from './ProviderGrid';
 
 /** Height reserved for the absolutely-positioned payment footer */
 const FOOTER_HEIGHT = 120;
+const FOOTER_ERROR_BUFFER = 36;
 
 interface DataFormProps {
   onSuccess: (data: {
@@ -40,6 +41,10 @@ export function DataForm({ onSuccess }: DataFormProps) {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [planAmount, setPlanAmount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const footerSpacerHeight =
+    FOOTER_HEIGHT +
+    Math.max(insets.bottom - 26, 0) +
+    (purchase.error ? FOOTER_ERROR_BUFFER : 0);
 
   // Bug #H18: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
   const isBusy = isSubmitting || purchase.isPending;
@@ -104,7 +109,10 @@ export function DataForm({ onSuccess }: DataFormProps) {
     <>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.content, styles.contentWithFooter]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: footerSpacerHeight },
+        ]}
       >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Select Provider
@@ -252,9 +260,6 @@ export function DataForm({ onSuccess }: DataFormProps) {
 const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   content: { padding: SPACING.md },
-  contentWithFooter: {
-    paddingBottom: FOOTER_HEIGHT,
-  },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   input: {
     height: 50,

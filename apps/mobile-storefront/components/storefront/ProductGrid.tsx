@@ -3,7 +3,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ProductGridSkeleton } from '@/components/ui/Skeleton';
-import { SPACING, TYPOGRAPHY, palette } from '@/constants/Colors';
+import { palette, SPACING, TYPOGRAPHY } from '@/constants/Colors';
 import { useCategories, useProductBrands, useProducts } from '@/hooks';
 import { getProductGridCategories } from '@/lib/category-utils';
 import { resolveSelectedCategoryId } from '@/lib/product-filter-options';
@@ -78,7 +78,7 @@ export default function ProductGrid({
     condition: selectedCondition !== 'All' ? selectedCondition : undefined,
     minRating: minRating > 0 ? minRating : undefined,
   });
-  const { brands } = useProductBrands({
+  const { brands = [] } = useProductBrands({
     category: normalizedCategoryId,
     minPrice: minPrice > 0 ? minPrice : undefined,
     maxPrice: maxPrice < MAX_PRICE_LIMIT ? maxPrice : undefined,
@@ -107,7 +107,9 @@ export default function ProductGrid({
 
   const categoryNames = (() => {
     if (categoriesData.length > 0) {
-      const allCats = (categoriesData as Category[]).map((category) => category.name);
+      const allCats = (categoriesData as Category[]).map(
+        (category) => category.name
+      );
       const sorted = getProductGridCategories(allCats);
 
       return ['All', ...sorted];

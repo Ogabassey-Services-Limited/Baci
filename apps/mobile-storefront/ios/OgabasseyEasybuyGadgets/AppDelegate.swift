@@ -37,7 +37,13 @@ class AppDelegate: ExpoAppDelegate {
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey: Any] = [:]
   ) -> Bool {
-    return super.application(app, open: url, options: options) || RCTLinkingManager.application(app, open: url, options: options)
+    let handledBySuper = super.application(app, open: url, options: options)
+    let handledByReactNative = RCTLinkingManager.application(
+      app,
+      open: url,
+      options: options
+    )
+    return handledBySuper || handledByReactNative
   }
 
   // Universal Links
@@ -46,27 +52,24 @@ class AppDelegate: ExpoAppDelegate {
     continue userActivity: NSUserActivity,
     restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
   ) -> Bool {
-    var didRestore = false
-    let guardedRestorationHandler: ([UIUserActivityRestoring]?) -> Void = { restoring in
-      guard !didRestore else {
-        return
-      }
-      didRestore = true
-      restorationHandler(restoring)
+    var hasRestored = false
+    let guardedRestorationHandler: ([UIUserActivityRestoring]?) -> Void = {
+      restoringObjects in
+      guard !hasRestored else { return }
+      hasRestored = true
+      restorationHandler(restoringObjects)
     }
-
-    let handledByLinking = RCTLinkingManager.application(
+    let handledByReactNative = RCTLinkingManager.application(
       application,
       continue: userActivity,
       restorationHandler: guardedRestorationHandler
     )
-    let handledByExpo = super.application(
+    let handledBySuper = super.application(
       application,
       continue: userActivity,
       restorationHandler: guardedRestorationHandler
     )
-
-    return handledByExpo || handledByLinking
+    return handledBySuper || handledByReactNative
   }
 }
 

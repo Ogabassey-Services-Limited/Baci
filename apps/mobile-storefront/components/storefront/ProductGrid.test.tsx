@@ -64,6 +64,9 @@ jest.mock('./FilterBar', () => ({
   FilterBar: (props: {
     onSelectCategory: (category: string) => void;
     onSelectBrand: (brand: string) => void;
+    onSelectCondition?: (condition: string) => void;
+    onPriceChange?: (min: number, max: number) => void;
+    onSelectRating?: (rating: number) => void;
   }) =>
     mockFilterBar(props),
 }));

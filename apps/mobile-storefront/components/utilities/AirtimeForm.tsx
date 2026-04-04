@@ -20,6 +20,7 @@ const QUICK_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
 
 /** Height reserved for the absolutely-positioned payment footer */
 const FOOTER_HEIGHT = 120;
+const FOOTER_ERROR_BUFFER = 36;
 
 interface AirtimeFormProps {
   onSuccess: (data: {
@@ -48,6 +49,10 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
   };
 
   const numericAmount = Number(amount.replace(/\D/g, ''));
+  const footerSpacerHeight =
+    FOOTER_HEIGHT +
+    Math.max(insets.bottom - 26, 0) +
+    (purchase.error ? FOOTER_ERROR_BUFFER : 0);
 
   // Bug #61: Guard against double-tap with isSubmitting state
   const isBusy = isSubmitting || purchase.isPending;
@@ -95,7 +100,10 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
     <>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.content, styles.contentWithFooter]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: footerSpacerHeight },
+        ]}
       >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Select Provider
@@ -212,9 +220,6 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
 const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   content: { padding: SPACING.md },
-  contentWithFooter: {
-    paddingBottom: FOOTER_HEIGHT,
-  },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   inputGroup: { marginBottom: 16 },
   label: { fontSize: 14, marginBottom: 8 },

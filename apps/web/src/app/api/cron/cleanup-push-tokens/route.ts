@@ -30,10 +30,20 @@ export async function GET(request: NextRequest) {
     ]);
 
     if (staleResult.error || attemptsResult.error) {
-      const error = staleResult.error ?? attemptsResult.error;
-      console.error('Push notification cleanup failed:', error);
+      if (staleResult.error) {
+        console.error('Stale tokens cleanup failed:', staleResult.error);
+      }
+      if (attemptsResult.error) {
+        console.error('Old attempts cleanup failed:', attemptsResult.error);
+      }
       return NextResponse.json(
-        { error: error?.message ?? 'Push cleanup failed' },
+        {
+          error: 'Push cleanup failed',
+          details: {
+            staleTokens: staleResult.error?.message,
+            attempts: attemptsResult.error?.message,
+          },
+        },
         { status: 500 }
       );
     }

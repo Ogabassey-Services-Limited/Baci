@@ -57,6 +57,7 @@ function makeUser(id: string): User {
 
 describe('useSignInForm', () => {
   beforeEach(() => {
+    jest.useFakeTimers();
     jest.clearAllMocks();
     mockSignInWithGoogle.mockResolvedValue({ success: true });
     mockSignInWithApple.mockResolvedValue({ success: true });
@@ -68,6 +69,10 @@ describe('useSignInForm', () => {
         user: null,
       });
     });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('sets error when Apple sign-in fails', async () => {
@@ -132,5 +137,22 @@ describe('useSignInForm', () => {
       expect(onSuccess).toHaveBeenCalledTimes(1);
       expect(mockRouterReplace).toHaveBeenCalledWith('/checkout');
     });
+  });
+
+  it('recovers from a stalled social sign-in if auth state never updates', async () => {
+    const onSuccess = jest.fn();
+    const { result } = renderHook(() => useSignInForm({ onSuccess }));
+
+    await act(async () => {
+      await result.current.handleGoogleSignIn();
+    });
+
+    await act(async () => {
+      jest.advanceTimersByTime(30000);
+    });
+
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.error).toBe('Sign-in timed out. Please try again.');
   });
 });

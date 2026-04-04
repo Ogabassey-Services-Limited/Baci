@@ -325,6 +325,46 @@ describe('notifyMerchant', () => {
       errors: ['DB connection failed'],
     });
   });
+
+  it('records a failed attempt when push sending throws before ticket processing', async () => {
+    const selectChain = createChainableMock([
+      { token: 'ExponentPushToken[m1]' },
+      { token: 'ExponentPushToken[m2]' },
+    ]);
+    const attemptInsertChain = createChainableMock();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi
+        .fn()
+        .mockReturnValueOnce(selectChain)
+        .mockReturnValueOnce(attemptInsertChain),
+    } as never);
+
+    mockChunkPushNotifications.mockImplementationOnce(() => {
+      throw new Error('Chunking failed');
+    });
+
+    const result = await notifyMerchant('merchant-123', 'Test', 'Body', {
+      type: 'new_order',
+    });
+
+    expect(result).toEqual({
+      sent: 0,
+      failed: 2,
+      errors: ['Chunking failed'],
+    });
+    expect(attemptInsertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchant_id: 'merchant-123',
+        title: 'Test',
+        body: 'Body',
+        payload: { type: 'new_order' },
+        token_count: 2,
+        failed_count: 2,
+        status: 'failed',
+      })
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -349,6 +389,41 @@ describe('notifyCustomer', () => {
     expect(mockChain.eq).toHaveBeenCalledWith('app_type', 'storefront');
 
     expect(result).toEqual({ sent: 1, failed: 0, errors: [] });
+  });
+
+  it('persists title, body, and payload for successful customer sends', async () => {
+    const selectChain = createChainableMock([
+      { token: 'ExponentPushToken[c1]' },
+    ]);
+    const ticketInsertChain = createChainableMock();
+    const attemptInsertChain = createChainableMock();
+
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi
+        .fn()
+        .mockReturnValueOnce(selectChain)
+        .mockReturnValueOnce(ticketInsertChain)
+        .mockReturnValueOnce(attemptInsertChain),
+    } as never);
+
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      { status: 'ok', id: 'ticket-c1' },
+    ]);
+
+    await notifyCustomer('user-456', 'Order Update', 'Your order moved', {
+      type: 'order_update',
+      order_id: 'ord-1',
+    });
+
+    expect(attemptInsertChain.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: 'user-456',
+        title: 'Order Update',
+        body: 'Your order moved',
+        payload: { type: 'order_update', order_id: 'ord-1' },
+        status: 'sent',
+      })
+    );
   });
 });
 

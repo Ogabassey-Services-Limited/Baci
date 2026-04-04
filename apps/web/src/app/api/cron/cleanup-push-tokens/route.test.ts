@@ -93,7 +93,37 @@ describe('GET /api/cron/cleanup-push-tokens', () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data).toEqual({ error: 'function not found' });
+    expect(data).toEqual({
+      error: 'Push cleanup failed',
+      details: {
+        staleTokens: 'function not found',
+        attempts: undefined,
+      },
+    });
+  });
+
+  it('returns both RPC error messages when both cleanup calls fail', async () => {
+    mockRpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'stale failed' },
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: 'attempts failed' },
+      });
+
+    const response = await GET(createCronRequest('Bearer test-cron-secret'));
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({
+      error: 'Push cleanup failed',
+      details: {
+        staleTokens: 'stale failed',
+        attempts: 'attempts failed',
+      },
+    });
   });
 
   it('returns cleaned: 0 when RPC returns null', async () => {

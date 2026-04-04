@@ -17,7 +17,7 @@ import Colors, { BRAND } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { hasAppleProvider } from '@/lib/account-deletion';
 import { useAuthStore } from '@/stores/auth-store';
-import { styles } from '../../components/profile/delete-account-styles';
+import { styles } from '@/components/profile/delete-account-styles';
 
 const APPLE_REVOKE_GUIDE_URL = 'https://support.apple.com/en-us/102571';
 

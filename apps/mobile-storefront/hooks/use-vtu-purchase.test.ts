@@ -2,6 +2,7 @@ import { notifyManager } from '@tanstack/query-core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react-native';
 import { createElement, type PropsWithChildren } from 'react';
+import { useVTUPurchase } from '@/hooks/use-vtu-purchase';
 
 const mockFetchWithTimeout = jest.fn();
 const mockScheduleLocalNotification = jest.fn();
@@ -36,8 +37,6 @@ jest.mock('@/stores/auth-store', () => {
     })),
   };
 });
-
-import { useVTUPurchase } from './use-vtu-purchase';
 
 function createWrapper(queryClient: QueryClient) {
   return function Wrapper({ children }: PropsWithChildren) {
@@ -145,22 +144,17 @@ describe('useVTUPurchase', () => {
       wrapper: createWrapper(queryClient),
     });
 
-    let caught: Error | undefined;
     await act(async () => {
-      try {
-        await result.current.mutateAsync({
+      await expect(
+        result.current.mutateAsync({
           type: 'airtime',
           amount: 1000,
           phoneNumber: '08012345678',
           networkProvider: 'mtn',
-        });
-      } catch (err) {
-        caught = err as Error;
-      }
+        })
+      ).rejects.toThrow('Insufficient wallet balance');
     });
 
-    expect(caught).toBeDefined();
-    expect(caught?.message).toBe('Insufficient wallet balance');
     expect(mockScheduleLocalNotification).not.toHaveBeenCalled();
 
     unmount();

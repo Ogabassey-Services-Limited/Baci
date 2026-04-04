@@ -3,7 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { useMerchant } from '@/hooks/use-merchant';
 import { fetchAvailableBrands } from '@/hooks/product-utils';
-import { useProductBrands } from './use-products';
+import { useProductBrands } from '@/hooks/use-products';
 
 jest.mock('@/hooks/use-merchant', () => ({
   useMerchant: jest.fn(),

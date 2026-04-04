@@ -1,4 +1,4 @@
-type PushPayload = Record<string, unknown>;
+export type PushPayload = Record<string, unknown>;
 
 export type AdminNotificationNavigationTarget =
   | { screen: 'order'; params: { id: string } }
@@ -23,8 +23,11 @@ function readString(
 ): string | undefined {
   for (const key of keys) {
     const value = payload[key];
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim();
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed) {
+        return trimmed;
+      }
     }
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminPushTestSchema } from './push-test';
+import { adminPushTestSchema } from '@/schemas/push-test';
 
 describe('adminPushTestSchema', () => {
   it('uses defaults when title and body are omitted', () => {

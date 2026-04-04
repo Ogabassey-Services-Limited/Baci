@@ -1,15 +1,14 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { normalizeProductInventory } from '../../../packages/shared/src/lib/product-inventory';
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
+import { normalizeProductConditionFilterValue } from '@/lib/product-filter-options';
 import {
   getPrimaryProductImage,
   normalizeProductImages,
   normalizeProductSpecifications,
   normalizeVariantAttributes,
 } from '@/lib/product-normalization';
-import { normalizeProductConditionFilterValue } from '@/lib/product-filter-options';
 import { removeProductSlugFromProductsCache } from '@/lib/product-query-cache';
 import { getProductSlugFallbackCandidates } from '@/lib/product-slug-fallback';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +18,7 @@ import {
   type Product,
   type ProductVariant,
 } from '@/types/product';
+import { normalizeProductInventory } from '../../../packages/shared/src/lib/product-inventory';
 
 const log = createLogger('Products');
 
@@ -158,7 +158,7 @@ export function normalizeProductVariants(
         in_stock:
           typeof stockQuantity === 'number'
             ? stockQuantity > 0
-            : variant.in_stock ?? undefined,
+            : (variant.in_stock ?? undefined),
         stock_quantity: stockQuantity,
         attributes,
       };
@@ -166,7 +166,7 @@ export function normalizeProductVariants(
   );
 }
 
-export async function fetchProductRow(
+export function fetchProductRow(
   merchantId: string,
   identifier: string,
   context: string
@@ -241,7 +241,7 @@ export async function resolveAndEvictProduct(
 export async function fetchAvailableBrands(
   merchantId: string,
   options: UseProductsOptions
-) {
+): Promise<string[]> {
   const brands = new Set<string>();
   const pageSize = 500;
   let offset = 0;
@@ -280,10 +280,9 @@ export async function fetchAvailableBrands(
       query = query.gte('average_rating', options.minRating);
     }
 
-    query = query.order('brand', { ascending: true }).range(
-      offset,
-      offset + pageSize - 1
-    );
+    query = query
+      .order('brand', { ascending: true })
+      .range(offset, offset + pageSize - 1);
 
     const result = await withSupabaseRetry(async () => await query, {
       maxRetries: 3,
@@ -298,21 +297,10 @@ export async function fetchAvailableBrands(
 
     const rows = result.data ?? [];
     for (const row of rows) {
-      if (!row || typeof row !== 'object') {
-        continue;
+      const brand = row?.brand?.trim();
+      if (brand) {
+        brands.add(brand);
       }
-
-      const brand = (row as { brand?: unknown }).brand;
-      if (typeof brand !== 'string') {
-        continue;
-      }
-
-      const trimmedBrand = brand.trim();
-      if (!trimmedBrand) {
-        continue;
-      }
-
-      brands.add(trimmedBrand);
     }
 
     if (rows.length < pageSize) {

@@ -20,4 +20,8 @@ describe('normalizeCheckoutPhone', () => {
   it('returns an empty string for missing values', () => {
     expect(normalizeCheckoutPhone(undefined)).toBe('');
   });
+
+  it('does not coerce incomplete 234-prefixed numbers into E.164', () => {
+    expect(normalizeCheckoutPhone('2341234')).toBe('2341234');
+  });
 });
