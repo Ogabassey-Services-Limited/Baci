@@ -85,6 +85,11 @@ interface CustomerInfo {
   address: string;
 }
 
+type SelectableCustomer = Pick<
+  Customer,
+  'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'address'
+>;
+
 /**
  * Formats a price string with thousand separators while preserving decimal input
  */
@@ -229,9 +234,8 @@ export default function NewOrderScreen() {
     address: '',
   });
   const [selectedCountryCode, setSelectedCountryCode] = useState<string>('NG'); // For Google Places filtering
-  const [duplicateCustomer, setDuplicateCustomer] = useState<Customer | null>(
-    null
-  );
+  const [duplicateCustomer, setDuplicateCustomer] =
+    useState<SelectableCustomer | null>(null);
 
   // Delivery Details
   const [sameAsCustomer, setSameAsCustomer] = useState(true);
@@ -334,7 +338,7 @@ export default function NewOrderScreen() {
     );
   };
 
-  const handleSelectCustomer = (item: Customer) => {
+  const handleSelectCustomer = (item: SelectableCustomer) => {
     const displayName =
       [item.first_name, item.last_name]
         .filter((name): name is string => Boolean(name))
@@ -373,7 +377,7 @@ export default function NewOrderScreen() {
 
       const { data: existingCustomers, error: searchError } = await supabase
         .from('customers')
-        .select('*')
+        .select('id, first_name, last_name, email, phone, address')
         .eq('merchant_id', merchant?.id)
         .or(conditions.join(','))
         .limit(1);
@@ -384,7 +388,7 @@ export default function NewOrderScreen() {
 
       // If customer exists, show them instead of creating
       if (existingCustomers && existingCustomers.length > 0) {
-        setDuplicateCustomer(existingCustomers[0] as Customer);
+        setDuplicateCustomer(existingCustomers[0]);
         return;
       }
 
