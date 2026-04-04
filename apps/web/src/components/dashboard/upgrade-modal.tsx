@@ -157,6 +157,7 @@ function UpgradeModal() {
             type="button"
             onClick={close}
             className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors"
+            aria-label="Close upgrade modal"
           >
             <X size={24} />
           </button>
