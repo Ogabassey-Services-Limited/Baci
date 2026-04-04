@@ -18,6 +18,13 @@ const PRODUCT_GRID_CATEGORY_GROUPS = [
   ['Gaming'],
 ] as const;
 
+function normalizeCategories(categories: readonly unknown[]): string[] {
+  return [...categories]
+    .filter((category): category is string => typeof category === 'string')
+    .map((category) => category.trim())
+    .filter((category) => category.length > 0);
+}
+
 function getCategoryPriority(categoryName: string): number {
   if (
     (categoryName.includes('phone') &&
@@ -53,30 +60,31 @@ function getCategoryPriority(categoryName: string): number {
   return DEFAULT_CATEGORY_PRIORITY;
 }
 
-export function sortCategoriesByPriority(categories: ReadonlyArray<unknown>): string[] {
-  return [...categories]
-    .filter((category): category is string => typeof category === 'string')
-    .map((category) => category.trim())
-    .filter((category) => category.length > 0)
-    .sort((a, b) => {
-      const aPriority = getCategoryPriority(a.toLowerCase());
-      const bPriority = getCategoryPriority(b.toLowerCase());
+export function sortCategoriesByPriority(
+  categories: readonly unknown[]
+): string[] {
+  return normalizeCategories(categories).sort((a, b) => {
+    const aPriority = getCategoryPriority(a.toLowerCase());
+    const bPriority = getCategoryPriority(b.toLowerCase());
 
-      if (aPriority !== bPriority) {
-        return aPriority - bPriority;
-      }
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
 
-      return a.localeCompare(b);
-    });
+    return a.localeCompare(b);
+  });
 }
 
 export function getProductGridCategories(
-  categories: ReadonlyArray<unknown>
+  categories: readonly unknown[]
 ): string[] {
-  const normalizedCategories = [...categories]
-    .filter((category): category is string => typeof category === 'string')
-    .map((category) => category.trim())
-    .filter((category, index, all) => category.length > 0 && all.indexOf(category) === index);
+  const normalized = normalizeCategories(categories);
+  const normalizedCategories = normalized.filter(
+    (category, index, all) =>
+      all.findIndex(
+        (candidate) => candidate.toLowerCase() === category.toLowerCase()
+      ) === index
+  );
 
   const matchedCategories = PRODUCT_GRID_CATEGORY_GROUPS.flatMap((group) => {
     const match = group

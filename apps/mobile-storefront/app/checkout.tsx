@@ -180,6 +180,16 @@ const STEP_PILL_LABELS: Record<CheckoutStep, string> = {
   review: 'Review',
 };
 
+function getPaymentTabForMethod(method: PaymentMethodType): PaymentTab {
+  if (method === 'credpal' || method === 'credit_direct') {
+    return 'installments';
+  }
+  if (method === 'invoice' || method === 'payforme') {
+    return 'pay_later';
+  }
+  return 'full';
+}
+
 function getDeliveryMethodFee(
   deliveryMethod: DeliveryMethod,
   selectedQuote: ShippingQuote | undefined
@@ -211,7 +221,8 @@ function getDeliveryMethodSummary(
     return PICKUP_STATION_ADDRESS_LINES.join(', ');
   }
 
-  const carrier = selectedQuote?.carrierName || selectedQuote?.provider || 'Topship';
+  const carrier =
+    selectedQuote?.carrierName || selectedQuote?.provider || 'Topship';
   const eta =
     selectedQuote?.deliveryRange ||
     (selectedQuote?.estimatedDays
@@ -688,6 +699,8 @@ export default function CheckoutScreen() {
   const hasContactIdentity = Boolean(
     checkoutEmail && checkoutFirstName && checkoutLastName && checkoutPhone
   );
+  const initialHasContactIdentityRef = useRef(hasContactIdentity);
+  const formContentPaddingBottom = 116 + insets.bottom;
   const selectedSavedAddress =
     savedAddresses.find((item) => item.id === selectedSavedAddressId) ?? null;
   const defaultSavedAddress = getDefaultSavedAddress(savedAddresses);
@@ -777,7 +790,7 @@ export default function CheckoutScreen() {
       const defaultAddr = getDefaultSavedAddress(nextAddresses);
 
       if (!defaultAddr) {
-        setIsContactCollapsed(hasContactIdentity);
+        setIsContactCollapsed(initialHasContactIdentityRef.current);
         setIsDeliveryCollapsed(false);
         setIsAddingNewAddress(true);
         setSaveAsDefaultAddress(true);
@@ -801,7 +814,7 @@ export default function CheckoutScreen() {
     };
 
     fetchAndHydrate();
-  }, [customer?.id, isAuthenticated, hasContactIdentity, setValue]);
+  }, [customer?.id, isAuthenticated, setValue]);
 
   useEffect(() => {
     if (!hasSavedAddresses) {
@@ -872,7 +885,9 @@ export default function CheckoutScreen() {
     return (
       <View style={styles.savedAddressSection}>
         <View style={styles.savedAddressHeader}>
-          <Text style={[styles.savedAddressSectionTitle, { color: colors.text }]}>
+          <Text
+            style={[styles.savedAddressSectionTitle, { color: colors.text }]}
+          >
             Delivery options
           </Text>
           {isLoadingSavedAddresses && (
@@ -901,7 +916,9 @@ export default function CheckoutScreen() {
             ]}
             onPress={() => {
               const fallbackSavedAddress =
-                selectedSavedAddress ?? defaultSavedAddress ?? savedAddresses[0];
+                selectedSavedAddress ??
+                defaultSavedAddress ??
+                savedAddresses[0];
               if (fallbackSavedAddress) {
                 applySavedAddressToForm(fallbackSavedAddress, {
                   collapse: false,
@@ -957,82 +974,82 @@ export default function CheckoutScreen() {
         </View>
         {!isAddingNewAddress &&
           savedAddresses.map((savedAddress) => {
-          const isSelected = savedAddress.id === selectedSavedAddressId;
+            const isSelected = savedAddress.id === selectedSavedAddressId;
 
-          return (
-            <Pressable
-              key={savedAddress.id}
-              onPress={() =>
-                applySavedAddressToForm(savedAddress, { collapse: false })
-              }
-              style={[
-                styles.savedAddressOption,
-                {
-                  backgroundColor: isSelected
-                    ? isDark
-                      ? 'rgba(217, 59, 48, 0.12)'
-                      : palette.red[50]
-                    : colors.background,
-                  borderColor: isSelected ? BRAND.primary : colors.border,
-                },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={`Use ${savedAddress.label || 'saved'} address`}
-            >
-              <View style={styles.savedAddressOptionBody}>
-                <View style={styles.savedAddressOptionTitleRow}>
-                  <Text
-                    style={[
-                      styles.savedAddressOptionTitle,
-                      { color: colors.text },
-                    ]}
-                  >
-                    {savedAddress.label || 'Saved Address'}
-                  </Text>
-                  {savedAddress.is_default && (
-                    <View
+            return (
+              <Pressable
+                key={savedAddress.id}
+                onPress={() =>
+                  applySavedAddressToForm(savedAddress, { collapse: false })
+                }
+                style={[
+                  styles.savedAddressOption,
+                  {
+                    backgroundColor: isSelected
+                      ? isDark
+                        ? 'rgba(217, 59, 48, 0.12)'
+                        : palette.red[50]
+                      : colors.background,
+                    borderColor: isSelected ? BRAND.primary : colors.border,
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Use ${savedAddress.label || 'saved'} address`}
+              >
+                <View style={styles.savedAddressOptionBody}>
+                  <View style={styles.savedAddressOptionTitleRow}>
+                    <Text
                       style={[
-                        styles.savedAddressDefaultBadge,
-                        { backgroundColor: `${BRAND.primary}14` },
+                        styles.savedAddressOptionTitle,
+                        { color: colors.text },
                       ]}
                     >
-                      <Text
+                      {savedAddress.label || 'Saved Address'}
+                    </Text>
+                    {savedAddress.is_default && (
+                      <View
                         style={[
-                          styles.savedAddressDefaultBadgeText,
-                          { color: BRAND.primary },
+                          styles.savedAddressDefaultBadge,
+                          { backgroundColor: `${BRAND.primary}14` },
                         ]}
                       >
-                        Default
-                      </Text>
-                    </View>
-                  )}
+                        <Text
+                          style={[
+                            styles.savedAddressDefaultBadgeText,
+                            { color: BRAND.primary },
+                          ]}
+                        >
+                          Default
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.savedAddressMeta,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {savedAddress.full_name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.savedAddressMeta,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {savedAddress.address}, {savedAddress.city},{' '}
+                    {savedAddress.state}
+                  </Text>
                 </View>
-                <Text
-                  style={[
-                    styles.savedAddressMeta,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {savedAddress.full_name}
-                </Text>
-                <Text
-                  style={[
-                    styles.savedAddressMeta,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {savedAddress.address}, {savedAddress.city},{' '}
-                  {savedAddress.state}
-                </Text>
-              </View>
-              <Ionicons
-                name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-                size={20}
-                color={isSelected ? BRAND.primary : colors.textSecondary}
-              />
-            </Pressable>
-          );
-        })}
+                <Ionicons
+                  name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={20}
+                  color={isSelected ? BRAND.primary : colors.textSecondary}
+                />
+              </Pressable>
+            );
+          })}
       </View>
     );
   };
@@ -1051,9 +1068,7 @@ export default function CheckoutScreen() {
             styles.checkbox,
             saveAsDefaultAddress && styles.checkboxChecked,
             {
-              borderColor: saveAsDefaultAddress
-                ? BRAND.primary
-                : colors.border,
+              borderColor: saveAsDefaultAddress ? BRAND.primary : colors.border,
             },
           ]}
         >
@@ -1067,16 +1082,6 @@ export default function CheckoutScreen() {
       </Pressable>
     </View>
   );
-
-  const getPaymentTabForMethod = (method: PaymentMethodType): PaymentTab => {
-    if (method === 'credpal' || method === 'credit_direct') {
-      return 'installments';
-    }
-    if (method === 'invoice' || method === 'payforme') {
-      return 'pay_later';
-    }
-    return 'full';
-  };
 
   const getAvailableMethodsForTab = (tab: PaymentTab) =>
     availablePaymentMethods.filter(
@@ -1096,7 +1101,8 @@ export default function CheckoutScreen() {
     const currentTabMethods = availablePaymentMethods.filter(
       (method) => getPaymentTabForMethod(method) === paymentTab
     );
-    const paymentStillAvailable = availablePaymentMethods.includes(selectedPayment);
+    const paymentStillAvailable =
+      availablePaymentMethods.includes(selectedPayment);
 
     if (!paymentStillAvailable) {
       const fallbackMethod =
@@ -1112,11 +1118,10 @@ export default function CheckoutScreen() {
         setSelectedPayment(fallbackMethod);
       } else {
         const fallbackTab =
-          (['full', 'installments', 'pay_later'] as const).find(
-            (tab) =>
-              availablePaymentMethods.some(
-                (method) => getPaymentTabForMethod(method) === tab
-              )
+          (['full', 'installments', 'pay_later'] as const).find((tab) =>
+            availablePaymentMethods.some(
+              (method) => getPaymentTabForMethod(method) === tab
+            )
           ) ?? 'full';
         setPaymentTab(fallbackTab);
         const nextMethod = availablePaymentMethods.find(
@@ -1419,7 +1424,9 @@ export default function CheckoutScreen() {
     setStep('payment');
   };
 
-  const handleAddressValidationError = (errors: FieldErrors<ShippingAddressInput>) => {
+  const handleAddressValidationError = (
+    errors: FieldErrors<ShippingAddressInput>
+  ) => {
     const hasContactErrors = Boolean(
       errors.firstName || errors.lastName || errors.phone || errors.email
     );
@@ -1449,11 +1456,7 @@ export default function CheckoutScreen() {
             ? 'Please complete your delivery address before continuing.'
             : 'Please complete your contact details before continuing.';
 
-    Alert.alert(
-      'Incomplete Details',
-      message,
-      [{ text: 'OK' }]
-    );
+    Alert.alert('Incomplete Details', message, [{ text: 'OK' }]);
   };
 
   const handleContinue = () => {
@@ -1684,8 +1687,7 @@ export default function CheckoutScreen() {
           : deliveryMethod === 'airport'
             ? {
                 ...address,
-                address:
-                  address.address || 'Airport Delivery (Outside Lagos)',
+                address: address.address || 'Airport Delivery (Outside Lagos)',
               }
             : address;
 
@@ -2216,7 +2218,10 @@ export default function CheckoutScreen() {
   const renderAddressForm = () => (
     <ScrollView
       style={styles.formContainer}
-      contentContainerStyle={styles.formContent}
+      contentContainerStyle={[
+        styles.formContent,
+        { paddingBottom: formContentPaddingBottom },
+      ]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
@@ -2297,7 +2302,10 @@ export default function CheckoutScreen() {
                 color={BRAND.primary}
               />
               <Text
-                style={[styles.summaryMetaLabel, { color: colors.textSecondary }]}
+                style={[
+                  styles.summaryMetaLabel,
+                  { color: colors.textSecondary },
+                ]}
               >
                 Signed in
               </Text>
@@ -2551,7 +2559,10 @@ export default function CheckoutScreen() {
                 color={BRAND.primary}
               />
               <Text
-                style={[styles.summaryMetaLabel, { color: colors.textSecondary }]}
+                style={[
+                  styles.summaryMetaLabel,
+                  { color: colors.textSecondary },
+                ]}
               >
                 {selectedSavedAddress?.is_default
                   ? 'Default address'
@@ -2646,7 +2657,9 @@ export default function CheckoutScreen() {
                           ? normalizeStateName(place.state, shippingStates)
                           : '';
                         if (place.city) {
-                          const normalizedCity = place.city.trim().toLowerCase();
+                          const normalizedCity = place.city
+                            .trim()
+                            .toLowerCase();
                           if (
                             normalizedState &&
                             normalizedCity === normalizedState.toLowerCase()
@@ -2671,7 +2684,9 @@ export default function CheckoutScreen() {
 
                 <View style={styles.row}>
                   <View style={styles.halfInput}>
-                    <Text style={[styles.label, { color: colors.textSecondary }]}>
+                    <Text
+                      style={[styles.label, { color: colors.textSecondary }]}
+                    >
                       City
                     </Text>
                     <Controller
@@ -2734,7 +2749,9 @@ export default function CheckoutScreen() {
                     />
                   </View>
                   <View style={styles.halfInput}>
-                    <Text style={[styles.label, { color: colors.textSecondary }]}>
+                    <Text
+                      style={[styles.label, { color: colors.textSecondary }]}
+                    >
                       State
                     </Text>
                     <Controller
@@ -2880,9 +2897,7 @@ export default function CheckoutScreen() {
                         style={[
                           styles.deliveryMethodTitle,
                           {
-                            color: isSelected
-                              ? BRAND.primary
-                              : colors.text,
+                            color: isSelected ? BRAND.primary : colors.text,
                           },
                         ]}
                       >
@@ -2902,9 +2917,7 @@ export default function CheckoutScreen() {
                         style={[
                           styles.deliveryMethodPrice,
                           {
-                            color: isSelected
-                              ? BRAND.primary
-                              : colors.text,
+                            color: isSelected ? BRAND.primary : colors.text,
                           },
                         ]}
                       >
@@ -2936,7 +2949,10 @@ export default function CheckoutScreen() {
                         </Text>
                       ) : isLoadingQuotes ? (
                         <View style={styles.quoteLoadingRow}>
-                          <ActivityIndicator size="small" color={BRAND.primary} />
+                          <ActivityIndicator
+                            size="small"
+                            color={BRAND.primary}
+                          />
                           <Text
                             style={[
                               styles.helperText,
@@ -3043,9 +3059,7 @@ export default function CheckoutScreen() {
                               style={[
                                 styles.retryBadgeText,
                                 {
-                                  color: isDark
-                                    ? colors.warning
-                                    : '#B45309',
+                                  color: isDark ? colors.warning : '#B45309',
                                 },
                               ]}
                             >
@@ -3064,14 +3078,14 @@ export default function CheckoutScreen() {
                               : 'ETA unavailable');
 
                           const carrier =
-                            quote.carrierName ||
-                            quote.provider ||
-                            'Delivery';
+                            quote.carrierName || quote.provider || 'Delivery';
 
                           return (
                             <Pressable
                               key={String(quote.id)}
-                              onPress={() => setSelectedQuoteId(String(quote.id))}
+                              onPress={() =>
+                                setSelectedQuoteId(String(quote.id))
+                              }
                               style={[
                                 styles.quoteRow,
                                 {
@@ -3111,7 +3125,9 @@ export default function CheckoutScreen() {
                                       </Text>
                                     </View>
                                   )}
-                                  {carrier.toLowerCase().includes('topship') && (
+                                  {carrier
+                                    .toLowerCase()
+                                    .includes('topship') && (
                                     <View style={styles.quoteBadge}>
                                       <Text style={styles.quoteBadgeText}>
                                         Topship
@@ -3281,7 +3297,10 @@ export default function CheckoutScreen() {
   const renderPaymentOptions = () => (
     <ScrollView
       style={styles.formContainer}
-      contentContainerStyle={styles.formContent}
+      contentContainerStyle={[
+        styles.formContent,
+        { paddingBottom: formContentPaddingBottom },
+      ]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
@@ -3312,7 +3331,10 @@ export default function CheckoutScreen() {
     return (
       <ScrollView
         style={styles.formContainer}
-        contentContainerStyle={styles.formContent}
+        contentContainerStyle={[
+          styles.formContent,
+          { paddingBottom: formContentPaddingBottom },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"

@@ -229,14 +229,26 @@ export async function notifyMerchant(
       | 'default',
   }));
 
-  const tickets = await sendPushNotifications(messages);
+  let result: NotificationSendResult;
+  try {
+    const tickets = await sendPushNotifications(messages);
 
-  const result = await processTickets(tickets, tokens, supabase, {
-    merchantId,
-    appType: 'admin',
-    channel: channelId,
-    notificationType: readNotificationType(data),
-  });
+    result = await processTickets(tickets, tokens, supabase, {
+      merchantId,
+      appType: 'admin',
+      channel: channelId,
+      notificationType: readNotificationType(data),
+    });
+  } catch (error) {
+    result = {
+      sent: 0,
+      failed: tokens.length,
+      errors: [
+        error instanceof Error ? error.message : 'Unknown push send error',
+      ],
+    };
+  }
+
   await recordPushAttempt(supabase, {
     merchantId,
     appType: 'admin',
@@ -315,14 +327,26 @@ export async function notifyCustomer(
       | 'default',
   }));
 
-  const tickets = await sendPushNotifications(messages);
+  let result: NotificationSendResult;
+  try {
+    const tickets = await sendPushNotifications(messages);
 
-  const result = await processTickets(tickets, tokens, supabase, {
-    userId,
-    appType: 'storefront',
-    channel: channelId,
-    notificationType: readNotificationType(data),
-  });
+    result = await processTickets(tickets, tokens, supabase, {
+      userId,
+      appType: 'storefront',
+      channel: channelId,
+      notificationType: readNotificationType(data),
+    });
+  } catch (error) {
+    result = {
+      sent: 0,
+      failed: tokens.length,
+      errors: [
+        error instanceof Error ? error.message : 'Unknown push send error',
+      ],
+    };
+  }
+
   await recordPushAttempt(supabase, {
     userId,
     appType: 'storefront',
@@ -400,13 +424,25 @@ export async function notifyAdminUserDevices(
     priority: 'default',
   }));
 
-  const tickets = await sendPushNotifications(messages);
-  const result = await processTickets(tickets, tokens, supabase, {
-    userId,
-    appType: 'admin',
-    channel: channelId,
-    notificationType: readNotificationType(data),
-  });
+  let result: NotificationSendResult;
+  try {
+    const tickets = await sendPushNotifications(messages);
+    result = await processTickets(tickets, tokens, supabase, {
+      userId,
+      appType: 'admin',
+      channel: channelId,
+      notificationType: readNotificationType(data),
+    });
+  } catch (error) {
+    result = {
+      sent: 0,
+      failed: tokens.length,
+      errors: [
+        error instanceof Error ? error.message : 'Unknown push send error',
+      ],
+    };
+  }
+
   await recordPushAttempt(supabase, {
     userId,
     appType: 'admin',
@@ -552,6 +588,9 @@ async function recordPushAttempt(
     app_type: context.appType ?? 'admin',
     channel: context.channel ?? null,
     notification_type: notificationType,
+    title: context.title,
+    body: context.body,
+    payload: context.payload ?? {},
     token_count: context.tokenCount,
     sent_count: context.result.sent,
     failed_count: context.result.failed,

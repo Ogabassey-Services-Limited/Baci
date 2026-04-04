@@ -73,4 +73,11 @@ describe('getProductGridCategories', () => {
       'Wearables',
     ]);
   });
+
+  it('deduplicates categories case-insensitively before matching product grid groups', () => {
+    expect(getProductGridCategories(['Phones', 'phones', 'Audio'])).toEqual([
+      'Phones',
+      'Audio',
+    ]);
+  });
 });

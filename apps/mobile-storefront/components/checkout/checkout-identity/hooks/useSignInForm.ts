@@ -11,15 +11,12 @@
 
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo } from 'react-native';
 import { useForm } from 'react-hook-form';
+import { AccessibilityInfo } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 import type { SignInFormData, UseSignInFormReturn } from '../types';
-import {
-  getUserFriendlyError,
-  SOCIAL_ERROR_MESSAGES,
-} from '../utils';
+import { getUserFriendlyError, SOCIAL_ERROR_MESSAGES } from '../utils';
 import { signInSchema } from '../utils/validation';
 import { useHapticFeedback } from './useHapticFeedback';
 
@@ -37,7 +34,9 @@ interface UseSignInFormOptions {
  * - Error handling and user feedback
  * - Haptic feedback
  */
-export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFormReturn {
+export function useSignInForm({
+  onSuccess,
+}: UseSignInFormOptions): UseSignInFormReturn {
   const { triggerHaptic } = useHapticFeedback();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,8 +70,29 @@ export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFor
   };
 
   useEffect(() => {
+    let isMounted = true;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    if (pendingSocialSignInRef.current && !user) {
+      timeoutId = setTimeout(() => {
+        if (!isMounted || !pendingSocialSignInRef.current) {
+          return;
+        }
+
+        pendingSocialSignInRef.current = false;
+        setIsLoading(false);
+        setError('Sign-in timed out. Please try again.');
+        triggerHaptic('error');
+      }, 30000);
+    }
+
     if (!pendingSocialSignInRef.current || !user) {
-      return;
+      return () => {
+        isMounted = false;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
     }
 
     pendingSocialSignInRef.current = false;
@@ -80,6 +100,13 @@ export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFor
     triggerHaptic('success');
     onSuccess();
     router.replace('/checkout');
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [onSuccess, triggerHaptic, user]);
 
   /**
@@ -126,7 +153,7 @@ export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFor
 
       triggerHaptic('success');
       onSuccess();
-      router.push('/checkout');
+      router.replace('/checkout');
     } catch (err) {
       const friendlyError = getUserFriendlyError(err);
       setError(friendlyError);
@@ -154,20 +181,18 @@ export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFor
       if (!result.success) {
         pendingSocialSignInRef.current = false;
         setIsLoading(false);
-      }
 
-      if (
-        !result.success &&
-        result.error &&
-        result.error !== SOCIAL_ERROR_MESSAGES.cancelled
-      ) {
-        setError(result.error);
-        triggerHaptic('error');
+        if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
+          setError(result.error);
+          triggerHaptic('error');
+          AccessibilityInfo.announceForAccessibility(result.error);
+        }
       }
     } catch {
       pendingSocialSignInRef.current = false;
       setError(SOCIAL_ERROR_MESSAGES.google);
       triggerHaptic('error');
+      AccessibilityInfo.announceForAccessibility(SOCIAL_ERROR_MESSAGES.google);
       setIsLoading(false);
     }
   };
@@ -187,20 +212,18 @@ export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFor
       if (!result.success) {
         pendingSocialSignInRef.current = false;
         setIsLoading(false);
-      }
 
-      if (
-        !result.success &&
-        result.error &&
-        result.error !== SOCIAL_ERROR_MESSAGES.cancelled
-      ) {
-        setError(result.error);
-        triggerHaptic('error');
+        if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
+          setError(result.error);
+          triggerHaptic('error');
+          AccessibilityInfo.announceForAccessibility(result.error);
+        }
       }
     } catch {
       pendingSocialSignInRef.current = false;
       setError(SOCIAL_ERROR_MESSAGES.apple);
       triggerHaptic('error');
+      AccessibilityInfo.announceForAccessibility(SOCIAL_ERROR_MESSAGES.apple);
       setIsLoading(false);
     }
   };

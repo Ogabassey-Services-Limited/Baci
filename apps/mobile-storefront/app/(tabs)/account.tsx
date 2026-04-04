@@ -131,20 +131,33 @@ export default function AccountScreen() {
     return null;
   }
 
+  const confirmSignOut = () => {
+    InteractionManager.runAfterInteractions(() => {
+      signOut()
+        .then(() => {
+          router.replace('/(tabs)');
+        })
+        .catch((err: unknown) => {
+          console.error('Sign-out failed:', err);
+          Alert.alert(
+            'Sign Out Failed',
+            'Unable to complete sign out. Please try again.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Retry', onPress: confirmSignOut },
+            ]
+          );
+        });
+    });
+  };
+
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: async () => {
-          router.replace('/(tabs)');
-          InteractionManager.runAfterInteractions(() => {
-            signOut().catch((err: unknown) =>
-              console.error('Sign-out failed:', err)
-            );
-          });
-        },
+        onPress: confirmSignOut,
       },
     ]);
   };

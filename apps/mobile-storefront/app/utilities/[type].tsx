@@ -101,23 +101,28 @@ export default function UtilityPurchaseScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
-  const headerOffset = Math.max(insets.top - 42, 0) + 42;
+  const headerOffset = Math.max(insets.top, 42);
   const isAuthenticated = useAuthStore((state) => !!state.session);
 
   const [successData, setSuccessData] = useState<SuccessData | null>(null);
 
+  const handleGoBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/');
+  };
+
   // Bug #59: Validate the type param instead of silently defaulting to 'airtime'
   if (!type || !isValidType(type)) {
     return (
-      <View
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <UtilityHeader
           title="Invalid Service"
-          onBack={() =>
-            router.canGoBack() ? router.back() : router.replace('/')
-          }
+          onBack={handleGoBack}
           color={colors.text}
           borderColor={colors.border}
           topInset={insets.top}
@@ -132,9 +137,7 @@ export default function UtilityPurchaseScreen() {
           </Text>
           <Pressable
             style={[styles.backButton, { borderColor: colors.border }]}
-            onPress={() =>
-              router.canGoBack() ? router.back() : router.replace('/')
-            }
+            onPress={handleGoBack}
             accessibilityLabel="Go back to previous screen"
             accessibilityRole="button"
           >
@@ -156,9 +159,7 @@ export default function UtilityPurchaseScreen() {
 
   if (successData) {
     return (
-      <View
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View
           style={[
@@ -183,13 +184,11 @@ export default function UtilityPurchaseScreen() {
   }
 
   return (
-    <View
-      style={[styles.container, { backgroundColor: colors.background }]}
-    >
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
       <UtilityHeader
         title={title}
-        onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+        onBack={handleGoBack}
         color={colors.text}
         borderColor={colors.border}
         topInset={insets.top}

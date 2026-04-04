@@ -1,8 +1,3 @@
-interface VariantAttributeDefinition {
-  options?: unknown;
-  param?: unknown;
-}
-
 interface ProductImageObject {
   src?: unknown;
   uri?: unknown;
@@ -75,7 +70,8 @@ function normalizeSpecificationValue(value: unknown) {
 
 function getImageCandidate(value: unknown) {
   if (typeof value === 'string') {
-    return value;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
   }
 
   if (!value || typeof value !== 'object') {
@@ -106,8 +102,7 @@ export function normalizeProductImages(images: unknown) {
   }
 
   const normalized = images.reduce<string[]>((result, value) => {
-    const raw = getImageCandidate(value);
-    const candidate = raw?.trim() || null;
+    const candidate = getImageCandidate(value);
     if (!candidate || result.includes(candidate)) {
       return result;
     }
@@ -146,7 +141,9 @@ export function normalizeProductSpecifications(specifications: unknown) {
         continue;
       }
 
-      const items = Array.isArray((section as ProductSpecificationSection).items)
+      const items = Array.isArray(
+        (section as ProductSpecificationSection).items
+      )
         ? ((section as ProductSpecificationSection).items as unknown[])
         : [];
 
@@ -194,7 +191,9 @@ export function normalizeVariantAttributes(source: VariantAttributeSource) {
   const normalizedAttributes: Record<string, string[]> = {};
 
   if (Array.isArray(source)) {
-    const allStrings = source.every((value) => typeof value === 'string');
+    const allStrings = source.every(
+      (value): value is string => typeof value === 'string'
+    );
     if (allStrings) {
       for (const rawAxis of source) {
         const axis = canonicalizeVariantAxis(rawAxis);

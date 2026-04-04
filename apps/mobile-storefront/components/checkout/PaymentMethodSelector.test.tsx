@@ -42,7 +42,9 @@ describe('PaymentMethodSelector', () => {
     );
 
     expect(screen.getByText('Buy Now Pay Later')).toBeTruthy();
-    expect(screen.getByText('Split your order in to 3-6 installments')).toBeTruthy();
+    expect(
+      screen.getByText('Split your order into 3-6 installments')
+    ).toBeTruthy();
     expect(
       screen.getByText('Interest rates vary. Breakdown shown during Checkout')
     ).toBeTruthy();
@@ -72,5 +74,21 @@ describe('PaymentMethodSelector', () => {
 
     fireEvent.press(screen.getByLabelText('Pay later'));
     expect(onSelectTab).toHaveBeenCalledWith('pay_later');
+  });
+
+  it('hides the installments tab when no BNPL methods are enabled', () => {
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'invoice' as PaymentMethodType}
+        onSelectMethod={() => {}}
+        selectedTab="pay_later"
+        onSelectTab={() => {}}
+        orderTotal={120000}
+        enabledMethods={['invoice', 'payforme']}
+      />
+    );
+
+    expect(screen.queryByLabelText('Pay in installments')).toBeNull();
+    expect(screen.getByLabelText('Pay later')).toBeTruthy();
   });
 });

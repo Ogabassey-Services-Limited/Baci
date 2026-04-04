@@ -5,10 +5,9 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
-  Animated,
   Linking,
   Pressable,
   ScrollView,
@@ -29,9 +28,13 @@ import { useAuthStore } from '@/stores/auth-store';
 export default function OrderSuccessScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const { orderNumber, reference, trackingToken, paymentMethod } =
-    useLocalSearchParams<Record<string, string>>();
+  const {
+    orderNumber,
+    reference,
+    trackingToken,
+    paymentMethod,
+    deliveryEstimate,
+  } = useLocalSearchParams<Record<string, string>>();
   const customer = useAuthStore((s) => s.customer);
 
   const { requestPermission, triggerSystemPrompt, markDenied } =
@@ -39,13 +42,6 @@ export default function OrderSuccessScreen() {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   useEffect(() => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      tension: 50,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-
     // Check for notification permissions (Soft Ask)
     // Small delay to let the success animation play (better UX)
     const timerId = setTimeout(async () => {
@@ -58,7 +54,12 @@ export default function OrderSuccessScreen() {
     return () => {
       clearTimeout(timerId);
     };
-  }, [scaleAnim, requestPermission]);
+  }, [requestPermission]);
+
+  const resolvedDeliveryEstimate =
+    typeof deliveryEstimate === 'string' && deliveryEstimate.trim()
+      ? deliveryEstimate.trim()
+      : 'Shared after order confirmation';
 
   const handlePermissionGrant = async () => {
     setShowPermissionModal(false);
@@ -135,7 +136,7 @@ export default function OrderSuccessScreen() {
         >
           <View style={styles.content}>
             <View style={styles.iconContainer}>
-              <SuccessIcon size={84} color="#10B981" />
+              <SuccessIcon size={84} color={colors.success} />
             </View>
 
             <View
@@ -190,10 +191,13 @@ export default function OrderSuccessScreen() {
                 <Text
                   style={[styles.orderLabel, { color: colors.textSecondary }]}
                 >
-                  Estimated Delivery
+                  {resolvedDeliveryEstimate ===
+                  'Shared after order confirmation'
+                    ? 'Delivery Timeline'
+                    : 'Estimated Delivery'}
                 </Text>
                 <Text style={[styles.orderValue, { color: colors.text }]}>
-                  2-4 Business Days
+                  {resolvedDeliveryEstimate}
                 </Text>
               </View>
 
@@ -295,13 +299,7 @@ export default function OrderSuccessScreen() {
                 ]}
                 onPress={handleLeaveGoogleReview}
               >
-                <View
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 12,
-                    padding: 2,
-                  }}
-                >
+                <View style={styles.googleLogoWrap}>
                   <GoogleLogo size={18} />
                 </View>
                 <Text style={styles.reviewButtonText}>
@@ -375,20 +373,6 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     marginBottom: 12,
-  },
-  iconCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconInner: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   eyebrowPill: {
     paddingHorizontal: 12,
@@ -478,41 +462,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
-  stepItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepNumberText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  stepText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-  },
   actions: {
     gap: 10,
     width: '100%',
-  },
-  primaryButton: {
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
   },
   actionRow: {
     flexDirection: 'row',
@@ -539,9 +491,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
+  googleLogoWrap: {
+    backgroundColor: Colors.light.white,
+    borderRadius: 12,
+    padding: 2,
+  },
   reviewButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: Colors.light.white,
   },
 });

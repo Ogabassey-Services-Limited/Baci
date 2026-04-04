@@ -260,9 +260,12 @@ export async function removePushTokenFromServer(
 export function getNotificationNavigationParams(
   response: NotificationsType.NotificationResponse
 ): { screen: string; params?: Record<string, string> } | null {
-  return getAdminNotificationNavigationTarget(
-    response.notification.request.content.data as Record<string, unknown>
-  );
+  const data = response.notification.request.content.data;
+  if (!data) {
+    return null;
+  }
+
+  return getAdminNotificationNavigationTarget(data as Record<string, unknown>);
 }
 
 /**

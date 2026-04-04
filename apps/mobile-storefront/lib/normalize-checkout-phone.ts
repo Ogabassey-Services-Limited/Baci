@@ -1,3 +1,15 @@
+/**
+ * Normalizes checkout phone input, with special handling for Nigerian numbers.
+ *
+ * Supported Nigerian formats:
+ * - +2348012345678
+ * - 2348012345678
+ * - 08012345678
+ * - 8012345678
+ *
+ * Other international numbers with a leading plus are preserved as E.164-like
+ * output after non-digit characters are removed.
+ */
 export function normalizeCheckoutPhone(
   value: string | null | undefined
 ): string {
@@ -19,7 +31,7 @@ export function normalizeCheckoutPhone(
     return '';
   }
 
-  if (digits.startsWith('234')) {
+  if (digits.startsWith('234') && digits.length >= 13) {
     const nationalNumber = digits.slice(3).replace(/^0/, '');
     return `+234${nationalNumber}`;
   }

@@ -159,6 +159,26 @@ export function DrawerMenu() {
     router.push(path as import('expo-router').Href);
   };
 
+  const confirmSignOut = () => {
+    InteractionManager.runAfterInteractions(() => {
+      signOut()
+        .then(() => {
+          router.replace('/(tabs)');
+        })
+        .catch((err: unknown) => {
+          console.error('Sign-out failed:', err);
+          Alert.alert(
+            'Sign Out Failed',
+            'Unable to complete sign out. Please try again.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Retry', onPress: confirmSignOut },
+            ]
+          );
+        });
+    });
+  };
+
   const handleSignOut = () => {
     closeDrawer();
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -166,14 +186,7 @@ export function DrawerMenu() {
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: async () => {
-          router.replace('/(tabs)');
-          InteractionManager.runAfterInteractions(() => {
-            signOut().catch((err: unknown) =>
-              console.error('Sign-out failed:', err)
-            );
-          });
-        },
+        onPress: confirmSignOut,
       },
     ]);
   };

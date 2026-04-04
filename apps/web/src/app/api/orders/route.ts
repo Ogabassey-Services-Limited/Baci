@@ -547,11 +547,7 @@ export async function POST(request: NextRequest) {
           customer_name,
           orderTotal
         );
-        if (
-          pushResult.sent === 0 ||
-          pushResult.failed > 0 ||
-          pushResult.errors.length > 0
-        ) {
+        if (pushResult.failed > 0 || pushResult.errors.length > 0) {
           logger.warn({
             message: 'New order push notification was not fully delivered',
             orderId: order.id,
@@ -570,12 +566,11 @@ export async function POST(request: NextRequest) {
           const paymentPushResult = await notifyPaymentReceived(
             merchant_id,
             orderTotal,
-            'NGN',
+            order.currency || 'NGN',
             orderNum,
             order.id
           );
           if (
-            paymentPushResult.sent === 0 ||
             paymentPushResult.failed > 0 ||
             paymentPushResult.errors.length > 0
           ) {

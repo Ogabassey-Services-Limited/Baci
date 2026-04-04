@@ -40,6 +40,7 @@ const IDENTIFIER_PLACEHOLDERS: Record<string, string> = {
 
 /** Height reserved for the absolutely-positioned payment footer */
 const FOOTER_HEIGHT = 120;
+const FOOTER_ERROR_BUFFER = 36;
 
 interface BillFormProps {
   type: 'tv' | 'power' | 'gaming';
@@ -72,6 +73,11 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const numericAmount = Number(amount.replace(/\D/g, ''));
+  const footerSpacerHeight = verify.data?.verified
+    ? FOOTER_HEIGHT +
+      Math.max(insets.bottom - 26, 0) +
+      (purchase.error ? FOOTER_ERROR_BUFFER : 0)
+    : SPACING.xl;
 
   // Bug #M24: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
   const isBusy = isSubmitting || purchase.isPending;
@@ -149,7 +155,10 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
     <>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.content, styles.contentWithFooter]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: footerSpacerHeight },
+        ]}
       >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Select Provider
@@ -307,9 +316,6 @@ export function BillForm({ type, onSuccess }: BillFormProps) {
 const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   content: { padding: SPACING.md },
-  contentWithFooter: {
-    paddingBottom: FOOTER_HEIGHT,
-  },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   input: {
     height: 50,
