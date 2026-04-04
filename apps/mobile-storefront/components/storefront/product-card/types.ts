@@ -33,4 +33,5 @@ export interface ListProductCardProps extends BaseProductCardVariantProps {
 export interface EditorialProductCardProps extends BaseProductCardVariantProps {
   textColor: string;
   screenWidth: number;
+  colors?: (typeof Colors)['light'];
 }
