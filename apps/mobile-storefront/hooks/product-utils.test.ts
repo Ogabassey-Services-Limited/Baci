@@ -38,6 +38,7 @@ jest.mock('@/lib/supabase', () => ({
 }));
 
 const {
+  fetchAvailableBrands,
   PRODUCT_DETAIL_SELECT,
   PRODUCT_SELECT,
   fetchProductRow,
@@ -233,6 +234,46 @@ describe('product-utils', () => {
     expect(transformProduct({ id: 'bad-id' })).toBeNull();
   });
 
+  it('transformProduct accepts object-based product images from live rows', () => {
+    expect(
+      transformProduct({
+        ...validProductRow,
+        images: [
+          { url: 'https://cdn.example.com/iphone-13-pro-front.jpg' },
+          { src: 'https://cdn.example.com/iphone-13-pro-back.jpg' },
+        ],
+      })
+    ).toMatchObject({
+      image: 'https://cdn.example.com/iphone-13-pro-front.jpg',
+      images: [
+        'https://cdn.example.com/iphone-13-pro-front.jpg',
+        'https://cdn.example.com/iphone-13-pro-back.jpg',
+      ],
+    });
+  });
+
+  it('transformProduct flattens section-array specifications from live product rows', () => {
+    expect(
+      transformProduct({
+        ...validProductRow,
+        specifications: [
+          {
+            category: 'Specs',
+            items: [
+              { label: 'Brand', value: 'HP' },
+              { label: 'RAM', value: '16GB' },
+            ],
+          },
+        ],
+      })
+    ).toMatchObject({
+      specifications: {
+        Brand: 'HP',
+        RAM: '16GB',
+      },
+    });
+  });
+
   it('transformProduct uses effective stock when stock_quantity drifted to zero', () => {
     expect(
       transformProduct({
@@ -292,7 +333,7 @@ describe('product-utils', () => {
     expect(query.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(query.eq).toHaveBeenCalledWith('status', 'active');
     expect(query.eq).toHaveBeenCalledWith('category_id', 'cat-1');
-    expect(query.eq).toHaveBeenCalledWith('condition', 'New');
+    expect(query.eq).toHaveBeenCalledWith('condition', 'new');
     expect(query.eq).toHaveBeenCalledWith('brand', 'Apple');
     expect(query.ilike).toHaveBeenCalledWith('name', '%iphone%');
     expect(query.gte).toHaveBeenCalledWith('price', 400000);
@@ -306,5 +347,33 @@ describe('product-utils', () => {
     });
     expect(result.products).toHaveLength(1);
     expect(result.products[0]?.slug).toBe(validProductRow.slug);
+  });
+
+  it('fetchAvailableBrands returns unique brands across matching rows', async () => {
+    const query = createQueryChain({
+      data: [
+        { brand: 'Samsung' },
+        { brand: 'Infinix' },
+        { brand: 'Samsung' },
+        { brand: null },
+      ],
+      error: null,
+    });
+    mockFrom.mockReturnValue(query);
+
+    await expect(
+      fetchAvailableBrands('merchant-1', {
+        category: 'cat-1',
+        condition: 'Open Box',
+        minPrice: 100000,
+      })
+    ).resolves.toEqual(['Infinix', 'Samsung']);
+
+    expect(query.select).toHaveBeenCalledWith('brand');
+    expect(query.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(query.eq).toHaveBeenCalledWith('status', 'active');
+    expect(query.eq).toHaveBeenCalledWith('category_id', 'cat-1');
+    expect(query.eq).toHaveBeenCalledWith('condition', 'open_box');
+    expect(query.gte).toHaveBeenCalledWith('price', 100000);
   });
 });

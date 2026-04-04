@@ -25,6 +25,7 @@ describe('chat constants', () => {
 
     it('contains expected routes', () => {
       expect(HIDDEN_ROUTES).toContain('/checkout');
+      expect(HIDDEN_ROUTES).toContain('/cart');
       expect(HIDDEN_ROUTES).toContain('/auth/login');
       expect(HIDDEN_ROUTES).toContain('/order-success');
     });

@@ -4,17 +4,6 @@
  * 2026 Best Practice: Offline-aware with graceful degradation
  */
 
-import {
-  getCustomerOrderStatusKey,
-  getCustomerOrderStatusMeta,
-  type CustomerOrderStatusKey,
-} from '@/lib/customer-order-status';
-import {
-  buildOrderListFilters,
-  matchesOrderListFilter,
-  type OrderListFilterKey,
-} from '@/lib/order-list-filters';
-import { getOrderDisplayTotal } from '@/lib/order-summary';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Redirect, router, Stack } from 'expo-router';
@@ -35,7 +24,18 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useNetworkState } from '@/hooks/use-network-state';
+import {
+  type CustomerOrderStatusKey,
+  getCustomerOrderStatusKey,
+  getCustomerOrderStatusMeta,
+} from '@/lib/customer-order-status';
 import { createLogger } from '@/lib/logger';
+import {
+  buildOrderListFilters,
+  matchesOrderListFilter,
+  type OrderListFilterKey,
+} from '@/lib/order-list-filters';
+import { getOrderDisplayTotal } from '@/lib/order-summary';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -229,7 +229,9 @@ export default function OrdersScreen() {
 
       const query = searchQuery.toLowerCase().trim();
 
-      const orderNumberMatch = order.order_number?.toLowerCase().includes(query);
+      const orderNumberMatch = order.order_number
+        ?.toLowerCase()
+        .includes(query);
       const statusMeta = getCustomerOrderStatusMeta(order.shipping_status);
       const statusMatch =
         statusMeta.label.toLowerCase().includes(query) ||
@@ -340,7 +342,9 @@ export default function OrdersScreen() {
         </View>
 
         <View style={styles.viewDetails}>
-          <Text style={[styles.viewDetailsText, { color: statusPalette.accent }]}>
+          <Text
+            style={[styles.viewDetailsText, { color: statusPalette.accent }]}
+          >
             View order details
           </Text>
           <Ionicons
@@ -605,7 +609,7 @@ export default function OrdersScreen() {
       />
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['top']}
+        edges={['left', 'right']}
       >
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity
@@ -675,7 +679,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 6,
+    paddingTop: 2,
     paddingBottom: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },

@@ -25,6 +25,7 @@ const reactJsxDevRuntimePath = appRequire.resolve('react/jsx-dev-runtime');
 const reactDomPath = appRequire.resolve('react-dom');
 const reactDomClientPath = appRequire.resolve('react-dom/client');
 const reactDomTestUtilsPath = appRequire.resolve('react-dom/test-utils');
+const reactDomServerPath = appRequire.resolve('react-dom/server');
 
 export default defineConfig({
   plugins: [react()],
@@ -38,8 +39,9 @@ export default defineConfig({
       { find: /^react-dom$/, replacement: reactDomPath },
       { find: /^react-dom\/client$/, replacement: reactDomClientPath },
       { find: /^react-dom\/test-utils$/, replacement: reactDomTestUtilsPath },
+      { find: /^react-dom\/server$/, replacement: reactDomServerPath },
     ],
-    dedupe: ['react', 'react-dom'],
+    dedupe: ['react', 'react-dom', '@testing-library/react'],
   },
   ssr: {
     noExternal: true,

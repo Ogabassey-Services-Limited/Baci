@@ -22,7 +22,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
-  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -139,26 +138,21 @@ export default function CartScreen() {
   const hasItems = items.length > 0;
 
   useEffect(() => {
-    cancelAnimation(arrowTranslateX);
     if (!hasItems) {
-      arrowTranslateX.set(0);
+      cancelAnimation(arrowTranslateX);
+      arrowTranslateX.value = 0;
       return;
     }
 
-    arrowTranslateX.set(
-      withRepeat(
-        withSequence(
-          withTiming(12, { duration: 800 }),
-          withTiming(0, { duration: 800 })
-        ),
-        -1,
-        true
-      )
+    arrowTranslateX.value = withRepeat(
+      withTiming(6, { duration: 600 }),
+      -1,
+      true
     );
 
     return () => {
       cancelAnimation(arrowTranslateX);
-      arrowTranslateX.set(0);
+      arrowTranslateX.value = 0;
     };
   }, [arrowTranslateX, hasItems]);
 

@@ -143,6 +143,13 @@ describe('ChatWidget', () => {
     expect(toJSON()).toBeNull();
   });
 
+  it('returns null on the cart route', () => {
+    mockUsePathname.mockReturnValue('/(tabs)/cart');
+    const { toJSON } = render(<ChatWidget />);
+
+    expect(toJSON()).toBeNull();
+  });
+
   it('returns null when pathname starts with /auth/login', () => {
     mockUsePathname.mockReturnValue('/auth/login');
     const { toJSON } = render(<ChatWidget />);

@@ -72,7 +72,67 @@ describe('ProductRowSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects malformed array-based variant attributes', () => {
+  it('accepts string-array variant attributes from legacy live rows', () => {
+    const result = ProductRowSchema.safeParse({
+      id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+      name: 'Samsung Galaxy S26+',
+      slug: 'samsung-galaxy-s26-plus',
+      price: 1403535,
+      images: ['https://cdn.example.com/s26-plus.jpg'],
+      has_variants: true,
+      variant_attributes: ['storage'],
+      status: 'active',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts object-based image arrays from live product rows', () => {
+    const result = ProductRowSchema.safeParse({
+      id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
+      name: 'Redmi Pad SE',
+      slug: 'redmi-pad-se',
+      price: 191814,
+      images: [
+        { url: 'https://cdn.example.com/redmi-pad-se-front.jpg' },
+        { src: 'https://cdn.example.com/redmi-pad-se-back.jpg' },
+      ],
+      has_variants: true,
+      variant_attributes: [
+        {
+          param: 'storage',
+          options: ['128GB', '256GB'],
+        },
+      ],
+      status: 'active',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts section-array specifications from live product rows', () => {
+    const result = ProductRowSchema.safeParse({
+      id: '900bbe6f-9312-4b01-a183-df7c3f36b259',
+      name: 'HP OMEN MAX 16T-AH000 Gaming Laptop',
+      slug: 'hp-omen-max-16t-ah000-gaming-laptop',
+      price: 2500000,
+      images: ['https://cdn.example.com/hp-omen.jpg'],
+      specifications: [
+        {
+          category: 'Specs',
+          items: [
+            { label: 'Brand', value: 'HP' },
+            { label: 'RAM', value: '16GB' },
+          ],
+        },
+      ],
+      status: 'active',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts malformed array-based variant attributes for later normalization', () => {
     const result = ProductRowSchema.safeParse({
       id: '953ba6ff-3e83-403a-a07c-8c5ff54ede98',
       name: 'iPhone 13 Pro',
@@ -89,6 +149,6 @@ describe('ProductRowSchema', () => {
       status: 'active',
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 });

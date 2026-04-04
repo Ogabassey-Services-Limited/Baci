@@ -8,7 +8,7 @@ const parsedAndroidVersionCode =
     : Number(rawAndroidVersionCode);
 
 let androidVersionCode: number | undefined;
-const appVersion = '1.0.0';
+const appVersion = '2.0.0';
 
 if (rawAndroidVersionCode !== undefined) {
   if (!Number.isInteger(parsedAndroidVersionCode)) {
@@ -30,7 +30,7 @@ if (rawAndroidVersionCode !== undefined) {
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: 'Ogabassey - Easybuy Gadgets',
+  name: 'Ogabassey',
   slug: 'ogabassey-store',
   owner: 'ogabassey',
   version: appVersion,
@@ -45,8 +45,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.app',
-    buildNumber: '5',
-    scheme: 'ogabassey', // Ensure scheme is explicitly set for iOS
+    buildNumber: '9',
     associatedDomains: [
       'applinks:ogabassey.com',
       'applinks:ogabassey.usebaci.com',
@@ -56,11 +55,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       ITSAppUsesNonExemptEncryption: false,
       NSUserTrackingUsageDescription:
         'Your data will be used to provide personalized product recommendations and improve your shopping experience.',
-      CFBundleURLTypes: [
-        {
-          CFBundleURLSchemes: ['ogabassey'],
-        },
-      ],
     },
   },
   android: {
@@ -68,7 +62,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       ? { versionCode: androidVersionCode }
       : {}),
     package: 'com.ogabassey.store',
-    scheme: 'ogabassey', // Ensure scheme is explicitly set for Android
     googleServicesFile: './google-services.json',
     adaptiveIcon: {
       foregroundImage: './assets/images/adaptive-icon.png',

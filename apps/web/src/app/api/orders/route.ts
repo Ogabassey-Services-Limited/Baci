@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { after, type NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
   generateOrderConfirmationEmail,
@@ -483,7 +483,8 @@ export async function POST(request: NextRequest) {
           const htmlContent = generateOrderConfirmationEmail(emailData);
           const textContent = generateOrderConfirmationText(emailData);
 
-          // Send email asynchronously (don't wait for it)
+          // Send and verify the result before returning so POD/invoice/wallet-paid
+          // orders do not lose confirmation emails when the request lifecycle ends.
           // Use merchant's support_email as reply-to (so customer replies go to merchant)
           // Use merchant's email_sender_name for branding (e.g., "Ogabassey Orders" instead of "Baci Orders")
           const replyToEmail =
@@ -496,7 +497,7 @@ export async function POST(request: NextRequest) {
               ? `${merchant.business_name} Orders`
               : undefined;
 
-          sendEmail({
+          const emailResult = await sendEmail({
             to: customer_email,
             toName: customer_name,
             subject: `Order Confirmation - #${emailData.orderNumber}`,
@@ -505,18 +506,25 @@ export async function POST(request: NextRequest) {
             replyTo: replyToEmail,
             emailType: 'orders',
             fromName: senderName,
-          }).catch((emailError) => {
-            logger.error({
-              message: 'Failed to send order confirmation email',
-              error: emailError,
-            });
           });
 
-          logger.info({
-            message: 'Order confirmation email queued (POD/Invoice)',
-            orderId: order.id,
-            paymentMethod: payment_method,
-          });
+          if (!emailResult.success) {
+            logger.error({
+              message: 'Failed to send order confirmation email',
+              orderId: order.id,
+              paymentMethod: payment_method,
+              emailError: emailResult.error,
+              emailErrorCode: emailResult.errorCode,
+              emailErrorDetails: emailResult.errorDetails,
+            });
+          } else {
+            logger.info({
+              message: 'Order confirmation email sent',
+              orderId: order.id,
+              paymentMethod: payment_method,
+              messageId: emailResult.messageId,
+            });
+          }
         }
       } catch (emailError) {
         // Don't fail the order creation if email fails
@@ -531,34 +539,57 @@ export async function POST(request: NextRequest) {
     // Gateway-payment orders (Paystack, Korapay, etc.) are notified via their webhook handlers
     // to avoid duplicate notifications.
     if (payOnDelivery || payment_method === 'invoice' || isWalletFullyPaid) {
-      after(async () => {
-        try {
-          await notifyNewOrder(
-            merchant_id,
-            orderNum,
-            customer_name,
-            orderTotal
-          );
-        } catch (err) {
-          logger.error({ message: 'Push notification failed', error: err });
+      try {
+        const pushResult = await notifyNewOrder(
+          merchant_id,
+          order.id,
+          orderNum,
+          customer_name,
+          orderTotal
+        );
+        if (pushResult.failed > 0 || pushResult.errors.length > 0) {
+          logger.warn({
+            message: 'New order push notification was not fully delivered',
+            orderId: order.id,
+            merchantId: merchant_id,
+            sent: pushResult.sent,
+            failed: pushResult.failed,
+            errors: pushResult.errors,
+          });
         }
+      } catch (err) {
+        logger.error({ message: 'Push notification failed', error: err });
+      }
 
-        if (isWalletFullyPaid) {
-          try {
-            await notifyPaymentReceived(
-              merchant_id,
-              orderTotal,
-              'NGN',
-              orderNum
-            );
-          } catch (err) {
-            logger.error({
-              message: 'Payment push notification failed',
-              error: err,
+      if (isWalletFullyPaid) {
+        try {
+          const paymentPushResult = await notifyPaymentReceived(
+            merchant_id,
+            orderTotal,
+            order.currency || 'NGN',
+            orderNum,
+            order.id
+          );
+          if (
+            paymentPushResult.failed > 0 ||
+            paymentPushResult.errors.length > 0
+          ) {
+            logger.warn({
+              message: 'Payment push notification was not fully delivered',
+              orderId: order.id,
+              merchantId: merchant_id,
+              sent: paymentPushResult.sent,
+              failed: paymentPushResult.failed,
+              errors: paymentPushResult.errors,
             });
           }
+        } catch (err) {
+          logger.error({
+            message: 'Payment push notification failed',
+            error: err,
+          });
         }
-      });
+      }
     }
 
     const responseOrder = isWalletFullyPaid

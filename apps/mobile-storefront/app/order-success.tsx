@@ -5,17 +5,19 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
-  Animated,
   Linking,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GoogleLogo } from '@/components/icons/GoogleLogo';
+import { SuccessIcon } from '@/components/icons/SuccessIcon';
 import { PermissionModal } from '@/components/ui/PermissionModal';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -26,9 +28,13 @@ import { useAuthStore } from '@/stores/auth-store';
 export default function OrderSuccessScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const { orderNumber, reference, trackingToken } =
-    useLocalSearchParams<Record<string, string>>();
+  const {
+    orderNumber,
+    reference,
+    trackingToken,
+    paymentMethod,
+    deliveryEstimate,
+  } = useLocalSearchParams<Record<string, string>>();
   const customer = useAuthStore((s) => s.customer);
 
   const { requestPermission, triggerSystemPrompt, markDenied } =
@@ -36,13 +42,6 @@ export default function OrderSuccessScreen() {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   useEffect(() => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      tension: 50,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-
     // Check for notification permissions (Soft Ask)
     // Small delay to let the success animation play (better UX)
     const timerId = setTimeout(async () => {
@@ -55,7 +54,12 @@ export default function OrderSuccessScreen() {
     return () => {
       clearTimeout(timerId);
     };
-  }, [scaleAnim, requestPermission]);
+  }, [requestPermission]);
+
+  const resolvedDeliveryEstimate =
+    typeof deliveryEstimate === 'string' && deliveryEstimate.trim()
+      ? deliveryEstimate.trim()
+      : 'Shared after order confirmation';
 
   const handlePermissionGrant = async () => {
     setShowPermissionModal(false);
@@ -93,6 +97,25 @@ export default function OrderSuccessScreen() {
     }
   };
 
+  const successTone =
+    paymentMethod === 'invoice'
+      ? {
+          eyebrow: 'Invoice ready',
+          subtitle:
+            "We've prepared your invoice. Once payment is made, we'll confirm the order and start processing it.",
+        }
+      : paymentMethod === 'payforme'
+        ? {
+            eyebrow: 'Payment request ready',
+            subtitle:
+              "We've saved this order for later payment. Once it is settled, we'll confirm it and begin processing.",
+          }
+        : {
+            eyebrow: 'Order confirmed',
+            subtitle:
+              "Thanks for your order. We'll send a confirmation email and keep you updated as it moves.",
+          };
+
   return (
     <>
       <Stack.Screen
@@ -104,183 +127,224 @@ export default function OrderSuccessScreen() {
 
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
+        edges={['left', 'right']}
       >
-        <View style={styles.content}>
-          {/* Success Icon */}
-          <Animated.View
-            style={[
-              styles.iconContainer,
-              { transform: [{ scale: scaleAnim }] },
-            ]}
-          >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <View style={styles.content}>
+            <View style={styles.iconContainer}>
+              <SuccessIcon size={84} color={colors.success} />
+            </View>
+
             <View
               style={[
-                styles.iconCircle,
-                { backgroundColor: BRAND.primaryLight },
+                styles.eyebrowPill,
+                {
+                  backgroundColor:
+                    colorScheme === 'dark'
+                      ? 'rgba(217, 59, 48, 0.16)'
+                      : 'rgba(217, 59, 48, 0.08)',
+                },
               ]}
             >
-              <View style={[styles.iconInner, { backgroundColor: '#10B981' }]}>
-                <Ionicons name="checkmark" size={48} color="#FFFFFF" />
-              </View>
+              <Text style={styles.eyebrowText}>{successTone.eyebrow}</Text>
             </View>
-          </Animated.View>
 
-          {/* Success Message */}
-          <Text style={[styles.title, { color: colors.text }]}>
-            Order Placed!
-          </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Thank you for your order. We'll send you a confirmation email with
-            your order details shortly.
-          </Text>
-
-          {/* Order Info */}
-          <View
-            style={[
-              styles.orderInfo,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <View style={styles.orderRow}>
-              <Ionicons
-                name="receipt-outline"
-                size={20}
-                color={BRAND.primary}
-              />
-              <Text
-                style={[styles.orderLabel, { color: colors.textSecondary }]}
-              >
-                Order Number
-              </Text>
-              <Text style={[styles.orderValue, { color: colors.text }]}>
-                #{orderNumber || 'Processing...'}
-              </Text>
-            </View>
+            <Text style={[styles.title, { color: colors.text }]}>
+              Order Placed!
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              {successTone.subtitle}
+            </Text>
 
             <View
-              style={[styles.divider, { backgroundColor: colors.border }]}
-            />
+              style={[
+                styles.orderInfo,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.orderRow}>
+                <Ionicons
+                  name="receipt-outline"
+                  size={18}
+                  color={BRAND.primary}
+                />
+                <Text
+                  style={[styles.orderLabel, { color: colors.textSecondary }]}
+                >
+                  Order Number
+                </Text>
+                <Text style={[styles.orderValue, { color: colors.text }]}>
+                  #{orderNumber || 'Processing...'}
+                </Text>
+              </View>
 
-            <View style={styles.orderRow}>
-              <Ionicons name="time-outline" size={20} color={BRAND.primary} />
-              <Text
-                style={[styles.orderLabel, { color: colors.textSecondary }]}
-              >
-                Estimated Delivery
-              </Text>
-              <Text style={[styles.orderValue, { color: colors.text }]}>
-                2-4 Business Days
-              </Text>
+              <View
+                style={[styles.divider, { backgroundColor: colors.border }]}
+              />
+
+              <View style={styles.orderRow}>
+                <Ionicons name="time-outline" size={18} color={BRAND.primary} />
+                <Text
+                  style={[styles.orderLabel, { color: colors.textSecondary }]}
+                >
+                  {resolvedDeliveryEstimate ===
+                  'Shared after order confirmation'
+                    ? 'Delivery Timeline'
+                    : 'Estimated Delivery'}
+                </Text>
+                <Text style={[styles.orderValue, { color: colors.text }]}>
+                  {resolvedDeliveryEstimate}
+                </Text>
+              </View>
+
+              {reference ? (
+                <>
+                  <View
+                    style={[styles.divider, { backgroundColor: colors.border }]}
+                  />
+                  <View style={styles.orderRow}>
+                    <Ionicons
+                      name="card-outline"
+                      size={18}
+                      color={BRAND.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.orderLabel,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      Payment Ref
+                    </Text>
+                    <Text style={[styles.orderValue, { color: colors.text }]}>
+                      {reference}
+                    </Text>
+                  </View>
+                </>
+              ) : null}
             </View>
 
-            {reference ? (
-              <>
-                <View
-                  style={[styles.divider, { backgroundColor: colors.border }]}
-                />
-                <View style={styles.orderRow}>
+            <View style={styles.nextSteps}>
+              <Text style={[styles.nextTitle, { color: colors.text }]}>
+                What happens next
+              </Text>
+              <View
+                style={[
+                  styles.nextStepCard,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.stepIconWrap}>
                   <Ionicons
-                    name="card-outline"
-                    size={20}
+                    name="receipt-outline"
+                    size={18}
                     color={BRAND.primary}
                   />
-                  <Text
-                    style={[styles.orderLabel, { color: colors.textSecondary }]}
-                  >
-                    Payment Ref
+                </View>
+                <View style={styles.nextStepBody}>
+                  <Text style={[styles.nextStepTitle, { color: colors.text }]}>
+                    Receipt
                   </Text>
-                  <Text style={[styles.orderValue, { color: colors.text }]}>
-                    {reference}
+                  <Text
+                    style={[
+                      styles.nextStepText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Your receipt will be available for download after your order
+                    has been shipped.
                   </Text>
                 </View>
-              </>
-            ) : null}
+              </View>
+
+              <View
+                style={[
+                  styles.nextStepCard,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.stepIconWrap}>
+                  <Ionicons
+                    name="cube-outline"
+                    size={18}
+                    color={BRAND.primary}
+                  />
+                </View>
+                <View style={styles.nextStepBody}>
+                  <Text style={[styles.nextStepTitle, { color: colors.text }]}>
+                    Processing & delivery
+                  </Text>
+                  <Text
+                    style={[
+                      styles.nextStepText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Your order will be prepared and you can track it in real
+                    time.
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.actions}>
+              <Pressable
+                style={[
+                  styles.reviewButton,
+                  { backgroundColor: BRAND.primary },
+                ]}
+                onPress={handleLeaveGoogleReview}
+              >
+                <View style={styles.googleLogoWrap}>
+                  <GoogleLogo size={18} />
+                </View>
+                <Text style={styles.reviewButtonText}>
+                  Leave a Google Review
+                </Text>
+              </Pressable>
+
+              <View style={styles.actionRow}>
+                <Pressable
+                  style={[
+                    styles.secondaryButton,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.card,
+                    },
+                  ]}
+                  onPress={handleContinueShopping}
+                >
+                  <Text
+                    style={[styles.secondaryButtonText, { color: colors.text }]}
+                  >
+                    Continue Shopping
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={[
+                    styles.secondaryButton,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.card,
+                    },
+                  ]}
+                  onPress={handleViewOrders}
+                >
+                  <Text
+                    style={[styles.secondaryButtonText, { color: colors.text }]}
+                  >
+                    View Orders
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
-
-          {/* What's Next */}
-          <View style={styles.nextSteps}>
-            <Text style={[styles.nextTitle, { color: colors.text }]}>
-              What happens next?
-            </Text>
-
-            <View style={styles.stepItem}>
-              <View
-                style={[
-                  styles.stepNumber,
-                  { backgroundColor: BRAND.primaryLight },
-                ]}
-              >
-                <Text style={[styles.stepNumberText, { color: BRAND.primary }]}>
-                  1
-                </Text>
-              </View>
-              <Text style={[styles.stepText, { color: colors.textSecondary }]}>
-                You'll receive an order confirmation email
-              </Text>
-            </View>
-
-            <View style={styles.stepItem}>
-              <View
-                style={[
-                  styles.stepNumber,
-                  { backgroundColor: BRAND.primaryLight },
-                ]}
-              >
-                <Text style={[styles.stepNumberText, { color: BRAND.primary }]}>
-                  2
-                </Text>
-              </View>
-              <Text style={[styles.stepText, { color: colors.textSecondary }]}>
-                We'll prepare and ship your order
-              </Text>
-            </View>
-
-            <View style={styles.stepItem}>
-              <View
-                style={[
-                  styles.stepNumber,
-                  { backgroundColor: BRAND.primaryLight },
-                ]}
-              >
-                <Text style={[styles.stepNumberText, { color: BRAND.primary }]}>
-                  3
-                </Text>
-              </View>
-              <Text style={[styles.stepText, { color: colors.textSecondary }]}>
-                Track your delivery in real-time
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Bottom Actions */}
-        <View style={styles.actions}>
-          <Pressable
-            style={[styles.primaryButton, { backgroundColor: BRAND.primary }]}
-            onPress={handleContinueShopping}
-          >
-            <Text style={styles.primaryButtonText}>Continue Shopping</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.secondaryButton, { borderColor: colors.border }]}
-            onPress={handleViewOrders}
-          >
-            <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
-              View My Orders
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.reviewButton, { borderColor: colors.border }]}
-            onPress={handleLeaveGoogleReview}
-          >
-            <Ionicons name="logo-google" size={18} color={colors.text} />
-            <Text style={[styles.reviewButtonText, { color: colors.text }]}>
-              Leave a Google Review
-            </Text>
-          </Pressable>
-        </View>
+        </ScrollView>
       </SafeAreaView>
 
       <PermissionModal
@@ -297,48 +361,51 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
+    justifyContent: 'center',
+  },
   content: {
-    flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 40,
   },
   iconContainer: {
-    marginBottom: 32,
+    marginBottom: 12,
   },
-  iconCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
+  eyebrowPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    marginBottom: 10,
   },
-  iconInner: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+  eyebrowText: {
+    color: BRAND.primary,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '800',
-    marginBottom: 12,
+    marginBottom: 6,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 32,
-    maxWidth: 300,
+    lineHeight: 20,
+    marginBottom: 16,
+    maxWidth: 320,
   },
   orderInfo: {
     width: '100%',
-    padding: 16,
+    padding: 14,
     borderRadius: 16,
     borderWidth: 1,
-    marginBottom: 32,
+    marginBottom: 16,
   },
   orderRow: {
     flexDirection: 'row',
@@ -351,78 +418,87 @@ const styles = StyleSheet.create({
   },
   orderValue: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   divider: {
     height: 1,
-    marginVertical: 12,
+    marginVertical: 10,
   },
   nextSteps: {
     width: '100%',
-  },
-  nextTitle: {
-    fontSize: 16,
-    fontWeight: '600',
     marginBottom: 16,
   },
-  stepItem: {
+  nextTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  nextStepCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  stepNumber: {
-    width: 28,
-    height: 28,
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 12,
     borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  stepIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: BRAND.primaryLight,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  stepNumberText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  stepText: {
+  nextStepBody: {
     flex: 1,
+    gap: 4,
+  },
+  nextStepTitle: {
     fontSize: 14,
-    lineHeight: 20,
-  },
-  actions: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    gap: 12,
-  },
-  primaryButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
     fontWeight: '700',
   },
+  nextStepText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  actions: {
+    gap: 10,
+    width: '100%',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
   secondaryButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: 'center',
     borderWidth: 1.5,
   },
   secondaryButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   reviewButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     flexDirection: 'row',
     gap: 10,
   },
+  googleLogoWrap: {
+    backgroundColor: Colors.light.white,
+    borderRadius: 12,
+    padding: 2,
+  },
   reviewButtonText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: Colors.light.white,
   },
 });

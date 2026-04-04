@@ -2,7 +2,33 @@ import type { CartItem } from '@/stores/cart-store';
 
 export interface ShippingQuoteLike {
   id: string | number;
-  price: number;
+  price: number | string;
+}
+
+export function normalizeShippingQuotePrice(value: number | string): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, value);
+  }
+
+  if (typeof value === 'string') {
+    const cleaned = value.replace(/[^\d.-]/g, '');
+    const parsed = Number(cleaned);
+
+    if (Number.isFinite(parsed)) {
+      return Math.max(0, parsed);
+    }
+  }
+
+  return 0;
+}
+
+export function normalizeShippingQuotes<T extends ShippingQuoteLike>(
+  quotes: T[]
+): Array<T & { price: number }> {
+  return quotes.map((quote) => ({
+    ...quote,
+    price: normalizeShippingQuotePrice(quote.price),
+  }));
 }
 
 function normalizeFragment(value: string): string {
@@ -27,10 +53,7 @@ export function buildShippingQuoteContextKey(
     return '';
   }
 
-  const itemKey = items
-    .map(buildShippingQuoteItemKey)
-    .sort()
-    .join('|');
+  const itemKey = items.map(buildShippingQuoteItemKey).sort().join('|');
 
   return `${normalizeFragment(state)}::${normalizeFragment(city)}::${itemKey}`;
 }
@@ -52,7 +75,10 @@ export function getPreferredShippingQuoteId(
 
   return String(
     quotes.reduce((prev, current) =>
-      prev.price <= current.price ? prev : current
+      normalizeShippingQuotePrice(prev.price) <=
+      normalizeShippingQuotePrice(current.price)
+        ? prev
+        : current
     ).id
   );
 }

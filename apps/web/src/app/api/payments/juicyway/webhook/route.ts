@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
                 ? `${merchantDetails.business_name} Orders`
                 : undefined;
 
-            await sendEmail({
+            const emailResult = await sendEmail({
               to: order.customer_email,
               toName: order.customer_name,
               subject: `Order Confirmation - #${emailData.orderNumber}`,
@@ -267,10 +267,21 @@ export async function POST(request: NextRequest) {
               fromName: senderName,
             });
 
-            logger.info({
-              message: 'Order confirmation email sent (Juicyway)',
-              orderId: order.id,
-            });
+            if (!emailResult.success) {
+              logger.error({
+                message: 'Failed to send order confirmation email',
+                orderId: order.id,
+                emailError: emailResult.error,
+                emailErrorCode: emailResult.errorCode,
+                emailErrorDetails: emailResult.errorDetails,
+              });
+            } else {
+              logger.info({
+                message: 'Order confirmation email sent (Juicyway)',
+                orderId: order.id,
+                messageId: emailResult.messageId,
+              });
+            }
           }
         } catch (emailError) {
           logger.error({
@@ -289,6 +300,7 @@ export async function POST(request: NextRequest) {
           try {
             await notifyNewOrder(
               transaction.merchant_id,
+              order.id,
               orderNum,
               customerName,
               total,
@@ -306,7 +318,8 @@ export async function POST(request: NextRequest) {
               transaction.merchant_id,
               total,
               currency,
-              orderNum
+              orderNum,
+              order.id
             );
           } catch (err) {
             logger.error({

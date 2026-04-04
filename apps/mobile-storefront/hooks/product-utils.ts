@@ -1,11 +1,12 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { normalizeProductInventory } from '../../../packages/shared/src/lib/product-inventory';
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
 import { createLogger } from '@/lib/logger';
+import { normalizeProductConditionFilterValue } from '@/lib/product-filter-options';
 import {
   getPrimaryProductImage,
   normalizeProductImages,
+  normalizeProductSpecifications,
   normalizeVariantAttributes,
 } from '@/lib/product-normalization';
 import { removeProductSlugFromProductsCache } from '@/lib/product-query-cache';
@@ -17,6 +18,7 @@ import {
   type Product,
   type ProductVariant,
 } from '@/types/product';
+import { normalizeProductInventory } from '../../../packages/shared/src/lib/product-inventory';
 
 const log = createLogger('Products');
 
@@ -132,7 +134,9 @@ export function normalizeProductVariants(
         variant.name ||
         'Variant';
       const primaryImage = variant.primary_image ?? variant.image ?? undefined;
-      const images = variant.images ?? (primaryImage ? [primaryImage] : undefined);
+      const images = normalizeProductImages(
+        variant.images ?? (primaryImage ? [primaryImage] : undefined)
+      );
       const stockQuantity = variant.stock_quantity ?? undefined;
 
       return {
@@ -150,11 +154,11 @@ export function normalizeProductVariants(
         price_override: variant.price_override ?? undefined,
         price_modifier: variant.price_modifier ?? undefined,
         image: primaryImage,
-        images,
+        images: images.length > 0 ? images : undefined,
         in_stock:
           typeof stockQuantity === 'number'
             ? stockQuantity > 0
-            : variant.in_stock ?? undefined,
+            : (variant.in_stock ?? undefined),
         stock_quantity: stockQuantity,
         attributes,
       };
@@ -162,7 +166,7 @@ export function normalizeProductVariants(
   );
 }
 
-export async function fetchProductRow(
+export function fetchProductRow(
   merchantId: string,
   identifier: string,
   context: string
@@ -234,6 +238,81 @@ export async function resolveAndEvictProduct(
   );
 }
 
+export async function fetchAvailableBrands(
+  merchantId: string,
+  options: UseProductsOptions
+): Promise<string[]> {
+  const brands = new Set<string>();
+  const pageSize = 500;
+  let offset = 0;
+
+  while (true) {
+    let query = supabase
+      .from('products')
+      .select('brand')
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active');
+
+    if (options.category) {
+      query = query.eq('category_id', options.category);
+    }
+    if (options.search) {
+      const escapedSearch = options.search
+        .replace(/\\/g, '\\\\')
+        .replace(/%/g, '\\%')
+        .replace(/_/g, '\\_');
+      query = query.ilike('name', `%${escapedSearch}%`);
+    }
+
+    const normalizedCondition = normalizeProductConditionFilterValue(
+      options.condition
+    );
+    if (normalizedCondition) {
+      query = query.eq('condition', normalizedCondition);
+    }
+    if (options.minPrice !== undefined) {
+      query = query.gte('price', options.minPrice);
+    }
+    if (options.maxPrice !== undefined) {
+      query = query.lte('price', options.maxPrice);
+    }
+    if (options.minRating !== undefined && options.minRating > 0) {
+      query = query.gte('average_rating', options.minRating);
+    }
+
+    query = query
+      .order('brand', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    const result = await withSupabaseRetry(async () => await query, {
+      maxRetries: 3,
+      onRetry: (attempt, err) => {
+        log.warn(`Brand retry ${attempt}: ${err.message}`);
+      },
+    });
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    const rows = result.data ?? [];
+    for (const row of rows) {
+      const brand = row?.brand?.trim();
+      if (brand) {
+        brands.add(brand);
+      }
+    }
+
+    if (rows.length < pageSize) {
+      break;
+    }
+
+    offset += pageSize;
+  }
+
+  return Array.from(brands).sort((left, right) => left.localeCompare(right));
+}
+
 export function transformProduct(item: unknown): Product | null {
   const validated = ProductRowSchema.safeParse(item);
   if (!validated.success) {
@@ -256,12 +335,7 @@ export function transformProduct(item: unknown): Product | null {
       ? Object.fromEntries(
           Object.entries(product.color_images).map(([color, images]) => [
             color,
-            Array.isArray(images)
-              ? images.filter(
-                  (image): image is string =>
-                    typeof image === 'string' && image.length > 0
-                )
-              : [],
+            normalizeProductImages(images),
           ])
         )
       : undefined;
@@ -294,7 +368,7 @@ export function transformProduct(item: unknown): Product | null {
         price: offer.price,
         compare_at_price: offer.compare_at_price ?? undefined,
         stock_quantity: offer.stock_quantity ?? undefined,
-        images: offer.images ?? undefined,
+        images: normalizeProductImages(offer.images),
         condition_notes: offer.condition_notes ?? undefined,
         grade: offer.grade ?? undefined,
       }))
@@ -322,6 +396,7 @@ export function transformProduct(item: unknown): Product | null {
       : product.categories != null
         ? (product.categories as unknown as Category).name
         : '',
+    specifications: normalizeProductSpecifications(product.specifications),
     condition: formatProductConditionDisplay(product.condition),
     rating,
     review_count: reviewCount,
@@ -364,8 +439,11 @@ export async function fetchProductsPage(
       .replace(/_/g, '\\_');
     query = query.ilike('name', `%${escapedSearch}%`);
   }
-  if (options.condition) {
-    query = query.eq('condition', options.condition);
+  const normalizedCondition = normalizeProductConditionFilterValue(
+    options.condition
+  );
+  if (normalizedCondition) {
+    query = query.eq('condition', normalizedCondition);
   }
   if (options.brand) {
     query = query.eq('brand', options.brand);

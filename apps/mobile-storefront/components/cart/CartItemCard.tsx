@@ -48,8 +48,10 @@ export default function CartItemCard({
   const assuranceCost = item.hasAssurance
     ? Math.round(itemTotal * (item.assuranceRate ?? DEFAULT_ASSURANCE_RATE))
     : 0;
-  const colorSwatchValue = item.color
-    ? resolveColorSwatchValue(item.color)
+  const colorText =
+    item.color ?? item.variant_attributes?.color ?? item.variant_attributes?.colour;
+  const colorSwatchValue = colorText
+    ? resolveColorSwatchValue(colorText)
     : undefined;
 
   return (
@@ -118,7 +120,7 @@ export default function CartItemCard({
                 {conditionText}
               </Text>
             </View>
-            {item.color && (
+            {colorText && (
               <View
                 style={[
                   styles.colorTag,
@@ -138,7 +140,7 @@ export default function CartItemCard({
                   ]}
                 />
                 <Text style={[styles.colorTagText, { color: colors.textSecondary }]}>
-                  {item.color}
+                  {colorText}
                 </Text>
               </View>
             )}

@@ -4,9 +4,8 @@
  */
 
 import { resolveDefaultVariantSelection } from '@baci/shared/lib';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useWindowDimensions } from 'react-native';
 import {
   useAnimatedStyle,
@@ -21,7 +20,6 @@ import {
   getProductCardImageAttempt,
   normalizeProductImages,
 } from '@/lib/product-normalization';
-import { supabase } from '@/lib/supabase';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
 import type { Product } from '@/types/product';
@@ -86,44 +84,6 @@ export function ProductCard({
           compare_at_price: defaultVariantSelection.compareAtPrice,
         }
       : product;
-
-  const [, setStockQuantity] = useState<number | undefined>(
-    product.stock_quantity
-  );
-  const channelRef = useRef<RealtimeChannel | null>(null);
-
-  const hasStockTracking =
-    product.manage_stock === true && product.stock_quantity !== undefined;
-  useEffect(() => {
-    if (!hasStockTracking) return;
-
-    const channel = supabase
-      .channel(`product-stock-${product.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'products',
-          filter: `id=eq.${product.id}`,
-        },
-        (payload) => {
-          if (payload.new && 'stock_quantity' in payload.new) {
-            setStockQuantity(payload.new.stock_quantity as number);
-          }
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      if (channelRef.current) {
-        channelRef.current.unsubscribe();
-        channelRef.current = null;
-      }
-    };
-  }, [product.id, hasStockTracking]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.get() }],

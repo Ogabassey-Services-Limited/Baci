@@ -1,4 +1,5 @@
 import type { User } from '@supabase/supabase-js';
+import { normalizeCheckoutPhone } from './normalize-checkout-phone';
 import { splitFullName } from './auth-helpers';
 import type { Customer } from '../stores/auth-store';
 
@@ -50,9 +51,9 @@ export function deriveCheckoutIdentity({
       splitName.lastName
     ),
     phone: pickFirstNonEmpty(
-      customer?.phone,
-      readMetadataString(metadata, 'phone'),
-      readMetadataString(metadata, 'phone_number')
+      normalizeCheckoutPhone(customer?.phone),
+      normalizeCheckoutPhone(readMetadataString(metadata, 'phone')),
+      normalizeCheckoutPhone(readMetadataString(metadata, 'phone_number'))
     ),
   };
 }

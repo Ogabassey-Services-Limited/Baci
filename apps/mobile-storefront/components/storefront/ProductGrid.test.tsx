@@ -1,10 +1,10 @@
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useIsFocused } from '@react-navigation/native';
 import { act, render, screen } from '@testing-library/react-native';
-import { useCategories, useProducts } from '@/hooks';
-import { sortCategoriesByPriority } from '@/lib/category-utils';
-import type { Product } from '@/types/product';
+import { useCategories, useProductBrands, useProducts } from '@/hooks';
+import { getProductGridCategories } from '@/lib/category-utils';
 import type { ProductGridBlock } from '@/types/blocks';
+import type { Product } from '@/types/product';
 import ProductGrid from './ProductGrid';
 
 const mockProductGridSkeleton = jest.fn(
@@ -13,12 +13,25 @@ const mockProductGridSkeleton = jest.fn(
 const mockProductCard = jest.fn(
   ({ product }: { product: Product }) => product.name
 );
-let mockFilterBarProps: { onSelectCategory: (category: string) => void } | null =
-  null;
-const mockFilterBar = jest.fn((props: { onSelectCategory: (category: string) => void }) => {
-  mockFilterBarProps = props;
-  return null;
-});
+let mockFilterBarProps: {
+  onSelectCategory: (category: string) => void;
+  onSelectBrand: (brand: string) => void;
+  onSelectCondition?: (condition: string) => void;
+  onPriceChange?: (min: number, max: number) => void;
+  onSelectRating?: (rating: number) => void;
+} | null = null;
+const mockFilterBar = jest.fn(
+  (props: {
+    onSelectCategory: (category: string) => void;
+    onSelectBrand: (brand: string) => void;
+    onSelectCondition?: (condition: string) => void;
+    onPriceChange?: (min: number, max: number) => void;
+    onSelectRating?: (rating: number) => void;
+  }) => {
+    mockFilterBarProps = props;
+    return null;
+  }
+);
 
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: jest.fn(),
@@ -29,16 +42,18 @@ jest.mock('@baci/shared', () => ({
 }));
 
 jest.mock('@/lib/category-utils', () => ({
-  sortCategoriesByPriority: jest.fn((categories: string[]) => categories),
+  getProductGridCategories: jest.fn((categories: string[]) => categories),
 }));
 
 jest.mock('@/hooks', () => ({
   useCategories: jest.fn(),
   useProducts: jest.fn(),
+  useProductBrands: jest.fn(() => ({ brands: [] })),
 }));
 
 jest.mock('@/components/ui/Skeleton', () => ({
-  ProductGridSkeleton: (props: { count: number }) => mockProductGridSkeleton(props),
+  ProductGridSkeleton: (props: { count: number }) =>
+    mockProductGridSkeleton(props),
 }));
 
 jest.mock('./ProductCard', () => ({
@@ -46,7 +61,13 @@ jest.mock('./ProductCard', () => ({
 }));
 
 jest.mock('./FilterBar', () => ({
-  FilterBar: (props: { onSelectCategory: (category: string) => void }) =>
+  FilterBar: (props: {
+    onSelectCategory: (category: string) => void;
+    onSelectBrand: (brand: string) => void;
+    onSelectCondition?: (condition: string) => void;
+    onPriceChange?: (min: number, max: number) => void;
+    onSelectRating?: (rating: number) => void;
+  }) =>
     mockFilterBar(props),
 }));
 
@@ -54,10 +75,16 @@ const mockUseCategories = useCategories as jest.MockedFunction<
   typeof useCategories
 >;
 const mockUseProducts = useProducts as jest.MockedFunction<typeof useProducts>;
-const mockUseIsFocused = useIsFocused as jest.MockedFunction<typeof useIsFocused>;
-const mockSortCategoriesByPriority = sortCategoriesByPriority as jest.MockedFunction<
-  typeof sortCategoriesByPriority
+const mockUseProductBrands = useProductBrands as jest.MockedFunction<
+  typeof useProductBrands
 >;
+const mockUseIsFocused = useIsFocused as jest.MockedFunction<
+  typeof useIsFocused
+>;
+const mockGetProductGridCategories =
+  getProductGridCategories as jest.MockedFunction<
+    typeof getProductGridCategories
+  >;
 const mockPrioritizeSmartphoneProducts =
   prioritizeSmartphoneProducts as jest.MockedFunction<
     typeof prioritizeSmartphoneProducts
@@ -131,6 +158,13 @@ describe('ProductGrid', () => {
       ],
       isError: false,
     } as unknown as ReturnType<typeof useCategories>);
+    mockUseProductBrands.mockReturnValue({
+      brands: ['Samsung', 'Apple'],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: jest.fn(),
+    });
     mockProductsHook();
   });
 
@@ -165,16 +199,18 @@ describe('ProductGrid', () => {
     );
   });
 
-  it('applies prioritizeSmartphoneProducts and sortCategoriesByPriority', () => {
+  it('applies prioritizeSmartphoneProducts and curated product-grid categories', () => {
     render(
       <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
     );
 
-    expect(mockSortCategoriesByPriority).toHaveBeenCalledWith([
+    expect(mockGetProductGridCategories).toHaveBeenCalledWith([
       'Phones',
       'Laptops',
     ]);
-    expect(mockPrioritizeSmartphoneProducts).toHaveBeenCalledWith(sampleProducts);
+    expect(mockPrioritizeSmartphoneProducts).toHaveBeenCalledWith(
+      sampleProducts
+    );
   });
 
   it('updates category filter from FilterBar interaction', () => {
@@ -191,6 +227,50 @@ describe('ProductGrid', () => {
     expect(latestOptions).toMatchObject({ category: 'cat-phones' });
   });
 
+  it('resets subordinate filters when switching top-level categories', () => {
+    render(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+
+    act(() => {
+      mockFilterBarProps?.onSelectBrand('Samsung');
+    });
+    act(() => {
+      mockFilterBarProps?.onSelectCondition?.('Used');
+    });
+    act(() => {
+      mockFilterBarProps?.onPriceChange?.(1000, 2000);
+    });
+    act(() => {
+      mockFilterBarProps?.onSelectRating?.(4);
+    });
+
+    let latestOptions =
+      mockUseProducts.mock.calls[mockUseProducts.mock.calls.length - 1]?.[0];
+    expect(latestOptions).toMatchObject({
+      brand: 'Samsung',
+      condition: 'Used',
+      minPrice: 1000,
+      maxPrice: 2000,
+      minRating: 4,
+    });
+
+    act(() => {
+      mockFilterBarProps?.onSelectCategory('Phones');
+    });
+
+    latestOptions =
+      mockUseProducts.mock.calls[mockUseProducts.mock.calls.length - 1]?.[0];
+    expect(latestOptions).toMatchObject({
+      category: 'cat-phones',
+      brand: undefined,
+      condition: undefined,
+      minPrice: undefined,
+      maxPrice: undefined,
+      minRating: undefined,
+    });
+  });
+
   it('refetches when focus is regained after initial mount', () => {
     mockUseIsFocused
       .mockReturnValueOnce(true)
@@ -202,8 +282,12 @@ describe('ProductGrid', () => {
       <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
     );
 
-    rerender(<ProductGrid block={block} selectedCategoryId={null} variant="grid" />);
-    rerender(<ProductGrid block={block} selectedCategoryId={null} variant="grid" />);
+    rerender(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
+    rerender(
+      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
+    );
 
     expect(refetch).toHaveBeenCalledTimes(1);
   });

@@ -1,4 +1,5 @@
 import { splitFullName } from './auth-helpers';
+import { normalizeCheckoutPhone } from './normalize-checkout-phone';
 import { normalizeSavedAddresses } from './saved-addresses';
 import type { ShippingAddressInput } from './validation';
 
@@ -46,7 +47,7 @@ export function toCheckoutAddressValues(
   return {
     firstName,
     lastName,
-    phone: savedAddress.phone ?? '',
+    phone: normalizeCheckoutPhone(savedAddress.phone),
     address: savedAddress.address ?? '',
     city: savedAddress.city ?? '',
     state: savedAddress.state ?? '',
@@ -65,7 +66,7 @@ export function buildSavedAddressFromCheckout(
     id: options?.id ?? crypto.randomUUID(),
     label: options?.label ?? 'Home',
     full_name: `${address.firstName} ${address.lastName}`.trim(),
-    phone: address.phone,
+    phone: normalizeCheckoutPhone(address.phone),
     address: address.address,
     city: address.city,
     state: address.state,
@@ -83,7 +84,8 @@ export function findMatchingSavedAddress(
       (savedAddress) =>
         normalizeText(savedAddress.full_name) ===
           normalizeText(`${address.firstName} ${address.lastName}`) &&
-        normalizeText(savedAddress.phone) === normalizeText(address.phone) &&
+        normalizeCheckoutPhone(savedAddress.phone) ===
+          normalizeCheckoutPhone(address.phone) &&
         normalizeText(savedAddress.address) === normalizeText(address.address) &&
         normalizeText(savedAddress.city) === normalizeText(address.city) &&
         normalizeText(savedAddress.state) === normalizeText(address.state)

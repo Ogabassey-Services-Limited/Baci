@@ -3,23 +3,6 @@
  * Shows full order information, items, and tracking
  */
 
-import {
-  BACI_GOOGLE_REVIEW_URL,
-  canLeaveStorefrontGoogleReview,
-  canRequestStorefrontOrderReturn,
-  canShowStorefrontRiderContact,
-  isStorefrontReceiptAvailable,
-} from '@/lib/post-purchase-actions';
-import {
-  CUSTOMER_ORDER_PROGRESS_STEPS,
-  getCustomerOrderProgressState,
-  getCustomerOrderStatusMeta,
-  isCustomerOrderClosed,
-} from '@/lib/customer-order-status';
-import {
-  getOrderAssuranceFeeTotal,
-  getOrderSummaryBreakdown,
-} from '@/lib/order-summary';
 import { Ionicons } from '@expo/vector-icons';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -42,7 +25,24 @@ import Colors, { BRAND } from '@/constants/Colors';
 import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
 import { useReceiptPreview } from '@/hooks/use-receipt-preview';
 import { useMerchantReceiptInfo } from '@/hooks/use-receipts';
+import {
+  CUSTOMER_ORDER_PROGRESS_STEPS,
+  getCustomerOrderProgressState,
+  getCustomerOrderStatusMeta,
+  isCustomerOrderClosed,
+} from '@/lib/customer-order-status';
 import { createLogger } from '@/lib/logger';
+import {
+  getOrderAssuranceFeeTotal,
+  getOrderSummaryBreakdown,
+} from '@/lib/order-summary';
+import {
+  BACI_GOOGLE_REVIEW_URL,
+  canLeaveStorefrontGoogleReview,
+  canRequestStorefrontOrderReturn,
+  canShowStorefrontRiderContact,
+  isStorefrontReceiptAvailable,
+} from '@/lib/post-purchase-actions';
 import { supabase } from '@/lib/supabase';
 import { isOrderRealtimePayload } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
@@ -297,10 +297,10 @@ export default function OrderDetailsScreen() {
 
     channelRef.current = channel;
 
-    // Cleanup: unsubscribe on unmount to prevent memory leaks
+    // Cleanup: remove channel on unmount to prevent stale subscription errors
     return () => {
       if (channelRef.current) {
-        channelRef.current.unsubscribe();
+        supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
@@ -417,7 +417,7 @@ export default function OrderDetailsScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
-          edges={['top']}
+          edges={['left', 'right']}
         >
           <View
             style={[
@@ -439,7 +439,7 @@ export default function OrderDetailsScreen() {
         <Stack.Screen options={{ headerShown: false }} />
         <SafeAreaView
           style={[styles.container, { backgroundColor: colors.background }]}
-          edges={['top']}
+          edges={['left', 'right']}
         >
           <View
             style={[
@@ -503,7 +503,7 @@ export default function OrderDetailsScreen() {
       />
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['top']}
+        edges={['left', 'right']}
       >
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
           <TouchableOpacity

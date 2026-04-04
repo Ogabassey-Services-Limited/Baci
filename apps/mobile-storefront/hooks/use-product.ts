@@ -5,10 +5,10 @@ import {
   type ProductsPage,
   log,
   normalizeProductVariants,
-  normalizeVariantAttributes,
   resolveAndEvictProduct,
   transformProduct,
 } from '@/hooks/product-utils';
+import { mergeVariantAttributes } from '@/lib/product-normalization';
 import { useMerchant } from '@/hooks/use-merchant';
 import { ProductRowSchema } from '@/lib/validation';
 import type { Product } from '@/types/product';
@@ -19,15 +19,16 @@ function augmentProduct(item: z.infer<typeof ProductRowSchema>): Product {
     throw new Error('Product transformation failed for validated row');
   }
 
+  const variants = normalizeProductVariants(item.variants, {
+    basePrice: baseProduct.price,
+    compareAtPrice: baseProduct.compare_at_price,
+  });
+
   return {
     ...baseProduct,
-    specifications: item.specifications ?? undefined,
     has_variants: item.has_variants ?? false,
-    variant_attributes: normalizeVariantAttributes(item.variant_attributes),
-    variants: normalizeProductVariants(item.variants, {
-      basePrice: baseProduct.price,
-      compareAtPrice: baseProduct.compare_at_price,
-    }),
+    variant_attributes: mergeVariantAttributes(item.variant_attributes, variants),
+    variants,
   };
 }
 
@@ -69,17 +70,19 @@ export function useProduct(slug: string) {
         if (found) {
           const compareAtPrice = found.compare_at_price;
           const basePrice = found.price;
+          const variants = normalizeProductVariants(found.variants || [], {
+            basePrice,
+            compareAtPrice,
+          });
 
           return {
             ...found,
             has_variants: found.has_variants || false,
-            variant_attributes: normalizeVariantAttributes(
-              found.variant_attributes
+            variant_attributes: mergeVariantAttributes(
+              found.variant_attributes,
+              variants
             ),
-            variants: normalizeProductVariants(found.variants || [], {
-              basePrice,
-              compareAtPrice,
-            }),
+            variants,
           };
         }
       }

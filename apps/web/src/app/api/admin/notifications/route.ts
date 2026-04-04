@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { type ExpoPushMessage, sendPushNotifications } from '@/lib/expo-push';
+import { notifyMerchant } from '@/lib/expo-push';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
@@ -541,11 +541,7 @@ async function broadcastNotification(
 
     // Send push notifications if the 'push' channel is enabled
     if (notification.channels.includes('push')) {
-      await sendPushNotificationsToMerchants(
-        notification,
-        merchantIds,
-        supabase
-      );
+      await sendPushNotificationsToMerchants(notification, merchantIds);
     }
   } catch (error) {
     // Don't fail the request if broadcast fails
@@ -558,80 +554,53 @@ async function broadcastNotification(
  */
 async function sendPushNotificationsToMerchants(
   notification: Notification,
-  merchantIds: string[],
-  supabase: ReturnType<typeof createClient>
+  merchantIds: string[]
 ) {
   try {
-    // Fetch all active push tokens for the target merchants (admin app only)
-    const { data: tokens, error } = await supabase
-      .from('push_tokens')
-      .select('token, merchant_id')
-      .in('merchant_id', merchantIds)
-      .eq('is_active', true)
-      .eq('app_type', 'admin');
+    const summary = { sent: 0, failed: 0, errors: [] as string[] };
+    const batchSize = 25;
 
-    if (error) {
-      logger.error({ message: '[Push] Error fetching push tokens', error });
-      return;
+    for (let index = 0; index < merchantIds.length; index += batchSize) {
+      const merchantBatch = merchantIds.slice(index, index + batchSize);
+      const results = await Promise.allSettled(
+        merchantBatch.map((merchantId) =>
+          notifyMerchant(
+            merchantId,
+            notification.title,
+            notification.message,
+            {
+              type: 'admin_broadcast',
+              notification_id: notification.id,
+              action_url: notification.action_url,
+            },
+            'admin'
+          )
+        )
+      );
+
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          summary.sent += result.value.sent;
+          summary.failed += result.value.failed;
+          summary.errors.push(...result.value.errors);
+          continue;
+        }
+
+        summary.failed += 1;
+        summary.errors.push(
+          result.reason instanceof Error
+            ? result.reason.message
+            : 'Unknown push error'
+        );
+      }
     }
 
-    if (!tokens || tokens.length === 0) {
-      logger.info({
-        message: '[Push] No active push tokens found for target merchants',
-      });
-      return;
-    }
-
-    // Build push messages
-    const messages: ExpoPushMessage[] = tokens.map((t) => ({
-      to: t.token,
-      title: notification.title,
-      body: notification.message,
-      data: {
-        type: 'admin_broadcast',
-        notification_id: notification.id,
-        action_url: notification.action_url,
-      },
-      sound: 'default',
-      channelId: 'admin', // Android notification channel
-      priority:
-        notification.priority === 'urgent' || notification.priority === 'high'
-          ? 'high'
-          : 'default',
-    }));
-
-    // Send push notifications (batched automatically by expo-push)
-    const tickets = await sendPushNotifications(messages);
-
-    // Log results
-    const successCount = tickets.filter((t) => t.status === 'ok').length;
-    const failCount = tickets.filter((t) => t.status === 'error').length;
     logger.info({
       message: '[Push] Notifications status',
-      sent: successCount,
-      failed: failCount,
+      sent: summary.sent,
+      failed: summary.failed,
+      errors: summary.errors.slice(0, 5),
     });
-
-    // Deactivate tokens that are no longer registered
-    const tokensToDeactivate = tickets
-      .map((ticket, index) =>
-        ticket.status === 'error' &&
-        ticket.details?.error === 'DeviceNotRegistered'
-          ? tokens[index].token
-          : null
-      )
-      .filter((token): token is string => token !== null);
-
-    if (tokensToDeactivate.length > 0) {
-      await supabase
-        .from('push_tokens')
-        .update({ is_active: false })
-        .in('token', tokensToDeactivate);
-      logger.info({
-        message: '[Push] Deactivated invalid tokens',
-        count: tokensToDeactivate.length,
-      });
-    }
   } catch (error) {
     logger.error({ message: '[Push] Error sending push notifications', error });
   }

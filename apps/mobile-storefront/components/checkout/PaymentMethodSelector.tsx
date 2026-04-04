@@ -6,6 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
@@ -23,9 +24,11 @@ export type PaymentMethodType =
   | 'pay_on_delivery'
   | 'credpal'
   | 'credit_direct'
-  | 'juicyway';
+  | 'juicyway'
+  | 'invoice'
+  | 'payforme';
 
-export type PaymentTab = 'full' | 'installments';
+export type PaymentTab = 'full' | 'installments' | 'pay_later';
 
 export interface PaymentMethod {
   id: PaymentMethodType;
@@ -41,6 +44,7 @@ export interface PaymentMethod {
 // BNPL eligibility constraints
 const BNPL_MIN_AMOUNT = 10000; // ₦10,000
 const BNPL_MAX_AMOUNT = 5000000; // ₦5,000,000
+const INFO_PANEL_BACKGROUND_OPACITY = '10';
 
 const PAYMENT_METHODS: PaymentMethod[] = [
   // Full Payment Methods
@@ -74,20 +78,34 @@ const PAYMENT_METHODS: PaymentMethod[] = [
   },
   // BNPL / Installment Methods
   {
+    id: 'credit_direct',
+    label: 'Credit Direct',
+    description: 'Salary Earners and Business Owners',
+    icon: 'wallet-outline',
+    tab: 'installments',
+    logoUrl: _creditDirectLogoSource,
+  },
+  {
     id: 'credpal',
     label: 'CredPal',
-    description: 'Pay in 3-12 monthly installments',
+    description: 'Salary Earners Only',
     icon: 'calendar-outline',
     tab: 'installments',
     logoUrl: _credpalLogoSource,
   },
   {
-    id: 'credit_direct',
-    label: 'Credit Direct',
-    description: 'Split payment into easy installments',
-    icon: 'wallet-outline',
-    tab: 'installments',
-    logoUrl: _creditDirectLogoSource,
+    id: 'invoice',
+    label: 'Generate Invoice',
+    description: 'Create an invoice for later payment',
+    icon: 'receipt-outline',
+    tab: 'pay_later',
+  },
+  {
+    id: 'payforme',
+    label: 'Pay for Me',
+    description: 'Create a payment request someone else can settle',
+    icon: 'people-outline',
+    tab: 'pay_later',
   },
 ];
 
@@ -134,6 +152,9 @@ export function PaymentMethodSelector({
   const hasBNPLMethods =
     !enabledMethods ||
     enabledMethods.some((m) => m === 'credpal' || m === 'credit_direct');
+  const hasPayLaterMethods =
+    !enabledMethods ||
+    enabledMethods.some((m) => m === 'invoice' || m === 'payforme');
 
   const filteredMethods = PAYMENT_METHODS.filter((m) => m.tab === selectedTab)
     .filter((m) => !enabledMethods || enabledMethods.includes(m.id))
@@ -153,10 +174,21 @@ export function PaymentMethodSelector({
       return method;
     });
 
+  useEffect(() => {
+    if (selectedTab === 'installments' && !hasBNPLMethods) {
+      onSelectTab('full');
+      return;
+    }
+
+    if (selectedTab === 'pay_later' && !hasPayLaterMethods) {
+      onSelectTab('full');
+    }
+  }, [selectedTab, hasBNPLMethods, hasPayLaterMethods, onSelectTab]);
+
   return (
     <View style={styles.container}>
       {/* Tab Selector — only show if BNPL methods are enabled */}
-      {hasBNPLMethods && (
+      {(hasBNPLMethods || hasPayLaterMethods) && (
         <View
           style={[styles.tabContainer, { backgroundColor: colors.card }]}
           accessibilityRole="tablist"
@@ -178,36 +210,68 @@ export function PaymentMethodSelector({
             <Text
               style={[
                 styles.tabText,
-                { color: selectedTab === 'full' ? '#FFF' : colors.text },
+                { color: selectedTab === 'full' ? colors.white : colors.text },
               ]}
             >
               Full Payment
             </Text>
           </Pressable>
-          <Pressable
-            style={[
-              styles.tab,
-              selectedTab === 'installments' && [
-                styles.activeTab,
-                { backgroundColor: BRAND.primary },
-              ],
-            ]}
-            onPress={() => onSelectTab('installments')}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: selectedTab === 'installments' }}
-            accessibilityLabel="Pay in installments"
-          >
-            <Text
+          {hasBNPLMethods ? (
+            <Pressable
               style={[
-                styles.tabText,
-                {
-                  color: selectedTab === 'installments' ? '#FFF' : colors.text,
-                },
+                styles.tab,
+                selectedTab === 'installments' && [
+                  styles.activeTab,
+                  { backgroundColor: BRAND.primary },
+                ],
               ]}
+              onPress={() => onSelectTab('installments')}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: selectedTab === 'installments' }}
+              accessibilityLabel="Pay in installments"
             >
-              Pay in Installments
-            </Text>
-          </Pressable>
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color:
+                      selectedTab === 'installments'
+                        ? colors.white
+                        : colors.text,
+                  },
+                ]}
+              >
+                Pay in Installments
+              </Text>
+            </Pressable>
+          ) : null}
+          {hasPayLaterMethods ? (
+            <Pressable
+              style={[
+                styles.tab,
+                selectedTab === 'pay_later' && [
+                  styles.activeTab,
+                  { backgroundColor: BRAND.primary },
+                ],
+              ]}
+              onPress={() => onSelectTab('pay_later')}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: selectedTab === 'pay_later' }}
+              accessibilityLabel="Pay later"
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color:
+                      selectedTab === 'pay_later' ? colors.white : colors.text,
+                  },
+                ]}
+              >
+                Pay Later
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       )}
 
@@ -232,7 +296,7 @@ export function PaymentMethodSelector({
             {isBNPLEligible ? (
               <>
                 <Text style={[styles.installmentTitle, { color: colors.text }]}>
-                  Buy Now, Pay Later
+                  Buy Now Pay Later
                 </Text>
                 <Text
                   style={[
@@ -240,7 +304,7 @@ export function PaymentMethodSelector({
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Split your order into 3-12 monthly installments.
+                  Split your order into 3-6 installments
                 </Text>
                 <Text
                   style={[
@@ -248,16 +312,13 @@ export function PaymentMethodSelector({
                     { color: colors.textSecondary },
                   ]}
                 >
-                  Interest rates vary. Final breakdown shown at checkout.
+                  Interest rates vary. Breakdown shown during Checkout
                 </Text>
               </>
             ) : (
               <>
                 <Text
-                  style={[
-                    styles.installmentTitle,
-                    { color: warningTextColor },
-                  ]}
+                  style={[styles.installmentTitle, { color: warningTextColor }]}
                 >
                   {!hasValidTotal || orderTotal < BNPL_MIN_AMOUNT
                     ? 'Minimum Order Required'
@@ -275,6 +336,30 @@ export function PaymentMethodSelector({
                 </Text>
               </>
             )}
+          </View>
+        </View>
+      )}
+
+      {selectedTab === 'pay_later' && (
+        <View
+          style={[
+            styles.installmentInfo,
+            {
+              backgroundColor: `${BRAND.primary}${INFO_PANEL_BACKGROUND_OPACITY}`,
+            },
+          ]}
+        >
+          <Ionicons name="receipt-outline" size={20} color={BRAND.primary} />
+          <View style={styles.installmentTextContainer}>
+            <Text style={[styles.installmentTitle, { color: colors.text }]}>
+              Flexible checkout
+            </Text>
+            <Text
+              style={[styles.installmentDesc, { color: colors.textSecondary }]}
+            >
+              Generate an invoice now or prepare a payment request for someone
+              else to settle later.
+            </Text>
           </View>
         </View>
       )}
@@ -384,9 +469,7 @@ export function PaymentMethodSelector({
 
       {/* Pay on Delivery Info */}
       {selectedMethod === 'pay_on_delivery' && selectedTab === 'full' && (
-        <View
-          style={[styles.bankInfo, { backgroundColor: warningBackground }]}
-        >
+        <View style={[styles.bankInfo, { backgroundColor: warningBackground }]}>
           <Ionicons name="warning" size={18} color={colors.warning} />
           <Text style={[styles.bankInfoText, { color: warningTextColor }]}>
             Available in Lagos only.
@@ -403,6 +486,62 @@ export function PaymentMethodSelector({
           <Text style={[styles.bankInfoText, { color: colors.textSecondary }]}>
             Pay with Bitcoin, Ethereum, USDT, or other cryptocurrencies. Payment
             is verified on the blockchain.
+          </Text>
+        </View>
+      )}
+
+      {selectedMethod === 'credit_direct' && selectedTab === 'installments' && (
+        <View
+          style={[
+            styles.bankInfo,
+            {
+              backgroundColor: `${BRAND.primary}${INFO_PANEL_BACKGROUND_OPACITY}`,
+            },
+          ]}
+        >
+          <Ionicons name="wallet-outline" size={18} color={BRAND.primary} />
+          <Text style={[styles.bankInfoText, { color: colors.textSecondary }]}>
+            Salary Earners and Business Owners. 25-40% downpayment.
+          </Text>
+        </View>
+      )}
+
+      {selectedMethod === 'credpal' && selectedTab === 'installments' && (
+        <View
+          style={[
+            styles.bankInfo,
+            {
+              backgroundColor: `${BRAND.primary}${INFO_PANEL_BACKGROUND_OPACITY}`,
+            },
+          ]}
+        >
+          <Ionicons name="calendar-outline" size={18} color={BRAND.primary} />
+          <Text style={[styles.bankInfoText, { color: colors.textSecondary }]}>
+            Salary Earners Only. 30-40% downpayment.
+          </Text>
+        </View>
+      )}
+
+      {selectedMethod === 'invoice' && selectedTab === 'pay_later' && (
+        <View style={[styles.bankInfo, { backgroundColor: colors.card }]}>
+          <Ionicons
+            name="document-text-outline"
+            size={18}
+            color={BRAND.primary}
+          />
+          <Text style={[styles.bankInfoText, { color: colors.textSecondary }]}>
+            We&apos;ll create an invoice for this order so you can complete
+            payment later.
+          </Text>
+        </View>
+      )}
+
+      {selectedMethod === 'payforme' && selectedTab === 'pay_later' && (
+        <View style={[styles.bankInfo, { backgroundColor: colors.card }]}>
+          <Ionicons name="people-outline" size={18} color={BRAND.primary} />
+          <Text style={[styles.bankInfoText, { color: colors.textSecondary }]}>
+            We&apos;ll prepare this order for later payment so someone else can
+            help complete it.
           </Text>
         </View>
       )}

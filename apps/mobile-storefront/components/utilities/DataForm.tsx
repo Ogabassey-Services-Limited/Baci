@@ -9,12 +9,17 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
 import { useVTUPurchase } from '@/hooks/use-vtu-purchase';
 import { detectNetwork } from '@/lib/network-utils';
 import { ProviderGrid } from './ProviderGrid';
+
+/** Height reserved for the absolutely-positioned payment footer */
+const FOOTER_HEIGHT = 120;
+const FOOTER_ERROR_BUFFER = 36;
 
 interface DataFormProps {
   onSuccess: (data: {
@@ -27,6 +32,7 @@ interface DataFormProps {
 export function DataForm({ onSuccess }: DataFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
   const purchase = useVTUPurchase();
   const { data: dataPlans, isLoading: plansLoading } = useVTUBillers('data');
 
@@ -35,6 +41,10 @@ export function DataForm({ onSuccess }: DataFormProps) {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [planAmount, setPlanAmount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const footerSpacerHeight =
+    FOOTER_HEIGHT +
+    Math.max(insets.bottom - 26, 0) +
+    (purchase.error ? FOOTER_ERROR_BUFFER : 0);
 
   // Bug #H18: Guard against double-tap with isSubmitting state (same pattern as AirtimeForm)
   const isBusy = isSubmitting || purchase.isPending;
@@ -97,7 +107,13 @@ export function DataForm({ onSuccess }: DataFormProps) {
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: footerSpacerHeight },
+        ]}
+      >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Select Provider
         </Text>
@@ -202,7 +218,12 @@ export function DataForm({ onSuccess }: DataFormProps) {
       <View
         style={[
           styles.footer,
-          { borderTopColor: colors.border, backgroundColor: colors.background },
+          {
+            borderTopColor: colors.border,
+            backgroundColor: colors.muted,
+            marginBottom: -Math.max(insets.bottom - 4, 0),
+            paddingBottom: Math.max(insets.bottom - 26, 0),
+          },
         ]}
       >
         {purchase.error && (
@@ -237,6 +258,7 @@ export function DataForm({ onSuccess }: DataFormProps) {
 }
 
 const styles = StyleSheet.create({
+  scrollView: { flex: 1 },
   content: { padding: SPACING.md },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   input: {
@@ -252,7 +274,16 @@ const styles = StyleSheet.create({
   planCard: { width: '48%', padding: 14, borderRadius: 12, borderWidth: 1 },
   planName: { fontSize: 13, fontWeight: '500' },
   emptyText: { fontSize: 14, textAlign: 'center', marginVertical: 16 },
-  footer: { padding: SPACING.md, borderTopWidth: 1 },
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.sm,
+    borderTopWidth: 1,
+  },
   payButton: {
     height: 50,
     borderRadius: 12,

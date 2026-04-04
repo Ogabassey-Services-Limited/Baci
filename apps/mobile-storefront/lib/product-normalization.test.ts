@@ -1,7 +1,9 @@
 import {
   getProductCardImageAttempt,
   getPrimaryProductImage,
+  mergeVariantAttributes,
   normalizeProductImages,
+  normalizeProductSpecifications,
   normalizeVariantAttributes,
   PRODUCT_PLACEHOLDER_IMAGE,
 } from './product-normalization';
@@ -27,6 +29,30 @@ describe('normalizeVariantAttributes', () => {
     ).toEqual({
       sim_type: ['Physical + eSIM'],
       storage: ['128GB', '256GB'],
+    });
+  });
+
+  it('normalizes string-array variant attributes into axes with empty options', () => {
+    expect(normalizeVariantAttributes(['Storage', 'RAM'])).toEqual({
+      storage: [],
+      ram: [],
+    });
+  });
+});
+
+describe('mergeVariantAttributes', () => {
+  it('merges axes discovered only on live variant rows into the product attribute map', () => {
+    expect(
+      mergeVariantAttributes(
+        [{ param: 'storage', options: ['256GB', '512GB'] }],
+        [
+          { attributes: { ram: '12GB', storage: '256GB' } },
+          { attributes: { ram: '12GB', storage: '512GB' } },
+        ]
+      )
+    ).toEqual({
+      ram: ['12GB'],
+      storage: ['256GB', '512GB'],
     });
   });
 });
@@ -58,6 +84,58 @@ describe('normalizeProductImages', () => {
         null,
       ])
     ).toEqual(['https://cdn.example.com/iphone-13-pro.jpg']);
+  });
+
+  it('normalizes object-based image entries', () => {
+    expect(
+      normalizeProductImages([
+        { url: 'https://cdn.example.com/iphone-13-pro-front.jpg' },
+        { src: 'https://cdn.example.com/iphone-13-pro-back.jpg' },
+        { uri: 'https://cdn.example.com/iphone-13-pro-side.jpg' },
+      ])
+    ).toEqual([
+      'https://cdn.example.com/iphone-13-pro-front.jpg',
+      'https://cdn.example.com/iphone-13-pro-back.jpg',
+      'https://cdn.example.com/iphone-13-pro-side.jpg',
+    ]);
+  });
+});
+
+describe('normalizeProductSpecifications', () => {
+  it('flattens section-based live specifications into a record', () => {
+    expect(
+      normalizeProductSpecifications([
+        {
+          category: 'Display',
+          items: [
+            { label: 'Brand', value: 'HP' },
+            { label: 'Refresh Rate', value: 165 },
+          ],
+        },
+        {
+          category: 'Battery',
+          items: [{ label: 'Fast Charging', value: true }],
+        },
+      ])
+    ).toEqual({
+      Brand: 'HP',
+      'Fast Charging': 'true',
+      'Refresh Rate': '165',
+    });
+  });
+
+  it('normalizes object-map specifications and drops empty values', () => {
+    expect(
+      normalizeProductSpecifications({
+        RAM: '16GB',
+        Storage: '1TB SSD',
+        Empty: '',
+        Nullish: null,
+      })
+    ).toEqual({
+      RAM: '16GB',
+      Storage: '1TB SSD',
+    });
   });
 });
 

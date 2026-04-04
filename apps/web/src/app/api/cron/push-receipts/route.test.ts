@@ -33,6 +33,7 @@ let mockSelectResult: { data: unknown; error: unknown } = {
 
 vi.mock('@/env', () => ({
   getCronSecret: () => process.env.CRON_SECRET,
+  getExpoAccessToken: () => process.env.EXPO_ACCESS_TOKEN,
 }));
 
 vi.mock('@/lib/logger', () => ({

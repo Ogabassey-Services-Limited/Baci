@@ -105,19 +105,22 @@ export function useVTUPurchase() {
 
       return parsed.data;
     },
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       // Handle cashback notification
       if (data.cashback && data.cashback.amount > 0) {
-        await scheduleLocalNotification(
+        void scheduleLocalNotification(
           'Cashback Received! 🎉',
           `₦${data.cashback.amount.toLocaleString()} cashback added to your wallet.`,
           { type: 'wallet_cashback', amount: data.cashback.amount },
           1
-        );
+        ).catch((err) => {
+          // Notification delivery should not keep VTU purchases pending.
+          console.debug('[VTU] Cashback notification scheduling failed:', err);
+        });
 
         // Invalidate wallet query so balance refreshes
         if (customer?.id) {
-          queryClient.invalidateQueries({
+          void queryClient.invalidateQueries({
             queryKey: walletKeys.data(customer.id),
           });
         }

@@ -13,9 +13,11 @@ import {
   keepPreviousData,
   useInfiniteQuery,
   useQueryClient,
+  useQuery,
 } from '@tanstack/react-query';
 import {
   CONSTANT_MERCHANT_ID,
+  fetchAvailableBrands,
   type UseProductsOptions,
   fetchProductsPage,
 } from '@/hooks/product-utils';
@@ -71,5 +73,25 @@ export function usePrefetchProducts() {
         fetchProductsPage(merchantId, options, pageParam),
       initialPageParam: 0,
     });
+  };
+}
+
+export function useProductBrands(options: UseProductsOptions = {}) {
+  const { data: merchant } = useMerchant();
+  const merchantId = merchant?.id || CONSTANT_MERCHANT_ID;
+
+  const query = useQuery({
+    queryKey: ['product-brands', merchantId, options],
+    queryFn: () => fetchAvailableBrands(merchantId, options),
+    staleTime: 1000 * 60 * 5,
+    enabled: !!merchantId && options.enabled !== false,
+  });
+
+  return {
+    brands: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error?.message || null,
+    refetch: query.refetch,
   };
 }

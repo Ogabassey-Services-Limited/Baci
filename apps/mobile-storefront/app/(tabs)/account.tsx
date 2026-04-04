@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  InteractionManager,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,17 +19,17 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 import { getAccountMenuSections } from '@/components/profile/account-menu';
 import { type MenuItem, MenuSection } from '@/components/profile/MenuSection';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { SocialLinks } from '@/components/profile/SocialLinks';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { useMerchant } from '@/hooks';
+import { useAuthStatus } from '@/hooks/use-auth-guard';
 import { supabase } from '@/lib/supabase';
 import { type Customer, useAuthStore } from '@/stores/auth-store';
-import { useShallow } from 'zustand/react/shallow';
 
 export default function AccountScreen() {
   const colorScheme = useColorScheme();
@@ -109,16 +110,6 @@ export default function AccountScreen() {
     };
   }, [safeCustomer?.id]);
 
-  useEffect(() => {
-    if (!isInitialized) {
-      return;
-    }
-
-    if (!authUser) {
-      router.replace('/(tabs)');
-    }
-  }, [authUser, isInitialized]);
-
   if (!isInitialized) {
     return (
       <View
@@ -140,15 +131,33 @@ export default function AccountScreen() {
     return null;
   }
 
+  const confirmSignOut = () => {
+    InteractionManager.runAfterInteractions(() => {
+      signOut()
+        .then(() => {
+          router.replace('/(tabs)');
+        })
+        .catch((err: unknown) => {
+          console.error('Sign-out failed:', err);
+          Alert.alert(
+            'Sign Out Failed',
+            'Unable to complete sign out. Please try again.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Retry', onPress: confirmSignOut },
+            ]
+          );
+        });
+    });
+  };
+
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: async () => {
-          await signOut();
-        },
+        onPress: confirmSignOut,
       },
     ]);
   };

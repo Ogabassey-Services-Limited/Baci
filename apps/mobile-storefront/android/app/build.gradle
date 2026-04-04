@@ -1,4 +1,5 @@
 apply plugin: "com.android.application"
+// kotlin.android plugin removed: AGP 9.x includes built-in Kotlin support
 apply plugin: "com.facebook.react"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
@@ -60,20 +61,6 @@ react {
 
     /* Autolinking */
     autolinkLibrariesWithApp()
-}
-
-gradle.projectsEvaluated {
-    def autolinkingTask = tasks.named("generateAutolinkingNewArchitectureFiles").get()
-
-    rootProject.allprojects { subproject ->
-        subproject.tasks.matching { task ->
-            task.name == "generateCodegenArtifactsFromSchema" || task.name == "generateCodegenSchemaFromJavaScript"
-        }.configureEach { codegenTask ->
-            autolinkingTask.dependsOn(codegenTask)
-        }
-    }
-
-    autolinkingTask.outputs.upToDateWhen { false }
 }
 
 /**

@@ -41,7 +41,7 @@ describe('deriveCheckoutIdentity', () => {
       email: 'customer@example.com',
       firstName: 'Ada',
       lastName: 'Okafor',
-      phone: '08012345678',
+      phone: '+2348012345678',
     });
   });
 
@@ -54,7 +54,7 @@ describe('deriveCheckoutIdentity', () => {
           user_metadata: {
             first_name: 'Grace',
             last_name: 'Hopper',
-            phone: '08012345678',
+            phone: '+234 801 234 5678',
           },
         }),
       })
@@ -62,7 +62,7 @@ describe('deriveCheckoutIdentity', () => {
       email: 'signed-in@example.com',
       firstName: 'Grace',
       lastName: 'Hopper',
-      phone: '08012345678',
+      phone: '+2348012345678',
     });
   });
 
@@ -82,7 +82,7 @@ describe('deriveCheckoutIdentity', () => {
       email: 'signed-in@example.com',
       firstName: 'Ada',
       lastName: 'Lovelace',
-      phone: '08012345678',
+      phone: '+2348012345678',
     });
   });
 

@@ -10,16 +10,13 @@
  */
 
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { AccessibilityInfo } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 import type { SignInFormData, UseSignInFormReturn } from '../types';
-import {
-  getUserFriendlyError,
-  SOCIAL_ERROR_MESSAGES,
-} from '../utils';
+import { getUserFriendlyError, SOCIAL_ERROR_MESSAGES } from '../utils';
 import { signInSchema } from '../utils/validation';
 import { useHapticFeedback } from './useHapticFeedback';
 
@@ -37,12 +34,16 @@ interface UseSignInFormOptions {
  * - Error handling and user feedback
  * - Haptic feedback
  */
-export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFormReturn {
+export function useSignInForm({
+  onSuccess,
+}: UseSignInFormOptions): UseSignInFormReturn {
   const { triggerHaptic } = useHapticFeedback();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pendingSocialSignInRef = useRef(false);
 
   // Auth store methods
+  const user = useAuthStore((state) => state.user);
   const signInWithGoogle = useAuthStore((state) => state.signInWithGoogle);
   const signInWithApple = useAuthStore((state) => state.signInWithApple);
 
@@ -67,6 +68,46 @@ export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFor
   const clearError = () => {
     if (error) setError(null);
   };
+
+  useEffect(() => {
+    let isMounted = true;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    if (pendingSocialSignInRef.current && !user) {
+      timeoutId = setTimeout(() => {
+        if (!isMounted || !pendingSocialSignInRef.current) {
+          return;
+        }
+
+        pendingSocialSignInRef.current = false;
+        setIsLoading(false);
+        setError('Sign-in timed out. Please try again.');
+        triggerHaptic('error');
+      }, 30000);
+    }
+
+    if (!pendingSocialSignInRef.current || !user) {
+      return () => {
+        isMounted = false;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
+    }
+
+    pendingSocialSignInRef.current = false;
+    setIsLoading(false);
+    triggerHaptic('success');
+    onSuccess();
+    router.replace('/checkout');
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [onSuccess, triggerHaptic, user]);
 
   /**
    * Validate form data with Zod and set field errors
@@ -112,7 +153,7 @@ export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFor
 
       triggerHaptic('success');
       onSuccess();
-      router.push('/checkout');
+      router.replace('/checkout');
     } catch (err) {
       const friendlyError = getUserFriendlyError(err);
       setError(friendlyError);
@@ -132,21 +173,26 @@ export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFor
     triggerHaptic('light');
     setIsLoading(true);
     setError(null);
+    pendingSocialSignInRef.current = true;
 
     try {
       const result = await signInWithGoogle();
 
-      if (result.success) {
-        onSuccess();
-        router.push('/checkout');
-      } else if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
-        setError(result.error);
-        triggerHaptic('error');
+      if (!result.success) {
+        pendingSocialSignInRef.current = false;
+        setIsLoading(false);
+
+        if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
+          setError(result.error);
+          triggerHaptic('error');
+          AccessibilityInfo.announceForAccessibility(result.error);
+        }
       }
     } catch {
+      pendingSocialSignInRef.current = false;
       setError(SOCIAL_ERROR_MESSAGES.google);
       triggerHaptic('error');
-    } finally {
+      AccessibilityInfo.announceForAccessibility(SOCIAL_ERROR_MESSAGES.google);
       setIsLoading(false);
     }
   };
@@ -158,21 +204,26 @@ export function useSignInForm({ onSuccess }: UseSignInFormOptions): UseSignInFor
     triggerHaptic('light');
     setIsLoading(true);
     setError(null);
+    pendingSocialSignInRef.current = true;
 
     try {
       const result = await signInWithApple();
 
-      if (result.success) {
-        onSuccess();
-        router.push('/checkout');
-      } else if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
-        setError(result.error);
-        triggerHaptic('error');
+      if (!result.success) {
+        pendingSocialSignInRef.current = false;
+        setIsLoading(false);
+
+        if (result.error && result.error !== SOCIAL_ERROR_MESSAGES.cancelled) {
+          setError(result.error);
+          triggerHaptic('error');
+          AccessibilityInfo.announceForAccessibility(result.error);
+        }
       }
     } catch {
+      pendingSocialSignInRef.current = false;
       setError(SOCIAL_ERROR_MESSAGES.apple);
       triggerHaptic('error');
-    } finally {
+      AccessibilityInfo.announceForAccessibility(SOCIAL_ERROR_MESSAGES.apple);
       setIsLoading(false);
     }
   };

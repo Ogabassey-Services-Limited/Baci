@@ -53,7 +53,7 @@ describe('checkout-saved-address', () => {
         id: 'one',
         label: 'Home',
         full_name: 'Ada Lovelace',
-        phone: '08030000000',
+        phone: '+234 803 000 0000',
         address: '12 Marina Road',
         city: 'Lagos',
         state: 'Lagos',
@@ -62,7 +62,7 @@ describe('checkout-saved-address', () => {
     ).toEqual({
       firstName: 'Ada',
       lastName: 'Lovelace',
-      phone: '08030000000',
+      phone: '+2348030000000',
       address: '12 Marina Road',
       city: 'Lagos',
       state: 'Lagos',
@@ -71,7 +71,11 @@ describe('checkout-saved-address', () => {
 
   it('matches the same address despite spacing or case changes', () => {
     const saved = buildSavedAddressFromCheckout(
-      { ...checkoutAddress, address: ' 12   MARINA road ' },
+      {
+        ...checkoutAddress,
+        address: ' 12   MARINA road ',
+        phone: '+234 803 000 0000',
+      },
       { id: 'one' }
     );
 
@@ -120,5 +124,14 @@ describe('checkout-saved-address', () => {
     expect(next).toHaveLength(1);
     expect(next[0]?.id).toBe('saved-id');
     expect(next[0]?.address).toBe('14 Marina Road');
+  });
+
+  it('stores checkout phone numbers in normalized form', () => {
+    const saved = buildSavedAddressFromCheckout(
+      { ...checkoutAddress, phone: '08030000000' },
+      { id: 'saved-id' }
+    );
+
+    expect(saved.phone).toBe('+2348030000000');
   });
 });

@@ -2,6 +2,7 @@ import type { CartItem } from '@/stores/cart-store';
 import {
   buildShippingQuoteContextKey,
   getPreferredShippingQuoteId,
+  normalizeShippingQuotes,
 } from './shipping-quotes';
 
 describe('shipping quote helpers', () => {
@@ -71,5 +72,18 @@ describe('shipping quote helpers', () => {
         { id: 'b', price: 3500 },
       ])
     ).toBe('b');
+  });
+
+  it('normalizes string quote prices before selection and totals use them', () => {
+    const quotes = normalizeShippingQuotes([
+      { id: 'a', price: '₦6,500' },
+      { id: 'b', price: '3638' },
+    ]);
+
+    expect(quotes).toEqual([
+      { id: 'a', price: 6500 },
+      { id: 'b', price: 3638 },
+    ]);
+    expect(getPreferredShippingQuoteId(quotes)).toBe('b');
   });
 });

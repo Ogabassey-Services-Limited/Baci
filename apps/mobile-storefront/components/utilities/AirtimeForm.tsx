@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useVTUPurchase } from '@/hooks/use-vtu-purchase';
@@ -16,6 +17,10 @@ import { detectNetwork } from '@/lib/network-utils';
 import { ProviderGrid } from './ProviderGrid';
 
 const QUICK_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
+
+/** Height reserved for the absolutely-positioned payment footer */
+const FOOTER_HEIGHT = 120;
+const FOOTER_ERROR_BUFFER = 36;
 
 interface AirtimeFormProps {
   onSuccess: (data: {
@@ -28,6 +33,7 @@ interface AirtimeFormProps {
 export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
   const purchase = useVTUPurchase();
 
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
@@ -43,6 +49,10 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
   };
 
   const numericAmount = Number(amount.replace(/\D/g, ''));
+  const footerSpacerHeight =
+    FOOTER_HEIGHT +
+    Math.max(insets.bottom - 26, 0) +
+    (purchase.error ? FOOTER_ERROR_BUFFER : 0);
 
   // Bug #61: Guard against double-tap with isSubmitting state
   const isBusy = isSubmitting || purchase.isPending;
@@ -88,7 +98,13 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: footerSpacerHeight },
+        ]}
+      >
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
           Select Provider
         </Text>
@@ -162,7 +178,12 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
       <View
         style={[
           styles.footer,
-          { borderTopColor: colors.border, backgroundColor: colors.background },
+          {
+            borderTopColor: colors.border,
+            backgroundColor: colors.muted,
+            marginBottom: -Math.max(insets.bottom - 4, 0),
+            paddingBottom: Math.max(insets.bottom - 26, 0),
+          },
         ]}
       >
         {purchase.error && (
@@ -197,6 +218,7 @@ export function AirtimeForm({ onSuccess }: AirtimeFormProps) {
 }
 
 const styles = StyleSheet.create({
+  scrollView: { flex: 1 },
   content: { padding: SPACING.md },
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 12 },
   inputGroup: { marginBottom: 16 },
@@ -221,7 +243,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   quickChipText: { fontSize: 13, fontWeight: '500' },
-  footer: { padding: SPACING.md, borderTopWidth: 1 },
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.sm,
+    borderTopWidth: 1,
+  },
   payButton: {
     height: 50,
     borderRadius: 12,

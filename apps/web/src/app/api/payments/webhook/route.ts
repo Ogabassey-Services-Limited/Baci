@@ -622,6 +622,7 @@ export async function POST(request: NextRequest) {
           try {
             await notifyNewOrder(
               chatOrder.merchant_id,
+              newOrder.id,
               orderNumber,
               chatOrder.customer_name || 'Customer',
               orderAmount,
@@ -639,7 +640,8 @@ export async function POST(request: NextRequest) {
               chatOrder.merchant_id,
               orderAmount,
               'NGN',
-              orderNumber
+              orderNumber,
+              newOrder.id
             );
           } catch (pushErr) {
             logger.warn({
@@ -1240,6 +1242,7 @@ export async function POST(request: NextRequest) {
           try {
             await notifyNewOrder(
               transaction.merchant_id,
+              order.id,
               orderNumber,
               order.customer_name || 'Customer',
               orderAmount,
@@ -1257,7 +1260,8 @@ export async function POST(request: NextRequest) {
               transaction.merchant_id,
               orderAmount,
               order.currency || 'NGN',
-              orderNumber
+              orderNumber,
+              order.id
             );
             logger.info({
               message: 'Push notification sent to merchant',
@@ -1331,7 +1335,7 @@ export async function POST(request: NextRequest) {
                 ? `${merchantDetails.business_name} Orders`
                 : undefined;
 
-            await sendEmail({
+            const emailResult = await sendEmail({
               to: order.customer_email,
               toName: order.customer_name,
               subject: `Order Confirmation - #${emailData.orderNumber}`,
@@ -1342,10 +1346,21 @@ export async function POST(request: NextRequest) {
               fromName: senderName,
             });
 
-            logger.info({
-              message: 'Order confirmation email sent',
-              orderId: order.id,
-            });
+            if (!emailResult.success) {
+              logger.error({
+                message: 'Failed to send order confirmation email',
+                orderId: order.id,
+                emailError: emailResult.error,
+                emailErrorCode: emailResult.errorCode,
+                emailErrorDetails: emailResult.errorDetails,
+              });
+            } else {
+              logger.info({
+                message: 'Order confirmation email sent',
+                orderId: order.id,
+                messageId: emailResult.messageId,
+              });
+            }
           }
         } catch (emailError) {
           logger.error({
