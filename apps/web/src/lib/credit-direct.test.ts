@@ -4,7 +4,7 @@ import { verifyWebhookSignature } from './credit-direct';
 
 describe('verifyWebhookSignature', () => {
   const payload = JSON.stringify({ event: 'payment.completed', id: 'evt_123' });
-  const secret = 'credit-direct-webhook-secret';
+  const secret = crypto.randomBytes(32).toString('hex');
 
   it('returns true for a valid webhook signature', () => {
     const signature = crypto
