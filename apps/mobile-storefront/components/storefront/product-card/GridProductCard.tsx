@@ -37,7 +37,7 @@ export default function GridProductCard({
         }
       : {
           backgroundColor: BRAND.primary,
-          color: '#FFF',
+          color: colors.background,
         };
 
   return (

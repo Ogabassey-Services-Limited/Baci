@@ -21,8 +21,10 @@ export default function EditorialProductCard({
   animatedStyle,
   textColor,
   screenWidth,
+  colors: colorsProp,
 }: EditorialProductCardProps) {
-  const { colors } = useTheme();
+  const { colors: themeColors } = useTheme();
+  const colors = colorsProp ?? themeColors;
 
   return (
     <AnimatedPressable
