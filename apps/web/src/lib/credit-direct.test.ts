@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { verifyWebhookSignature } from './credit-direct';
+import { verifyWebhookSignature } from '@/lib/credit-direct';
 
 describe('verifyWebhookSignature', () => {
   const payload = JSON.stringify({ event: 'payment.completed', id: 'evt_123' });
