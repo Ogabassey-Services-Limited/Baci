@@ -103,7 +103,7 @@ export default function AccountScreen() {
     channelRef.current = channel;
     return () => {
       if (channelRef.current) {
-        channelRef.current.unsubscribe();
+        supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
