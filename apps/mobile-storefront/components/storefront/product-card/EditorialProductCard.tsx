@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { BRAND } from '@/constants/Colors';
+import { useTheme } from '@/hooks/useTheme';
 import { formatPrice } from '@/types/product';
 import styles from '../ProductCard.styles';
 import type { EditorialProductCardProps } from './types';
@@ -21,6 +22,8 @@ export default function EditorialProductCard({
   textColor,
   screenWidth,
 }: EditorialProductCardProps) {
+  const { colors } = useTheme();
+
   return (
     <AnimatedPressable
       onPress={handlePress}
@@ -31,8 +34,8 @@ export default function EditorialProductCard({
       accessibilityRole="button"
     >
       {showLocalPlaceholder ? (
-        <View style={[styles.editorialImage, styles.imagePlaceholder]}>
-          <Ionicons name="image-outline" size={40} color="#9CA3AF" />
+        <View style={[styles.editorialImage, styles.imagePlaceholder, { backgroundColor: colors.muted }]}>
+          <Ionicons name="image-outline" size={40} color={colors.mutedForeground} />
         </View>
       ) : (
         <Image {...imageProps} source={imageSource} style={styles.editorialImage} />
