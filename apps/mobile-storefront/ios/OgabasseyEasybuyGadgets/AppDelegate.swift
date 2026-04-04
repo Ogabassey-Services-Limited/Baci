@@ -2,7 +2,7 @@ internal import Expo
 import React
 import ReactAppDependencyProvider
 
-@UIApplicationMain
+@main
 class AppDelegate: ExpoAppDelegate {
   var window: UIWindow?
 
@@ -46,8 +46,27 @@ class AppDelegate: ExpoAppDelegate {
     continue userActivity: NSUserActivity,
     restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
   ) -> Bool {
-    let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
-    return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
+    var didRestore = false
+    let guardedRestorationHandler: ([UIUserActivityRestoring]?) -> Void = { restoring in
+      guard !didRestore else {
+        return
+      }
+      didRestore = true
+      restorationHandler(restoring)
+    }
+
+    let handledByLinking = RCTLinkingManager.application(
+      application,
+      continue: userActivity,
+      restorationHandler: guardedRestorationHandler
+    )
+    let handledByExpo = super.application(
+      application,
+      continue: userActivity,
+      restorationHandler: guardedRestorationHandler
+    )
+
+    return handledByExpo || handledByLinking
   }
 }
 

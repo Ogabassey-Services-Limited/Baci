@@ -45,7 +45,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.app',
-    buildNumber: '8',
+    buildNumber: '9',
     associatedDomains: [
       'applinks:ogabassey.com',
       'applinks:ogabassey.usebaci.com',
