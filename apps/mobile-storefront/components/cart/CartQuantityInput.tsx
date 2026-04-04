@@ -52,8 +52,7 @@ export default function CartQuantityInput({
         const cleanText = text.replace(/[^0-9]/g, '');
         setLocalValue(cleanText);
       }}
-      onBlur={handleCommit}
-      onSubmitEditing={handleCommit}
+      onEndEditing={handleCommit}
       keyboardType="number-pad"
       returnKeyType="done"
     />
