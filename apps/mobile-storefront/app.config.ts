@@ -8,7 +8,7 @@ const parsedAndroidVersionCode =
     : Number(rawAndroidVersionCode);
 
 let androidVersionCode: number | undefined;
-const appVersion = '1.0.0';
+const appVersion = '2.0.0';
 
 if (rawAndroidVersionCode !== undefined) {
   if (!Number.isInteger(parsedAndroidVersionCode)) {
@@ -45,7 +45,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.ogabassey.app',
-    buildNumber: '5',
+    buildNumber: '8',
     associatedDomains: [
       'applinks:ogabassey.com',
       'applinks:ogabassey.usebaci.com',
