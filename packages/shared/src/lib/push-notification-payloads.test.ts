@@ -118,6 +118,63 @@ describe('getStorefrontNotificationNavigationTarget', () => {
       getStorefrontNotificationNavigationTarget({ type: 'promotion' })
     ).toEqual({ screen: 'home' });
   });
+
+  it('prefers productSlug over category_slug when both are present', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'promotion',
+        productSlug: 'iphone-17',
+        category_slug: 'phones',
+      })
+    ).toEqual({ screen: 'product', params: { slug: 'iphone-17' } });
+  });
+
+  it('routes back_in_stock with productSlug to product screen', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'back_in_stock',
+        productSlug: 'pixel-9',
+      })
+    ).toEqual({ screen: 'product', params: { slug: 'pixel-9' } });
+  });
+
+  it('routes back_in_stock without slug to home', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({ type: 'back_in_stock' })
+    ).toEqual({ screen: 'home' });
+  });
+
+  it('routes price_drop with product_slug to product screen', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'price_drop',
+        product_slug: 'galaxy-s25',
+      })
+    ).toEqual({ screen: 'product', params: { slug: 'galaxy-s25' } });
+  });
+
+  it('routes price_drop without slug to home', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({ type: 'price_drop' })
+    ).toEqual({ screen: 'home' });
+  });
+
+  it('routes negotiation_response with productSlug to product screen', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'negotiation_response',
+        productSlug: 'macbook-pro',
+      })
+    ).toEqual({ screen: 'product', params: { slug: 'macbook-pro' } });
+  });
+
+  it('routes negotiation_response without slug to home', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'negotiation_response',
+      })
+    ).toEqual({ screen: 'home' });
+  });
 });
 
 describe('getAdminNotificationNavigationTarget — edge cases', () => {
@@ -130,5 +187,32 @@ describe('getAdminNotificationNavigationTarget — edge cases', () => {
     expect(
       getAdminNotificationNavigationTarget({ type: 'unknown_type' })
     ).toEqual({ screen: 'index' });
+  });
+
+  it('routes low_stock with product_id to product screen', () => {
+    expect(
+      getAdminNotificationNavigationTarget({
+        type: 'low_stock',
+        product_id: 'prod-1',
+      })
+    ).toEqual({ screen: 'product', params: { id: 'prod-1' } });
+  });
+
+  it('routes low_stock without product_id to products list', () => {
+    expect(getAdminNotificationNavigationTarget({ type: 'low_stock' })).toEqual(
+      { screen: 'products' }
+    );
+  });
+
+  it('routes admin_broadcast to notifications', () => {
+    expect(
+      getAdminNotificationNavigationTarget({ type: 'admin_broadcast' })
+    ).toEqual({ screen: 'notifications' });
+  });
+
+  it('routes jumia_order to orders', () => {
+    expect(
+      getAdminNotificationNavigationTarget({ type: 'jumia_order' })
+    ).toEqual({ screen: 'orders' });
   });
 });
