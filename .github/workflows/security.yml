@@ -164,6 +164,9 @@ jobs:
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
         with:
           fail-on-severity: high
+          # Allow xmldom 0.8.x CVE — Expo prebuild requires ^0.8.8, 0.9.x breaks it.
+          # Will remove when @expo/plist supports xmldom 0.9.x.
+          allow-ghsas: GHSA-wh4c-j3r5-mjhp
           # 2026 best practice: use allow-licenses (deny-licenses is deprecated)
           # Allow permissive licenses + AGPL for TruffleHog security tool
           # Added OFL-1.1 for Google Fonts (expo-google-fonts packages)
