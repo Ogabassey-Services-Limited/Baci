@@ -29,6 +29,14 @@ interface OrderItemWithJoins {
   orders: JoinedOrder | JoinedOrder[] | null;
 }
 
+interface AnalyticsOrder {
+  id: string;
+  total: number | null;
+  tax_amount: number | null;
+  payment_status: string | null;
+  created_at: string;
+}
+
 export type MetricType = 'revenue' | 'sales' | 'aov' | 'profits' | 'vat';
 export type Granularity = 'hourly' | 'weekday' | 'month';
 
@@ -264,45 +272,55 @@ export function useAnalyticsDetail({
           .gte('created_at', prevStartDate.toISOString())
           .lte('created_at', prevEndDate.toISOString());
 
-        const prevOrderItemsQuery =
-          metric === 'profits'
-            ? supabase
-                .from('order_items')
-                .select(`
-                    quantity,
-                    price,
-                    products!inner(cost_price),
-                    orders!inner(id, merchant_id, payment_status, created_at)
-                `)
-                .eq('orders.merchant_id', merchant.id)
-                .eq('orders.payment_status', 'paid')
-                .gte('orders.created_at', prevStartDate.toISOString())
-                .lte('orders.created_at', prevEndDate.toISOString())
-            : Promise.resolve<{
-                data: OrderItemWithJoins[] | null;
-                error: null;
-              }>({
-                data: [],
-                error: null,
-              });
+        let prevOrderItems: OrderItemWithJoins[] = [];
+        let prevOrders: AnalyticsOrder[] | null = null;
 
-        const [
-          { data: prevOrders, error: prevOrdersError },
-          { data: prevOrderItems, error: prevOrderItemsError },
-        ] = await Promise.all([prevOrdersQuery, prevOrderItemsQuery]);
+        if (metric === 'profits') {
+          const [
+            { data: profitsOrders, error: prevOrdersError },
+            { data: profitsOrderItems, error: prevOrderItemsError },
+          ] = await Promise.all([
+            prevOrdersQuery,
+            supabase
+              .from('order_items')
+              .select(`
+                  quantity,
+                  price,
+                  products!inner(cost_price),
+                  orders!inner(id, merchant_id, payment_status, created_at)
+              `)
+              .eq('orders.merchant_id', merchant.id)
+              .eq('orders.payment_status', 'paid')
+              .gte('orders.created_at', prevStartDate.toISOString())
+              .lte('orders.created_at', prevEndDate.toISOString()),
+          ]);
 
-        if (prevOrdersError) {
-          throw new Error(
-            `Failed to fetch comparison orders: ${prevOrdersError.message}`
-          );
+          if (prevOrdersError) {
+            throw new Error(
+              `Failed to fetch comparison orders: ${prevOrdersError.message}`
+            );
+          }
+
+          if (prevOrderItemsError) {
+            throw new Error(
+              `Failed to fetch comparison order items: ${prevOrderItemsError.message}`
+            );
+          }
+
+          prevOrders = profitsOrders;
+          prevOrderItems = profitsOrderItems ?? [];
+        } else {
+          const { data: nonProfitOrders, error: prevOrdersError } =
+            await prevOrdersQuery;
+
+          if (prevOrdersError) {
+            throw new Error(
+              `Failed to fetch comparison orders: ${prevOrdersError.message}`
+            );
+          }
+
+          prevOrders = nonProfitOrders;
         }
-
-        if (prevOrderItemsError) {
-          throw new Error(
-            `Failed to fetch comparison order items: ${prevOrderItemsError.message}`
-          );
-        }
-        const comparisonOrderItems = prevOrderItems ?? [];
 
         comparisonData = buckets.map((label) => ({
           label,
@@ -342,7 +360,7 @@ export function useAnalyticsDetail({
         if (metric === 'profits' && comparisonData) {
           const comparisonBuckets = comparisonData;
 
-          comparisonOrderItems.forEach((item) => {
+          prevOrderItems.forEach((item) => {
             const order = getJoinedRecord(item.orders);
             const product = getJoinedRecord(item.products);
             if (!order || !product) return;
