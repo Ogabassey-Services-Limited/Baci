@@ -73,7 +73,7 @@ jobs:
       # survive across runs. No actions/cache needed.
 
       - name: Install dependencies
-        run: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Fix Hermes compiler path
         # RN 0.83+ ships hermesc in the hermes-compiler package, but
