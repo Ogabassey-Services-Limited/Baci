@@ -230,7 +230,7 @@ export default function InventoryScreen() {
           styles.centered,
           { backgroundColor: colors.background },
         ]}
-        edges={['top']}
+        edges={[]}
       >
         <ActivityIndicator size="large" color="#3B82F6" />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
@@ -243,7 +243,7 @@ export default function InventoryScreen() {
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
-      edges={['top']}
+      edges={[]}
     >
       {/* Search Bar */}
       <View style={styles.searchContainer}>

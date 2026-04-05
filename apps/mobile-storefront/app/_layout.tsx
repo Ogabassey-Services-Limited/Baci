@@ -102,8 +102,17 @@ export default function RootLayout() {
   const initialize = useAuthStore((state) => state.initialize);
   const cleanup = useAuthStore((state) => state.cleanup);
   const isInitialized = useAuthStore((state) => state.isInitialized);
-  const { register: registerPushNotifications } = usePushNotifications();
+  const storeUser = useAuthStore((state) => state.user);
+  const _storeMerchantId = useAuthStore((state) => state.merchantId);
+  const {
+    register: registerPushNotifications,
+    isRegistered: isPushRegistered,
+    isLoading: isPushLoading,
+  } = usePushNotifications();
   const initPromiseRef = useRef<Promise<void> | null>(null);
+  // Track which userId we've attempted registration for so a failed attempt
+  // doesn't trigger an infinite retry loop on every re-render.
+  const attemptedUserIdRef = useRef<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
   const [isStorageReady, setIsStorageReady] = useState(false);
 
@@ -145,12 +154,36 @@ export default function RootLayout() {
     };
   }, [initialize, cleanup]);
 
+  // Clear attempt tracking on logout so the same account can re-register
+  // after signing out and back in.
   useEffect(() => {
-    const timer = setTimeout(() => {
-      registerPushNotifications();
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [registerPushNotifications]);
+    if (!storeUser?.id) {
+      attemptedUserIdRef.current = null;
+    }
+  }, [storeUser?.id]);
+
+  // Register for push only after auth is fully initialized and user is logged in.
+  // merchantId is optional for storefront (single-merchant app).
+  // attemptedUserIdRef prevents retry loops when registration fails — we only
+  // attempt once per userId. Cleared on logout (above) so sign-in retries work.
+  useEffect(() => {
+    if (
+      isInitialized &&
+      storeUser?.id &&
+      !isPushRegistered &&
+      !isPushLoading &&
+      attemptedUserIdRef.current !== storeUser.id
+    ) {
+      attemptedUserIdRef.current = storeUser.id;
+      void registerPushNotifications();
+    }
+  }, [
+    isInitialized,
+    isPushRegistered,
+    isPushLoading,
+    registerPushNotifications,
+    storeUser?.id,
+  ]);
 
   useEffect(() => {
     if (error) throw error;
